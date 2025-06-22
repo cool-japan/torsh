@@ -16,7 +16,7 @@ categories = ["science", "mathematics"]
 torsh-core = { path = "../torsh-core", version = "0.1.0" }
 torsh-backends = { path = "../torsh-backends", version = "0.1.0" }
 async-trait = "0.1"
-thiserror = "1.0"
+thiserror = "2.0"
 rayon = "1.10"
 num-traits = "0.2"
 bytemuck = "1.16"
