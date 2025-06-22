@@ -35,7 +35,7 @@ chrono = { version = "0.4", features = ["serde"], optional = true }
 safetensors = { workspace = true, optional = true }
 
 # Initialization
-rand = "0.8"
+rand = "0.9"
 rand_distr = "0.4"
 
 [dev-dependencies]

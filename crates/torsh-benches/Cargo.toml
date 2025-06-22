@@ -29,7 +29,7 @@ torsh-backends = { path = "../torsh-backends" }
 criterion = { workspace = true }
 
 # Utilities
-rand = "0.8"
+rand = "0.9"
 rand_distr = "0.4"
 
 # Async and concurrency
