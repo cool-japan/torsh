@@ -92,7 +92,7 @@ pyo3 = "0.25"
 numpy = "0.25"
 
 # Build dependencies
-bindgen = "0.71"
+bindgen = "0.72"
 cc = "1.0"
 
 # Utilities
