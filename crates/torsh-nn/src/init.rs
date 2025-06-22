@@ -17,8 +17,8 @@ pub fn calculate_fan_in_fan_out(shape: &[usize]) -> (usize, usize) {
 
     let mut receptive_field_size = 1;
     if dimensions > 2 {
-        for i in 2..dimensions {
-            receptive_field_size *= shape[i];
+        for &size in shape.iter().skip(2).take(dimensions - 2) {
+            receptive_field_size *= size;
         }
     }
 

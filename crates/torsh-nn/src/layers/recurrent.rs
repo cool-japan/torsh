@@ -125,9 +125,12 @@ pub struct LSTM {
     input_size: usize,
     hidden_size: usize,
     num_layers: usize,
+    #[allow(dead_code)]
     bias: bool,
     batch_first: bool,
+    #[allow(dead_code)]
     dropout: f32,
+    #[allow(dead_code)]
     bidirectional: bool,
 }
 
@@ -215,9 +218,12 @@ pub struct GRU {
     input_size: usize,
     hidden_size: usize,
     num_layers: usize,
+    #[allow(dead_code)]
     bias: bool,
     batch_first: bool,
+    #[allow(dead_code)]
     dropout: f32,
+    #[allow(dead_code)]
     bidirectional: bool,
 }
 

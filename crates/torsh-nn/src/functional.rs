@@ -68,6 +68,7 @@ pub fn dropout(input: &Tensor, p: f32, training: bool) -> Tensor {
 }
 
 /// Batch normalization function
+#[allow(clippy::too_many_arguments)]
 pub fn batch_norm(
     input: &Tensor,
     _running_mean: Option<&Tensor>,
@@ -406,8 +407,8 @@ pub fn max_pool2d(
         input_shape[3],
     ];
 
-    let out_height = (height + stride.0 - 1) / stride.0;
-    let out_width = (width + stride.1 - 1) / stride.1;
+    let out_height = height.div_ceil(stride.0);
+    let out_width = width.div_ceil(stride.1);
 
     // Simple implementation that just reduces dimensions
     let output_data = vec![0.0f32; batch * channels * out_height * out_width];
@@ -444,8 +445,8 @@ pub fn avg_pool2d(
         input_shape[3],
     ];
 
-    let out_height = (height + stride.0 - 1) / stride.0;
-    let out_width = (width + stride.1 - 1) / stride.1;
+    let out_height = height.div_ceil(stride.0);
+    let out_width = width.div_ceil(stride.1);
 
     // Simple implementation that just reduces dimensions
     let output_data = vec![0.0f32; batch * channels * out_height * out_width];
@@ -520,6 +521,7 @@ pub fn embedding(input: &Tensor<i64>, weight: &Tensor, padding_idx: Option<i64>)
 }
 
 /// Multi-head attention function
+#[allow(clippy::too_many_arguments)]
 pub fn multi_head_attention(
     query: &Tensor,
     key: &Tensor,
