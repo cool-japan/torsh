@@ -1,0 +1,65 @@
+[package]
+name = "torsh"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "A blazingly fast, production-ready deep learning framework written in pure Rust"
+readme = "../../README.md"
+keywords = ["deep-learning", "machine-learning", "neural-network", "tensor", "autograd"]
+categories = ["science", "mathematics", "algorithms"]
+
+[dependencies]
+# Core ToRSh crates
+torsh-core = { path = "../torsh-core", version = "0.1.0" }
+torsh-tensor = { path = "../torsh-tensor", version = "0.1.0" }
+torsh-autograd = { path = "../torsh-autograd", version = "0.1.0" }
+
+# Optional crates
+torsh-nn = { path = "../torsh-nn", version = "0.1.0", optional = true }
+torsh-optim = { path = "../torsh-optim", version = "0.1.0", optional = true }
+torsh-data = { path = "../torsh-data", version = "0.1.0", optional = true }
+# torsh-backends = { path = "../torsh-backends", version = "0.1.0", optional = true }
+
+# Re-export scirs2 functionality
+scirs2 = { workspace = true }
+
+[features]
+default = ["std", "nn", "optim", "data"]
+
+# Core features
+std = ["torsh-core/std", "torsh-tensor/std"]
+no_std = ["torsh-core/no_std"]
+
+# Module features
+nn = ["torsh-nn"]
+optim = ["torsh-optim", "nn"]
+data = ["torsh-data"]
+# backends = ["torsh-backends"]
+
+# Backend features
+# cuda = ["backends", "torsh-backends/cuda"]
+# wgpu = ["backends", "torsh-backends/wgpu"]
+# metal = ["backends", "torsh-backends/metal"]
+
+# Serialization
+serialize = ["torsh-core/serialize", "torsh-tensor/serialize"]
+
+# Full feature set
+full = ["nn", "optim", "data", "serialize"]
+
+[[example]]
+name = "simple_cnn"
+path = "../../examples/simple_cnn.rs"
+required-features = ["nn"]
+
+[[example]]
+name = "test_linear"
+path = "../../examples/test_linear.rs"
+required-features = ["nn"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

@@ -1,0 +1,57 @@
+[package]
+name = "torsh-ffi"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "Foreign Function Interface bindings for ToRSh"
+keywords = ["tensor", "deep-learning", "python", "ffi", "bindings"]
+categories = ["science", "mathematics", "api-bindings"]
+
+[lib]
+name = "torsh_ffi"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["python"]
+python = ["pyo3", "numpy"]
+extension-module = ["pyo3/extension-module"]
+
+[dependencies]
+# Core dependencies
+torsh = { path = "../torsh" }
+torsh-core = { path = "../torsh-core" }
+torsh-tensor = { path = "../torsh-tensor" }
+torsh-nn = { path = "../torsh-nn" }
+torsh-optim = { path = "../torsh-optim" }
+torsh-data = { path = "../torsh-data" }
+
+# Error handling
+thiserror.workspace = true
+anyhow.workspace = true
+
+# Python bindings
+pyo3 = { workspace = true, features = ["auto-initialize"], optional = true }
+numpy = { workspace = true, optional = true }
+
+# Serialization
+serde = { workspace = true, features = ["derive"] }
+
+# Logging
+tracing.workspace = true
+
+# Utilities
+once_cell.workspace = true
+
+[dev-dependencies]
+tempfile = "3.8"
+
+[build-dependencies]
+pyo3-build-config = { version = "0.25" }
+
+[[example]]
+name = "python_usage"
+required-features = ["python"]

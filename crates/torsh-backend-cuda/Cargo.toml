@@ -1,0 +1,56 @@
+[package]
+name = "torsh-backend-cuda"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "CUDA backend for ToRSh deep learning framework"
+keywords = ["tensor", "deep-learning", "cuda", "gpu", "machine-learning"]
+categories = ["science", "mathematics"]
+
+[features]
+default = ["cuda"]
+cuda = ["cust", "cuda-sys"]
+
+[dependencies]
+# Core dependencies
+torsh-core = { path = "../torsh-core" }
+torsh-backends = { path = "../torsh-backends" }
+scirs2 = { workspace = true }
+
+# Error handling
+thiserror.workspace = true
+anyhow.workspace = true
+
+# Async traits
+async-trait.workspace = true
+
+# CUDA
+cust = { workspace = true, optional = true }
+cuda-sys = { workspace = true, optional = true }
+
+# Serialization
+serde = { workspace = true, features = ["derive"] }
+
+# Logging
+tracing.workspace = true
+
+# Utilities
+once_cell.workspace = true
+parking_lot.workspace = true
+
+[dev-dependencies]
+approx.workspace = true
+criterion.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
+
+[build-dependencies]
+bindgen.workspace = true
+cc.workspace = true
+
+[[bench]]
+name = "cuda_operations"
+harness = false

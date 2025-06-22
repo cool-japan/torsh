@@ -1,0 +1,54 @@
+[package]
+name = "torsh-backend-cpu"
+version = "0.1.0"
+edition = "2021"
+authors = ["ToRSh Contributors"]
+description = "CPU backend implementation for ToRSh deep learning framework"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/torsh-ai/torsh"
+homepage = "https://torsh.ai"
+documentation = "https://docs.rs/torsh-backend-cpu"
+readme = "README.md"
+keywords = ["deep-learning", "machine-learning", "tensor", "cpu", "simd"]
+categories = ["science", "mathematics"]
+
+[dependencies]
+torsh-core = { path = "../torsh-core", version = "0.1.0" }
+torsh-backends = { path = "../torsh-backends", version = "0.1.0" }
+async-trait = "0.1"
+thiserror = "1.0"
+rayon = "1.10"
+num-traits = "0.2"
+bytemuck = "1.16"
+serde_json = "1.0"
+
+# no-std support
+spin = { version = "0.9", default-features = false, features = ["rwlock"] }
+
+# SIMD support
+wide = "0.7"
+
+# Note: BLAS integration temporarily disabled due to linking issues
+# Will be re-enabled in future versions
+
+# CPU info
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+raw-cpuid = "11.0"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+# Optional features
+[features]
+default = ["std", "rayon-threads"]
+std = []
+rayon-threads = []
+simd = []
+
+[build-dependencies]
+pkg-config = "0.3"
+
+[dev-dependencies]
+tokio = { version = "1.0", features = ["rt", "macros"] }
+approx = "0.5"
+

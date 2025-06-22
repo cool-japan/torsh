@@ -1,0 +1,38 @@
+[package]
+name = "torsh-optim"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Optimization algorithms for ToRSh with PyTorch-compatible API"
+
+[dependencies]
+# Core dependencies
+torsh-core = { path = "../torsh-core" }
+torsh-tensor = { path = "../torsh-tensor" }
+torsh-autograd = { path = "../torsh-autograd" }
+
+# Leverage scirs2's optimizers
+scirs2 = { workspace = true, features = ["optim"] }
+
+# Utilities
+parking_lot = { workspace = true }
+indexmap = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Serialization
+serde = { workspace = true, optional = true }
+
+[dev-dependencies]
+approx = { workspace = true }
+torsh-nn = { path = "../torsh-nn" }
+
+[features]
+default = ["std"]
+std = ["torsh-core/std", "torsh-tensor/std"]
+serialize = ["serde", "torsh-core/serialize"]

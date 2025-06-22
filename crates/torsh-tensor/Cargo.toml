@@ -1,0 +1,46 @@
+[package]
+name = "torsh-tensor"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Tensor implementation for ToRSh with PyTorch-compatible API"
+build = "build.rs"
+
+[dependencies]
+# Core dependencies
+torsh-core = { path = "../torsh-core" }
+scirs2 = { workspace = true }
+numrs2 = { workspace = true }
+
+# Utilities
+num-traits = { workspace = true }
+ndarray = { workspace = true, optional = true }
+rayon = { workspace = true }
+parking_lot = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Serialization
+serde = { workspace = true, optional = true }
+bincode = { workspace = true, optional = true }
+
+# Random number generation
+rand = "0.8"
+rand_distr = "0.4"
+
+[dev-dependencies]
+approx = { workspace = true }
+proptest = { workspace = true }
+criterion = { workspace = true }
+
+[features]
+default = ["std"]
+std = ["torsh-core/std"]
+ndarray-interop = ["ndarray"]
+serialize = ["serde", "bincode", "torsh-core/serialize"]
+

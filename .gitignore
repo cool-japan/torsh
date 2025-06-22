@@ -1,0 +1,48 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Python artifacts (for potential Python bindings)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv
+
+# Documentation build
+/target/doc/
+/target/criterion/
+
+# Benchmark results
+/target/benchmark/
+*.bench
+
+# Coverage reports
+*.profraw
+*.profdata
+/coverage/
+lcov.info
+
+# OS specific
+Thumbs.db
+.DS_Store
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Example outputs
+/examples/output/

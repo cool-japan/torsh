@@ -1,0 +1,48 @@
+[package]
+name = "torsh-benches"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Benchmarking suite for ToRSh"
+
+[[bench]]
+name = "tensor_operations"
+harness = false
+
+[[bench]]
+name = "neural_networks"
+harness = false
+
+[dependencies]
+# ToRSh crates
+torsh = { path = "../torsh" }
+torsh-core = { path = "../torsh-core" }
+torsh-tensor = { path = "../torsh-tensor" }
+torsh-nn = { path = "../torsh-nn" }
+torsh-data = { path = "../torsh-data" }
+torsh-backends = { path = "../torsh-backends" }
+
+# Benchmarking
+criterion = { workspace = true }
+
+# Utilities
+rand = "0.8"
+rand_distr = "0.4"
+
+# Async and concurrency
+tokio = { workspace = true, features = ["full"] }
+rayon = { workspace = true }
+
+# External comparisons
+ndarray = { workspace = true }
+
+[dev-dependencies]
+approx = { workspace = true }
+
+[features]
+default = ["std"]
+std = []
+compare-external = [] # Enable comparisons with other libraries

@@ -1,0 +1,40 @@
+[package]
+name = "torsh-backends"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Backend abstraction layer for ToRSh"
+
+[dependencies]
+# Core dependencies
+torsh-core = { path = "../torsh-core" }
+
+# Utilities
+num-traits = { workspace = true }
+parking_lot = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Async and concurrency
+async-trait = "0.1"
+futures = { workspace = true }
+
+# Serialization
+serde = { workspace = true, optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }
+
+[features]
+default = ["std"]
+std = ["torsh-core/std"]
+serialize = ["serde", "torsh-core/serialize"]
+gpu = []
+cuda = ["gpu"]
+metal = ["gpu"]
+webgpu = ["gpu"]

@@ -1,0 +1,120 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/torsh",
+    "crates/torsh-core", 
+    "crates/torsh-tensor",
+    "crates/torsh-autograd",
+    "crates/torsh-nn",
+    "crates/torsh-optim",
+    "crates/torsh-data",
+    "crates/torsh-backends",
+    "crates/torsh-backend-cpu",
+    # "crates/torsh-ffi",  # Temporarily disabled due to PyO3 compatibility issues
+    "crates/torsh-benches",
+]
+
+default-members = [
+    "crates/torsh",
+    "crates/torsh-core", 
+    "crates/torsh-tensor",
+    "crates/torsh-autograd",
+    "crates/torsh-nn",
+    "crates/torsh-optim",
+    "crates/torsh-data",
+    "crates/torsh-backends",
+    "crates/torsh-backend-cpu",
+    "crates/torsh-benches",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["ToRSh Team"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/cool-japan/torsh/"
+homepage = "https://torsh.rs"
+rust-version = "1.76"
+
+[workspace.dependencies]
+# Core dependencies - with default features to avoid compilation issues
+scirs2 = { version = "0.1.0-alpha.4", features = ["autograd", "neural", "datasets"] }
+numrs2 = "0.1.0-alpha.5"
+polars = { version = "0.48", features = ["lazy"] }
+
+# Parallelism and async
+rayon = "1.10"
+tokio = { version = "1.44", features = ["full"] }
+crossbeam = "0.8"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+bincode = "1.3"
+safetensors = "0.4"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# GPU backends
+cust = "0.3"
+cuda-sys = "0.2"
+wgpu = "25.0"
+metal = "0.27"
+
+# SIMD
+wide = "0.7"
+packed_simd_2 = "0.3"
+
+# Testing and benchmarking
+criterion = { version = "0.5", features = ["html_reports"] }
+proptest = "1.4"
+approx = "0.5"
+
+# Async traits
+async-trait = "0.1"
+futures = "0.3"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# Data structures
+ndarray = "0.16"
+petgraph = "0.6"
+indexmap = "2.2"
+
+# FFI
+libc = "0.2"
+pyo3 = "0.25"
+numpy = "0.25"
+
+# Build dependencies
+bindgen = "0.71"
+cc = "1.0"
+
+# Utilities
+num-traits = "0.2"
+num-derive = "0.4"
+once_cell = "1.19"
+parking_lot = "0.12"
+dashmap = "5.5"
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+debug = false
+strip = true
+
+[profile.bench]
+inherits = "release"
+debug = true
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[profile.test]
+opt-level = 2
+debug = true

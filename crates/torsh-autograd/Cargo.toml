@@ -1,0 +1,34 @@
+[package]
+name = "torsh-autograd"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Automatic differentiation engine for ToRSh with PyTorch-compatible API"
+
+[dependencies]
+# Core dependencies
+torsh-core = { path = "../torsh-core" }
+torsh-tensor = { path = "../torsh-tensor" }
+scirs2 = { workspace = true, features = ["autograd"] }
+
+# Graph operations
+petgraph = { workspace = true }
+
+# Utilities
+parking_lot = { workspace = true }
+indexmap = { workspace = true }
+once_cell = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+[dev-dependencies]
+approx = { workspace = true }
+proptest = { workspace = true }
