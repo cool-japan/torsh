@@ -78,6 +78,7 @@ pub use torsh_optim as optim;
 #[cfg_attr(docsrs, doc(cfg(feature = "data")))]
 pub use torsh_data as data;
 
+#[allow(unexpected_cfgs)]
 #[cfg(feature = "backends")]
 #[cfg_attr(docsrs, doc(cfg(feature = "backends")))]
 pub use torsh_backends as backends;
@@ -120,7 +121,9 @@ pub mod prelude {
 }
 
 /// F namespace for functional operations (similar to torch.nn.functional)
+#[allow(non_snake_case)]
 pub mod F {
+    #[allow(unused_imports)]
     pub use crate::tensor::ops::*;
 
     #[cfg(feature = "nn")]
