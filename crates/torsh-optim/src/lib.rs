@@ -7,20 +7,20 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 
-pub mod optimizer;
-pub mod sgd;
-pub mod adam;
 pub mod adagrad;
-pub mod rmsprop;
+pub mod adam;
 pub mod adamax;
-pub mod nadam;
 pub mod lr_scheduler;
+pub mod nadam;
+pub mod optimizer;
+pub mod rmsprop;
+pub mod sgd;
 
-use torsh_core::error::Result;
-use torsh_tensor::Tensor;
-use std::sync::Arc;
 use parking_lot::RwLock;
 use std::collections::HashMap;
+use std::sync::Arc;
+use torsh_core::error::Result;
+use torsh_tensor::Tensor;
 
 // Re-export scirs2 optimizer functionality
 use scirs2::optim as sci_optim;
@@ -29,22 +29,22 @@ use scirs2::optim as sci_optim;
 pub trait Optimizer {
     /// Perform a single optimization step
     fn step(&mut self) -> Result<()>;
-    
+
     /// Zero all gradients
     fn zero_grad(&mut self);
-    
+
     /// Get the current learning rate
     fn get_lr(&self) -> Vec<f32>;
-    
+
     /// Set the learning rate
     fn set_lr(&mut self, lr: f32);
-    
+
     /// Add a parameter group
     fn add_param_group(&mut self, params: Vec<Arc<RwLock<Tensor>>>, options: HashMap<String, f32>);
-    
+
     /// Get state dict for serialization
     fn state_dict(&self) -> OptimizerState;
-    
+
     /// Load state dict
     fn load_state_dict(&mut self, state: OptimizerState) -> Result<()>;
 }
@@ -78,7 +78,7 @@ impl ParamGroup {
             options: HashMap::new(),
         }
     }
-    
+
     pub fn with_options(mut self, options: HashMap<String, f32>) -> Self {
         self.options = options;
         self
@@ -104,20 +104,20 @@ impl Default for OptimizerOptions {
 
 /// Prelude module for convenient imports
 pub mod prelude {
-    pub use crate::{Optimizer, OptimizerState, ParamGroup, OptimizerOptions};
-    pub use crate::sgd::SGD;
-    pub use crate::adam::{Adam, AdamW};
     pub use crate::adagrad::AdaGrad;
-    pub use crate::rmsprop::RMSprop;
+    pub use crate::adam::{Adam, AdamW};
     pub use crate::adamax::AdaMax;
+    pub use crate::lr_scheduler::{CosineAnnealingLR, ExponentialLR, LRScheduler, StepLR};
     pub use crate::nadam::NAdam;
-    pub use crate::lr_scheduler::{LRScheduler, StepLR, ExponentialLR, CosineAnnealingLR};
+    pub use crate::rmsprop::RMSprop;
+    pub use crate::sgd::SGD;
+    pub use crate::{Optimizer, OptimizerOptions, OptimizerState, ParamGroup};
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_param_group() {
         let params = vec![];

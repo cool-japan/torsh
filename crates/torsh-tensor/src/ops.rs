@@ -1,14 +1,23 @@
 //! Tensor operations
 
-use crate::{Tensor, TensorElement, FloatElement};
+use crate::{FloatElement, Tensor, TensorElement};
 use torsh_core::error::{Result, TorshError};
 
 /// Element-wise operations
-impl<T: TensorElement + Copy + Default + std::ops::Add<Output = T> + std::ops::Sub<Output = T> + std::ops::Mul<Output = T> + std::ops::Div<Output = T>> Tensor<T> {
+impl<
+        T: TensorElement
+            + Copy
+            + Default
+            + std::ops::Add<Output = T>
+            + std::ops::Sub<Output = T>
+            + std::ops::Mul<Output = T>
+            + std::ops::Div<Output = T>,
+    > Tensor<T>
+{
     /// Element-wise addition with broadcasting
     pub fn add(&self, other: &Self) -> Result<Self> {
         let mut result = self.broadcast_binary_op(other, |a, b| a + b)?;
-        
+
         // Track the operation for gradient computation
         if self.requires_grad || other.requires_grad {
             use std::sync::Arc;
@@ -18,19 +27,19 @@ impl<T: TensorElement + Copy + Default + std::ops::Add<Output = T> + std::ops::S
                 rhs: Arc::new(other.clone()),
             };
         }
-        
+
         Ok(result)
     }
-    
+
     /// Element-wise subtraction with broadcasting
     pub fn sub(&self, other: &Self) -> Result<Self> {
         self.broadcast_binary_op(other, |a, b| a - b)
     }
-    
+
     /// Element-wise multiplication with broadcasting
     pub fn mul(&self, other: &Self) -> Result<Self> {
         let mut result = self.broadcast_binary_op(other, |a, b| a * b)?;
-        
+
         // Track the operation for gradient computation
         if self.requires_grad || other.requires_grad {
             use std::sync::Arc;
@@ -40,15 +49,15 @@ impl<T: TensorElement + Copy + Default + std::ops::Add<Output = T> + std::ops::S
                 rhs: Arc::new(other.clone()),
             };
         }
-        
+
         Ok(result)
     }
-    
+
     /// Element-wise division with broadcasting
     pub fn div(&self, other: &Self) -> Result<Self> {
         self.broadcast_binary_op(other, |a, b| a / b)
     }
-    
+
     /// Generic broadcasting binary operation
     fn broadcast_binary_op<F>(&self, other: &Self, op: F) -> Result<Self>
     where
@@ -62,38 +71,42 @@ impl<T: TensorElement + Copy + Default + std::ops::Add<Output = T> + std::ops::S
                 got: other.shape().dims().to_vec(),
             });
         }
-        
+
         // If shapes are identical, use optimized path
         if self.shape() == other.shape() {
             return self.element_wise_op(other, op);
         }
-        
+
         // Compute broadcasted shape
         let broadcast_shape = self.shape().broadcast_shape(&other.shape())?;
         let broadcast_dims = broadcast_shape.dims();
         let broadcast_size = broadcast_shape.numel();
-        
+
         let self_data = self.data.lock().unwrap();
         let other_data = other.data.lock().unwrap();
-        
+
         let mut result_data = Vec::with_capacity(broadcast_size);
-        
+
         // Compute broadcasting for each element
         for flat_idx in 0..broadcast_size {
             let broadcast_indices = self.flat_to_multi_index(flat_idx, broadcast_dims);
-            
+
             let self_idx = self.broadcast_index(&broadcast_indices, broadcast_dims);
             let other_idx = other.broadcast_index(&broadcast_indices, broadcast_dims);
-            
+
             let self_val = self_data[self_idx];
             let other_val = other_data[other_idx];
-            
+
             result_data.push(op(self_val, other_val));
         }
-        
-        Ok(Self::from_data(result_data, broadcast_dims.to_vec(), self.device))
+
+        Ok(Self::from_data(
+            result_data,
+            broadcast_dims.to_vec(),
+            self.device,
+        ))
     }
-    
+
     /// Element-wise operation for tensors with identical shapes
     fn element_wise_op<F>(&self, other: &Self, op: F) -> Result<Self>
     where
@@ -102,56 +115,61 @@ impl<T: TensorElement + Copy + Default + std::ops::Add<Output = T> + std::ops::S
     {
         let self_data = self.data.lock().unwrap();
         let other_data = other.data.lock().unwrap();
-        
-        let result_data: Vec<T> = self_data.iter()
+
+        let result_data: Vec<T> = self_data
+            .iter()
             .zip(other_data.iter())
             .map(|(&a, &b)| op(a, b))
             .collect();
-        
-        Ok(Self::from_data(result_data, self.shape().dims().to_vec(), self.device))
+
+        Ok(Self::from_data(
+            result_data,
+            self.shape().dims().to_vec(),
+            self.device,
+        ))
     }
-    
+
     /// Convert flat index to multi-dimensional indices
     fn flat_to_multi_index(&self, flat_idx: usize, dims: &[usize]) -> Vec<usize> {
         let mut indices = vec![0; dims.len()];
         let mut remaining = flat_idx;
-        
+
         for i in (0..dims.len()).rev() {
-            let stride = if i == dims.len() - 1 { 
-                1 
-            } else { 
-                dims[i+1..].iter().product::<usize>() 
+            let stride = if i == dims.len() - 1 {
+                1
+            } else {
+                dims[i + 1..].iter().product::<usize>()
             };
             indices[i] = remaining / stride;
             remaining %= stride;
         }
-        
+
         indices
     }
-    
+
     /// Get the actual index in the tensor data for broadcasting
     fn broadcast_index(&self, broadcast_indices: &[usize], broadcast_dims: &[usize]) -> usize {
         let self_shape = self.shape();
         let self_dims = self_shape.dims();
         let self_ndim = self_dims.len();
         let broadcast_ndim = broadcast_dims.len();
-        
+
         let mut actual_indices = vec![0; self_ndim];
-        
+
         // Map from broadcast indices to actual indices (right-aligned)
         for i in 0..self_ndim {
             let broadcast_dim_idx = broadcast_ndim.saturating_sub(self_ndim) + i;
             if broadcast_dim_idx < broadcast_ndim {
                 let broadcast_idx = broadcast_indices[broadcast_dim_idx];
                 // If dimension is 1, index is always 0 (broadcasting)
-                actual_indices[i] = if self_dims[i] == 1 { 
-                    0 
-                } else { 
+                actual_indices[i] = if self_dims[i] == 1 {
+                    0
+                } else {
                     std::cmp::min(broadcast_idx, self_dims[i] - 1)
                 };
             }
         }
-        
+
         // Convert multi-dimensional index to flat index
         let mut flat_idx = 0;
         let mut stride = 1;
@@ -159,23 +177,24 @@ impl<T: TensorElement + Copy + Default + std::ops::Add<Output = T> + std::ops::S
             flat_idx += actual_indices[i] * stride;
             stride *= self_dims[i];
         }
-        
+
         flat_idx
     }
-    
+
     /// Element-wise power
-    pub fn pow(&self, exponent: f32) -> Result<Self> 
+    pub fn pow(&self, exponent: f32) -> Result<Self>
     where
         T: FloatElement,
     {
         let data = self.data.lock().unwrap();
-        let result_data: Vec<T> = data.iter()
+        let result_data: Vec<T> = data
+            .iter()
             .map(|&x| x.powf(T::from_f64(exponent as f64).unwrap()))
             .collect();
-        
+
         let mut result = Self::from_data(result_data, self.shape().dims().to_vec(), self.device);
         result.requires_grad = self.requires_grad;
-        
+
         // Track the operation for gradient computation
         if self.requires_grad {
             use std::sync::Arc;
@@ -184,245 +203,294 @@ impl<T: TensorElement + Copy + Default + std::ops::Add<Output = T> + std::ops::S
                 exponent,
             };
         }
-        
+
         Ok(result)
     }
-    
+
     /// Absolute value (for float types)
-    pub fn abs(&self) -> Result<Self> 
+    pub fn abs(&self) -> Result<Self>
     where
         T: FloatElement,
     {
         let data = self.data.lock().unwrap();
-        let result_data: Vec<T> = data.iter()
-            .map(|&x| x.abs())
-            .collect();
-        
-        Ok(Self::from_data(result_data, self.shape().dims().to_vec(), self.device))
+        let result_data: Vec<T> = data.iter().map(|&x| x.abs()).collect();
+
+        Ok(Self::from_data(
+            result_data,
+            self.shape().dims().to_vec(),
+            self.device,
+        ))
     }
-    
-    
+
     /// Negation (for float types)
-    pub fn neg(&self) -> Result<Self> 
+    pub fn neg(&self) -> Result<Self>
     where
         T: FloatElement,
     {
         let data = self.data.lock().unwrap();
-        let result_data: Vec<T> = data.iter()
-            .map(|&x| -x)
-            .collect();
-        
-        Ok(Self::from_data(result_data, self.shape().dims().to_vec(), self.device))
+        let result_data: Vec<T> = data.iter().map(|&x| -x).collect();
+
+        Ok(Self::from_data(
+            result_data,
+            self.shape().dims().to_vec(),
+            self.device,
+        ))
     }
-    
+
     /// Add scalar
     pub fn add_scalar(&self, scalar: T) -> Result<Self> {
         let self_data = self.data.lock().unwrap();
-        
-        let result_data: Vec<T> = self_data.iter()
-            .map(|&a| a + scalar)
-            .collect();
-        
-        Ok(Self::from_data(result_data, self.shape().dims().to_vec(), self.device))
+
+        let result_data: Vec<T> = self_data.iter().map(|&a| a + scalar).collect();
+
+        Ok(Self::from_data(
+            result_data,
+            self.shape().dims().to_vec(),
+            self.device,
+        ))
     }
-    
+
     /// Multiply by scalar
     pub fn mul_scalar(&self, scalar: f32) -> Result<Self> {
         let self_data = self.data.lock().unwrap();
-        
-        let result_data: Vec<T> = self_data.iter()
+
+        let result_data: Vec<T> = self_data
+            .iter()
             .map(|&a| {
-                let scalar_t = T::from_f64(scalar as f64).unwrap_or_else(|| panic!("Cannot convert f32 to type"));
+                let scalar_t = T::from_f64(scalar as f64)
+                    .unwrap_or_else(|| panic!("Cannot convert f32 to type"));
                 a * scalar_t
             })
             .collect();
-        
-        Ok(Self::from_data(result_data, self.shape().dims().to_vec(), self.device))
+
+        Ok(Self::from_data(
+            result_data,
+            self.shape().dims().to_vec(),
+            self.device,
+        ))
     }
-    
+
     /// Divide by scalar
     pub fn div_scalar(&self, scalar: f32) -> Result<Self> {
         let self_data = self.data.lock().unwrap();
-        
-        let result_data: Vec<T> = self_data.iter()
+
+        let result_data: Vec<T> = self_data
+            .iter()
             .map(|&a| {
-                let scalar_t = T::from_f64(scalar as f64).unwrap_or_else(|| panic!("Cannot convert f32 to type"));
+                let scalar_t = T::from_f64(scalar as f64)
+                    .unwrap_or_else(|| panic!("Cannot convert f32 to type"));
                 a / scalar_t
             })
             .collect();
-        
-        Ok(Self::from_data(result_data, self.shape().dims().to_vec(), self.device))
+
+        Ok(Self::from_data(
+            result_data,
+            self.shape().dims().to_vec(),
+            self.device,
+        ))
     }
-    
+
     /// Power by scalar
-    pub fn pow_scalar(&self, exponent: f32) -> Result<Self> 
+    pub fn pow_scalar(&self, exponent: f32) -> Result<Self>
     where
         T: FloatElement,
     {
         let data = self.data.lock().unwrap();
-        let result_data: Vec<T> = data.iter()
+        let result_data: Vec<T> = data
+            .iter()
             .map(|&x| x.powf(T::from_f64(exponent as f64).unwrap()))
             .collect();
-        
-        Ok(Self::from_data(result_data, self.shape().dims().to_vec(), self.device))
+
+        Ok(Self::from_data(
+            result_data,
+            self.shape().dims().to_vec(),
+            self.device,
+        ))
     }
-    
+
     /// Clamp values
     pub fn clamp(&self, _min: f32, _max: f32) -> Result<Self> {
         // TODO: Implement actual clamp
         Ok(self.clone())
     }
-    
+
     /// Maximum with another tensor
     pub fn maximum(&self, _other: &Self) -> Result<Self> {
         // TODO: Implement actual maximum
         Ok(self.clone())
     }
-    
+
     /// In-place add
     pub fn add_(&mut self, other: &Self) -> Result<()> {
         if self.shape().dims() != other.shape().dims() {
-            return Err(TorshError::Other("Tensors must have same shape for in-place add".to_string()));
+            return Err(TorshError::Other(
+                "Tensors must have same shape for in-place add".to_string(),
+            ));
         }
-        
+
         let mut self_data = self.data.lock().unwrap();
         let other_data = other.data.lock().unwrap();
-        
+
         for (a, &b) in self_data.iter_mut().zip(other_data.iter()) {
             *a = *a + b;
         }
-        
+
         Ok(())
     }
-    
+
     /// In-place subtract
     pub fn sub_(&mut self, other: &Self) -> Result<()> {
         if self.shape().dims() != other.shape().dims() {
-            return Err(TorshError::Other("Tensors must have same shape for in-place sub".to_string()));
+            return Err(TorshError::Other(
+                "Tensors must have same shape for in-place sub".to_string(),
+            ));
         }
-        
+
         let mut self_data = self.data.lock().unwrap();
         let other_data = other.data.lock().unwrap();
-        
+
         for (a, &b) in self_data.iter_mut().zip(other_data.iter()) {
             *a = *a - b;
         }
-        
+
         Ok(())
     }
-    
+
     /// In-place multiply
     pub fn mul_(&mut self, other: &Self) -> Result<()> {
         if self.shape().dims() != other.shape().dims() {
-            return Err(TorshError::Other("Tensors must have same shape for in-place mul".to_string()));
+            return Err(TorshError::Other(
+                "Tensors must have same shape for in-place mul".to_string(),
+            ));
         }
-        
+
         let mut self_data = self.data.lock().unwrap();
         let other_data = other.data.lock().unwrap();
-        
+
         for (a, &b) in self_data.iter_mut().zip(other_data.iter()) {
             *a = *a * b;
         }
-        
+
         Ok(())
     }
-    
+
     /// In-place multiply by scalar
     pub fn mul_scalar_(&mut self, scalar: f32) -> Result<()> {
         let mut self_data = self.data.lock().unwrap();
-        let scalar_t = T::from_f64(scalar as f64).unwrap_or_else(|| panic!("Cannot convert f32 to type"));
-        
+        let scalar_t =
+            T::from_f64(scalar as f64).unwrap_or_else(|| panic!("Cannot convert f32 to type"));
+
         for a in self_data.iter_mut() {
             *a = *a * scalar_t;
         }
-        
+
         Ok(())
     }
-    
+
     /// In-place add scalar
     pub fn add_scalar_(&mut self, scalar: f32) -> Result<()> {
         let mut self_data = self.data.lock().unwrap();
-        let scalar_t = T::from_f64(scalar as f64).unwrap_or_else(|| panic!("Cannot convert f32 to type"));
-        
+        let scalar_t =
+            T::from_f64(scalar as f64).unwrap_or_else(|| panic!("Cannot convert f32 to type"));
+
         for a in self_data.iter_mut() {
             *a = *a + scalar_t;
         }
-        
+
         Ok(())
     }
 }
 
 /// Reduction operations
-impl<T: TensorElement + Copy + std::ops::Add<Output = T> + std::ops::Div<Output = T> + PartialOrd> Tensor<T> {
+impl<
+        T: TensorElement + Copy + std::ops::Add<Output = T> + std::ops::Div<Output = T> + PartialOrd,
+    > Tensor<T>
+{
     /// Sum all elements
     pub fn sum(&self) -> Result<Self> {
         let data = self.data.lock().unwrap();
-        let sum_value = data.iter().fold(<T as TensorElement>::zero(), |acc, &x| acc + x);
+        let sum_value = data
+            .iter()
+            .fold(<T as TensorElement>::zero(), |acc, &x| acc + x);
         Ok(crate::creation::tensor_scalar(sum_value))
     }
-    
+
     /// Sum along specified dimensions
     pub fn sum_dim(&self, _dims: &[i32], _keepdim: bool) -> Result<Self> {
         // TODO: Implement actual sum_dim
         Ok(self.clone())
     }
-    
+
     /// Mean of all elements
-    pub fn mean(&self) -> Result<Self> 
-    where 
-        T: FloatElement 
+    pub fn mean(&self) -> Result<Self>
+    where
+        T: FloatElement,
     {
         let data = self.data.lock().unwrap();
         if data.is_empty() {
-            return Err(TorshError::Other("Cannot compute mean of empty tensor".to_string()));
+            return Err(TorshError::Other(
+                "Cannot compute mean of empty tensor".to_string(),
+            ));
         }
-        let sum_value = data.iter().fold(<T as TensorElement>::zero(), |acc, &x| acc + x);
+        let sum_value = data
+            .iter()
+            .fold(<T as TensorElement>::zero(), |acc, &x| acc + x);
         let count = T::from_f64(data.len() as f64).unwrap();
         let mean_value = sum_value / count;
         Ok(crate::creation::tensor_scalar(mean_value))
     }
-    
+
     /// Mean along specified dimensions
-    pub fn mean_dim(&self, _dims: &[i32], _keepdim: bool) -> Result<Self> 
-    where 
-        T: FloatElement 
+    pub fn mean_dim(&self, _dims: &[i32], _keepdim: bool) -> Result<Self>
+    where
+        T: FloatElement,
     {
         // TODO: Implement actual mean_dim
         Ok(self.clone())
     }
-    
+
     /// Maximum value
-    pub fn max(&self) -> Result<Self> 
-    where 
-        T: PartialOrd
+    pub fn max(&self) -> Result<Self>
+    where
+        T: PartialOrd,
     {
         let data = self.data.lock().unwrap();
         if data.is_empty() {
-            return Err(TorshError::Other("Cannot compute max of empty tensor".to_string()));
+            return Err(TorshError::Other(
+                "Cannot compute max of empty tensor".to_string(),
+            ));
         }
-        let max_value = *data.iter().max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)).unwrap();
+        let max_value = *data
+            .iter()
+            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .unwrap();
         Ok(crate::creation::tensor_scalar(max_value))
     }
-    
+
     /// Minimum value
-    pub fn min(&self) -> Result<Self> 
-    where 
-        T: PartialOrd
+    pub fn min(&self) -> Result<Self>
+    where
+        T: PartialOrd,
     {
         let data = self.data.lock().unwrap();
         if data.is_empty() {
-            return Err(TorshError::Other("Cannot compute min of empty tensor".to_string()));
+            return Err(TorshError::Other(
+                "Cannot compute min of empty tensor".to_string(),
+            ));
         }
-        let min_value = *data.iter().min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)).unwrap();
+        let min_value = *data
+            .iter()
+            .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .unwrap();
         Ok(crate::creation::tensor_scalar(min_value))
     }
-    
+
     /// Argmax
     pub fn argmax(&self, _dim: Option<i32>) -> Result<Tensor<i64>> {
         // TODO: Implement using scirs2
         Ok(crate::creation::zeros(&[1]))
     }
-    
+
     /// Argmin
     pub fn argmin(&self, _dim: Option<i32>) -> Result<Tensor<i64>> {
         // TODO: Implement using scirs2
@@ -431,38 +499,40 @@ impl<T: TensorElement + Copy + std::ops::Add<Output = T> + std::ops::Div<Output 
 }
 
 /// Matrix operations
-impl<T: TensorElement + Copy + Default + std::ops::Add<Output = T> + std::ops::Mul<Output = T>> Tensor<T> {
+impl<T: TensorElement + Copy + Default + std::ops::Add<Output = T> + std::ops::Mul<Output = T>>
+    Tensor<T>
+{
     /// Matrix multiplication
     pub fn matmul(&self, other: &Self) -> Result<Self> {
         // Check shapes for matrix multiplication
         let self_shape = self.shape();
         let other_shape = other.shape();
-        
+
         if self_shape.ndim() < 2 || other_shape.ndim() < 2 {
             return Err(TorshError::InvalidShape(
-                "Both tensors must have at least 2 dimensions for matmul".to_string()
+                "Both tensors must have at least 2 dimensions for matmul".to_string(),
             ));
         }
-        
+
         let self_dims = self_shape.dims();
         let other_dims = other_shape.dims();
-        
+
         if self_dims[self_dims.len() - 1] != other_dims[other_dims.len() - 2] {
             return Err(TorshError::ShapeMismatch {
                 expected: vec![self_dims[self_dims.len() - 1]],
                 got: vec![other_dims[other_dims.len() - 2]],
             });
         }
-        
+
         // For 2D matrix multiplication
         if self_shape.ndim() == 2 && other_shape.ndim() == 2 {
             return self.matmul_2d(other);
         }
-        
+
         // For batched matrix multiplication
         self.matmul_batched(other)
     }
-    
+
     /// 2D matrix multiplication implementation
     fn matmul_2d(&self, other: &Self) -> Result<Self>
     where
@@ -470,16 +540,16 @@ impl<T: TensorElement + Copy + Default + std::ops::Add<Output = T> + std::ops::M
     {
         let self_shape = self.shape();
         let other_shape = other.shape();
-        
+
         let m = self_shape.dims()[0]; // rows of self
         let k = self_shape.dims()[1]; // cols of self / rows of other
         let n = other_shape.dims()[1]; // cols of other
-        
+
         let self_data = self.data.lock().unwrap();
         let other_data = other.data.lock().unwrap();
-        
+
         let mut result_data = vec![T::default(); m * n];
-        
+
         // Implement standard matrix multiplication: C[i,j] = sum(A[i,k] * B[k,j])
         for i in 0..m {
             for j in 0..n {
@@ -492,10 +562,10 @@ impl<T: TensorElement + Copy + Default + std::ops::Add<Output = T> + std::ops::M
                 result_data[i * n + j] = sum;
             }
         }
-        
+
         Ok(Self::from_data(result_data, vec![m, n], self.device))
     }
-    
+
     /// Batched matrix multiplication
     fn matmul_batched(&self, other: &Self) -> Result<Self>
     where
@@ -503,7 +573,7 @@ impl<T: TensorElement + Copy + Default + std::ops::Add<Output = T> + std::ops::M
     {
         let self_shape = self.shape();
         let other_shape = other.shape();
-        
+
         // For now, handle the simple batched case
         // TODO: Implement full broadcasting semantics
         if self_shape.ndim() == 3 && other_shape.ndim() == 3 {
@@ -511,19 +581,19 @@ impl<T: TensorElement + Copy + Default + std::ops::Add<Output = T> + std::ops::M
             let m = self_shape.dims()[1];
             let k = self_shape.dims()[2];
             let n = other_shape.dims()[2];
-            
+
             if batch_size != other_shape.dims()[0] {
                 return Err(TorshError::ShapeMismatch {
                     expected: vec![batch_size],
                     got: vec![other_shape.dims()[0]],
                 });
             }
-            
+
             let self_data = self.data.lock().unwrap();
             let other_data = other.data.lock().unwrap();
-            
+
             let mut result_data = vec![T::default(); batch_size * m * n];
-            
+
             for b in 0..batch_size {
                 for i in 0..m {
                     for j in 0..n {
@@ -540,23 +610,27 @@ impl<T: TensorElement + Copy + Default + std::ops::Add<Output = T> + std::ops::M
                     }
                 }
             }
-            
-            return Ok(Self::from_data(result_data, vec![batch_size, m, n], self.device));
+
+            return Ok(Self::from_data(
+                result_data,
+                vec![batch_size, m, n],
+                self.device,
+            ));
         }
-        
+
         // For other cases, fallback to clone for now
         // TODO: Implement full broadcasting and higher-dimensional batching
         Ok(self.clone())
     }
-    
+
     /// Transpose (swap last two dimensions)
     pub fn t(&self) -> Result<Self> {
         if self.ndim() < 2 {
             return Err(TorshError::InvalidShape(
-                "Tensor must have at least 2 dimensions for transpose".to_string()
+                "Tensor must have at least 2 dimensions for transpose".to_string(),
             ));
         }
-        
+
         let ndim = self.ndim() as i32;
         self.transpose(ndim - 2, ndim - 1)
     }
@@ -567,10 +641,12 @@ impl<T: FloatElement> Tensor<T> {
     /// Square root
     pub fn sqrt(&self) -> Result<Self> {
         let data = self.data.lock().unwrap();
-        let result_data: Vec<T> = data.iter()
-            .map(|&x| x.sqrt())
-            .collect();
-        Ok(Self::from_data(result_data, self.shape().dims().to_vec(), self.device))
+        let result_data: Vec<T> = data.iter().map(|&x| x.sqrt()).collect();
+        Ok(Self::from_data(
+            result_data,
+            self.shape().dims().to_vec(),
+            self.device,
+        ))
     }
 }
 
@@ -579,42 +655,58 @@ impl<T: FloatElement> Tensor<T> {
     /// ReLU activation
     pub fn relu(&self) -> Result<Self> {
         let data = self.data.lock().unwrap();
-        let result_data: Vec<T> = data.iter()
+        let result_data: Vec<T> = data
+            .iter()
             .map(|&x| {
                 let zero = <T as TensorElement>::zero();
-                if x > zero { x } else { zero }
+                if x > zero {
+                    x
+                } else {
+                    zero
+                }
             })
             .collect();
-        Ok(Self::from_data(result_data, self.shape().dims().to_vec(), self.device))
+        Ok(Self::from_data(
+            result_data,
+            self.shape().dims().to_vec(),
+            self.device,
+        ))
     }
-    
+
     /// Sigmoid activation
     pub fn sigmoid(&self) -> Result<Self> {
         let data = self.data.lock().unwrap();
-        let result_data: Vec<T> = data.iter()
+        let result_data: Vec<T> = data
+            .iter()
             .map(|&x| {
                 let one = <T as TensorElement>::one();
                 one / (one + (-x).exp())
             })
             .collect();
-        Ok(Self::from_data(result_data, self.shape().dims().to_vec(), self.device))
+        Ok(Self::from_data(
+            result_data,
+            self.shape().dims().to_vec(),
+            self.device,
+        ))
     }
-    
+
     /// Tanh activation
     pub fn tanh(&self) -> Result<Self> {
         let data = self.data.lock().unwrap();
-        let result_data: Vec<T> = data.iter()
-            .map(|&x| x.tanh())
-            .collect();
-        Ok(Self::from_data(result_data, self.shape().dims().to_vec(), self.device))
+        let result_data: Vec<T> = data.iter().map(|&x| x.tanh()).collect();
+        Ok(Self::from_data(
+            result_data,
+            self.shape().dims().to_vec(),
+            self.device,
+        ))
     }
-    
+
     /// Softmax along dimension
     pub fn softmax(&self, _dim: i32) -> Result<Self> {
         // TODO: Implement actual softmax
         Ok(self.clone())
     }
-    
+
     /// Log softmax along dimension
     pub fn log_softmax(&self, _dim: i32) -> Result<Self> {
         // TODO: Implement actual log_softmax
@@ -632,17 +724,17 @@ impl<T: FloatElement> Tensor<T> {
                 got: target.shape().dims().to_vec(),
             });
         }
-        
+
         // TODO: Implement using scirs2
         Ok(self.clone())
     }
-    
+
     /// Cross entropy loss
     pub fn cross_entropy(&self, _target: &Tensor<i64>) -> Result<Self> {
         // TODO: Implement using scirs2
         Ok(self.clone())
     }
-    
+
     /// Binary cross entropy loss
     pub fn bce_loss(&self, target: &Self) -> Result<Self> {
         if self.shape() != target.shape() {
@@ -651,7 +743,7 @@ impl<T: FloatElement> Tensor<T> {
                 got: target.shape().dims().to_vec(),
             });
         }
-        
+
         // TODO: Implement using scirs2
         Ok(self.clone())
     }
@@ -664,31 +756,31 @@ impl<T: TensorElement> Tensor<T> {
         // TODO: Implement using scirs2
         Ok(crate::creation::zeros(&[1]))
     }
-    
+
     /// Element-wise inequality
     pub fn ne(&self, _other: &Self) -> Result<Tensor<bool>> {
         // TODO: Implement using scirs2
         Ok(crate::creation::zeros(&[1]))
     }
-    
+
     /// Element-wise greater than
     pub fn gt(&self, _other: &Self) -> Result<Tensor<bool>> {
         // TODO: Implement using scirs2
         Ok(crate::creation::zeros(&[1]))
     }
-    
+
     /// Element-wise less than
     pub fn lt(&self, _other: &Self) -> Result<Tensor<bool>> {
         // TODO: Implement using scirs2
         Ok(crate::creation::zeros(&[1]))
     }
-    
+
     /// Element-wise greater than or equal
     pub fn ge(&self, _other: &Self) -> Result<Tensor<bool>> {
         // TODO: Implement using scirs2
         Ok(crate::creation::zeros(&[1]))
     }
-    
+
     /// Element-wise less than or equal
     pub fn le(&self, _other: &Self) -> Result<Tensor<bool>> {
         // TODO: Implement using scirs2
@@ -697,33 +789,69 @@ impl<T: TensorElement> Tensor<T> {
 }
 
 /// Operator overloading
-impl<T: TensorElement + Copy + Default + std::ops::Add<Output = T> + std::ops::Sub<Output = T> + std::ops::Mul<Output = T> + std::ops::Div<Output = T>> std::ops::Add for &Tensor<T> {
+impl<
+        T: TensorElement
+            + Copy
+            + Default
+            + std::ops::Add<Output = T>
+            + std::ops::Sub<Output = T>
+            + std::ops::Mul<Output = T>
+            + std::ops::Div<Output = T>,
+    > std::ops::Add for &Tensor<T>
+{
     type Output = Result<Tensor<T>>;
-    
+
     fn add(self, other: Self) -> Self::Output {
         Tensor::add(self, other)
     }
 }
 
-impl<T: TensorElement + Copy + Default + std::ops::Add<Output = T> + std::ops::Sub<Output = T> + std::ops::Mul<Output = T> + std::ops::Div<Output = T>> std::ops::Sub for &Tensor<T> {
+impl<
+        T: TensorElement
+            + Copy
+            + Default
+            + std::ops::Add<Output = T>
+            + std::ops::Sub<Output = T>
+            + std::ops::Mul<Output = T>
+            + std::ops::Div<Output = T>,
+    > std::ops::Sub for &Tensor<T>
+{
     type Output = Result<Tensor<T>>;
-    
+
     fn sub(self, other: Self) -> Self::Output {
         Tensor::sub(self, other)
     }
 }
 
-impl<T: TensorElement + Copy + Default + std::ops::Add<Output = T> + std::ops::Sub<Output = T> + std::ops::Mul<Output = T> + std::ops::Div<Output = T>> std::ops::Mul for &Tensor<T> {
+impl<
+        T: TensorElement
+            + Copy
+            + Default
+            + std::ops::Add<Output = T>
+            + std::ops::Sub<Output = T>
+            + std::ops::Mul<Output = T>
+            + std::ops::Div<Output = T>,
+    > std::ops::Mul for &Tensor<T>
+{
     type Output = Result<Tensor<T>>;
-    
+
     fn mul(self, other: Self) -> Self::Output {
         Tensor::mul(self, other)
     }
 }
 
-impl<T: TensorElement + Copy + Default + std::ops::Add<Output = T> + std::ops::Sub<Output = T> + std::ops::Mul<Output = T> + std::ops::Div<Output = T>> std::ops::Div for &Tensor<T> {
+impl<
+        T: TensorElement
+            + Copy
+            + Default
+            + std::ops::Add<Output = T>
+            + std::ops::Sub<Output = T>
+            + std::ops::Mul<Output = T>
+            + std::ops::Div<Output = T>,
+    > std::ops::Div for &Tensor<T>
+{
     type Output = Result<Tensor<T>>;
-    
+
     fn div(self, other: Self) -> Self::Output {
         Tensor::div(self, other)
     }
@@ -734,17 +862,25 @@ mod tests {
     use super::*;
     use crate::creation::*;
     use torsh_core::device::DeviceType;
-    
+
     #[test]
     fn test_matrix_multiplication_2d() {
         // Test 2x3 * 3x2 = 2x2
-        let a = Tensor::from_data(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3], DeviceType::Cpu);
-        let b = Tensor::from_data(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![3, 2], DeviceType::Cpu);
-        
+        let a = Tensor::from_data(
+            vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            vec![2, 3],
+            DeviceType::Cpu,
+        );
+        let b = Tensor::from_data(
+            vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            vec![3, 2],
+            DeviceType::Cpu,
+        );
+
         let result = a.matmul(&b).unwrap();
-        
+
         assert_eq!(result.shape().dims(), &[2, 2]);
-        
+
         let data = result.data.lock().unwrap();
         // Expected: [[22, 28], [49, 64]]
         // [1,2,3] * [1,2; 3,4; 5,6] = [1*1+2*3+3*5, 1*2+2*4+3*6] = [22, 28]
@@ -754,12 +890,12 @@ mod tests {
         assert_eq!(data[2], 49.0);
         assert_eq!(data[3], 64.0);
     }
-    
+
     #[test]
     fn test_element_wise_operations() {
         let a = Tensor::from_data(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu);
         let b = Tensor::from_data(vec![2.0, 2.0, 2.0, 2.0], vec![2, 2], DeviceType::Cpu);
-        
+
         // Test addition
         let add_result = a.add(&b).unwrap();
         let add_data = add_result.data.lock().unwrap();
@@ -767,7 +903,7 @@ mod tests {
         assert_eq!(add_data[1], 4.0);
         assert_eq!(add_data[2], 5.0);
         assert_eq!(add_data[3], 6.0);
-        
+
         // Test multiplication
         let mul_result = a.mul(&b).unwrap();
         let mul_data = mul_result.data.lock().unwrap();

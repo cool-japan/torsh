@@ -20,10 +20,10 @@ impl InferenceModeGuard {
     pub fn new() -> Self {
         let prev_grad_state = is_grad_enabled();
         let prev_inference_mode = false; // scirs2 doesn't have inference mode
-        
+
         // Disable gradients (inference mode doesn't exist in scirs2)
         set_grad_enabled(false);
-        
+
         Self {
             prev_grad_state,
             prev_inference_mode,
@@ -146,7 +146,7 @@ impl Default for ProfilingModeGuard {
 impl ProfilingModeGuard {
     pub fn new() -> Self {
         let prev_state = false; // scirs2 doesn't have profiling functions
-        // Note: scirs2 doesn't have enable_profiling function
+                                // Note: scirs2 doesn't have enable_profiling function
         Self { prev_state }
     }
 }
@@ -165,11 +165,11 @@ pub fn profile() -> ProfilingModeGuard {
 
 /// Gradient clipping utilities
 pub mod clip {
-    use torsh_tensor::Tensor;
     use torsh_core::dtype::FloatElement;
+    use torsh_tensor::Tensor;
     // Temporarily disable scirs2 integration
     // use scirs2::autograd::tensor_ops as T;
-    
+
     /// Clip gradients by global norm
     pub fn clip_grad_norm<T: FloatElement>(
         tensors: &mut [Tensor<T>],
@@ -178,20 +178,17 @@ pub mod clip {
     ) -> f32 {
         // Temporarily disabled - would use scirs2 for gradient computation
         let _ = (tensors, max_norm, norm_type); // Suppress unused warnings
-        
+
         // TODO: Implement proper gradient clipping when scirs2 integration is ready
         // For now, return a placeholder value
         0.0
     }
-    
+
     /// Clip gradients by value
-    pub fn clip_grad_value<T: FloatElement>(
-        tensors: &mut [Tensor<T>],
-        clip_value: f32,
-    ) {
+    pub fn clip_grad_value<T: FloatElement>(tensors: &mut [Tensor<T>], clip_value: f32) {
         // Temporarily disabled - would use scirs2 for gradient computation
         let _ = (tensors, clip_value); // Suppress unused warnings
-        
+
         // TODO: Implement proper gradient clipping when scirs2 integration is ready
     }
 }
@@ -199,31 +196,31 @@ pub mod clip {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_inference_mode() {
         assert!(is_grad_enabled());
-        
+
         {
             let _guard = inference_mode();
             assert!(!is_grad_enabled());
         }
-        
+
         assert!(is_grad_enabled());
     }
-    
+
     #[test]
     fn test_anomaly_mode() {
         // Anomaly detection is not implemented yet in scirs2
         // This test verifies that it doesn't crash
         assert!(!is_anomaly_enabled());
-        
+
         {
             let _guard = detect_anomaly();
             // Anomaly detection always returns false for now
             assert!(!is_anomaly_enabled());
         }
-        
+
         assert!(!is_anomaly_enabled());
     }
 }

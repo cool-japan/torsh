@@ -1,6 +1,6 @@
 //! Data types for tensors
 
-use num_traits::{Float, NumCast, Zero, One};
+use num_traits::{Float, NumCast, One, Zero};
 use std::fmt;
 
 /// Supported data types for tensors
@@ -39,17 +39,20 @@ impl DType {
             DType::I64 | DType::F64 => 8,
         }
     }
-    
+
     /// Check if the dtype is floating point
     pub fn is_float(&self) -> bool {
         matches!(self, DType::F16 | DType::F32 | DType::F64 | DType::BF16)
     }
-    
+
     /// Check if the dtype is integer
     pub fn is_int(&self) -> bool {
-        matches!(self, DType::U8 | DType::I8 | DType::I16 | DType::I32 | DType::I64)
+        matches!(
+            self,
+            DType::U8 | DType::I8 | DType::I16 | DType::I32 | DType::I64
+        )
     }
-    
+
     /// Get the name of the dtype
     pub fn name(&self) -> &'static str {
         match self {
@@ -74,21 +77,19 @@ impl fmt::Display for DType {
 }
 
 /// Trait for types that can be used as tensor elements
-pub trait TensorElement: 
-    Clone + Send + Sync + PartialEq + fmt::Debug + 'static
-{
+pub trait TensorElement: Clone + Send + Sync + PartialEq + fmt::Debug + 'static {
     /// Get the dtype for this element type
     fn dtype() -> DType;
-    
+
     /// Convert from f64 (for initialization)
     fn from_f64(v: f64) -> Option<Self>;
-    
+
     /// Convert to f64 (for display/debugging)
     fn to_f64(&self) -> Option<f64>;
-    
+
     /// Zero value
     fn zero() -> Self;
-    
+
     /// One value
     fn one() -> Self;
 }
@@ -100,19 +101,19 @@ macro_rules! impl_tensor_element {
             fn dtype() -> DType {
                 $dtype
             }
-            
+
             fn from_f64(v: f64) -> Option<Self> {
                 NumCast::from(v)
             }
-            
+
             fn to_f64(&self) -> Option<f64> {
                 NumCast::from(*self)
             }
-            
+
             fn zero() -> Self {
                 Zero::zero()
             }
-            
+
             fn one() -> Self {
                 One::one()
             }
@@ -132,19 +133,19 @@ impl TensorElement for bool {
     fn dtype() -> DType {
         DType::Bool
     }
-    
+
     fn from_f64(v: f64) -> Option<Self> {
         Some(v != 0.0)
     }
-    
+
     fn to_f64(&self) -> Option<f64> {
         Some(if *self { 1.0 } else { 0.0 })
     }
-    
+
     fn zero() -> Self {
         false
     }
-    
+
     fn one() -> Self {
         true
     }

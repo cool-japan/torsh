@@ -24,10 +24,7 @@ pub use kernel::{Kernel, KernelDescriptor, KernelLaunchConfig};
 pub use memory::{MemoryManager, MemoryPool, MemoryStats};
 pub use profiler::{Profiler, ProfilerEvent, ProfilerStats};
 
-use torsh_core::{
-    device::DeviceType as CoreDeviceType,
-    error::Result,
-};
+use torsh_core::{device::DeviceType as CoreDeviceType, error::Result};
 
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, string::String, vec::Vec};
@@ -46,13 +43,13 @@ impl BackendRegistry {
             default_backend: None,
         }
     }
-    
+
     /// Register a backend
     pub fn register<B: Backend + 'static>(&mut self, backend: B) -> Result<()> {
         let is_available = backend.is_available()?;
         if is_available {
             self.backends.push(Box::new(backend));
-            
+
             // Set as default if it's the first available backend
             if self.default_backend.is_none() {
                 self.default_backend = Some(self.backends.len() - 1);
@@ -60,14 +57,14 @@ impl BackendRegistry {
         }
         Ok(())
     }
-    
+
     /// Get the default backend
     pub fn default_backend(&self) -> Option<&dyn Backend> {
         self.default_backend
             .and_then(|idx| self.backends.get(idx))
             .map(|b| b.as_ref())
     }
-    
+
     /// Get a backend by device type
     pub fn get_backend(&self, device_type: CoreDeviceType) -> Option<&dyn Backend> {
         self.backends
@@ -75,7 +72,7 @@ impl BackendRegistry {
             .find(|b| b.device_type() == device_type)
             .map(|b| b.as_ref())
     }
-    
+
     /// List all available backends
     pub fn available_backends(&self) -> Vec<&dyn Backend> {
         self.backends.iter().map(|b| b.as_ref()).collect()
@@ -94,10 +91,8 @@ static INIT: std::sync::Once = std::sync::Once::new();
 
 /// Initialize the global backend registry
 pub fn init_backends() {
-    INIT.call_once(|| {
-        unsafe {
-            BACKEND_REGISTRY = Some(BackendRegistry::new());
-        }
+    INIT.call_once(|| unsafe {
+        BACKEND_REGISTRY = Some(BackendRegistry::new());
     });
 }
 
@@ -133,15 +128,15 @@ pub fn get_backend(device_type: CoreDeviceType) -> Option<&'static dyn Backend> 
 /// Prelude module for convenient imports
 pub mod prelude {
     pub use crate::{
-        Backend, BackendResult, Buffer, Device, Kernel, MemoryManager,
-        default_backend, get_backend, register_backend,
+        default_backend, get_backend, register_backend, Backend, BackendResult, Buffer, Device,
+        Kernel, MemoryManager,
     };
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_backend_registry() {
         let mut registry = BackendRegistry::new();

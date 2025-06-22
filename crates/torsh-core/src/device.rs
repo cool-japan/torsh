@@ -32,16 +32,16 @@ impl fmt::Display for DeviceType {
 pub trait Device: Send + Sync + 'static {
     /// Get the device type
     fn device_type(&self) -> DeviceType;
-    
+
     /// Check if the device is available
     fn is_available(&self) -> bool;
-    
+
     /// Synchronize the device
     fn synchronize(&self) -> Result<()>;
-    
+
     /// Get device name/description
     fn name(&self) -> &str;
-    
+
     /// Get device memory info (free, total) in bytes
     fn memory_info(&self) -> Result<(usize, usize)>;
 }
@@ -54,20 +54,20 @@ impl Device for CpuDevice {
     fn device_type(&self) -> DeviceType {
         DeviceType::Cpu
     }
-    
+
     fn is_available(&self) -> bool {
         true
     }
-    
+
     fn synchronize(&self) -> Result<()> {
         // CPU operations are synchronous
         Ok(())
     }
-    
+
     fn name(&self) -> &str {
         "CPU"
     }
-    
+
     fn memory_info(&self) -> Result<(usize, usize)> {
         // For CPU, return system memory info
         // This is a placeholder - real implementation would query system
@@ -85,20 +85,26 @@ pub fn parse_device(device_str: &str) -> Result<DeviceType> {
     match device_str {
         "cpu" => Ok(DeviceType::Cpu),
         s if s.starts_with("cuda:") => {
-            let id = s[5..].parse::<usize>()
+            let id = s[5..]
+                .parse::<usize>()
                 .map_err(|_| TorshError::InvalidShape(format!("Invalid device: {}", s)))?;
             Ok(DeviceType::Cuda(id))
         }
         s if s.starts_with("metal:") => {
-            let id = s[6..].parse::<usize>()
+            let id = s[6..]
+                .parse::<usize>()
                 .map_err(|_| TorshError::InvalidShape(format!("Invalid device: {}", s)))?;
             Ok(DeviceType::Metal(id))
         }
         s if s.starts_with("wgpu:") => {
-            let id = s[5..].parse::<usize>()
+            let id = s[5..]
+                .parse::<usize>()
                 .map_err(|_| TorshError::InvalidShape(format!("Invalid device: {}", s)))?;
             Ok(DeviceType::Wgpu(id))
         }
-        _ => Err(TorshError::InvalidShape(format!("Unknown device: {}", device_str))),
+        _ => Err(TorshError::InvalidShape(format!(
+            "Unknown device: {}",
+            device_str
+        ))),
     }
 }

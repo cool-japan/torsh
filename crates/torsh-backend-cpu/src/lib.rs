@@ -35,8 +35,8 @@ pub use kernel::{CpuKernel, CpuKernelExecutor};
 pub use memory::CpuMemoryManager;
 pub use profiler::CpuProfiler;
 
-use torsh_backends::{Backend, BackendResult};
 use torsh_backends::backend::BackendFactory;
+use torsh_backends::{Backend, BackendResult};
 use torsh_core::device::DeviceType;
 
 #[cfg(not(feature = "std"))]
@@ -49,11 +49,11 @@ impl BackendFactory for CpuBackendFactory {
     fn create(&self) -> BackendResult<Box<dyn Backend>> {
         Ok(Box::new(CpuBackend::new()?))
     }
-    
+
     fn device_type(&self) -> DeviceType {
         DeviceType::Cpu
     }
-    
+
     fn is_available(&self) -> bool {
         true // CPU backend is always available
     }
@@ -72,8 +72,8 @@ pub fn init() -> BackendResult<()> {
 /// Prelude module for convenient imports
 pub mod prelude {
     pub use crate::{
-        CpuBackend, CpuBackendFactory, CpuBuffer, CpuDevice, 
-        CpuKernel, CpuMemoryManager, CpuProfiler, init,
+        init, CpuBackend, CpuBackendFactory, CpuBuffer, CpuDevice, CpuKernel, CpuMemoryManager,
+        CpuProfiler,
     };
 }
 
@@ -81,17 +81,17 @@ pub mod prelude {
 mod tests {
     use super::*;
     use tokio;
-    
+
     #[tokio::test]
     async fn test_cpu_backend_creation() {
         let factory = CpuBackendFactory;
         assert!(factory.is_available());
         assert_eq!(factory.device_type(), DeviceType::Cpu);
-        
+
         let backend = factory.create().unwrap();
         assert!(backend.is_available().unwrap());
     }
-    
+
     #[test]
     fn test_init() {
         assert!(init().is_ok());

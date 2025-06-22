@@ -1,10 +1,10 @@
 //! Parameter management utilities
 
 use crate::Parameter;
-use torsh_tensor::Tensor;
-use torsh_core::device::DeviceType;
-use std::sync::Arc;
 use parking_lot::RwLock;
+use std::sync::Arc;
+use torsh_core::device::DeviceType;
+use torsh_tensor::Tensor;
 
 /// ParameterList for managing a list of parameters
 pub struct ParameterList {
@@ -18,34 +18,32 @@ impl ParameterList {
             parameters: Vec::new(),
         }
     }
-    
+
     /// Append a parameter
     pub fn append(&mut self, param: Parameter) {
         self.parameters.push(param);
     }
-    
+
     /// Get the number of parameters
     pub fn len(&self) -> usize {
         self.parameters.len()
     }
-    
+
     /// Check if empty
     pub fn is_empty(&self) -> bool {
         self.parameters.is_empty()
     }
-    
+
     /// Get a parameter by index
     pub fn get(&self, index: usize) -> Option<&Parameter> {
         self.parameters.get(index)
     }
-    
+
     /// Get all parameters as tensors
     pub fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
-        self.parameters.iter()
-            .map(|p| p.tensor())
-            .collect()
+        self.parameters.iter().map(|p| p.tensor()).collect()
     }
-    
+
     /// Move all parameters to a device
     pub fn to(&mut self, device: DeviceType) -> Result<(), torsh_core::error::TorshError> {
         for param in &mut self.parameters {
@@ -75,51 +73,50 @@ impl ParameterDict {
             parameters: std::collections::HashMap::new(),
         }
     }
-    
+
     /// Insert a parameter
     pub fn insert(&mut self, key: String, param: Parameter) {
         self.parameters.insert(key, param);
     }
-    
+
     /// Get a parameter by key
     pub fn get(&self, key: &str) -> Option<&Parameter> {
         self.parameters.get(key)
     }
-    
+
     /// Remove a parameter
     pub fn remove(&mut self, key: &str) -> Option<Parameter> {
         self.parameters.remove(key)
     }
-    
+
     /// Get the number of parameters
     pub fn len(&self) -> usize {
         self.parameters.len()
     }
-    
+
     /// Check if empty
     pub fn is_empty(&self) -> bool {
         self.parameters.is_empty()
     }
-    
+
     /// Get all keys
     pub fn keys(&self) -> impl Iterator<Item = &String> {
         self.parameters.keys()
     }
-    
+
     /// Get all parameters as tensors
     pub fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
-        self.parameters.values()
-            .map(|p| p.tensor())
-            .collect()
+        self.parameters.values().map(|p| p.tensor()).collect()
     }
-    
+
     /// Get named parameters
     pub fn named_parameters(&self) -> std::collections::HashMap<String, Arc<RwLock<Tensor>>> {
-        self.parameters.iter()
+        self.parameters
+            .iter()
             .map(|(k, v)| (k.clone(), v.tensor()))
             .collect()
     }
-    
+
     /// Move all parameters to a device
     pub fn to(&mut self, device: DeviceType) -> Result<(), torsh_core::error::TorshError> {
         for param in self.parameters.values_mut() {
@@ -141,22 +138,21 @@ impl Default for ParameterDict {
 pub mod utils {
     use super::*;
     use torsh_autograd::grad_mode::clip::{clip_grad_norm, clip_grad_value};
-    
+
     /// Count the total number of parameters
     pub fn count_parameters(parameters: &[Arc<RwLock<Tensor>>]) -> usize {
-        parameters.iter()
-            .map(|p| p.read().numel())
-            .sum()
+        parameters.iter().map(|p| p.read().numel()).sum()
     }
-    
+
     /// Count trainable parameters
     pub fn count_trainable_parameters(parameters: &[Arc<RwLock<Tensor>>]) -> usize {
-        parameters.iter()
+        parameters
+            .iter()
             .filter(|p| p.read().requires_grad())
             .map(|p| p.read().numel())
             .sum()
     }
-    
+
     /// Freeze parameters (disable gradients)
     pub fn freeze_parameters(parameters: &[Arc<RwLock<Tensor>>]) {
         for param in parameters {
@@ -164,7 +160,7 @@ pub mod utils {
             *tensor = tensor.clone().requires_grad_(false);
         }
     }
-    
+
     /// Unfreeze parameters (enable gradients)
     pub fn unfreeze_parameters(parameters: &[Arc<RwLock<Tensor>>]) {
         for param in parameters {
@@ -172,56 +168,52 @@ pub mod utils {
             *tensor = tensor.clone().requires_grad_(true);
         }
     }
-    
+
     /// Zero all gradients
     pub fn zero_grad(parameters: &[Arc<RwLock<Tensor>>]) {
         for param in parameters {
             param.write().zero_grad();
         }
     }
-    
+
     /// Clip gradients by norm
     pub fn clip_grad_norm_<T: torsh_core::dtype::FloatElement>(
         parameters: &mut [Arc<RwLock<Tensor<T>>>],
         max_norm: f32,
         norm_type: f32,
     ) -> f32 {
-        let mut tensors: Vec<_> = parameters.iter()
-            .map(|p| p.write().clone())
-            .collect();
-        
+        let mut tensors: Vec<_> = parameters.iter().map(|p| p.write().clone()).collect();
+
         clip_grad_norm(&mut tensors, max_norm, norm_type)
     }
-    
+
     /// Clip gradients by value
     pub fn clip_grad_value_<T: torsh_core::dtype::FloatElement>(
         parameters: &mut [Arc<RwLock<Tensor<T>>>],
         clip_value: f32,
     ) {
-        let mut tensors: Vec<_> = parameters.iter()
-            .map(|p| p.write().clone())
-            .collect();
-        
+        let mut tensors: Vec<_> = parameters.iter().map(|p| p.write().clone()).collect();
+
         clip_grad_value(&mut tensors, clip_value)
     }
-    
+
     /// Get parameter statistics
     pub fn parameter_stats(parameters: &[Arc<RwLock<Tensor>>]) -> ParameterStats {
         let total_params = count_parameters(parameters);
         let trainable_params = count_trainable_parameters(parameters);
-        
+
         let mut total_memory = 0;
         let mut param_groups = std::collections::HashMap::new();
-        
+
         for param in parameters {
             let tensor = param.read();
             let memory = tensor.numel() * tensor.dtype().size();
             total_memory += memory;
-            
+
             let shape_str = format!("{:?}", tensor.shape().dims());
             *param_groups.entry(shape_str).or_insert(0) += 1;
         }
-        
+
         ParameterStats {
             total_params,
             trainable_params,
@@ -246,8 +238,16 @@ impl std::fmt::Display for ParameterStats {
         writeln!(f, "Parameter Statistics:")?;
         writeln!(f, "  Total parameters: {}", self.total_params)?;
         writeln!(f, "  Trainable parameters: {}", self.trainable_params)?;
-        writeln!(f, "  Non-trainable parameters: {}", self.non_trainable_params)?;
-        writeln!(f, "  Total memory: {:.2} MB", self.total_memory_bytes as f64 / 1_048_576.0)?;
+        writeln!(
+            f,
+            "  Non-trainable parameters: {}",
+            self.non_trainable_params
+        )?;
+        writeln!(
+            f,
+            "  Total memory: {:.2} MB",
+            self.total_memory_bytes as f64 / 1_048_576.0
+        )?;
         writeln!(f, "  Parameter groups:")?;
         for (shape, count) in &self.param_groups {
             writeln!(f, "    {}: {} tensors", shape, count)?;

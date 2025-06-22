@@ -1,19 +1,19 @@
 //! Data transformation utilities
 
-use torsh_tensor::Tensor;
 use torsh_core::{
-    error::{Result, TorshError},
     dtype::TensorElement,
+    error::{Result, TorshError},
 };
+use torsh_tensor::Tensor;
 
 #[cfg(not(feature = "std"))]
-use alloc::{vec::Vec, boxed::Box};
+use alloc::{boxed::Box, vec::Vec};
 
 /// Trait for data transformations
 pub trait Transform<T>: Send + Sync {
     /// Output type after transformation
     type Output;
-    
+
     /// Apply the transformation
     fn transform(&self, input: T) -> Result<Self::Output>;
 }
@@ -32,7 +32,7 @@ impl<T> Compose<T> {
 
 impl<T> Transform<T> for Compose<T> {
     type Output = T;
-    
+
     fn transform(&self, mut input: T) -> Result<Self::Output> {
         for transform in &self.transforms {
             input = transform.transform(input)?;
@@ -52,17 +52,17 @@ impl<T: TensorElement> Normalize<T> {
     pub fn new(mean: Vec<T>, std: Vec<T>) -> Result<Self> {
         if mean.len() != std.len() {
             return Err(TorshError::InvalidArgument(
-                "Mean and std must have the same length".to_string()
+                "Mean and std must have the same length".to_string(),
             ));
         }
-        
+
         Ok(Self { mean, std })
     }
 }
 
 impl<T: TensorElement> Transform<Tensor<T>> for Normalize<T> {
     type Output = Tensor<T>;
-    
+
     fn transform(&self, input: Tensor<T>) -> Result<Self::Output> {
         // TODO: Implement actual normalization when tensor operations are complete
         // (input - mean) / std
@@ -92,7 +92,7 @@ impl<From, To> ToType<From, To> {
 
 impl<From: TensorElement, To: TensorElement> Transform<Tensor<From>> for ToType<From, To> {
     type Output = Tensor<To>;
-    
+
     fn transform(&self, input: Tensor<From>) -> Result<Self::Output> {
         // TODO: Implement actual type conversion
         // For now, create a placeholder tensor
@@ -117,7 +117,7 @@ where
     F: Fn(T) -> Result<O> + Send + Sync,
 {
     type Output = O;
-    
+
     fn transform(&self, input: T) -> Result<Self::Output> {
         (self.func)(input)
     }
@@ -127,27 +127,30 @@ where
 pub mod tensor {
     use super::*;
     use torsh_core::dtype::FloatElement;
-    
+
     /// Random horizontal flip
     pub struct RandomHorizontalFlip {
         prob: f32,
     }
-    
+
     impl RandomHorizontalFlip {
         /// Create a new random horizontal flip transform
         pub fn new(prob: f32) -> Self {
-            assert!((0.0..=1.0).contains(&prob), "Probability must be between 0 and 1");
+            assert!(
+                (0.0..=1.0).contains(&prob),
+                "Probability must be between 0 and 1"
+            );
             Self { prob }
         }
     }
-    
+
     impl<T: FloatElement> Transform<Tensor<T>> for RandomHorizontalFlip {
         type Output = Tensor<T>;
-        
+
         fn transform(&self, input: Tensor<T>) -> Result<Self::Output> {
             use rand::Rng;
             let mut rng = rand::thread_rng();
-            
+
             if rng.gen::<f32>() < self.prob {
                 // TODO: Implement actual horizontal flip
                 Ok(input)
@@ -156,13 +159,13 @@ pub mod tensor {
             }
         }
     }
-    
+
     /// Random crop
     pub struct RandomCrop {
         size: (usize, usize),
         padding: Option<usize>,
     }
-    
+
     impl RandomCrop {
         /// Create a new random crop transform
         pub fn new(size: (usize, usize)) -> Self {
@@ -171,29 +174,29 @@ pub mod tensor {
                 padding: None,
             }
         }
-        
+
         /// Set padding
         pub fn with_padding(mut self, padding: usize) -> Self {
             self.padding = Some(padding);
             self
         }
     }
-    
+
     impl<T: TensorElement> Transform<Tensor<T>> for RandomCrop {
         type Output = Tensor<T>;
-        
+
         fn transform(&self, input: Tensor<T>) -> Result<Self::Output> {
             // TODO: Implement actual random crop
             Ok(input)
         }
     }
-    
+
     /// Resize tensor
     pub struct Resize {
         size: (usize, usize),
         interpolation: InterpolationMode,
     }
-    
+
     /// Interpolation modes for resizing
     #[derive(Clone, Copy, Debug)]
     pub enum InterpolationMode {
@@ -202,7 +205,7 @@ pub mod tensor {
         Bilinear,
         Bicubic,
     }
-    
+
     impl Resize {
         /// Create a new resize transform
         pub fn new(size: (usize, usize)) -> Self {
@@ -211,39 +214,39 @@ pub mod tensor {
                 interpolation: InterpolationMode::Bilinear,
             }
         }
-        
+
         /// Set interpolation mode
         pub fn with_interpolation(mut self, mode: InterpolationMode) -> Self {
             self.interpolation = mode;
             self
         }
     }
-    
+
     impl<T: FloatElement> Transform<Tensor<T>> for Resize {
         type Output = Tensor<T>;
-        
+
         fn transform(&self, input: Tensor<T>) -> Result<Self::Output> {
             // TODO: Implement actual resize operation
             Ok(input)
         }
     }
-    
+
     /// Center crop
     pub struct CenterCrop {
         #[allow(dead_code)]
         size: (usize, usize),
     }
-    
+
     impl CenterCrop {
         /// Create a new center crop transform
         pub fn new(size: (usize, usize)) -> Self {
             Self { size }
         }
     }
-    
+
     impl<T: TensorElement> Transform<Tensor<T>> for CenterCrop {
         type Output = Tensor<T>;
-        
+
         fn transform(&self, input: Tensor<T>) -> Result<Self::Output> {
             // TODO: Implement actual center crop
             Ok(input)
@@ -254,53 +257,55 @@ pub mod tensor {
 /// String and text transformations
 pub mod text {
     use super::*;
-    
+
     /// Convert text to lowercase
     pub struct ToLowercase;
-    
+
     impl Transform<String> for ToLowercase {
         type Output = String;
-        
+
         fn transform(&self, input: String) -> Result<Self::Output> {
             Ok(input.to_lowercase())
         }
     }
-    
+
     /// Remove punctuation
     pub struct RemovePunctuation;
-    
+
     impl Transform<String> for RemovePunctuation {
         type Output = String;
-        
+
         fn transform(&self, input: String) -> Result<Self::Output> {
-            Ok(input.chars()
+            Ok(input
+                .chars()
                 .filter(|c| !c.is_ascii_punctuation())
                 .collect())
         }
     }
-    
+
     /// Tokenize text into words
     pub struct Tokenize {
         delimiter: String,
     }
-    
+
     impl Tokenize {
         /// Create a new tokenize transform
         pub fn new(delimiter: String) -> Self {
             Self { delimiter }
         }
-        
+
         /// Create with whitespace delimiter
         pub fn whitespace() -> Self {
             Self::new(" ".to_string())
         }
     }
-    
+
     impl Transform<String> for Tokenize {
         type Output = Vec<String>;
-        
+
         fn transform(&self, input: String) -> Result<Self::Output> {
-            Ok(input.split(&self.delimiter)
+            Ok(input
+                .split(&self.delimiter)
                 .map(|s| s.to_string())
                 .collect())
         }
@@ -328,7 +333,7 @@ pub fn compose<T>(transforms: Vec<Box<dyn Transform<T, Output = T> + Send + Sync
 mod tests {
     use super::*;
     use torsh_tensor::creation::*;
-    
+
     #[test]
     fn test_normalize() {
         let transform = Normalize::new(vec![0.5f32], vec![0.25f32]).unwrap();
@@ -336,14 +341,14 @@ mod tests {
         let result = transform.transform(input);
         assert!(result.is_ok());
     }
-    
+
     #[test]
     fn test_lambda() {
         let transform = Lambda::new(|x: i32| Ok(x * 2));
         let result = transform.transform(5).unwrap();
         assert_eq!(result, 10);
     }
-    
+
     #[test]
     fn test_text_transforms() {
         let lowercase = text::ToLowercase;
@@ -351,19 +356,19 @@ mod tests {
             lowercase.transform("HELLO WORLD".to_string()).unwrap(),
             "hello world"
         );
-        
+
         let tokenize = text::Tokenize::whitespace();
         let tokens = tokenize.transform("hello world test".to_string()).unwrap();
         assert_eq!(tokens, vec!["hello", "world", "test"]);
     }
-    
+
     #[test]
     fn test_tensor_transforms() {
         let flip = tensor::RandomHorizontalFlip::new(1.0);
         let input = ones::<f32>(&[3, 224, 224]);
         let result = flip.transform(input);
         assert!(result.is_ok());
-        
+
         let resize = tensor::Resize::new((128, 128));
         let input = ones::<f32>(&[3, 224, 224]);
         let result = resize.transform(input);

@@ -15,8 +15,8 @@ fn main() {
         } else {
             // Fallback: try common paths
             for path in &[
-                "/opt/homebrew/lib",  // Apple Silicon Homebrew
-                "/usr/local/lib",     // Intel Homebrew
+                "/opt/homebrew/lib", // Apple Silicon Homebrew
+                "/usr/local/lib",    // Intel Homebrew
             ] {
                 if std::path::Path::new(&format!("{path}/libomp.dylib")).exists() {
                     println!("cargo:rustc-link-search=native={path}");
@@ -26,7 +26,7 @@ fn main() {
             }
         }
     }
-    
+
     // Link OpenMP on Linux
     #[cfg(target_os = "linux")]
     {

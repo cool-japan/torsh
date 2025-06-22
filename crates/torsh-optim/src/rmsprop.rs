@@ -1,12 +1,12 @@
 //! RMSprop optimizer
 
-use crate::{Optimizer, OptimizerState, ParamGroup, optimizer::BaseOptimizer};
-use torsh_core::error::{Result, TorshError};
-use torsh_tensor::{Tensor, creation::zeros_like};
-use torsh_autograd::prelude::*;
-use std::sync::Arc;
+use crate::{optimizer::BaseOptimizer, Optimizer, OptimizerState, ParamGroup};
 use parking_lot::RwLock;
 use std::collections::HashMap;
+use std::sync::Arc;
+use torsh_autograd::prelude::*;
+use torsh_core::error::{Result, TorshError};
+use torsh_tensor::{creation::zeros_like, Tensor};
 
 /// RMSprop optimizer
 pub struct RMSprop {
@@ -34,7 +34,7 @@ impl RMSprop {
         let eps = eps.unwrap_or(1e-8);
         let weight_decay = weight_decay.unwrap_or(0.0);
         let momentum = momentum.unwrap_or(0.0);
-        
+
         let mut defaults = HashMap::new();
         defaults.insert("lr".to_string(), lr);
         defaults.insert("alpha".to_string(), alpha);
@@ -42,16 +42,16 @@ impl RMSprop {
         defaults.insert("weight_decay".to_string(), weight_decay);
         defaults.insert("momentum".to_string(), momentum);
         defaults.insert("centered".to_string(), if centered { 1.0 } else { 0.0 });
-        
+
         let param_group = ParamGroup::new(params, lr);
-        
+
         let base = BaseOptimizer {
             param_groups: vec![param_group],
             state: HashMap::new(),
             optimizer_type: "RMSprop".to_string(),
             defaults,
         };
-        
+
         Self {
             base,
             alpha,
@@ -68,30 +68,31 @@ impl Optimizer for RMSprop {
         // Temporarily disabled - would implement RMSprop algorithm when tensor ops are ready
         // For now, return a placeholder error
         Err(TorshError::Other(
-            "RMSprop optimizer step not yet implemented - pending tensor operation integration".to_string()
+            "RMSprop optimizer step not yet implemented - pending tensor operation integration"
+                .to_string(),
         ))
     }
-    
+
     fn zero_grad(&mut self) {
         self.base.zero_grad();
     }
-    
+
     fn get_lr(&self) -> Vec<f32> {
         self.base.get_lr()
     }
-    
+
     fn set_lr(&mut self, lr: f32) {
         self.base.set_lr(lr);
     }
-    
+
     fn add_param_group(&mut self, params: Vec<Arc<RwLock<Tensor>>>, options: HashMap<String, f32>) {
         self.base.add_param_group(params, options);
     }
-    
+
     fn state_dict(&self) -> OptimizerState {
         self.base.state_dict()
     }
-    
+
     fn load_state_dict(&mut self, state: OptimizerState) -> Result<()> {
         self.base.load_state_dict(state)
     }
@@ -118,37 +119,37 @@ impl RMSpropBuilder {
             centered: false,
         }
     }
-    
+
     pub fn lr(mut self, lr: f32) -> Self {
         self.lr = lr;
         self
     }
-    
+
     pub fn alpha(mut self, alpha: f32) -> Self {
         self.alpha = alpha;
         self
     }
-    
+
     pub fn eps(mut self, eps: f32) -> Self {
         self.eps = eps;
         self
     }
-    
+
     pub fn weight_decay(mut self, weight_decay: f32) -> Self {
         self.weight_decay = weight_decay;
         self
     }
-    
+
     pub fn momentum(mut self, momentum: f32) -> Self {
         self.momentum = momentum;
         self
     }
-    
+
     pub fn centered(mut self, centered: bool) -> Self {
         self.centered = centered;
         self
     }
-    
+
     pub fn build(self, params: Vec<Arc<RwLock<Tensor>>>) -> RMSprop {
         RMSprop::new(
             params,

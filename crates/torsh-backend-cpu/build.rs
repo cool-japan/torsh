@@ -11,7 +11,7 @@ fn main() {
             println!("cargo:rustc-link-lib=omp");
         }
     }
-    
+
     // For other Unix systems
     #[cfg(all(unix, not(target_os = "macos")))]
     {

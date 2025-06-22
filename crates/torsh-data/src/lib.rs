@@ -8,10 +8,10 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 
-pub mod dataset;
-pub mod dataloader;
-pub mod sampler;
 pub mod collate;
+pub mod dataloader;
+pub mod dataset;
+pub mod sampler;
 pub mod transforms;
 
 #[cfg(feature = "image-support")]
@@ -23,23 +23,23 @@ pub mod tabular;
 #[cfg(feature = "audio-support")]
 pub mod audio;
 
-pub use dataset::{Dataset, IterableDataset, TensorDataset};
-pub use dataloader::{DataLoader, DataLoaderBuilder};
-pub use sampler::{Sampler, SequentialSampler, RandomSampler, BatchSampler};
 pub use collate::{collate_fn, Collate};
+pub use dataloader::{DataLoader, DataLoaderBuilder};
+pub use dataset::{Dataset, IterableDataset, TensorDataset};
+pub use sampler::{BatchSampler, RandomSampler, Sampler, SequentialSampler};
 
 /// Prelude module for convenient imports
 pub mod prelude {
-    pub use crate::dataset::*;
-    pub use crate::dataloader::*;
-    pub use crate::sampler::*;
     pub use crate::collate::*;
+    pub use crate::dataloader::*;
+    pub use crate::dataset::*;
+    pub use crate::sampler::*;
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_imports() {
         // Basic smoke test

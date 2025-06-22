@@ -27,12 +27,12 @@ impl AutogradContext {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     /// Check if gradients are enabled in this context
     pub fn is_grad_enabled(&self) -> bool {
         GRAD_MODE.read().enabled && self.owns_grad
     }
-    
+
     /// Execute a function within this context (placeholder)
     pub fn run<F, R>(&mut self, f: F) -> Result<R>
     where
@@ -40,22 +40,22 @@ impl AutogradContext {
     {
         f()
     }
-    
+
     /// Clear the computation graph (placeholder)
     pub fn clear_graph(&mut self) {
         // Placeholder - would clear scirs2 graph when integrated
     }
-    
+
     /// Enable gradient checkpointing for memory efficiency (placeholder)
     pub fn enable_checkpointing(&mut self) {
         // Placeholder - would enable scirs2 checkpointing when integrated
     }
-    
+
     /// Disable gradient checkpointing (placeholder)
     pub fn disable_checkpointing(&mut self) {
         // Placeholder - would disable scirs2 checkpointing when integrated
     }
-    
+
     /// Get the number of operations in the graph (placeholder)
     pub fn graph_size(&self) -> usize {
         // Placeholder - would return scirs2 graph size when integrated
@@ -65,7 +65,7 @@ impl AutogradContext {
 
 // Thread-local autograd context
 thread_local! {
-    static THREAD_CONTEXT: std::cell::RefCell<Option<AutogradContext>> = 
+    static THREAD_CONTEXT: std::cell::RefCell<Option<AutogradContext>> =
         const { std::cell::RefCell::new(None) };
 }
 
@@ -87,11 +87,11 @@ where
 {
     let mut ctx = get_or_create_context()?;
     let result = f(&mut ctx);
-    
+
     // Store context back
     THREAD_CONTEXT.with(|thread_ctx| {
         *thread_ctx.borrow_mut() = Some(ctx);
     });
-    
+
     result
 }

@@ -17,22 +17,24 @@ impl MetricsCollector {
             cpu_tracker: CpuTracker::new(),
         }
     }
-    
+
     /// Start collecting metrics
     pub fn start(&mut self) {
         self.start_time = Some(Instant::now());
         self.memory_tracker.start();
         self.cpu_tracker.start();
     }
-    
+
     /// Stop collecting metrics and return results
     pub fn stop(&mut self) -> SystemMetrics {
-        let elapsed = self.start_time.map(|start| start.elapsed())
+        let elapsed = self
+            .start_time
+            .map(|start| start.elapsed())
             .unwrap_or(Duration::ZERO);
-        
+
         let memory_stats = self.memory_tracker.stop();
         let cpu_stats = self.cpu_tracker.stop();
-        
+
         SystemMetrics {
             elapsed_time: elapsed,
             memory_stats,
@@ -64,7 +66,7 @@ impl SystemMetrics {
             0.0
         }
     }
-    
+
     /// Get CPU utilization percentage
     pub fn cpu_utilization(&self) -> f64 {
         self.cpu_stats.average_usage_percent
@@ -76,22 +78,22 @@ impl SystemMetrics {
 pub struct MemoryStats {
     /// Initial memory usage in MB
     pub initial_usage_mb: f64,
-    
+
     /// Peak memory usage in MB
     pub peak_usage_mb: f64,
-    
+
     /// Final memory usage in MB
     pub final_usage_mb: f64,
-    
+
     /// Memory allocated during benchmark in MB
     pub allocated_mb: f64,
-    
+
     /// Memory deallocated during benchmark in MB
     pub deallocated_mb: f64,
-    
+
     /// Number of allocations
     pub allocation_count: usize,
-    
+
     /// Number of deallocations
     pub deallocation_count: usize,
 }
@@ -115,13 +117,13 @@ impl Default for MemoryStats {
 pub struct CpuStats {
     /// Average CPU usage percentage
     pub average_usage_percent: f64,
-    
+
     /// Peak CPU usage percentage
     pub peak_usage_percent: f64,
-    
+
     /// Number of CPU cores used
     pub cores_used: usize,
-    
+
     /// Context switches during benchmark
     pub context_switches: usize,
 }
@@ -154,7 +156,7 @@ impl MemoryTracker {
             start_time: None,
         }
     }
-    
+
     /// Start tracking memory usage
     pub fn start(&mut self) {
         self.start_time = Some(Instant::now());
@@ -162,12 +164,12 @@ impl MemoryTracker {
         self.peak_usage = self.initial_usage.unwrap_or(0.0);
         self.samples.clear();
     }
-    
+
     /// Stop tracking and return statistics
     pub fn stop(&mut self) -> MemoryStats {
         let current_usage = Self::get_process_memory_mb();
         let initial = self.initial_usage.unwrap_or(0.0);
-        
+
         MemoryStats {
             initial_usage_mb: initial,
             peak_usage_mb: self.peak_usage,
@@ -178,7 +180,7 @@ impl MemoryTracker {
             deallocation_count: 0,
         }
     }
-    
+
     /// Sample current memory usage
     pub fn sample(&mut self) {
         let usage = Self::get_process_memory_mb();
@@ -187,7 +189,7 @@ impl MemoryTracker {
             self.peak_usage = usage;
         }
     }
-    
+
     /// Get current process memory usage in MB
     fn get_process_memory_mb() -> f64 {
         // Simplified implementation - would use platform-specific APIs in production
@@ -205,7 +207,7 @@ impl MemoryTracker {
                 }
             }
         }
-        
+
         // Fallback: rough estimate based on allocation tracking
         // In a real implementation, this would use proper system APIs
         0.0
@@ -233,14 +235,14 @@ impl CpuTracker {
             start_time: None,
         }
     }
-    
+
     /// Start tracking CPU usage
     pub fn start(&mut self) {
         self.start_time = Some(Instant::now());
         self.samples.clear();
         self.peak_usage = 0.0;
     }
-    
+
     /// Stop tracking and return statistics
     pub fn stop(&mut self) -> CpuStats {
         let average_usage = if self.samples.is_empty() {
@@ -248,7 +250,7 @@ impl CpuTracker {
         } else {
             self.samples.iter().sum::<f64>() / self.samples.len() as f64
         };
-        
+
         CpuStats {
             average_usage_percent: average_usage,
             peak_usage_percent: self.peak_usage,
@@ -256,7 +258,7 @@ impl CpuTracker {
             context_switches: 0, // Would need system monitoring to track this
         }
     }
-    
+
     /// Sample current CPU usage
     pub fn sample(&mut self) {
         let usage = Self::get_cpu_usage_percent();
@@ -265,7 +267,7 @@ impl CpuTracker {
             self.peak_usage = usage;
         }
     }
-    
+
     /// Get current CPU usage percentage
     fn get_cpu_usage_percent() -> f64 {
         // Simplified implementation
@@ -295,7 +297,7 @@ impl PerformanceProfiler {
             start_time: Instant::now(),
         }
     }
-    
+
     /// Begin a profiling event
     pub fn begin_event(&mut self, name: &str) {
         let event = ProfileEvent {
@@ -305,17 +307,17 @@ impl PerformanceProfiler {
             thread_id: std::thread::current().id(),
             stack_depth: self.current_stack.len(),
         };
-        
+
         self.current_stack.push(name.to_string());
         self.events.push(event);
     }
-    
+
     /// End a profiling event
     pub fn end_event(&mut self, name: &str) {
         if let Some(stack_name) = self.current_stack.pop() {
             assert_eq!(stack_name, name, "Mismatched profiling events");
         }
-        
+
         let event = ProfileEvent {
             name: name.to_string(),
             event_type: ProfileEventType::End,
@@ -323,10 +325,10 @@ impl PerformanceProfiler {
             thread_id: std::thread::current().id(),
             stack_depth: self.current_stack.len(),
         };
-        
+
         self.events.push(event);
     }
-    
+
     /// Add an instant marker
     pub fn marker(&mut self, name: &str) {
         let event = ProfileEvent {
@@ -336,25 +338,25 @@ impl PerformanceProfiler {
             thread_id: std::thread::current().id(),
             stack_depth: self.current_stack.len(),
         };
-        
+
         self.events.push(event);
     }
-    
+
     /// Generate Chrome tracing format output
     pub fn export_chrome_trace(&self, path: &str) -> std::io::Result<()> {
         use std::io::Write;
         let mut file = std::fs::File::create(path)?;
-        
+
         writeln!(file, "{{")?;
         writeln!(file, "  \"traceEvents\": [")?;
-        
+
         for (i, event) in self.events.iter().enumerate() {
             let phase = match event.event_type {
                 ProfileEventType::Begin => "B",
-                ProfileEventType::End => "E", 
+                ProfileEventType::End => "E",
                 ProfileEventType::Marker => "i",
             };
-            
+
             writeln!(
                 file,
                 "    {{\"name\": \"{}\", \"ph\": \"{}\", \"ts\": {}, \"pid\": 1, \"tid\": {:?}}}{}",
@@ -365,18 +367,18 @@ impl PerformanceProfiler {
                 if i < self.events.len() - 1 { "," } else { "" }
             )?;
         }
-        
+
         writeln!(file, "  ]")?;
         writeln!(file, "}}")?;
-        
+
         Ok(())
     }
-    
+
     /// Generate performance report
     pub fn generate_report(&self) -> PerformanceReport {
         let mut durations = std::collections::HashMap::new();
         let mut stack = Vec::new();
-        
+
         for event in &self.events {
             match event.event_type {
                 ProfileEventType::Begin => {
@@ -386,7 +388,8 @@ impl PerformanceProfiler {
                     if let Some((name, start_time)) = stack.pop() {
                         assert_eq!(name, event.name);
                         let duration = event.timestamp - start_time;
-                        durations.entry(name)
+                        durations
+                            .entry(name)
                             .or_insert_with(Vec::new)
                             .push(duration);
                     }
@@ -394,14 +397,14 @@ impl PerformanceProfiler {
                 ProfileEventType::Marker => {} // Instant events don't have duration
             }
         }
-        
+
         let mut function_stats = Vec::new();
         for (name, times) in durations {
             let total_time: Duration = times.iter().sum();
             let avg_time = total_time / times.len() as u32;
             let min_time = times.iter().min().copied().unwrap_or_default();
             let max_time = times.iter().max().copied().unwrap_or_default();
-            
+
             function_stats.push(FunctionStats {
                 name,
                 call_count: times.len(),
@@ -411,10 +414,10 @@ impl PerformanceProfiler {
                 max_time,
             });
         }
-        
+
         // Sort by total time descending
         function_stats.sort_by(|a, b| b.total_time.cmp(&a.total_time));
-        
+
         PerformanceReport {
             function_stats,
             total_events: self.events.len(),
