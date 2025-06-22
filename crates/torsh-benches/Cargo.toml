@@ -30,7 +30,7 @@ criterion = { workspace = true }
 
 # Utilities
 rand = "0.8"
-rand_distr = "0.4"
+rand_distr = "0.5"
 
 # Async and concurrency
 tokio = { workspace = true, features = ["full"] }
