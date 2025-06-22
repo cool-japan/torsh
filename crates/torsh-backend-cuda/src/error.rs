@@ -21,8 +21,8 @@ pub enum CudaError {
     #[error("CUDA stream error: {message}")]
     Stream { message: String },
     
-    #[error("cuDNN error: {message}")]
-    CudnnError { message: String },
+    #[error("cuDNN error: {0}")]
+    CudnnError(String),
     
     #[error("cuBLAS error: {message}")]
     CublasError { message: String },
@@ -48,8 +48,8 @@ pub enum CudaError {
 
 impl From<CudaError> for BackendError {
     fn from(err: CudaError) -> Self {
-        BackendError::Runtime {
-            message: err.to_string(),
+        BackendError::ComputeError {
+            reason: err.to_string(),
         }
     }
 }

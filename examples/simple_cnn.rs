@@ -23,19 +23,19 @@ impl SimpleCNN {
     fn new(num_classes: usize) -> Self {
         Self {
             // First convolutional layer: 3 input channels -> 32 output channels, 3x3 kernel
-            conv1: Conv2d::new(3, 32, (3, 3), None, Some((1, 1)), None, None, true),
-            relu1: ReLU::new(false),
+            conv1: Conv2d::new(3, 32, (3, 3), (1, 1), (1, 1), (1, 1), true, 1),
+            relu1: ReLU::new(),
 
             // Second convolutional layer: 32 -> 64 channels, 3x3 kernel
-            conv2: Conv2d::new(32, 64, (3, 3), None, Some((1, 1)), None, None, true),
-            relu2: ReLU::new(false),
+            conv2: Conv2d::new(32, 64, (3, 3), (1, 1), (1, 1), (1, 1), true, 1),
+            relu2: ReLU::new(),
 
             // Fully connected layers
             // Note: In a real CNN, we'd typically have pooling layers to reduce dimensions
             // For now, we'll use a smaller FC layer input size
             // With 32x32 input and two 3x3 convs with padding=1, output is still 32x32
             fc1: Linear::new(64 * 32 * 32, 128, true),
-            relu3: ReLU::new(false),
+            relu3: ReLU::new(),
             fc2: Linear::new(128, num_classes, true),
         }
     }

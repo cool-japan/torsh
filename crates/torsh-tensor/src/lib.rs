@@ -389,9 +389,45 @@ impl<T: TensorElement> Tensor<T> {
     }
 
     /// Unsqueeze (add dimension of size 1)
-    pub fn unsqueeze(&self, _dim: i32) -> Result<Self> {
-        // TODO: Implement unsqueeze
-        Ok(self.clone())
+    pub fn unsqueeze(&self, dim: i32) -> Result<Self> {
+        let ndim = self.ndim() as i32;
+
+        // Normalize negative dimension
+        let normalized_dim = if dim < 0 {
+            // For negative dim, it's the position before inserting
+            // e.g., -1 means insert before the last position
+            (ndim + dim + 1) as usize
+        } else {
+            dim as usize
+        };
+
+        // Check if dimension is valid (can be 0 to ndim inclusive)
+        if normalized_dim > self.ndim() {
+            return Err(TorshError::InvalidShape(format!(
+                "Dimension {} out of range for tensor with {} dimensions",
+                dim,
+                self.ndim()
+            )));
+        }
+
+        // Create new shape with dimension of size 1 inserted
+        let shape = self.shape();
+        let old_dims = shape.dims();
+        let mut new_dims = Vec::with_capacity(old_dims.len() + 1);
+
+        // Copy dimensions before the insertion point
+        new_dims.extend_from_slice(&old_dims[..normalized_dim]);
+        // Insert dimension of size 1
+        new_dims.push(1);
+        // Copy dimensions after the insertion point
+        new_dims.extend_from_slice(&old_dims[normalized_dim..]);
+
+        // Data remains the same, just the shape interpretation changes
+        let data = self.data.lock().unwrap();
+        let mut result = Self::from_data(data.clone(), new_dims, self.device);
+        result.requires_grad = self.requires_grad;
+
+        Ok(result)
     }
 }
 
@@ -493,5 +529,47 @@ mod tests {
 
         // Test if the 2D macro pattern works
         let _t2 = tensor_2d![[1.0f32, 2.0], [3.0, 4.0]];
+    }
+
+    #[test]
+    fn test_unsqueeze() {
+        // Test 1D tensor
+        let t1 = tensor![1.0f32, 2.0, 3.0];
+        assert_eq!(t1.shape().dims(), &[3]);
+
+        // Unsqueeze at dimension 0
+        let t2 = t1.unsqueeze(0).unwrap();
+        assert_eq!(t2.shape().dims(), &[1, 3]);
+
+        // Unsqueeze at dimension 1
+        let t3 = t1.unsqueeze(1).unwrap();
+        assert_eq!(t3.shape().dims(), &[3, 1]);
+
+        // Unsqueeze with negative dimension
+        let t4 = t1.unsqueeze(-1).unwrap();
+        assert_eq!(t4.shape().dims(), &[3, 1]);
+
+        // Test 2D tensor
+        let t5 = tensor_2d![[1.0f32, 2.0], [3.0, 4.0]];
+        assert_eq!(t5.shape().dims(), &[2, 2]);
+
+        // Unsqueeze at dimension 0
+        let t6 = t5.unsqueeze(0).unwrap();
+        assert_eq!(t6.shape().dims(), &[1, 2, 2]);
+
+        // Unsqueeze at dimension 2
+        let t7 = t5.unsqueeze(2).unwrap();
+        assert_eq!(t7.shape().dims(), &[2, 2, 1]);
+
+        // Chain multiple unsqueezes (like in Conv2d bias)
+        let bias = tensor![1.0f32, 2.0, 3.0, 4.0];
+        let reshaped = bias
+            .unsqueeze(0)
+            .unwrap()
+            .unsqueeze(2)
+            .unwrap()
+            .unsqueeze(3)
+            .unwrap();
+        assert_eq!(reshaped.shape().dims(), &[1, 4, 1, 1]);
     }
 }

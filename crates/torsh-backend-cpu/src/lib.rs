@@ -21,8 +21,10 @@ extern crate alloc;
 pub mod backend;
 pub mod buffer;
 pub mod device;
+pub mod error;
 pub mod kernel;
 pub mod memory;
+pub mod optimizations;
 pub mod optimized_kernels;
 pub mod profiler;
 pub mod simd;
@@ -31,8 +33,13 @@ pub mod simd;
 pub use backend::CpuBackend;
 pub use buffer::CpuBuffer;
 pub use device::CpuDevice;
+pub use error::{CpuBackendError, CpuResult};
 pub use kernel::{CpuKernel, CpuKernelExecutor};
 pub use memory::CpuMemoryManager;
+pub use optimizations::{
+    KernelFusionOptimizer, MemoryOptimizer, OptimizationLevel, OptimizationManager,
+    ThreadPoolOptimizer,
+};
 pub use profiler::CpuProfiler;
 
 use torsh_backends::backend::BackendFactory;
@@ -73,7 +80,8 @@ pub fn init() -> BackendResult<()> {
 pub mod prelude {
     pub use crate::{
         init, CpuBackend, CpuBackendFactory, CpuBuffer, CpuDevice, CpuKernel, CpuMemoryManager,
-        CpuProfiler,
+        CpuProfiler, KernelFusionOptimizer, MemoryOptimizer, OptimizationLevel,
+        OptimizationManager, ThreadPoolOptimizer,
     };
 }
 

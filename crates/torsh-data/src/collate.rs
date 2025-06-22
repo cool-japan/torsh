@@ -4,7 +4,7 @@ use torsh_core::{
     dtype::TensorElement,
     error::{Result, TorshError},
 };
-use torsh_tensor::{creation::ones, Tensor};
+use torsh_tensor::Tensor;
 
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, vec::Vec};
@@ -61,7 +61,7 @@ impl<T: TensorElement> Collate<Vec<Tensor<T>>> for DefaultCollate {
 }
 
 /// Stack tensors along a new dimension
-fn stack_tensors<T: TensorElement>(tensors: &[Tensor<T>], dim: usize) -> Result<Tensor<T>> {
+fn stack_tensors<T: TensorElement>(tensors: &[Tensor<T>], _dim: usize) -> Result<Tensor<T>> {
     if tensors.is_empty() {
         return Err(TorshError::InvalidArgument(
             "Cannot stack empty tensor list".to_string(),
@@ -114,6 +114,7 @@ pub fn collate_fn<T>() -> DefaultCollate {
 
 /// Padding collation for variable-length sequences
 pub struct PadCollate<T: TensorElement> {
+    #[allow(dead_code)]
     padding_value: T,
 }
 
@@ -209,6 +210,7 @@ pub mod examples {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use torsh_tensor::creation::ones;
 
     #[test]
     fn test_default_collate() {

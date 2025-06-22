@@ -1,8 +1,7 @@
 //! Adam and AdamW optimizers
 
 use crate::{optimizer::BaseOptimizer, Optimizer, OptimizerState, ParamGroup};
-use torsh_autograd::prelude::*;
-use torsh_core::error::{Result, TorshError};
+use torsh_core::error::Result;
 use torsh_tensor::{creation::zeros_like, Tensor};
 // Temporarily disable scirs2 integration
 // use scirs2::optim::adam::{Adam as SciAdam, AdamW as SciAdamW};
@@ -127,7 +126,7 @@ impl Optimizer for Adam {
                     let bias_correction1 = 1.0 - self.betas.0.powi(step);
                     let bias_correction2 = 1.0 - self.betas.1.powi(step);
 
-                    let corrected_exp_avg = exp_avg.div_scalar(bias_correction1)?;
+                    let _corrected_exp_avg = exp_avg.div_scalar(bias_correction1)?;
                     let corrected_exp_avg_sq = exp_avg_sq.div_scalar(bias_correction2)?;
 
                     let sqrt_corrected = corrected_exp_avg_sq.sqrt()?;

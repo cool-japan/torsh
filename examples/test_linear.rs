@@ -20,11 +20,14 @@ fn main() -> Result<()> {
 
     // Check weight shape
     let params = linear.named_parameters();
-    println!("Weight shape: {:?}", params["weight"].read().shape().dims());
+    println!(
+        "Weight shape: {:?}",
+        params["weight"].tensor().read().shape().dims()
+    );
 
     // Test matmul directly first
     println!("Testing matmul directly...");
-    let weight = params["weight"].read().clone();
+    let weight = params["weight"].tensor().read().clone();
     let test_output = input.matmul(&weight)?;
     println!(
         "Direct matmul output shape: {:?}",

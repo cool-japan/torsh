@@ -3,7 +3,7 @@
 use crate::{Module, ModuleBase, Parameter};
 use std::collections::HashMap;
 use torsh_core::device::DeviceType;
-use torsh_core::error::{Result, TorshError};
+use torsh_core::error::Result;
 use torsh_tensor::{creation::*, Tensor};
 
 /// Multi-head attention mechanism
@@ -23,20 +23,26 @@ pub struct MultiheadAttention {
 impl MultiheadAttention {
     pub fn new(embed_dim: usize, num_heads: usize) -> Self {
         let mut base = ModuleBase::new();
-        
-        assert!(embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads");
-        
+
+        assert!(
+            embed_dim % num_heads == 0,
+            "embed_dim must be divisible by num_heads"
+        );
+
         // Initialize projection weights
         let in_proj_weight = crate::init::xavier_uniform(&[3 * embed_dim, embed_dim]);
         let out_proj_weight = crate::init::xavier_uniform(&[embed_dim, embed_dim]);
-        
+
         base.register_parameter("in_proj_weight".to_string(), Parameter::new(in_proj_weight));
-        base.register_parameter("out_proj.weight".to_string(), Parameter::new(out_proj_weight));
-        
+        base.register_parameter(
+            "out_proj.weight".to_string(),
+            Parameter::new(out_proj_weight),
+        );
+
         // Initialize biases
         let in_proj_bias = zeros(&[3 * embed_dim]);
         let out_proj_bias = zeros(&[embed_dim]);
-        
+
         base.register_parameter("in_proj_bias".to_string(), Parameter::new(in_proj_bias));
         base.register_parameter("out_proj.bias".to_string(), Parameter::new(out_proj_bias));
 
@@ -54,6 +60,7 @@ impl MultiheadAttention {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn with_config(
         embed_dim: usize,
         num_heads: usize,
@@ -82,26 +89,35 @@ impl Module for MultiheadAttention {
         // Multi-head attention forward pass
         // This is a simplified implementation
         // Real implementation would handle query, key, value projections and attention computation
-        
-        let in_proj_weight = self.base.parameters["in_proj_weight"].tensor().read().clone();
-        let out_proj_weight = self.base.parameters["out_proj.weight"].tensor().read().clone();
-        
+
+        let in_proj_weight = self.base.parameters["in_proj_weight"]
+            .tensor()
+            .read()
+            .clone();
+        let out_proj_weight = self.base.parameters["out_proj.weight"]
+            .tensor()
+            .read()
+            .clone();
+
         // Simplified projection - actual implementation would split into Q, K, V
         let projected = input.matmul(&in_proj_weight.transpose(0, 1)?)?;
-        
+
         if self.bias {
             let in_proj_bias = self.base.parameters["in_proj_bias"].tensor().read().clone();
-            let projected = projected.add(&in_proj_bias)?;
+            let _projected = projected.add(&in_proj_bias)?;
         }
-        
+
         // Simplified output projection
         let output = projected.matmul(&out_proj_weight.transpose(0, 1)?)?;
-        
+
         if self.bias {
-            let out_proj_bias = self.base.parameters["out_proj.bias"].tensor().read().clone();
+            let out_proj_bias = self.base.parameters["out_proj.bias"]
+                .tensor()
+                .read()
+                .clone();
             return output.add(&out_proj_bias);
         }
-        
+
         Ok(output)
     }
 

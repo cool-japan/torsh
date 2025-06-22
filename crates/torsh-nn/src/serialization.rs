@@ -1,13 +1,13 @@
 //! Model serialization and deserialization for ToRSh neural networks
 
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 use serde_json;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
 use torsh_core::error::{Result, TorshError};
-use torsh_tensor::{creation, Tensor};
+use torsh_tensor::Tensor;
 
 #[cfg(feature = "safetensors")]
 use safetensors::SafeTensors;
@@ -365,6 +365,7 @@ pub trait Serializable {
 mod tests {
     use super::*;
     use tempfile::tempdir;
+    use torsh_tensor::creation;
 
     #[test]
     fn test_model_state_creation() {

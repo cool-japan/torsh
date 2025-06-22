@@ -30,9 +30,10 @@ impl CSVDataset {
     ) -> Result<Self> {
         #[cfg(feature = "dataframe")]
         {
-            let df = LazyFrame::scan_csv(path.as_ref(), ScanArgsCSV::default())
+            let df = CsvReadOptions::default()
+                .try_into_reader_with_file_path(Some(path.as_ref().into()))
                 .map_err(|e| TorshError::IoError(e.to_string()))?
-                .collect()
+                .finish()
                 .map_err(|e| TorshError::IoError(e.to_string()))?;
 
             let columns = df.get_column_names();
@@ -40,8 +41,8 @@ impl CSVDataset {
             let mut target_name = None;
 
             // Separate features and target
-            for &col in columns {
-                if Some(col) == target_column {
+            for col in columns {
+                if target_column.as_deref() == Some(col.as_str()) {
                     target_name = Some(col.to_string());
                 } else {
                     feature_names.push(col.to_string());

@@ -23,7 +23,7 @@ use torsh_core::error::Result;
 use torsh_tensor::Tensor;
 
 // Re-export scirs2 optimizer functionality
-use scirs2::optim as sci_optim;
+// use scirs2::optim as sci_optim;
 
 /// Base optimizer trait
 pub trait Optimizer {

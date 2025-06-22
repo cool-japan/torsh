@@ -2,8 +2,8 @@
 
 use crate::{
     collate::{Collate, DefaultCollate},
-    dataset::{Dataset, IterableDataset},
-    sampler::{BatchSampler, BatchSamplerTrait, Sampler, SequentialSampler},
+    dataset::Dataset,
+    sampler::{BatchSampler, BatchSamplerTrait, SequentialSampler},
 };
 use rayon::prelude::*;
 use torsh_core::error::Result;
@@ -17,8 +17,11 @@ pub struct DataLoader<D, S, C> {
     sampler: S,
     collate_fn: C,
     num_workers: usize,
+    #[allow(dead_code)]
     pin_memory: bool,
+    #[allow(dead_code)]
     drop_last: bool,
+    #[allow(dead_code)]
     timeout: Option<std::time::Duration>,
 }
 
@@ -240,7 +243,7 @@ where
     T: Send + 'static,
 {
     /// Create a new prefetch iterator
-    pub fn new<I>(mut inner: I, buffer_size: usize) -> Self
+    pub fn new<I>(inner: I, buffer_size: usize) -> Self
     where
         I: Iterator<Item = T> + Send + 'static,
     {

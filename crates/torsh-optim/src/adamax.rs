@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use torsh_core::error::{Result, TorshError};
 use torsh_tensor::{
-    creation::{ones_like, zeros_like},
+    creation::zeros_like,
     Tensor,
 };
 
@@ -122,17 +122,10 @@ impl Optimizer for AdaMax {
 
                 // Get or initialize state
                 let param_ptr = &*param as *const Tensor;
-                if !self.state.contains_key(&param_ptr) {
-                    self.state.insert(
-                        param_ptr,
-                        AdaMaxState {
-                            exp_avg: zeros_like(&param),
-                            exp_inf: zeros_like(&param),
-                        },
-                    );
-                }
-
-                let state = self.state.get_mut(&param_ptr).unwrap();
+                let state = self.state.entry(param_ptr).or_insert_with(|| AdaMaxState {
+                    exp_avg: zeros_like(&param),
+                    exp_inf: zeros_like(&param),
+                });
 
                 // Apply weight decay
                 let mut grad_with_decay = grad.clone();
@@ -223,7 +216,7 @@ impl Optimizer for AdaMax {
 
         // Load optimizer state
         self.state.clear();
-        for (ptr_str, param_state) in state.state {
+        for (_ptr_str, param_state) in state.state {
             // This is a simplified implementation - in practice, we'd need a way to map
             // back to the actual parameter pointers
             if let (Some(exp_avg), Some(exp_inf)) =
@@ -231,7 +224,7 @@ impl Optimizer for AdaMax {
             {
                 // Would need proper pointer reconstruction here
                 // For now, just store with a dummy pointer
-                let dummy_ptr = std::ptr::null() as *const Tensor;
+                let dummy_ptr = std::ptr::null::<Tensor>();
                 self.state.insert(
                     dummy_ptr,
                     AdaMaxState {

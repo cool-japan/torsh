@@ -21,11 +21,8 @@ use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::sync::Arc;
 use torsh_core::device::DeviceType;
-use torsh_core::error::{Result, TorshError};
+use torsh_core::error::Result;
 use torsh_tensor::Tensor;
-
-// Re-export scirs2 neural functionality
-use scirs2::neural as sci_nn;
 
 /// Base trait for all neural network modules
 pub trait Module: Send + Sync {
@@ -67,7 +64,7 @@ pub trait Module: Send + Sync {
 
     /// Zero all gradients
     fn zero_grad(&mut self) {
-        for param in self.parameters().values() {
+        for _param in self.parameters().values() {
             // This would zero gradients when autograd is fully implemented
         }
     }

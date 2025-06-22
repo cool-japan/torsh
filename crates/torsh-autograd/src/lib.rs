@@ -304,19 +304,11 @@ pub mod accumulate {
     use super::*;
 
     /// Accumulate gradients across multiple backward passes
+    #[derive(Default)]
     pub struct GradientAccumulator {
         // Temporarily use f32 placeholders instead of AgTensor
         accumulated_grads: HashMap<String, f32>,
         num_accumulations: usize,
-    }
-
-    impl Default for GradientAccumulator {
-        fn default() -> Self {
-            Self {
-                accumulated_grads: HashMap::new(),
-                num_accumulations: 0,
-            }
-        }
     }
 
     impl GradientAccumulator {

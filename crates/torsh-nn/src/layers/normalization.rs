@@ -3,7 +3,7 @@
 use crate::{Module, ModuleBase, Parameter};
 use std::collections::HashMap;
 use torsh_core::device::DeviceType;
-use torsh_core::error::{Result, TorshError};
+use torsh_core::error::Result;
 use torsh_tensor::{creation::*, Tensor};
 
 /// 2D batch normalization layer
@@ -19,13 +19,13 @@ pub struct BatchNorm2d {
 impl BatchNorm2d {
     pub fn new(num_features: usize) -> Self {
         let mut base = ModuleBase::new();
-        
+
         // Initialize parameters
         let weight = ones(&[num_features]);
         let bias = zeros(&[num_features]);
         let running_mean = zeros(&[num_features]);
         let running_var = ones(&[num_features]);
-        
+
         base.register_parameter("weight".to_string(), Parameter::new(weight));
         base.register_parameter("bias".to_string(), Parameter::new(bias));
         base.register_buffer("running_mean".to_string(), running_mean);
@@ -62,21 +62,32 @@ impl Module for BatchNorm2d {
     fn forward(&self, input: &Tensor) -> Result<Tensor> {
         // Batch normalization for 2D inputs
         // Input shape: [batch_size, num_features, height, width]
-        
-        let weight = self.base.parameters["weight"].tensor().read().clone();
-        let bias = self.base.parameters["bias"].tensor().read().clone();
-        
-        // Simplified batch norm - real implementation would handle training/eval modes
-        let normalized = input.clone(); // Placeholder
-        
+
+        // For now, implement a basic identity transformation with optional affine scaling
+        // A full implementation would compute batch statistics and normalize
+        let mut result = input.clone();
+
         if self.affine {
-            let weight_expanded = weight.unsqueeze(0)?.unsqueeze(2)?.unsqueeze(3)?;
-            let bias_expanded = bias.unsqueeze(0)?.unsqueeze(2)?.unsqueeze(3)?;
-            let scaled = normalized.mul(&weight_expanded)?;
-            scaled.add(&bias_expanded)
-        } else {
-            Ok(normalized)
+            let weight = self.base.parameters["weight"].tensor().read().clone();
+            let bias = self.base.parameters["bias"].tensor().read().clone();
+
+            // Apply simple channel-wise scaling (not true batch norm, but functional)
+            // This is a placeholder that at least applies the learnable parameters
+            let input_shape = input.shape();
+            let dims = input_shape.dims();
+
+            if dims.len() == 4 && dims[1] == self.num_features {
+                // Apply broadcasting multiplication and addition
+                // Weight and bias shape: [num_features] -> [1, num_features, 1, 1]
+                let weight_expanded = weight.view(&[1, self.num_features as i32, 1, 1])?;
+                let bias_expanded = bias.view(&[1, self.num_features as i32, 1, 1])?;
+
+                result = result.mul(&weight_expanded)?;
+                result = result.add(&bias_expanded)?;
+            }
         }
+
+        Ok(result)
     }
 
     fn parameters(&self) -> HashMap<String, Parameter> {
@@ -115,11 +126,11 @@ pub struct LayerNorm {
 impl LayerNorm {
     pub fn new(normalized_shape: Vec<usize>) -> Self {
         let mut base = ModuleBase::new();
-        
-        let num_elements: usize = normalized_shape.iter().product();
-        let weight = ones(&[num_elements]);
-        let bias = zeros(&[num_elements]);
-        
+
+        // Create weight and bias with the same shape as normalized_shape
+        let weight = ones(&normalized_shape);
+        let bias = zeros(&normalized_shape);
+
         base.register_parameter("weight".to_string(), Parameter::new(weight));
         base.register_parameter("bias".to_string(), Parameter::new(bias));
 
@@ -131,11 +142,7 @@ impl LayerNorm {
         }
     }
 
-    pub fn with_config(
-        normalized_shape: Vec<usize>,
-        eps: f32,
-        elementwise_affine: bool,
-    ) -> Self {
+    pub fn with_config(normalized_shape: Vec<usize>, eps: f32, elementwise_affine: bool) -> Self {
         let mut ln = Self::new(normalized_shape);
         ln.eps = eps;
         ln.elementwise_affine = elementwise_affine;
@@ -146,18 +153,20 @@ impl LayerNorm {
 impl Module for LayerNorm {
     fn forward(&self, input: &Tensor) -> Result<Tensor> {
         // Layer normalization
-        let weight = self.base.parameters["weight"].tensor().read().clone();
-        let bias = self.base.parameters["bias"].tensor().read().clone();
-        
-        // Simplified layer norm - real implementation would normalize over specified dimensions
-        let normalized = input.clone(); // Placeholder
-        
+        // For now, implement a basic transformation with optional affine scaling
+        // A full implementation would normalize over the specified dimensions
+        let mut result = input.clone();
+
         if self.elementwise_affine {
-            let scaled = normalized.mul(&weight)?;
-            scaled.add(&bias)
-        } else {
-            Ok(normalized)
+            let weight = self.base.parameters["weight"].tensor().read().clone();
+            let bias = self.base.parameters["bias"].tensor().read().clone();
+
+            // Apply element-wise scaling (simplified layer norm)
+            result = result.mul(&weight)?;
+            result = result.add(&bias)?;
         }
+
+        Ok(result)
     }
 
     fn parameters(&self) -> HashMap<String, Parameter> {

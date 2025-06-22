@@ -1,8 +1,5 @@
 //! Functional interface for neural network operations
 
-use scirs2::neural::activations as sci_act;
-use scirs2::neural::layers as sci_layers;
-use torsh_autograd::prelude::*;
 use torsh_core::error::Result;
 use torsh_tensor::Tensor;
 
@@ -260,14 +257,14 @@ pub fn conv2d(
     if padding == (0, 0) && stride == (1, 1) && dilation == (1, 1) && groups == 1 {
         // Simple case: can use matrix multiplication approach
         // Reshape input to [batch_size, in_channels, height * width]
-        let input_flat = input.view(&[
+        let _input_flat = input.view(&[
             batch_size as i32,
             in_channels as i32,
             (in_height * in_width) as i32,
         ])?;
 
         // Reshape weight to [out_channels, in_channels * kernel_height * kernel_width]
-        let weight_flat = weight.view(&[
+        let _weight_flat = weight.view(&[
             out_channels as i32,
             (in_channels * kernel_height * kernel_width) as i32,
         ])?;

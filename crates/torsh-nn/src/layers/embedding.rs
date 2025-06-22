@@ -3,7 +3,7 @@
 use crate::{Module, ModuleBase, Parameter};
 use std::collections::HashMap;
 use torsh_core::device::DeviceType;
-use torsh_core::error::{Result, TorshError};
+use torsh_core::error::Result;
 use torsh_tensor::{creation::*, Tensor};
 
 /// Embedding layer that maps discrete tokens to continuous vectors
@@ -21,7 +21,7 @@ pub struct Embedding {
 impl Embedding {
     pub fn new(num_embeddings: usize, embedding_dim: usize) -> Self {
         let mut base = ModuleBase::new();
-        
+
         // Initialize embedding weight matrix
         let weight = crate::init::xavier_uniform(&[num_embeddings, embedding_dim]);
         base.register_parameter("weight".to_string(), Parameter::new(weight));
@@ -38,7 +38,11 @@ impl Embedding {
         }
     }
 
-    pub fn with_padding_idx(num_embeddings: usize, embedding_dim: usize, padding_idx: usize) -> Self {
+    pub fn with_padding_idx(
+        num_embeddings: usize,
+        embedding_dim: usize,
+        padding_idx: usize,
+    ) -> Self {
         let mut embedding = Self::new(num_embeddings, embedding_dim);
         embedding.padding_idx = Some(padding_idx);
         embedding
@@ -68,18 +72,19 @@ impl Module for Embedding {
         // Embedding lookup
         // Input shape: any shape containing indices
         // Output shape: input_shape + [embedding_dim]
-        
-        let weight = self.base.parameters["weight"].tensor().read().clone();
-        
+
+        let _weight = self.base.parameters["weight"].tensor().read().clone();
+
         // This is a simplified implementation
         // Real implementation would perform proper embedding lookup
-        let input_shape = input.shape();
-        let mut output_shape = input_shape.clone();
+        let binding = input.shape();
+        let input_shape = binding.dims();
+        let mut output_shape = input_shape.to_vec();
         output_shape.push(self.embedding_dim);
-        
+
         // Placeholder - actual implementation would index into weight matrix
         let output = zeros(&output_shape);
-        
+
         Ok(output)
     }
 

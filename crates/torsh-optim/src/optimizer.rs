@@ -1,7 +1,6 @@
 //! Base optimizer implementation utilities
 
 use crate::{Optimizer, OptimizerState, ParamGroup, ParamGroupState};
-use torsh_autograd::prelude::*;
 use torsh_core::error::{Result, TorshError};
 use torsh_tensor::Tensor;
 // Temporarily disable scirs2 integration
@@ -15,12 +14,14 @@ pub struct BaseOptimizer {
     pub(crate) param_groups: Vec<ParamGroup>,
     pub(crate) state: HashMap<String, HashMap<String, Tensor>>,
     // Placeholder for optimizer-specific data
+    #[allow(dead_code)]
     pub(crate) optimizer_type: String,
     pub(crate) defaults: HashMap<String, f32>,
 }
 
 impl BaseOptimizer {
     /// Apply weight decay if specified
+    #[allow(dead_code)]
     pub(crate) fn apply_weight_decay(&self, param: &mut Tensor, weight_decay: f32) -> Result<()> {
         if weight_decay != 0.0 {
             let decay = param.mul_scalar(weight_decay)?;
@@ -30,16 +31,19 @@ impl BaseOptimizer {
     }
 
     /// Get parameter ID for state tracking
+    #[allow(dead_code)]
     pub(crate) fn param_id(param: &Arc<RwLock<Tensor>>) -> String {
         format!("{:p}", param.as_ref())
     }
 
     /// Initialize state for a parameter if not exists
+    #[allow(dead_code)]
     pub(crate) fn init_state(&mut self, param_id: String) {
-        self.state.entry(param_id).or_insert_with(HashMap::new);
+        self.state.entry(param_id).or_default();
     }
 
     /// Get or create state tensor
+    #[allow(dead_code)]
     pub(crate) fn get_or_create_state(
         &mut self,
         param_id: &str,
@@ -55,6 +59,7 @@ impl BaseOptimizer {
     }
 
     /// Update state tensor
+    #[allow(dead_code)]
     pub(crate) fn update_state(&mut self, param_id: &str, state_name: &str, value: Tensor) {
         self.state
             .get_mut(param_id)
@@ -143,11 +148,11 @@ pub mod functional {
 
     /// Apply gradient clipping before optimizer step
     pub fn clip_grad_before_step<O: Optimizer>(
-        optimizer: &O,
+        _optimizer: &O,
         max_norm: Option<f32>,
-        norm_type: f32,
+        _norm_type: f32,
     ) -> f32 {
-        if let Some(max_norm) = max_norm {
+        if let Some(_max_norm) = max_norm {
             // Collect all parameters from optimizer
             // This would need access to parameters through the optimizer trait
             // For now, return 0.0 as placeholder

@@ -38,6 +38,7 @@ rayon = { workspace = true }
 
 # External comparisons
 ndarray = { workspace = true }
+ndarray-rand = "0.15"
 
 [dev-dependencies]
 approx = { workspace = true }

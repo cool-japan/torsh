@@ -1,7 +1,6 @@
 //! Stochastic Gradient Descent optimizer
 
 use crate::{optimizer::BaseOptimizer, Optimizer, OptimizerState, ParamGroup};
-use torsh_autograd::prelude::*;
 use torsh_core::error::{Result, TorshError};
 use torsh_tensor::Tensor;
 // Temporarily disable scirs2 integration
@@ -13,9 +12,13 @@ use std::sync::Arc;
 /// SGD optimizer with momentum and Nesterov acceleration
 pub struct SGD {
     base: BaseOptimizer,
+    #[allow(dead_code)]
     momentum: f32,
+    #[allow(dead_code)]
     dampening: f32,
+    #[allow(dead_code)]
     weight_decay: f32,
+    #[allow(dead_code)]
     nesterov: bool,
 }
 

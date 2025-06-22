@@ -3,7 +3,7 @@
 use crate::{Module, ModuleBase, Parameter};
 use std::collections::HashMap;
 use torsh_core::device::DeviceType;
-use torsh_core::error::{Result, TorshError};
+use torsh_core::error::Result;
 use torsh_tensor::{creation::*, Tensor};
 
 /// 2D max pooling layer
@@ -43,23 +43,36 @@ impl Module for MaxPool2d {
     fn forward(&self, input: &Tensor) -> Result<Tensor> {
         // Max pooling implementation
         // Input shape: [batch_size, channels, height, width]
-        let input_shape = input.shape();
+        let binding = input.shape();
+        let input_shape = binding.dims();
         let stride = self.stride.unwrap_or(self.kernel_size);
-        
+
         let output_height = if self.ceil_mode {
-            ((input_shape[2] + 2 * self.padding.0 - self.dilation.0 * (self.kernel_size.0 - 1) - 1) as f32 / stride.0 as f32).ceil() as usize + 1
+            ((input_shape[2] + 2 * self.padding.0 - self.dilation.0 * (self.kernel_size.0 - 1) - 1)
+                as f32
+                / stride.0 as f32)
+                .ceil() as usize
+                + 1
         } else {
-            (input_shape[2] + 2 * self.padding.0 - self.dilation.0 * (self.kernel_size.0 - 1) - 1) / stride.0 + 1
+            (input_shape[2] + 2 * self.padding.0 - self.dilation.0 * (self.kernel_size.0 - 1) - 1)
+                / stride.0
+                + 1
         };
-        
+
         let output_width = if self.ceil_mode {
-            ((input_shape[3] + 2 * self.padding.1 - self.dilation.1 * (self.kernel_size.1 - 1) - 1) as f32 / stride.1 as f32).ceil() as usize + 1
+            ((input_shape[3] + 2 * self.padding.1 - self.dilation.1 * (self.kernel_size.1 - 1) - 1)
+                as f32
+                / stride.1 as f32)
+                .ceil() as usize
+                + 1
         } else {
-            (input_shape[3] + 2 * self.padding.1 - self.dilation.1 * (self.kernel_size.1 - 1) - 1) / stride.1 + 1
+            (input_shape[3] + 2 * self.padding.1 - self.dilation.1 * (self.kernel_size.1 - 1) - 1)
+                / stride.1
+                + 1
         };
 
         let output_shape = [input_shape[0], input_shape[1], output_height, output_width];
-        
+
         // Placeholder implementation - real max pooling would be implemented in backend
         let output = zeros(&output_shape);
         Ok(output)
@@ -97,6 +110,7 @@ pub struct AvgPool2d {
     stride: Option<(usize, usize)>,
     padding: (usize, usize),
     ceil_mode: bool,
+    #[allow(dead_code)]
     count_include_pad: bool,
 }
 
@@ -126,23 +140,28 @@ impl AvgPool2d {
 impl Module for AvgPool2d {
     fn forward(&self, input: &Tensor) -> Result<Tensor> {
         // Average pooling implementation
-        let input_shape = input.shape();
+        let binding = input.shape();
+        let input_shape = binding.dims();
         let stride = self.stride.unwrap_or(self.kernel_size);
-        
+
         let output_height = if self.ceil_mode {
-            ((input_shape[2] + 2 * self.padding.0 - self.kernel_size.0) as f32 / stride.0 as f32).ceil() as usize + 1
+            ((input_shape[2] + 2 * self.padding.0 - self.kernel_size.0) as f32 / stride.0 as f32)
+                .ceil() as usize
+                + 1
         } else {
             (input_shape[2] + 2 * self.padding.0 - self.kernel_size.0) / stride.0 + 1
         };
-        
+
         let output_width = if self.ceil_mode {
-            ((input_shape[3] + 2 * self.padding.1 - self.kernel_size.1) as f32 / stride.1 as f32).ceil() as usize + 1
+            ((input_shape[3] + 2 * self.padding.1 - self.kernel_size.1) as f32 / stride.1 as f32)
+                .ceil() as usize
+                + 1
         } else {
             (input_shape[3] + 2 * self.padding.1 - self.kernel_size.1) / stride.1 + 1
         };
 
         let output_shape = [input_shape[0], input_shape[1], output_height, output_width];
-        
+
         // Placeholder implementation
         let output = zeros(&output_shape);
         Ok(output)
@@ -195,13 +214,14 @@ impl AdaptiveAvgPool2d {
 impl Module for AdaptiveAvgPool2d {
     fn forward(&self, input: &Tensor) -> Result<Tensor> {
         // Adaptive average pooling implementation
-        let input_shape = input.shape();
-        
+        let binding = input.shape();
+        let input_shape = binding.dims();
+
         let output_height = self.output_size.0.unwrap_or(input_shape[2]);
         let output_width = self.output_size.1.unwrap_or(input_shape[3]);
-        
+
         let output_shape = [input_shape[0], input_shape[1], output_height, output_width];
-        
+
         // Placeholder implementation
         let output = zeros(&output_shape);
         Ok(output)

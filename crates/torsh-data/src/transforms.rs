@@ -43,7 +43,9 @@ impl<T> Transform<T> for Compose<T> {
 
 /// Normalize tensor values
 pub struct Normalize<T: TensorElement> {
+    #[allow(dead_code)]
     mean: Vec<T>,
+    #[allow(dead_code)]
     std: Vec<T>,
 }
 
@@ -93,7 +95,7 @@ impl<From, To> ToType<From, To> {
 impl<From: TensorElement, To: TensorElement> Transform<Tensor<From>> for ToType<From, To> {
     type Output = Tensor<To>;
 
-    fn transform(&self, input: Tensor<From>) -> Result<Self::Output> {
+    fn transform(&self, _input: Tensor<From>) -> Result<Self::Output> {
         // TODO: Implement actual type conversion
         // For now, create a placeholder tensor
         Ok(torsh_tensor::creation::zeros::<To>(&[1]))
@@ -162,6 +164,7 @@ pub mod tensor {
 
     /// Random crop
     pub struct RandomCrop {
+        #[allow(dead_code)]
         size: (usize, usize),
         padding: Option<usize>,
     }
@@ -193,6 +196,7 @@ pub mod tensor {
 
     /// Resize tensor
     pub struct Resize {
+        #[allow(dead_code)]
         size: (usize, usize),
         interpolation: InterpolationMode,
     }

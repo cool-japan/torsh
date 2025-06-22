@@ -1,13 +1,9 @@
 //! Linear (fully connected) layers
 
 use crate::{Module, ModuleBase, Parameter};
-use parking_lot::RwLock;
-use scirs2::neural::{activations as sci_act, layers as sci_layers};
 use std::collections::HashMap;
-use std::sync::Arc;
-use torsh_autograd::prelude::*;
 use torsh_core::device::DeviceType;
-use torsh_core::error::{Result, TorshError};
+use torsh_core::error::Result;
 use torsh_tensor::{creation::*, Tensor};
 
 /// Linear (fully connected) layer

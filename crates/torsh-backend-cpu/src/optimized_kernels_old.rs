@@ -1,8 +1,6 @@
 //! Optimized kernels for CPU backend without external BLAS dependency
 
-use rayon::prelude::*;
 use torsh_core::error::{Result, TorshError};
-use crate::error::CpuResult;
 
 /// Cache-blocked matrix multiplication for better performance
 #[allow(clippy::too_many_arguments)]
@@ -26,7 +24,7 @@ pub fn optimized_matmul(
     // Initialize result to zero
     result.fill(0.0);
 
-    // Cache blocking parameters
+    // Cache blocking parameters - tune these for your system
     const BLOCK_SIZE: usize = 64;
 
     // Handle transposition by choosing appropriate indexing functions
@@ -73,7 +71,7 @@ pub fn optimized_matmul(
     Ok(())
 }
 
-/// Optimized dot product using loop unrolling
+/// Optimized dot product using loop unrolling and SIMD-like operations
 pub fn optimized_dot(a: &[f32], b: &[f32]) -> Result<f32> {
     if a.len() != b.len() {
         return Err(TorshError::ShapeMismatch {
@@ -155,13 +153,23 @@ pub fn optimized_matvec(
     Ok(())
 }
 
-/// Parallel reduction operations
+/// Parallel reduction operations for large arrays
 pub mod parallel_ops {
     use super::*;
+    use torsh_core::error::TorshError;
 
     /// Parallel sum using divide-and-conquer
     pub fn parallel_sum(data: &[f32]) -> f32 {
-        data.par_iter().sum()
+        #[cfg(feature = "rayon-threads")]
+        {
+            use rayon::prelude::*;
+            data.par_iter().sum()
+        }
+        #[cfg(not(feature = "rayon-threads"))]
+        {
+            // Fallback to simple sum
+            data.iter().sum()
+        }
     }
 
     /// Parallel mean calculation
@@ -178,10 +186,21 @@ pub mod parallel_ops {
     where
         F: Fn(f32, f32) -> f32 + Sync + Send,
     {
-        result
-            .par_iter_mut()
-            .zip(a.par_iter().zip(b.par_iter()))
-            .for_each(|(r, (&a_val, &b_val))| *r = op(a_val, b_val));
+        #[cfg(feature = "rayon-threads")]
+        {
+            use rayon::prelude::*;
+            result
+                .par_iter_mut()
+                .zip(a.par_iter().zip(b.par_iter()))
+                .for_each(|(r, (&a_val, &b_val))| *r = op(a_val, b_val));
+        }
+        #[cfg(not(feature = "rayon-threads"))]
+        {
+            result
+                .iter_mut()
+                .zip(a.iter().zip(b.iter()))
+                .for_each(|(r, (&a_val, &b_val))| *r = op(a_val, b_val));
+        }
     }
 
     /// Parallel unary operations
@@ -189,18 +208,32 @@ pub mod parallel_ops {
     where
         F: Fn(f32) -> f32 + Sync + Send,
     {
-        output
-            .par_iter_mut()
-            .zip(input.par_iter())
-            .for_each(|(out, &inp)| *out = op(inp));
+        #[cfg(feature = "rayon-threads")]
+        {
+            use rayon::prelude::*;
+            output
+                .par_iter_mut()
+                .zip(input.par_iter())
+                .for_each(|(out, &inp)| *out = op(inp));
+        }
+        #[cfg(not(feature = "rayon-threads"))]
+        {
+            output
+                .iter_mut()
+                .zip(input.iter())
+                .for_each(|(out, &inp)| *out = op(inp));
+        }
     }
 }
 
 /// Advanced optimization kernels
 pub mod advanced {
-    use super::*;
 
-    /// Simple convolution implementation
+    use super::*;
+    use torsh_core::error::TorshError;
+    use rayon::prelude::*;
+
+    /// Optimized convolution using im2col transformation
     #[allow(clippy::too_many_arguments)]
     pub fn optimized_conv2d(
         input: &[f32],
@@ -217,50 +250,93 @@ pub mod advanced {
         stride_w: usize,
         pad_h: usize,
         pad_w: usize,
-    ) -> CpuResult<()> {
+    ) -> Result<(), TorshError> {
         let output_height = (input_height + 2 * pad_h - kernel_height) / stride_h + 1;
         let output_width = (input_width + 2 * pad_w - kernel_width) / stride_w + 1;
 
-        // Simple convolution implementation
+        // im2col transformation - convert convolution to matrix multiplication
+        let col_buffer_size =
+            in_channels * kernel_height * kernel_width * output_height * output_width;
+        let mut col_buffer = vec![0.0f32; col_buffer_size];
+
         for batch in 0..batch_size {
-            for out_c in 0..out_channels {
-                for out_h in 0..output_height {
-                    for out_w in 0..output_width {
-                        let mut sum = 0.0f32;
-                        
-                        for in_c in 0..in_channels {
-                            for kh in 0..kernel_height {
-                                for kw in 0..kernel_width {
-                                    let input_h = out_h * stride_h + kh;
-                                    let input_w = out_w * stride_w + kw;
-                                    
-                                    if input_h >= pad_h && input_w >= pad_w {
-                                        let ih = input_h - pad_h;
-                                        let iw = input_w - pad_w;
-                                        
-                                        if ih < input_height && iw < input_width {
-                                            let input_idx = batch * in_channels * input_height * input_width +
-                                                           in_c * input_height * input_width +
-                                                           ih * input_width + iw;
-                                            let weight_idx = out_c * in_channels * kernel_height * kernel_width +
-                                                           in_c * kernel_height * kernel_width +
-                                                           kh * kernel_width + kw;
-                                            
-                                            sum += input[input_idx] * weight[weight_idx];
-                                        }
-                                    }
-                                }
+            // im2col transformation for current batch
+            im2col_cpu(
+                &input[batch * in_channels * input_height * input_width..],
+                in_channels,
+                input_height,
+                input_width,
+                kernel_height,
+                kernel_width,
+                stride_h,
+                stride_w,
+                pad_h,
+                pad_w,
+                &mut col_buffer,
+            )?;
+
+            // Matrix multiplication: weight * col_buffer = output
+            optimized_matmul(
+                weight,
+                &col_buffer,
+                &mut output[batch * out_channels * output_height * output_width..],
+                out_channels,
+                output_height * output_width,
+                in_channels * kernel_height * kernel_width,
+                false,
+                false,
+            )?;
+        }
+
+        Ok(())
+    }
+
+    /// im2col CPU implementation
+    #[allow(clippy::too_many_arguments)]
+    fn im2col_cpu(
+        data: &[f32],
+        _channels: usize,
+        height: usize,
+        width: usize,
+        kernel_h: usize,
+        kernel_w: usize,
+        stride_h: usize,
+        stride_w: usize,
+        pad_h: usize,
+        pad_w: usize,
+        col_buffer: &mut [f32],
+    ) -> Result<(), TorshError> {
+        let output_h = (height + 2 * pad_h - kernel_h) / stride_h + 1;
+        let output_w = (width + 2 * pad_w - kernel_w) / stride_w + 1;
+
+        col_buffer
+            .par_chunks_mut(output_h * output_w)
+            .enumerate()
+            .for_each(|(c, chunk)| {
+                let c_im = c / (kernel_h * kernel_w);
+                let rest = c % (kernel_h * kernel_w);
+                let kh = rest / kernel_w;
+                let kw = rest % kernel_w;
+
+                for (h_col, row) in chunk.chunks_mut(output_w).enumerate() {
+                    for (w_col, out_val) in row.iter_mut().enumerate() {
+                        let h_im = h_col * stride_h + kh;
+                        let w_im = w_col * stride_w + kw;
+
+                        if h_im >= pad_h
+                            && w_im >= pad_w
+                            && h_im < height + pad_h
+                            && w_im < width + pad_w
+                        {
+                            let h_idx = h_im - pad_h;
+                            let w_idx = w_im - pad_w;
+                            if h_idx < height && w_idx < width {
+                                *out_val = data[c_im * height * width + h_idx * width + w_idx];
                             }
                         }
-                        
-                        let output_idx = batch * out_channels * output_height * output_width +
-                                       out_c * output_height * output_width +
-                                       out_h * output_width + out_w;
-                        output[output_idx] = sum;
                     }
                 }
-            }
-        }
+            });
 
         Ok(())
     }
@@ -278,11 +354,11 @@ pub mod advanced {
         batch_size: usize,
         channels: usize,
         spatial_size: usize,
-    ) -> CpuResult<()> {
+    ) -> Result<(), TorshError> {
         if input.len() != batch_size * channels * spatial_size {
-            return Err(crate::error::CpuBackendError::InvalidParameter {
-                message: "Input size mismatch".to_string(),
-            });
+            return Err(TorshError::InvalidArgument(
+                "Input size mismatch".to_string(),
+            ));
         }
 
         output
@@ -308,17 +384,23 @@ pub mod advanced {
         Ok(())
     }
 
+    /// Optimized ReLU activation with in-place operation
+    pub fn optimized_relu_inplace(data: &mut [f32]) {
+        // Fallback to scalar implementation since SIMD needs separate input/output
+        for val in data.iter_mut() {
+            *val = val.max(0.0);
+        }
+    }
+
     /// Optimized softmax with numerical stability
     pub fn optimized_softmax(
         input: &[f32],
         output: &mut [f32],
         batch_size: usize,
         num_classes: usize,
-    ) -> CpuResult<()> {
+    ) -> Result<(), TorshError> {
         if input.len() != batch_size * num_classes || output.len() != input.len() {
-            return Err(crate::error::CpuBackendError::InvalidParameter {
-                message: "Size mismatch".to_string(),
-            });
+            return Err(TorshError::InvalidArgument("Size mismatch".to_string()));
         }
 
         output
@@ -348,7 +430,36 @@ pub mod advanced {
         Ok(())
     }
 
-    /// Memory-efficient matrix multiplication with threading
+    /// Cache-optimized transpose operation
+    pub fn optimized_transpose(
+        input: &[f32],
+        output: &mut [f32],
+        rows: usize,
+        cols: usize,
+    ) -> Result<(), TorshError> {
+        if input.len() != rows * cols || output.len() != rows * cols {
+            return Err(TorshError::InvalidArgument("Size mismatch".to_string()));
+        }
+
+        const BLOCK_SIZE: usize = 32;
+
+        for i in (0..rows).step_by(BLOCK_SIZE) {
+            for j in (0..cols).step_by(BLOCK_SIZE) {
+                let i_end = (i + BLOCK_SIZE).min(rows);
+                let j_end = (j + BLOCK_SIZE).min(cols);
+
+                for ii in i..i_end {
+                    for jj in j..j_end {
+                        output[jj * rows + ii] = input[ii * cols + jj];
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Memory-efficient matrix multiplication with custom threading
     pub fn threaded_matmul(
         a: &[f32],
         b: &[f32],
@@ -356,10 +467,11 @@ pub mod advanced {
         m: usize,
         n: usize,
         k: usize,
-    ) -> CpuResult<()> {
+    ) -> Result<()> {
         if a.len() != m * k || b.len() != k * n || result.len() != m * n {
-            return Err(crate::error::CpuBackendError::InvalidParameter {
-                message: "Shape mismatch".to_string(),
+            return Err(TorshError::ShapeMismatch {
+                expected: vec![m * k, k * n, m * n],
+                got: vec![a.len(), b.len(), result.len()],
             });
         }
 

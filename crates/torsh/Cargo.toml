@@ -60,6 +60,7 @@ name = "test_linear"
 path = "../../examples/test_linear.rs"
 required-features = ["nn"]
 
+
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]

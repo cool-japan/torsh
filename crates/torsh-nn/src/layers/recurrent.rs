@@ -3,7 +3,7 @@
 use crate::{Module, ModuleBase, Parameter};
 use std::collections::HashMap;
 use torsh_core::device::DeviceType;
-use torsh_core::error::{Result, TorshError};
+use torsh_core::error::Result;
 use torsh_tensor::{creation::*, Tensor};
 
 /// Basic RNN layer
@@ -21,16 +21,16 @@ pub struct RNN {
 impl RNN {
     pub fn new(input_size: usize, hidden_size: usize, num_layers: usize) -> Self {
         let mut base = ModuleBase::new();
-        
+
         // Initialize weights for each layer
         for layer in 0..num_layers {
             let input_dim = if layer == 0 { input_size } else { hidden_size };
-            
+
             let weight_ih = crate::init::xavier_uniform(&[hidden_size, input_dim]);
             let weight_hh = crate::init::xavier_uniform(&[hidden_size, hidden_size]);
             let bias_ih = zeros(&[hidden_size]);
             let bias_hh = zeros(&[hidden_size]);
-            
+
             base.register_parameter(format!("weight_ih_l{}", layer), Parameter::new(weight_ih));
             base.register_parameter(format!("weight_hh_l{}", layer), Parameter::new(weight_hh));
             base.register_parameter(format!("bias_ih_l{}", layer), Parameter::new(bias_ih));
@@ -71,25 +71,26 @@ impl Module for RNN {
     fn forward(&self, input: &Tensor) -> Result<Tensor> {
         // RNN forward pass
         // Input shape: [seq_len, batch, input_size] or [batch, seq_len, input_size] if batch_first
-        
-        let input_shape = input.shape();
+
+        let binding = input.shape();
+        let input_shape = binding.dims();
         let (seq_len, batch_size) = if self.batch_first {
             (input_shape[1], input_shape[0])
         } else {
             (input_shape[0], input_shape[1])
         };
-        
+
         // Initialize hidden state
-        let h0 = zeros(&[self.num_layers, batch_size, self.hidden_size]);
-        
+        let _h0: Tensor<f32> = zeros(&[self.num_layers, batch_size, self.hidden_size]);
+
         // Simplified RNN computation - real implementation would unroll over time steps
         let output_shape = if self.batch_first {
             [batch_size, seq_len, self.hidden_size]
         } else {
             [seq_len, batch_size, self.hidden_size]
         };
-        
-        let output = zeros(&output_shape);
+
+        let output: Tensor<f32> = zeros(&output_shape);
         Ok(output)
     }
 
@@ -133,16 +134,16 @@ pub struct LSTM {
 impl LSTM {
     pub fn new(input_size: usize, hidden_size: usize, num_layers: usize) -> Self {
         let mut base = ModuleBase::new();
-        
+
         // Initialize weights for each layer (4 gates: input, forget, cell, output)
         for layer in 0..num_layers {
             let input_dim = if layer == 0 { input_size } else { hidden_size };
-            
+
             let weight_ih = crate::init::xavier_uniform(&[4 * hidden_size, input_dim]);
             let weight_hh = crate::init::xavier_uniform(&[4 * hidden_size, hidden_size]);
             let bias_ih = zeros(&[4 * hidden_size]);
             let bias_hh = zeros(&[4 * hidden_size]);
-            
+
             base.register_parameter(format!("weight_ih_l{}", layer), Parameter::new(weight_ih));
             base.register_parameter(format!("weight_hh_l{}", layer), Parameter::new(weight_hh));
             base.register_parameter(format!("bias_ih_l{}", layer), Parameter::new(bias_ih));
@@ -165,20 +166,21 @@ impl LSTM {
 impl Module for LSTM {
     fn forward(&self, input: &Tensor) -> Result<Tensor> {
         // LSTM forward pass
-        let input_shape = input.shape();
+        let binding = input.shape();
+        let input_shape = binding.dims();
         let (seq_len, batch_size) = if self.batch_first {
             (input_shape[1], input_shape[0])
         } else {
             (input_shape[0], input_shape[1])
         };
-        
+
         let output_shape = if self.batch_first {
             [batch_size, seq_len, self.hidden_size]
         } else {
             [seq_len, batch_size, self.hidden_size]
         };
-        
-        let output = zeros(&output_shape);
+
+        let output: Tensor<f32> = zeros(&output_shape);
         Ok(output)
     }
 
@@ -222,16 +224,16 @@ pub struct GRU {
 impl GRU {
     pub fn new(input_size: usize, hidden_size: usize, num_layers: usize) -> Self {
         let mut base = ModuleBase::new();
-        
+
         // Initialize weights for each layer (3 gates: reset, update, new)
         for layer in 0..num_layers {
             let input_dim = if layer == 0 { input_size } else { hidden_size };
-            
+
             let weight_ih = crate::init::xavier_uniform(&[3 * hidden_size, input_dim]);
             let weight_hh = crate::init::xavier_uniform(&[3 * hidden_size, hidden_size]);
             let bias_ih = zeros(&[3 * hidden_size]);
             let bias_hh = zeros(&[3 * hidden_size]);
-            
+
             base.register_parameter(format!("weight_ih_l{}", layer), Parameter::new(weight_ih));
             base.register_parameter(format!("weight_hh_l{}", layer), Parameter::new(weight_hh));
             base.register_parameter(format!("bias_ih_l{}", layer), Parameter::new(bias_ih));
@@ -254,20 +256,21 @@ impl GRU {
 impl Module for GRU {
     fn forward(&self, input: &Tensor) -> Result<Tensor> {
         // GRU forward pass
-        let input_shape = input.shape();
+        let binding = input.shape();
+        let input_shape = binding.dims();
         let (seq_len, batch_size) = if self.batch_first {
             (input_shape[1], input_shape[0])
         } else {
             (input_shape[0], input_shape[1])
         };
-        
+
         let output_shape = if self.batch_first {
             [batch_size, seq_len, self.hidden_size]
         } else {
             [seq_len, batch_size, self.hidden_size]
         };
-        
-        let output = zeros(&output_shape);
+
+        let output: Tensor<f32> = zeros(&output_shape);
         Ok(output)
     }
 

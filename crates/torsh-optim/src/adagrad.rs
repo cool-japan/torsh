@@ -4,16 +4,19 @@ use crate::{optimizer::BaseOptimizer, Optimizer, OptimizerState, ParamGroup};
 use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::sync::Arc;
-use torsh_autograd::prelude::*;
 use torsh_core::error::{Result, TorshError};
-use torsh_tensor::{creation::zeros_like, Tensor};
+use torsh_tensor::Tensor;
 
 /// AdaGrad optimizer
 pub struct AdaGrad {
     base: BaseOptimizer,
+    #[allow(dead_code)]
     lr_decay: f32,
+    #[allow(dead_code)]
     weight_decay: f32,
+    #[allow(dead_code)]
     initial_accumulator_value: f32,
+    #[allow(dead_code)]
     eps: f32,
 }
 

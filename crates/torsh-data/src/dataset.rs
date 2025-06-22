@@ -166,6 +166,7 @@ impl<D: Dataset> Dataset for ConcatDataset<D> {
 }
 
 /// A subset of a dataset
+#[derive(Clone)]
 pub struct Subset<D: Dataset> {
     dataset: D,
     indices: Vec<usize>,

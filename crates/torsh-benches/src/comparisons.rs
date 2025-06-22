@@ -5,6 +5,8 @@ use criterion::black_box;
 
 #[cfg(feature = "compare-external")]
 use ndarray::{Array, Array2};
+#[cfg(feature = "compare-external")]
+use ndarray_rand::RandomExt;
 
 /// Comparison benchmark runner
 pub struct ComparisonRunner {

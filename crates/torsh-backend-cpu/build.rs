@@ -3,7 +3,7 @@ fn main() {
     #[cfg(target_os = "macos")]
     {
         // For macOS, try to link with libomp if available
-        if let Ok(_) = pkg_config::probe_library("openmp") {
+        if pkg_config::probe_library("openmp").is_ok() {
             println!("cargo:rustc-link-lib=omp");
         } else {
             // Fallback to homebrew installed OpenMP

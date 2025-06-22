@@ -9,22 +9,34 @@ pub use crate::layers::*;
 
 // For backward compatibility, also re-export specific layer types
 pub use crate::layers::{
-    // Linear layers
-    Linear,
-    // Convolutional layers
-    Conv1d, Conv2d,
-    // Activation functions
-    ReLU, Sigmoid, Tanh, GELU, LeakyReLU, Softmax, LogSoftmax,
-    // Pooling layers
-    MaxPool2d, AvgPool2d, AdaptiveAvgPool2d,
+    AdaptiveAvgPool2d,
+    AvgPool2d,
     // Normalization layers
-    BatchNorm2d, LayerNorm,
+    BatchNorm2d,
+    // Convolutional layers
+    Conv1d,
+    Conv2d,
     // Regularization layers
     Dropout,
-    // Recurrent layers
-    RNN, LSTM, GRU,
-    // Attention layers
-    MultiheadAttention,
     // Embedding layers
     Embedding,
+    LayerNorm,
+    LeakyReLU,
+    // Linear layers
+    Linear,
+    LogSoftmax,
+    // Pooling layers
+    MaxPool2d,
+    // Attention layers
+    MultiheadAttention,
+    // Activation functions
+    ReLU,
+    Sigmoid,
+    Softmax,
+    Tanh,
+    GELU,
+    GRU,
+    LSTM,
+    // Recurrent layers
+    RNN,
 };

@@ -203,6 +203,7 @@ pub struct ReduceLROnPlateau<O: Optimizer> {
 }
 
 impl<O: Optimizer> ReduceLROnPlateau<O> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         optimizer: O,
         mode: &str,
@@ -298,15 +299,20 @@ pub struct OneCycleLR<O: Optimizer> {
     total_steps: i32,
     pct_start: f32,
     anneal_strategy: String,
+    #[allow(dead_code)]
     cycle_momentum: bool,
+    #[allow(dead_code)]
     base_momentum: f32,
+    #[allow(dead_code)]
     max_momentum: f32,
+    #[allow(dead_code)]
     div_factor: f32,
     final_div_factor: f32,
     step_count: i32,
 }
 
 impl<O: Optimizer> OneCycleLR<O> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         optimizer: O,
         max_lr: Vec<f32>,

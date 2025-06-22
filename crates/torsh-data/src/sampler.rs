@@ -104,7 +104,7 @@ impl Sampler for RandomSampler {
         use rand::rngs::StdRng;
         use rand::{seq::SliceRandom, Rng, SeedableRng};
 
-        let mut indices: Vec<usize> = if self.replacement {
+        let indices: Vec<usize> = if self.replacement {
             // Sample with replacement
             let mut rng = if let Some(seed) = self.generator {
                 StdRng::seed_from_u64(seed)
@@ -226,6 +226,7 @@ impl<S: Sampler> BatchSamplerTrait for BatchSampler<S> {
 pub struct WeightedRandomSampler {
     weights: Vec<f64>,
     num_samples: usize,
+    #[allow(dead_code)]
     replacement: bool,
     generator: Option<u64>,
 }

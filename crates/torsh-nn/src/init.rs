@@ -2,7 +2,6 @@
 
 use rand::distributions::{Distribution, Uniform};
 use rand_distr::Normal;
-use scirs2::neural::utils::initializers as sci_init;
 use torsh_tensor::{creation::*, Tensor};
 
 /// Calculate fan-in and fan-out for a tensor shape
@@ -133,16 +132,16 @@ pub fn sparse(shape: &[usize], sparsity: f32, std: f32) -> Tensor<f32> {
     let cols = shape[1];
     let num_zeros = (rows as f32 * sparsity) as usize;
 
-    let mut tensor = normal(shape, 0.0, std);
+    let tensor = normal(shape, 0.0, std);
 
     // Set random elements to zero
     let mut rng = rand::thread_rng();
-    for i in 0..rows {
+    for _i in 0..rows {
         let mut indices: Vec<usize> = (0..cols).collect();
         use rand::seq::SliceRandom;
         indices.shuffle(&mut rng);
 
-        for j in 0..num_zeros.min(cols) {
+        for _j in 0..num_zeros.min(cols) {
             // TODO: Set element at (i, indices[j]) to 0
         }
     }

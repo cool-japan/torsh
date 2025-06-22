@@ -2,7 +2,7 @@
 
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyTuple};
-use numpy::{IntoPyArray, PyArray, PyArrayDyn, PyArrayMethods};
+use numpy::{IntoPyArray, PyArray, PyArrayDyn, PyArrayMethods, PyUntypedArrayMethods};
 use std::sync::Arc;
 use torsh_core::DType;
 use crate::error::{FfiError, FfiResult};
@@ -104,15 +104,15 @@ impl PyTensor {
     fn numpy(&self, py: Python) -> PyResult<PyObject> {
         let array = self.data.clone().into_pyarray(py);
         let reshaped = array.reshape(self.shape.clone())?;
-        Ok(reshaped.to_object(py))
+        Ok(reshaped.into_py(py))
     }
     
     /// Convert to Python list
     fn tolist(&self) -> PyResult<PyObject> {
         Python::with_gil(|py| {
-            let flat_list = PyList::new_bound(py, &self.data);
+            let flat_list = PyList::new(py, &self.data);
             if self.shape.len() == 1 {
-                Ok(flat_list.to_object(py))
+                Ok(flat_list.into_py(py))
             } else {
                 Self::reshape_to_nested_list(py, &self.data, &self.shape, 0)
             }
@@ -305,7 +305,7 @@ impl PyTensor {
     ) -> PyResult<PyObject> {
         if shape.len() == 1 {
             let slice = &data[offset..offset + shape[0]];
-            Ok(PyList::new_bound(py, slice).to_object(py))
+            Ok(PyList::new(py, slice).into_py(py))
         } else {
             let mut result = Vec::new();
             let stride = shape[1..].iter().product::<usize>();
@@ -320,7 +320,7 @@ impl PyTensor {
                 result.push(sublist);
             }
             
-            Ok(PyList::new_bound(py, result).to_object(py))
+            Ok(PyList::new(py, result).into_py(py))
         }
     }
 }

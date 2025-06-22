@@ -1,13 +1,9 @@
 //! Activation function layers
 
 use crate::{Module, ModuleBase, Parameter};
-use parking_lot::RwLock;
-use scirs2::neural::{activations as sci_act, layers as sci_layers};
 use std::collections::HashMap;
-use std::sync::Arc;
-use torsh_autograd::prelude::*;
 use torsh_core::device::DeviceType;
-use torsh_core::error::{Result, TorshError};
+use torsh_core::error::Result;
 use torsh_tensor::{creation::*, Tensor};
 
 /// ReLU activation function
@@ -33,7 +29,7 @@ impl Module for ReLU {
     fn forward(&self, input: &Tensor) -> Result<Tensor> {
         // Apply ReLU: max(0, x)
         let zero = zeros(input.shape().dims());
-        input.maximum(&zero).map_err(Into::into)
+        input.maximum(&zero)
     }
 
     fn parameters(&self) -> HashMap<String, Parameter> {
@@ -85,9 +81,9 @@ impl Module for Sigmoid {
         // Apply sigmoid: 1 / (1 + exp(-x))
         let neg_input = input.neg()?;
         let exp_neg = neg_input.exp()?;
-        let one_plus_exp = exp_neg.add(&ones(&input.shape()))?;
+        let one_plus_exp = exp_neg.add(&ones(input.shape().dims()))?;
         let one = ones(input.shape().dims());
-        one.div(&one_plus_exp).map_err(Into::into)
+        one.div(&one_plus_exp)
     }
 
     fn parameters(&self) -> HashMap<String, Parameter> {
@@ -142,7 +138,7 @@ impl Module for Tanh {
         let exp_neg = neg_input.exp()?;
         let numerator = exp_pos.sub(&exp_neg)?;
         let denominator = exp_pos.add(&exp_neg)?;
-        numerator.div(&denominator).map_err(Into::into)
+        numerator.div(&denominator)
     }
 
     fn parameters(&self) -> HashMap<String, Parameter> {
@@ -203,21 +199,24 @@ impl Module for GELU {
         if self.approximate {
             // Approximate GELU: 0.5 * x * (1 + tanh(sqrt(2/π) * (x + 0.044715 * x^3)))
             let x_cubed = input.pow(3.0)?;
-            let term = x_cubed.mul(&full(&input.shape(), 0.044715))?;
+            let term = x_cubed.mul(&full(input.shape().dims(), 0.044715))?;
             let inner = input.add(&term)?;
-            let scaled = inner.mul(&full(&input.shape(), (2.0 / std::f32::consts::PI).sqrt()))?;
+            let scaled = inner.mul(&full(
+                input.shape().dims(),
+                (2.0 / std::f32::consts::PI).sqrt(),
+            ))?;
             let tanh_result = scaled.tanh()?;
-            let one_plus_tanh = tanh_result.add(&ones(&input.shape()))?;
-            let half_x = input.mul(&full(&input.shape(), 0.5))?;
-            half_x.mul(&one_plus_tanh).map_err(Into::into)
+            let one_plus_tanh = tanh_result.add(&ones(input.shape().dims()))?;
+            let half_x = input.mul(&full(input.shape().dims(), 0.5))?;
+            half_x.mul(&one_plus_tanh)
         } else {
             // Exact GELU: 0.5 * x * (1 + erf(x / sqrt(2)))
             let sqrt_2 = (2.0_f32).sqrt();
-            let x_div_sqrt2 = input.div(&full(&input.shape(), sqrt_2))?;
+            let x_div_sqrt2 = input.div(&full(input.shape().dims(), sqrt_2))?;
             let erf_result = x_div_sqrt2.erf()?;
-            let one_plus_erf = erf_result.add(&ones(&input.shape()))?;
-            let half_x = input.mul(&full(&input.shape(), 0.5))?;
-            half_x.mul(&one_plus_erf).map_err(Into::into)
+            let one_plus_erf = erf_result.add(&ones(input.shape().dims()))?;
+            let half_x = input.mul(&full(input.shape().dims(), 0.5))?;
+            half_x.mul(&one_plus_erf)
         }
     }
 
@@ -273,8 +272,9 @@ impl Module for LeakyReLU {
         let zero = zeros(input.shape().dims());
         let positive_part = input.maximum(&zero)?;
         let negative_part = input.minimum(&zero)?;
-        let scaled_negative = negative_part.mul(&full(&input.shape(), self.negative_slope))?;
-        positive_part.add(&scaled_negative).map_err(Into::into)
+        let scaled_negative =
+            negative_part.mul(&full(input.shape().dims(), self.negative_slope))?;
+        positive_part.add(&scaled_negative)
     }
 
     fn parameters(&self) -> HashMap<String, Parameter> {
@@ -328,12 +328,11 @@ impl Module for Softmax {
         // Apply softmax: exp(x) / sum(exp(x))
         let exp_input = input.exp()?;
         let sum_exp = if let Some(dim) = self.dim {
-            exp_input.sum_dim(dim, true)?
+            exp_input.sum_dim(&[dim as i32], true)?
         } else {
-            let total_sum = exp_input.sum()?;
-            total_sum.broadcast_to(&input.shape())?
+            exp_input.sum()?
         };
-        exp_input.div(&sum_exp).map_err(Into::into)
+        exp_input.div(&sum_exp)
     }
 
     fn parameters(&self) -> HashMap<String, Parameter> {
@@ -387,13 +386,12 @@ impl Module for LogSoftmax {
         // Apply log_softmax: log(softmax(x)) = x - log(sum(exp(x)))
         let exp_input = input.exp()?;
         let sum_exp = if let Some(dim) = self.dim {
-            exp_input.sum_dim(dim, true)?
+            exp_input.sum_dim(&[dim as i32], true)?
         } else {
-            let total_sum = exp_input.sum()?;
-            total_sum.broadcast_to(&input.shape())?
+            exp_input.sum()?
         };
         let log_sum_exp = sum_exp.log()?;
-        input.sub(&log_sum_exp).map_err(Into::into)
+        input.sub(&log_sum_exp)
     }
 
     fn parameters(&self) -> HashMap<String, Parameter> {

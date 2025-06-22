@@ -18,6 +18,12 @@ pub mod kernels;
 pub mod memory;
 pub mod stream;
 
+#[cfg(feature = "cudnn")]
+pub mod cudnn;
+
+pub mod neural_ops_enhanced;
+pub mod mixed_precision;
+
 pub use backend::CudaBackend;
 pub use buffer::CudaBuffer;
 pub use device::CudaDevice;
@@ -25,12 +31,23 @@ pub use error::CudaError;
 pub use memory::CudaMemoryManager;
 pub use stream::CudaStream;
 
+#[cfg(feature = "cudnn")]
+pub use cudnn::{CudnnHandle, CudnnOps, TensorDescriptor, FilterDescriptor, ConvolutionDescriptor, ActivationDescriptor};
+
+pub use neural_ops_enhanced::EnhancedNeuralOps;
+pub use mixed_precision::{GradientScaler, AmpContext, MixedPrecisionTrainer};
+
 /// Re-export commonly used types
 pub mod prelude {
     pub use super::{
         CudaBackend, CudaBuffer, CudaDevice, CudaError, 
-        CudaMemoryManager, CudaStream
+        CudaMemoryManager, CudaStream, EnhancedNeuralOps,
+        GradientScaler, AmpContext, MixedPrecisionTrainer
     };
+    
+    #[cfg(feature = "cudnn")]
+    pub use super::{CudnnHandle, CudnnOps, TensorDescriptor, FilterDescriptor, ConvolutionDescriptor, ActivationDescriptor};
+    
     pub use torsh_backends::prelude::*;
 }
 

@@ -3,7 +3,7 @@
 use crate::{Module, ModuleBase, Parameter};
 use std::collections::HashMap;
 use torsh_core::device::DeviceType;
-use torsh_core::error::{Result, TorshError};
+use torsh_core::error::Result;
 use torsh_tensor::{creation::*, Tensor};
 
 /// Dropout layer for regularization
@@ -49,18 +49,18 @@ impl Module for Dropout {
         }
 
         if self.p == 1.0 {
-            return Ok(zeros(&input.shape()));
+            return Ok(zeros(input.shape().dims()));
         }
 
         // Generate random mask for dropout
         // In a real implementation, this would use proper random number generation
         let keep_prob = 1.0 - self.p;
-        let mask = full(&input.shape(), keep_prob); // Simplified - should be random
-        
+        let mask = full(input.shape().dims(), keep_prob); // Simplified - should be random
+
         let dropped = input.mul(&mask)?;
         // Scale by 1/(1-p) to maintain expected value
         let scale = 1.0 / keep_prob;
-        dropped.mul(&full(&input.shape(), scale))
+        dropped.mul(&full(input.shape().dims(), scale))
     }
 
     fn parameters(&self) -> HashMap<String, Parameter> {

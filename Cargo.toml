@@ -10,7 +10,8 @@ members = [
     "crates/torsh-data",
     "crates/torsh-backends",
     "crates/torsh-backend-cpu",
-    # "crates/torsh-ffi",  # Temporarily disabled due to PyO3 compatibility issues
+    # "crates/torsh-models",  # Temporarily disabled - fixing compilation issues
+    # "crates/torsh-ffi",  # Temporarily disabled - PyO3 API compatibility issues (non-critical)
     "crates/torsh-benches",
 ]
 
@@ -24,6 +25,7 @@ default-members = [
     "crates/torsh-data",
     "crates/torsh-backends",
     "crates/torsh-backend-cpu",
+    # "crates/torsh-models",  # Temporarily disabled - fixing compilation issues
     "crates/torsh-benches",
 ]
 

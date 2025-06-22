@@ -115,7 +115,7 @@ impl Optimizer for NAdam {
             let beta2 = group.options.get("beta2").copied().unwrap_or(0.999);
             let eps = group.options.get("eps").copied().unwrap_or(1e-8);
             let weight_decay = group.options.get("weight_decay").copied().unwrap_or(0.0);
-            let momentum_decay = group.options.get("momentum_decay").copied().unwrap_or(4e-3);
+            let _momentum_decay = group.options.get("momentum_decay").copied().unwrap_or(4e-3);
 
             let bias_correction1 = 1.0 - beta1.powi(self.step_count as i32);
             let bias_correction2 = 1.0 - beta2.powi(self.step_count as i32);
@@ -132,17 +132,12 @@ impl Optimizer for NAdam {
 
                 // Get or initialize state
                 let param_ptr = &*param as *const Tensor;
-                if !self.state.contains_key(&param_ptr) {
-                    self.state.insert(
-                        param_ptr,
-                        NAdamState {
-                            exp_avg: zeros_like(&param),
-                            exp_avg_sq: zeros_like(&param),
-                        },
-                    );
-                }
-
-                let state = self.state.get_mut(&param_ptr).unwrap();
+                let state = self.state.entry(param_ptr).or_insert_with(|| {
+                    NAdamState {
+                        exp_avg: zeros_like(&param),
+                        exp_avg_sq: zeros_like(&param),
+                    }
+                });
 
                 // Apply weight decay
                 let mut grad_with_decay = grad.clone();
@@ -239,11 +234,11 @@ impl Optimizer for NAdam {
 
         // Load optimizer state
         self.state.clear();
-        for (ptr_str, param_state) in state.state {
+        for (_ptr_str, param_state) in state.state {
             if let (Some(exp_avg), Some(exp_avg_sq)) =
                 (param_state.get("exp_avg"), param_state.get("exp_avg_sq"))
             {
-                let dummy_ptr = std::ptr::null() as *const Tensor;
+                let dummy_ptr = std::ptr::null::<Tensor>();
                 self.state.insert(
                     dummy_ptr,
                     NAdamState {
