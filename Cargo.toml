@@ -83,7 +83,7 @@ tracing-subscriber = "0.3"
 
 # Data structures
 ndarray = "0.16"
-petgraph = "0.6"
+petgraph = "0.8"
 indexmap = "2.2"
 
 # FFI
