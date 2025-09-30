@@ -201,7 +201,7 @@ numpy = "0.26"
 hostname = "0.4"
 rustc-version = "0.4"
 which = "8.0"
-sysinfo = "0.36"
+sysinfo = "0.37"
 zip = "4.2"
 chrono = { version = "0.4", features = ["serde"] }
 
