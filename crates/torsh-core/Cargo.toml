@@ -1,0 +1,123 @@
+[package]
+name = "torsh-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Core types and traits for ToRSh deep learning framework"
+
+[lints]
+workspace = true
+
+[dependencies]
+# Core scientific computing dependencies
+scirs2 = { workspace = true }
+numrs2 = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Utilities
+num-traits = { workspace = true }
+num-derive = { workspace = true }
+num-complex = { workspace = true }
+num_cpus = ">=1.15.0, <2.0.0"  # Constrained version for stability
+once_cell = { workspace = true }
+parking_lot = { workspace = true }
+half = { workspace = true }
+memmap2 = ">=0.9.0, <0.10.0"  # Constrained version for stability
+
+# Serialization (optional)
+serde = { workspace = true, optional = true }
+serde_json = { version = ">=1.0.100, <2.0.0", optional = true }  # Better version constraint
+
+# Logging
+tracing = { workspace = true }
+
+# Optional dependencies for advanced features
+rayon = { version = ">=1.7.0, <2.0.0", optional = true }  # For parallel processing
+crossbeam = { version = ">=0.8.0, <0.9.0", optional = true }  # For lock-free data structures
+libc = { version = ">=0.2.140, <0.3.0", optional = true }  # For system-level operations
+zstd = { version = ">=0.12.0, <0.14.0", optional = true }  # For tensor compression
+
+[dev-dependencies]
+approx = { workspace = true }
+proptest = { workspace = true }
+criterion = { workspace = true }
+libfuzzer-sys = "0.4"
+tempfile = "3.23"
+tokio = { version = "1.47", features = ["macros", "rt-multi-thread"] }
+
+[features]
+default = ["std", "half", "parallel"]
+std = []
+no_std = []
+
+# Serialization features
+serialize = ["serde", "serde_json"]
+
+# Hardware acceleration features
+cudnn = ["dep:cudnn-sys"]
+cuda = []
+wgpu = []
+half = []
+fp16 = []
+avx512 = []
+simd = []
+
+# Parallel processing features
+parallel = ["rayon", "crossbeam"]
+fast-math = []
+
+# Development and debugging features
+debug = []
+trace = []
+bench = []
+
+# System integration features
+system-level = ["libc"]
+compression = ["zstd"]
+
+# Language bindings
+python = []
+c-api = []
+
+# Platform-specific features
+gpu = []
+cpu-optimized = ["simd", "parallel"]
+distributed = []
+
+# Memory management features
+numa = []
+memory-mapping = []
+memory-debug = ["debug"]
+
+# Experimental features
+experimental = []
+unsafe-optimizations = []
+
+# Benchmark features
+storage_benchmarks = []
+
+[dependencies.cudnn-sys]
+version = "0.0.3"
+optional = true
+
+[[bench]]
+name = "shape_bench"
+harness = false
+
+[[bench]]
+name = "device_bench"
+harness = false
+
+[[bench]]
+name = "dtype_bench"
+harness = false
+
+[[bench]]
+name = "storage_bench"
+harness = false

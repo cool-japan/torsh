@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ToRSh WASM Demo - ML in the Browser</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .demo-section {
+            margin: 30px 0;
+        }
+        
+        h2 {
+            color: #666;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+        }
+        
+        .canvas-container {
+            display: inline-block;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            margin: 10px;
+        }
+        
+        canvas {
+            cursor: crosshair;
+        }
+        
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        .clear-button {
+            background-color: #f44336;
+        }
+        
+        .clear-button:hover {
+            background-color: #da190b;
+        }
+        
+        .results {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .prediction {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+            margin: 10px 0;
+        }
+        
+        .confidence-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 5px 0;
+        }
+        
+        .confidence-fill {
+            height: 100%;
+            background-color: #4CAF50;
+            transition: width 0.3s ease;
+        }
+        
+        .probability-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        .prob-item {
+            text-align: center;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+        }
+        
+        .prob-item.highest {
+            background-color: #4CAF50;
+            color: white;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 18px;
+            color: #666;
+        }
+        
+        .error {
+            color: #f44336;
+            padding: 10px;
+            background-color: #ffebee;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            resize: vertical;
+            min-height: 100px;
+        }
+        
+        .sentiment-results {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+        }
+        
+        .sentiment-score {
+            text-align: center;
+            padding: 20px;
+            border-radius: 8px;
+            min-width: 100px;
+        }
+        
+        .sentiment-score.negative {
+            background-color: #ffcdd2;
+            color: #c62828;
+        }
+        
+        .sentiment-score.neutral {
+            background-color: #fff9c4;
+            color: #f57f17;
+        }
+        
+        .sentiment-score.positive {
+            background-color: #c8e6c9;
+            color: #2e7d32;
+        }
+        
+        .benchmark-results {
+            font-family: monospace;
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        
+        .model-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            padding: 15px;
+            background-color: #e3f2fd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🚀 ToRSh WASM Demo</h1>
+    <p style="text-align: center; color: #666;">
+        Machine Learning in the Browser with Rust and WebAssembly
+    </p>
+    
+    <div class="loading" id="loading">
+        Loading ToRSh WASM module... ⏳
+    </div>
+    
+    <div id="main-content" style="display: none;">
+        <!-- Model Information -->
+        <div class="container">
+            <h2>📊 Model Information</h2>
+            <div class="model-info" id="model-info">
+                <!-- Populated by JavaScript -->
+            </div>
+        </div>
+        
+        <!-- Digit Classification Demo -->
+        <div class="container demo-section">
+            <h2>✏️ Digit Classification</h2>
+            <p>Draw a digit (0-9) in the canvas below:</p>
+            
+            <div style="text-align: center;">
+                <div class="canvas-container">
+                    <canvas id="draw-canvas" width="280" height="280"></canvas>
+                </div>
+                <div class="canvas-container">
+                    <canvas id="preview-canvas" width="28" height="28" style="width: 140px; height: 140px; image-rendering: pixelated;"></canvas>
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin: 20px 0;">
+                <button id="predict-button">Predict Digit</button>
+                <button id="clear-button" class="clear-button">Clear Canvas</button>
+            </div>
+            
+            <div id="digit-results" class="results" style="display: none;">
+                <div class="prediction">Predicted: <span id="predicted-digit">-</span></div>
+                <div>Confidence: <span id="confidence">-</span>%</div>
+                <div class="confidence-bar">
+                    <div class="confidence-fill" id="confidence-bar"></div>
+                </div>
+                
+                <h3>All Probabilities:</h3>
+                <div class="probability-grid" id="probability-grid">
+                    <!-- Populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sentiment Analysis Demo -->
+        <div class="container demo-section">
+            <h2>💭 Sentiment Analysis</h2>
+            <p>Enter some text to analyze its sentiment:</p>
+            
+            <textarea id="sentiment-input" placeholder="Enter your text here...">I love using machine learning in the browser!</textarea>
+            
+            <div style="text-align: center; margin: 20px 0;">
+                <button id="analyze-button">Analyze Sentiment</button>
+            </div>
+            
+            <div id="sentiment-results" class="results" style="display: none;">
+                <h3>Sentiment: <span id="sentiment-label">-</span></h3>
+                <div class="sentiment-results">
+                    <div class="sentiment-score negative">
+                        <div>Negative</div>
+                        <div style="font-size: 24px;" id="negative-score">0%</div>
+                    </div>
+                    <div class="sentiment-score neutral">
+                        <div>Neutral</div>
+                        <div style="font-size: 24px;" id="neutral-score">0%</div>
+                    </div>
+                    <div class="sentiment-score positive">
+                        <div>Positive</div>
+                        <div style="font-size: 24px;" id="positive-score">0%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Performance Benchmark -->
+        <div class="container demo-section">
+            <h2>⚡ Performance Benchmark</h2>
+            <p>Test the inference speed of the model:</p>
+            
+            <div style="text-align: center; margin: 20px 0;">
+                <button id="benchmark-button">Run Benchmark</button>
+            </div>
+            
+            <div id="benchmark-results" class="benchmark-results" style="display: none;">
+                <pre id="benchmark-output"></pre>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module" src="./main.js"></script>
+</body>
+</html>

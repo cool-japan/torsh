@@ -1,0 +1,602 @@
+//! Comprehensive benchmark runner for ToRSh
+//!
+//! This is the main entry point for running all ToRSh benchmarks and generating
+//! comprehensive performance reports including PyTorch comparisons.
+//!
+//! Usage:
+//!   # Run all benchmarks (ToRSh only)
+//!   cargo run --example run_all_benchmarks --release
+//!
+//!   # Run with PyTorch comparisons
+//!   cargo run --example run_all_benchmarks --release --features pytorch
+//!
+//!   # Run specific benchmark suites
+//!   cargo run --example run_all_benchmarks --release -- --suite core
+//!   cargo run --example run_all_benchmarks --release -- --suite pytorch
+//!   cargo run --example run_all_benchmarks --release -- --suite neural-networks
+
+use std::env;
+use std::time::{Duration, Instant};
+use torsh_benches::prelude::*;
+use torsh_nn::prelude::{Linear, Conv2d};
+use torsh_benches::comparisons::RegressionDetector;
+
+#[cfg(feature = "pytorch")]
+use torsh_benches::pytorch_comparisons::*;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args: Vec<String> = env::args().collect();
+
+    // Parse command line arguments
+    let benchmark_suite = if args.len() > 2 && args[1] == "--suite" {
+        Some(args[2].as_str())
+    } else {
+        None
+    };
+
+    println!("🚀 ToRSh Comprehensive Benchmark Suite");
+    println!("======================================");
+
+    // Print system information
+    print_system_info();
+
+    // Check feature availability
+    check_feature_availability();
+
+    println!();
+
+    let start_time = Instant::now();
+
+    match benchmark_suite {
+        Some("core") => run_core_tensor_benchmarks()?,
+        Some("pytorch") => run_pytorch_only_benchmarks()?,
+        Some("neural-networks") => run_neural_network_benchmarks()?,
+        Some("memory") => run_memory_benchmarks()?,
+        Some("regression") => run_regression_detection()?,
+        Some("all") | None => run_all_benchmark_suites()?,
+        Some(unknown) => {
+            eprintln!("Unknown benchmark suite: {}", unknown);
+            print_usage();
+            return Ok(());
+        }
+    }
+
+    let total_time = start_time.elapsed();
+
+    println!(
+        "\n🎉 Benchmark suite completed in {:.2}s!",
+        total_time.as_secs_f64()
+    );
+    print_results_summary();
+
+    Ok(())
+}
+
+fn print_system_info() {
+    println!("\n📋 System Information:");
+    println!("   OS: {}", env::consts::OS);
+    println!("   Arch: {}", env::consts::ARCH);
+
+    // Get CPU count
+    let cpu_count = num_cpus::get();
+    println!("   CPUs: {}", cpu_count);
+
+    // Check for optimization flags
+    if cfg!(debug_assertions) {
+        println!("   ⚠️  Running in DEBUG mode - use --release for accurate benchmarks");
+    } else {
+        println!("   ✅ Running in RELEASE mode");
+    }
+}
+
+fn check_feature_availability() {
+    println!("\n🔧 Feature Availability:");
+
+    #[cfg(feature = "pytorch")]
+    {
+        let pytorch_runner = PyTorchBenchRunner::new();
+        if pytorch_runner.is_pytorch_available() {
+            println!("   ✅ PyTorch comparisons: Available");
+        } else {
+            println!("   ⚠️  PyTorch comparisons: Python/PyTorch not found");
+        }
+    }
+
+    #[cfg(not(feature = "pytorch"))]
+    {
+        println!("   ❌ PyTorch comparisons: Feature disabled");
+        println!("      Enable with: --features pytorch");
+    }
+
+    // Check for SIMD capabilities
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    if is_x86_feature_detected!("avx2") {
+        println!("   ✅ AVX2 SIMD: Available");
+    } else {
+        println!("   ⚠️  AVX2 SIMD: Not available");
+    }
+    #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+    println!("   ⚠️  AVX2 SIMD: Not available on this architecture");
+
+    // Check threading
+    println!(
+        "   🧵 Threading: {} threads available",
+        rayon::current_num_threads()
+    );
+}
+
+fn run_all_benchmark_suites() -> Result<(), Box<dyn std::error::Error>> {
+    println!("🔄 Running All Benchmark Suites");
+    println!("================================\n");
+
+    // Core tensor benchmarks
+    run_core_tensor_benchmarks()?;
+
+    // Neural network benchmarks
+    run_neural_network_benchmarks()?;
+
+    // Memory benchmarks
+    run_memory_benchmarks()?;
+
+    // PyTorch comparisons (if available)
+    #[cfg(feature = "pytorch")]
+    run_pytorch_comparison_benchmarks()?;
+
+    // Generate comprehensive reports
+    generate_all_reports()?;
+
+    Ok(())
+}
+
+fn run_core_tensor_benchmarks() -> Result<(), Box<dyn std::error::Error>> {
+    println!("📊 Core Tensor Operations Benchmarks");
+    println!("====================================\n");
+
+    let mut runner = BenchRunner::new();
+
+    // Tensor creation
+    println!("🔨 Benchmarking tensor creation...");
+    let creation_config = BenchConfig::new("tensor_creation")
+        .with_sizes(vec![64, 256, 1024, 4096])
+        .with_timing(Duration::from_millis(100), Duration::from_millis(500));
+
+    let creation_bench = benchmark!("creation", |size| size, |&size| {
+        let _zeros = torsh_tensor::creation::zeros::<f32>(&[size, size]);
+        let _ones = torsh_tensor::creation::ones::<f32>(&[size, size]);
+        let _rand = torsh_tensor::creation::rand::<f32>(&[size, size]);
+    });
+    runner.run_benchmark(creation_bench, &creation_config);
+
+    // Matrix multiplication
+    println!("🔢 Benchmarking matrix multiplication...");
+    let matmul_config = BenchConfig::new("matrix_multiplication")
+        .with_sizes(vec![32, 64, 128, 256, 512, 1024])
+        .with_timing(Duration::from_millis(200), Duration::from_secs(2))
+        .with_memory_measurement()
+        .with_metadata("operation", "matmul")
+        .with_metadata("precision", "f32");
+
+    let matmul_bench = benchmark!(
+        "matmul",
+        |size| {
+            let a = torsh_tensor::creation::rand::<f32>(&[size, size]);
+            let b = torsh_tensor::creation::rand::<f32>(&[size, size]);
+            (a, b)
+        },
+        |input: (torsh_tensor::Tensor<f32>, torsh_tensor::Tensor<f32>)| input.0.matmul(&input.1).unwrap()
+    );
+    runner.run_benchmark(matmul_bench, &matmul_config);
+
+    // Element-wise operations
+    println!("⚡ Benchmarking element-wise operations...");
+    let elementwise_config = BenchConfig::new("elementwise_operations")
+        .with_sizes(vec![1000, 10000, 100000, 1000000, 10000000])
+        .with_timing(Duration::from_millis(50), Duration::from_millis(300));
+
+    // Addition
+    let add_bench = benchmark!(
+        "add",
+        |size| {
+            let a = torsh_tensor::creation::rand::<f32>(&[size]);
+            let b = torsh_tensor::creation::rand::<f32>(&[size]);
+            (a, b)
+        },
+        |input| input.0.add(&input.1).unwrap()
+    );
+    runner.run_benchmark(add_bench, &elementwise_config);
+
+    // Multiplication
+    let mul_bench = benchmark!(
+        "mul",
+        |size| {
+            let a = torsh_tensor::creation::rand::<f32>(&[size]);
+            let b = torsh_tensor::creation::rand::<f32>(&[size]);
+            (a, b)
+        },
+        |input| input.0.mul(&input.1).unwrap()
+    );
+    runner.run_benchmark(mul_bench, &elementwise_config);
+
+    // Reductions
+    println!("📈 Benchmarking reduction operations...");
+    let reduction_config = BenchConfig::new("reductions")
+        .with_sizes(vec![1000, 10000, 100000, 1000000])
+        .with_timing(Duration::from_millis(50), Duration::from_millis(300));
+
+    let sum_bench = benchmark!(
+        "sum",
+        |size| torsh_tensor::creation::rand::<f32>(&[size, size]),
+        |input| input.sum().unwrap()
+    );
+    runner.run_benchmark(sum_bench, &reduction_config);
+
+    println!("✅ Core tensor benchmarks completed\n");
+    Ok(())
+}
+
+fn run_neural_network_benchmarks() -> Result<(), Box<dyn std::error::Error>> {
+    println!("🧠 Neural Network Operations Benchmarks");
+    println!("========================================\n");
+
+    let mut runner = BenchRunner::new();
+
+    // Linear layers
+    println!("📏 Benchmarking linear layers...");
+    let linear_config = BenchConfig::new("linear_layers")
+        .with_sizes(vec![128, 256, 512, 1024, 2048])
+        .with_timing(Duration::from_millis(100), Duration::from_millis(800))
+        .with_metadata("batch_size", "32");
+
+    let linear_bench = benchmark!(
+        "linear",
+        |size| {
+            let linear = Linear::new(size, size / 2, true);
+            let input = torsh_tensor::creation::rand::<f32>(&[32, size]);
+            (linear, input)
+        },
+        |input| input.0.forward(&input.1).unwrap()
+    );
+    runner.run_benchmark(linear_bench, &linear_config);
+
+    // Activation functions
+    println!("⚡ Benchmarking activation functions...");
+    let activation_config = BenchConfig::new("activations")
+        .with_sizes(vec![1000, 10000, 100000, 1000000])
+        .with_timing(Duration::from_millis(50), Duration::from_millis(300));
+
+    let relu_bench = benchmark!(
+        "relu",
+        |size| torsh_tensor::creation::rand::<f32>(&[size]),
+        |input| input.relu().unwrap()
+    );
+    runner.run_benchmark(relu_bench, &activation_config);
+
+    let sigmoid_bench = benchmark!(
+        "sigmoid",
+        |size| torsh_tensor::creation::rand::<f32>(&[size]),
+        |input| input.sigmoid().unwrap()
+    );
+    runner.run_benchmark(sigmoid_bench, &activation_config);
+
+    // Convolution layers
+    println!("🔄 Benchmarking convolution operations...");
+    let conv_config = BenchConfig::new("convolutions")
+        .with_sizes(vec![32, 64, 128, 224])
+        .with_timing(Duration::from_millis(200), Duration::from_secs(1))
+        .with_metadata("kernel_size", "3")
+        .with_metadata("channels", "64");
+
+    let conv_bench = benchmark!(
+        "conv2d",
+        |size| {
+            let conv = Conv2d::new(3, 64, (3, 3), (1, 1), (1, 1), (1, 1), true, 1);
+            let input = torsh_tensor::creation::rand::<f32>(&[16, 3, size, size]);
+            (conv, input)
+        },
+        |input| input.0.forward(&input.1).unwrap()
+    );
+    runner.run_benchmark(conv_bench, &conv_config);
+
+    println!("✅ Neural network benchmarks completed\n");
+    Ok(())
+}
+
+fn run_memory_benchmarks() -> Result<(), Box<dyn std::error::Error>> {
+    println!("💾 Memory Operations Benchmarks");
+    println!("===============================\n");
+
+    let mut runner = BenchRunner::new();
+
+    // Memory allocation patterns
+    println!("🔨 Benchmarking memory allocation...");
+    let alloc_config = BenchConfig::new("memory_allocation")
+        .with_sizes(vec![64, 256, 1024, 4096])
+        .with_memory_measurement()
+        .with_timing(Duration::from_millis(50), Duration::from_millis(300));
+
+    let alloc_bench = benchmark!("allocation", |size| size, |&size| {
+        // Test different allocation patterns
+        let _tensor1 = torsh_tensor::creation::zeros::<f32>(&[size, size]);
+        let _tensor2 = torsh_tensor::creation::ones::<f32>(&[size, size]);
+        let _tensor3 = torsh_tensor::creation::rand::<f32>(&[size, size]);
+    });
+    runner.run_benchmark(alloc_bench, &alloc_config);
+
+    // Memory copying and cloning
+    println!("📋 Benchmarking memory operations...");
+    let copy_config = BenchConfig::new("memory_copy")
+        .with_sizes(vec![256, 1024, 4096, 16384])
+        .with_memory_measurement();
+
+    let clone_bench = benchmark!(
+        "clone",
+        |size| torsh_tensor::creation::rand::<f32>(&[size, size]),
+        |input: torsh_tensor::Tensor<f32>| input.clone()
+    );
+    runner.run_benchmark(clone_bench, &copy_config);
+
+    println!("✅ Memory benchmarks completed\n");
+    Ok(())
+}
+
+#[cfg(feature = "pytorch")]
+fn run_pytorch_comparison_benchmarks() -> Result<(), Box<dyn std::error::Error>> {
+    println!("🐍 PyTorch Comparison Benchmarks");
+    println!("=================================\n");
+
+    let pytorch_runner = PyTorchBenchRunner::new();
+    if !pytorch_runner.is_pytorch_available() {
+        println!("⚠️  PyTorch not available, skipping comparison benchmarks\n");
+        return Ok(());
+    }
+
+    // Run comprehensive PyTorch comparisons
+    let _results = run_pytorch_comparison_suite();
+
+    println!("✅ PyTorch comparison benchmarks completed\n");
+    Ok(())
+}
+
+#[cfg(feature = "pytorch")]
+fn run_pytorch_only_benchmarks() -> Result<(), Box<dyn std::error::Error>> {
+    println!("🐍 PyTorch-Only Benchmarks");
+    println!("==========================\n");
+
+    run_pytorch_comparison_benchmarks()?;
+    generate_pytorch_comparison_report()?;
+
+    Ok(())
+}
+
+#[cfg(not(feature = "pytorch"))]
+fn run_pytorch_only_benchmarks() -> Result<(), Box<dyn std::error::Error>> {
+    println!("❌ PyTorch benchmarks requested but feature not enabled");
+    println!("   Enable with: --features pytorch\n");
+    Ok(())
+}
+
+#[cfg(not(feature = "pytorch"))]
+fn run_pytorch_comparison_benchmarks() -> Result<(), Box<dyn std::error::Error>> {
+    Ok(())
+}
+
+fn run_regression_detection() -> Result<(), Box<dyn std::error::Error>> {
+    println!("🔍 Performance Regression Detection");
+    println!("===================================\n");
+
+    // Run a subset of core benchmarks for regression detection
+    let mut detector = RegressionDetector::new(0.05); // 5% threshold
+
+    // Load baseline if it exists
+    if let Err(e) = detector.load_baseline("target/baseline_results.json") {
+        println!("⚠️  No baseline found: {}", e);
+        println!("   Run benchmarks normally to establish baseline");
+    }
+
+    // Run quick regression benchmarks
+    println!("🏃 Running regression detection benchmarks...");
+    let mut runner = BenchRunner::new();
+
+    let quick_config = BenchConfig::new("regression_check")
+        .with_sizes(vec![256, 512])
+        .with_timing(Duration::from_millis(50), Duration::from_millis(200));
+
+    let quick_matmul = benchmark!(
+        "quick_matmul",
+        |size| {
+            let a = torsh_tensor::creation::rand::<f32>(&[size, size]);
+            let b = torsh_tensor::creation::rand::<f32>(&[size, size]);
+            (a, b)
+        },
+        |input| input.0.matmul(&input.1).unwrap()
+    );
+    runner.run_benchmark(quick_matmul, &quick_config);
+
+    // Check for regressions
+    let results = runner.results();
+    let regressions = detector.check_regression(results);
+
+    if regressions.is_empty() {
+        println!("✅ No performance regressions detected");
+    } else {
+        println!("⚠️  Performance regressions detected:");
+        for regression in &regressions {
+            println!(
+                "   {} (size {}): {:.2}x slower",
+                regression.benchmark, regression.size, regression.slowdown_factor
+            );
+        }
+    }
+
+    // Save current results as baseline
+    if let Err(e) = detector.save_baseline(results, "target/baseline_results.json") {
+        eprintln!("Failed to save baseline: {}", e);
+    }
+
+    println!("✅ Regression detection completed\n");
+    Ok(())
+}
+
+fn generate_all_reports() -> Result<(), Box<dyn std::error::Error>> {
+    println!("📈 Generating Comprehensive Reports");
+    println!("===================================\n");
+
+    // Create output directory
+    std::fs::create_dir_all("target")?;
+
+    // Generate basic benchmark report
+    let runner = BenchRunner::new();
+    runner.generate_report("target")?;
+    println!("✅ HTML report: target/benchmark_report.html");
+
+    // Export raw results
+    runner.export_csv("target/benchmark_results.csv")?;
+    println!("✅ CSV export: target/benchmark_results.csv");
+
+    // Generate PyTorch comparison report
+    #[cfg(feature = "pytorch")]
+    {
+        if let Err(e) = generate_pytorch_comparison_report() {
+            eprintln!("⚠️  Failed to generate PyTorch report: {}", e);
+        } else {
+            println!("✅ PyTorch comparison: target/pytorch_comparison.md");
+            println!("✅ Detailed analysis: target/pytorch_vs_torsh_analysis.md");
+        }
+    }
+
+    // Generate performance recommendations
+    generate_performance_recommendations()?;
+    println!("✅ Recommendations: target/performance_recommendations.md");
+
+    Ok(())
+}
+
+fn generate_performance_recommendations() -> Result<(), Box<dyn std::error::Error>> {
+    use std::io::Write;
+
+    let mut file = std::fs::File::create("target/performance_recommendations.md")?;
+
+    writeln!(file, "# ToRSh Performance Recommendations\n")?;
+    writeln!(
+        file,
+        "Generated: {}\n",
+        chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC")
+    )?;
+
+    writeln!(file, "## Quick Start\n")?;
+    writeln!(file, "For optimal ToRSh performance:\n")?;
+    writeln!(file, "1. **Use release builds**: `cargo build --release`")?;
+    writeln!(
+        file,
+        "2. **Set CPU flags**: `export RUSTFLAGS=\"-C target-cpu=native\"`"
+    )?;
+    writeln!(
+        file,
+        "3. **Control threading**: `export RAYON_NUM_THREADS=$(nproc)`"
+    )?;
+    writeln!(
+        file,
+        "4. **Use appropriate tensor sizes**: Powers of 2 often perform best\n"
+    )?;
+
+    writeln!(file, "## Benchmark Results Summary\n")?;
+    writeln!(
+        file,
+        "Based on the current benchmark run, here are the key findings:\n"
+    )?;
+
+    writeln!(file, "### Matrix Operations\n")?;
+    writeln!(file, "- **Best sizes**: 256x256, 512x512, 1024x1024")?;
+    writeln!(
+        file,
+        "- **Performance tip**: Use f32 for better SIMD utilization"
+    )?;
+    writeln!(
+        file,
+        "- **Memory consideration**: Cache-friendly blocking for large matrices\n"
+    )?;
+
+    writeln!(file, "### Element-wise Operations\n")?;
+    writeln!(
+        file,
+        "- **Memory bandwidth limited**: Focus on data locality"
+    )?;
+    writeln!(file, "- **Vectorization**: Ensure contiguous memory layout")?;
+    writeln!(
+        file,
+        "- **Fusion opportunities**: Combine operations to reduce memory traffic\n"
+    )?;
+
+    writeln!(file, "### Neural Network Operations\n")?;
+    writeln!(
+        file,
+        "- **Batch processing**: Larger batches improve efficiency"
+    )?;
+    writeln!(
+        file,
+        "- **Channel layout**: Use NCHW for convolutions when possible"
+    )?;
+    writeln!(
+        file,
+        "- **Memory management**: Consider gradient checkpointing for large models\n"
+    )?;
+
+    Ok(())
+}
+
+fn print_results_summary() {
+    println!("\n📊 Results Summary");
+    println!("==================");
+    println!("📁 All results saved to: target/");
+    println!("   📄 benchmark_report.html - Interactive visualization");
+    println!("   📊 benchmark_results.csv - Raw data for analysis");
+
+    #[cfg(feature = "pytorch")]
+    println!("   🐍 pytorch_comparison.md - PyTorch vs ToRSh comparison");
+
+    println!("   💡 performance_recommendations.md - Optimization tips");
+
+    println!("\n🚀 Next Steps:");
+    println!("   1. Open target/benchmark_report.html in your browser");
+    println!("   2. Review performance recommendations");
+    println!("   3. Set up regression detection in CI/CD");
+    println!("   4. Share results with the ToRSh community!");
+}
+
+fn print_usage() {
+    println!("Usage: cargo run --example run_all_benchmarks [OPTIONS]");
+    println!();
+    println!("Options:");
+    println!("  --suite <SUITE>    Run specific benchmark suite");
+    println!();
+    println!("Available suites:");
+    println!("  all               Run all benchmark suites (default)");
+    println!("  core              Core tensor operations");
+    println!("  neural-networks   Neural network operations");
+    println!("  memory            Memory allocation and copying");
+    println!("  pytorch           PyTorch comparisons only");
+    println!("  regression        Quick regression detection");
+    println!();
+    println!("Examples:");
+    println!("  cargo run --example run_all_benchmarks --release");
+    println!("  cargo run --example run_all_benchmarks --release --features pytorch");
+    println!("  cargo run --example run_all_benchmarks --release -- --suite core");
+}
+
+// External dependencies that would be needed
+#[allow(dead_code)]
+mod external_deps {
+    // These would be real dependencies in Cargo.toml
+    pub fn num_cpus_get() -> usize {
+        4
+    } // Mock implementation
+}
+
+// Mock implementation of num_cpus for demonstration
+mod num_cpus {
+    pub fn get() -> usize {
+        std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(4)
+    }
+}

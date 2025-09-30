@@ -1,0 +1,37 @@
+[package]
+name = "torsh-package"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Model packaging and distribution utilities for ToRSh"
+
+[lints]
+workspace = true
+
+[features]
+default = []
+with-nn = ["dep:torsh-nn"]
+
+[dependencies]
+torsh-core = { workspace = true }
+torsh-tensor = { workspace = true }
+torsh-nn = { workspace = true, optional = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+bincode = { workspace = true }
+thiserror = { workspace = true }
+zip = { workspace = true }
+tar = { workspace = true }
+flate2 = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+tempfile = { workspace = true }
+chrono = { workspace = true }
+semver = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+torsh-nn = { path = "../torsh-nn" }

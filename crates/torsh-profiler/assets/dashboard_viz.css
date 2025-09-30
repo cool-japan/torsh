@@ -1,0 +1,143 @@
+/* Enhanced Dashboard Visualization Styles */
+
+/* 3D Visualization Container */
+.viz-3d-container {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 20px 0;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+
+/* Heatmap Container */
+.viz-heatmap-container {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 20px 0;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+
+/* Visualization Controls */
+.viz-controls {
+    display: flex;
+    justify-content: space-around;
+    margin: 15px 0;
+    padding: 15px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 8px;
+    backdrop-filter: blur(10px);
+}
+
+.viz-button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 600;
+}
+
+.viz-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+
+/* Color Scheme Indicators */
+.color-scheme-thermal { border-left: 5px solid linear-gradient(to right, blue, red); }
+.color-scheme-viridis { border-left: 5px solid linear-gradient(to right, #440154, #FDE725); }
+.color-scheme-plasma { border-left: 5px solid linear-gradient(to right, #0D0887, #F0F921); }
+
+/* Real-time Updates */
+.realtime-indicator {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    background: #00ff00;
+    border-radius: 50%;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.3; }
+    100% { opacity: 1; }
+}
+
+/* Enhanced Card Styles */
+.card.viz-enhanced {
+    background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.05) 100%);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 15px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+
+/* 3D Landscape Styles */
+.landscape-3d {
+    height: 400px;
+    width: 100%;
+    background: radial-gradient(circle, #1a1a1a 0%, #000 100%);
+    border-radius: 10px;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Heatmap Grid */
+.heatmap-grid {
+    display: grid;
+    gap: 1px;
+    background: #000;
+    border-radius: 8px;
+    padding: 10px;
+    max-height: 300px;
+    overflow: auto;
+}
+
+.heatmap-cell {
+    width: 15px;
+    height: 15px;
+    border-radius: 2px;
+    transition: all 0.3s ease;
+}
+
+.heatmap-cell:hover {
+    transform: scale(1.2);
+    box-shadow: 0 2px 8px rgba(255,255,255,0.3);
+}
+
+/* Performance Metrics with Visualization */
+.metric.viz-enhanced {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.metric.viz-enhanced .metric-value {
+    font-size: 2.2em;
+    font-weight: 700;
+    margin-bottom: 5px;
+}
+
+/* WebSocket Status */
+.websocket-status {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 10px 15px;
+    background: rgba(0,0,0,0.8);
+    color: white;
+    border-radius: 20px;
+    font-size: 0.9em;
+    z-index: 1000;
+}
+
+.websocket-status.connected {
+    background: rgba(0,200,0,0.8);
+}
+
+.websocket-status.disconnected {
+    background: rgba(200,0,0,0.8);
+}

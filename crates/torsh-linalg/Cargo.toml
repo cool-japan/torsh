@@ -1,0 +1,49 @@
+[package]
+name = "torsh-linalg"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Linear algebra operations for ToRSh with SciRS2 integration"
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+torsh-core = { workspace = true }
+torsh-tensor = { workspace = true }
+
+# SciRS2 ecosystem for linear algebra
+scirs2-core = { version = "0.1.0-beta.2", optional = true }
+scirs2-autograd = { version = "0.1.0-beta.2", optional = true }
+scirs2-linalg = { version = "0.1.0-beta.2", optional = true }
+
+# Optional high-performance backends
+ndarray-linalg = { version = "0.17", optional = true }
+lapack = { version = "0.20", optional = true }
+blas = { version = "0.23", optional = true }
+
+# Error handling
+thiserror = { workspace = true }
+
+# Utilities
+num-traits = { workspace = true }
+num-complex = "0.4"
+
+[features]
+default = ["scirs2-integration"]
+scirs2-integration = ["scirs2-core", "scirs2-autograd", "scirs2-linalg"]
+lapack-backend = ["ndarray-linalg", "lapack", "blas"]
+advanced = ["scirs2-linalg"]
+gpu-acceleration = ["scirs2-core", "scirs2-linalg"]
+
+[dev-dependencies]
+approx = { workspace = true }
+criterion = { workspace = true }
+
+[[bench]]
+name = "linalg_bench"
+harness = false

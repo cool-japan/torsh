@@ -1,0 +1,99 @@
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::module_inception)]
+#![allow(clippy::large_enum_variant)]
+#![allow(dead_code)]
+#![allow(unused_imports)]
+
+pub mod analysis;
+pub mod convenience;
+pub mod datasets;
+pub mod embeddings;
+pub mod generation;
+// pub mod metrics;  // Has complex import issues
+pub mod models;
+pub mod prelude;
+pub mod scirs2_ops;
+// pub mod scirs2_text_integration;  // Needs careful checking
+pub mod tokenization;
+pub mod utils;
+pub mod vocab;
+
+#[cfg(test)]
+mod test_utils;
+
+pub use analysis::*;
+pub use convenience::*;
+pub use datasets::*;
+pub use embeddings::*;
+pub use generation::{
+    BeamHypothesis, BeamSearchDecoder, GenerationConfig as TextGenerationConfig,
+    NGramRepetitionFilter, RepetitionPenalty, TextGenerator, TextSampler,
+};
+// pub use metrics::*;  // Disabled due to import issues
+pub use models::*;
+pub use scirs2_ops::advanced_analytics::{
+    compute_advanced_stats, AdvancedTextSampler, AdvancedTextStats, ComplexityAnalyzer,
+    ComplexityMetrics,
+};
+pub use scirs2_ops::performance::{PerformanceMetrics, PerformanceMonitor};
+pub use scirs2_ops::*;
+// pub use scirs2_text_integration::{
+//     advanced_ops::{cluster_documents, extract_topics, paraphrase_text},
+//     ClassificationResult, ClusterResult, DeviceType as TextDeviceType, EntityType,
+//     LanguageDetection, LanguageModel, NamedEntity, PrecisionLevel, SciRS2TextProcessor,
+//     SentimentLabel, SentimentResult, TextConfig, TextEmbeddings, Topic,
+// };
+pub use tokenization::*;
+pub use utils::*;
+pub use vocab::*;
+
+#[derive(Debug, thiserror::Error)]
+pub enum TextError {
+    #[error("Tokenization error: {0}")]
+    TokenizationError(String),
+
+    #[error("Model error: {0}")]
+    ModelError(String),
+
+    #[error("Vocabulary error: {0}")]
+    VocabError(String),
+
+    #[error("Dataset error: {0}")]
+    DatasetError(String),
+
+    #[error("Validation error: {0}")]
+    ValidationError(String),
+
+    #[error("Empty input provided where non-empty input is required")]
+    EmptyInput,
+
+    #[error("Invalid parameter: {parameter} = {value}, expected {expected}")]
+    InvalidParameter {
+        parameter: String,
+        value: String,
+        expected: String,
+    },
+
+    #[error("Processing failed for {item}: {reason}")]
+    ProcessingError { item: String, reason: String },
+
+    #[error("Configuration error: {0}")]
+    ConfigurationError(String),
+
+    #[error("IO error: {0}")]
+    IoError(#[from] std::io::Error),
+
+    #[error("Tensor error: {0}")]
+    TensorError(#[from] torsh_core::TorshError),
+
+    #[error("Other error: {0}")]
+    Other(#[from] anyhow::Error),
+}
+
+pub type Result<T> = std::result::Result<T, TextError>;
+
+impl From<TextError> for torsh_core::TorshError {
+    fn from(error: TextError) -> Self {
+        torsh_core::TorshError::Other(error.to_string())
+    }
+}

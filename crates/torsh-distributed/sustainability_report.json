@@ -1,0 +1,15 @@
+{
+  "timestamp": {
+    "secs_since_epoch": 1759136701,
+    "nanos_since_epoch": 315414000
+  },
+  "total_energy_kwh": 0.041666666666666664,
+  "total_carbon_kg": 0.011666666666666665,
+  "renewable_energy_percentage": 30.0,
+  "average_efficiency": 3.3333333333333335,
+  "peak_power_kw": 0.15,
+  "device_count": 1,
+  "carbon_intensity": 400.0,
+  "net_carbon_footprint": 0.011666666666666665,
+  "sustainability_score": 39.09833333333333
+}

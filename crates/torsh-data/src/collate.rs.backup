@@ -1,0 +1,1418 @@
+//! Batch collation functions
+
+use torsh_core::{
+    dtype::TensorElement,
+    error::{Result, TorshError},
+};
+use torsh_tensor::Tensor;
+
+#[cfg(feature = "sparse")]
+use torsh_sparse::{CooTensor, SparseTensor};
+
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, vec::Vec};
+
+// ✅ SciRS2 Policy Compliant - Import SliceRandom for shuffle functionality
+use scirs2_core::rand_prelude::SliceRandom;
+
+#[cfg(feature = "std")]
+use rayon::prelude::*;
+
+#[cfg(feature = "std")]
+use std::sync::Arc;
+
+/// Trait for collating a batch of samples
+pub trait Collate<T> {
+    /// Output type after collation
+    type Output;
+
+    /// Collate a batch of samples
+    fn collate(&self, batch: Vec<T>) -> Result<Self::Output>;
+
+    /// Get the expected batch size (returns None for variable batch sizes)
+    fn expected_batch_size(&self) -> Option<usize> {
+        None
+    }
+
+    /// Check if this collate function supports empty batches
+    fn supports_empty_batch(&self) -> bool {
+        false
+    }
+
+    /// Validate batch before collation (optional hook)
+    fn validate_batch(&self, batch: &[T]) -> Result<()> {
+        if batch.is_empty() && !self.supports_empty_batch() {
+            return Err(TorshError::InvalidArgument(
+                "Cannot collate empty batch".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Unified collate builder for creating collate functions with different strategies
+pub struct CollateBuilder<T> {
+    strategy: CollateStrategy,
+    padding_value: Option<T>,
+    max_length: Option<usize>,
+    use_caching: bool,
+    batch_size_hint: Option<usize>,
+}
+
+/// Different collation strategies
+#[derive(Debug, Clone, Copy)]
+pub enum CollateStrategy {
+    /// Simple stacking (default)
+    Stack,
+    /// Optimized for performance  
+    Optimized,
+    /// Variable-length sequences with padding
+    Padding,
+    /// Dynamic batching
+    Dynamic,
+    /// Cached collation for repeated use
+    Cached,
+}
+
+impl<T: TensorElement> Default for CollateBuilder<T> {
+    fn default() -> Self {
+        Self {
+            strategy: CollateStrategy::Stack,
+            padding_value: None,
+            max_length: None,
+            use_caching: false,
+            batch_size_hint: None,
+        }
+    }
+}
+
+impl<
+        T: TensorElement
+            + std::ops::Add<Output = T>
+            + std::ops::Sub<Output = T>
+            + std::ops::Mul<Output = T>
+            + std::ops::Div<Output = T>
+            + Default,
+    > CollateBuilder<T>
+{
+    /// Create a new collate builder
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set the collation strategy
+    pub fn strategy(mut self, strategy: CollateStrategy) -> Self {
+        self.strategy = strategy;
+        self
+    }
+
+    /// Set padding value for variable-length sequences
+    pub fn with_padding(mut self, padding_value: T) -> Self {
+        self.padding_value = Some(padding_value);
+        self
+    }
+
+    /// Set maximum sequence length
+    pub fn max_length(mut self, max_length: usize) -> Self {
+        self.max_length = Some(max_length);
+        self
+    }
+
+    /// Enable caching for better performance
+    pub fn with_caching(mut self) -> Self {
+        self.use_caching = true;
+        self
+    }
+
+    /// Provide batch size hint for optimization
+    pub fn batch_size_hint(mut self, size: usize) -> Self {
+        self.batch_size_hint = Some(size);
+        self
+    }
+
+    /// Build the collate function
+    pub fn build(self) -> Box<dyn Collate<Tensor<T>, Output = Tensor<T>> + Send + Sync>
+    where
+        T: Copy + 'static,
+    {
+        match self.strategy {
+            CollateStrategy::Stack => Box::new(DefaultCollate),
+            CollateStrategy::Optimized => Box::new(OptimizedCollate),
+            CollateStrategy::Padding => {
+                let padding_value = self.padding_value.unwrap_or_default();
+                Box::new(PadCollate::new(padding_value))
+            }
+            CollateStrategy::Dynamic => {
+                let padding_value = self.padding_value.unwrap_or_default();
+                Box::new(DynamicBatchCollateWrapper::new(padding_value))
+            }
+            CollateStrategy::Cached => {
+                if cfg!(feature = "std") {
+                    Box::new(CachedCollate::new(1000))
+                } else {
+                    // Fallback to optimized for no_std
+                    Box::new(OptimizedCollate)
+                }
+            }
+        }
+    }
+}
+
+/// Default collation function
+#[derive(Debug, Clone, Copy)]
+pub struct DefaultCollate;
+
+impl<T: TensorElement + Copy> Collate<Tensor<T>> for DefaultCollate {
+    type Output = Tensor<T>;
+
+    fn collate(&self, batch: Vec<Tensor<T>>) -> Result<Self::Output> {
+        self.validate_batch(&batch)?;
+        TensorStacker::new().stack(&batch, 0)
+    }
+}
+
+// Common implementations for tuple types used in datasets
+impl<T: TensorElement + Copy> Collate<(Tensor<T>, usize)> for DefaultCollate {
+    type Output = (Tensor<T>, Vec<usize>);
+
+    fn collate(&self, batch: Vec<(Tensor<T>, usize)>) -> Result<Self::Output> {
+        self.validate_batch(&batch)?;
+
+        let (tensors, labels): (Vec<Tensor<T>>, Vec<usize>) = batch.into_iter().unzip();
+        let stacked_tensors = TensorStacker::new().stack(&tensors, 0)?;
+
+        Ok((stacked_tensors, labels))
+    }
+}
+
+impl<T: TensorElement + Copy> Collate<(Tensor<T>, String)> for DefaultCollate {
+    type Output = (Tensor<T>, Vec<String>);
+
+    fn collate(&self, batch: Vec<(Tensor<T>, String)>) -> Result<Self::Output> {
+        self.validate_batch(&batch)?;
+
+        let (tensors, strings): (Vec<Tensor<T>>, Vec<String>) = batch.into_iter().unzip();
+        let stacked_tensors = TensorStacker::new().stack(&tensors, 0)?;
+
+        Ok((stacked_tensors, strings))
+    }
+}
+
+// Implementations for common non-tensor types
+impl Collate<usize> for DefaultCollate {
+    type Output = Vec<usize>;
+
+    fn collate(&self, batch: Vec<usize>) -> Result<Self::Output> {
+        self.validate_batch(&batch)?;
+        Ok(batch)
+    }
+}
+
+impl Collate<String> for DefaultCollate {
+    type Output = Vec<String>;
+
+    fn collate(&self, batch: Vec<String>) -> Result<Self::Output> {
+        self.validate_batch(&batch)?;
+        Ok(batch)
+    }
+}
+
+impl Collate<f32> for DefaultCollate {
+    type Output = Vec<f32>;
+
+    fn collate(&self, batch: Vec<f32>) -> Result<Self::Output> {
+        self.validate_batch(&batch)?;
+        Ok(batch)
+    }
+}
+
+impl Collate<i32> for DefaultCollate {
+    type Output = Vec<i32>;
+
+    fn collate(&self, batch: Vec<i32>) -> Result<Self::Output> {
+        self.validate_batch(&batch)?;
+        Ok(batch)
+    }
+}
+
+/// Consolidated tensor stacking utility that reduces code duplication
+pub struct TensorStacker {
+    use_parallel: bool,
+    parallel_threshold: usize,
+    memory_mapped: bool,
+}
+
+impl Default for TensorStacker {
+    fn default() -> Self {
+        Self {
+            use_parallel: cfg!(feature = "std"),
+            parallel_threshold: 1000,
+            memory_mapped: false,
+        }
+    }
+}
+
+impl TensorStacker {
+    /// Create a new tensor stacker with default settings
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Enable/disable parallel processing
+    pub fn with_parallel(mut self, enabled: bool) -> Self {
+        self.use_parallel = enabled && cfg!(feature = "std");
+        self
+    }
+
+    /// Set threshold for parallel processing
+    pub fn parallel_threshold(mut self, threshold: usize) -> Self {
+        self.parallel_threshold = threshold;
+        self
+    }
+
+    /// Enable memory-mapped stacking for very large batches
+    pub fn with_memory_mapping(mut self, enabled: bool) -> Self {
+        self.memory_mapped = enabled && cfg!(all(feature = "std", feature = "mmap-support"));
+        self
+    }
+
+    /// Stack tensors along the specified dimension
+    pub fn stack<T: TensorElement + Copy>(
+        &self,
+        tensors: &[Tensor<T>],
+        dim: usize,
+    ) -> Result<Tensor<T>> {
+        if tensors.is_empty() {
+            return Err(TorshError::InvalidArgument(
+                "Cannot stack empty tensor list".to_string(),
+            ));
+        }
+
+        // Validate shapes
+        self.validate_shapes(tensors)?;
+
+        // Choose stacking strategy based on configuration and batch size
+        if self.memory_mapped && tensors.len() > 100 {
+            self.stack_with_mmap(tensors, dim)
+        } else if self.use_parallel && self.should_use_parallel(tensors) {
+            self.stack_parallel(tensors, dim)
+        } else {
+            self.stack_sequential(tensors, dim)
+        }
+    }
+
+    /// Check if all tensors have the same shape
+    fn validate_shapes<T: TensorElement>(&self, tensors: &[Tensor<T>]) -> Result<()> {
+        let first_shape = tensors[0].shape();
+        for tensor in tensors[1..].iter() {
+            if tensor.shape() != first_shape {
+                return Err(TorshError::ShapeMismatch {
+                    expected: first_shape.dims().to_vec(),
+                    got: tensor.shape().dims().to_vec(),
+                });
+            }
+        }
+        Ok(())
+    }
+
+    /// Determine if parallel processing should be used
+    fn should_use_parallel<T: TensorElement>(&self, tensors: &[Tensor<T>]) -> bool {
+        tensors.len() > 4 && tensors[0].numel() > self.parallel_threshold
+    }
+
+    /// Create new shape with additional dimension
+    fn create_new_shape(
+        &self,
+        original_dims: &[usize],
+        batch_size: usize,
+        dim: usize,
+    ) -> Vec<usize> {
+        let mut new_dims = Vec::with_capacity(original_dims.len() + 1);
+
+        if dim == 0 {
+            new_dims.push(batch_size);
+            new_dims.extend_from_slice(original_dims);
+        } else {
+            new_dims.extend_from_slice(&original_dims[..dim.min(original_dims.len())]);
+            new_dims.push(batch_size);
+            if dim < original_dims.len() {
+                new_dims.extend_from_slice(&original_dims[dim..]);
+            }
+        }
+
+        new_dims
+    }
+
+    /// Sequential tensor stacking
+    fn stack_sequential<T: TensorElement + Copy>(
+        &self,
+        tensors: &[Tensor<T>],
+        dim: usize,
+    ) -> Result<Tensor<T>> {
+        let new_dims = self.create_new_shape(tensors[0].shape().dims(), tensors.len(), dim);
+        let tensor_size = tensors[0].numel();
+        let total_elements = new_dims.iter().product::<usize>();
+        let mut new_data = vec![T::from_f64(0.0).unwrap(); total_elements];
+
+        // Copy data sequentially
+        for (i, tensor) in tensors.iter().enumerate() {
+            let data = tensor.to_vec()?;
+            let start_idx = i * tensor_size;
+            let end_idx = start_idx + tensor_size;
+            new_data[start_idx..end_idx].copy_from_slice(&data);
+        }
+
+        torsh_tensor::Tensor::from_data(new_data, new_dims, tensors[0].device())
+    }
+
+    /// Parallel tensor stacking
+    #[cfg(feature = "std")]
+    fn stack_parallel<T: TensorElement + Copy>(
+        &self,
+        tensors: &[Tensor<T>],
+        dim: usize,
+    ) -> Result<Tensor<T>> {
+        let new_dims = self.create_new_shape(tensors[0].shape().dims(), tensors.len(), dim);
+        let tensor_size = tensors[0].numel();
+        let total_elements = new_dims.iter().product::<usize>();
+        let mut new_data = vec![T::from_f64(0.0).unwrap(); total_elements];
+
+        // Parallel data collection
+        let parallel_data: std::result::Result<Vec<Vec<T>>, TorshError> =
+            tensors.par_iter().map(|tensor| tensor.to_vec()).collect();
+        let parallel_data = parallel_data?;
+
+        for (i, data) in parallel_data.into_iter().enumerate() {
+            let start_idx = i * tensor_size;
+            let end_idx = start_idx + tensor_size;
+            new_data[start_idx..end_idx].copy_from_slice(&data);
+        }
+
+        torsh_tensor::Tensor::from_data(new_data, new_dims, tensors[0].device())
+    }
+
+    /// Fallback for no_std
+    #[cfg(not(feature = "std"))]
+    fn stack_parallel<T: TensorElement + Copy>(
+        &self,
+        tensors: &[Tensor<T>],
+        dim: usize,
+    ) -> Result<Tensor<T>> {
+        self.stack_sequential(tensors, dim)
+    }
+
+    /// Memory-mapped stacking for very large batches
+    #[cfg(all(feature = "std", feature = "mmap-support"))]
+    fn stack_with_mmap<T: TensorElement + Copy>(
+        &self,
+        tensors: &[Tensor<T>],
+        dim: usize,
+    ) -> Result<Tensor<T>> {
+        // Placeholder implementation - in practice would use memory mapping
+        // For now, fallback to parallel stacking
+        self.stack_parallel(tensors, dim)
+    }
+
+    /// Fallback when mmap is not available
+    #[cfg(not(all(feature = "std", feature = "mmap-support")))]
+    fn stack_with_mmap<T: TensorElement + Copy>(
+        &self,
+        tensors: &[Tensor<T>],
+        dim: usize,
+    ) -> Result<Tensor<T>> {
+        if cfg!(feature = "std") {
+            self.stack_parallel(tensors, dim)
+        } else {
+            self.stack_sequential(tensors, dim)
+        }
+    }
+}
+
+impl<T: TensorElement + Copy> Collate<Vec<Tensor<T>>> for DefaultCollate {
+    type Output = Vec<Tensor<T>>;
+
+    fn collate(&self, batch: Vec<Vec<Tensor<T>>>) -> Result<Self::Output> {
+        self.validate_batch(&batch)?;
+
+        let num_tensors = batch[0].len();
+        let mut collated = Vec::with_capacity(num_tensors);
+        let stacker = TensorStacker::new();
+
+        // Collate each tensor position across the batch
+        for i in 0..num_tensors {
+            let tensors: Vec<Tensor<T>> = batch.iter().map(|sample| sample[i].clone()).collect();
+            collated.push(stacker.stack(&tensors, 0)?);
+        }
+
+        Ok(collated)
+    }
+}
+
+/// Stack tensors along a new dimension (optimized version)
+fn stack_tensors<T: TensorElement + Copy>(tensors: &[Tensor<T>], dim: usize) -> Result<Tensor<T>> {
+    if tensors.is_empty() {
+        return Err(TorshError::InvalidArgument(
+            "Cannot stack empty tensor list".to_string(),
+        ));
+    }
+
+    // Check that all tensors have the same shape
+    let first_shape = tensors[0].shape();
+    for tensor in &tensors[1..] {
+        if tensor.shape() != first_shape {
+            return Err(TorshError::ShapeMismatch {
+                expected: first_shape.dims().to_vec(),
+                got: tensor.shape().dims().to_vec(),
+            });
+        }
+    }
+
+    // Create new shape with additional dimension at the specified position
+    let original_dims = first_shape.dims();
+    let mut new_dims = Vec::with_capacity(original_dims.len() + 1);
+
+    // Insert batch dimension at the specified position
+    if dim == 0 {
+        new_dims.push(tensors.len());
+        new_dims.extend_from_slice(original_dims);
+    } else {
+        // Insert at position dim
+        new_dims.extend_from_slice(&original_dims[..dim.min(original_dims.len())]);
+        new_dims.push(tensors.len());
+        if dim < original_dims.len() {
+            new_dims.extend_from_slice(&original_dims[dim..]);
+        }
+    }
+
+    // Optimized stacking: pre-allocate and copy data efficiently
+    let tensor_size = tensors[0].numel();
+    let total_elements = new_dims.iter().product::<usize>();
+    let mut new_data = vec![T::from_f64(0.0).unwrap(); total_elements];
+
+    // Use parallel processing for large batches when std feature is available
+    #[cfg(feature = "std")]
+    {
+        if tensors.len() > 4 && tensor_size > 1000 {
+            // Parallel data collection for large tensors
+            let parallel_data: std::result::Result<Vec<Vec<T>>, TorshError> =
+                tensors.par_iter().map(|tensor| tensor.to_vec()).collect();
+            let parallel_data = parallel_data?;
+            for (i, data) in parallel_data.into_iter().enumerate() {
+                let start_idx = i * tensor_size;
+                let end_idx = start_idx + tensor_size;
+                new_data[start_idx..end_idx].copy_from_slice(&data);
+            }
+        } else {
+            // Sequential copy for small tensors/batches
+            for (i, tensor) in tensors.iter().enumerate() {
+                let data = tensor.to_vec()?;
+                let start_idx = i * tensor_size;
+                let end_idx = start_idx + tensor_size;
+                new_data[start_idx..end_idx].copy_from_slice(&data);
+            }
+        }
+    }
+
+    #[cfg(not(feature = "std"))]
+    {
+        // Sequential copy for no_std
+        for (i, tensor) in tensors.iter().enumerate() {
+            let data = tensor.to_vec()?;
+            let start_idx = i * tensor_size;
+            let end_idx = start_idx + tensor_size;
+            new_data[start_idx..end_idx].copy_from_slice(&data);
+        }
+    }
+
+    let result = torsh_tensor::Tensor::from_data(new_data, new_dims, tensors[0].device())?;
+
+    Ok(result)
+}
+
+/// Fast stack tensors using memory mapping for very large batches
+#[cfg(feature = "std")]
+fn stack_tensors_fast<T: TensorElement + Copy>(
+    tensors: &[Tensor<T>],
+    dim: usize,
+) -> Result<Tensor<T>> {
+    if tensors.is_empty() {
+        return Err(TorshError::InvalidArgument(
+            "Cannot stack empty tensor list".to_string(),
+        ));
+    }
+
+    // For very large batches (>100 tensors), use memory mapped approach if available
+    #[cfg(feature = "mmap-support")]
+    {
+        if tensors.len() > 100 {
+            return stack_tensors_mmap(tensors, dim);
+        }
+    }
+
+    // Otherwise use regular optimized stacking
+    stack_tensors(tensors, dim)
+}
+
+/// Memory-mapped tensor stacking for very large batches
+#[cfg(all(feature = "std", feature = "mmap-support"))]
+fn stack_tensors_mmap<T: TensorElement + Copy>(
+    tensors: &[Tensor<T>],
+    dim: usize,
+) -> Result<Tensor<T>> {
+    // Check that all tensors have the same shape
+    let first_shape = tensors[0].shape();
+    for tensor in &tensors[1..] {
+        if tensor.shape() != first_shape {
+            return Err(TorshError::ShapeMismatch {
+                expected: first_shape.dims().to_vec(),
+                got: tensor.shape().dims().to_vec(),
+            });
+        }
+    }
+
+    // Create new shape
+    let original_dims = first_shape.dims();
+    let mut new_dims = Vec::with_capacity(original_dims.len() + 1);
+
+    if dim == 0 {
+        new_dims.push(tensors.len());
+        new_dims.extend_from_slice(original_dims);
+    } else {
+        new_dims.extend_from_slice(&original_dims[..dim.min(original_dims.len())]);
+        new_dims.push(tensors.len());
+        if dim < original_dims.len() {
+            new_dims.extend_from_slice(&original_dims[dim..]);
+        }
+    }
+
+    let tensor_size = tensors[0].numel();
+    let total_size = tensor_size * tensors.len() * std::mem::size_of::<T>();
+
+    // Create a temporary file for memory mapping
+    let mut temp_file =
+        tempfile::NamedTempFile::new().map_err(|e| TorshError::IoError(e.to_string()))?;
+
+    // Write tensor data to temp file in parallel
+    temp_file
+        .as_file_mut()
+        .set_len(total_size as u64)
+        .map_err(|e| TorshError::IoError(e.to_string()))?;
+
+    // Use memory mapping for efficient data transfer
+    let mmap = unsafe {
+        memmap2::MmapOptions::new()
+            .map_mut(temp_file.as_file())
+            .map_err(|e| TorshError::IoError(e.to_string()))?
+    };
+
+    // Parallel collection of tensor data, then sequential copy to memory mapped region
+    let all_data: std::result::Result<Vec<Vec<T>>, TorshError> =
+        tensors.par_iter().map(|tensor| tensor.to_vec()).collect();
+    let all_data = all_data?;
+
+    // Sequential copy to memory mapped region for thread safety
+    let mmap_ptr = mmap.as_ptr() as *mut T;
+    for (i, data) in all_data.iter().enumerate() {
+        unsafe {
+            let dst = mmap_ptr.add(i * tensor_size);
+            std::ptr::copy_nonoverlapping(data.as_ptr(), dst, tensor_size);
+        }
+    }
+
+    // Create tensor from memory mapped data
+    unsafe {
+        let data_slice =
+            std::slice::from_raw_parts(mmap_ptr as *const T, tensor_size * tensors.len());
+        let data_vec = data_slice.to_vec();
+        let result = torsh_tensor::Tensor::from_data(data_vec, new_dims, tensors[0].device())?;
+        Ok(result)
+    }
+}
+
+/// Collation function that can be customized
+pub struct CollateFn<F> {
+    func: F,
+}
+
+impl<F> CollateFn<F> {
+    /// Create a new collation function
+    pub fn new(func: F) -> Self {
+        Self { func }
+    }
+}
+
+impl<T, O, F> Collate<T> for CollateFn<F>
+where
+    F: Fn(Vec<T>) -> Result<O>,
+{
+    type Output = O;
+
+    fn collate(&self, batch: Vec<T>) -> Result<Self::Output> {
+        (self.func)(batch)
+    }
+}
+
+/// Default collation function instance
+pub fn collate_fn<T>() -> DefaultCollate {
+    DefaultCollate
+}
+
+/// Optimized collation function for high-performance scenarios
+#[cfg(feature = "std")]
+#[derive(Debug, Clone, Copy)]
+pub struct OptimizedCollate;
+
+#[cfg(feature = "std")]
+impl<T: TensorElement + Copy> Collate<Tensor<T>> for OptimizedCollate {
+    type Output = Tensor<T>;
+
+    fn collate(&self, batch: Vec<Tensor<T>>) -> Result<Self::Output> {
+        if batch.is_empty() {
+            return Err(TorshError::InvalidArgument(
+                "Cannot collate empty batch".to_string(),
+            ));
+        }
+
+        // Use fast stacking with memory mapping for large batches
+        stack_tensors_fast(&batch, 0)
+    }
+}
+
+#[cfg(feature = "std")]
+impl<T: TensorElement + Copy> Collate<Vec<Tensor<T>>> for OptimizedCollate {
+    type Output = Vec<Tensor<T>>;
+
+    fn collate(&self, batch: Vec<Vec<Tensor<T>>>) -> Result<Self::Output> {
+        if batch.is_empty() {
+            return Err(TorshError::InvalidArgument(
+                "Cannot collate empty batch".to_string(),
+            ));
+        }
+
+        let num_tensors = batch[0].len();
+        let mut collated = Vec::with_capacity(num_tensors);
+
+        // Process each tensor position in parallel
+        (0..num_tensors)
+            .into_par_iter()
+            .map(|i| {
+                let tensors: Vec<Tensor<T>> =
+                    batch.iter().map(|sample| sample[i].clone()).collect();
+                stack_tensors_fast(&tensors, 0)
+            })
+            .collect::<Result<Vec<_>>>()?
+            .into_iter()
+            .for_each(|tensor| collated.push(tensor));
+
+        Ok(collated)
+    }
+}
+
+/// Optimized collation function factory
+#[cfg(feature = "std")]
+pub fn optimized_collate_fn<T>() -> OptimizedCollate {
+    OptimizedCollate
+}
+
+/// Cached collation function that reuses allocated memory
+pub struct CachedCollate<T: TensorElement> {
+    tensor_pool: Arc<parking_lot::Mutex<Vec<Vec<T>>>>,
+    max_pool_size: usize,
+}
+
+impl<T: TensorElement> CachedCollate<T> {
+    /// Create a new cached collation function
+    pub fn new(max_pool_size: usize) -> Self {
+        Self {
+            tensor_pool: Arc::new(parking_lot::Mutex::new(Vec::with_capacity(max_pool_size))),
+            max_pool_size,
+        }
+    }
+
+    /// Get a reusable buffer from the pool
+    fn get_buffer(&self, capacity: usize) -> Vec<T> {
+        let mut pool = self.tensor_pool.lock();
+        if let Some(mut buffer) = pool.pop() {
+            buffer.clear();
+            if buffer.capacity() >= capacity {
+                buffer.reserve(capacity - buffer.capacity());
+            }
+            buffer
+        } else {
+            Vec::with_capacity(capacity)
+        }
+    }
+
+    /// Return a buffer to the pool
+    fn return_buffer(&self, buffer: Vec<T>) {
+        let mut pool = self.tensor_pool.lock();
+        if pool.len() < self.max_pool_size {
+            pool.push(buffer);
+        }
+    }
+}
+
+impl<T: TensorElement + Copy> Collate<Tensor<T>> for CachedCollate<T> {
+    type Output = Tensor<T>;
+
+    fn collate(&self, batch: Vec<Tensor<T>>) -> Result<Self::Output> {
+        if batch.is_empty() {
+            return Err(TorshError::InvalidArgument(
+                "Cannot collate empty batch".to_string(),
+            ));
+        }
+
+        // Check that all tensors have the same shape
+        let first_shape = batch[0].shape();
+        for tensor in &batch[1..] {
+            if tensor.shape() != first_shape {
+                return Err(TorshError::ShapeMismatch {
+                    expected: first_shape.dims().to_vec(),
+                    got: tensor.shape().dims().to_vec(),
+                });
+            }
+        }
+
+        // Create new shape with batch dimension
+        let original_dims = first_shape.dims();
+        let mut new_dims = Vec::with_capacity(original_dims.len() + 1);
+        new_dims.push(batch.len());
+        new_dims.extend_from_slice(original_dims);
+
+        let tensor_size = batch[0].numel();
+        let total_elements = tensor_size * batch.len();
+
+        // Get a reusable buffer
+        let mut new_data = self.get_buffer(total_elements);
+        new_data.reserve_exact(total_elements);
+
+        // Copy tensor data efficiently
+        for tensor in batch.iter() {
+            let data = tensor.to_vec()?;
+            new_data.extend_from_slice(&data);
+        }
+
+        let result =
+            torsh_tensor::Tensor::from_data(new_data.clone(), new_dims, batch[0].device())?;
+
+        // Return buffer to pool (create a new empty vector to return)
+        self.return_buffer(Vec::with_capacity(new_data.capacity()));
+
+        Ok(result)
+    }
+}
+
+/// Dynamic batching collation for variable-size sequences
+pub struct DynamicBatchCollate<T: TensorElement> {
+    padding_value: T,
+    max_sequence_length: Option<usize>,
+    pack_sequences: bool,
+}
+
+impl<T: TensorElement> DynamicBatchCollate<T> {
+    /// Create a new dynamic batch collation function
+    pub fn new(padding_value: T) -> Self {
+        Self {
+            padding_value,
+            max_sequence_length: None,
+            pack_sequences: false,
+        }
+    }
+
+    /// Set maximum sequence length (sequences longer than this will be truncated)
+    pub fn with_max_length(mut self, max_length: usize) -> Self {
+        self.max_sequence_length = Some(max_length);
+        self
+    }
+
+    /// Enable sequence packing to minimize padding
+    pub fn with_packing(mut self, pack: bool) -> Self {
+        self.pack_sequences = pack;
+        self
+    }
+}
+
+impl<
+        T: TensorElement
+            + Copy
+            + std::ops::Add<Output = T>
+            + std::ops::Sub<Output = T>
+            + std::ops::Mul<Output = T>
+            + std::ops::Div<Output = T>
+            + Default,
+    > Collate<Tensor<T>> for DynamicBatchCollate<T>
+{
+    type Output = (Tensor<T>, Tensor<i64>); // (padded_sequences, lengths)
+
+    fn collate(&self, batch: Vec<Tensor<T>>) -> Result<Self::Output> {
+        if batch.is_empty() {
+            return Err(TorshError::InvalidArgument(
+                "Cannot collate empty batch".to_string(),
+            ));
+        }
+
+        // Collect sequence lengths
+        let mut lengths = Vec::with_capacity(batch.len());
+        let mut max_length = 0;
+
+        for tensor in &batch {
+            if tensor.ndim() == 0 {
+                return Err(TorshError::InvalidArgument(
+                    "Cannot dynamically batch scalar tensors".to_string(),
+                ));
+            }
+
+            let seq_len = tensor.size(0)?;
+            lengths.push(seq_len as i64);
+            max_length = max_length.max(seq_len);
+        }
+
+        // Apply max length constraint if specified
+        if let Some(max_len) = self.max_sequence_length {
+            max_length = max_length.min(max_len);
+        }
+
+        // If packing is enabled, sort by length to minimize padding
+        let mut batch_with_indices: Vec<_> = batch.into_iter().enumerate().collect();
+        if self.pack_sequences {
+            batch_with_indices.sort_by_key(|(_, tensor)| tensor.size(0).unwrap_or(0));
+        }
+
+        // Get the shape for creating padded tensors
+        let first_tensor = &batch_with_indices[0].1;
+        let mut padded_shape = first_tensor.shape().dims().to_vec();
+        padded_shape[0] = max_length; // Set sequence dimension to max length
+
+        // Create padded batch
+        let batch_size = batch_with_indices.len();
+        let mut padded_batch = Vec::with_capacity(batch_size);
+
+        for (original_idx, tensor) in batch_with_indices {
+            let seq_len = tensor.size(0)?;
+            let actual_len = seq_len.min(max_length);
+
+            if actual_len == max_length {
+                // No padding needed, just truncate if necessary
+                if seq_len > max_length {
+                    let truncated = tensor.narrow(0, 0, max_length)?;
+                    padded_batch.push((original_idx, truncated));
+                } else {
+                    padded_batch.push((original_idx, tensor));
+                }
+            } else {
+                // Need to pad
+                let mut padding_shape = padded_shape.clone();
+                let padding_elements =
+                    (max_length - actual_len) * padding_shape[1..].iter().product::<usize>();
+
+                // Create padding tensor
+                let padding_data = vec![self.padding_value; padding_elements];
+                padding_shape[0] = max_length - actual_len;
+
+                let padding_tensor =
+                    Tensor::from_data(padding_data, padding_shape.clone(), tensor.device())?;
+
+                // Truncate if necessary
+                let tensor_to_pad = if seq_len > max_length {
+                    tensor.narrow(0, 0, max_length)?
+                } else {
+                    tensor
+                };
+
+                // Concatenate original tensor with padding
+                let padded = torsh_tensor::Tensor::cat(&[&tensor_to_pad, &padding_tensor], 0)?;
+                padded_batch.push((original_idx, padded));
+            }
+        }
+
+        // Restore original order if packing was used
+        if self.pack_sequences {
+            padded_batch.sort_by_key(|(idx, _)| *idx);
+        }
+
+        // Extract tensors and stack them
+        let tensors: Vec<_> = padded_batch.into_iter().map(|(_, tensor)| tensor).collect();
+        let stacked = stack_tensors(&tensors, 0)?;
+
+        // Create lengths tensor
+        let lengths_tensor = Tensor::from_data(lengths, vec![batch_size], tensors[0].device())?;
+
+        Ok((stacked, lengths_tensor))
+    }
+}
+
+/// Wrapper for DynamicBatchCollate that only returns padded sequences (not lengths)
+/// This allows compatibility with the CollateBuilder which expects Tensor<T> output
+pub struct DynamicBatchCollateWrapper<T: TensorElement> {
+    inner: DynamicBatchCollate<T>,
+}
+
+impl<T: TensorElement> DynamicBatchCollateWrapper<T> {
+    pub fn new(padding_value: T) -> Self {
+        Self {
+            inner: DynamicBatchCollate::new(padding_value),
+        }
+    }
+
+    pub fn with_max_length(mut self, max_length: usize) -> Self {
+        self.inner = self.inner.with_max_length(max_length);
+        self
+    }
+
+    pub fn with_packing(mut self, pack: bool) -> Self {
+        self.inner = self.inner.with_packing(pack);
+        self
+    }
+}
+
+impl<
+        T: TensorElement
+            + Copy
+            + std::ops::Add<Output = T>
+            + std::ops::Sub<Output = T>
+            + std::ops::Mul<Output = T>
+            + std::ops::Div<Output = T>
+            + Default,
+    > Collate<Tensor<T>> for DynamicBatchCollateWrapper<T>
+{
+    type Output = Tensor<T>;
+
+    fn collate(&self, batch: Vec<Tensor<T>>) -> Result<Self::Output> {
+        // Call the inner collate function and extract only the padded sequences
+        let (padded_sequences, _lengths) = self.inner.collate(batch)?;
+        Ok(padded_sequences)
+    }
+}
+
+/// Bucket sampler for dynamic batching
+/// Groups sequences of similar lengths to minimize padding
+pub struct BucketBatchSampler {
+    lengths: Vec<usize>,
+    batch_size: usize,
+    bucket_boundaries: Vec<usize>,
+    drop_last: bool,
+}
+
+impl BucketBatchSampler {
+    /// Create a new bucket batch sampler
+    pub fn new(lengths: Vec<usize>, batch_size: usize, drop_last: bool) -> Self {
+        // Create bucket boundaries based on length distribution
+        let mut sorted_lengths = lengths.clone();
+        sorted_lengths.sort_unstable();
+
+        let num_buckets = (lengths.len() / batch_size).clamp(1, 10);
+        let mut bucket_boundaries = Vec::with_capacity(num_buckets + 1);
+
+        for i in 0..=num_buckets {
+            let idx = (i * sorted_lengths.len()) / num_buckets;
+            let boundary = if idx >= sorted_lengths.len() {
+                sorted_lengths.last().copied().unwrap_or(0) + 1
+            } else {
+                sorted_lengths[idx]
+            };
+            bucket_boundaries.push(boundary);
+        }
+
+        Self {
+            lengths,
+            batch_size,
+            bucket_boundaries,
+            drop_last,
+        }
+    }
+
+    /// Generate batches grouped by sequence length buckets
+    pub fn generate_batches(&self) -> Vec<Vec<usize>> {
+        // Group indices by bucket
+        let mut buckets: Vec<Vec<usize>> = vec![Vec::new(); self.bucket_boundaries.len() - 1];
+
+        for (idx, &length) in self.lengths.iter().enumerate() {
+            for (bucket_idx, bucket) in buckets.iter_mut().enumerate() {
+                if length >= self.bucket_boundaries[bucket_idx]
+                    && length < self.bucket_boundaries[bucket_idx + 1]
+                {
+                    bucket.push(idx);
+                    break;
+                }
+            }
+        }
+
+        // Shuffle within each bucket and create batches
+        let mut batches = Vec::new();
+
+        for mut bucket in buckets {
+            // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
+            use scirs2_core::random::Random;
+
+            let mut rng = Random::seed(0);
+            bucket.shuffle(&mut rng);
+
+            for chunk in bucket.chunks(self.batch_size) {
+                if chunk.len() == self.batch_size || !self.drop_last {
+                    batches.push(chunk.to_vec());
+                }
+            }
+        }
+
+        // Shuffle batches to avoid patterns
+        // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
+        use scirs2_core::random::Random;
+        let mut rng = Random::seed(0);
+        batches.shuffle(&mut rng);
+
+        batches
+    }
+}
+
+/// Adaptive batch size sampler that adjusts batch size based on sequence lengths
+pub struct AdaptiveBatchSampler {
+    target_tokens: usize,
+    max_batch_size: usize,
+    min_batch_size: usize,
+    lengths: Vec<usize>,
+}
+
+impl AdaptiveBatchSampler {
+    /// Create a new adaptive batch sampler
+    pub fn new(
+        lengths: Vec<usize>,
+        target_tokens: usize,
+        max_batch_size: usize,
+        min_batch_size: usize,
+    ) -> Self {
+        Self {
+            target_tokens,
+            max_batch_size,
+            min_batch_size,
+            lengths,
+        }
+    }
+
+    /// Generate batches with adaptive batch sizes
+    pub fn generate_batches(&self) -> Vec<Vec<usize>> {
+        let mut indices: Vec<usize> = (0..self.lengths.len()).collect();
+
+        // Sort by length to process similar lengths together
+        indices.sort_by_key(|&i| self.lengths[i]);
+
+        let mut batches = Vec::new();
+        let mut current_batch = Vec::new();
+        let mut _current_tokens = 0;
+
+        for idx in indices {
+            let length = self.lengths[idx];
+            let batch_size = current_batch.len();
+            let tokens_if_added = (batch_size + 1)
+                * length.max(
+                    current_batch
+                        .iter()
+                        .map(|&i| self.lengths[i])
+                        .max()
+                        .unwrap_or(0),
+                );
+
+            // Check if adding this sequence would exceed limits
+            if tokens_if_added > self.target_tokens || batch_size >= self.max_batch_size {
+                // Finish current batch if it meets minimum size
+                if batch_size >= self.min_batch_size {
+                    batches.push(current_batch);
+                }
+
+                // Start new batch
+                current_batch = vec![idx];
+                _current_tokens = length;
+            } else {
+                // Add to current batch
+                current_batch.push(idx);
+                _current_tokens = tokens_if_added;
+            }
+        }
+
+        // Add final batch if it meets minimum size
+        if current_batch.len() >= self.min_batch_size {
+            batches.push(current_batch);
+        }
+
+        batches
+    }
+}
+
+/// Padding collation for variable-length sequences
+pub struct PadCollate<T: TensorElement> {
+    #[allow(dead_code)]
+    padding_value: T,
+}
+
+impl<T: TensorElement> PadCollate<T> {
+    /// Create a new padding collation function
+    pub fn new(padding_value: T) -> Self {
+        Self { padding_value }
+    }
+}
+
+impl<T: TensorElement + Copy> Collate<Tensor<T>> for PadCollate<T> {
+    type Output = Tensor<T>;
+
+    fn collate(&self, batch: Vec<Tensor<T>>) -> Result<Self::Output> {
+        if batch.is_empty() {
+            return Err(TorshError::InvalidArgument(
+                "Cannot collate empty batch".to_string(),
+            ));
+        }
+
+        // Find maximum dimensions
+        let ndim = batch[0].ndim();
+        let mut max_dims = vec![0; ndim];
+
+        for tensor in &batch {
+            if tensor.ndim() != ndim {
+                return Err(TorshError::InvalidArgument(
+                    "All tensors must have the same number of dimensions".to_string(),
+                ));
+            }
+
+            for (i, max_dim) in max_dims.iter_mut().enumerate().take(ndim) {
+                let size = tensor.size(i as i32)?;
+                if size > *max_dim {
+                    *max_dim = size;
+                }
+            }
+        }
+
+        // Create padded tensors
+        let batch_size = batch.len();
+        let mut padded_batch = Vec::with_capacity(batch_size);
+
+        for tensor in batch {
+            // For each tensor, pad to match max_dims
+            let shape_ref = tensor.shape();
+            let current_shape = shape_ref.dims();
+            let padded_tensor = tensor;
+
+            // Check if padding is needed
+            let needs_padding = current_shape
+                .iter()
+                .zip(max_dims.iter())
+                .any(|(&current, &max)| current < max);
+
+            if needs_padding {
+                // For now, just use the tensor as-is since we don't have full broadcasting yet
+                // In a full implementation, we'd properly pad with padding_value
+                // For this placeholder, we'll just use the original tensor
+            }
+
+            padded_batch.push(padded_tensor);
+        }
+
+        // Stack the padded tensors
+        stack_tensors(&padded_batch, 0)
+    }
+}
+
+/// Sparse tensor collation function
+#[cfg(feature = "sparse")]
+pub struct SparseCollate;
+
+#[cfg(feature = "sparse")]
+impl Collate<CooTensor> for SparseCollate {
+    type Output = CooTensor;
+
+    fn collate(&self, batch: Vec<CooTensor>) -> Result<Self::Output> {
+        if batch.is_empty() {
+            return Err(TorshError::InvalidArgument(
+                "Cannot collate empty batch".to_string(),
+            ));
+        }
+
+        // For sparse tensors, we concatenate them along the batch dimension
+        // This creates a larger sparse tensor with all the non-zero elements
+        collate_sparse_tensors(&batch)
+    }
+}
+
+/// Stack sparse tensors along a new batch dimension
+#[cfg(feature = "sparse")]
+fn collate_sparse_tensors(tensors: &[CooTensor]) -> Result<CooTensor> {
+    if tensors.is_empty() {
+        return Err(TorshError::InvalidArgument(
+            "Cannot collate empty sparse tensor batch".to_string(),
+        ));
+    }
+
+    // Check that all tensors have the same shape (except batch dimension)
+    let first_shape = tensors[0].shape();
+    for tensor in &tensors[1..] {
+        if tensor.shape() != first_shape {
+            return Err(TorshError::ShapeMismatch {
+                expected: first_shape.dims().to_vec(),
+                got: tensor.shape().dims().to_vec(),
+            });
+        }
+    }
+
+    // Calculate new shape with batch dimension
+    let original_dims = first_shape.dims();
+    let mut new_dims = Vec::with_capacity(original_dims.len() + 1);
+    new_dims.push(tensors.len());
+    new_dims.extend_from_slice(original_dims);
+
+    // For COO format, we need to:
+    // 1. Collect all indices and values
+    // 2. Adjust indices to account for batch dimension
+    // 3. Create new COO tensor
+
+    let mut all_row_indices = Vec::new();
+    let mut all_col_indices = Vec::new();
+    let mut all_values = Vec::new();
+    let mut total_nnz = 0;
+
+    for (batch_idx, tensor) in tensors.iter().enumerate() {
+        let row_indices = tensor.row_indices();
+        let col_indices = tensor.col_indices();
+        let values = tensor.values();
+
+        // Adjust indices to include batch dimension
+        for i in 0..tensor.nnz() {
+            all_row_indices.push(batch_idx);
+            all_col_indices.push(col_indices[i]);
+        }
+
+        all_values.extend_from_slice(values);
+        total_nnz += tensor.nnz();
+    }
+
+    // Create new COO tensor
+    let shape = torsh_core::Shape::new(new_dims);
+    CooTensor::new(all_row_indices, all_col_indices, all_values, shape)
+}
+
+/// Collation function for mixed dense and sparse tensors
+#[cfg(feature = "sparse")]
+pub struct MixedCollate;
+
+#[cfg(feature = "sparse")]
+impl Collate<Box<dyn SparseTensor>> for MixedCollate {
+    type Output = Box<dyn SparseTensor>;
+
+    fn collate(&self, batch: Vec<Box<dyn SparseTensor>>) -> Result<Self::Output> {
+        if batch.is_empty() {
+            return Err(TorshError::InvalidArgument(
+                "Cannot collate empty batch".to_string(),
+            ));
+        }
+
+        // Convert all to COO format for consistency
+        let mut coo_tensors = Vec::with_capacity(batch.len());
+        for tensor in batch {
+            coo_tensors.push(tensor.to_coo()?);
+        }
+
+        // Use sparse collation
+        let collated = collate_sparse_tensors(&coo_tensors)?;
+        Ok(Box::new(collated))
+    }
+}
+
+/// Custom collation examples
+pub mod examples {
+    use super::*;
+
+    /// Collate function for (data, label) tuples
+    pub fn collate_data_label<T: TensorElement + Copy>(
+        batch: Vec<(Tensor<T>, Tensor<i64>)>,
+    ) -> Result<(Tensor<T>, Tensor<i64>)> {
+        if batch.is_empty() {
+            return Err(TorshError::InvalidArgument(
+                "Cannot collate empty batch".to_string(),
+            ));
+        }
+
+        let (data_batch, label_batch): (Vec<_>, Vec<_>) = batch.into_iter().unzip();
+
+        let data = stack_tensors(&data_batch, 0)?;
+        let labels = stack_tensors(&label_batch, 0)?;
+
+        Ok((data, labels))
+    }
+
+    /// Collate function for dictionaries (key-value pairs)
+    pub fn collate_dict<T: TensorElement + Copy>(
+        batch: Vec<Vec<(&str, Tensor<T>)>>,
+    ) -> Result<Vec<(&str, Tensor<T>)>> {
+        if batch.is_empty() {
+            return Err(TorshError::InvalidArgument(
+                "Cannot collate empty batch".to_string(),
+            ));
+        }
+
+        // Assuming all items have the same keys
+        let keys: Vec<&str> = batch[0].iter().map(|(k, _)| *k).collect();
+        let mut result = Vec::with_capacity(keys.len());
+
+        for (i, key) in keys.iter().enumerate() {
+            let tensors: Vec<Tensor<T>> = batch.iter().map(|sample| sample[i].1.clone()).collect();
+
+            let stacked = stack_tensors(&tensors, 0)?;
+            result.push((*key, stacked));
+        }
+
+        Ok(result)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use torsh_tensor::creation::ones;
+
+    #[test]
+    fn test_default_collate() {
+        let batch = vec![
+            ones::<f32>(&[3, 4]).unwrap(),
+            ones::<f32>(&[3, 4]).unwrap(),
+            ones::<f32>(&[3, 4]).unwrap(),
+        ];
+
+        let collate = DefaultCollate;
+        let result = collate.collate(batch);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_custom_collate_fn() {
+        let collate = CollateFn::new(|batch: Vec<i32>| Ok(batch.iter().sum::<i32>()));
+
+        let result = collate.collate(vec![1, 2, 3, 4, 5]).unwrap();
+        assert_eq!(result, 15);
+    }
+
+    #[test]
+    fn test_pad_collate() {
+        let batch = vec![ones::<f32>(&[2, 3]).unwrap(), ones::<f32>(&[2, 3]).unwrap()];
+
+        let collate = PadCollate::new(0.0f32);
+        let result = collate.collate(batch);
+        assert!(result.is_ok());
+    }
+
+    #[cfg(feature = "sparse")]
+    #[test]
+    fn test_sparse_collate() {
+        use torsh_sparse::{CooTensor, SparseFormat};
+        use torsh_tensor::creation::zeros;
+
+        // Create some sparse tensors for testing
+        let dense1 = zeros::<f32>(&[2, 3]).unwrap();
+        let dense2 = zeros::<f32>(&[2, 3]).unwrap();
+
+        // Convert to sparse (this is a placeholder - actual implementation may vary)
+        // In a real scenario, you'd create actual sparse tensors with non-zero values
+        let _sparse1 = torsh_sparse::sparse_from_dense(&dense1, SparseFormat::Coo, None).unwrap();
+        let _sparse2 = torsh_sparse::sparse_from_dense(&dense2, SparseFormat::Coo, None).unwrap();
+
+        // Test collation would go here - commented out due to potential API differences
+        // let collate = SparseCollate;
+        // let result = collate.collate(vec![sparse1, sparse2]);
+        // assert!(result.is_ok());
+    }
+}

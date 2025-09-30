@@ -1,0 +1,103 @@
+[package]
+name = "torsh-distributed"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Distributed training and inference for ToRSh"
+rust-version.workspace = true
+
+[dependencies]
+torsh-core = { workspace = true }
+torsh-tensor = { workspace = true }
+torsh-autograd = { workspace = true }
+torsh-nn = { workspace = true }
+
+# Distributed communication
+mpi = { version = "0.8", optional = true }
+# Note: Real NCCL integration requires proper Rust bindings for NVIDIA NCCL
+# The "nccl" crate on crates.io is a configuration library, not NVIDIA NCCL
+# TODO: Add actual NCCL bindings when available (possibly via cudarc or custom bindings)
+# nccl = { version = "0.1", optional = true }
+# gloo-sys = { version = "0.1", optional = true } # Not available on crates.io
+
+# Networking
+tokio = { workspace = true, features = ["net", "sync", "rt-multi-thread"] }
+tonic = { workspace = true }
+prost = { workspace = true }
+redis = { workspace = true, optional = true, features = ["tokio-comp"] }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+bincode = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Utilities
+once_cell = { workspace = true }
+parking_lot = { workspace = true }
+dashmap = { workspace = true }
+crossbeam = { workspace = true }
+futures = { workspace = true }
+async-trait = { workspace = true }
+tracing = { workspace = true }
+log = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
+half = { workspace = true }  # For f16 and bf16 support
+
+# SciRS2 dependencies
+scirs2-core = { workspace = true }
+scirs2-autograd = { workspace = true }
+
+[features]
+default = []
+mpi = ["dep:mpi"]
+nccl = []  # Mock NCCL backend (no external dependencies for now)
+redis = ["dep:redis"]
+# gloo = ["dep:gloo-sys"]
+
+[dev-dependencies]
+criterion = { workspace = true }
+tokio-test = { workspace = true }
+tempfile = { workspace = true }
+futures-util = { workspace = true }
+approx = { workspace = true }
+
+[build-dependencies]
+tonic-build = { workspace = true }
+
+[[example]]
+name = "distributed"
+path = "../../examples/distributed.rs"
+
+[[example]]
+name = "distributed_comprehensive"
+path = "../../examples/distributed_comprehensive.rs"
+
+[[example]]
+name = "distributed_fsdp"
+path = "../../examples/distributed_fsdp.rs"
+
+# [[example]]
+# name = "distributed_gradient_sync"
+# path = "../../examples/distributed_gradient_sync.rs"
+# Temporarily disabled due to API incompatibilities
+
+# [[example]]
+# name = "distributed_nccl"
+# path = "../../examples/distributed_nccl.rs"
+# Temporarily disabled due to API incompatibilities
+
+# [[example]]
+# name = "distributed_pipeline"
+# path = "../../examples/distributed_pipeline.rs"
+# Temporarily disabled due to API incompatibilities
+
+[[example]]
+name = "distributed_rpc"
+path = "../../examples/distributed_rpc.rs"

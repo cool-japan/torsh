@@ -1,0 +1,10 @@
+[target.aarch64-apple-darwin]
+rustflags = [
+  "-C", "link-args=-L/opt/homebrew/lib -lomp -framework Accelerate"
+]
+
+[env]
+LIBRARY_PATH = "/opt/homebrew/lib"
+CPATH = "/opt/homebrew/include"
+OPENBLAS_NO_LAPACK = "1"
+BLAS_SRC = "accelerate"

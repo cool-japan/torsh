@@ -1,0 +1,71 @@
+[package]
+name = "torsh-ffi"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "Foreign Function Interface bindings for ToRSh"
+keywords = ["tensor", "deep-learning", "python", "ffi", "bindings"]
+categories = ["science", "mathematics", "api-bindings"]
+
+[lints]
+workspace = true
+
+[lib]
+name = "torsh_ffi"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["python"]
+python = ["pyo3", "numpy"]
+extension-module = ["pyo3/extension-module"]
+cuda = []
+
+[dependencies]
+# Core dependencies
+torsh-core = { workspace = true }
+torsh-tensor = { workspace = true }
+torsh-nn = { workspace = true }
+torsh-optim = { workspace = true }
+torsh-data = { workspace = true }
+
+# SciRS2 dependencies (required for ToRSh SciRS2 policy compliance)
+scirs2-core.workspace = true
+
+# Error handling
+thiserror.workspace = true
+anyhow.workspace = true
+
+# Python bindings
+pyo3 = { workspace = true, features = ["auto-initialize"], optional = true }
+numpy = { workspace = true, optional = true }
+
+# Serialization
+serde = { workspace = true, features = ["derive"] }
+serde_json = "1.0"
+
+# Logging
+tracing.workspace = true
+
+# Utilities
+once_cell.workspace = true
+parking_lot = "0.12"
+num_cpus = "1.17"
+chrono = { version = "0.4", features = ["serde"] }
+walkdir = "2.5"
+uuid = { version = "1.18", features = ["v4", "serde"] }
+fastrand = "2.3"
+# rand_distr = "0.5.1"    # REMOVED: Use scirs2_core::random::prelude instead (SciRS2 POLICY)
+
+[dev-dependencies]
+tempfile = "3.23"
+
+[build-dependencies]
+pyo3-build-config = { version = "0.26" }
+
+[[example]]
+name = "python_usage"
+required-features = ["python"]

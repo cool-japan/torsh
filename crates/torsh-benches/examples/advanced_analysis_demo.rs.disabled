@@ -1,0 +1,419 @@
+//! Advanced Analysis and Validation Demo
+//!
+//! This example demonstrates the cutting-edge performance analysis and validation
+//! capabilities of the ToRSh benchmarking suite.
+
+use std::time::Duration;
+use torsh_benches::{
+    reference_impls::*, AdaptiveBenchmarking, AdvancedAnalyzer, AnalysisConfig, BenchConfig,
+    BenchResult, BenchRunner, BenchmarkValidator, ValidationConfig,
+};
+use torsh_core::dtype::DType;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    println!("🚀 ToRSh Advanced Benchmarking Analysis Demo");
+    println!("===============================================");
+
+    // Create sample benchmark results for demonstration
+    let sample_results = create_sample_results();
+
+    // 1. Advanced Performance Analysis
+    println!("\n🧠 Advanced Performance Analysis");
+    println!("---------------------------------");
+
+    let analyzer = AdvancedAnalyzer::new();
+    let analysis = analyzer.analyze(&sample_results);
+
+    println!("Micro-architectural Analysis:");
+    println!("  IPC: {:.2}", analysis.micro_arch.ipc);
+    println!(
+        "  Cache Miss Rate: {:.2}%",
+        analysis.micro_arch.cache_miss_rate * 100.0
+    );
+    println!(
+        "  SIMD Utilization: {:.2}%",
+        analysis.micro_arch.simd_utilization * 100.0
+    );
+    println!(
+        "  Memory Bandwidth Usage: {:.2}%",
+        analysis.micro_arch.memory_bandwidth_usage * 100.0
+    );
+
+    println!("\nStatistical Analysis:");
+    println!(
+        "  Confidence Interval: [{:.2}, {:.2}]",
+        analysis.statistics.confidence_interval.0, analysis.statistics.confidence_interval.1
+    );
+    println!(
+        "  Coefficient of Variation: {:.2}%",
+        analysis.statistics.coefficient_variation * 100.0
+    );
+    println!(
+        "  Stability Score: {:.2}%",
+        analysis.statistics.stability_score * 100.0
+    );
+    println!(
+        "  Outliers Detected: {}",
+        analysis.statistics.outliers.len()
+    );
+
+    println!("\nPerformance Characteristics:");
+    println!(
+        "  Time Complexity: {}",
+        analysis.characteristics.complexity.time_complexity
+    );
+    println!(
+        "  Space Complexity: {}",
+        analysis.characteristics.complexity.space_complexity
+    );
+    println!(
+        "  Efficiency Score: {:.2}%",
+        analysis.characteristics.efficiency_score
+    );
+    println!(
+        "  Bottlenecks: {}",
+        analysis.characteristics.bottlenecks.len()
+    );
+
+    // Display optimization recommendations
+    println!("\nOptimization Recommendations:");
+    for (i, rec) in analysis.recommendations.iter().enumerate() {
+        println!(
+            "  {}. [{}] {} ({:.1}% gain, {:.0}% confidence)",
+            i + 1,
+            format!("{:?}", rec.category),
+            rec.recommendation,
+            rec.expected_gain,
+            rec.confidence * 100.0
+        );
+    }
+
+    // 2. Benchmark Validation
+    println!("\n🔬 Benchmark Correctness Validation");
+    println!("------------------------------------");
+
+    let mut validator = BenchmarkValidator::new();
+
+    // Add reference implementations
+    validator.add_reference_implementation("elementwise_add".to_string(), Box::new(ElementwiseAdd));
+    validator.add_reference_implementation("dot_product".to_string(), Box::new(DotProduct));
+
+    let config = BenchConfig::new("validation_test");
+    let validation = validator.validate(&sample_results, &config);
+
+    println!("Validation Status: {}", validation.status);
+    println!("Total Tests: {}", validation.report.summary.total_tests);
+    println!("Passed: {}", validation.report.summary.passed);
+    println!("Warnings: {}", validation.report.summary.warnings);
+    println!("Failed: {}", validation.report.summary.failed);
+    println!(
+        "Confidence Score: {:.2}%",
+        validation.report.summary.confidence_score
+    );
+
+    // Display numerical accuracy results
+    println!("\nNumerical Accuracy:");
+    println!(
+        "  Relative Error: {:.2e}",
+        validation.numerical_accuracy.relative_error
+    );
+    println!(
+        "  Absolute Error: {:.2e}",
+        validation.numerical_accuracy.absolute_error
+    );
+    println!(
+        "  ULP Error: {:.2e}",
+        validation.numerical_accuracy.ulp_error
+    );
+    println!(
+        "  Precision Loss: {:.2} digits",
+        validation.numerical_accuracy.precision_loss.digits_lost
+    );
+
+    // Display performance consistency
+    println!("\nPerformance Consistency:");
+    println!(
+        "  Timing Variance: {:.2}%",
+        validation.performance_consistency.timing_variance
+    );
+    println!(
+        "  Throughput Stability: {:.2}%",
+        validation.performance_consistency.throughput_stability
+    );
+    println!(
+        "  Memory Consistency: {:.2}%",
+        validation.performance_consistency.memory_consistency
+    );
+    println!(
+        "  Reproducibility Score: {:.2}%",
+        validation.performance_consistency.reproducibility_score
+    );
+
+    // Display validation issues
+    if !validation.report.issues.is_empty() {
+        println!("\nValidation Issues:");
+        for (i, issue) in validation.report.issues.iter().enumerate() {
+            println!(
+                "  {}. [{}] {}: {}",
+                i + 1,
+                issue.severity,
+                format!("{:?}", issue.category),
+                issue.description
+            );
+        }
+    }
+
+    // Display recommendations
+    println!("\nValidation Recommendations:");
+    for (i, rec) in validation.report.recommendations.iter().enumerate() {
+        println!("  {}. {}", i + 1, rec);
+    }
+
+    // 3. Adaptive Benchmarking
+    println!("\n⚡ Adaptive Benchmarking");
+    println!("------------------------");
+
+    let mut adaptive = AdaptiveBenchmarking::new();
+    let base_config = BenchConfig::new("adaptive_test")
+        .with_sizes(vec![100, 1000, 10000, 100000])
+        .with_memory_measurement();
+
+    let optimized_config = adaptive.select_parameters(&base_config);
+
+    println!("Original sizes: {:?}", base_config.sizes);
+    println!("Optimized sizes: {:?}", optimized_config.sizes);
+    println!(
+        "Original measurement time: {:?}",
+        base_config.measurement_time
+    );
+    println!(
+        "Optimized measurement time: {:?}",
+        optimized_config.measurement_time
+    );
+
+    // Simulate recording results for adaptive learning
+    for (size, &result_time) in optimized_config
+        .sizes
+        .iter()
+        .zip([100.0, 1000.0, 10000.0].iter())
+    {
+        let performance = 1e9 / result_time; // GOPS
+        let utilization = 0.8; // 80% utilization
+        adaptive.record_result(
+            BenchConfig::new("test").with_sizes(vec![*size]),
+            performance,
+            utilization,
+        );
+    }
+
+    let recommendations = adaptive.get_recommendations();
+    println!("\nAdaptive Recommendations:");
+    for (i, rec) in recommendations.iter().enumerate() {
+        println!("  {}. {}", i + 1, rec);
+    }
+
+    // 4. Cache Analysis Demo
+    println!("\n💾 Cache Behavior Analysis");
+    println!("--------------------------");
+
+    println!("L1 Cache:");
+    println!(
+        "  Hit Rate: {:.2}%",
+        analysis.cache_analysis.l1_behavior.hit_rate
+    );
+    println!(
+        "  Average Access Time: {:?}",
+        analysis.cache_analysis.l1_behavior.avg_access_time
+    );
+    println!(
+        "  Utilization: {:.2}%",
+        analysis.cache_analysis.l1_behavior.utilization
+    );
+
+    println!("L2 Cache:");
+    println!(
+        "  Hit Rate: {:.2}%",
+        analysis.cache_analysis.l2_behavior.hit_rate
+    );
+    println!(
+        "  Average Access Time: {:?}",
+        analysis.cache_analysis.l2_behavior.avg_access_time
+    );
+    println!(
+        "  Utilization: {:.2}%",
+        analysis.cache_analysis.l2_behavior.utilization
+    );
+
+    println!("L3 Cache:");
+    println!(
+        "  Hit Rate: {:.2}%",
+        analysis.cache_analysis.l3_behavior.hit_rate
+    );
+    println!(
+        "  Average Access Time: {:?}",
+        analysis.cache_analysis.l3_behavior.avg_access_time
+    );
+    println!(
+        "  Utilization: {:.2}%",
+        analysis.cache_analysis.l3_behavior.utilization
+    );
+
+    println!("\nMemory Access Patterns:");
+    for (i, pattern) in analysis.cache_analysis.access_patterns.iter().enumerate() {
+        println!(
+            "  {}. {:?}: {:.2} strength, {:.2} impact",
+            i + 1,
+            pattern.pattern_type,
+            pattern.strength,
+            pattern.impact
+        );
+    }
+
+    println!("\nCache Optimizations:");
+    for (i, opt) in analysis.cache_analysis.optimizations.iter().enumerate() {
+        println!(
+            "  {}. {}: {:.1}% improvement (difficulty: {}/10)",
+            i + 1,
+            opt.optimization_type,
+            opt.expected_improvement * 100.0,
+            opt.difficulty
+        );
+        println!("      {}", opt.description);
+    }
+
+    // 5. Cross-Architecture Results
+    println!("\n🌐 Cross-Architecture Analysis");
+    println!("------------------------------");
+
+    println!(
+        "Architectures Tested: {}",
+        validation.cross_arch_consistency.architectures.len()
+    );
+    for arch in &validation.cross_arch_consistency.architectures {
+        println!(
+            "  - {} ({}-endian, {}B pointers)",
+            arch.name,
+            match arch.endianness {
+                torsh_benches::Endianness::Little => "little",
+                torsh_benches::Endianness::Big => "big",
+            },
+            arch.pointer_size
+        );
+        println!("    Features: {}", arch.features.join(", "));
+        println!("    SIMD: {}", arch.simd_caps.join(", "));
+    }
+
+    println!(
+        "Consistency Score: {:.2}%",
+        validation.cross_arch_consistency.consistency_score
+    );
+    println!(
+        "Performance Variation: {:.2}%",
+        validation.cross_arch_consistency.performance_variation
+    );
+    println!(
+        "Accuracy Variation: {:.2e}",
+        validation.cross_arch_consistency.accuracy_variation
+    );
+
+    // 6. Generate HTML Report
+    println!("\n📊 Generating HTML Report");
+    println!("-------------------------");
+
+    let html_report = torsh_benches::validation_utils::generate_html_report(&validation);
+    std::fs::write("validation_report.html", html_report)?;
+    println!("HTML validation report saved to: validation_report.html");
+
+    println!("\n✅ Advanced analysis demo completed successfully!");
+    println!("This demonstrates the cutting-edge capabilities of the ToRSh benchmarking suite.");
+
+    Ok(())
+}
+
+/// Create sample benchmark results for demonstration
+fn create_sample_results() -> Vec<BenchResult> {
+    use std::collections::HashMap;
+
+    vec![
+        BenchResult {
+            name: "matrix_multiply_64".to_string(),
+            size: 64,
+            dtype: DType::F32,
+            mean_time_ns: 1_000_000.0, // 1ms
+            std_dev_ns: 50_000.0,
+            throughput: Some(1e9),               // 1 GOPS
+            memory_usage: Some(64 * 64 * 4 * 2), // Two 64x64 f32 matrices
+            peak_memory: Some(64 * 64 * 4 * 3),  // Plus result matrix
+            metrics: {
+                let mut m = HashMap::new();
+                m.insert("cache_misses".to_string(), 1000.0);
+                m.insert("instructions".to_string(), 500000.0);
+                m
+            },
+        },
+        BenchResult {
+            name: "matrix_multiply_128".to_string(),
+            size: 128,
+            dtype: DType::F32,
+            mean_time_ns: 8_000_000.0, // 8ms
+            std_dev_ns: 400_000.0,
+            throughput: Some(4e9), // 4 GOPS
+            memory_usage: Some(128 * 128 * 4 * 2),
+            peak_memory: Some(128 * 128 * 4 * 3),
+            metrics: {
+                let mut m = HashMap::new();
+                m.insert("cache_misses".to_string(), 8000.0);
+                m.insert("instructions".to_string(), 4000000.0);
+                m
+            },
+        },
+        BenchResult {
+            name: "matrix_multiply_256".to_string(),
+            size: 256,
+            dtype: DType::F32,
+            mean_time_ns: 64_000_000.0, // 64ms
+            std_dev_ns: 3_200_000.0,
+            throughput: Some(16e9), // 16 GOPS
+            memory_usage: Some(256 * 256 * 4 * 2),
+            peak_memory: Some(256 * 256 * 4 * 3),
+            metrics: {
+                let mut m = HashMap::new();
+                m.insert("cache_misses".to_string(), 64000.0);
+                m.insert("instructions".to_string(), 32000000.0);
+                m
+            },
+        },
+        BenchResult {
+            name: "vector_add_1000".to_string(),
+            size: 1000,
+            dtype: DType::F32,
+            mean_time_ns: 5_000.0, // 5μs
+            std_dev_ns: 250.0,
+            throughput: Some(200e6),          // 200 MOPS
+            memory_usage: Some(1000 * 4 * 3), // Three 1000-element f32 vectors
+            peak_memory: Some(1000 * 4 * 3),
+            metrics: {
+                let mut m = HashMap::new();
+                m.insert("cache_misses".to_string(), 10.0);
+                m.insert("instructions".to_string(), 2000.0);
+                m
+            },
+        },
+        BenchResult {
+            name: "vector_add_10000".to_string(),
+            size: 10000,
+            dtype: DType::F32,
+            mean_time_ns: 50_000.0, // 50μs
+            std_dev_ns: 2_500.0,
+            throughput: Some(200e6), // 200 MOPS (linear scaling)
+            memory_usage: Some(10000 * 4 * 3),
+            peak_memory: Some(10000 * 4 * 3),
+            metrics: {
+                let mut m = HashMap::new();
+                m.insert("cache_misses".to_string(), 100.0);
+                m.insert("instructions".to_string(), 20000.0);
+                m
+            },
+        },
+    ]
+}

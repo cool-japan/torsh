@@ -1,0 +1,112 @@
+[package]
+name = "torsh-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Command-line tools for the ToRSh deep learning framework"
+keywords = ["machine-learning", "deep-learning", "neural-networks", "cli", "tools"]
+categories = ["command-line-utilities", "science"]
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "torsh"
+path = "src/main.rs"
+
+[dependencies]
+# Core ToRSh dependencies
+torsh-core = { workspace = true }
+torsh-tensor = { workspace = true }
+torsh-autograd = { workspace = true }
+
+# SciRS2 ecosystem dependencies (following SCIRS2 POLICY)
+# Must use SciRS2 as foundation instead of rand/ndarray
+scirs2-core = "0.1.0-beta.2"
+scirs2-autograd = "0.1.0-beta.2"
+numrs2 = "0.1.0-beta.2"
+torsh-nn = { path = "../torsh-nn", version = "0.1.0-alpha.1", optional = true }
+torsh-optim = { path = "../torsh-optim", version = "0.1.0-alpha.1", optional = true }
+torsh-data = { path = "../torsh-data", version = "0.1.0-alpha.1", optional = true }
+torsh-vision = { path = "../torsh-vision", version = "0.1.0-alpha.1", optional = true }
+torsh-text = { path = "../torsh-text", version = "0.1.0-alpha.1", optional = true }
+torsh-quantization = { path = "../torsh-quantization", version = "0.1.0-alpha.1", optional = true }
+torsh-jit = { path = "../torsh-jit", version = "0.1.0-alpha.1", optional = true }
+torsh-profiler = { path = "../torsh-profiler", version = "0.1.0-alpha.1", optional = true }
+torsh-hub = { path = "../torsh-hub", version = "0.1.0-alpha.1", optional = true }
+
+# CLI framework
+clap = { version = "4.5", features = ["derive", "env", "color"] }
+clap_complete = "4.5"
+
+# Async runtime
+tokio = { version = "1.47", features = ["full"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+toml = "0.9"
+
+# File handling
+walkdir = "2.5"
+glob = "0.3"
+
+# Progress and UI
+indicatif = "0.18"
+console = "0.16"
+dialoguer = "0.12"
+colored = "3.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Error handling
+anyhow = "1.0"
+thiserror = "2.0"
+
+# Utilities
+chrono = { version = "0.4", features = ["serde"] }
+humantime = "2.3"
+byte-unit = "5.1"
+uuid = { version = "1.18", features = ["v4"] }
+fastrand = "2.3"
+
+# Networking for model downloads
+reqwest = { version = "0.12", features = ["json", "stream"] }
+futures-util = "0.3"
+
+# System info
+sysinfo = "0.37"
+libc = "0.2"
+
+# Directory utilities
+dirs = "6.0"
+
+[features]
+default = ["nn", "optim", "data", "vision", "text"]
+
+# Core modules
+nn = ["dep:torsh-nn"]
+optim = ["dep:torsh-optim"]
+data = ["dep:torsh-data"]
+vision = ["dep:torsh-vision"]
+text = ["dep:torsh-text"]
+
+# Advanced features
+quantization = ["dep:torsh-quantization"]
+jit = ["dep:torsh-jit"]
+profiler = ["dep:torsh-profiler"]
+hub = ["dep:torsh-hub"]
+
+# Development features
+dev = []
+
+[dev-dependencies]
+tempfile = "3.23"
+assert_cmd = "2.0"
+predicates = "3.1"

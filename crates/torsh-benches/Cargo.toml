@@ -1,0 +1,91 @@
+[package]
+name = "torsh-benches"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Benchmarking suite for ToRSh"
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "tensor_operations"
+harness = false
+
+[[bench]]
+name = "neural_networks"
+harness = false
+
+[[example]]
+name = "pytorch_performance_suite"
+required-features = ["pytorch"]
+
+# [[example]]
+# name = "run_all_benchmarks"  # Temporarily disabled due to compilation issues
+
+[[bin]]
+name = "cleanup_warnings"
+path = "cleanup_warnings.rs"
+
+[dependencies]
+# ToRSh crates
+torsh-core = { workspace = true }
+torsh-tensor = { workspace = true }
+torsh-nn = { workspace = true }
+torsh-data = { workspace = true }
+# torsh-backend = { workspace = true }
+torsh-linalg = { workspace = true }
+torsh-sparse = { workspace = true }
+torsh-signal = { workspace = true }
+
+# SciRS2 dependencies
+scirs2-core = { workspace = true }
+scirs2-autograd = { workspace = true }
+
+# Benchmarking
+criterion = { workspace = true }
+
+# Utilities - SciRS2 POLICY COMPLIANT
+# rand = "0.9.2"      # REMOVED: Use scirs2_core::random instead (SciRS2 POLICY)
+# rand_distr = "0.5"  # REMOVED: Use scirs2_core::random instead (SciRS2 POLICY)
+itertools = "0.14"
+
+# Async and concurrency
+tokio = { workspace = true, features = ["full"] }
+rayon = { workspace = true }
+
+# External comparisons - SciRS2 POLICY COMPLIANCE
+# ndarray = { workspace = true }  # REMOVED: Use scirs2_core::ndarray instead (SciRS2 POLICY)
+# ndarray-rand = "0.15"           # REMOVED: Use scirs2_core::random::prelude instead (SciRS2 POLICY)
+# ✅ SciRS2 Policy: Use scirs2_core::benchmarking for all benchmark data generation
+
+# PyTorch comparisons (via Python bindings)
+pyo3 = { workspace = true, optional = true }
+numpy = { workspace = true, optional = true }
+
+# JSON for result serialization
+serde = { workspace = true }
+serde_json = "1.0"
+
+# For timestamped reports
+chrono = { version = "0.4", features = ["serde"] }
+
+# System information
+num_cpus = "1.17"
+hostname = "0.4"
+walkdir = "2.5"
+
+[dev-dependencies]
+approx = { workspace = true }
+
+[features]
+default = ["std"]
+std = []
+compare-external = [] # Enable comparisons with other libraries
+pytorch = ["pyo3", "numpy"] # Enable PyTorch comparisons via Python
+tensorflow = ["pyo3", "numpy"] # Enable TensorFlow comparisons via Python
+jax = ["pyo3", "numpy"] # Enable JAX comparisons via Python
+numpy_baseline = ["pyo3", "numpy"] # Enable NumPy baseline comparisons via Python

@@ -1,0 +1,42 @@
+[package]
+name = "torsh-utils"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Utility functions and helpers for ToRSh"
+
+[lints]
+workspace = true
+
+[dependencies]
+torsh-core = { workspace = true }
+torsh-tensor = { workspace = true }
+torsh-nn = { workspace = true }
+torsh-profiler = { workspace = true }
+scirs2-core = { workspace = true }
+reqwest = { version = "0.12", features = ["json", "blocking"], optional = true }
+serde = { workspace = true }
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+protobuf = { version = "3.7", optional = true }
+sha2 = "0.10"
+base64 = "0.22"
+fs2 = "0.4"
+num_cpus = "1.17"
+once_cell = { workspace = true }
+sysinfo = { version = "0.37", optional = true }
+which = "8.0"
+
+[features]
+default = ["tensorboard", "collect_env"]
+tensorboard = ["protobuf", "reqwest"]
+collect_env = ["sysinfo"]
+
+[dev-dependencies]
+tempfile = "3.23"
+tokio = { workspace = true, features = ["test-util"] }

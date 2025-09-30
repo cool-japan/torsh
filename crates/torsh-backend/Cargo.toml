@@ -1,0 +1,96 @@
+[package]
+name = "torsh-backend"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Backend abstraction layer for ToRSh"
+build = "build.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+# Core dependencies
+torsh-core = { workspace = true }
+scirs2-core = { workspace = true }
+
+# Utilities
+num-traits = { workspace = true }
+parking_lot = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Async and concurrency
+async-trait = "0.1"
+futures = { workspace = true }
+tokio = { workspace = true, optional = true, features = ["time"] }
+
+# Logging and tracing
+tracing = { workspace = true, optional = true }
+
+# Serialization
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+
+# CPU backend dependencies
+rayon = { workspace = true, optional = true }
+num_cpus = { version = "1.17", optional = true }
+libc = { workspace = true, optional = true }
+raw-cpuid = { version = "11.6", optional = true }
+wide = { version = "0.7", optional = true }
+spin = { version = "0.10", optional = true }
+
+# CUDA backend dependencies (only when CUDA is actually available)
+[target.'cfg(cuda_runtime_available)'.dependencies]
+cust = { workspace = true, optional = true }
+cuda-sys = { workspace = true, optional = true }
+
+# Metal backend dependencies (Apple platforms only)
+[target.'cfg(target_os = "macos")'.dependencies]
+metal = { workspace = true, optional = true }
+objc2 = { version = "0.6", optional = true }
+objc2-metal = { version = "0.3", optional = true }
+objc2-metal-performance-shaders = { version = "0.3", optional = true }
+
+# WebGPU backend dependencies
+wgpu = { workspace = true, optional = true }
+bytemuck = { workspace = true, optional = true }
+log = { workspace = true, optional = true }
+md5 = { workspace = true, optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }
+approx = { workspace = true }
+criterion = { version = "0.7", features = ["html_reports"] }
+
+[[bench]]
+name = "backend_benchmarks"
+harness = false
+
+[[bench]]
+name = "cpu_benchmarks"
+harness = false
+
+[features]
+default = ["std", "cpu", "async"]
+std = ["torsh-core/std"]
+serialize = ["serde", "serde_json", "torsh-core/serialize"]
+tracing = ["dep:tracing"]
+
+# Backend features
+cpu = ["rayon", "num_cpus", "libc", "raw-cpuid", "spin", "bytemuck"]
+# Note: scirs2-core feature flags may need adjustment for v0.1.0-beta.2
+cuda = ["cust", "cuda-sys"]  # Removed scirs2-core features - check if they exist in beta.2
+metal = ["dep:metal", "objc2", "objc2-metal", "objc2-metal-performance-shaders"]  # Removed scirs2-core features
+rocm = []  # Removed scirs2-core features - check if they exist in beta.2
+webgpu = ["wgpu", "bytemuck", "log", "md5"]  # Removed rand per SciRS2 policy
+async = ["tokio"]
+
+# CPU optimization features
+rayon-threads = ["rayon"]
+simd = ["wide"]

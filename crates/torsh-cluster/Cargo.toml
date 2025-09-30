@@ -1,0 +1,57 @@
+[package]
+name = "torsh-cluster"
+description = "Unsupervised learning and clustering algorithms for ToRSh, powered by SciRS2"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# Core ToRSh dependencies
+torsh-core = { workspace = true }
+torsh-tensor = { workspace = true }
+
+# SciRS2 clustering foundation - PRIMARY dependency
+scirs2-cluster = { workspace = true }
+scirs2-core = { workspace = true }
+scirs2-autograd = { workspace = true }
+
+# Additional SciRS2 components for comprehensive clustering
+scirs2-stats = { workspace = true }
+scirs2-metrics = { workspace = true }
+scirs2-linalg = { workspace = true }
+
+# Numerical computing
+numrs2 = { workspace = true }
+
+# Parallelism
+rayon = { workspace = true }
+
+# Random number generation - SciRS2 POLICY COMPLIANCE
+# rand = { workspace = true }  # REMOVED: Use scirs2_core::random instead (SciRS2 POLICY)
+# ✅ SciRS2 Policy: Use scirs2_core::random for all cluster initialization
+
+# Error handling
+thiserror = { workspace = true }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+# Optional logging
+log = { workspace = true, optional = true }
+
+[features]
+default = ["std"]
+std = []
+serde = ["dep:serde"]
+logging = ["dep:log"]
+
+[dev-dependencies]
+approx = { workspace = true }
+criterion = { workspace = true }

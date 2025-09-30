@@ -1,0 +1,83 @@
+[package]
+name = "torsh-tensor"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Tensor implementation for ToRSh with PyTorch-compatible API"
+build = "build.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+# Core dependencies
+torsh-core = { workspace = true }
+# torsh-autograd = { workspace = true, optional = true }
+torsh-backend = { workspace = true, optional = true }
+scirs2 = { workspace = true }
+scirs2-core = { workspace = true }
+scirs2-autograd = { workspace = true }
+scirs2-stats = { workspace = true }
+numrs2 = { workspace = true }
+
+# Utilities
+num-traits = { workspace = true }
+num-complex = { workspace = true }
+half = "2.6"
+# ndarray = { workspace = true, optional = true }  # REMOVED: Use scirs2_core::ndarray instead (SciRS2 POLICY)
+rayon = { workspace = true }  # Keep temporarily during migration
+parking_lot = { workspace = true }
+tokio = { workspace = true, features = ["rt", "rt-multi-thread"], optional = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Serialization
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+bincode = { workspace = true, optional = true }
+hdf5 = { version = "0.8", optional = true }
+arrow = { version = "56.2", optional = true }
+parquet = { version = "56.2", optional = true }
+onnx = { version = "0.1.0", optional = true }
+protobuf = { version = "3.7", optional = true }
+
+# Random number generation - USE SCIRS2 ONLY (POLICY COMPLIANCE)
+# rand = "0.9"           # REMOVED: Use scirs2_core::random instead
+# rand_distr = "0.5"     # REMOVED: Use scirs2_core::random::prelude instead
+
+# Mathematical functions
+libm = "0.2"
+
+[dev-dependencies]
+approx = { workspace = true }
+proptest = { workspace = true }
+criterion = { workspace = true }
+tempfile = "3.23"
+serde_json = { workspace = true }
+
+[features]
+default = ["std"]
+std = ["torsh-core/std"]
+# autograd = ["torsh-autograd"]
+async = ["tokio"]
+simd = ["torsh-backend", "torsh-backend/simd"]
+# ndarray-interop = ["ndarray"]  # REMOVED: Use scirs2_core::ndarray instead (SciRS2 POLICY)
+serialize = ["serde", "serde_json", "bincode", "torsh-core/serialize"]
+serialize-hdf5 = ["serialize", "hdf5"]
+serialize-arrow = ["serialize", "arrow", "parquet"]
+serialize-onnx = ["serialize", "onnx", "protobuf"]
+serialize-all = ["serialize", "serialize-hdf5", "serialize-arrow", "serialize-onnx"]
+debug = []
+trace = []
+bench = []
+parallel = ["scirs2-core/parallel", "scirs2-core/simd", "scirs2-core/memory_efficient"]
+fast-math = []
+python = []
+numpy = []
+custom-types = []
+

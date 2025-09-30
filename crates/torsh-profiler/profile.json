@@ -1,0 +1,8 @@
+{
+  "displayTimeUnit": "ms",
+  "otherData": {
+    "version": "torsh-profiler-1.0"
+  },
+  "systemTraceEvents": "SystemTraceData",
+  "traceEvents": []
+}

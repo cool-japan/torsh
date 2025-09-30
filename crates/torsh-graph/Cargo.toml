@@ -1,0 +1,34 @@
+[package]
+name = "torsh-graph"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "Graph neural network components for ToRSh - powered by SciRS2"
+
+[lints]
+workspace = true
+
+[dependencies]
+torsh-core = { workspace = true }
+torsh-tensor = { workspace = true }
+# torsh-nn = { workspace = true }  # Temporarily disabled due to compilation issues
+torsh-autograd = { workspace = true }
+
+# SciRS2 graph capabilities
+scirs2-graph = { workspace = true }
+scirs2-core = { workspace = true }
+scirs2-autograd = { workspace = true }
+# scirs2-spatial = { workspace = true }  # Temporarily disabled due to compilation issues
+
+# Additional dependencies
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+approx = { workspace = true }
+tempfile = { workspace = true }

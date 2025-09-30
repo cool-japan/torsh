@@ -1,0 +1,73 @@
+# Rust build artifacts
+/target/
+**/target/
+**/*.rs.bk
+Cargo.lock
+
+# Backups
+*.bak
+*.old
+*.orig
+*.tmp
+*.swp
+**/*.rs.bak
+**/*.rs.old
+**/*.rs.orig
+**/*.rs.bak*
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Python artifacts (for potential Python bindings)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv
+
+# Documentation build
+/target/doc/
+/target/criterion/
+
+# Benchmark results
+/target/benchmark/
+*.bench
+
+# Coverage reports
+*.profraw
+*.profdata
+/coverage/
+lcov.info
+
+# OS specific
+Thumbs.db
+.DS_Store
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Example outputs
+/examples/output/
+
+# Environment variables
+.env
+
+# Reports
+crates/torsh-hub/debug/
+crates/torsh-hub/reports/
+crates/torsh-hub/profiles/
+crates/torsh-hub/targets/
+
+# Miscs
+.claude/
+**/.claude/

@@ -1,0 +1,61 @@
+[package]
+name = "torsh-optim"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Optimization algorithms for ToRSh with PyTorch-compatible API"
+
+[lints]
+workspace = true
+
+[dependencies]
+# Core dependencies
+torsh-core = { workspace = true }
+torsh-tensor = { workspace = true }
+torsh-autograd = { workspace = true }
+torsh-linalg = { workspace = true }
+
+# Leverage scirs2's optimizers and optirs
+scirs2 = { workspace = true }
+scirs2-core = { workspace = true }
+scirs2-optimize = { workspace = true }
+# TEMPORARILY DISABLED DUE TO SCIRS2 API COMPATIBILITY ISSUES
+# optirs = { workspace = true }
+# optirs-core = { workspace = true }
+
+# Utilities
+parking_lot = { workspace = true }
+indexmap = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Serialization
+serde = { workspace = true, features = ["derive"], optional = true }
+serde_json = { workspace = true, optional = true }
+bincode = { workspace = true }
+
+# Half precision types
+half = { workspace = true }
+
+# Logging
+log = { workspace = true }
+
+# Random number generation - SciRS2 POLICY COMPLIANCE
+# rand = { workspace = true }       # REMOVED: Use scirs2_core::random instead (SciRS2 POLICY)
+# rand_distr = { workspace = true } # REMOVED: Use scirs2_core::random::prelude instead (SciRS2 POLICY)
+# ✅ SciRS2 Policy: Use scirs2_core::random for all RNG and distributions
+
+[dev-dependencies]
+approx = { workspace = true }
+# torsh-nn = { path = "../torsh-nn" } # Temporarily disabled due to compilation issues
+tempfile = "3.23"
+
+[features]
+default = ["std", "serialize"]
+std = ["torsh-core/std", "torsh-tensor/std"]
+serialize = ["serde", "serde_json", "torsh-core/serialize"]

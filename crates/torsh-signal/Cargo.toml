@@ -1,0 +1,36 @@
+[package]
+name = "torsh-signal"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Signal processing utilities for ToRSh with SciRS2 integration"
+
+[lints]
+workspace = true
+
+[dependencies]
+torsh-core = { workspace = true }
+torsh-tensor = { workspace = true }
+torsh-functional = { workspace = true }
+torsh-linalg = { workspace = true }
+# SciRS2 ecosystem for signal processing (following SCIRS2 policy)
+scirs2-core = { version = "0.1.0-beta.2" }
+scirs2-signal = { version = "0.1.0-beta.2", optional = true }
+scirs2-fft = { version = "0.1.0-beta.2", optional = true }
+num-complex = { workspace = true }
+num-traits = { workspace = true }
+thiserror = { workspace = true }
+approx = { workspace = true }
+
+[features]
+default = []
+scirs2-integration = ["scirs2-signal", "scirs2-fft"]
+advanced-signal = ["scirs2-signal"]
+fft-support = ["scirs2-fft"]
+
+[dev-dependencies]
+criterion = { workspace = true }
+approx = { workspace = true }

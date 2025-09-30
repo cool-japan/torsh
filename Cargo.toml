@@ -1,0 +1,312 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/torsh",
+    "crates/torsh-cli",
+    "crates/torsh-core", 
+    "crates/torsh-tensor",
+    "crates/torsh-autograd",
+    "crates/torsh-nn",
+    "crates/torsh-optim",
+    "crates/torsh-data",
+    "crates/torsh-backend",
+    # Backend crates - DEPRECATED: Use torsh-backend with feature flags instead
+    # "crates/torsh-backend-cpu",     # Deprecated - use torsh-backend with "cpu" feature
+    # "crates/torsh-backend-metal",   # Deprecated - use torsh-backend with "metal" feature
+    # "crates/torsh-backend-cuda",    # Deprecated - use torsh-backend with "cuda" feature
+    "crates/torsh-vision",
+    "crates/torsh-text",
+    "crates/torsh-jit",
+    "crates/torsh-distributed",
+    "crates/torsh-functional",
+    "crates/torsh-sparse",
+    "crates/torsh-linalg",
+    "crates/torsh-special",
+    "crates/torsh-graph",     # NEW: Graph neural networks powered by scirs2-graph
+    "crates/torsh-series",    # NEW: Time series analysis powered by scirs2-series
+    "crates/torsh-metrics",   # NEW: Comprehensive metrics powered by scirs2-metrics
+    "crates/torsh-cluster",   # NEW: Unsupervised learning powered by scirs2-cluster
+    "crates/torsh-signal",
+    "crates/torsh-profiler",
+    "crates/torsh-quantization",
+    "crates/torsh-fx",
+    "crates/torsh-hub",
+    "crates/torsh-utils",
+    "crates/torsh-package",
+    "crates/torsh-python",  # Re-enabled - fixing PyO3 compatibility issues
+    "crates/torsh-models",  # Re-enabled - fixing trait object mutability issues
+    "crates/torsh-ffi",  # Re-enabled - fixing PyO3 API compatibility issues
+    "crates/torsh-benches",
+]
+
+default-members = [
+    "crates/torsh",
+    "crates/torsh-cli",
+    "crates/torsh-core", 
+    "crates/torsh-tensor",
+    "crates/torsh-autograd",
+    "crates/torsh-nn",
+    "crates/torsh-optim",
+    "crates/torsh-data",
+    "crates/torsh-backend",
+    # Backend crates - DEPRECATED: Use torsh-backend with feature flags instead
+    # "crates/torsh-backend-cpu",     # Deprecated - use torsh-backend with "cpu" feature
+    # "crates/torsh-backend-metal",   # Deprecated - use torsh-backend with "metal" feature
+    # "crates/torsh-backend-cuda",    # Deprecated - use torsh-backend with "cuda" feature
+    "crates/torsh-vision",
+    # "crates/torsh-text",  # Temporarily disabled due to compilation issues
+    "crates/torsh-jit",
+    # "crates/torsh-distributed",  # Temporarily disabled due to API incompatibilities
+    "crates/torsh-functional",
+    "crates/torsh-sparse",
+    "crates/torsh-linalg",
+    "crates/torsh-special",
+    "crates/torsh-graph",     # NEW: Graph neural networks powered by scirs2-graph
+    "crates/torsh-series",    # NEW: Time series analysis powered by scirs2-series
+    "crates/torsh-metrics",   # NEW: Comprehensive metrics powered by scirs2-metrics
+    "crates/torsh-cluster",   # NEW: Unsupervised learning powered by scirs2-cluster
+    "crates/torsh-signal",
+    "crates/torsh-profiler",
+    "crates/torsh-quantization",
+    "crates/torsh-fx",
+    "crates/torsh-hub",
+    "crates/torsh-utils",
+    "crates/torsh-package",
+    "crates/torsh-python",  # Re-enabled - fixing PyO3 compatibility issues
+    "crates/torsh-models",
+    "crates/torsh-benches",
+]
+
+[workspace.package]
+version = "0.1.0-alpha.1"
+edition = "2021"
+authors = ["Team KitaSan (cool-japan)"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/cool-japan/torsh/"
+homepage = "https://github.com/cool-japan/torsh/"
+rust-version = "1.76"
+
+[workspace.dependencies]
+# Internal ToRSh crates - workspace management
+torsh-core = { version = "0.1.0-alpha.1", path = "crates/torsh-core" }
+torsh-backend = { version = "0.1.0-alpha.1", path = "crates/torsh-backend" }
+torsh-tensor = { version = "0.1.0-alpha.1", path = "crates/torsh-tensor" }
+torsh-autograd = { version = "0.1.0-alpha.1", path = "crates/torsh-autograd" }
+torsh-linalg = { version = "0.1.0-alpha.1", path = "crates/torsh-linalg" }
+torsh-optim = { version = "0.1.0-alpha.1", path = "crates/torsh-optim" }
+torsh-sparse = { version = "0.1.0-alpha.1", path = "crates/torsh-sparse" }
+torsh-special = { version = "0.1.0-alpha.1", path = "crates/torsh-special" }
+torsh-functional = { version = "0.1.0-alpha.1", path = "crates/torsh-functional" }
+torsh-data = { version = "0.1.0-alpha.1", path = "crates/torsh-data" }
+torsh-nn = { version = "0.1.0-alpha.1", path = "crates/torsh-nn" }
+torsh-vision = { version = "0.1.0-alpha.1", path = "crates/torsh-vision" }
+torsh-text = { version = "0.1.0-alpha.1", path = "crates/torsh-text" }
+torsh-graph = { version = "0.1.0-alpha.1", path = "crates/torsh-graph" }
+torsh-series = { version = "0.1.0-alpha.1", path = "crates/torsh-series" }
+torsh-signal = { version = "0.1.0-alpha.1", path = "crates/torsh-signal" }
+torsh-cluster = { version = "0.1.0-alpha.1", path = "crates/torsh-cluster" }
+torsh-metrics = { version = "0.1.0-alpha.1", path = "crates/torsh-metrics" }
+torsh-jit = { version = "0.1.0-alpha.1", path = "crates/torsh-jit" }
+torsh-distributed = { version = "0.1.0-alpha.1", path = "crates/torsh-distributed" }
+torsh-quantization = { version = "0.1.0-alpha.1", path = "crates/torsh-quantization" }
+torsh-fx = { version = "0.1.0-alpha.1", path = "crates/torsh-fx" }
+torsh-hub = { version = "0.1.0-alpha.1", path = "crates/torsh-hub" }
+torsh-utils = { version = "0.1.0-alpha.1", path = "crates/torsh-utils" }
+torsh-package = { version = "0.1.0-alpha.1", path = "crates/torsh-package" }
+torsh-profiler = { version = "0.1.0-alpha.1", path = "crates/torsh-profiler" }
+torsh-python = { version = "0.1.0-alpha.1", path = "crates/torsh-python" }
+torsh-ffi = { version = "0.1.0-alpha.1", path = "crates/torsh-ffi" }
+torsh-models = { version = "0.1.0-alpha.1", path = "crates/torsh-models" }
+torsh-benches = { version = "0.1.0-alpha.1", path = "crates/torsh-benches" }
+
+# Core dependencies - CRATES.IO VERSION beta.3 with SIMD support
+scirs2 = { version = "0.1.0-beta.3", features = ["neural", "autograd", "linalg"], default-features = false }
+scirs2-core = { version = "0.1.0-beta.3", features = ["simd", "parallel"], default-features = false }
+scirs2-autograd = { version = "0.1.0-beta.3", default-features = false }
+scirs2-special = { version = "0.1.0-beta.3", default-features = false }
+scirs2-sparse = { version = "0.1.0-beta.3", default-features = false }
+scirs2-optimize = { version = "0.1.0-beta.3", default-features = false }
+scirs2-signal = { version = "0.1.0-beta.3", default-features = false }
+scirs2-fft = { version = "0.1.0-beta.3", default-features = false }
+# Additional SciRS2 crates for comprehensive integration
+scirs2-cluster = { version = "0.1.0-beta.3", default-features = false }
+scirs2-datasets = { version = "0.1.0-beta.3", default-features = false }
+scirs2-graph = { version = "0.1.0-beta.3", default-features = false }
+scirs2-metrics = { version = "0.1.0-beta.3", default-features = false }
+scirs2-series = { version = "0.1.0-beta.3", default-features = false }
+scirs2-spatial = { version = "0.1.0-beta.3", default-features = false }
+scirs2-stats = { version = "0.1.0-beta.3", default-features = false }
+scirs2-text = { version = "0.1.0-beta.3", default-features = false }
+scirs2-vision = { version = "0.1.0-beta.3", default-features = false }
+scirs2-linalg = { version = "0.1.0-beta.3", default-features = false }
+scirs2-neural = { version = "0.1.0-beta.3", default-features = false }
+# TEMPORARILY DISABLED DUE TO SCIRS2 API COMPATIBILITY ISSUES
+# optirs = { path = "../optirs/optirs", default-features = false }
+# optirs-core = { path = "../optirs/optirs-core", default-features = false }
+numrs2 = "0.1.0-beta.2"
+polars = { version = "0.51", features = ["lazy"] }
+
+# Parallelism and async
+rayon = "1.10"
+tokio = { version = "1.47", features = ["full"] }
+crossbeam = "0.8"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+bincode = { version = "2.0.1", features = ["serde"] }
+safetensors = "0.6.2"
+
+# Error handling
+thiserror = "2.0"
+anyhow = "1.0"
+
+# GPU backends
+cust = "0.3"
+cuda-sys = "0.2"
+wgpu = "26.0.1"
+metal = "0.31"
+bytemuck = "1.23"
+
+# SIMD
+wide = "0.7"
+packed_simd_2 = "0.3"
+
+# Testing and benchmarking
+criterion = { version = "0.5", features = ["html_reports"] }
+proptest = "1.8"
+approx = "0.5"
+
+# Async traits
+async-trait = "0.1"
+futures = "0.3"
+
+# Logging
+log = "0.4"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# Data structures - SciRS2 POLICY COMPLIANCE
+# ndarray = "0.16"  # REMOVED: Use scirs2_core::ndarray instead (SciRS2 POLICY)
+# ✅ SciRS2 Policy: Use scirs2_core::ndarray::* for all array operations
+petgraph = "0.8"
+indexmap = "2.11"
+
+# FFI
+libc = "0.2"
+pyo3 = "0.26"
+numpy = "0.26"
+
+# Additional utilities
+hostname = "0.4"
+rustc-version = "0.4"
+which = "8.0"
+sysinfo = "0.36"
+zip = "4.2"
+chrono = { version = "0.4", features = ["serde"] }
+
+# Distributed computing dependencies
+prost = "0.14"
+tonic = "0.14"
+tonic-build = "0.14"
+redis = "0.32"
+tokio-test = "0.4"
+futures-util = "0.3"
+uuid = { version = "1.18", features = ["v4", "serde"] }
+
+# Updated dependencies to fix security issues
+cached = "0.56"  # Replace 0.48.1 to fix instant dependency
+tempfile = "3.23"  # Updated version
+
+# Build dependencies
+bindgen = "0.72"
+cc = "1.2"
+
+# Utilities
+num-traits = "0.2"
+num-derive = "0.4"
+num-complex = "0.4"
+once_cell = "1.21"
+parking_lot = "0.12"
+dashmap = "6.1"
+# SciRS2 POLICY COMPLIANCE - Use scirs2_core::random instead
+# rand = "0.9.2"         # REMOVED: Use scirs2_core::random instead (SciRS2 POLICY)
+# rand_distr = "0.5.1"   # REMOVED: Use scirs2_core::random::prelude instead (SciRS2 POLICY)
+# rand_chacha = "0.9.0"  # REMOVED: Use scirs2_core::random instead (SciRS2 POLICY)
+# ✅ SciRS2 Policy: All random number generation handled by scirs2_core::random
+half = "2.4"
+lazy_static = "1.5"
+md5 = "0.8"
+flate2 = "1.1"
+tar = "0.4"
+sha2 = "0.10"
+hex = "0.4"
+semver = "1.0"
+
+# JIT compilation
+cranelift = "0.111"
+cranelift-module = "0.111"
+cranelift-codegen = "0.111"
+cranelift-frontend = "0.111"
+
+# FFT operations
+rustfft = "6.4"
+cranelift-native = "0.111"
+cranelift-object = "0.111"
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+debug = false
+strip = true
+
+[profile.bench]
+inherits = "release"
+debug = true
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[profile.test]
+opt-level = 2
+debug = true
+
+# Workspace-wide lints configuration for high code quality
+[workspace.lints.rust]
+# Warn on common issues
+unused_imports = "warn"
+unused_variables = "warn"
+dead_code = "warn"
+unreachable_code = "warn"
+# missing_docs = "warn" # Enable when documentation is more complete
+
+[workspace.lints.clippy]
+# Deny critical correctness issues
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -1 }
+# Warn on style and performance issues
+style = { level = "warn", priority = -1 }
+complexity = { level = "warn", priority = -1 }
+perf = { level = "warn", priority = -1 }
+# Allow certain lints that can be overly strict for this codebase
+pedantic = { level = "allow", priority = -1 }  # Too many false positives
+all = { level = "allow", priority = -1 }       # Too aggressive
+too_many_lines = "allow"
+module_name_repetitions = "allow"
+similar_names = "allow"
+wildcard_imports = "allow"  # Used for prelude patterns
+must_use_candidate = "allow"  # Too noisy for now
+missing_errors_doc = "allow"  # Documentation in progress
+missing_panics_doc = "allow"  # Documentation in progress
+# Allow controlled use of these patterns in specific contexts
+unwrap_used = "allow"  # Allow but should be used carefully
+expect_used = "allow"  # Allow but should be used carefully
+panic = "allow"        # Allow but should be used carefully
+# Performance-critical warnings (not denials to allow flexibility)
+large_stack_arrays = "warn"
+large_types_passed_by_value = "warn"
+# Allow unsafe for FFI and performance-critical code
+unsafe_code = "allow"
+

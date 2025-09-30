@@ -1,0 +1,216 @@
+[package]
+name = "torsh"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "A blazingly fast, production-ready deep learning framework written in pure Rust"
+readme = "../../README.md"
+keywords = ["deep-learning", "machine-learning", "neural-network", "tensor", "autograd"]
+categories = ["science", "mathematics", "algorithms"]
+
+[lints]
+workspace = true
+
+[dependencies]
+# Core ToRSh crates
+torsh-core = { workspace = true }
+torsh-tensor = { workspace = true }
+torsh-autograd = { workspace = true }
+
+# Core optional crates
+torsh-nn = { workspace = true, optional = true }
+torsh-optim = { workspace = true, optional = true }
+torsh-data = { workspace = true, optional = true }
+torsh-text = { workspace = true, optional = true }
+torsh-vision = { workspace = true, optional = true }
+torsh-functional = { workspace = true, optional = true }
+
+# Advanced optional crates
+torsh-sparse = { workspace = true, optional = true }
+torsh-quantization = { workspace = true, optional = true }
+torsh-special = { workspace = true, optional = true }
+torsh-linalg = { workspace = true, optional = true }
+torsh-profiler = { workspace = true, optional = true }
+torsh-distributed = { workspace = true, optional = true }
+torsh-jit = { workspace = true, optional = true }
+torsh-fx = { workspace = true, optional = true }
+torsh-hub = { workspace = true, optional = true }
+
+# Backend crates - unified backend with modular CUDA execution engine
+torsh-backend = { workspace = true, optional = true }
+
+# Re-export scirs2 functionality
+scirs2 = { workspace = true }
+
+# Additional dependencies for examples
+rand = { version = "0.9.2", optional = true }
+memmap2 = { version = "0.9", optional = true }
+
+[features]
+default = ["std", "nn", "optim", "data", "examples"]
+
+# Core features - fundamental functionality
+std = ["torsh-core/std", "torsh-tensor/std"]
+no_std = ["torsh-core/no_std"]
+
+# Module features - core functionality modules
+nn = ["torsh-nn"]
+optim = ["torsh-optim", "nn"]
+data = ["torsh-data"]
+text = ["torsh-text", "nn"]
+vision = ["torsh-vision", "data"]
+functional = ["torsh-functional"]
+
+# Advanced features - specialized functionality
+sparse = ["torsh-sparse"]
+quantization = ["torsh-quantization", "nn"]
+special = ["torsh-special"]
+linalg = ["torsh-linalg"]
+profiler = ["torsh-profiler"]
+distributed = ["torsh-distributed", "optim"]
+jit = ["torsh-jit"]
+fx = ["torsh-fx"]
+hub = ["torsh-hub"]
+
+# Backend features - unified compute backends with CUDA execution engine
+backend = ["torsh-backend"]
+cuda = ["backend", "torsh-backend/cuda"]
+wgpu = ["backend", "torsh-backend/webgpu"]
+metal = ["backend", "torsh-backend/metal"]
+rocm = ["backend", "torsh-backend/rocm"]
+
+# Serialization features - data export/import
+serialize = ["torsh-core/serialize", "torsh-tensor/serialize"]
+serialize-hdf5 = ["serialize", "torsh-tensor/serialize-hdf5"]
+serialize-arrow = ["serialize", "torsh-tensor/serialize-arrow"]
+serialize-onnx = ["serialize", "torsh-tensor/serialize-onnx"]
+serialize-all = ["serialize", "serialize-hdf5", "serialize-arrow", "serialize-onnx"]
+
+# Performance features - optimization flags
+simd = ["torsh-core/simd", "torsh-tensor/simd"]
+parallel = ["torsh-core/parallel", "torsh-tensor/parallel"]
+fast-math = ["torsh-core/fast-math", "torsh-tensor/fast-math"]
+performance = ["simd", "parallel", "fast-math"]
+
+# Development features - debugging and testing
+debug = ["torsh-core/debug", "torsh-tensor/debug", "torsh-autograd/debug"]
+trace = ["torsh-core/trace", "torsh-tensor/trace"]
+bench = ["torsh-core/bench", "torsh-tensor/bench"]
+examples = ["rand", "memmap2"]
+dev = ["debug", "trace", "bench", "examples"]
+
+# Compatibility features - interoperability
+python = ["torsh-core/python", "torsh-tensor/python"]
+numpy = ["python", "torsh-tensor/numpy"]
+pytorch-compat = ["nn", "optim", "data", "functional"]
+
+# Convenience feature sets
+full = ["nn", "optim", "data", "text", "vision", "functional", "serialize", "performance", "backend"]
+full-advanced = ["full", "sparse", "quantization", "special", "linalg", "profiler"]
+research = ["full-advanced", "jit", "fx", "hub", "distributed", "dev", "cuda"]
+minimal = ["std"]
+
+# [[example]]
+# name = "simple_cnn"
+# path = "../../examples/simple_cnn.rs"
+# required-features = ["nn"]
+# Temporarily disabled due to API incompatibilities
+
+[[example]]
+name = "test_linear"
+path = "../../examples/test_linear.rs"
+required-features = ["nn"]
+
+[[example]]
+name = "text_models_demo"
+path = "../../examples/text_models_demo.rs"
+required-features = ["text"]
+
+[[example]]
+name = "vision_models_demo"
+path = "../../examples/vision_models_demo.rs"
+required-features = ["vision"]
+
+[[example]]
+name = "comprehensive_loss_functions"
+path = "../../examples/comprehensive_loss_functions.rs"
+required-features = ["nn", "functional"]
+
+[[example]]
+name = "data_augmentation_demo"
+path = "../../examples/data_augmentation_demo.rs"
+required-features = ["vision"]
+
+# [[example]]
+# name = "gradient_checkpointing"
+# path = "../../examples/gradient_checkpointing.rs"
+# required-features = ["nn"]
+# Temporarily disabled due to API incompatibilities
+
+# [[example]]
+# name = "broadcasting_demo"
+# path = "../../examples/broadcasting_demo.rs"
+# Temporarily disabled due to API incompatibilities
+
+[[example]]
+name = "tensor_serialization_demo"
+path = "../../examples/tensor_serialization_demo.rs"
+required-features = ["serialize"]
+
+# Advanced ML Demos
+[[example]]
+name = "advanced_federated_learning"
+path = "../../examples/advanced_federated_learning.rs"
+required-features = ["distributed", "nn", "optim"]
+
+# [[example]]
+# name = "advanced_generative_models"
+# path = "../../examples/advanced_generative_models.rs"
+# required-features = ["nn", "optim", "examples"]
+# Temporarily disabled due to API incompatibilities requiring extensive refactoring
+
+[[example]]
+name = "advanced_multimodal_transformers"
+path = "../../examples/advanced_multimodal_transformers.rs"
+required-features = ["nn", "optim", "vision", "text"]
+
+# [[example]]
+# name = "advanced_neural_architecture_search"
+# path = "../../examples/advanced_neural_architecture_search.rs"
+# required-features = ["nn", "optim"]
+# Temporarily disabled due to API incompatibilities
+
+# [[example]]
+# name = "advanced_reinforcement_learning"
+# path = "../../examples/advanced_reinforcement_learning.rs"
+# required-features = ["nn", "optim", "examples"]
+# Temporarily disabled due to extensive API incompatibilities (107 errors)
+
+# [[example]]
+# name = "advanced_memory_optimization"
+# path = "../../examples/advanced_memory_optimization.rs"
+# required-features = ["nn", "optim", "examples"]
+# Temporarily disabled due to API incompatibilities
+
+[[example]]
+name = "advanced_model_parallelism"
+path = "../../examples/advanced_model_parallelism.rs"
+required-features = ["distributed", "nn", "optim"]
+
+[[example]]
+name = "advanced_multi_gpu_training"
+path = "../../examples/advanced_multi_gpu_training.rs"
+required-features = ["distributed", "nn", "optim"]
+
+# [[example]]
+# name = "interactive_tensor_notebook"
+# path = "../../examples/interactive_tensor_notebook.rs"
+# required-features = ["examples"]
+# Temporarily disabled due to API incompatibilities
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

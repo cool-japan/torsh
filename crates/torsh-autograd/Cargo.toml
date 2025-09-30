@@ -1,0 +1,67 @@
+[package]
+name = "torsh-autograd"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Automatic differentiation engine for ToRSh with PyTorch-compatible API"
+
+[lints]
+workspace = true
+
+[dependencies]
+# Core dependencies - Full SciRS2 Integration
+torsh-core = { workspace = true, features = ["serialize"] }
+torsh-tensor = { workspace = true }
+scirs2 = { workspace = true, features = ["autograd", "ai"] }
+scirs2-core = { workspace = true }
+scirs2-autograd = { workspace = true, optional = true }
+num-complex = { workspace = true }
+
+# Graph operations
+petgraph = { workspace = true }
+
+# Utilities
+parking_lot = { workspace = true }
+indexmap = { workspace = true }
+once_cell = { workspace = true }
+lazy_static = { workspace = true }
+num-traits = { workspace = true }
+num_cpus = "1.17"
+# fastrand = "2.3"  # REMOVED: Use scirs2-core::random instead (SciRS2 POLICY)
+# ✅ SciRS2 Policy: Use scirs2-core::random instead of direct rand
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Date/time handling
+chrono = { workspace = true, features = ["serde"] }
+
+# Serialization (for distributed features and metrics)
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+bincode = { workspace = true }
+
+[dev-dependencies]
+approx = { workspace = true }
+proptest = { workspace = true }
+
+[features]
+default = ["autograd", "simd", "parallel"]
+debug = []
+# SciRS2 Feature Integration
+autograd = ["scirs2-autograd", "scirs2/autograd"]
+ai = ["scirs2/ai", "autograd"]
+# High-performance features
+simd = ["scirs2-core/simd"]
+parallel = ["scirs2-core/parallel"]
+gpu = ["scirs2-core/gpu"]
+profiling = ["scirs2-core/profiling"]
+# Comprehensive SciRS2 integration
+scirs2-full = ["ai", "autograd", "simd", "parallel", "gpu", "profiling"]

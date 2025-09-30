@@ -1,0 +1,66 @@
+{
+  "name": "@torsh/core",
+  "version": "0.1.0-alpha.1",
+  "description": "ToRSh Deep Learning Framework - Node.js Bindings",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "scripts": {
+    "build": "npm run build:native && npm run build:js",
+    "build:native": "cargo build --release --features nodejs",
+    "build:js": "tsc",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "clean": "rm -rf lib/ target/",
+    "prepare": "npm run build",
+    "lint": "eslint src/**/*.ts",
+    "format": "prettier --write src/**/*.ts"
+  },
+  "keywords": [
+    "machine-learning",
+    "deep-learning",
+    "tensor",
+    "neural-network",
+    "rust",
+    "nodejs",
+    "typescript"
+  ],
+  "author": "ToRSh Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/torsh-team/torsh.git"
+  },
+  "bugs": {
+    "url": "https://github.com/torsh-team/torsh/issues"
+  },
+  "homepage": "https://github.com/torsh-team/torsh#readme",
+  "files": [
+    "lib/",
+    "native/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "jest": "^29.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "bindings": "^1.5.0"
+  },
+  "binary": {
+    "module_name": "torsh_native",
+    "module_path": "./native/",
+    "remote_path": "./releases/",
+    "host": "https://github.com/torsh-team/torsh/releases/"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

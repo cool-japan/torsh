@@ -1,0 +1,68 @@
+[package]
+name = "torsh-nn"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Neural network modules for ToRSh with PyTorch-compatible API"
+
+[lints]
+workspace = true
+
+[dependencies]
+# Core dependencies
+torsh-core = { workspace = true }
+torsh-tensor = { workspace = true }
+torsh-autograd = { workspace = true }
+
+# Leverage scirs2's neural network functionality
+scirs2 = { workspace = true, features = ["neural"] }
+scirs2-core = { workspace = true }
+scirs2-cluster = { workspace = true }  # Clustering algorithms for unsupervised learning
+scirs2-neural = { workspace = true }   # Advanced neural architectures
+
+# Utilities
+num-traits = { workspace = true }
+parking_lot = { workspace = true }
+indexmap = { workspace = true }
+bytemuck = "1.23"
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Serialization and compression
+serde = { workspace = true, features = ["derive"], optional = true }
+serde_json = { workspace = true, optional = true }
+bincode = { version = "2.0.1", optional = true }
+chrono = { version = "0.4", features = ["serde"], optional = true }
+flate2 = { version = "1.1", optional = true }
+safetensors = { workspace = true, optional = true }
+
+# ✅ SciRS2 POLICY: Use scirs2_core::random instead of direct rand
+# Initialization handled by scirs2_core::random
+
+# For no_std HashMap support  
+hashbrown = { version = "0.16", default-features = false, features = ["alloc"] }
+
+[dev-dependencies]
+approx = { workspace = true }
+tempfile = "3.23"
+criterion = { version = "0.7", features = ["html_reports"] }
+
+[features]
+default = ["std"]
+std = ["torsh-core/std", "torsh-tensor/std"]
+serialize = ["serde", "serde_json", "bincode", "chrono", "flate2", "torsh-core/serialize"]
+safetensors = ["dep:safetensors", "serialize"]
+
+[[bench]]
+name = "layer_benchmarks"
+harness = false
+
+[[bench]]
+name = "simple_benchmarks"
+harness = false
+

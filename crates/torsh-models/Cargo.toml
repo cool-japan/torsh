@@ -1,0 +1,75 @@
+[package]
+name = "torsh-models"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "Pre-trained models and model zoo for ToRSh deep learning framework"
+keywords = ["tensor", "deep-learning", "models", "pretrained", "machine-learning"]
+categories = ["science", "mathematics"]
+
+[lints]
+workspace = true
+
+[features]
+default = ["vision", "nlp", "audio", "multimodal"]
+vision = []
+nlp = []
+audio = []
+multimodal = []
+gnn = []
+vision_3d = []
+video = []
+generative = []
+rl = []
+domain = []
+download = ["reqwest", "tokio"]
+
+[dependencies]
+# Core dependencies
+torsh-core = { workspace = true }
+torsh-tensor = { workspace = true }
+torsh-nn = { workspace = true }
+torsh-optim = { workspace = true }
+
+# Serialization and I/O
+serde = { workspace = true, features = ["derive"] }
+serde_json = "1.0"
+safetensors = { workspace = true }
+
+# Error handling
+thiserror.workspace = true
+anyhow.workspace = true
+
+# Model downloading (optional)
+reqwest = { version = "0.12", features = ["json", "stream"], optional = true }
+tokio = { workspace = true, features = ["fs", "io-util"], optional = true }
+
+# File system and utilities
+sha2 = "0.10"
+hex = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
+
+# Progress reporting
+indicatif = "0.18"
+
+# Async traits
+async-trait.workspace = true
+
+# Logging
+tracing.workspace = true
+
+# Utilities
+dirs = "6.0"
+lazy_static = "1.5"
+futures-util = "0.3"
+
+# SciRS2 compliance - replaces direct rand usage
+scirs2-core.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util", "macros", "rt"] }
+tempfile = "3.23"

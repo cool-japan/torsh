@@ -1,0 +1,64 @@
+[package]
+name = "torsh-jit"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "JIT compilation and kernel fusion for ToRSh deep learning framework"
+readme = "README.md"
+keywords = ["deep-learning", "jit", "compiler", "kernel-fusion", "optimization"]
+categories = ["science", "compilers", "mathematics"]
+
+[lints]
+workspace = true
+
+[dependencies]
+torsh-core = { workspace = true, features = ["serialize"] }
+torsh-tensor = { workspace = true }
+torsh-backend = { workspace = true }
+
+# Core dependencies
+thiserror = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+bincode = "2.0"
+lazy_static = "1.5"
+log = "0.4"
+
+# Graph and IR representation
+petgraph = "0.8"
+indexmap = "2.11"
+
+# Code generation backends
+cranelift = { version = "0.124", optional = true }
+cranelift-module = { version = "0.124", optional = true }
+cranelift-codegen = { version = "0.124", optional = true }
+cranelift-frontend = { version = "0.124", optional = true }
+cranelift-native = { version = "0.124", optional = true }
+cranelift-object = { version = "0.124", optional = true }
+
+# MLIR integration (future)
+# mlir = { version = "0.1", optional = true }
+
+# Profiling and analysis
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", optional = true }
+num_cpus = "1.17"
+
+[dev-dependencies]
+# torsh-nn = { path = "../torsh-nn", version = "0.1.0-alpha.1" }
+approx = "0.5"
+criterion = { version = "0.7", features = ["html_reports"] }
+proptest = "1.8"
+
+[features]
+default = ["cranelift-backend"]
+cranelift-backend = ["cranelift", "cranelift-module", "cranelift-codegen", "cranelift-frontend", "cranelift-native", "cranelift-object"]
+mlir-backend = [] # Future feature
+profiling = ["tracing-subscriber"]
+
+# [[bench]]
+# name = "fusion_benchmarks"
+# harness = false

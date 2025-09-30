@@ -1,0 +1,36 @@
+[package]
+name = "torsh-fx"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Graph-based model representation and transformation for ToRSh"
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+torsh-core = { workspace = true }
+torsh-tensor = { workspace = true }
+# torsh-nn = { path = "../torsh-nn" }  # Temporarily commented out
+petgraph = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+bincode = { workspace = true }
+once_cell = { workspace = true }
+md5 = { workspace = true }
+flate2 = { workspace = true }
+rayon = { workspace = true }
+uuid = { version = "1.18", features = ["v4", "serde"] }
+tokio = { version = "1.47", features = ["macros", "rt-multi-thread"] }
+
+# SciRS2 dependencies (POLICY COMPLIANCE)
+scirs2-core = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+tempfile = { workspace = true }

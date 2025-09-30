@@ -1,0 +1,67 @@
+[package]
+name = "torsh-sparse"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Sparse tensor operations for ToRSh with SciRS2 integration"
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+torsh-core = { workspace = true }
+torsh-tensor = { workspace = true }
+
+# SciRS2 ecosystem for sparse operations (required by SCIRS2 policy)
+scirs2-core = { version = "0.1.0-beta.2" }
+scirs2-sparse = { version = "0.1.0-beta.2", optional = true }
+
+# Sparse matrix libraries
+sprs = "0.11"
+
+# Error handling
+thiserror = { workspace = true }
+
+# Utilities
+num-traits = { workspace = true }
+
+# Optional CUDA support
+cudarc = { version = "0.17", optional = true, features = ["cuda-12000"] }
+# cusparse = { version = "0.3", optional = true }  # Currently not available on crates.io
+
+# Optional Python interoperability
+pyo3 = { version = "0.26", optional = true, features = ["extension-module"] }
+numpy = { version = "0.26", optional = true }
+
+# Optional MATLAB compatibility
+matfile = { version = "0.5", optional = true }
+serde = { version = "1.0", optional = true }
+serde_json = { version = "1.0", optional = true }
+
+# Optional HDF5 support
+hdf5 = { version = "0.8", optional = true }
+chrono = { version = "0.4", optional = true }
+# ndarray-hdf5 = { version = "0.7", optional = true }  # Temporarily disabled - version not available
+
+[dev-dependencies]
+approx = { workspace = true }
+criterion = { workspace = true }
+fastrand = "2.3"
+
+[[bench]]
+name = "sparse_benchmarks"
+harness = false
+
+[features]
+default = ["scirs2-integration"]
+scirs2-integration = ["scirs2-sparse"]
+advanced-sparse = ["scirs2-sparse"]
+gpu-acceleration = ["scirs2-sparse", "cudarc"]
+cuda = ["cudarc"]
+scipy = ["pyo3", "numpy"]
+matlab = ["matfile", "serde", "serde_json"]
+hdf5_support = ["hdf5", "chrono"]

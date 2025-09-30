@@ -1,0 +1,32 @@
+[package]
+name = "torsh-series"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "Time series analysis components for ToRSh - powered by SciRS2"
+
+[lints]
+workspace = true
+
+[dependencies]
+torsh-core = { workspace = true }
+torsh-tensor = { workspace = true }
+torsh-nn = { workspace = true }
+torsh-autograd = { workspace = true }
+
+# SciRS2 time series capabilities
+scirs2-series = { workspace = true }
+scirs2-core = { workspace = true }
+scirs2-signal = { workspace = true }
+scirs2-stats = { workspace = true }
+
+# Additional dependencies
+thiserror = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+approx = { workspace = true }

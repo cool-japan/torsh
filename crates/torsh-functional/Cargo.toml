@@ -1,0 +1,52 @@
+[package]
+name = "torsh-functional"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Functional programming utilities for ToRSh tensors"
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+torsh-core = { workspace = true }
+torsh-tensor = { workspace = true }
+torsh-special = { workspace = true }
+torsh-backend = { workspace = true, features = ["simd"], optional = true }
+
+# Numerical - using SciRS2 ecosystem
+num-traits = { workspace = true }
+rustfft = { workspace = true }
+scirs2 = { workspace = true }
+scirs2-autograd = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+
+# Utilities
+once_cell = { workspace = true }
+rayon = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+# Random number generation - SciRS2 POLICY COMPLIANCE
+scirs2-core = { workspace = true }
+# rand = { workspace = true }         # REMOVED: Use scirs2_core::random instead (SciRS2 POLICY)
+# rand_distr = { workspace = true }   # REMOVED: Use scirs2_core::random::prelude instead (SciRS2 POLICY)
+# rand_chacha = { workspace = true }  # REMOVED: Use scirs2_core::random instead (SciRS2 POLICY)
+# ✅ SciRS2 Policy: Use scirs2_core::random::prelude::* for all distributions
+
+# SIMD support
+wide = { workspace = true, optional = true }
+
+[dev-dependencies]
+approx = { workspace = true }
+criterion = { workspace = true }
+
+[features]
+default = []
+simd = ["dep:torsh-backend", "dep:wide"]
