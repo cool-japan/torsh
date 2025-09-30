@@ -165,7 +165,7 @@ anyhow = "1.0"
 cust = "0.3"
 cuda-sys = "0.2"
 wgpu = "26.0.1"
-metal = "0.31"
+metal = "0.32"
 bytemuck = "1.23"
 
 # SIMD
