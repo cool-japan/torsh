@@ -202,7 +202,7 @@ hostname = "0.4"
 rustc-version = "0.4"
 which = "8.0"
 sysinfo = "0.36"
-zip = "4.2"
+zip = "6.0"
 chrono = { version = "0.4", features = ["serde"] }
 
 # Distributed computing dependencies
