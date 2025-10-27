@@ -246,7 +246,7 @@ semver = "1.0"
 # JIT compilation
 cranelift = "0.111"
 cranelift-module = "0.111"
-cranelift-codegen = "0.111"
+cranelift-codegen = "0.125"
 cranelift-frontend = "0.111"
 
 # FFT operations
