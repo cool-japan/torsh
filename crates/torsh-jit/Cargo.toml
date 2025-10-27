@@ -32,7 +32,7 @@ petgraph = "0.8"
 indexmap = "2.11"
 
 # Code generation backends
-cranelift = { version = "0.124", optional = true }
+cranelift = { version = "0.125", optional = true }
 cranelift-module = { version = "0.124", optional = true }
 cranelift-codegen = { version = "0.124", optional = true }
 cranelift-frontend = { version = "0.124", optional = true }
