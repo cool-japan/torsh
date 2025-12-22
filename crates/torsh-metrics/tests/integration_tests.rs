@@ -1,10 +1,9 @@
 //! Integration tests for torsh-metrics
 
 use approx::assert_relative_eq;
-use scirs2_core::ndarray::array;
 use torsh_core::device::DeviceType;
 use torsh_metrics::{
-    classification::{Accuracy, AverageMethod, F1Score, Precision, Recall},
+    classification::{Accuracy, F1Score, Precision, Recall},
     regression::{ExplainedVariance, HuberLoss, R2Score, MAE, MAPE, MSE, RMSE},
     utils::{bootstrap_ci, compute_class_weights, probs_to_preds},
     Metric, MetricCollection,

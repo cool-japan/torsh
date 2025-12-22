@@ -6,7 +6,6 @@ use crate::{FxGraph, Node, TorshResult};
 use petgraph::graph::NodeIndex;
 use petgraph::visit::IntoNodeReferences;
 use std::collections::HashMap;
-use torsh_core::error::TorshError;
 
 /// Automatic precision selection criteria
 #[derive(Debug, Clone, Copy)]

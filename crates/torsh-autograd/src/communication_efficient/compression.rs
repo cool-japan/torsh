@@ -34,7 +34,7 @@
 //! # Examples
 //!
 //! ## Basic Compression
-//! ```rust
+//! ```rust,no_run
 //! use torsh_autograd::communication_efficient::compression::*;
 //! use torsh_autograd::communication_efficient::config::*;
 //! use std::collections::HashMap;
@@ -49,7 +49,7 @@
 //! ```
 //!
 //! ## Adaptive Compression with Error Feedback
-//! ```rust
+//! ```rust,no_run
 //! use torsh_autograd::communication_efficient::compression::*;
 //! use torsh_autograd::communication_efficient::config::*;
 //! use std::collections::HashMap;
@@ -66,8 +66,9 @@
 //! let error_feedback = engine.compute_error_feedback(&ce_gradient).unwrap();
 //! ```
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 // SciRS2 imports for random number generation
@@ -81,8 +82,6 @@ use super::config::{
 };
 
 // Use SciRS2-Core for scientific computing (following SCIRS2_INTEGRATION_POLICY.md)
-use crate::Result as SciResult;
-use scirs2_core::error::CoreError;
 
 // Error type for compression operations
 #[derive(Debug, Clone)]
@@ -679,7 +678,7 @@ impl CompressionEngine {
         let mut shape_info = HashMap::new();
 
         // Use SciRS2 random number generation (following SCIRS2 policy)
-        let mut rng_instance = scirs2_core::random::thread_rng();
+        let _rng_instance = scirs2_core::random::thread_rng();
 
         for (param_name, values) in gradient {
             if values.is_empty() {

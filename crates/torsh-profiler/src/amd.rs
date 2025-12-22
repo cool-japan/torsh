@@ -103,7 +103,7 @@ pub struct CodeXLProfiler {
     enabled: bool,
     gpu_counters: Vec<GPUCounter>,
     cpu_samples: Vec<CPUSample>,
-    power_samples: Vec<PowerSample>,
+    power_samples: Vec<AMDPowerSample>,
 }
 
 /// GPU performance counter
@@ -125,9 +125,9 @@ pub struct CPUSample {
     pub call_stack: Vec<String>,
 }
 
-/// Power profiling sample
+/// AMD Power profiling sample
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PowerSample {
+pub struct AMDPowerSample {
     pub component: String, // "GPU", "CPU", "Memory", etc.
     pub power_watts: f64,
     pub temperature_celsius: f64,
@@ -450,7 +450,7 @@ pub struct AMDProfilingData {
     pub rocm_memory_ops: Vec<ROCmMemoryOperation>,
     pub cpu_hotspots: Vec<CPUHotspot>,
     pub gpu_counters: Vec<GPUCounter>,
-    pub power_samples: Vec<PowerSample>,
+    pub power_samples: Vec<AMDPowerSample>,
 }
 
 impl ROCmProfiler {

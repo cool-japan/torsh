@@ -11,15 +11,13 @@ use torsh_core::Result;
 use torsh_distributed::{
     backend::BackendType,
     backend::ReduceOp,
-    collectives::{all_gather, all_reduce, barrier, broadcast, reduce, scatter},
+    collectives::{all_gather, all_reduce, barrier, broadcast},
     communication_scheduler::{CommunicationScheduler, SchedulerConfig, SchedulingStrategy},
     gradient_compression::{CompressionConfig, CompressionMethod, GradientCompressor},
     init_process_group,
-    profiling::{get_global_profiler, init_global_profiler, CommunicationOpType, ProfilingConfig},
-    ProcessGroup,
+    profiling::{init_global_profiler, CommunicationOpType, ProfilingConfig},
 };
-use torsh_tensor::creation::{ones, randn, zeros};
-use torsh_tensor::Tensor;
+use torsh_tensor::creation::{ones, randn};
 
 /// Performance metrics for operations
 #[derive(Debug, Clone)]
@@ -152,14 +150,14 @@ impl PerformanceTestSuite {
 
         // Warmup
         for _ in 0..self.config.warmup_iterations {
-            let mut tensor = ones::<f32>(shape);
+            let mut tensor = ones::<f32>(shape)?;
             let _ = all_reduce(&mut tensor, ReduceOp::Sum, &pg).await;
         }
 
         // Benchmark
         let mut durations = Vec::new();
         for _ in 0..self.config.iterations {
-            let mut tensor = ones::<f32>(shape);
+            let mut tensor = ones::<f32>(shape)?;
             let start = Instant::now();
 
             let result = timeout(
@@ -171,7 +169,7 @@ impl PerformanceTestSuite {
 
             match result {
                 Ok(Ok(())) => durations.push(duration),
-                Ok(Err(e)) => return Err(e),
+                Ok(Err(e)) => return Err(e.into()),
                 Err(_) => {
                     return Err(torsh_core::TorshError::Other(
                         "Operation timed out".to_string(),
@@ -180,9 +178,9 @@ impl PerformanceTestSuite {
             }
         }
 
-        let avg_duration = Duration::from_nanos(
-            durations.iter().map(|d| d.as_nanos()).sum::<u128>() / durations.len() as u128,
-        );
+        let avg_nanos =
+            durations.iter().map(|d| d.as_nanos()).sum::<u128>() / durations.len() as u128;
+        let avg_duration = Duration::from_nanos(avg_nanos as u64);
 
         Ok(PerformanceMetrics::new(
             format!("all_reduce_{}x{}", world_size, element_count),
@@ -230,15 +228,16 @@ impl PerformanceTestSuite {
 
             let result = match op_type {
                 CommunicationOpType::AllReduce => {
-                    let mut tensor = ones::<f32>(shape);
+                    let mut tensor = ones::<f32>(shape)?;
                     all_reduce(&mut tensor, ReduceOp::Sum, &pg).await
                 }
                 CommunicationOpType::AllGather => {
-                    let tensor = ones::<f32>(shape);
-                    all_gather(&tensor, &pg).await.map(|_| ())
+                    let tensor = ones::<f32>(shape)?;
+                    let mut output = Vec::new();
+                    all_gather(&mut output, &tensor, &pg).await
                 }
                 CommunicationOpType::Broadcast => {
-                    let mut tensor = ones::<f32>(shape);
+                    let mut tensor = ones::<f32>(shape)?;
                     broadcast(&mut tensor, 0, &pg).await
                 }
                 CommunicationOpType::Barrier => barrier(&pg).await,
@@ -249,13 +248,13 @@ impl PerformanceTestSuite {
 
             match result {
                 Ok(()) => durations.push(duration),
-                Err(e) => return Err(e),
+                Err(e) => return Err(e.into()),
             }
         }
 
-        let avg_duration = Duration::from_nanos(
-            durations.iter().map(|d| d.as_nanos()).sum::<u128>() / durations.len() as u128,
-        );
+        let avg_nanos =
+            durations.iter().map(|d| d.as_nanos()).sum::<u128>() / durations.len() as u128;
+        let avg_duration = Duration::from_nanos(avg_nanos as u64);
 
         Ok(PerformanceMetrics::new(
             format!("{}_scaling_ws{}", op_name, world_size),
@@ -268,7 +267,7 @@ impl PerformanceTestSuite {
     /// Benchmark gradient compression performance
     pub async fn benchmark_gradient_compression(&self) -> Result<()> {
         let compression_methods = vec![
-            CompressionMethod::TopK { k: 1000 },
+            CompressionMethod::TopK { k: 0.1 }, // Keep top 10%
             CompressionMethod::Quantization { bits: 8 },
             CompressionMethod::SignSGD,
         ];
@@ -294,33 +293,35 @@ impl PerformanceTestSuite {
             method: method.clone(),
             compression_ratio: 0.1,
             error_feedback: true,
-            warm_start: false,
+            error_feedback_momentum: 0.9,
+            memory_efficient: false,
+            warmup_steps: 0,
         };
 
-        let compressor = GradientCompressor::new(config);
+        let mut compressor = GradientCompressor::new(config);
         let element_count: usize = shape.iter().product();
         let data_size = element_count * std::mem::size_of::<f32>();
 
         // Create gradient tensor
-        let gradient = randn::<f32>(shape);
+        let gradient = randn::<f32>(shape)?;
 
         let mut durations = Vec::new();
         for _ in 0..self.config.iterations {
             let start = Instant::now();
 
             // Compress gradient
-            let compressed = compressor.compress(&gradient).await?;
+            let compressed = compressor.compress(&gradient, "test_param")?;
 
             // Decompress gradient
-            let _decompressed = compressor.decompress(&compressed).await?;
+            let _decompressed = compressor.decompress(&compressed)?;
 
             let duration = start.elapsed();
             durations.push(duration);
         }
 
-        let avg_duration = Duration::from_nanos(
-            durations.iter().map(|d| d.as_nanos()).sum::<u128>() / durations.len() as u128,
-        );
+        let avg_nanos =
+            durations.iter().map(|d| d.as_nanos()).sum::<u128>() / durations.len() as u128;
+        let avg_duration = Duration::from_nanos(avg_nanos as u64);
 
         Ok(PerformanceMetrics::new(
             format!("compression_{:?}_{}", method, element_count),
@@ -334,7 +335,7 @@ impl PerformanceTestSuite {
     pub async fn benchmark_communication_scheduling(&self) -> Result<()> {
         let strategies = vec![
             SchedulingStrategy::FIFO,
-            SchedulingStrategy::Priority,
+            SchedulingStrategy::PriorityBased,
             SchedulingStrategy::RoundRobin,
         ];
 
@@ -351,28 +352,46 @@ impl PerformanceTestSuite {
         strategy: SchedulingStrategy,
     ) -> Result<PerformanceMetrics> {
         let config = SchedulerConfig {
-            strategy,
+            strategy: strategy.clone(),
             max_concurrent_ops: 4,
-            queue_size: 100,
-            enable_batching: true,
-            batch_timeout: Duration::from_millis(10),
+            bandwidth_limit_bps: 1_000_000_000,
+            enable_priorities: true,
+            adaptive_scheduling: false,
+            timeout_ms: 10000,
+            enable_compression: false,
+            compression_threshold: 1024 * 1024,
+            #[cfg(feature = "scirs2-simd")]
+            enable_simd_optimization: false,
+            #[cfg(feature = "scirs2-simd")]
+            simd_chunk_size: 1024,
+            #[cfg(feature = "scirs2-simd")]
+            enable_auto_vectorization: false,
+            #[cfg(feature = "scirs2-simd")]
+            parallel_execution_strategy: torsh_distributed::communication_scheduler::ParallelExecutionStrategy::UniformChunking,
         };
 
         let scheduler = CommunicationScheduler::new(config);
         let pg = init_process_group(BackendType::Gloo, 0, 4, "127.0.0.1", 30002).await?;
+        let pg_arc = Arc::new(pg);
 
+        scheduler.start().await?;
         let mut durations = Vec::new();
 
         for _ in 0..self.config.iterations {
             let start = Instant::now();
 
             // Schedule multiple operations
-            let futures = (0..10)
-                .map(|_| {
-                    let tensor = ones::<f32>(&[100, 100]);
-                    scheduler.schedule_all_reduce(tensor, ReduceOp::Sum, pg.clone())
-                })
-                .collect::<Vec<_>>();
+            let mut futures = Vec::new();
+            for _ in 0..10 {
+                let tensor = ones::<f32>(&[100, 100])?.mul_scalar(1.0)?;
+                let future = scheduler.schedule_task(
+                    torsh_distributed::communication_scheduler::CommunicationOp::AllReduce,
+                    tensor,
+                    pg_arc.clone(),
+                    torsh_distributed::communication_scheduler::Priority::Normal,
+                );
+                futures.push(future);
+            }
 
             // Wait for all operations to complete
             for future in futures {
@@ -383,9 +402,9 @@ impl PerformanceTestSuite {
             durations.push(duration);
         }
 
-        let avg_duration = Duration::from_nanos(
-            durations.iter().map(|d| d.as_nanos()).sum::<u128>() / durations.len() as u128,
-        );
+        let avg_nanos =
+            durations.iter().map(|d| d.as_nanos()).sum::<u128>() / durations.len() as u128;
+        let avg_duration = Duration::from_nanos(avg_nanos as u64);
 
         let data_size = 10 * 100 * 100 * std::mem::size_of::<f32>(); // 10 tensors
 
@@ -565,7 +584,7 @@ async fn test_memory_usage_scaling() -> Result<()> {
 
         // Measure operation time for different sizes
         let start = Instant::now();
-        let mut tensor = ones::<f32>(&size);
+        let mut tensor = ones::<f32>(&size)?;
         all_reduce(&mut tensor, ReduceOp::Sum, &pg).await?;
         let duration = start.elapsed();
 
@@ -590,20 +609,24 @@ async fn test_memory_usage_scaling() -> Result<()> {
 #[tokio::test]
 async fn test_concurrent_operations_performance() -> Result<()> {
     let pg = init_process_group(BackendType::Gloo, 0, 4, "127.0.0.1", 30004).await?;
+    let pg_arc = Arc::new(pg);
     let num_concurrent = 10;
 
     // Test concurrent all_reduce operations
     let start = Instant::now();
 
-    let futures: Vec<_> = (0..num_concurrent)
-        .map(|i| {
-            let pg = pg.clone();
-            async move {
-                let mut tensor = ones::<f32>(&[100, 100]) * (i as f32);
-                all_reduce(&mut tensor, ReduceOp::Sum, &pg).await
-            }
-        })
-        .collect();
+    let mut futures = Vec::new();
+    for i in 0..num_concurrent {
+        let pg_clone = pg_arc.clone();
+        let future = async move {
+            let base = ones::<f32>(&[100, 100])?;
+            let mut tensor = base.mul_scalar(i as f32)?;
+            all_reduce(&mut tensor, ReduceOp::Sum, &pg_clone)
+                .await
+                .map_err(|e| e.into())
+        };
+        futures.push(future);
+    }
 
     let results: Result<Vec<_>> = futures_util::future::try_join_all(futures).await;
     let duration = start.elapsed();
@@ -634,7 +657,7 @@ async fn test_profiling_overhead() -> Result<()> {
     // Test without profiling
     let start = Instant::now();
     for _ in 0..10 {
-        let mut tensor = ones::<f32>(&[1000]);
+        let mut tensor = ones::<f32>(&[1000])?;
         all_reduce(&mut tensor, ReduceOp::Sum, &pg).await?;
     }
     let duration_no_profiling = start.elapsed();
@@ -642,15 +665,17 @@ async fn test_profiling_overhead() -> Result<()> {
     // Test with profiling enabled
     let profiling_config = ProfilingConfig {
         enabled: true,
-        collect_traces: true,
-        sample_rate: 1.0,
         max_events: 1000,
+        track_per_operation_stats: true,
+        track_per_rank_stats: true,
+        sampling_rate: 1.0,
+        min_duration_us: 0,
     };
-    init_global_profiler(profiling_config).await?;
+    init_global_profiler(profiling_config)?;
 
     let start = Instant::now();
     for _ in 0..10 {
-        let mut tensor = ones::<f32>(&[1000]);
+        let mut tensor = ones::<f32>(&[1000])?;
         all_reduce(&mut tensor, ReduceOp::Sum, &pg).await?;
     }
     let duration_with_profiling = start.elapsed();

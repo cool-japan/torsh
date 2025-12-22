@@ -46,11 +46,20 @@
 //!
 //! ## Basic Distributed Training
 //! ```rust
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # use parking_lot::RwLock;
+//! # use std::sync::Arc;
+//! # fn main() -> Result<()> {
 //! use torsh_optim::distributed::{utils, core::*};
-//! use torsh_optim::SGD;
+//! use torsh_optim::{SGD, Optimizer};
+//!
+//! // Create some parameters
+//! let param1 = Arc::new(RwLock::new(randn::<f32>(&[10, 20])?));
+//! let params = vec![param1];
 //!
 //! // Create distributed SGD optimizer
-//! let optimizer = utils::distributed_sgd(
+//! let mut optimizer = utils::distributed_sgd(
 //!     params,
 //!     0.1,        // learning rate
 //!     4,          // world size (4 workers)
@@ -59,42 +68,52 @@
 //!     Some(1e-4)  // weight decay
 //! )?;
 //!
-//! // Training loop
-//! for batch in dataloader {
-//!     // Forward pass
-//!     let output = model.forward(&batch.input)?;
-//!     let loss = criterion.forward(&output, &batch.target)?;
-//!
-//!     // Backward pass
-//!     loss.backward()?;
+//! // Training loop (simplified)
+//! for _batch in 0..10 {
+//!     // Forward pass and backward pass would go here
+//!     // In real code: loss.backward()?;
 //!
 //!     // Distributed optimization step (includes gradient synchronization)
 //!     optimizer.step()?;
 //!     optimizer.zero_grad();
 //! }
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Asynchronous Training
-//! ```rust
+//! ```rust,no_run
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # use parking_lot::RwLock;
+//! # use std::sync::Arc;
+//! # fn main() -> Result<()> {
 //! use torsh_optim::distributed::async_sgd::AsyncSGD;
+//!
+//! // Create some parameters
+//! let param1 = Arc::new(RwLock::new(randn::<f32>(&[10, 20])?));
+//! let params = vec![param1];
 //!
 //! let mut async_optimizer = AsyncSGD::new_async(params, 0.01);
 //!
-//! // Asynchronous training - workers can update at different rates
-//! for batch in dataloader {
-//!     // ... forward and backward pass ...
-//!
-//!     // Check staleness and update if appropriate
-//!     let param_id = "main_params";
-//!     if async_optimizer.staleness_info().get(param_id).unwrap_or(&0) < &10 {
-//!         async_optimizer.async_step(param_id)?;
-//!     }
-//! }
+//! // Asynchronous training - workers can update at different rates (conceptual example)
+//! // In practice, you would coordinate with a parameter server
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Elastic Averaging SGD
-//! ```rust
+//! ```rust,no_run
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # use parking_lot::RwLock;
+//! # use std::sync::Arc;
+//! # fn main() -> Result<()> {
 //! use torsh_optim::distributed::elastic_sgd::ElasticAveragingSGD;
+//!
+//! // Create some parameters
+//! let param1 = Arc::new(RwLock::new(randn::<f32>(&[10, 20])?));
+//! let params = vec![param1];
 //!
 //! let mut easgd = ElasticAveragingSGD::new_default(
 //!     params,
@@ -103,26 +122,28 @@
 //!     4       // total workers
 //! )?;
 //!
-//! // Training with periodic communication
-//! for (step, batch) in dataloader.enumerate() {
-//!     // ... forward and backward pass ...
-//!
-//!     easgd.step()?;
-//!
-//!     // Communicate every 10 steps
-//!     if easgd.should_communicate() {
-//!         // In practice, this would involve network communication
-//!         let all_worker_params = collect_worker_params(); // Your communication logic
-//!         easgd.communicate(&all_worker_params)?;
-//!     }
-//! }
+//! // Training with periodic communication (conceptual example)
+//! // In practice, you would implement the full training loop with communication
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! # Advanced Configurations
 //!
 //! ## Custom Communication Setup
 //! ```rust
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # use parking_lot::RwLock;
+//! # use std::sync::Arc;
+//! # fn main() -> Result<()> {
 //! use torsh_optim::distributed::{core::*, utils};
+//! use torsh_optim::AdamW;
+//!
+//! // Create some parameters
+//! let param1 = Arc::new(RwLock::new(randn::<f32>(&[10, 20])?));
+//! let params = vec![param1];
+//! let base_optimizer = AdamW::new(params, Some(1e-4), None, None, Some(0.01), false);
 //!
 //! let config = DistributedConfig {
 //!     backend: DistributedBackend::NCCL,
@@ -136,15 +157,31 @@
 //! };
 //!
 //! let optimizer = utils::distributed_optimizer(base_optimizer, config)?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Large Scale Training
 //! ```rust
-//! use torsh_optim::distributed::utils::configs;
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # use parking_lot::RwLock;
+//! # use std::sync::Arc;
+//! # fn main() -> Result<()> {
+//! use torsh_optim::distributed::utils::{self, configs};
+//! use torsh_optim::AdamW;
 //!
+//! // Create some parameters
+//! let param1 = Arc::new(RwLock::new(randn::<f32>(&[10, 20])?));
+//! let params = vec![param1];
+//! let base_optimizer = AdamW::new(params, Some(1e-4), None, None, Some(0.01), false);
+//!
+//! let worker_rank = 0;
 //! // Optimized for 100+ workers
 //! let config = configs::large_scale_config(128, worker_rank);
 //! let optimizer = utils::distributed_optimizer(base_optimizer, config)?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! # Communication Backends
@@ -177,12 +214,22 @@
 //! - Enable communication overlap when possible
 //!
 //! ## Monitoring and Debugging
-//! ```rust
-//! use torsh_optim::distributed::utils::monitoring;
+//! ```rust,no_run
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # use parking_lot::RwLock;
+//! # use std::sync::Arc;
+//! # fn main() -> Result<()> {
+//! use torsh_optim::distributed::utils;
 //!
-//! // Collect performance statistics
-//! let stats = monitoring::collect_communication_stats(&optimizers);
-//! monitoring::print_performance_summary(&optimizers);
+//! // Create distributed optimizer
+//! let param1 = Arc::new(RwLock::new(randn::<f32>(&[10, 20])?));
+//! let params = vec![param1];
+//! let optimizer = utils::distributed_adam(params, 0.001, 4, 0, None, None, None)?;
+//!
+//! // In practice, you would collect performance statistics using distributed monitoring tools
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! # Performance Tips

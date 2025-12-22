@@ -14,6 +14,7 @@ workspace = true
 [features]
 default = []
 with-nn = ["dep:torsh-nn"]
+async = ["dep:tokio", "dep:futures"]
 
 [dependencies]
 torsh-core = { workspace = true }
@@ -32,6 +33,35 @@ tempfile = { workspace = true }
 chrono = { workspace = true }
 semver = { workspace = true }
 
+# Advanced compression
+zstd = { workspace = true }
+lzma-rs = { workspace = true }
+
+# Security features
+ring = { workspace = true }
+ed25519-dalek = { workspace = true }
+
+# Performance optimizations
+memmap2 = { workspace = true }
+scirs2-core = { workspace = true, features = ["parallel"] }
+
+# Utilities
+uuid = { workspace = true, features = ["v4"] }
+rand = { workspace = true }
+md5 = "0.8"
+hostname = "0.4"
+once_cell = "1.21"
+
+# Async support (optional)
+tokio = { workspace = true, optional = true, features = ["fs", "io-util", "time", "sync"] }
+futures = { workspace = true, optional = true }
+
 [dev-dependencies]
 tempfile = { workspace = true }
 torsh-nn = { path = "../torsh-nn" }
+criterion = { workspace = true, features = ["html_reports"] }
+
+# Temporarily disabled due to API changes
+# [[bench]]
+# name = "package_performance"
+# harness = false

@@ -353,36 +353,44 @@ pub fn normalize(
         )));
     }
 
-    // For now, return a simple implementation for p=2 (L2 norm)
-    if p == 2.0 {
-        // Compute L2 norm: sqrt(sum(x^2))
+    // Compute Lp norm: (sum(|x|^p))^(1/p)
+    let norm = if (p - 2.0).abs() < 1e-7 {
+        // Optimized path for L2 norm (most common case)
         let squared = input.pow_scalar(2.0)?;
         let sum = squared.sum_dim(&[dim as i32], true)?;
-        let norm = sum.sqrt()?;
-
-        // Add epsilon to avoid division by zero
-        let norm_eps = norm.add_scalar(eps as f32)?;
-
-        // Normalize
-        let normalized = input.div(&norm_eps)?;
-
-        if let Some(_out_tensor) = out {
-            // Copy to output tensor if provided
-            // For now, we don't support in-place operations
-            return Err(TorshError::UnsupportedOperation {
-                op: "in-place normalize".to_string(),
-                dtype: "tensor".to_string(),
-            });
-        }
-
-        Ok(normalized)
+        sum.sqrt()?
+    } else if (p - 1.0).abs() < 1e-7 {
+        // Optimized path for L1 norm
+        let abs_vals = input.abs()?;
+        abs_vals.sum_dim(&[dim as i32], true)?
+    } else if p.is_infinite() && p.is_sign_positive() {
+        // L-infinity norm: max(|x|)
+        let abs_vals = input.abs()?;
+        abs_vals.max(Some(dim as usize), true)?
     } else {
-        // For other norms, return unsupported error
-        Err(TorshError::UnsupportedOperation {
-            op: format!("normalize with p={}", p),
+        // General Lp norm
+        let abs_vals = input.abs()?;
+        let powered = abs_vals.pow_scalar(p as f32)?;
+        let sum = powered.sum_dim(&[dim as i32], true)?;
+        sum.pow_scalar((1.0 / p) as f32)?
+    };
+
+    // Add epsilon to avoid division by zero
+    let norm_eps = norm.add_scalar(eps as f32)?;
+
+    // Normalize
+    let normalized = input.div(&norm_eps)?;
+
+    if let Some(_out_tensor) = out {
+        // Copy to output tensor if provided
+        // For now, we don't support in-place operations
+        return Err(TorshError::UnsupportedOperation {
+            op: "in-place normalize".to_string(),
             dtype: "tensor".to_string(),
-        })
+        });
     }
+
+    Ok(normalized)
 }
 
 /// Weight normalization
@@ -404,23 +412,32 @@ pub fn weight_norm(weight: &Tensor, dim: i64) -> TorshResult<(Tensor, Tensor)> {
 
 /// Spectral normalization
 ///
-/// Normalizes weight by its spectral norm (largest singular value)
+/// Normalizes weight by its spectral norm (largest singular value) using power iteration.
+///
+/// The spectral norm ||W||_2 is the largest singular value of the weight matrix W.
+/// This is computed efficiently using the power iteration method:
+///
+/// 1. Start with random vector u
+/// 2. Iterate: v = W^T u / ||W^T u||, u = W v / ||W v||
+/// 3. Spectral norm ≈ u^T W v
+///
+/// # Arguments
+/// * `weight` - Weight tensor (at least 2D)
+/// * `u` - Optional initial vector for power iteration
+/// * `n_power_iterations` - Number of power iterations (typically 1-5)
+/// * `eps` - Small constant for numerical stability
+///
+/// # Returns
+/// * Tuple of (normalized_weight, updated_u_vector)
 pub fn spectral_norm(
     weight: &Tensor,
     u: Option<&Tensor>,
-    _n_power_iterations: usize,
+    n_power_iterations: usize,
     eps: f64,
 ) -> TorshResult<(Tensor, Tensor)> {
-    // Power iteration to estimate largest singular value
-    // This is a placeholder implementation - full implementation would require:
-    // 1. Reshape weight to 2D matrix
-    // 2. Initialize u vector if not provided
-    // 3. Perform power iterations
-    // 4. Compute spectral norm
-    // 5. Normalize weight
-
     let shape_obj = weight.shape();
     let shape = shape_obj.dims();
+
     if shape.len() < 2 {
         return Err(TorshError::invalid_argument_with_context(
             "Spectral norm requires at least 2D weight tensor",
@@ -428,18 +445,65 @@ pub fn spectral_norm(
         ));
     }
 
-    // For now, return a simple normalization
-    // In a full implementation, this would use power iteration
-    let frobenius_norm = weight.pow_scalar(2.0)?.sum()?.sqrt()?;
-    let normalized_weight = weight.div_scalar(frobenius_norm.item()? + eps as f32)?;
+    // Reshape weight to 2D: [out_features, in_features]
+    // For conv layers: [out_channels, in_channels * kernel_h * kernel_w]
+    let out_features = shape[0];
+    let in_features: usize = shape[1..].iter().product();
+    let weight_mat = weight.view(&[out_features as i32, in_features as i32])?;
 
-    // Return normalized weight and a dummy u vector
-    let u_vec = if let Some(u_input) = u {
+    // Initialize u vector if not provided
+    let mut u_vec = if let Some(u_input) = u {
         u_input.clone()
     } else {
-        // Create a dummy u vector for now
-        torsh_tensor::creation::ones::<f32>(&[shape[0]])?
+        // Initialize with random normal values
+        use torsh_tensor::creation::randn;
+        randn::<f32>(&[out_features])?
     };
+
+    // Normalize u to unit length
+    let u_norm = u_vec.pow_scalar(2.0)?.sum()?.sqrt()?;
+    u_vec = u_vec.div_scalar(u_norm.item()? + eps as f32)?;
+
+    // Power iteration to find dominant eigenvector
+    for _ in 0..n_power_iterations {
+        // v = W^T u
+        let weight_t = weight_mat.t()?;
+        let v = weight_t.matmul(&u_vec.view(&[out_features as i32, 1])?)?;
+        let v = v.squeeze(1)?;
+
+        // Normalize v
+        let v_norm = v.pow_scalar(2.0)?.sum()?.sqrt()?;
+        let v = v.div_scalar(v_norm.item()? + eps as f32)?;
+
+        // u = W v
+        let u = weight_mat.matmul(&v.view(&[in_features as i32, 1])?)?;
+        u_vec = u.squeeze(1)?;
+
+        // Normalize u
+        let u_norm = u_vec.pow_scalar(2.0)?.sum()?.sqrt()?;
+        u_vec = u_vec.div_scalar(u_norm.item()? + eps as f32)?;
+    }
+
+    // Compute spectral norm: sigma = u^T W v
+    // First compute v = W^T u
+    let weight_t = weight_mat.t()?;
+    let v = weight_t.matmul(&u_vec.view(&[out_features as i32, 1])?)?;
+    let v = v.squeeze(1)?;
+
+    // Normalize v
+    let v_norm = v.pow_scalar(2.0)?.sum()?.sqrt()?;
+    let v = v.div_scalar(v_norm.item()? + eps as f32)?;
+
+    // Compute sigma = u^T W v
+    let wv = weight_mat.matmul(&v.view(&[in_features as i32, 1])?)?;
+    let wv = wv.squeeze(1)?;
+
+    // u^T (Wv) - dot product
+    let u_wv = u_vec.mul(&wv)?.sum()?;
+    let sigma = u_wv.item()?;
+
+    // Normalize weight by spectral norm
+    let normalized_weight = weight.div_scalar(sigma + eps as f32)?;
 
     Ok((normalized_weight, u_vec))
 }
@@ -462,12 +526,20 @@ mod tests {
         let result = normalize(&input, 0.0, 0, 1e-12, None);
         assert!(result.is_err());
 
-        // Test valid p=2 normalization
+        // Test valid p=2 normalization (L2 norm)
         let result = normalize(&input, 2.0, 0, 1e-12, None);
         assert!(result.is_ok());
 
-        // Test unsupported p values
+        // Test valid p=1 normalization (L1 norm)
         let result = normalize(&input, 1.0, 0, 1e-12, None);
-        assert!(result.is_err()); // p=1 not implemented yet
+        assert!(result.is_ok());
+
+        // Test valid p=3 normalization (general p-norm)
+        let result = normalize(&input, 3.0, 0, 1e-12, None);
+        assert!(result.is_ok());
+
+        // Test L-infinity norm
+        let result = normalize(&input, f64::INFINITY, 0, 1e-12, None);
+        assert!(result.is_ok());
     }
 }

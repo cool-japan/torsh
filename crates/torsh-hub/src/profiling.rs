@@ -1,8 +1,124 @@
-//! Model profiling and debugging tools for ToRSh Hub
+//! # Model Profiling and Performance Analysis
 //!
-//! This module provides comprehensive profiling and debugging capabilities for models,
-//! including performance analysis, memory usage tracking, layer-wise profiling,
-//! and debugging utilities.
+//! This module provides comprehensive profiling and debugging capabilities for deep learning models,
+//! enabling detailed performance analysis, memory usage tracking, and optimization recommendations.
+//!
+//! ## Features
+//!
+//! ### Performance Profiling
+//! - **Layer-wise Timing**: Measure execution time for each layer
+//! - **Operation Profiling**: Track time spent in individual operations
+//! - **Throughput Analysis**: Measure samples/second and FLOPs
+//! - **Bottleneck Detection**: Automatically identify performance bottlenecks
+//!
+//! ### Memory Analysis
+//! - **Memory Tracking**: Monitor memory usage over time
+//! - **Peak Memory Detection**: Identify peak memory usage points
+//! - **Allocation Tracking**: Track tensor allocations and deallocations
+//! - **Memory Leaks**: Detect potential memory leaks
+//!
+//! ### Advanced Monitoring
+//! - **CPU Monitoring**: Track CPU usage, context switches, and frequency
+//! - **GPU Monitoring**: Monitor GPU utilization, memory, temperature, and power
+//! - **I/O Monitoring**: Track disk and network I/O statistics
+//! - **Real-time Metrics**: Live performance counters and metrics
+//!
+//! ### Optimization
+//! - **Optimization Recommendations**: Automatic suggestions for improvement
+//! - **Comparative Analysis**: Compare performance across runs
+//! - **Export Options**: Export results to JSON, CSV, or binary formats
+//!
+//! ## Quick Start
+//!
+//! ```no_run
+//! use torsh_hub::profiling::{ModelProfiler, ProfilerConfig};
+//! use std::time::Duration;
+//!
+//! # fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! // Create a profiler with custom config
+//! let config = ProfilerConfig {
+//!     enable_memory_profiling: true,
+//!     enable_layer_timing: true,
+//!     enable_shape_tracking: true,
+//!     enable_gradient_tracking: false,
+//!     memory_sample_interval: Duration::from_millis(100),
+//!     max_profile_history: 100,
+//!     profile_dir: std::path::PathBuf::from("./profiles"),
+//!     enable_call_stack: true,
+//!     enable_op_profiling: true,
+//! };
+//!
+//! let mut profiler = ModelProfiler::new(config)?;
+//!
+//! // Start profiling (returns session_id)
+//! let session_id = profiler.start_profiling("model_id")?;
+//!
+//! // ... run your model ...
+//!
+//! // Stop profiling and get results
+//! let result = profiler.stop_profiling(&session_id)?;
+//!
+//! // Analyze results
+//! println!("Total time: {:?}", result.performance_summary.total_time);
+//! println!("Bottlenecks: {:?}", result.bottlenecks);
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Advanced Usage
+//!
+//! ### Layer Profiling
+//!
+//! ```no_run
+//! # use torsh_hub::profiling::{ModelProfiler, LayerMemoryUsage};
+//! # fn example(profiler: &mut ModelProfiler) -> Result<(), Box<dyn std::error::Error>> {
+//! // Profile individual layers
+//! let memory_usage = LayerMemoryUsage {
+//!     peak_forward_memory: 1024 * 1024,
+//!     peak_backward_memory: 512 * 1024,
+//!     parameter_memory: 256 * 1024,
+//!     activation_memory: 512 * 1024,
+//!     gradient_memory: 256 * 1024,
+//! };
+//! profiler.record_layer_execution(
+//!     "session1",
+//!     "conv1",
+//!     "Conv2d",
+//!     std::time::Duration::from_millis(5),
+//!     memory_usage.clone(),
+//!     vec![vec![1, 3, 224, 224]],
+//!     vec![vec![1, 64, 112, 112]]
+//! )?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ### Memory Tracking
+//!
+//! ```no_run
+//! # use torsh_hub::profiling::{ModelProfiler, MemorySnapshot, MemoryPoolStats};
+//! # use std::collections::HashMap;
+//! # fn example(profiler: &mut ModelProfiler) -> Result<(), Box<dyn std::error::Error>> {
+//! // Create and record memory snapshots
+//! let snapshot = MemorySnapshot {
+//!     timestamp: std::time::SystemTime::now(),
+//!     total_allocated: 1024 * 1024 * 1024,
+//!     peak_memory: 2048 * 1024 * 1024,
+//!     active_memory: 512 * 1024 * 1024,
+//!     fragmentation_ratio: 0.1,
+//!     device_memory: HashMap::new(),
+//!     pool_stats: MemoryPoolStats {
+//!         active_allocations: 10,
+//!         cached_blocks: 5,
+//!         pool_size: 1024 * 1024 * 1024,
+//!         allocation_requests: 100,
+//!         cache_hits: 50,
+//!     },
+//! };
+//! profiler.record_memory_snapshot("session1", snapshot)?;
+//! # Ok(())
+//! # }
+//! ```
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -219,7 +335,7 @@ pub enum ExecutionMode {
 }
 
 /// Performance counters for detailed metrics
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PerformanceCounters {
     /// Total forward passes
     pub forward_passes: u64,
@@ -372,6 +488,28 @@ pub struct ResourceMonitor {
     io_monitor: IoMonitor,
 }
 
+impl ResourceMonitor {
+    /// Get CPU monitor
+    pub fn cpu_monitor(&self) -> &CpuMonitor {
+        &self.cpu_monitor
+    }
+
+    /// Get memory monitor
+    pub fn memory_monitor(&self) -> &MemoryMonitor {
+        &self.memory_monitor
+    }
+
+    /// Get GPU monitor
+    pub fn gpu_monitor(&self) -> Option<&GpuMonitor> {
+        self.gpu_monitor.as_ref()
+    }
+
+    /// Get I/O monitor
+    pub fn io_monitor(&self) -> &IoMonitor {
+        &self.io_monitor
+    }
+}
+
 /// CPU monitoring
 pub struct CpuMonitor {
     /// CPU usage history
@@ -384,6 +522,28 @@ pub struct CpuMonitor {
     cpu_frequency: f32,
 }
 
+impl CpuMonitor {
+    /// Get CPU usage history
+    pub fn cpu_usage_history(&self) -> &[f32] {
+        &self.cpu_usage_history
+    }
+
+    /// Get per-core usage
+    pub fn per_core_usage(&self) -> &[f32] {
+        &self.per_core_usage
+    }
+
+    /// Get context switches count
+    pub fn context_switches(&self) -> u64 {
+        self.context_switches
+    }
+
+    /// Get CPU frequency
+    pub fn cpu_frequency(&self) -> f32 {
+        self.cpu_frequency
+    }
+}
+
 /// Memory monitoring
 pub struct MemoryMonitor {
     /// Memory usage timeline
@@ -392,6 +552,23 @@ pub struct MemoryMonitor {
     allocation_tracker: AllocationTracker,
     /// Garbage collection monitoring
     gc_monitor: GcMonitor,
+}
+
+impl MemoryMonitor {
+    /// Get memory usage timeline
+    pub fn memory_timeline(&self) -> &[MemorySnapshot] {
+        &self.memory_timeline
+    }
+
+    /// Get allocation tracker
+    pub fn allocation_tracker(&self) -> &AllocationTracker {
+        &self.allocation_tracker
+    }
+
+    /// Get garbage collection monitor
+    pub fn gc_monitor(&self) -> &GcMonitor {
+        &self.gc_monitor
+    }
 }
 
 /// GPU monitoring
@@ -406,12 +583,46 @@ pub struct GpuMonitor {
     gpu_power: Vec<f32>,
 }
 
+impl GpuMonitor {
+    /// Get GPU utilization history
+    pub fn gpu_utilization(&self) -> &[f32] {
+        &self.gpu_utilization
+    }
+
+    /// Get GPU memory usage history
+    pub fn gpu_memory_usage(&self) -> &[u64] {
+        &self.gpu_memory_usage
+    }
+
+    /// Get GPU temperature history
+    pub fn gpu_temperature(&self) -> &[f32] {
+        &self.gpu_temperature
+    }
+
+    /// Get GPU power consumption history
+    pub fn gpu_power(&self) -> &[f32] {
+        &self.gpu_power
+    }
+}
+
 /// I/O monitoring
 pub struct IoMonitor {
     /// Disk read/write statistics
     disk_stats: DiskStats,
     /// Network I/O statistics
     network_stats: NetworkStats,
+}
+
+impl IoMonitor {
+    /// Get disk statistics
+    pub fn disk_stats(&self) -> &DiskStats {
+        &self.disk_stats
+    }
+
+    /// Get network statistics
+    pub fn network_stats(&self) -> &NetworkStats {
+        &self.network_stats
+    }
 }
 
 // Additional analysis structures
@@ -527,7 +738,7 @@ pub struct MemoryLeak {
     pub confidence: f32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AllocationTracker {
     pub total_allocations: usize,
     pub total_deallocations: usize,
@@ -553,7 +764,7 @@ pub struct DiskStats {
     pub avg_write_latency: Duration,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct NetworkStats {
     pub bytes_sent: u64,
     pub bytes_received: u64,
@@ -964,7 +1175,7 @@ impl ModelProfiler {
 
     fn generate_recommendations(
         &self,
-        session: &ProfilingSession,
+        _session: &ProfilingSession,
         bottlenecks: &[PerformanceBottleneck],
     ) -> Vec<OptimizationRecommendation> {
         let mut recommendations = Vec::new();
@@ -1116,20 +1327,6 @@ impl IoMonitor {
 }
 
 // Default implementations
-impl Default for PerformanceCounters {
-    fn default() -> Self {
-        Self {
-            forward_passes: 0,
-            backward_passes: 0,
-            operations_executed: 0,
-            memory_allocations: 0,
-            memory_deallocations: 0,
-            cache_hits: 0,
-            cache_misses: 0,
-            gradient_computations: 0,
-        }
-    }
-}
 
 impl Default for LayerUtilization {
     fn default() -> Self {
@@ -1139,17 +1336,6 @@ impl Default for LayerUtilization {
             parameter_utilization: 0.0,
             activation_sparsity: 0.0,
             gradient_sparsity: 0.0,
-        }
-    }
-}
-
-impl Default for AllocationTracker {
-    fn default() -> Self {
-        Self {
-            total_allocations: 0,
-            total_deallocations: 0,
-            current_allocations: 0,
-            peak_allocations: 0,
         }
     }
 }
@@ -1174,18 +1360,6 @@ impl Default for DiskStats {
             write_operations: 0,
             avg_read_latency: Duration::from_millis(0),
             avg_write_latency: Duration::from_millis(0),
-        }
-    }
-}
-
-impl Default for NetworkStats {
-    fn default() -> Self {
-        Self {
-            bytes_sent: 0,
-            bytes_received: 0,
-            packets_sent: 0,
-            packets_received: 0,
-            connection_count: 0,
         }
     }
 }

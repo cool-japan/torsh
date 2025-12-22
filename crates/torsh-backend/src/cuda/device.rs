@@ -1,17 +1,19 @@
 //! CUDA device management
 
-use crate::cuda::error::{CudaError, CudaResult};
+use crate::cuda::error::CudaResult;
 use crate::cuda::memory::CudaMemoryManager;
 use crate::cuda::stream::CudaStream;
 use crate::{Device, DeviceType};
+use cust::context::{Context, ContextFlags};
+use cust::device::Device as CustDevice;
 use std::sync::Arc;
 
 /// CUDA device implementation
 #[derive(Debug, Clone)]
 pub struct CudaDevice {
     device_id: usize,
-    device: cust::Device,
-    context: Arc<cust::Context>,
+    device: CustDevice,
+    context: Arc<Context>,
     memory_manager: Arc<CudaMemoryManager>,
     default_stream: Arc<CudaStream>,
 }
@@ -19,11 +21,9 @@ pub struct CudaDevice {
 impl CudaDevice {
     /// Create new CUDA device
     pub fn new(device_id: usize) -> CudaResult<Self> {
-        let device = cust::Device::get_device(device_id as u32)?;
-        let context = cust::Context::create_and_push(
-            cust::ContextFlags::MAP_HOST | cust::ContextFlags::SCHED_AUTO,
-            device,
-        )?;
+        let device = CustDevice::get_device(device_id as u32)?;
+        let context =
+            Context::create_and_push(ContextFlags::MAP_HOST | ContextFlags::SCHED_AUTO, device)?;
 
         let memory_manager = Arc::new(CudaMemoryManager::new(device_id)?);
         let default_stream = Arc::new(CudaStream::default()?);
@@ -43,12 +43,12 @@ impl CudaDevice {
     }
 
     /// Get CUDA device handle
-    pub fn cuda_device(&self) -> cust::Device {
+    pub fn cuda_device(&self) -> CustDevice {
         self.device
     }
 
     /// Get CUDA context
-    pub fn context(&self) -> &Arc<cust::Context> {
+    pub fn context(&self) -> &Arc<Context> {
         &self.context
     }
 
@@ -73,19 +73,19 @@ impl CudaDevice {
         let total_memory = self.device.total_memory()?;
         let compute_capability = self
             .device
-            .get_attribute(cust::DeviceAttribute::ComputeCapabilityMajor)?
+            .get_attribute(CustDeviceAttribute::ComputeCapabilityMajor)?
             as u32
             * 10
             + self
                 .device
-                .get_attribute(cust::DeviceAttribute::ComputeCapabilityMinor)? as u32;
+                .get_attribute(CustDeviceAttribute::ComputeCapabilityMinor)? as u32;
         let multiprocessor_count =
             self.device
-                .get_attribute(cust::DeviceAttribute::MultiprocessorCount)? as u32;
+                .get_attribute(CustDeviceAttribute::MultiprocessorCount)? as u32;
         let max_threads_per_block =
             self.device
-                .get_attribute(cust::DeviceAttribute::MaxThreadsPerBlock)? as u32;
-        let warp_size = self.device.get_attribute(cust::DeviceAttribute::WarpSize)? as u32;
+                .get_attribute(CustDeviceAttribute::MaxThreadsPerBlock)? as u32;
+        let warp_size = self.device.get_attribute(CustDeviceAttribute::WarpSize)? as u32;
 
         Ok(DeviceProperties {
             name,
@@ -131,7 +131,7 @@ impl Device for CudaDevice {
             .map_err(|e| crate::BackendError::Runtime {
                 message: format!("Failed to set CUDA context: {}", e),
             })?;
-        cust::Context::synchronize().map_err(|e| crate::BackendError::Runtime {
+        Context::synchronize().map_err(|e| crate::BackendError::Runtime {
             message: format!("CUDA synchronization failed: {}", e),
         })?;
         Ok(())

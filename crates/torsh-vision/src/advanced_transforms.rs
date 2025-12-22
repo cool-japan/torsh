@@ -4,6 +4,8 @@
 //! ecosystem, including GPU acceleration, mixed precision, and advanced augmentation strategies.
 //! All operations follow the SciRS2 integration policy for optimal performance and compatibility.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::hardware::{
     GpuTransform, HardwareAccelerated, HardwareContext, MixedPrecisionTransform,
 };
@@ -202,9 +204,9 @@ impl AdvancedTransforms {
                 let data = result.to_vec()?;
                 let mut noisy_data = data;
                 for pixel in noisy_data.iter_mut() {
-                    if rng.gen::<f32>() < intensity / 2.0 {
+                    if rng.random::<f32>() < intensity / 2.0 {
                         *pixel = 0.0; // Pepper
-                    } else if rng.gen::<f32>() < intensity {
+                    } else if rng.random::<f32>() < intensity {
                         *pixel = 1.0; // Salt
                     }
                 }
@@ -329,7 +331,7 @@ impl AdvancedTransforms {
         let new_height = (shape.dims()[0] as f32 * scale) as usize;
         let new_width = (shape.dims()[1] as f32 * scale) as usize;
 
-        let new_shape = if shape.dims().len() == 3 {
+        let _new_shape = if shape.dims().len() == 3 {
             vec![new_height, new_width, shape.dims()[2]]
         } else {
             vec![new_height, new_width]
@@ -472,12 +474,12 @@ impl AdvancedTransforms {
         Ok(Tensor::from_vec(adjusted_data, shape.dims())?)
     }
 
-    fn adjust_hue(&self, image: &Tensor, factor: f32) -> Result<Tensor> {
+    fn adjust_hue(&self, image: &Tensor, _factor: f32) -> Result<Tensor> {
         // Simplified hue adjustment - would convert to HSV in production
         Ok(image.clone()) // Placeholder implementation
     }
 
-    fn elastic_deformation(&self, image: &Tensor, alpha: f32, sigma: f32) -> Result<Tensor> {
+    fn elastic_deformation(&self, image: &Tensor, alpha: f32, _sigma: f32) -> Result<Tensor> {
         // Simplified elastic deformation
         let shape = image.shape();
         let height = shape.dims()[0];
@@ -705,18 +707,20 @@ impl SciRS2AugmentationPipeline {
         let mut rng = rng();
 
         // Apply each augmentation with probability check
-        if self.config.rotation.enabled && rng.gen::<f32>() < self.config.rotation.probability {
+        if self.config.rotation.enabled && rng.random::<f32>() < self.config.rotation.probability {
             let angle = rng.gen_range(self.config.rotation.range.0..self.config.rotation.range.1);
             result = self.rotate_image(&result, angle)?;
         }
 
-        if self.config.brightness.enabled && rng.gen::<f32>() < self.config.brightness.probability {
+        if self.config.brightness.enabled
+            && rng.random::<f32>() < self.config.brightness.probability
+        {
             let factor =
                 rng.gen_range(self.config.brightness.range.0..self.config.brightness.range.1);
             result = self.adjust_brightness(&result, factor)?;
         }
 
-        if self.config.noise.enabled && rng.gen::<f32>() < self.config.noise.probability {
+        if self.config.noise.enabled && rng.random::<f32>() < self.config.noise.probability {
             result = self.add_noise(
                 &result,
                 self.config.noise.noise_type,
@@ -756,9 +760,9 @@ impl SciRS2AugmentationPipeline {
                 let data = result.to_vec()?;
                 let mut noisy_data = data;
                 for pixel in noisy_data.iter_mut() {
-                    if rng.gen::<f32>() < intensity / 2.0 {
+                    if rng.random::<f32>() < intensity / 2.0 {
                         *pixel = 0.0;
-                    } else if rng.gen::<f32>() < intensity {
+                    } else if rng.random::<f32>() < intensity {
                         *pixel = 1.0;
                     }
                 }
@@ -1168,7 +1172,7 @@ impl TensorCoreOptimizer {
     fn pad_tensor(&self, tensor: &Tensor<f32>, new_dims: &[usize]) -> Result<Tensor<f32>> {
         let shape = tensor.shape();
         let old_dims = shape.dims();
-        let mut padded = Tensor::zeros(new_dims, tensor.device())?;
+        let padded = Tensor::zeros(new_dims, tensor.device())?;
 
         // Copy original data to padded tensor
         // This is a simplified implementation

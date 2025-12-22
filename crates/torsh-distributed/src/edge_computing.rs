@@ -10,12 +10,14 @@
 //! - Hierarchical training architectures (edge-fog-cloud)
 //! - Privacy-preserving distributed training
 
-use crate::{ProcessGroup, TorshDistributedError, TorshResult};
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
+use crate::{TorshDistributedError, TorshResult};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, RwLock};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use tokio::time::{interval, sleep, timeout};
+use std::time::{Duration, SystemTime};
+use tokio::time::interval;
 
 /// Edge computing configuration for distributed training
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -970,7 +972,7 @@ impl CommunicationManager {
             compression_ratio: if should_compress { 0.1 } else { 1.0 },
             timeout_multiplier,
             max_batch_size: if self.config.adaptive_batch_size {
-                ((current_bandwidth / 10.0) as usize).max(1).min(64)
+                ((current_bandwidth / 10.0) as usize).clamp(1, 64)
             } else {
                 32
             },
@@ -1330,7 +1332,19 @@ mod tests {
         client_updates.insert("client3".to_string(), vec![3.0, 4.0, 5.0]);
 
         let aggregated = coordinator.aggregate_updates(client_updates).unwrap();
-        assert_eq!(aggregated, vec![2.0, 3.0, 4.0]); // Average
+        let expected = [2.0, 3.0, 4.0]; // Average
+
+        // Use approximate equality for floating-point comparison
+        assert_eq!(aggregated.len(), expected.len());
+        for (i, (&actual, &exp)) in aggregated.iter().zip(expected.iter()).enumerate() {
+            assert!(
+                (actual - exp).abs() < 1e-6,
+                "Element {} mismatch: expected {}, got {}",
+                i,
+                exp,
+                actual
+            );
+        }
     }
 
     #[test]

@@ -4,10 +4,12 @@
 //! ensuring that computation graphs, gradient storage, memory buffers, and
 //! other resources are properly cleaned up when they go out of scope.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::error_handling::{AutogradError, AutogradResult};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Mutex};
 use std::thread::{self, ThreadId};
 use std::time::{Duration, Instant};
 
@@ -1527,7 +1529,7 @@ mod tests {
 
     #[test]
     fn test_autograd_scope() {
-        let mut scope = AutogradScope::new();
+        let scope = AutogradScope::new();
         assert_eq!(scope.total_size(), 0);
         assert!(scope.all_resources_valid());
 

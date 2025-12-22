@@ -128,6 +128,7 @@ impl GraphAnalyzer {
             torsh_core::DType::C64 => 8,
             torsh_core::DType::C128 => 16,
             torsh_core::DType::QInt8 | torsh_core::DType::QUInt8 => 1,
+            torsh_core::DType::QInt32 => 4, // Quantized 32-bit type
         };
 
         let num_elements = node.output_shape.numel();

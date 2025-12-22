@@ -58,6 +58,9 @@
 //!
 //! ### Basic Usage
 //! ```rust
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # fn main() -> Result<()> {
 //! use torsh_nn::layers::activation::{ReLU, Sigmoid, GELU};
 //! use torsh_nn::Module;
 //! use torsh_tensor::Tensor;
@@ -68,14 +71,19 @@
 //! let gelu = GELU::new();
 //!
 //! // Apply to tensors
-//! let input = Tensor::randn(&[2, 3]);
+//! let input = randn(&[2, 3])?;
 //! let relu_output = relu.forward(&input)?;
 //! let sigmoid_output = sigmoid.forward(&input)?;
 //! let gelu_output = gelu.forward(&input)?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ### Classification Example
 //! ```rust
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # fn main() -> Result<()> {
 //! use torsh_nn::layers::activation::{Softmax, LogSoftmax};
 //! use torsh_nn::Module;
 //! use torsh_tensor::Tensor;
@@ -84,13 +92,18 @@
 //! let softmax = Softmax::new(Some(1)); // Apply along class dimension
 //! let log_softmax = LogSoftmax::new(Some(1));
 //!
-//! let logits = Tensor::randn(&[32, 10]); // 32 samples, 10 classes
+//! let logits = randn(&[32, 10])?; // 32 samples, 10 classes
 //! let probabilities = softmax.forward(&logits)?;
 //! let log_probs = log_softmax.forward(&logits)?; // For NLL loss
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ### Advanced Architectures
 //! ```rust
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # fn main() -> Result<()> {
 //! use torsh_nn::layers::activation::{SwiGLU, GEGLU, Mish};
 //! use torsh_nn::Module;
 //! use torsh_tensor::Tensor;
@@ -100,14 +113,19 @@
 //! let geglu = GEGLU::new(-1);   // GELU-gated activation
 //! let mish = Mish::new();       // Self-regularized activation
 //!
-//! let input = Tensor::randn(&[2, 8]); // Even last dimension for gated functions
+//! let input = randn(&[2, 8])?; // Even last dimension for gated functions
 //! let swiglu_output = swiglu.forward(&input)?; // Shape: [2, 4]
 //! let geglu_output = geglu.forward(&input)?;   // Shape: [2, 4]
 //! let mish_output = mish.forward(&input)?;     // Shape: [2, 8]
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ### Parameterized Activations
 //! ```rust
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # fn main() -> Result<()> {
 //! use torsh_nn::layers::activation::{LeakyReLU, PReLU, ELU, Softplus};
 //! use torsh_nn::Module;
 //! use torsh_tensor::Tensor;
@@ -118,13 +136,15 @@
 //! let elu = ELU::new(1.0);                      // Alpha parameter
 //! let softplus = Softplus::new(1.0, 20.0);     // Beta and threshold
 //!
-//! let input = Tensor::randn(&[2, 64]);
+//! let input = randn(&[2, 64])?;
 //! let outputs = vec![
 //!     leaky_relu.forward(&input)?,
 //!     prelu.forward(&input)?,
 //!     elu.forward(&input)?,
 //!     softplus.forward(&input)?,
 //! ];
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Performance Considerations

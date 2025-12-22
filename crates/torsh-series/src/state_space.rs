@@ -5,13 +5,16 @@
 //! - Extended Kalman Filter: Nonlinear systems with analytical Jacobians
 //! - Particle Filter: Non-linear/non-Gaussian systems using Monte Carlo methods
 //! - Unscented Kalman Filter: Nonlinear systems using sigma points
+//! - Dynamic Linear Models: Flexible Bayesian state space framework with discount factors
 
+pub mod dlm;
 pub mod extended;
 pub mod kalman;
 pub mod particle;
 pub mod unscented;
 
 // Re-export main types for easy access
+pub use dlm::DynamicLinearModel;
 pub use extended::ExtendedKalmanFilter;
 pub use kalman::KalmanFilter;
 pub use particle::{ParticleFilter, ParticleStats, ResamplingMethod};

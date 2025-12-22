@@ -15,8 +15,10 @@
 //! # Example Usage
 //!
 //! ```rust,no_run
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! use torsh_models::vision::{ResNet, ViTConfig, VisionTransformer, VisionArchitecture};
 //! use torsh_tensor::creation;
+//! use torsh_nn::Module;
 //!
 //! // Create ResNet-50 for ImageNet classification
 //! let resnet = ResNet::resnet50(1000)?;
@@ -28,6 +30,8 @@
 //! // Process images
 //! let images = creation::randn(&[4, 3, 224, 224])?;
 //! let resnet_output = resnet.forward(&images)?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! # Architecture Overview
@@ -47,78 +51,27 @@
 //! - `densenet/` - DenseNet family (placeholder)
 
 // Common components
-pub mod common;
+pub mod vision_common;
 
-// Model families - Complete implementations
+// Model families - Complete and API-compatible implementations
 pub mod resnet;
 pub mod vision_transformer;
 pub mod vit;
 
-// Model families - Placeholder modules for systematic refactoring
-pub mod efficientnet {
-    //! EfficientNet model family (placeholder)
-    //!
-    //! This module will contain the EfficientNet model implementations
-    //! once migrated from the monolithic vision.rs file.
-    //!
-    //! Key components to migrate:
-    //! - EfficientNet config and variants
-    //! - MBConv blocks with Squeeze-and-Excitation
-    //! - Depthwise separable convolutions
-    //! - Compound scaling strategy
-}
-
-pub mod swin {
-    //! Swin Transformer model family (placeholder)
-    //!
-    //! This module will contain the Swin Transformer implementations
-    //! including hierarchical vision transformers with shifted windows.
-}
-
-pub mod convnext {
-    //! ConvNeXt model family (placeholder)
-    //!
-    //! This module will contain modern ConvNet architectures
-    //! that compete with vision transformers.
-}
-
-pub mod detr {
-    //! DETR (Detection Transformer) model family (placeholder)
-    //!
-    //! This module will contain transformer-based object detection models.
-}
-
-pub mod maskrcnn {
-    //! Mask R-CNN model family (placeholder)
-    //!
-    //! This module will contain instance segmentation models.
-}
-
-pub mod yolo {
-    //! YOLO model family (placeholder)
-    //!
-    //! This module will contain real-time object detection models.
-}
-
-pub mod mobilenet {
-    //! MobileNet model family (placeholder)
-    //!
-    //! This module will contain mobile-optimized architectures.
-}
-
-pub mod densenet {
-    //! DenseNet model family (placeholder)
-    //!
-    //! This module will contain densely connected networks.
-}
+// Additional model files exist (efficientnet.rs, swin_transformer.rs, convnext.rs,
+// object_detection.rs, instance_segmentation.rs, mobilenet.rs, densenet.rs)
+// but are not yet exposed as modules due to API compatibility issues with torsh-nn.
+// These will be enabled in v0.2.0 after torsh-nn API stabilization.
 
 // Re-export common types for backward compatibility
-pub use common::preprocessing::{AugmentationConfig, ImagePreprocessor, PreprocessingPipeline};
-pub use common::types::{
+pub use vision_common::preprocessing::{
+    AugmentationConfig, ImagePreprocessor, PreprocessingPipeline,
+};
+pub use vision_common::types::{
     ImageNormalization, ModelInitConfig, VisionActivation, VisionArchitecture, VisionModelVariant,
     VisionTask,
 };
-pub use common::utils::{get_common_vision_models, VisionModelUtils};
+pub use vision_common::utils::{get_common_vision_models, VisionModelUtils};
 
 // Re-export ResNet models for easy access
 pub use resnet::{
@@ -133,58 +86,8 @@ pub use vit::{
 // Re-export the complete VisionTransformer implementation
 pub use vision_transformer::VisionTransformer;
 
-// EfficientNet family - re-export from torsh-nn
-pub use torsh_nn::prelude::{EfficientNet, EfficientNetConfig};
-
-/// EfficientNet variants supported
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum EfficientNetVariant {
-    B0,
-    B1,
-    B2,
-    B3,
-    B4,
-    B5,
-    B6,
-    B7,
-}
-
-impl EfficientNetVariant {
-    /// Get the string representation of the variant
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            EfficientNetVariant::B0 => "b0",
-            EfficientNetVariant::B1 => "b1",
-            EfficientNetVariant::B2 => "b2",
-            EfficientNetVariant::B3 => "b3",
-            EfficientNetVariant::B4 => "b4",
-            EfficientNetVariant::B5 => "b5",
-            EfficientNetVariant::B6 => "b6",
-            EfficientNetVariant::B7 => "b7",
-        }
-    }
-}
-
-// Placeholder re-exports for other model families
-// These will be uncommented as the models are migrated
-
-/*
-// Swin Transformer family
-pub use swin::{
-    SwinTransformer, SwinConfig,
-    WindowAttention, SwinTransformerBlock,
-    // ... other Swin exports
-};
-
-// ConvNeXt family
-pub use convnext::{
-    ConvNeXt, ConvNeXtConfig,
-    ConvNeXtBlock, ConvNeXtStage,
-    // ... other ConvNeXt exports
-};
-
-// And so on for other families...
-*/
+// Additional model types (EfficientNet, Swin, ConvNeXt, DETR, etc.) will be re-exported
+// in v0.2.0 after API compatibility with torsh-nn is resolved
 
 #[cfg(test)]
 mod tests {
@@ -240,7 +143,7 @@ mod tests {
 }
 
 /// Utility function to create a vision model by architecture name
-pub fn create_model_by_architecture(
+pub fn vision_create_model_by_architecture(
     architecture: VisionArchitecture,
     num_classes: usize,
 ) -> Result<Box<dyn torsh_nn::Module>, torsh_core::error::TorshError> {
@@ -262,7 +165,7 @@ pub fn create_model_by_architecture(
 }
 
 /// Utility function to list supported vision architectures
-pub fn supported_architectures() -> Vec<VisionArchitecture> {
+pub fn vision_supported_architectures() -> Vec<VisionArchitecture> {
     vec![
         VisionArchitecture::ResNet,
         VisionArchitecture::VisionTransformer,
@@ -271,7 +174,7 @@ pub fn supported_architectures() -> Vec<VisionArchitecture> {
 }
 
 /// Utility function to check if an architecture is supported
-pub fn is_architecture_supported(architecture: &VisionArchitecture) -> bool {
+pub fn vision_is_architecture_supported(architecture: &VisionArchitecture) -> bool {
     matches!(
         architecture,
         VisionArchitecture::ResNet | VisionArchitecture::VisionTransformer

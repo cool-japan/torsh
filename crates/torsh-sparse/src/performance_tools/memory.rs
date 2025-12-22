@@ -23,10 +23,11 @@
 //! let usage = tracker.track_operation(|| perform_sparse_operation())?;
 //! ```
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{SparseFormat, SparseTensor, TorshResult};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
-use torsh_core::{Shape, TorshError};
 
 use super::core::PerformanceMeasurement;
 
@@ -494,7 +495,7 @@ pub fn benchmark_cache_performance(
     operation_name: String,
 ) -> TorshResult<CachePerformanceResult> {
     let mut measurements = Vec::new();
-    let mut cache_metrics: HashMap<String, f64> = HashMap::new();
+    let _cache_metrics: HashMap<String, f64> = HashMap::new();
 
     // Simulate cache analysis through repeated operations
     for iteration in 0..5 {
@@ -886,7 +887,7 @@ fn get_current_memory_usage() -> usize {
 mod tests {
     use super::*;
     use crate::CooTensor;
-    use torsh_core::{DType, Device, Shape};
+    use torsh_core::Shape;
 
     fn create_test_sparse_tensor() -> CooTensor {
         // Create a larger, more sparse matrix (100x100 with only 10 non-zero elements)

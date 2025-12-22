@@ -3,6 +3,8 @@
 //! This module provides 3D visualization capabilities including point clouds,
 //! mesh rendering, volumetric visualization, and 3D object detection visualization.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{Result, VisionError};
 use std::collections::HashMap;
 use torsh_core::dtype::DType;
@@ -282,7 +284,7 @@ impl PointCloud3D {
 
         // Convert tensor data to points
         // This is a simplified conversion - in reality you'd extract the actual tensor data
-        for i in 0..num_points {
+        for _i in 0..num_points {
             let x = 0.0; // Extract from tensor[i, 0]
             let y = 0.0; // Extract from tensor[i, 1]
             let z = 0.0; // Extract from tensor[i, 2]

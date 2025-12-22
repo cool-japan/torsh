@@ -1,8 +1,8 @@
 //! CPU convolution implementation with optimized algorithms
 
 use crate::convolution::{
-    algorithms, ConvolutionAlgorithm, ConvolutionOps,
-    ConvolutionPerformanceHints, ConvolutionType, PaddingMode,
+    algorithms, ConvolutionAlgorithm, ConvolutionOps, ConvolutionPerformanceHints, ConvolutionType,
+    PaddingMode,
 };
 
 // Re-export for benchmarks

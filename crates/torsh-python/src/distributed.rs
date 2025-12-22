@@ -1,6 +1,7 @@
 //! Distributed training bindings
 
 use pyo3::prelude::*;
+use pyo3::types::PyAny;
 use crate::{tensor::PyTensor, error::PyResult};
 
 /// Process group for distributed training
@@ -51,7 +52,7 @@ impl PyProcessGroup {
 /// Distributed Data Parallel wrapper
 #[pyclass(name = "DistributedDataParallel")]
 pub struct PyDDP {
-    module: PyObject,
+    module: Py<PyAny>,
     process_group: Option<PyProcessGroup>,
 }
 
@@ -59,7 +60,7 @@ pub struct PyDDP {
 impl PyDDP {
     #[new]
     fn new(
-        module: PyObject,
+        module: Py<PyAny>,
         device_ids: Option<Vec<u32>>,
         output_device: Option<u32>,
         broadcast_buffers: Option<bool>,
@@ -77,7 +78,7 @@ impl PyDDP {
     
     fn forward(&self, inputs: Vec<PyTensor>) -> PyResult<PyTensor> {
         // Forward pass through wrapped module
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let forward_method = self.module.getattr(py, "forward")?;
             let result = forward_method.call1(py, PyTuple::new(py, &inputs))?;
             result.extract::<PyTensor>(py)
@@ -89,7 +90,7 @@ impl PyDDP {
     }
     
     fn parameters(&self) -> PyResult<Vec<PyTensor>> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let params_method = self.module.getattr(py, "parameters")?;
             let result = params_method.call0(py)?;
             result.extract::<Vec<PyTensor>>(py)
@@ -97,7 +98,7 @@ impl PyDDP {
     }
     
     fn named_parameters(&self) -> PyResult<std::collections::HashMap<String, PyTensor>> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let named_params_method = self.module.getattr(py, "named_parameters")?;
             let result = named_params_method.call0(py)?;
             result.extract::<std::collections::HashMap<String, PyTensor>>(py)
@@ -105,7 +106,7 @@ impl PyDDP {
     }
     
     fn train(&mut self, mode: Option<bool>) -> PyResult<()> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let train_method = self.module.getattr(py, "train")?;
             train_method.call1(py, (mode.unwrap_or(true),))?;
             Ok(())
@@ -130,10 +131,10 @@ pub fn register_distributed_module(py: Python<'_>, m: &PyModule) -> PyResult<()>
         init_method: Option<String>,
         world_size: Option<u32>,
         rank: Option<u32>,
-        store: Option<PyObject>,
+        store: Option<Py<PyAny>>,
         timeout: Option<f64>,
         group_name: Option<String>,
-        pg_options: Option<PyObject>,
+        pg_options: Option<Py<PyAny>>,
     ) -> PyResult<PyProcessGroup> {
         let rank = rank.unwrap_or(0);
         let world_size = world_size.unwrap_or(1);

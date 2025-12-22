@@ -4,6 +4,8 @@
 //! enabling integration with Java applications.
 
 #![allow(dead_code)]
+// JNI type names are conventional and follow the JNI specification naming
+#![allow(non_camel_case_types)]
 
 use crate::c_api::*;
 use std::ptr;

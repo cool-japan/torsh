@@ -77,14 +77,14 @@ ToRSh uses a modular workspace architecture with specialized crates:
 ```bash
 # Add to Cargo.toml
 [dependencies]
-torsh = "0.1.0-alpha.1"
+torsh = "0.1.0-alpha.2"
 ```
 
 ### Full Installation with All Features
 ```bash
 # Add to Cargo.toml
 [dependencies]
-torsh = { version = "0.1.0-alpha.1", features = ["full"] }
+torsh = { version = "0.1.0-alpha.2", features = ["full"] }
 ```
 
 ### Feature Flags

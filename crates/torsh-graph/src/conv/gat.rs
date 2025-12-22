@@ -1,14 +1,16 @@
 //! Graph Attention Network (GAT) layer implementation
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::parameter::Parameter;
 use crate::{GraphData, GraphLayer};
-use scirs2_core::random::Random;
 use torsh_tensor::{
     creation::{randn, zeros},
     Tensor,
 };
 
 /// Graph Attention Network (GAT) layer
+#[derive(Debug)]
 pub struct GATConv {
     in_features: usize,
     out_features: usize,
@@ -161,7 +163,7 @@ impl GATConv {
             }
 
             // Aggregate features using attention weights
-            let mut head_output = zeros(&[num_nodes, self.out_features]).unwrap();
+            let head_output = zeros(&[num_nodes, self.out_features]).unwrap();
 
             for node in 0..num_nodes {
                 let mut node_output = zeros(&[self.out_features]).unwrap();
@@ -188,14 +190,14 @@ impl GATConv {
 
                 // Set the aggregated features for this node
                 let mut node_slice = head_output.slice_tensor(0, node, node + 1).unwrap();
-                node_slice.copy_(&node_output.unsqueeze_tensor(0).unwrap());
+                let _ = node_slice.copy_(&node_output.unsqueeze_tensor(0).unwrap());
             }
 
             // Place head output into the appropriate slice of the final output
             let start_feat = head * self.out_features;
             let end_feat = (head + 1) * self.out_features;
             let mut output_slice = output.slice_tensor(1, start_feat, end_feat).unwrap();
-            output_slice.copy_(&head_output);
+            let _ = output_slice.copy_(&head_output);
         }
 
         // Add bias if present

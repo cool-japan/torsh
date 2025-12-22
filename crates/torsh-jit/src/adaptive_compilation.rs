@@ -3,7 +3,7 @@
 //! This module implements adaptive compilation that adjusts compilation strategies
 //! based on runtime feedback, execution patterns, and performance characteristics.
 
-use crate::{ComputationGraph, JitConfig, JitError, JitResult, NodeId};
+use crate::{ComputationGraph, JitError, JitResult, NodeId};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{
@@ -517,13 +517,17 @@ impl AdaptiveCompiler {
                     self.calculate_expected_improvement(current_strategy, &new_strategy);
 
                 if expected_improvement > self.config.improvement_threshold {
+                    // Calculate confidence based on data quality and improvement magnitude
+                    let confidence = self
+                        .calculate_adaptation_confidence(current_strategy, expected_improvement);
+
                     let decision = AdaptationDecision {
                         node_id: *node_id,
                         old_strategy: current_strategy.clone(),
                         new_strategy: new_strategy.clone(),
                         reason: "Performance improvement detected".to_string(),
                         expected_improvement,
-                        confidence: 0.8, // TODO: Calculate actual confidence
+                        confidence,
                         timestamp: std::time::SystemTime::now(),
                     };
 
@@ -681,6 +685,75 @@ impl AdaptiveCompiler {
         };
 
         tier_improvement + optimization_improvement
+    }
+
+    /// Calculate confidence for an adaptation decision based on data quality and improvement magnitude
+    fn calculate_adaptation_confidence(
+        &self,
+        current_strategy: &CompilationStrategy,
+        expected_improvement: f64,
+    ) -> f64 {
+        // Base confidence on amount of historical data
+        let history_size = current_strategy.performance_history.len();
+        let min_executions = self.config.min_executions_for_adaptation as usize;
+
+        // Data quality factor: more data = higher confidence, capped at 1.0
+        let data_quality_factor = if history_size >= min_executions * 4 {
+            1.0
+        } else if history_size >= min_executions * 2 {
+            0.9
+        } else if history_size >= min_executions {
+            0.8
+        } else {
+            0.6
+        };
+
+        // Calculate variance in performance history to assess stability
+        let variance_factor = if !current_strategy.performance_history.is_empty() {
+            // Extract execution times as f64 for statistical analysis
+            let exec_times: Vec<f64> = current_strategy
+                .performance_history
+                .iter()
+                .map(|m| m.execution_time as f64)
+                .collect();
+
+            let mean: f64 = exec_times.iter().sum::<f64>() / history_size as f64;
+            let variance: f64 =
+                exec_times.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / history_size as f64;
+            let std_dev = variance.sqrt();
+            let coefficient_of_variation = if mean > 0.0 { std_dev / mean } else { 1.0 };
+
+            // Lower variance = higher confidence
+            if coefficient_of_variation < 0.1 {
+                1.0
+            } else if coefficient_of_variation < 0.2 {
+                0.9
+            } else if coefficient_of_variation < 0.3 {
+                0.8
+            } else {
+                0.7
+            }
+        } else {
+            0.7 // Default if no history
+        };
+
+        // Improvement magnitude factor: larger improvements = higher confidence
+        let improvement_factor = if expected_improvement > 0.2 {
+            1.0
+        } else if expected_improvement > 0.1 {
+            0.95
+        } else if expected_improvement > 0.05 {
+            0.9
+        } else {
+            0.85
+        };
+
+        // Combine factors with weights
+        let raw_confidence =
+            data_quality_factor * 0.4 + variance_factor * 0.4 + improvement_factor * 0.2;
+        let confidence = f64::min(f64::max(raw_confidence, 0.0), 1.0);
+
+        confidence
     }
 
     fn apply_adaptations(&self, adaptations: &[AdaptationDecision]) -> JitResult<()> {

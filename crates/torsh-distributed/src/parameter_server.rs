@@ -4,6 +4,8 @@
 //! where workers send gradients to parameter servers which update the global model
 //! and send back updated parameters.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::rpc::{register_function, rpc_async};
 use crate::{TorshDistributedError, TorshResult};
 use dashmap::DashMap;
@@ -341,12 +343,14 @@ impl ParameterServer {
     pub async fn start(&self) -> TorshResult<()> {
         info!("Starting parameter server on rank {}", self.server_rank);
 
-        let state = self.state.clone();
+        let _state = self.state.clone();
 
         // Register parameter server functions
         register_function("ps_initialize", move |msg: ParameterServerMessage| {
             match msg {
-                ParameterServerMessage::InitializeParameters { parameters } => {
+                ParameterServerMessage::InitializeParameters {
+                    parameters: _parameters,
+                } => {
                     // For now, simplified synchronous version
                     Ok(ParameterServerResponse::InitResponse { success: true })
                 }
@@ -484,15 +488,13 @@ impl ParameterServerClient {
                     Err(TorshDistributedError::backend_error(
                         "parameter_server",
                         "Failed to initialize parameters",
-                    )
-                    .into())
+                    ))
                 }
             }
             _ => Err(TorshDistributedError::backend_error(
                 "parameter_server",
                 "Unexpected response type",
-            )
-            .into()),
+            )),
         }
     }
 
@@ -531,15 +533,13 @@ impl ParameterServerClient {
                     Err(TorshDistributedError::backend_error(
                         "parameter_server",
                         "Failed to push gradients",
-                    )
-                    .into())
+                    ))
                 }
             }
             _ => Err(TorshDistributedError::backend_error(
                 "parameter_server",
                 "Unexpected response type",
-            )
-            .into()),
+            )),
         }
     }
 
@@ -580,8 +580,7 @@ impl ParameterServerClient {
             _ => Err(TorshDistributedError::backend_error(
                 "parameter_server",
                 "Unexpected response type",
-            )
-            .into()),
+            )),
         }
     }
 
@@ -596,8 +595,7 @@ impl ParameterServerClient {
             _ => Err(TorshDistributedError::backend_error(
                 "parameter_server",
                 "Unexpected response type",
-            )
-            .into()),
+            )),
         }
     }
 
@@ -610,9 +608,6 @@ impl ParameterServerClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rpc::init_rpc;
-    use std::time::Duration;
-    use tokio::time::sleep;
 
     #[tokio::test]
     async fn test_parameter_server_creation() {
@@ -671,7 +666,7 @@ mod tests {
         // Skipping for now as it needs multi-process coordination
 
         let config = ParameterServerConfig::default();
-        let server = ParameterServer::new(0, config);
+        let _server = ParameterServer::new(0, config);
 
         // In a real test, we would:
         // 1. Initialize RPC
@@ -679,7 +674,7 @@ mod tests {
         // 3. Create clients and test push/pull operations
         // 4. Verify parameter updates and statistics
 
-        assert!(server.num_parameters() >= 0);
+        // num_parameters() returns usize, always >= 0
         Ok(())
     }
 }

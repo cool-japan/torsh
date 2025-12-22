@@ -870,12 +870,9 @@ impl VisualizationGenerator {
 
     /// Export dashboard data as JSON
     pub fn export_dashboard_json(&self, dashboard: &Dashboard) -> TorshResult<String> {
-        serde_json::to_string_pretty(dashboard).map_err(|e| {
-            TorshDistributedError::BackendError {
-                backend: "json".to_string(),
-                message: format!("JSON serialization failed: {}", e),
-            }
-            .into()
+        serde_json::to_string_pretty(dashboard).map_err(|e| TorshDistributedError::BackendError {
+            backend: "json".to_string(),
+            message: format!("JSON serialization failed: {}", e),
         })
     }
 }

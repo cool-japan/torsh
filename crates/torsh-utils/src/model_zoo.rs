@@ -1,10 +1,11 @@
 //! Model zoo functionality for pre-trained models
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use base64::Engine;
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use torsh_core::error::{Result, TorshError};
@@ -1260,7 +1261,7 @@ impl ModelZoo {
     }
 
     /// Download from a specific URL
-    fn download_from_url(&self, url: &str, model_name: &str, force: bool) -> Result<PathBuf> {
+    fn download_from_url(&self, url: &str, model_name: &str, _force: bool) -> Result<PathBuf> {
         // Create a temporary ModelInfo for this download
         let temp_info = ModelInfo {
             name: model_name.to_string(),
@@ -1645,7 +1646,7 @@ impl ModelZoo {
             }
 
             // Get total size
-            let content_length = if let Some(resume_pos) = resume_from {
+            let content_length = if let Some(_resume_pos) = resume_from {
                 response
                     .headers()
                     .get("content-range")

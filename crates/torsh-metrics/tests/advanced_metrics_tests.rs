@@ -3,7 +3,6 @@
 //! Tests for streaming, clustering, ranking, and statistical validation metrics.
 
 use approx::assert_relative_eq;
-use std::collections::HashMap;
 use torsh_core::device::DeviceType;
 use torsh_metrics::{
     classification::Accuracy,
@@ -19,7 +18,6 @@ use torsh_metrics::{
         BootstrapCI, CrossValidator, EffectSize, MultipleComparisonCorrection, PermutationTest,
     },
     streaming::{StreamingAUROC, StreamingAccuracy, StreamingConfusionMatrix, StreamingStats},
-    Metric,
 };
 use torsh_tensor::{creation::from_vec, Tensor};
 

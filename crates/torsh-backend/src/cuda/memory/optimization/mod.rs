@@ -63,63 +63,50 @@ pub mod validator;
 
 // Re-exports for unified interface
 pub use ml_engine::{
-    FeatureExtractor, GradientBasedOptimizer, MLOptimizationEngine, ModelPredictor, ModelTraining,
-    OnlineLearning, OptimizationModel, ReinforcementLearning,
+    FeatureExtractor,
+    MLOptimizationEngine,
+    // GradientBasedOptimizer, ModelPredictor, ModelTraining,  // TODO: Define or remove
+    // OnlineLearning, OptimizationModel, ReinforcementLearning,  // TODO: Define or remove
 };
 
 pub use multi_objective::{
-    CrowdingDistance, DominanceRelation, HypervolumeIndicator, MultiObjectiveOptimizer,
-    ParetoFront, ParetoSet, MOEAD, NSGAII, NSGAIII, SMSEMOA, SPEA2,
+    MultiObjectiveOptimizer,
+    // CrowdingDistance, DominanceRelation, HypervolumeIndicator,  // TODO: Define or remove
+    // ParetoFront, ParetoSet, MOEAD, NSGAII, NSGAIII, SMSEMOA, SPEA2,  // TODO: Define or remove
 };
 
 pub use adaptive_controller::{
-    AdaptationStrategy, AdaptiveOptimizationController, AdaptiveParameters, ControlPolicy,
-    ControlTheory, FeedbackLoop, LearningRate, OnlineAdapter,
-};
-
-pub use execution_engine::{
-    DistributedExecution, ExecutionContext, ExecutionMonitor, ExecutionStrategy,
-    OptimizationExecutionEngine, ParallelExecution, ResourceManager, TaskScheduler,
+    AdaptationStrategy,
+    AdaptiveOptimizationController,
+    // AdaptiveParameters, ControlPolicy,  // TODO: Define or remove
+    // ControlTheory, FeedbackLoop, LearningRate, OnlineAdapter,  // TODO: Define or remove
 };
 
 pub use predictor::{
-    AccuracyTracker, BayesianOptimizer, FeatureImportance, PerformancePredictor, PredictionModel,
-    PredictiveModeling, TimeSeriesForecasting, TrendPrediction,
-};
-
-pub use validator::{
-    ComplianceFramework, OptimizationValidator, PerformanceValidation, QualityAssurance,
-    RiskAssessment, SafetyValidation, ValidationReport, ValidationStrategy,
+    PerformancePredictor,
+    PredictionModel,
+    // AccuracyTracker, BayesianOptimizer, FeatureImportance,  // TODO: Define or remove
+    // PredictiveModeling, TimeSeriesForecasting, TrendPrediction,  // TODO: Define or remove
 };
 
 pub use strategies::{
-    AdaptiveStrategy, OptimizationStrategyManager, ParameterSpaceExplorer, StrategyComparison,
-    StrategyEvolution, StrategyMetrics, StrategyRegistry, StrategySelection,
-};
-
-pub use objectives::{
-    ConstraintManager, ConstraintSatisfaction, ObjectiveEvaluation, ObjectiveFunction,
-    ObjectiveWeighting, OptimizationObjectiveManager, ParetoAnalysis, TradeoffAnalysis,
-};
-
-pub use parameters::{
-    AutoTuningEngine, BayesianTuning, GridSearch, HyperparameterOptimization, ParameterManager,
-    ParameterSearch, ParameterValidation, RandomSearch,
+    OptimizationStrategyManager,
+    // AdaptiveStrategy, ParameterSpaceExplorer, StrategyComparison,  // TODO: Define or remove
+    // StrategyEvolution, StrategyMetrics, StrategyRegistry, StrategySelection,  // TODO: Define or remove
 };
 
 pub use monitoring::{
-    AlertingSystem, MetricCollection, MonitoringDashboard, OptimizationMonitoringSystem,
-    PerformanceMetrics, RealTimeMonitoring, SystemObservability, SystemStateMonitor,
+    AlertingSystem, MetricsCollector, MonitoringDashboard, OptimizationMonitoringSystem,
+    PerformanceImpact, SystemStateMonitor,
 };
 
 pub use history::{
-    DataArchival, DataCompression, HistoryAnalytics, HistoryQuery, HistoryStorage,
-    OptimizationHistoryManager, PerformanceHistory, TrendAnalysis,
+    DataArchivalSystem, HistoryAnalytics, HistoryStorage, OptimizationHistoryManager,
 };
 
 pub use config::{
-    ConfigPersistence, ConfigTemplate, ConfigValidation, ConfigVersioning, DynamicConfig,
-    EnvironmentConfig, OptimizationConfig, OptimizationConfigManager,
+    ConfigRegistry, ConfigValidationSystem, ConfigVersion, ConfigVersioningSystem,
+    DynamicConfigUpdater, OptimizationConfig, OptimizationConfigManager,
 };
 
 /// Main optimization engine that integrates all components
@@ -570,16 +557,15 @@ pub enum OptimizationError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio::test;
 
-    #[test]
+    #[tokio::test]
     async fn test_optimization_engine_creation() {
         let config = OptimizationConfig::default();
         let engine = OptimizationEngine::new(config);
         assert!(engine.is_ok());
     }
 
-    #[test]
+    #[tokio::test]
     async fn test_optimization_objectives_builder() {
         let objectives = OptimizationObjectives::builder()
             .minimize_memory_usage()
@@ -596,7 +582,7 @@ mod tests {
         assert!(obj.energy_objectives.minimize_consumption);
     }
 
-    #[test]
+    #[tokio::test]
     async fn test_optimization_with_constraints() {
         let constraint = OptimizationConstraint {
             name: "max_memory".to_string(),
@@ -615,7 +601,7 @@ mod tests {
         assert_eq!(obj.constraints[0].name, "max_memory");
     }
 
-    #[test]
+    #[tokio::test]
     async fn test_optimization_engine_basic_workflow() {
         let config = OptimizationConfig::default();
         let mut engine = OptimizationEngine::new(config).unwrap();
@@ -634,7 +620,7 @@ mod tests {
         );
     }
 
-    #[test]
+    #[tokio::test]
     async fn test_optimization_feedback_learning() {
         let config = OptimizationConfig::default();
         let mut engine = OptimizationEngine::new(config).unwrap();
@@ -659,7 +645,7 @@ mod tests {
         );
     }
 
-    #[test]
+    #[tokio::test]
     async fn test_optimization_metrics_collection() {
         let config = OptimizationConfig::default();
         let engine = OptimizationEngine::new(config).unwrap();
@@ -728,7 +714,7 @@ mod tests {
         assert_eq!(weights.energy_weight, 1.0);
     }
 
-    #[test]
+    #[tokio::test]
     async fn test_optimization_history_querying() {
         let config = OptimizationConfig::default();
         let engine = OptimizationEngine::new(config).unwrap();
@@ -746,7 +732,7 @@ mod tests {
         );
     }
 
-    #[test]
+    #[tokio::test]
     async fn test_dynamic_config_update() {
         let config = OptimizationConfig::default();
         let mut engine = OptimizationEngine::new(config).unwrap();
@@ -760,5 +746,66 @@ mod tests {
             engine.update_config(new_config).await.is_ok()
                 || engine.update_config(new_config).await.is_err()
         );
+    }
+}
+
+// Type aliases and missing types for compatibility with parent module
+
+/// Main CUDA memory optimization engine (alias to OptimizationEngine)
+pub type CudaMemoryOptimizationEngine = OptimizationEngine;
+
+/// ML optimization configuration (alias to OptimizationConfig)
+pub type MLOptimizationConfig = OptimizationConfig;
+
+/// Multi-objective optimization result
+pub type MultiObjectiveResult = OptimizationResults;
+
+/// General optimization result
+pub type OptimizationResult = OptimizationResults;
+
+/// Optimization strategy enum
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OptimizationStrategy {
+    /// Greedy optimization strategy
+    Greedy,
+    /// Genetic algorithm strategy
+    Genetic,
+    /// Simulated annealing strategy
+    SimulatedAnnealing,
+    /// Gradient descent strategy
+    GradientDescent,
+    /// Bayesian optimization strategy
+    Bayesian,
+    /// Hybrid/adaptive strategy
+    Adaptive,
+}
+
+impl Default for OptimizationStrategy {
+    fn default() -> Self {
+        Self::Adaptive
+    }
+}
+
+/// Performance optimization target
+#[derive(Debug, Clone)]
+pub struct PerformanceTarget {
+    /// Target memory usage (bytes)
+    pub target_memory: Option<usize>,
+    /// Target throughput (ops/sec)
+    pub target_throughput: Option<f64>,
+    /// Target latency (milliseconds)
+    pub target_latency: Option<f64>,
+    /// Target efficiency score (0.0-1.0)
+    pub target_efficiency: Option<f64>,
+}
+
+impl Default for PerformanceTarget {
+    fn default() -> Self {
+        Self {
+            target_memory: None,
+            target_throughput: None,
+            target_latency: None,
+            target_efficiency: Some(0.9),
+        }
     }
 }

@@ -154,7 +154,7 @@ pub async fn multi_node_worker() -> Result<()> {
     barrier(&pg).await?;
 
     // Create rank-specific tensor
-    let mut tensor = ones::<f32>(&[4, 4]) * (rank as f32 + 1.0);
+    let mut tensor = ones::<f32>(&[4, 4])? * (rank as f32 + 1.0);
 
     // Perform all-reduce operation
     all_reduce(&mut tensor, ReduceOp::Sum, &pg).await?;
@@ -163,7 +163,7 @@ pub async fn multi_node_worker() -> Result<()> {
     let expected_sum = (1..=world_size).sum::<u32>() as f32;
     let expected_average = expected_sum / world_size as f32;
 
-    let data = tensor.to_vec();
+    let data = tensor.to_vec()?;
     for value in data {
         assert!(
             (value - expected_average).abs() < 1e-5,
@@ -189,8 +189,8 @@ async fn test_two_node_communication() -> Result<()> {
     };
 
     // For unit tests, we'll simulate multi-node with mock backend
-    let pg1 = init_process_group(BackendType::Gloo, 0, 2, "127.0.0.1", 29501)?;
-    let pg2 = init_process_group(BackendType::Gloo, 1, 2, "127.0.0.1", 29501)?;
+    let pg1 = init_process_group(BackendType::Gloo, 0, 2, "127.0.0.1", 29501).await?;
+    let pg2 = init_process_group(BackendType::Gloo, 1, 2, "127.0.0.1", 29501).await?;
 
     // Test barrier synchronization
     let barrier_result = timeout(Duration::from_secs(config.timeout_secs), async {
@@ -216,7 +216,7 @@ async fn test_multi_node_gradient_aggregation() -> Result<()> {
     let mut gradients: Vec<Tensor> = process_groups
         .iter()
         .enumerate()
-        .map(|(i, _)| ones::<f32>(&[10, 10]) * (i as f32 + 1.0))
+        .map(|(i, _)| ones::<f32>(&[10, 10])? * (i as f32 + 1.0))
         .collect();
 
     // Simulate all-reduce for gradient aggregation
@@ -229,7 +229,7 @@ async fn test_multi_node_gradient_aggregation() -> Result<()> {
     let expected_average = expected_sum / world_size as f32;
 
     for gradient in &gradients {
-        let data = gradient.to_vec();
+        let data = gradient.to_vec()?;
         for value in data {
             assert!(
                 (value - expected_average).abs() < 1e-5,
@@ -249,7 +249,9 @@ async fn test_node_failure_simulation() -> Result<()> {
     let world_size = 3;
     let mut process_groups: Vec<Option<ProcessGroup>> = (0..world_size)
         .map(|rank| {
-            init_process_group(BackendType::Gloo, rank, world_size, "127.0.0.1", 29503).ok()
+            init_process_group(BackendType::Gloo, rank, world_size, "127.0.0.1", 29503)
+                .await
+                .ok()
         })
         .collect();
 
@@ -319,7 +321,7 @@ async fn test_cross_node_data_consistency() -> Result<()> {
         .collect::<Result<Vec<_>>>()?;
 
     // Each node starts with the same data
-    let initial_data = ones::<f32>(&[5, 5]) * 2.0;
+    let initial_data = ones::<f32>(&[5, 5])? * 2.0;
     let mut node_data: Vec<Tensor> = vec![initial_data; world_size as usize];
 
     // Perform multiple rounds of all-reduce
@@ -329,9 +331,9 @@ async fn test_cross_node_data_consistency() -> Result<()> {
         }
 
         // Verify all nodes have identical data
-        let reference_data = node_data[0].to_vec();
+        let reference_data = node_data[0].to_vec()?;
         for (node_idx, data) in node_data.iter().enumerate() {
-            let node_data_vec = data.to_vec();
+            let node_data_vec = data.to_vec()?;
             assert_eq!(
                 reference_data.len(),
                 node_data_vec.len(),

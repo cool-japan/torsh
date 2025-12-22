@@ -12,13 +12,12 @@
 //! - Spectral hypergraph methods
 //! - Dynamic hypergraph construction
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::parameter::Parameter;
 use crate::{GraphData, GraphLayer};
-use scirs2_core::ndarray::{Array1, Array2, ArrayView1, ArrayView2};
-use scirs2_core::random::Random;
-use std::collections::{HashMap, HashSet};
 use torsh_tensor::{
-    creation::{from_vec, ones, randn, zeros},
+    creation::{from_vec, randn, zeros},
     Tensor,
 };
 
@@ -238,7 +237,7 @@ impl HGCNConv {
     }
 
     /// Apply attention mechanism to hyperedge features
-    fn apply_attention(&self, hyperedge_features: &Tensor, hypergraph: &HypergraphData) -> Tensor {
+    fn apply_attention(&self, hyperedge_features: &Tensor, _hypergraph: &HypergraphData) -> Tensor {
         if let Some(ref attention_weight) = self.attention_weight {
             // Compute attention scores
             let attention_scores = hyperedge_features

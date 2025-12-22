@@ -391,9 +391,9 @@ pub mod memory {
 /// Advanced text analytics using SciRS2 random number generation for sampling and stochastic methods
 pub mod advanced_analytics {
     use super::*;
-    use scirs2_core::random::{Random, Rng};
+    use scirs2_core::random::Random;
     use scirs2_core::rngs::StdRng;
-    use std::collections::{BTreeMap, HashSet};
+    use std::collections::HashSet;
 
     /// Text statistics with advanced metrics
     #[derive(Debug, Clone)]
@@ -630,7 +630,7 @@ pub mod advanced_analytics {
 
 /// Enhanced performance monitoring for text operations
 pub mod performance {
-    use super::*;
+
     use std::time::{Duration, Instant};
 
     /// Performance metrics for text operations

@@ -133,11 +133,12 @@ fn torsh(m: &Bound<'_, pyo3::types::PyModule>) -> PyResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pyo3::types::PyDict;
+    use pyo3::Python;
 
     #[test]
     fn test_module_creation() {
-        Python::with_gil(|py| {
+        Python::initialize();
+        Python::attach(|py| {
             let module = pyo3::types::PyModule::new(py, "test_torsh").unwrap();
             let result = torsh(&module);
             assert!(result.is_ok());

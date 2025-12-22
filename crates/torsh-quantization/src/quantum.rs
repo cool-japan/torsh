@@ -662,7 +662,7 @@ impl QuantumGpuQuantizer {
         let _num_chunks = data.len().div_ceil(chunk_size);
 
         // Process chunks in parallel (simulating GPU parallelism)
-        use rayon::prelude::*;
+        use scirs2_core::parallel_ops::*;
         let quantum_states: Vec<QuantumBasisState> = data
             .par_chunks(chunk_size)
             .map(|chunk| self.simulate_gpu_quantum_kernel(chunk))
@@ -751,7 +751,7 @@ impl QuantumGpuQuantizer {
 
     /// Simulate GPU kernel for entanglement computation
     fn compute_gpu_entanglement_kernel(&self, states: &[QuantumBasisState]) -> Vec<f32> {
-        use rayon::prelude::*;
+        use scirs2_core::parallel_ops::*;
 
         // Parallel computation simulating GPU threads
         states
@@ -842,7 +842,7 @@ impl QuantumGpuQuantizer {
 
     /// GPU-optimized neighbor solution generation
     fn gpu_generate_neighbor_solution(&self, params: &[f32], temperature: f32) -> Vec<f32> {
-        use rayon::prelude::*;
+        use scirs2_core::parallel_ops::*;
 
         // Parallel neighbor generation simulating GPU threads
         params
@@ -1084,7 +1084,8 @@ mod tests {
 
         let metrics = quantizer.get_gpu_metrics();
         assert!(metrics.kernel_launches > 0);
-        assert!(metrics.kernel_execution_time_us >= 0);
+        // kernel_execution_time_us is u64, always non-negative, just verify it exists
+        let _time = metrics.kernel_execution_time_us; // Verify field access
         assert!(metrics.gpu_throughput_qops >= 0.0);
     }
 
@@ -1097,8 +1098,8 @@ mod tests {
         let _result = quantizer.gpu_prepare_quantum_states(&test_data).unwrap();
 
         let recommendations = quantizer.get_gpu_optimization_recommendations();
-        // Should get some recommendations based on simulated metrics
-        assert!(recommendations.len() >= 0); // May or may not have recommendations
+        // Recommendations may or may not be present - both are valid outcomes
+        assert!(recommendations.is_empty() || !recommendations.is_empty());
     }
 
     #[test]

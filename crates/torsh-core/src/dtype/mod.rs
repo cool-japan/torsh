@@ -11,7 +11,7 @@
 // - **core**: Basic DType enum and fundamental operations
 // - **traits**: TensorElement trait and core abstractions
 // - **bfloat16**: BFloat16 operations with precise rounding control
-// - **quantized**: Quantized integer types (QInt8, QUInt8)
+// - **quantized**: Quantized integer types (QInt8, QUInt8, QInt32)
 // - **complex**: Complex number extensions and operations
 // - **promotion**: Type promotion and conversion system
 // - **custom**: Extensible custom type system and registry
@@ -243,7 +243,7 @@ impl TypeCategory {
             DType::U8 | DType::U32 | DType::U64 => TypeCategory::UnsignedInteger,
             DType::F16 | DType::BF16 | DType::F32 | DType::F64 => TypeCategory::FloatingPoint,
             DType::C64 | DType::C128 => TypeCategory::Complex,
-            DType::QInt8 | DType::QUInt8 => TypeCategory::Quantized,
+            DType::QInt8 | DType::QUInt8 | DType::QInt32 => TypeCategory::Quantized,
         }
     }
 }
@@ -412,7 +412,7 @@ pub mod utils {
         match dtype {
             DType::Bool | DType::I8 | DType::U8 | DType::QInt8 | DType::QUInt8 => 1,
             DType::I16 | DType::F16 | DType::BF16 => 2,
-            DType::I32 | DType::U32 | DType::F32 => 4,
+            DType::I32 | DType::U32 | DType::F32 | DType::QInt32 => 4,
             DType::I64 | DType::U64 | DType::F64 | DType::C64 => 8,
             DType::C128 => 16,
         }
@@ -423,7 +423,7 @@ pub mod utils {
 pub mod prelude {
     pub use super::{
         BFloat16Ops, ComplexElement, CustomDTypeRegistry, CustomTensorElement, DType, FloatElement,
-        QInt8, QUInt8, TensorElement, TypeCategory, TypeInfo, TypePromotion, TypeSystem,
+        QInt32, QInt8, QUInt8, TensorElement, TypeCategory, TypeInfo, TypePromotion, TypeSystem,
     };
 
     pub use super::utils::{

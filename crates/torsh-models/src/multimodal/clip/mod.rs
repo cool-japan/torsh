@@ -9,6 +9,7 @@
 //!
 //! # Example Usage
 //! ```rust,no_run
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! use torsh_models::multimodal::clip::{CLIPModel, CLIPConfig};
 //! use torsh_tensor::creation;
 //!
@@ -17,13 +18,15 @@
 //!
 //! // Encode images and text
 //! let images = creation::randn(&[4, 3, 224, 224])?; // batch of 4 images
-//! let texts = creation::randint(0, 49408, &[4, 77])?; // batch of 4 text sequences
+//! let texts = creation::randn(&[4, 77])?; // batch of 4 text token embeddings
 //!
 //! let image_features = model.encode_image(&images)?;
 //! let text_features = model.encode_text(&texts)?;
 //!
 //! // Compute similarity
 //! let similarity = model.compute_similarity(&images, &texts)?;
+//! # Ok(())
+//! # }
 //! ```
 
 pub mod config;
@@ -44,7 +47,6 @@ pub use models::{CLIPModel, CLIPModelWithOutput, CLIPOutput};
 #[cfg(test)]
 mod tests {
     use super::*;
-    use torsh_tensor::creation;
 
     #[test]
     fn test_clip_config_creation() {

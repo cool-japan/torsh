@@ -3,6 +3,8 @@
 //! This module provides tools for knowledge distillation, allowing large teacher models
 //! to transfer their knowledge to smaller student models while maintaining performance.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use torsh_core::error::Result;
@@ -199,7 +201,11 @@ impl DistillationTrainer {
         let num_elements = input_shape.iter().product::<usize>();
         let prob_value = 1.0 / num_elements as f32;
         let uniform_probs: Vec<f32> = vec![prob_value; num_elements];
-        Tensor::from_data(uniform_probs, input_shape.to_vec(), torsh_core::DeviceType::Cpu)
+        Tensor::from_data(
+            uniform_probs,
+            input_shape.to_vec(),
+            torsh_core::DeviceType::Cpu,
+        )
     }
 
     /// Compute KL divergence between two probability distributions
@@ -288,7 +294,7 @@ impl DistillationTrainer {
     fn adapt_features(
         &self,
         student_features: &Tensor,
-        teacher_features: &Tensor,
+        _teacher_features: &Tensor,
         adaptation: &FeatureAdaptation,
     ) -> Result<Tensor> {
         match adaptation {
@@ -409,7 +415,7 @@ impl DistillationTrainer {
 }
 
 /// Utilities for distillation
-pub mod utils {
+pub mod distillation_utils {
     use super::*;
 
     /// Create a standard response-based distillation config
@@ -540,7 +546,7 @@ mod tests {
 
     #[test]
     fn test_response_distillation_config() {
-        let config = utils::response_distillation_config(4.0, 0.7);
+        let config = distillation_utils::response_distillation_config(4.0, 0.7);
         assert_eq!(config.temperature, 4.0);
         assert_eq!(config.alpha, 0.7);
         assert!(config.feature_matching.is_none());
@@ -609,10 +615,10 @@ mod tests {
         let teacher_params = 1000000;
         let student_params = 100000;
 
-        let ratio = utils::calculate_compression_ratio(teacher_params, student_params);
+        let ratio = distillation_utils::calculate_compression_ratio(teacher_params, student_params);
         assert_eq!(ratio, 10.0);
 
-        let speedup = utils::estimate_speedup(ratio);
+        let speedup = distillation_utils::estimate_speedup(ratio);
         assert!((speedup - ratio.sqrt()).abs() < 1e-6);
     }
 

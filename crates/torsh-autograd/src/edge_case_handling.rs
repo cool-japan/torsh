@@ -4,6 +4,8 @@
 //! during automatic differentiation, including empty tensors, degenerate shapes,
 //! extreme values, and other boundary conditions that could cause failures.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::error_handling::{AutogradError, AutogradResult};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -535,7 +537,7 @@ impl EdgeCaseHandler {
         // Check for shape compatibility (basic broadcasting rules)
         if shapes.len() > 1 {
             let reference_shape = &shapes[0];
-            for (i, shape) in shapes.iter().enumerate().skip(1) {
+            for (_i, shape) in shapes.iter().enumerate().skip(1) {
                 if !self.are_shapes_broadcastable(reference_shape, shape) {
                     return Err(AutogradError::shape_mismatch(
                         operation,

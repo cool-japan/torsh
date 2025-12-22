@@ -1,5 +1,7 @@
 //! Configuration management for ToRSh CLI
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};

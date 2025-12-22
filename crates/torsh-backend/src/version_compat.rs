@@ -3,6 +3,8 @@
 //! This module provides robust error handling, version checking, and compatibility
 //! management for different backend implementations and their dependencies.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{BackendResult, BackendType};
 use std::collections::HashMap;
 use torsh_core::error::TorshError;
@@ -358,7 +360,7 @@ impl VersionCompatibilityChecker {
         self.backend_versions
             .insert(BackendType::Cuda, Version::new(0, 1, 0));
 
-        #[cfg(feature = "metal")]
+        #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
         self.backend_versions
             .insert(BackendType::Metal, Version::new(0, 1, 0));
 
@@ -573,15 +575,15 @@ impl VersionCompatibilityChecker {
         true // Assume available
     }
 
-    fn check_cpu_features(&self, report: &mut CompatibilityReport) {
+    fn check_cpu_features(&self, _report: &mut CompatibilityReport) {
         // Check for optimal CPU features
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
             if !self.has_avx2() {
-                report
+                _report
                     .warnings
                     .push("AVX2 not available - performance may be reduced".to_string());
-                report
+                _report
                     .suggestions
                     .push("Consider using a newer CPU with AVX2 support".to_string());
             }

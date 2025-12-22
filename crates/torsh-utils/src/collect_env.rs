@@ -1,8 +1,321 @@
-//! Environment information collection
+//! # Environment Information Collection
 //!
-//! This module collects system and environment information useful for debugging
-//! and reproducing issues.
+//! This module provides comprehensive system and environment information collection
+//! for debugging, issue reproduction, and system requirements verification.
+//!
+//! ## Features
+//!
+//! - **System Information**: OS, architecture, CPU details
+//! - **Hardware Detection**: CPU features (AVX, SSE, etc.), GPU information
+//! - **Memory Information**: Total and available RAM
+//! - **Software Environment**: Rust version, ToRSh version, dependencies
+//! - **GPU Detection**: NVIDIA CUDA, Apple Metal support
+//! - **Python Integration**: Python version and installed packages (if available)
+//! - **Environment Variables**: Relevant environment variables for debugging
+//!
+//! ## Quick Start
+//!
+//! ### Basic Usage
+//!
+//! ```rust,no_run
+//! use torsh_utils::collect_env::{collect_env, print_env_info};
+//!
+//! # fn example() -> Result<(), torsh_core::TorshError> {
+//! // Collect environment information
+//! let env_info = collect_env()?;
+//!
+//! // Print formatted report
+//! print_env_info(&env_info);
+//!
+//! // Access specific information
+//! println!("ToRSh version: {}", env_info.torsh_version);
+//! println!("Rust version: {}", env_info.rust_version);
+//! println!("OS: {}", env_info.os);
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ### Hardware Information
+//!
+//! ```rust,no_run
+//! use torsh_utils::collect_env::collect_env;
+//!
+//! # fn example() -> Result<(), torsh_core::TorshError> {
+//! let env_info = collect_env()?;
+//!
+//! // CPU information
+//! println!("CPU: {}", env_info.cpu_info.brand);
+//! println!("CPU cores: {} physical, {} logical",
+//!     env_info.cpu_info.cores,
+//!     env_info.cpu_info.threads
+//! );
+//! println!("CPU features: {}", env_info.cpu_info.features.join(", "));
+//!
+//! // Memory information
+//! println!("Total RAM: {} MB", env_info.memory_info.total_mb);
+//! println!("Available RAM: {} MB", env_info.memory_info.available_mb);
+//!
+//! // GPU information
+//! if !env_info.gpu_info.is_empty() {
+//!     for (i, gpu) in env_info.gpu_info.iter().enumerate() {
+//!         println!("GPU {}: {} ({} MB)",
+//!             i,
+//!             gpu.name,
+//!             gpu.memory_mb
+//!         );
+//!         if let Some(cuda) = &gpu.cuda_version {
+//!             println!("  CUDA version: {}", cuda);
+//!         }
+//!     }
+//! } else {
+//!     println!("No GPUs detected");
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ### Environment Variables
+//!
+//! ```rust,no_run
+//! use torsh_utils::collect_env::collect_env;
+//!
+//! # fn example() -> Result<(), torsh_core::TorshError> {
+//! let env_info = collect_env()?;
+//!
+//! // Check CUDA configuration
+//! if let Some(cuda_home) = env_info.env_vars.get("CUDA_HOME") {
+//!     println!("CUDA_HOME: {}", cuda_home);
+//! }
+//!
+//! if let Some(cuda_path) = env_info.env_vars.get("CUDA_PATH") {
+//!     println!("CUDA_PATH: {}", cuda_path);
+//! }
+//!
+//! // Check library paths
+//! if let Some(ld_path) = env_info.env_vars.get("LD_LIBRARY_PATH") {
+//!     println!("LD_LIBRARY_PATH: {}", ld_path);
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ### Export to JSON
+//!
+//! ```rust,no_run
+//! use torsh_utils::collect_env::collect_env;
+//! use std::fs;
+//!
+//! # fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! let env_info = collect_env()?;
+//!
+//! // Serialize to JSON
+//! let json = serde_json::to_string_pretty(&env_info)?;
+//!
+//! // Save to file
+//! fs::write("environment_info.json", json)?;
+//!
+//! println!("Environment info saved to environment_info.json");
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ### Python Environment Detection
+//!
+//! ```rust,no_run
+//! use torsh_utils::collect_env::collect_env;
+//!
+//! # fn example() -> Result<(), torsh_core::TorshError> {
+//! let env_info = collect_env()?;
+//!
+//! if let Some(python) = &env_info.python_info {
+//!     println!("Python version: {}", python.version);
+//!     println!("Python executable: {}", python.executable);
+//!
+//!     // Check for specific packages
+//!     if let Some(torch_version) = python.packages.get("torch") {
+//!         println!("PyTorch installed: {}", torch_version);
+//!     }
+//!
+//!     if let Some(numpy_version) = python.packages.get("numpy") {
+//!         println!("NumPy installed: {}", numpy_version);
+//!     }
+//! } else {
+//!     println!("Python not detected");
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Use Cases
+//!
+//! ### 1. Bug Reports
+//!
+//! Include environment information in bug reports for easier reproduction:
+//!
+//! ```rust,no_run
+//! use torsh_utils::collect_env::{collect_env, print_env_info};
+//!
+//! # fn example() -> Result<(), torsh_core::TorshError> {
+//! println!("=== Bug Report ===");
+//! println!("Issue: Model crashes during training");
+//! println!();
+//! println!("=== Environment ===");
+//!
+//! let env_info = collect_env()?;
+//! print_env_info(&env_info);
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ### 2. System Requirements Check
+//!
+//! Verify system meets minimum requirements:
+//!
+//! ```rust,no_run
+//! use torsh_utils::collect_env::collect_env;
+//!
+//! # fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! let env_info = collect_env()?;
+//!
+//! // Check minimum requirements
+//! let min_ram_mb = 4096; // 4GB
+//! let min_cpu_cores = 2;
+//!
+//! if env_info.memory_info.total_mb < min_ram_mb {
+//!     eprintln!("⚠️  WARNING: Insufficient RAM. Required: {} MB, Available: {} MB",
+//!         min_ram_mb, env_info.memory_info.total_mb);
+//! }
+//!
+//! if env_info.cpu_info.cores < min_cpu_cores {
+//!     eprintln!("⚠️  WARNING: Insufficient CPU cores. Required: {}, Available: {}",
+//!         min_cpu_cores, env_info.cpu_info.cores);
+//! }
+//!
+//! // Check for required CPU features
+//! let required_features = vec!["SSE2", "AVX"];
+//! for feature in &required_features {
+//!     if !env_info.cpu_info.features.contains(&feature.to_string()) {
+//!         eprintln!("⚠️  WARNING: Missing CPU feature: {}", feature);
+//!     }
+//! }
+//!
+//! // Check for CUDA if GPU training is needed
+//! let needs_cuda = true;
+//! if needs_cuda && env_info.gpu_info.is_empty() {
+//!     eprintln!("⚠️  WARNING: No CUDA GPUs detected");
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ### 3. CI/CD Integration
+//!
+//! Log environment information in CI pipelines:
+//!
+//! ```rust,no_run
+//! use torsh_utils::collect_env::{collect_env, print_env_info};
+//!
+//! # fn example() -> Result<(), torsh_core::TorshError> {
+//! // In CI script
+//! println!("=== CI Environment Information ===");
+//! let env_info = collect_env()?;
+//! print_env_info(&env_info);
+//!
+//! // Save for artifacts
+//! let json = serde_json::to_string_pretty(&env_info).unwrap();
+//! std::fs::write("ci_environment.json", json).unwrap();
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Collected Information
+//!
+//! ### System Information
+//! - Operating system name and version
+//! - CPU architecture (x86_64, ARM, etc.)
+//! - OS family (Unix, Windows, etc.)
+//!
+//! ### CPU Information
+//! - Brand/model name
+//! - Number of physical cores
+//! - Number of logical threads (with hyperthreading)
+//! - Supported instruction sets (SSE, AVX, AVX2, AVX512)
+//!
+//! ### GPU Information
+//! - NVIDIA GPUs via nvidia-smi:
+//!   - GPU name/model
+//!   - Total memory
+//!   - Driver version
+//!   - CUDA version (if available)
+//! - Apple Metal GPUs (on macOS)
+//!
+//! ### Memory Information
+//! - Total system RAM
+//! - Available RAM
+//!
+//! ### Software Versions
+//! - ToRSh version
+//! - Rust compiler version
+//! - Installed Rust packages
+//!
+//! ### Python Environment (if available)
+//! - Python version
+//! - Python executable path
+//! - Installed Python packages (via pip)
+//!
+//! ### Environment Variables
+//! Collects relevant variables including:
+//! - `CUDA_HOME`, `CUDA_PATH`
+//! - `CUDNN_PATH`
+//! - `LD_LIBRARY_PATH`, `DYLD_LIBRARY_PATH`
+//! - `PATH`
+//! - `RUST_BACKTRACE`, `RUST_LOG`
+//! - `OMP_NUM_THREADS`, `MKL_NUM_THREADS`
+//!
+//! ## Privacy Considerations
+//!
+//! The collected information includes:
+//! - ✅ Hardware specifications (safe to share)
+//! - ✅ Software versions (safe to share)
+//! - ⚠️  Environment variables (may contain paths)
+//! - ⚠️  Installed packages (usually safe)
+//!
+//! **Recommendation**: Review the output before sharing publicly, especially
+//! environment variables that might contain sensitive paths or credentials.
+//!
+//! ## Best Practices
+//!
+//! 1. **Always Include in Bug Reports**: Helps maintainers reproduce issues
+//! 2. **Version Compatibility**: Check before deploying to new environments
+//! 3. **Automated Checks**: Integrate into CI/CD for consistent environments
+//! 4. **Documentation**: Include in deployment documentation
+//! 5. **Review Before Sharing**: Remove sensitive information if present
+//!
+//! ## Platform Support
+//!
+//! | Platform | System Info | CPU Info | GPU Detection | Python Detection |
+//! |----------|-------------|----------|---------------|------------------|
+//! | Linux    | ✅ Full     | ✅ Full  | ✅ NVIDIA     | ✅ Full          |
+//! | macOS    | ✅ Full     | ✅ Full  | ✅ Metal      | ✅ Full          |
+//! | Windows  | ✅ Full     | ✅ Full  | ✅ NVIDIA     | ✅ Full          |
+//!
+//! ## Comparison with PyTorch
+//!
+//! Similar to `torch.utils.collect_env.get_pretty_env_info()`, but provides:
+//! - More detailed CPU feature detection
+//! - Rust ecosystem information
+//! - Better structured output (JSON serializable)
+//! - Lower overhead (no Python runtime required)
+//!
+//! ## See Also
+//!
+//! - [`benchmark`](crate::benchmark): For performance benchmarking
+//! - [`bottleneck`](crate::bottleneck): For performance profiling
+//! - [Tutorial Guide](https://docs.torsh.rs/tutorial#environment)
+//! - [Troubleshooting Guide](https://docs.torsh.rs/troubleshooting)
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
@@ -144,6 +457,7 @@ fn get_cpu_info() -> CpuInfo {
 
 /// Get CPU features
 fn get_cpu_features() -> Vec<String> {
+    #[cfg_attr(not(target_arch = "x86_64"), allow(unused_mut))]
     let mut features = vec![];
 
     #[cfg(target_arch = "x86_64")]
@@ -208,7 +522,7 @@ fn get_gpu_info() -> Vec<GpuInfo> {
     // Check for Metal (macOS)
     #[cfg(target_os = "macos")]
     {
-        if let Ok(output) = std::process::Command::new("system_profiler")
+        if let Ok(_output) = std::process::Command::new("system_profiler")
             .args(&["SPDisplaysDataType", "-json"])
             .output()
         {
@@ -463,5 +777,8 @@ mod tests {
         // At least SSE2 should be available on modern x86_64
         #[cfg(target_arch = "x86_64")]
         assert!(!features.is_empty());
+        // On other architectures, just verify the function works
+        #[cfg(not(target_arch = "x86_64"))]
+        let _ = features;
     }
 }

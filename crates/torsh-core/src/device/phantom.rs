@@ -639,3 +639,464 @@ mod tests {
         assert_eq!(manager.device_count(), 0);
     }
 }
+
+// ============================================================================
+// Advanced Phantom Type Features - Multi-GPU and Topology Support
+// ============================================================================
+
+/// Device group for multi-GPU operations
+///
+/// This type represents a group of devices of the same type,
+/// enabling type-safe multi-GPU operations with compile-time guarantees.
+#[derive(Debug)]
+pub struct DeviceGroup<P: PhantomDevice, const N: usize> {
+    devices: [DeviceHandle<P>; N],
+}
+
+impl<P: PhantomDevice, const N: usize> DeviceGroup<P, N> {
+    /// Create a new device group
+    pub fn new(devices: [DeviceHandle<P>; N]) -> Self {
+        Self { devices }
+    }
+
+    /// Get the number of devices in this group
+    pub const fn device_count() -> usize {
+        N
+    }
+
+    /// Get a device by index
+    pub fn get(&self, index: usize) -> Option<&DeviceHandle<P>> {
+        self.devices.get(index)
+    }
+
+    /// Get a device mutably by index
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut DeviceHandle<P>> {
+        self.devices.get_mut(index)
+    }
+
+    /// Iterate over all devices
+    pub fn iter(&self) -> impl Iterator<Item = &DeviceHandle<P>> {
+        self.devices.iter()
+    }
+
+    /// Iterate over all devices mutably
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut DeviceHandle<P>> {
+        self.devices.iter_mut()
+    }
+
+    /// Execute an operation on all devices in parallel
+    pub fn parallel_execute<F, R>(&self, f: F) -> Vec<R>
+    where
+        F: Fn(&DeviceHandle<P>) -> R + Sync,
+        R: Send,
+    {
+        self.devices.iter().map(f).collect()
+    }
+
+    /// Check if all devices support peer-to-peer operations
+    pub fn supports_p2p() -> bool {
+        P::supports_p2p()
+    }
+
+    /// Get the device group type name
+    pub fn group_type_name() -> String {
+        format!("DeviceGroup<{}, {}>", P::device_name(), N)
+    }
+}
+
+/// Peer-to-peer operation trait for type-safe P2P operations
+///
+/// This trait ensures that P2P operations can only be performed between
+/// compatible devices at compile time.
+pub trait PeerToPeerOps<Other: PhantomDevice>: PhantomDevice {
+    /// Whether P2P is supported between these device types
+    const P2P_SUPPORTED: bool;
+
+    /// Get the P2P bandwidth estimate (MB/s)
+    fn p2p_bandwidth() -> u32;
+
+    /// Get P2P latency estimate (microseconds)
+    fn p2p_latency() -> u32;
+}
+
+// Implement P2P for CUDA devices
+impl<const I1: usize, const I2: usize> PeerToPeerOps<PhantomCuda<I2>> for PhantomCuda<I1> {
+    const P2P_SUPPORTED: bool = true;
+
+    fn p2p_bandwidth() -> u32 {
+        if I1 == I2 {
+            0 // Same device - no transfer needed
+        } else {
+            // NVLink or PCIe bandwidth
+            50_000 // 50 GB/s estimate for NVLink
+        }
+    }
+
+    fn p2p_latency() -> u32 {
+        if I1 == I2 {
+            0
+        } else {
+            5 // ~5 microseconds for NVLink
+        }
+    }
+}
+
+// Implement P2P for Metal devices (Apple Silicon with unified memory)
+impl<const I1: usize, const I2: usize> PeerToPeerOps<PhantomMetal<I2>> for PhantomMetal<I1> {
+    const P2P_SUPPORTED: bool = I1 == I2; // Only same device on Apple Silicon
+
+    fn p2p_bandwidth() -> u32 {
+        if I1 == I2 {
+            400_000 // 400 GB/s unified memory bandwidth (M1 Max/Ultra)
+        } else {
+            0
+        }
+    }
+
+    fn p2p_latency() -> u32 {
+        if I1 == I2 {
+            1 // Sub-microsecond on unified memory
+        } else {
+            0
+        }
+    }
+}
+
+/// Device topology constraint for compile-time topology validation
+///
+/// This trait enables compile-time validation of device topology requirements
+/// for operations that depend on specific device arrangements.
+pub trait DeviceTopology {
+    /// The number of devices in this topology
+    const DEVICE_COUNT: usize;
+
+    /// Whether this topology supports efficient all-reduce operations
+    const SUPPORTS_ALLREDUCE: bool;
+
+    /// Whether this topology supports efficient broadcast operations
+    const SUPPORTS_BROADCAST: bool;
+
+    /// Get the topology name
+    fn topology_name() -> &'static str;
+
+    /// Get the estimated all-reduce bandwidth (MB/s)
+    fn allreduce_bandwidth() -> u32;
+}
+
+/// Ring topology for distributed operations
+#[derive(Debug)]
+pub struct RingTopology<P: PhantomDevice, const N: usize> {
+    _phantom: PhantomData<P>,
+}
+
+impl<P: PhantomDevice, const N: usize> DeviceTopology for RingTopology<P, N> {
+    const DEVICE_COUNT: usize = N;
+    const SUPPORTS_ALLREDUCE: bool = true;
+    const SUPPORTS_BROADCAST: bool = true;
+
+    fn topology_name() -> &'static str {
+        "Ring"
+    }
+
+    fn allreduce_bandwidth() -> u32 {
+        // Ring all-reduce bandwidth depends on inter-device bandwidth
+        if P::supports_p2p() {
+            25_000 // 25 GB/s for NVLink ring
+        } else {
+            5_000 // 5 GB/s for PCIe ring
+        }
+    }
+}
+
+/// Tree topology for distributed operations
+#[derive(Debug)]
+pub struct TreeTopology<P: PhantomDevice, const N: usize> {
+    _phantom: PhantomData<P>,
+}
+
+impl<P: PhantomDevice, const N: usize> DeviceTopology for TreeTopology<P, N> {
+    const DEVICE_COUNT: usize = N;
+    const SUPPORTS_ALLREDUCE: bool = true;
+    const SUPPORTS_BROADCAST: bool = true;
+
+    fn topology_name() -> &'static str {
+        "Tree"
+    }
+
+    fn allreduce_bandwidth() -> u32 {
+        // Tree has logarithmic depth, higher bandwidth for small N
+        if P::supports_p2p() {
+            40_000 // 40 GB/s for NVLink tree
+        } else {
+            8_000 // 8 GB/s for PCIe tree
+        }
+    }
+}
+
+/// All-to-all topology (fully connected) for maximum bandwidth
+#[derive(Debug)]
+pub struct AllToAllTopology<P: PhantomDevice, const N: usize> {
+    _phantom: PhantomData<P>,
+}
+
+impl<P: PhantomDevice, const N: usize> DeviceTopology for AllToAllTopology<P, N> {
+    const DEVICE_COUNT: usize = N;
+    const SUPPORTS_ALLREDUCE: bool = true;
+    const SUPPORTS_BROADCAST: bool = true;
+
+    fn topology_name() -> &'static str {
+        "AllToAll"
+    }
+
+    fn allreduce_bandwidth() -> u32 {
+        // All-to-all provides maximum bandwidth
+        if P::supports_p2p() {
+            100_000 // 100 GB/s for fully connected NVLink
+        } else {
+            15_000 // 15 GB/s for fully connected PCIe
+        }
+    }
+}
+
+/// Enhanced device affinity with compile-time validation
+///
+/// This struct provides type-safe device affinity management with
+/// compile-time guarantees about device compatibility and locality.
+#[derive(Debug)]
+pub struct TypedDeviceAffinity<P: PhantomDevice> {
+    device_handle: DeviceHandle<P>,
+    preferred_numa_node: Option<usize>,
+    cpu_affinity: Option<Vec<usize>>,
+}
+
+impl<P: PhantomDevice> TypedDeviceAffinity<P> {
+    /// Create a new typed device affinity
+    pub fn new(device_handle: DeviceHandle<P>) -> Self {
+        Self {
+            device_handle,
+            preferred_numa_node: None,
+            cpu_affinity: None,
+        }
+    }
+
+    /// Set the preferred NUMA node for this device
+    pub fn with_numa_node(mut self, node: usize) -> Self {
+        self.preferred_numa_node = Some(node);
+        self
+    }
+
+    /// Set CPU affinity for operations on this device
+    pub fn with_cpu_affinity(mut self, cpus: Vec<usize>) -> Self {
+        self.cpu_affinity = Some(cpus);
+        self
+    }
+
+    /// Get the device handle
+    pub fn device(&self) -> &DeviceHandle<P> {
+        &self.device_handle
+    }
+
+    /// Get the preferred NUMA node
+    pub fn numa_node(&self) -> Option<usize> {
+        self.preferred_numa_node
+    }
+
+    /// Get the CPU affinity
+    pub fn cpu_affinity(&self) -> Option<&[usize]> {
+        self.cpu_affinity.as_deref()
+    }
+
+    /// Check if this device is local to a specific NUMA node (compile-time hint)
+    pub const fn is_cpu_device() -> bool {
+        matches!(P::DEVICE_TYPE, DeviceType::Cpu)
+    }
+
+    /// Get locality score (0-100, higher is better for NUMA)
+    pub fn locality_score(&self, target_numa: usize) -> u32 {
+        match self.preferred_numa_node {
+            Some(node) if node == target_numa => 100,
+            Some(_) => 30, // Remote NUMA node
+            None => 50,    // Unknown locality
+        }
+    }
+}
+
+/// Type-safe cross-device operation builder
+///
+/// This builder ensures that cross-device operations are only created
+/// between compatible devices with compile-time validation.
+#[derive(Debug)]
+pub struct CrossDeviceOp<PSrc: PhantomDevice, PDst: PhantomDevice> {
+    _phantom: PhantomData<(PSrc, PDst)>,
+}
+
+impl<PSrc: PhantomDevice, PDst: PhantomDevice> CrossDeviceOp<PSrc, PDst> {
+    /// Check if the operation is supported (compile-time)
+    pub const SUPPORTED: bool = TransferCompatible::<PSrc, PDst>::SUPPORTED;
+
+    /// Get the estimated transfer cost
+    pub fn transfer_cost() -> u32 {
+        TransferCompatible::<PSrc, PDst>::transfer_cost()
+    }
+
+    /// Get transfer strategy recommendation
+    pub fn transfer_strategy() -> &'static str {
+        match (PSrc::DEVICE_TYPE, PDst::DEVICE_TYPE) {
+            (DeviceType::Cpu, DeviceType::Cpu) => "memcpy",
+            (DeviceType::Cuda(_), DeviceType::Cuda(_)) => "peer-to-peer",
+            (DeviceType::Cpu, DeviceType::Cuda(_)) => "pinned-transfer",
+            (DeviceType::Cuda(_), DeviceType::Cpu) => "staged-readback",
+            (DeviceType::Metal(_), DeviceType::Metal(_)) => "unified-memory",
+            (DeviceType::Cpu, DeviceType::Metal(_)) => "shared-memory",
+            _ => "staged-transfer",
+        }
+    }
+
+    /// Check if zero-copy transfer is possible (compile-time hint)
+    pub const fn supports_zero_copy() -> bool {
+        matches!(
+            (PSrc::DEVICE_TYPE, PDst::DEVICE_TYPE),
+            (DeviceType::Metal(_), DeviceType::Metal(_))
+        )
+    }
+}
+
+/// Compile-time device validation utilities
+pub mod compile_time {
+    use super::*;
+
+    /// Assert that two phantom devices are the same type
+    pub fn assert_same_device<P1: PhantomDevice, P2: PhantomDevice>() {
+        if !SameDevice::<P1, P2>::is_satisfied() {
+            panic!("Device types must match");
+        }
+    }
+
+    /// Assert that a device is GPU
+    pub fn assert_gpu<P: PhantomDevice>() {
+        if !P::requires_gpu() {
+            panic!("Operation requires GPU device");
+        }
+    }
+
+    /// Assert that a device is CPU
+    pub fn assert_cpu<P: PhantomDevice>() {
+        if P::requires_gpu() {
+            panic!("Operation requires CPU device");
+        }
+    }
+
+    /// Assert that P2P is supported between devices
+    pub fn assert_p2p<P1, P2>()
+    where
+        P1: PhantomDevice + PeerToPeerOps<P2>,
+        P2: PhantomDevice,
+    {
+        if !P1::P2P_SUPPORTED {
+            panic!("P2P not supported between these device types");
+        }
+    }
+}
+
+#[cfg(test)]
+mod advanced_tests {
+    use super::*;
+    use crate::device::implementations::CpuDevice;
+
+    #[test]
+    fn test_device_group() {
+        let cpu_device = Box::new(CpuDevice::new());
+        let handle1 = DeviceHandle::<PhantomCpu>::new(cpu_device).unwrap();
+
+        let cpu_device2 = Box::new(CpuDevice::new());
+        let handle2 = DeviceHandle::<PhantomCpu>::new(cpu_device2).unwrap();
+
+        let group = DeviceGroup::new([handle1, handle2]);
+        assert_eq!(DeviceGroup::<PhantomCpu, 2>::device_count(), 2);
+        assert!(group.get(0).is_some());
+        assert!(group.get(1).is_some());
+        assert!(group.get(2).is_none());
+    }
+
+    #[test]
+    fn test_p2p_cuda() {
+        // Compile-time checks
+        assert!(PhantomCuda::<0>::supports_p2p());
+        assert!(<PhantomCuda<0> as PeerToPeerOps<PhantomCuda<1>>>::P2P_SUPPORTED);
+
+        let bandwidth = <PhantomCuda<0> as PeerToPeerOps<PhantomCuda<1>>>::p2p_bandwidth();
+        assert!(bandwidth > 0);
+
+        let latency = <PhantomCuda<0> as PeerToPeerOps<PhantomCuda<1>>>::p2p_latency();
+        assert!(latency > 0);
+    }
+
+    #[test]
+    fn test_device_topology() {
+        // Ring topology
+        assert_eq!(RingTopology::<PhantomCuda<0>, 4>::DEVICE_COUNT, 4);
+        assert!(RingTopology::<PhantomCuda<0>, 4>::SUPPORTS_ALLREDUCE);
+        assert!(RingTopology::<PhantomCuda<0>, 4>::SUPPORTS_BROADCAST);
+
+        let bandwidth = RingTopology::<PhantomCuda<0>, 4>::allreduce_bandwidth();
+        assert!(bandwidth > 0);
+
+        // Tree topology
+        assert_eq!(TreeTopology::<PhantomCuda<0>, 8>::DEVICE_COUNT, 8);
+        let tree_bandwidth = TreeTopology::<PhantomCuda<0>, 8>::allreduce_bandwidth();
+        assert!(tree_bandwidth > 0);
+
+        // All-to-all topology
+        assert_eq!(AllToAllTopology::<PhantomCuda<0>, 4>::DEVICE_COUNT, 4);
+        let all2all_bandwidth = AllToAllTopology::<PhantomCuda<0>, 4>::allreduce_bandwidth();
+        assert!(all2all_bandwidth >= tree_bandwidth); // All-to-all should be faster
+    }
+
+    #[test]
+    fn test_typed_device_affinity() {
+        let cpu_device = Box::new(CpuDevice::new());
+        let handle = DeviceHandle::<PhantomCpu>::new(cpu_device).unwrap();
+
+        let affinity = TypedDeviceAffinity::new(handle)
+            .with_numa_node(0)
+            .with_cpu_affinity(vec![0, 1, 2, 3]);
+
+        assert_eq!(affinity.numa_node(), Some(0));
+        assert_eq!(affinity.cpu_affinity(), Some(&[0, 1, 2, 3][..]));
+        assert_eq!(affinity.locality_score(0), 100); // Perfect locality
+        assert_eq!(affinity.locality_score(1), 30); // Remote NUMA
+    }
+
+    #[test]
+    fn test_cross_device_op() {
+        // CPU to CUDA transfer
+        assert!(CrossDeviceOp::<PhantomCpu, PhantomCuda<0>>::SUPPORTED);
+        assert_eq!(
+            CrossDeviceOp::<PhantomCpu, PhantomCuda<0>>::transfer_cost(),
+            100
+        );
+        assert_eq!(
+            CrossDeviceOp::<PhantomCpu, PhantomCuda<0>>::transfer_strategy(),
+            "pinned-transfer"
+        );
+
+        // Metal unified memory
+        assert!(CrossDeviceOp::<PhantomMetal<0>, PhantomMetal<0>>::supports_zero_copy());
+
+        // Same device
+        assert_eq!(CrossDeviceOp::<PhantomCpu, PhantomCpu>::transfer_cost(), 0);
+    }
+
+    #[test]
+    fn test_compile_time_validation() {
+        // These should compile without panicking
+        assert_eq!(
+            CrossDeviceOp::<PhantomCpu, PhantomCpu>::transfer_strategy(),
+            "memcpy"
+        );
+
+        // Device group supports P2P for CUDA
+        assert!(DeviceGroup::<PhantomCuda<0>, 4>::supports_p2p());
+        assert!(!DeviceGroup::<PhantomCpu, 4>::supports_p2p());
+    }
+}

@@ -1,5 +1,5 @@
 use crate::context::AutogradContext;
-use torsh_core::{DeviceType, Result};
+use torsh_core::Result;
 use torsh_tensor::Tensor;
 
 #[derive(Debug, Clone)]
@@ -661,7 +661,7 @@ impl HyperparameterOptimizer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use torsh_core::Shape;
+    use torsh_core::DeviceType;
 
     #[test]
     fn test_meta_gradient_computation() -> Result<()> {

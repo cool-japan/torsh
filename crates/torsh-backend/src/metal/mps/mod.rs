@@ -2,8 +2,8 @@
 
 use metal::CommandBuffer;
 use metal::NSUInteger;
-use objc2::runtime::Object;
-use objc2::{class, msg_send, sel, ClassType};
+use objc2::msg_send;
+use objc2::runtime::AnyObject;
 
 use crate::metal::error::Result;
 
@@ -80,10 +80,10 @@ pub(crate) unsafe fn create_matrix_descriptor(
     rows: usize,
     columns: usize,
     dtype: MPSDataType,
-) -> *mut Object {
+) -> *mut AnyObject {
     let class = objc2::class!(MPSMatrixDescriptor);
-    let descriptor: *mut Object = msg_send![class, alloc];
-    let descriptor: *mut Object = msg_send![descriptor, init];
+    let descriptor: *mut AnyObject = msg_send![class, alloc];
+    let descriptor: *mut AnyObject = msg_send![descriptor, init];
 
     // Set dimensions
     let _: () = msg_send![descriptor, setRows: rows as NSUInteger];
@@ -110,23 +110,23 @@ pub(crate) unsafe fn create_image_descriptor(
     height: usize,
     channels: usize,
     _dtype: MPSDataType,
-) -> *mut Object {
+) -> *mut AnyObject {
     let class = objc2::class!(MPSImageDescriptor);
-    let descriptor: *mut Object = msg_send![class, alloc];
+    let descriptor: *mut AnyObject = msg_send![class, alloc];
 
     // Use appropriate initializer based on channels
-    let descriptor: *mut Object = if channels == 1 {
+    let descriptor: *mut AnyObject = if channels == 1 {
         msg_send![descriptor,
-            initWithChannelFormat: 0x10DE // MTLPixelFormatR16Float
-            width: width as NSUInteger
-            height: height as NSUInteger
+            initWithChannelFormat: 0x10DE, // MTLPixelFormatR16Float
+            width: width as NSUInteger,
+            height: height as NSUInteger,
             featureChannels: channels as NSUInteger
         ]
     } else {
         msg_send![descriptor,
-            initWithChannelFormat: 0x7310 // MTLPixelFormatRGBA16Float
-            width: width as NSUInteger
-            height: height as NSUInteger
+            initWithChannelFormat: 0x7310, // MTLPixelFormatRGBA16Float
+            width: width as NSUInteger,
+            height: height as NSUInteger,
             featureChannels: channels as NSUInteger
         ]
     };
@@ -140,10 +140,10 @@ pub(crate) unsafe fn create_conv_descriptor(
     kernel_width: usize,
     input_channels: usize,
     output_channels: usize,
-) -> *mut Object {
+) -> *mut AnyObject {
     let class = objc2::class!(MPSCNNConvolutionDescriptor);
-    let descriptor: *mut Object = msg_send![class, alloc];
-    let descriptor: *mut Object = msg_send![descriptor, init];
+    let descriptor: *mut AnyObject = msg_send![class, alloc];
+    let descriptor: *mut AnyObject = msg_send![descriptor, init];
 
     let _: () = msg_send![descriptor, setKernelHeight: kernel_height as NSUInteger];
     let _: () = msg_send![descriptor, setKernelWidth: kernel_width as NSUInteger];

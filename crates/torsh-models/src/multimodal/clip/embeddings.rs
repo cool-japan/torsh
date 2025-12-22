@@ -2,13 +2,9 @@
 
 use super::config::{CLIPTextConfig, CLIPVisionConfig};
 use std::collections::HashMap;
-use torsh_core::{
-    error::{Result, TorshError},
-    DeviceType,
-};
+use torsh_core::{error::Result, DeviceType};
 use torsh_nn::prelude::*;
 use torsh_nn::{Module, Parameter};
-use torsh_tensor::type_conversions::*;
 use torsh_tensor::{creation, Tensor};
 
 /// CLIP Vision Embeddings - converts image patches to embeddings
@@ -35,7 +31,7 @@ impl CLIPVisionEmbeddings {
 
         let class_embedding = Parameter::new(creation::randn(&[config.hidden_size])?);
 
-        let num_patches = config.num_patches();
+        let _num_patches = config.num_patches();
         let num_positions = config.sequence_length();
         let position_embedding = Embedding::new(num_positions, config.hidden_size);
 

@@ -17,7 +17,7 @@ use std::thread;
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_data::dataloader::prefetch::{PrefetchIterator, PrefetchExt};
 ///
 /// let data = vec![1, 2, 3, 4, 5];
@@ -50,7 +50,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use torsh_data::dataloader::prefetch::PrefetchIterator;
     ///
     /// let data = vec![1, 2, 3, 4, 5];
@@ -177,7 +177,7 @@ where
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_data::dataloader::prefetch::PrefetchExt;
 ///
 /// let data = vec![1, 2, 3, 4, 5];

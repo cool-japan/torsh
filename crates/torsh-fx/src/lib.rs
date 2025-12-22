@@ -3,11 +3,7 @@
 //! This crate provides a comprehensive graph transformation framework built on a modular architecture.
 //! The FX graph system has been refactored into specialized modules for maintainability and performance.
 
-use petgraph::graph::{Graph, NodeIndex};
-use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
-use torsh_core::{Result, TorshError};
+use torsh_core::Result;
 
 /// Convenience type alias for Results in this crate
 pub type TorshResult<T> = Result<T>;
@@ -121,6 +117,7 @@ pub use quantum_computing::{
 
 // Module declarations for the comprehensive graph transformation framework
 pub mod checkpointing;
+pub mod cloud_deployment;
 pub mod codegen;
 pub mod custom_backends;
 pub mod custom_operations;
@@ -136,6 +133,7 @@ pub mod heterogeneous_computing;
 pub mod interactive_editor;
 pub mod interpreter;
 pub mod memory_optimization;
+pub mod model_zoo;
 pub mod neural_architecture_search;
 pub mod neuromorphic_optimization;
 pub mod node;
@@ -369,4 +367,14 @@ mod tests {
         assert_eq!(counts.get("sigmoid"), Some(&1)); // sigmoid appears once
         assert_eq!(counts.get("tanh"), None); // tanh doesn't appear
     }
+}
+
+/// Prelude module for convenient imports
+pub mod prelude {
+    pub use crate::fx::*;
+    pub use crate::{
+        benchmarking::*, checkpointing::*, codegen::*, custom_backends::*, distributed::*,
+        graph_analysis::*, tracer::*, Edge, FxGraph, GraphStats, MemoryEstimate, Node,
+        SerializableGraph,
+    };
 }

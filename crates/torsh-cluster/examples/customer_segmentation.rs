@@ -208,7 +208,7 @@ fn analyze_segment_characteristics(
 /// Analyze customer segments in business context
 fn analyze_customer_segments(
     data: &Tensor,
-    info: &CustomerDatasetInfo,
+    _info: &CustomerDatasetInfo,
     n_segments: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
     println!("\n💼 Business Impact Analysis");
@@ -289,42 +289,42 @@ fn create_customer_dataset() -> Result<(Tensor, CustomerDatasetInfo), Box<dyn st
         let (age, income, spending, years, purchases, tickets) = match customer_type {
             0 => {
                 // Young professionals
-                let age = 25.0 + thread_rng().gen::<f32>() * 10.0;
-                let income = 45.0 + thread_rng().gen::<f32>() * 20.0;
-                let spending = 60.0 + thread_rng().gen::<f32>() * 30.0;
-                let years = 1.0 + thread_rng().gen::<f32>() * 3.0;
-                let purchases = 5.0 + thread_rng().gen::<f32>() * 10.0;
-                let tickets = thread_rng().gen::<f32>() * 2.0;
+                let age = 25.0 + thread_rng().random::<f32>() * 10.0;
+                let income = 45.0 + thread_rng().random::<f32>() * 20.0;
+                let spending = 60.0 + thread_rng().random::<f32>() * 30.0;
+                let years = 1.0 + thread_rng().random::<f32>() * 3.0;
+                let purchases = 5.0 + thread_rng().random::<f32>() * 10.0;
+                let tickets = thread_rng().random::<f32>() * 2.0;
                 (age, income, spending, years, purchases, tickets)
             }
             1 => {
                 // Established families
-                let age = 35.0 + thread_rng().gen::<f32>() * 15.0;
-                let income = 60.0 + thread_rng().gen::<f32>() * 40.0;
-                let spending = 40.0 + thread_rng().gen::<f32>() * 40.0;
-                let years = 3.0 + thread_rng().gen::<f32>() * 7.0;
-                let purchases = 8.0 + thread_rng().gen::<f32>() * 12.0;
-                let tickets = 1.0 + thread_rng().gen::<f32>() * 3.0;
+                let age = 35.0 + thread_rng().random::<f32>() * 15.0;
+                let income = 60.0 + thread_rng().random::<f32>() * 40.0;
+                let spending = 40.0 + thread_rng().random::<f32>() * 40.0;
+                let years = 3.0 + thread_rng().random::<f32>() * 7.0;
+                let purchases = 8.0 + thread_rng().random::<f32>() * 12.0;
+                let tickets = 1.0 + thread_rng().random::<f32>() * 3.0;
                 (age, income, spending, years, purchases, tickets)
             }
             2 => {
                 // High-value customers
-                let age = 40.0 + thread_rng().gen::<f32>() * 20.0;
-                let income = 80.0 + thread_rng().gen::<f32>() * 50.0;
-                let spending = 70.0 + thread_rng().gen::<f32>() * 25.0;
-                let years = 5.0 + thread_rng().gen::<f32>() * 10.0;
-                let purchases = 15.0 + thread_rng().gen::<f32>() * 15.0;
-                let tickets = 0.5 + thread_rng().gen::<f32>() * 2.0;
+                let age = 40.0 + thread_rng().random::<f32>() * 20.0;
+                let income = 80.0 + thread_rng().random::<f32>() * 50.0;
+                let spending = 70.0 + thread_rng().random::<f32>() * 25.0;
+                let years = 5.0 + thread_rng().random::<f32>() * 10.0;
+                let purchases = 15.0 + thread_rng().random::<f32>() * 15.0;
+                let tickets = 0.5 + thread_rng().random::<f32>() * 2.0;
                 (age, income, spending, years, purchases, tickets)
             }
             _ => {
                 // Budget-conscious customers
-                let age = 30.0 + thread_rng().gen::<f32>() * 25.0;
-                let income = 30.0 + thread_rng().gen::<f32>() * 25.0;
-                let spending = 20.0 + thread_rng().gen::<f32>() * 30.0;
-                let years = 2.0 + thread_rng().gen::<f32>() * 8.0;
-                let purchases = 2.0 + thread_rng().gen::<f32>() * 6.0;
-                let tickets = 2.0 + thread_rng().gen::<f32>() * 4.0;
+                let age = 30.0 + thread_rng().random::<f32>() * 25.0;
+                let income = 30.0 + thread_rng().random::<f32>() * 25.0;
+                let spending = 20.0 + thread_rng().random::<f32>() * 30.0;
+                let years = 2.0 + thread_rng().random::<f32>() * 8.0;
+                let purchases = 2.0 + thread_rng().random::<f32>() * 6.0;
+                let tickets = 2.0 + thread_rng().random::<f32>() * 4.0;
                 (age, income, spending, years, purchases, tickets)
             }
         };
@@ -404,7 +404,7 @@ fn interpret_feature_value(feature_name: &str, value: f64) -> &'static str {
 
 /// Generate a descriptive profile for a customer segment
 fn generate_segment_profile(
-    segment_id: i32,
+    _segment_id: i32,
     feature_means: &[f64],
     feature_names: &[String],
 ) -> String {
@@ -422,30 +422,30 @@ fn generate_segment_profile(
 /// Simulate customer lifetime value
 fn simulate_customer_lifetime_value(segment_id: i32) -> f64 {
     match segment_id {
-        0 => 5000.0 + thread_rng().gen::<f64>() * 3000.0, // Young professionals
-        1 => 8000.0 + thread_rng().gen::<f64>() * 4000.0, // Established families
-        2 => 15000.0 + thread_rng().gen::<f64>() * 8000.0, // High-value
-        _ => 3000.0 + thread_rng().gen::<f64>() * 2000.0, // Budget-conscious
+        0 => 5000.0 + thread_rng().random::<f64>() * 3000.0, // Young professionals
+        1 => 8000.0 + thread_rng().random::<f64>() * 4000.0, // Established families
+        2 => 15000.0 + thread_rng().random::<f64>() * 8000.0, // High-value
+        _ => 3000.0 + thread_rng().random::<f64>() * 2000.0, // Budget-conscious
     }
 }
 
 /// Simulate churn risk (0.0 to 1.0)
 fn simulate_churn_risk(segment_id: i32) -> f64 {
     match segment_id {
-        0 => 0.15 + thread_rng().gen::<f64>() * 0.1, // Young professionals - moderate churn
-        1 => 0.05 + thread_rng().gen::<f64>() * 0.05, // Established families - low churn
-        2 => 0.03 + thread_rng().gen::<f64>() * 0.03, // High-value - very low churn
-        _ => 0.25 + thread_rng().gen::<f64>() * 0.15, // Budget-conscious - high churn
+        0 => 0.15 + thread_rng().random::<f64>() * 0.1, // Young professionals - moderate churn
+        1 => 0.05 + thread_rng().random::<f64>() * 0.05, // Established families - low churn
+        2 => 0.03 + thread_rng().random::<f64>() * 0.03, // High-value - very low churn
+        _ => 0.25 + thread_rng().random::<f64>() * 0.15, // Budget-conscious - high churn
     }
 }
 
 /// Simulate engagement score (1.0 to 5.0)
 fn simulate_engagement_score(segment_id: i32) -> f64 {
     match segment_id {
-        0 => 3.5 + thread_rng().gen::<f64>() * 1.0, // Young professionals - good engagement
-        1 => 3.0 + thread_rng().gen::<f64>() * 1.0, // Established families - moderate engagement
-        2 => 4.0 + thread_rng().gen::<f64>() * 0.8, // High-value - high engagement
-        _ => 2.5 + thread_rng().gen::<f64>() * 1.0, // Budget-conscious - lower engagement
+        0 => 3.5 + thread_rng().random::<f64>() * 1.0, // Young professionals - good engagement
+        1 => 3.0 + thread_rng().random::<f64>() * 1.0, // Established families - moderate engagement
+        2 => 4.0 + thread_rng().random::<f64>() * 0.8, // High-value - high engagement
+        _ => 2.5 + thread_rng().random::<f64>() * 1.0, // Budget-conscious - lower engagement
     }
 }
 
@@ -458,12 +458,12 @@ fn simulate_revenue_potential(segment_id: i32, segment_size: usize) -> f64 {
         _ => 1000.0, // Budget-conscious
     };
 
-    base_revenue_per_customer * segment_size as f64 * (0.8 + thread_rng().gen::<f64>() * 0.4)
+    base_revenue_per_customer * segment_size as f64 * (0.8 + thread_rng().random::<f64>() * 0.4)
 }
 
 /// Generate marketing recommendations for segment
 fn generate_marketing_recommendations(
-    segment_id: i32,
+    _segment_id: i32,
     clv: f64,
     churn_risk: f64,
     engagement: f64,

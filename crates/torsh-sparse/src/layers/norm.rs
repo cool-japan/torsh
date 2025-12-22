@@ -4,13 +4,8 @@
 //! including batch normalization and layer normalization while preserving sparsity patterns.
 
 use crate::{CooTensor, CscTensor, CsrTensor, SparseTensor, TorshResult};
-use scirs2_core::random::{Random, Rng};
-use std::collections::HashMap;
 use torsh_core::{Shape, TorshError};
-use torsh_tensor::{
-    creation::{randn, zeros},
-    Tensor,
-};
+use torsh_tensor::{creation::zeros, Tensor};
 
 /// Helper function to unzip triplets
 fn unzip_triplets(triplets: Vec<(usize, usize, f32)>) -> (Vec<usize>, Vec<usize>, Vec<f32>) {

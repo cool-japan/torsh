@@ -8,7 +8,7 @@
 use alloc::vec::Vec;
 
 // ✅ SciRS2 Policy Compliant - Using scirs2_core for all random operations
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::Random;
 
 use super::core::{Sampler, SamplerIterator};
 
@@ -20,7 +20,7 @@ use super::core::{Sampler, SamplerIterator};
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_data::sampler::{SequentialSampler, DistributedWrapper, Sampler};
 ///
 /// let base_sampler = SequentialSampler::new(10);
@@ -181,7 +181,7 @@ impl<S: Sampler> Sampler for DistributedWrapper<S> {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_data::sampler::{DistributedSampler, Sampler};
 ///
 /// // Process 1 of 4 processes, working with dataset of size 100

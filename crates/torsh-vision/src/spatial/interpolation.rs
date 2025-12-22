@@ -1,5 +1,7 @@
 //! Spatial interpolation methods for image processing
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{Result, VisionError};
 use torsh_tensor::Tensor;
 // Note: interpolation module not available in scirs2_spatial, will implement basic interpolation
@@ -93,8 +95,8 @@ impl SpatialInterpolator {
 
     fn natural_neighbor_interpolation(
         &self,
-        points: &Array2<f64>,
-        values: &Array1<f64>,
+        _points: &Array2<f64>,
+        _values: &Array1<f64>,
         grid_points: &Array2<f64>,
     ) -> Result<Array1<f64>> {
         // Placeholder for natural neighbor interpolation
@@ -104,8 +106,8 @@ impl SpatialInterpolator {
 
     fn rbf_interpolation(
         &self,
-        points: &Array2<f64>,
-        values: &Array1<f64>,
+        _points: &Array2<f64>,
+        _values: &Array1<f64>,
         grid_points: &Array2<f64>,
     ) -> Result<Array1<f64>> {
         // Placeholder for RBF interpolation
@@ -153,8 +155,8 @@ impl SpatialInterpolator {
 
     fn bilinear_interpolation(
         &self,
-        points: &Array2<f64>,
-        values: &Array1<f64>,
+        _points: &Array2<f64>,
+        _values: &Array1<f64>,
         grid_points: &Array2<f64>,
     ) -> Result<Array1<f64>> {
         // Placeholder for bilinear interpolation
@@ -164,8 +166,8 @@ impl SpatialInterpolator {
 
     fn bicubic_interpolation(
         &self,
-        points: &Array2<f64>,
-        values: &Array1<f64>,
+        _points: &Array2<f64>,
+        _values: &Array1<f64>,
         grid_points: &Array2<f64>,
     ) -> Result<Array1<f64>> {
         // Placeholder for bicubic interpolation
@@ -173,7 +175,7 @@ impl SpatialInterpolator {
     }
 
     /// Interpolate missing pixels in an image
-    pub fn interpolate_image_gaps(&self, image: &Tensor, mask: &Tensor) -> Result<Tensor> {
+    pub fn interpolate_image_gaps(&self, image: &Tensor, _mask: &Tensor) -> Result<Tensor> {
         // Placeholder for image inpainting using spatial interpolation
         // Would extract known pixels and interpolate missing ones
         Ok(image.clone())
@@ -207,7 +209,7 @@ impl ImageWarper {
     }
 
     /// Warp image using a displacement field
-    pub fn warp_image(&self, image: &Tensor, displacement_field: &Array2<f64>) -> Result<Tensor> {
+    pub fn warp_image(&self, image: &Tensor, _displacement_field: &Array2<f64>) -> Result<Tensor> {
         // Placeholder for image warping
         // Would apply displacement field to image coordinates and interpolate
         Ok(image.clone())
@@ -217,7 +219,7 @@ impl ImageWarper {
     pub fn correct_barrel_distortion(
         &self,
         image: &Tensor,
-        distortion_coeffs: &Array1<f64>,
+        _distortion_coeffs: &Array1<f64>,
     ) -> Result<Tensor> {
         // Placeholder for distortion correction
         Ok(image.clone())
@@ -227,7 +229,7 @@ impl ImageWarper {
     pub fn correct_pincushion_distortion(
         &self,
         image: &Tensor,
-        distortion_coeffs: &Array1<f64>,
+        _distortion_coeffs: &Array1<f64>,
     ) -> Result<Tensor> {
         // Placeholder for distortion correction
         Ok(image.clone())

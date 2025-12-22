@@ -2,17 +2,17 @@
 
 use metal::foreign_types::{ForeignType, ForeignTypeRef};
 use metal::{CommandBuffer, Device, NSUInteger};
-use objc2::runtime::Object;
-use objc2::{msg_send, sel, ClassType};
+use objc2::msg_send;
+use objc2::runtime::AnyObject;
 
 use crate::metal::{
-    mps::{create_image_descriptor, MPSDataType, MPSOperation},
+    mps::{create_image_descriptor, MPSDataType},
     MetalBuffer, MetalError, Result,
 };
 
 /// Batch normalization using MPS
 pub struct MPSBatchNormalization {
-    batch_norm: *mut Object,
+    batch_norm: *mut AnyObject,
     mean: MetalBuffer,
     variance: MetalBuffer,
     gamma: MetalBuffer,
@@ -34,10 +34,10 @@ impl MPSBatchNormalization {
         unsafe {
             // Create MPS batch normalization
             let class = objc2::class!(MPSCNNBatchNormalization);
-            let batch_norm: *mut Object = msg_send![class, alloc];
-            let batch_norm: *mut Object = msg_send![batch_norm,
-                initWithDevice: device.as_ptr() as *mut Object as *mut Object
-                dataSource: std::ptr::null_mut::<Object>()
+            let batch_norm: *mut AnyObject = msg_send![class, alloc];
+            let batch_norm: *mut AnyObject = msg_send![batch_norm,
+                initWithDevice: device.as_ptr() as *mut AnyObject as *mut AnyObject,
+                dataSource: std::ptr::null_mut::<AnyObject>()
             ];
 
             // Set epsilon
@@ -125,32 +125,32 @@ impl MPSBatchNormalization {
             let class = objc2::class!(MPSImage);
 
             let input_desc = create_image_descriptor(width, height, channels, MPSDataType::Float32);
-            let input_image: *mut Object = msg_send![class, alloc];
-            let input_image: *mut Object = msg_send![input_image,
-                initWithDevice: input.buffer().device().as_ptr() as *mut Object
+            let input_image: *mut AnyObject = msg_send![class, alloc];
+            let input_image: *mut AnyObject = msg_send![input_image,
+                initWithDevice: input.buffer().device().as_ptr() as *mut AnyObject,
                 imageDescriptor: input_desc
             ];
 
             let output_desc =
                 create_image_descriptor(width, height, channels, MPSDataType::Float32);
-            let output_image: *mut Object = msg_send![class, alloc];
-            let output_image: *mut Object = msg_send![output_image,
-                initWithDevice: output.buffer().device().as_ptr() as *mut Object
+            let output_image: *mut AnyObject = msg_send![class, alloc];
+            let output_image: *mut AnyObject = msg_send![output_image,
+                initWithDevice: output.buffer().device().as_ptr() as *mut AnyObject,
                 imageDescriptor: output_desc
             ];
 
             // Encode the operation
             if training {
                 let _: () = msg_send![self.batch_norm,
-                    encodeToCommandBuffer: command_buffer.as_ptr() as *mut Object
-                    sourceImage: input_image
-                    batchNormalizationState: std::ptr::null_mut::<Object>()
+                    encodeToCommandBuffer: command_buffer.as_ptr() as *mut AnyObject,
+                    sourceImage: input_image,
+                    batchNormalizationState: std::ptr::null_mut::<AnyObject>(),
                     destinationImage: output_image
                 ];
             } else {
                 let _: () = msg_send![self.batch_norm,
-                    encodeToCommandBuffer: command_buffer.as_ptr() as *mut Object
-                    sourceImage: input_image
+                    encodeToCommandBuffer: command_buffer.as_ptr() as *mut AnyObject,
+                    sourceImage: input_image,
                     destinationImage: output_image
                 ];
             }
@@ -223,7 +223,7 @@ impl MPSMultiHeadAttention {
         output: &MetalBuffer,
         mask: Option<&MetalBuffer>,
     ) -> Result<()> {
-        let seq_len = query.shape().dims()[1];
+        let _seq_len = query.shape().dims()[1];
         let scale = 1.0 / (self.head_dim as f32).sqrt();
 
         // Create output buffers for Q, K, V projections
@@ -231,9 +231,21 @@ impl MPSMultiHeadAttention {
         let k_shape = key.shape();
         let v_shape = value.shape();
 
-        let q = MetalBuffer::zeros(q_shape, &query.dtype(), &crate::metal::device::MetalDevice::new()?)?;
-        let k = MetalBuffer::zeros(k_shape, &key.dtype(), &crate::metal::device::MetalDevice::new()?)?;
-        let v = MetalBuffer::zeros(v_shape, &value.dtype(), &crate::metal::device::MetalDevice::new()?)?;
+        let q = MetalBuffer::zeros(
+            q_shape,
+            &query.dtype(),
+            &crate::metal::device::MetalDevice::new()?,
+        )?;
+        let k = MetalBuffer::zeros(
+            k_shape,
+            &key.dtype(),
+            &crate::metal::device::MetalDevice::new()?,
+        )?;
+        let v = MetalBuffer::zeros(
+            v_shape,
+            &value.dtype(),
+            &crate::metal::device::MetalDevice::new()?,
+        )?;
 
         // Project Q, K, V
         self.q_proj.forward(command_buffer, query, &q)?;
@@ -273,8 +285,8 @@ impl MPSMultiHeadAttention {
             });
         }
 
-        let seq_len = q_shape[q_shape.len() - 2];
-        let k_seq_len = k_shape[k_shape.len() - 2];
+        let _seq_len = q_shape[q_shape.len() - 2];
+        let _k_seq_len = k_shape[k_shape.len() - 2];
 
         // Step 1: Q @ K^T
         // Create matmul for Q @ K^T with K transposed
@@ -289,17 +301,9 @@ impl MPSMultiHeadAttention {
             true,  // transpose_b (K^T)
         )?;
 
-        // Get intermediate result buffer for attention scores
-        let scores_shape = torsh_core::Shape::from(vec![seq_len, k_seq_len]);
-        let mut scores = MetalBuffer::zeros(
-            &scores_shape,
-            &torsh_core::DType::F32,
-            &crate::metal::device::MetalDevice::new()?,
-        )?;
-
         // Encode Q @ K^T operation
         qk_matmul.encode_matmul(command_buffer, q, k)?;
-        scores = qk_matmul.output().clone();
+        let mut scores = qk_matmul.output().clone();
 
         // Step 2: Scale by the provided scale factor (usually 1/sqrt(head_dim))
         // For simplicity, assuming scale is already 1/sqrt(head_dim)
@@ -334,7 +338,7 @@ impl MPSMultiHeadAttention {
             crate::metal::mps::ActivationType::Softmax,
         )?;
 
-        let mut attention_weights = MetalBuffer::zeros(
+        let attention_weights = MetalBuffer::zeros(
             &scores.shape(),
             &torsh_core::DType::F32,
             &crate::metal::device::MetalDevice::new()?,
@@ -356,7 +360,7 @@ impl MPSMultiHeadAttention {
         )?;
 
         // Create output buffer with same shape as input Q
-        let output = MetalBuffer::zeros(
+        let _output = MetalBuffer::zeros(
             q.shape(),
             &torsh_core::DType::F32,
             &crate::metal::device::MetalDevice::new()?,
@@ -381,13 +385,13 @@ pub struct MPSLinear {
 impl MPSLinear {
     /// Create a new linear layer
     pub fn new(
-        device: &Device,
+        _device: &Device,
         in_features: usize,
         out_features: usize,
         bias: bool,
     ) -> Result<Self> {
         // Initialize weight with Xavier/Glorot uniform
-        let bound = (6.0 / (in_features + out_features) as f32).sqrt();
+        let _bound = (6.0 / (in_features + out_features) as f32).sqrt();
         let weight = MetalBuffer::rand(
             &torsh_core::Shape::from(vec![out_features, in_features]),
             &torsh_core::DType::F32,
@@ -417,7 +421,7 @@ impl MPSLinear {
         &self,
         command_buffer: &CommandBuffer,
         input: &MetalBuffer,
-        output: &MetalBuffer,
+        _output: &MetalBuffer,
     ) -> Result<()> {
         // Use MPS matrix multiplication
         let matmul = crate::metal::mps::MPSMatMul::new(
@@ -460,7 +464,7 @@ impl MPSLinear {
 
 /// Optimized convolution with various algorithms
 pub struct MPSOptimizedConv2d {
-    conv: *mut Object,
+    conv: *mut AnyObject,
     algorithm: ConvolutionAlgorithm,
     params: Conv2dParams,
     device: Device,
@@ -546,14 +550,14 @@ impl MPSOptimizedConv2d {
         params: &Conv2dParams,
         _weights: &MetalBuffer,
         _bias: Option<&MetalBuffer>,
-    ) -> Result<*mut Object> {
+    ) -> Result<*mut AnyObject> {
         let class = objc2::class!(MPSCNNConvolution);
-        let conv: *mut Object = msg_send![class, alloc];
+        let conv: *mut AnyObject = msg_send![class, alloc];
 
         // Create convolution descriptor
         let desc_class = objc2::class!(MPSCNNConvolutionDescriptor);
-        let desc: *mut Object = msg_send![desc_class, alloc];
-        let desc: *mut Object = msg_send![desc, init];
+        let desc: *mut AnyObject = msg_send![desc_class, alloc];
+        let desc: *mut AnyObject = msg_send![desc, init];
 
         let _: () = msg_send![desc, setKernelHeight: params.kernel_height as NSUInteger];
         let _: () = msg_send![desc, setKernelWidth: params.kernel_width as NSUInteger];
@@ -562,11 +566,11 @@ impl MPSOptimizedConv2d {
         let _: () = msg_send![desc, setStrideInPixelsX: params.stride_width as NSUInteger];
         let _: () = msg_send![desc, setStrideInPixelsY: params.stride_height as NSUInteger];
 
-        let conv: *mut Object = msg_send![conv,
-            initWithDevice: device.as_ptr() as *mut Object
-            convolutionDescriptor: desc
-            kernelWeights: std::ptr::null::<f32>()
-            biasTerms: std::ptr::null::<f32>()
+        let conv: *mut AnyObject = msg_send![conv,
+            initWithDevice: device.as_ptr() as *mut AnyObject,
+            convolutionDescriptor: desc,
+            kernelWeights: std::ptr::null::<f32>(),
+            biasTerms: std::ptr::null::<f32>(),
             flags: 0 as NSUInteger
         ];
 
@@ -578,7 +582,7 @@ impl MPSOptimizedConv2d {
         params: &Conv2dParams,
         _weights: &MetalBuffer,
         _bias: Option<&MetalBuffer>,
-    ) -> Result<*mut Object> {
+    ) -> Result<*mut AnyObject> {
         // For Winograd, we'd use a specialized implementation
         // This is simplified - real implementation would use Winograd transforms
         Self::create_direct_conv(device, params, _weights, _bias)
@@ -589,7 +593,7 @@ impl MPSOptimizedConv2d {
         params: &Conv2dParams,
         _weights: &MetalBuffer,
         _bias: Option<&MetalBuffer>,
-    ) -> Result<*mut Object> {
+    ) -> Result<*mut AnyObject> {
         // For FFT convolution, we'd use frequency domain operations
         // This is simplified - real implementation would use FFT
         Self::create_direct_conv(device, params, _weights, _bias)
@@ -628,9 +632,9 @@ impl MPSOptimizedConv2d {
                 input_shape[1],
                 MPSDataType::Float32,
             );
-            let input_image: *mut Object = msg_send![class, alloc];
-            let input_image: *mut Object = msg_send![input_image,
-                initWithDevice: self.device.as_ptr() as *mut Object
+            let input_image: *mut AnyObject = msg_send![class, alloc];
+            let input_image: *mut AnyObject = msg_send![input_image,
+                initWithDevice: self.device.as_ptr() as *mut AnyObject,
                 imageDescriptor: input_desc
             ];
 
@@ -640,16 +644,16 @@ impl MPSOptimizedConv2d {
                 output_shape[1],
                 MPSDataType::Float32,
             );
-            let output_image: *mut Object = msg_send![class, alloc];
-            let output_image: *mut Object = msg_send![output_image,
-                initWithDevice: self.device.as_ptr() as *mut Object
+            let output_image: *mut AnyObject = msg_send![class, alloc];
+            let output_image: *mut AnyObject = msg_send![output_image,
+                initWithDevice: self.device.as_ptr() as *mut AnyObject,
                 imageDescriptor: output_desc
             ];
 
             // Encode the convolution
             let _: () = msg_send![self.conv,
-                encodeToCommandBuffer: command_buffer.as_ptr() as *mut Object
-                sourceImage: input_image
+                encodeToCommandBuffer: command_buffer.as_ptr() as *mut AnyObject,
+                sourceImage: input_image,
                 destinationImage: output_image
             ];
 
@@ -694,38 +698,35 @@ pub struct MPSFusedOps;
 impl MPSFusedOps {
     /// Fused convolution + batch norm + activation
     pub fn conv_bn_activation(
-        device: &Device,
-        command_buffer: &CommandBuffer,
-        input: &MetalBuffer,
-        conv_params: &Conv2dParams,
-        conv_weights: &MetalBuffer,
-        conv_bias: Option<&MetalBuffer>,
-        bn_weight: &MetalBuffer,
-        bn_bias: &MetalBuffer,
-        bn_mean: &MetalBuffer,
-        bn_var: &MetalBuffer,
-        activation: ActivationType,
-        output: &MetalBuffer,
+        _device: &Device,
+        _command_buffer: &CommandBuffer,
+        _input: &MetalBuffer,
+        _conv_params: &Conv2dParams,
+        _conv_weights: &MetalBuffer,
+        _conv_bias: Option<&MetalBuffer>,
+        _bn_weight: &MetalBuffer,
+        _bn_bias: &MetalBuffer,
+        _bn_mean: &MetalBuffer,
+        _bn_var: &MetalBuffer,
+        _activation: ActivationType,
+        _output: &MetalBuffer,
     ) -> Result<()> {
-        unsafe {
-            // Create fused operation
-            let class = objc2::class!(MPSCNNConvolution);
-            // ... implementation would create a custom fused kernel
-            // This is simplified for now
+        // Create fused operation
+        // ... implementation would create a custom fused kernel
+        // This is simplified for now
 
-            Ok(())
-        }
+        Ok(())
     }
 
     /// Fused matrix multiplication + bias + activation
     pub fn linear_bias_activation(
-        device: &Device,
-        command_buffer: &CommandBuffer,
-        input: &MetalBuffer,
-        weight: &MetalBuffer,
-        bias: Option<&MetalBuffer>,
-        activation: ActivationType,
-        output: &MetalBuffer,
+        _device: &Device,
+        _command_buffer: &CommandBuffer,
+        _input: &MetalBuffer,
+        _weight: &MetalBuffer,
+        _bias: Option<&MetalBuffer>,
+        _activation: ActivationType,
+        _output: &MetalBuffer,
     ) -> Result<()> {
         // Implementation would create a fused GEMM operation
         // This is simplified for now

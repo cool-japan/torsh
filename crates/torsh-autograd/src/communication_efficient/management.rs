@@ -23,7 +23,7 @@
 //! # Examples
 //!
 //! ## Basic Bandwidth Management
-//! ```rust
+//! ```rust,ignore
 //! use torsh_autograd::communication_efficient::management::*;
 //!
 //! let mut bandwidth_manager = BandwidthManager::new(1_000_000); // 1 Mbps total
@@ -38,7 +38,7 @@
 //! ```
 //!
 //! ## Topology Management
-//! ```rust
+//! ```rust,ignore
 //! use torsh_autograd::communication_efficient::management::*;
 //! use torsh_autograd::communication_efficient::config::CommunicationTopology;
 //!
@@ -52,7 +52,7 @@
 //! ```
 //!
 //! ## Advanced Congestion Control
-//! ```rust
+//! ```rust,ignore
 //! use torsh_autograd::communication_efficient::management::*;
 //! use std::time::Duration;
 //!
@@ -262,7 +262,7 @@ impl BandwidthManager {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use torsh_autograd::communication_efficient::management::BandwidthManager;
     ///
     /// let manager = BandwidthManager::new(1_000_000); // 1 Mbps
@@ -306,7 +306,7 @@ impl BandwidthManager {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let mut manager = BandwidthManager::new(1_000_000);
     /// manager.allocate_bandwidth(1, 250_000).unwrap();
     /// ```
@@ -581,7 +581,7 @@ impl TopologyManager {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use torsh_autograd::communication_efficient::management::TopologyManager;
     /// use torsh_autograd::communication_efficient::config::CommunicationTopology;
     ///

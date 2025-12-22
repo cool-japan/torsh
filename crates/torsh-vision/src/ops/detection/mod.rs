@@ -229,7 +229,7 @@ pub fn calculate_iou(box1: &BoundingBox, box2: &BoundingBox) -> f32 {
 /// Calculate IoU between multiple boxes efficiently
 pub fn calculate_iou_matrix(boxes: &[BoundingBox]) -> Result<Tensor<f32>> {
     let n = boxes.len();
-    let mut iou_matrix = zeros(&[n, n])?;
+    let iou_matrix = zeros(&[n, n])?;
 
     for i in 0..n {
         for j in 0..n {
@@ -305,7 +305,7 @@ pub fn roi_pool(
     let num_rois = rois.len();
     let (pool_height, pool_width) = config.output_size;
 
-    let mut pooled_features = zeros(&[num_rois, channels, pool_height, pool_width])?;
+    let pooled_features = zeros(&[num_rois, channels, pool_height, pool_width])?;
 
     for (roi_idx, roi) in rois.iter().enumerate() {
         let scaled_roi = scale_bbox(roi, config.spatial_scale, config.spatial_scale);
@@ -459,7 +459,7 @@ pub fn compute_bbox_targets(
 ) -> Result<(Vec<i32>, Tensor<f32>)> {
     let num_anchors = anchors.len();
     let mut labels = vec![-1i32; num_anchors]; // -1: ignore, 0: negative, 1: positive
-    let mut bbox_targets = zeros(&[num_anchors, 4])?;
+    let bbox_targets = zeros(&[num_anchors, 4])?;
 
     if ground_truth.is_empty() {
         // All anchors are negative when no ground truth
@@ -546,10 +546,7 @@ fn apply_global_nms(detections: Vec<Detection>, config: &NMSConfig) -> Result<Ve
     })
 }
 
-fn apply_nms_to_group(
-    mut detections: Vec<Detection>,
-    config: &NMSConfig,
-) -> Result<Vec<Detection>> {
+fn apply_nms_to_group(detections: Vec<Detection>, config: &NMSConfig) -> Result<Vec<Detection>> {
     let mut keep = Vec::new();
     let mut suppressed = vec![false; detections.len()];
 

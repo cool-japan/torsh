@@ -8,7 +8,6 @@ use crate::{
     regression_detection::AdvancedRegressionResult,
     BenchResult,
 };
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -1191,7 +1190,7 @@ impl Default for VisualizationBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::BenchResult;
+    use chrono::Utc;
 
     #[test]
     fn test_visualization_config() {

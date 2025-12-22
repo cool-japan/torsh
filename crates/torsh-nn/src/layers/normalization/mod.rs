@@ -17,16 +17,19 @@
 //! ## Usage Examples
 //!
 //! ```rust
-//! use torsh_nn::layers::normalization::{
-//!     BatchNorm2d, LayerNorm, GroupNorm, InstanceNorm2d, SwitchableNorm2d
-//! };
-//!
+//! # use torsh_nn::layers::normalization::{
+//! #     BatchNorm2d, LayerNorm, GroupNorm, InstanceNorm2d, SwitchableNorm2d
+//! # };
+//! # use torsh_core::error::Result;
+//! # fn main() -> Result<()> {
 //! // Create different normalization layers
 //! let batch_norm = BatchNorm2d::new(64)?;
 //! let layer_norm = LayerNorm::new(vec![128])?;
 //! let group_norm = GroupNorm::new(8, 64)?;
 //! let instance_norm = InstanceNorm2d::new(64)?;
 //! let switchable_norm = SwitchableNorm2d::new(64)?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Configuration and Customization
@@ -34,14 +37,19 @@
 //! Most normalization layers support custom configuration:
 //!
 //! ```rust
-//! use torsh_nn::layers::normalization::{BatchNorm2d, NormalizationConfig};
-//!
+//! # use torsh_nn::layers::normalization::{BatchNorm2d, NormalizationConfig};
+//! # use torsh_core::error::Result;
+//! # fn main() -> Result<()> {
 //! // Create with custom configuration
-//! let config = NormalizationConfig::default()
-//!     .with_eps(1e-6)
-//!     .with_momentum(0.05);
+//! let config = NormalizationConfig {
+//!     eps: 1e-6,
+//!     momentum: 0.05,
+//!     ..NormalizationConfig::default()
+//! };
 //!
 //! let batch_norm = BatchNorm2d::with_config(64, config)?;
+//! # Ok(())
+//! # }
 //! ```
 
 // Sub-modules containing different normalization families

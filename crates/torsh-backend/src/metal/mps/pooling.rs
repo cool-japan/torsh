@@ -3,8 +3,8 @@
 use metal::foreign_types::ForeignType;
 use metal::Device;
 use metal::NSUInteger;
-use objc2::runtime::Object;
-use objc2::{msg_send, sel, ClassType};
+use objc2::msg_send;
+use objc2::runtime::AnyObject;
 
 use crate::metal::{
     buffer::MetalBuffer,
@@ -14,7 +14,7 @@ use crate::metal::{
 /// Max pooling 2D using MPS
 #[allow(dead_code)]
 pub struct MPSMaxPool2d {
-    pool: *mut Object,
+    pool: *mut AnyObject,
     output: MetalBuffer,
 }
 
@@ -57,12 +57,12 @@ impl MPSMaxPool2d {
 
             // Create MPS max pooling
             let class = objc2::class!(MPSCNNPoolingMax);
-            let pool: *mut Object = msg_send![class, alloc];
-            let pool: *mut Object = msg_send![pool,
-                initWithDevice: device.as_ptr() as *mut Object
-                kernelWidth: kw as NSUInteger
-                kernelHeight: kh as NSUInteger
-                strideInPixelsX: sw as NSUInteger
+            let pool: *mut AnyObject = msg_send![class, alloc];
+            let pool: *mut AnyObject = msg_send![pool,
+                initWithDevice: device.as_ptr() as *mut AnyObject,
+                kernelWidth: kw as NSUInteger,
+                kernelHeight: kh as NSUInteger,
+                strideInPixelsX: sw as NSUInteger,
                 strideInPixelsY: sh as NSUInteger
             ];
 
@@ -96,7 +96,7 @@ impl Drop for MPSMaxPool2d {
 /// Average pooling 2D using MPS
 #[allow(dead_code)]
 pub struct MPSAvgPool2d {
-    pool: *mut Object,
+    pool: *mut AnyObject,
     output: MetalBuffer,
 }
 
@@ -140,12 +140,12 @@ impl MPSAvgPool2d {
 
             // Create MPS average pooling
             let class = objc2::class!(MPSCNNPoolingAverage);
-            let pool: *mut Object = msg_send![class, alloc];
-            let pool: *mut Object = msg_send![pool,
-                initWithDevice: device.as_ptr() as *mut Object
-                kernelWidth: kw as NSUInteger
-                kernelHeight: kh as NSUInteger
-                strideInPixelsX: sw as NSUInteger
+            let pool: *mut AnyObject = msg_send![class, alloc];
+            let pool: *mut AnyObject = msg_send![pool,
+                initWithDevice: device.as_ptr() as *mut AnyObject,
+                kernelWidth: kw as NSUInteger,
+                kernelHeight: kh as NSUInteger,
+                strideInPixelsX: sw as NSUInteger,
                 strideInPixelsY: sh as NSUInteger
             ];
 

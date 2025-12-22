@@ -4,9 +4,7 @@
 //! without storing all data in memory, crucial for large-scale evaluations.
 
 use crate::Metric;
-use scirs2_core::ndarray::{Array1, Array2};
-use scirs2_core::ndarray_ext::stats;
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::Random;
 use std::collections::HashMap;
 use torsh_tensor::Tensor;
 

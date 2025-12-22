@@ -1,7 +1,6 @@
 //! Performance benchmarking utilities for quantization analysis
 
-use crate::{QScheme, QuantConfig, TorshResult};
-use std::collections::HashMap;
+use crate::{QScheme, TorshResult};
 use std::time::{Duration, Instant};
 
 /// Performance benchmarking utilities for quantization analysis

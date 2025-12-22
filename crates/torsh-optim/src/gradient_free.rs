@@ -453,8 +453,8 @@ impl ParticleSwarmOptimizer {
 
             for i in 0..dimension {
                 let (min_bound, max_bound) = initial_bounds[i];
-                position.push(rng.gen::<f32>() * (max_bound - min_bound) + min_bound);
-                velocity.push(rng.gen::<f32>() * self.max_velocity * 2.0 - self.max_velocity);
+                position.push(rng.random::<f32>() * (max_bound - min_bound) + min_bound);
+                velocity.push(rng.random::<f32>() * self.max_velocity * 2.0 - self.max_velocity);
             }
 
             positions.push(position);
@@ -492,8 +492,8 @@ impl ParticleSwarmOptimizer {
             for i in 0..self.num_particles {
                 // Update velocity
                 for j in 0..dimension {
-                    let r1 = rng.gen::<f32>();
-                    let r2 = rng.gen::<f32>();
+                    let r1 = rng.random::<f32>();
+                    let r2 = rng.random::<f32>();
 
                     velocities[i][j] = self.inertia * velocities[i][j]
                         + self.c1 * r1 * (personal_best_positions[i][j] - positions[i][j])
@@ -611,7 +611,7 @@ impl RandomSearch {
             let mut point = Vec::with_capacity(dimension);
             for i in 0..dimension {
                 let (min_bound, max_bound) = bounds[i];
-                point.push(rng.gen::<f32>() * (max_bound - min_bound) + min_bound);
+                point.push(rng.random::<f32>() * (max_bound - min_bound) + min_bound);
             }
 
             // Evaluate point

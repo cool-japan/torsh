@@ -15,7 +15,7 @@
 //! - Optimized for sparse feature maps common after ReLU activations
 
 use crate::{CooTensor, CsrTensor, SparseTensor, TorshResult};
-use scirs2_core::random::{Random, rng, Rng};
+use scirs2_core::random::{Random, rng};
 use std::collections::HashMap;
 use torsh_core::{Shape, TorshError};
 use torsh_tensor::{

@@ -18,18 +18,23 @@
 //! ## Usage Example
 //!
 //! ```rust
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! use torsh_models::nlp::t5::{T5Config, T5Model, T5ForConditionalGeneration};
 //! use torsh_tensor::Tensor;
+//! use torsh_core::DeviceType;
+//! use torsh_nn::Module;
 //!
 //! // Create T5-base model
-//! let mut model = T5Model::t5_base();
+//! let mut model = T5Model::t5_base()?;
 //!
 //! // Or create for conditional generation
-//! let mut generator = T5ForConditionalGeneration::t5_base_conditional();
+//! let mut generator = T5ForConditionalGeneration::t5_base_conditional()?;
 //!
 //! // Forward pass
-//! let input_ids = Tensor::zeros(&[1, 10]).unwrap();
-//! let output = model.forward(&input_ids).unwrap();
+//! let input_ids = Tensor::zeros(&[1, 10], DeviceType::Cpu)?;
+//! let output = model.forward(&input_ids)?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Model Variants
@@ -1050,7 +1055,20 @@ impl T5ForConditionalGeneration {
 impl Module for T5ForConditionalGeneration {
     fn forward(&self, input_ids: &Tensor) -> Result<Tensor> {
         let encoder_outputs = self.transformer.forward(input_ids)?;
-        let logits = self.lm_head.forward(&encoder_outputs)?;
+
+        // encoder_outputs is [batch, seq_len, hidden_size]
+        // lm_head expects 2D input, so reshape to [batch * seq_len, hidden_size]
+        let batch_size = encoder_outputs.size(0)? as i32;
+        let seq_len = encoder_outputs.size(1)? as i32;
+        let hidden_size = encoder_outputs.size(2)? as i32;
+
+        let reshaped = encoder_outputs.reshape(&[batch_size * seq_len, hidden_size])?;
+        let logits_2d = self.lm_head.forward(&reshaped)?;
+
+        // Reshape back to [batch, seq_len, vocab_size]
+        let vocab_size = logits_2d.size(1)? as i32;
+        let logits = logits_2d.reshape(&[batch_size, seq_len, vocab_size])?;
+
         Ok(logits)
     }
 
@@ -1197,7 +1215,7 @@ mod tests {
 
     #[test]
     fn test_t5_forward_pass() {
-        let mut model = T5Model::t5_small().unwrap();
+        let model = T5Model::t5_small().unwrap();
         let input_ids = Tensor::zeros(&[1, 10], torsh_core::DeviceType::Cpu).unwrap();
 
         let result = model.forward(&input_ids);
@@ -1210,13 +1228,11 @@ mod tests {
 
     #[test]
     fn test_t5_conditional_generation_forward() {
-        let mut generator = T5ForConditionalGeneration::t5_small_conditional().unwrap();
+        let generator = T5ForConditionalGeneration::t5_small_conditional().unwrap();
         let input_ids = Tensor::zeros(&[1, 10], torsh_core::DeviceType::Cpu).unwrap();
 
         let result = generator.forward(&input_ids);
-        assert!(result.is_ok());
-
-        let logits = result.unwrap();
+        let logits = result.expect("Forward pass should succeed");
         assert_eq!(
             logits
                 .size((logits.shape().dims().len() - 1) as i32)
@@ -1277,9 +1293,7 @@ mod tests {
         let input_ids = Tensor::zeros(&[1, 5], torsh_core::DeviceType::Cpu).unwrap();
 
         let result = generator.generate_logits(&input_ids);
-        assert!(result.is_ok());
-
-        let logits = result.unwrap();
+        let logits = result.expect("Generate logits should succeed");
         assert_eq!(logits.shape().dims(), &[1, 5, 32128]); // [batch, seq, vocab]
     }
 

@@ -2,20 +2,19 @@
 //!
 //! Real implementations using ToRSh ecosystem and SciRS2 foundation
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use anyhow::Result;
 use std::collections::HashMap;
 use std::path::Path;
 use tracing::{debug, info, warn};
 
-// SciRS2 ecosystem - MUST use instead of rand/ndarray (SCIRS2 POLICY COMPLIANT - legacy but allowed)
-use scirs2_autograd::ndarray::{Array1, Array2};
-use scirs2_core::error::CoreError;
-use scirs2_core::random::{Random, Rng};
+// ✅ UNIFIED ACCESS (v0.1.0-RC.1+): Complete ndarray/random functionality through scirs2-core
+// SciRS2 ecosystem - MUST use instead of rand/ndarray (SCIRS2 POLICY COMPLIANT)
+use scirs2_core::ndarray::Array2;
+use scirs2_core::random::thread_rng;
 
 // ToRSh core dependencies
-use torsh_autograd::context::AutogradContext;
-use torsh_core::{DType, Device};
-use torsh_tensor::Tensor;
 
 use crate::config::Config;
 use crate::utils::{fs, output, progress, time, validation};
@@ -431,7 +430,7 @@ async fn load_torsh_model(path: &Path) -> Result<ModelContainer> {
     let model_data = tokio::fs::read(path).await?;
 
     // Create model container with real tensor data
-    let mut rng = Random::seed(42);
+    let mut rng = thread_rng();
     let sample_weights: Vec<f32> = (0..1000).map(|_| rng.gen_range(-1.0..1.0)).collect();
     let weight_tensor = Array2::from_shape_vec((50, 20), sample_weights)?;
 
@@ -627,7 +626,7 @@ async fn load_calibration_data(path: &Path, num_samples: usize) -> Result<Array2
     );
 
     // Use SciRS2 for data loading
-    let mut rng = Random::seed(42);
+    let mut rng = thread_rng();
     let calibration_data: Vec<f32> = (0..num_samples * 224)
         .map(|_| rng.gen_range(-1.0..1.0))
         .collect();
@@ -662,7 +661,7 @@ async fn apply_static_quantization(
 }
 
 /// Apply QAT quantization
-async fn apply_qat_quantization(model: ModelContainer, precision: &str) -> Result<ModelContainer> {
+async fn apply_qat_quantization(model: ModelContainer, _precision: &str) -> Result<ModelContainer> {
     info!("Applying quantization-aware training (QAT) simulation");
 
     let mut quantized_model = model;
@@ -671,7 +670,7 @@ async fn apply_qat_quantization(model: ModelContainer, precision: &str) -> Resul
     for tensor in &mut quantized_model.tensors {
         // Simulate QAT by applying noise and quantization cycles
         let qat_tensor = tensor.map(|x| {
-            let noise = Random::default().gen_range(-0.01..0.01);
+            let noise = thread_rng().gen_range(-0.01..0.01);
             let quantized = ((x + noise) * 127.0).round() / 127.0;
             quantized.clamp(-1.0, 1.0)
         });
@@ -687,7 +686,7 @@ async fn evaluate_model_accuracy(model: &ModelContainer) -> Result<f64> {
     info!("Evaluating model accuracy");
 
     // Use SciRS2 for accuracy computation
-    let mut rng = Random::seed(42);
+    let mut rng = thread_rng();
 
     // Simulate accuracy based on model characteristics
     let total_params: usize = model.tensors.iter().map(|t| t.len()).sum();
@@ -736,7 +735,7 @@ async fn apply_magnitude_pruning(
 async fn apply_gradient_pruning(
     model: ModelContainer,
     sparsity: f32,
-    structured: bool,
+    _structured: bool,
 ) -> Result<ModelContainer> {
     info!("Applying gradient-based pruning");
 
@@ -758,7 +757,7 @@ async fn apply_gradient_pruning(
 async fn apply_fisher_pruning(
     model: ModelContainer,
     sparsity: f32,
-    structured: bool,
+    _structured: bool,
 ) -> Result<ModelContainer> {
     info!("Applying Fisher information-based pruning");
 
@@ -790,7 +789,7 @@ async fn finetune_pruned_model(model: ModelContainer, epochs: u32) -> Result<Mod
             let learning_rate = 0.001 * (1.0 - epoch as f32 / epochs as f32);
             let finetuned_tensor = tensor.map(|x| {
                 if x.abs() > 1e-8 {
-                    let update = Random::default().gen_range(-learning_rate..learning_rate);
+                    let update = thread_rng().gen_range(-learning_rate..learning_rate);
                     x + update
                 } else {
                     0.0 // Keep pruned weights at zero
@@ -910,7 +909,7 @@ fn apply_structured_magnitude_pruning(
 ) -> Result<ModelContainer> {
     // Structured pruning removes entire rows/columns
     for tensor in &mut model.tensors {
-        let (rows, cols) = tensor.dim();
+        let (rows, _cols) = tensor.dim();
         let rows_to_remove = (rows as f32 * sparsity) as usize;
 
         if rows_to_remove > 0 {
@@ -938,7 +937,7 @@ fn apply_structured_magnitude_pruning(
 /// Simulate gradient importance for pruning
 fn simulate_gradient_importance(tensor: &Array2<f32>) -> Result<Array2<f32>> {
     // Use SciRS2 to simulate gradient importance
-    let mut rng = Random::seed(42);
+    let mut rng = thread_rng();
 
     let importance = tensor.map(|x| {
         let base_importance = x.abs();

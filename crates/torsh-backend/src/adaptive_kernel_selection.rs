@@ -14,6 +14,7 @@ use crate::performance_tuning::{
 };
 use crate::{BackendType, Device};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 use torsh_core::error::TorshError;
@@ -23,6 +24,14 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, format, string::String, vec::Vec};
+
+/// Global counter for generating unique measurement IDs
+static MEASUREMENT_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
+
+/// Generate a unique measurement ID
+fn generate_measurement_id() -> u64 {
+    MEASUREMENT_ID_COUNTER.fetch_add(1, Ordering::SeqCst)
+}
 
 /// Adaptive kernel selection coordinator
 pub struct AdaptiveKernelSelector {
@@ -634,16 +643,19 @@ impl AdaptiveKernelSelector {
     fn predict_execution_time(
         &self,
         kernel: &KernelImplementation,
-        _inputs: &KernelInputs,
+        inputs: &KernelInputs,
         workload: &WorkloadCharacteristics,
         system_state: &SystemState,
     ) -> Result<Duration> {
+        // Extract device ID from inputs
+        let device_id = inputs.device.id();
+
         // Use the performance modeler to predict execution time
         let _measurement = PerformanceMeasurement {
-            id: 0, // Placeholder
+            id: generate_measurement_id(),
             timestamp: std::time::SystemTime::now(),
             backend_type: kernel.backend_type,
-            device_id: 0, // Placeholder
+            device_id,
             workload: workload.clone(),
             parameters: TuningParameters::default(),
             system_state: system_state.clone(),
@@ -802,14 +814,27 @@ impl AdaptiveKernelSelector {
             / execution_times.len() as f64;
         let std_dev = Duration::from_secs_f64(variance.sqrt());
 
+        // Calculate memory bandwidth (bytes per second)
+        // Estimate: assume we read and write the data once each
+        let total_bytes_accessed = (inputs.total_size * 2) as f64; // Read + Write
+        let memory_bandwidth = total_bytes_accessed / avg_time.as_secs_f64();
+
+        // Estimate cache hit rate based on data size and variance
+        // Lower variance often indicates better cache locality
+        // This is a heuristic: cache_hit_rate decreases as data size increases
+        let cache_size_estimate = 32.0 * 1024.0 * 1024.0; // 32 MB L3 cache estimate
+        let data_size_ratio = (inputs.total_size as f64 / cache_size_estimate).min(1.0);
+        let variance_factor = 1.0 - (std_dev.as_secs_f64() / avg_time.as_secs_f64()).min(0.5);
+        let cache_hit_rate = (1.0 - data_size_ratio) * variance_factor;
+
         Ok(BenchmarkResult {
             avg_execution_time: avg_time,
             min_execution_time: min_time,
             max_execution_time: max_time,
             std_deviation: std_dev,
             throughput: 1.0 / avg_time.as_secs_f64(),
-            memory_bandwidth: 0.0, // Placeholder
-            cache_hit_rate: 0.0,   // Placeholder
+            memory_bandwidth,
+            cache_hit_rate,
         })
     }
 }

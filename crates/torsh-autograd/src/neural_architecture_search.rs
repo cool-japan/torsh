@@ -5,11 +5,11 @@
 //! gradient-based optimization. It supports various DNAS methods including DARTS,
 //! GDAS, PC-DARTS, and custom search strategies.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::error_handling::{AutogradError, AutogradResult};
 use scirs2_core::random::{Random, Rng}; // SciRS2 POLICY compliant
-use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::collections::HashMap;
 
 /// Trait for searchable operations in DNAS
 pub trait SearchableOperation: Send + Sync + std::fmt::Debug {
@@ -183,7 +183,7 @@ impl ConvOperation {
         let limit = (6.0 / (fan_in + fan_out) as f64).sqrt();
 
         for w in &mut weights {
-            *w = (Random::default().gen::<f64>() - 0.5) * 2.0 * limit;
+            *w = (Random::default().random::<f64>() - 0.5) * 2.0 * limit;
         }
 
         let bias = vec![0.0; out_channels];
@@ -223,7 +223,7 @@ impl SearchableOperation for ConvOperation {
                         let input_pos = pos * self.stride + k;
                         if input_pos < input_size {
                             let weight_idx =
-                                ((out_ch * self.in_channels + in_ch) * self.kernel_size + k);
+                                (out_ch * self.in_channels + in_ch) * self.kernel_size + k;
                             let input_idx = in_ch * input_size + input_pos;
                             sum += input[input_idx] * self.weights[weight_idx];
                         }
@@ -262,7 +262,7 @@ impl SearchableOperation for ConvOperation {
                         let input_pos = pos * self.stride + k;
                         if input_pos < input_size {
                             let weight_idx =
-                                ((out_ch * self.in_channels + in_ch) * self.kernel_size + k);
+                                (out_ch * self.in_channels + in_ch) * self.kernel_size + k;
                             let input_idx = in_ch * input_size + input_pos;
 
                             // Gradient w.r.t. weights
@@ -379,10 +379,10 @@ impl MixedOperation {
 
     /// Apply Gumbel softmax for discrete sampling
     fn gumbel_softmax(&self, hard: bool) -> Vec<f64> {
-        let mut gumbel_noise: Vec<f64> = (0..self.alpha_weights.len())
+        let gumbel_noise: Vec<f64> = (0..self.alpha_weights.len())
             .map(|_| {
-                let u1: f64 = Random::default().gen();
-                let u2: f64 = Random::default().gen();
+                let u1: f64 = Random::default().random();
+                let _u2: f64 = Random::default().random();
                 -(-u1.ln()).ln() // Gumbel noise
             })
             .collect();
@@ -788,7 +788,7 @@ impl DARTS {
         let mut edge_weights = HashMap::new();
 
         for (edge_idx, edge) in self.edges.iter().enumerate() {
-            let (op_idx, op_name, weight) = edge.operation.most_likely_operation();
+            let (op_idx, op_name, _weight) = edge.operation.most_likely_operation();
             edge_operations.insert(edge_idx, (op_idx, op_name.to_string()));
             edge_weights.insert(edge_idx, edge.operation.alpha_weights().to_vec());
         }
@@ -1080,7 +1080,7 @@ mod tests {
             Box::new(ZeroOperation::new(10)),
         ];
 
-        let mut mixed_op = MixedOperation::new(operations, 1.0);
+        let mixed_op = MixedOperation::new(operations, 1.0);
         let input = vec![1.0; 10];
 
         let output = mixed_op

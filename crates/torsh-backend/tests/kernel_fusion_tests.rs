@@ -4,7 +4,7 @@
 //! including fusion opportunity detection, dynamic kernel generation, performance
 //! prediction, and optimization strategy selection under various operation patterns.
 
-#![cfg(feature = "cuda")]
+#![cfg(cuda_available)]
 
 use std::collections::HashMap;
 use std::time::{Duration, Instant, SystemTime};
@@ -16,7 +16,7 @@ use torsh_backend::cuda::{
     ReductionType,
 };
 
-#[cfg(all(test, feature = "cuda"))]
+#[cfg(all(test, cuda_available))]
 mod kernel_fusion_tests {
     use super::*;
 

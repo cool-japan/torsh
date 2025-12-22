@@ -22,26 +22,33 @@
 // ========================================
 
 // Core model families
-pub mod common;
+pub mod bigbird;
+pub mod longformer;
+pub mod nlp_common;
 pub mod roberta;
 pub mod t5;
-// TODO: Implement these modules when they have content
-// pub mod xlnet;
-// pub mod longformer;
-// pub mod bigbird;
+pub mod xlnet;
 
 // Re-export common components for easy access
-pub use common::preprocessing::*;
-pub use common::types::*;
-pub use common::utils::*;
+pub use nlp_common::preprocessing::*;
+pub use nlp_common::types::*;
+pub use nlp_common::utils::*;
 
-// Re-export all model families
-// TODO: Enable when modules are implemented
-// pub use bigbird::*;
-// pub use longformer::*;
+// Re-export main model structs from each family (avoiding ambiguous submodule re-exports)
+pub use bigbird::{
+    BigBirdConfig, BigBirdEmbeddings, BigBirdEncoder, BigBirdForSequenceClassification,
+    BigBirdLayer, BigBirdModel, BigBirdSparseAttention,
+};
+pub use longformer::{
+    LongformerConfig, LongformerEmbeddings, LongformerEncoder, LongformerForSequenceClassification,
+    LongformerLayer, LongformerModel, LongformerSlidingWindowAttention,
+};
 pub use roberta::*;
 pub use t5::*;
-// pub use xlnet::*;
+pub use xlnet::{
+    XLNetConfig, XLNetEmbeddings, XLNetEncoder, XLNetForSequenceClassification, XLNetLayer,
+    XLNetModel, XLNetRelativeAttention, XLNetTwoStreamAttention,
+};
 
 // ========================================
 // LEGACY RE-EXPORTS (for backward compatibility)

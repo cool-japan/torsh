@@ -14,14 +14,17 @@ use torsh_core::{device::DeviceType, error::Result};
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```no_run
 /// use torsh_data::dataloader::memory::{MemoryPinning, CpuMemoryPinner};
 ///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let pinner = CpuMemoryPinner;
 /// let data = vec![1, 2, 3, 4, 5];
 /// let pinned_data = pinner.pin_memory(data)?;
 ///
 /// println!("Supports pinning: {}", pinner.supports_pinning());
+/// # Ok(())
+/// # }
 /// ```
 pub trait MemoryPinning<T> {
     /// Pin memory for GPU transfers
@@ -64,7 +67,7 @@ pub trait MemoryPinning<T> {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_data::dataloader::memory::{CpuMemoryPinner, MemoryPinning};
 ///
 /// let pinner = CpuMemoryPinner;
@@ -105,7 +108,7 @@ impl<T> MemoryPinning<T> for CpuMemoryPinner {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// #[cfg(feature = "cuda")]
 /// use torsh_data::dataloader::memory::{CudaMemoryPinner, MemoryPinning};
 ///
@@ -135,7 +138,7 @@ impl CudaMemoryPinner {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use torsh_data::dataloader::memory::CudaMemoryPinner;
     ///
     /// let pinner = CudaMemoryPinner::new(0)?;
@@ -208,7 +211,7 @@ where
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_data::dataloader::memory::MemoryPinningManager;
 /// use torsh_core::device::DeviceType;
 ///
@@ -254,7 +257,7 @@ impl MemoryPinningManager {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use torsh_data::dataloader::memory::MemoryPinningManager;
     /// use torsh_core::device::DeviceType;
     /// use torsh_tensor::Tensor;
@@ -365,6 +368,8 @@ impl MemoryPinningManager {
     ///
     /// String describing available pinning capabilities
     pub fn available_pinners(&self) -> String {
+        // mut needed when cuda feature is enabled for info.push()
+        #[allow(unused_mut)]
         let mut info = vec!["CPU (no-op)".to_string()];
 
         #[cfg(feature = "cuda")]

@@ -4,7 +4,6 @@
 //! baseline storage, statistical significance testing, and automated reporting.
 
 use super::benchmarking::{benchmark, BenchmarkConfig, BenchmarkResults};
-use super::core::OperationSummary;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};

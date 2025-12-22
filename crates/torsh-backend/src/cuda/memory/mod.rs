@@ -69,24 +69,27 @@
 //! # Ok::<(), String>(())
 //! ```
 
+#[allow(unused_imports)]
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex, RwLock};
-use std::time::Duration;
+#[allow(unused_imports)]
+use std::sync::{Arc, Mutex};
+#[allow(unused_imports)]
+use std::time::Instant;
 
 // Re-export all public interfaces
 pub use allocation::{
     AllocationMetadata, AllocationPriority, AllocationResult, AllocationStrategy, AllocationType,
-    CudaMemoryAllocation, MemoryAlignment,
+    CudaAllocation, CudaMemoryAllocation, MemoryAlignment, UnifiedAllocation,
 };
 
 pub use device_memory::{
-    CudaMemoryManager as DeviceMemoryManager, DeviceMemoryMetrics, DeviceMemoryPool,
-    DeviceProperties, PoolConfiguration as DevicePoolConfiguration,
+    CudaMemoryManager, CudaMemoryManager as DeviceMemoryManager, DeviceMemoryMetrics,
+    DeviceMemoryPool, DeviceProperties, PoolConfiguration as DevicePoolConfiguration,
 };
 
 pub use unified_memory::{
-    AccessPattern, MigrationStrategy, PrefetchStrategy, UnifiedMemoryManager, UnifiedMemoryMetrics,
-    UnifiedMemoryPool,
+    AccessPattern, MemoryAdvice, MigrationStrategy, PrefetchStrategy, UnifiedMemoryManager,
+    UnifiedMemoryMetrics, UnifiedMemoryPool,
 };
 
 pub use pinned_memory::{

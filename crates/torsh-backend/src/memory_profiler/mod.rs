@@ -41,6 +41,8 @@
 //! - [`collections::optimization`]: Types for performance optimization
 //! - [`collections::scirs2`]: Types for SciRS2 integration
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use std::time::{Duration, Instant};
 
 // Module declarations
@@ -149,6 +151,9 @@ pub use fragmentation::{
     FutureImpactPrediction,
 };
 
+// NOTE: scirs2 meta crate removed - these types may need to be imported from specific sub-crates if needed
+// TODO: If these types are required, import from the appropriate scirs2-* sub-crate
+/*
 pub use scirs2::{
     // Advanced features
     AllocatorAdvancedMetrics,
@@ -165,6 +170,7 @@ pub use scirs2::{
     ScirS2IntegrationConfig,
     ScirS2PoolInfo,
 };
+*/
 
 /// Prelude module for convenient imports
 ///
@@ -175,6 +181,9 @@ pub use scirs2::{
 /// ```
 pub mod prelude {
     pub use super::{
+        // SciRS2 integration - imported from scirs2 submodule
+        scirs2::ScirS2Event,
+        scirs2::ScirS2Integration,
         // Pattern analysis
         AccessPatternAnalyzer,
         AccessType,
@@ -201,11 +210,6 @@ pub mod prelude {
         PerformanceHint,
         PerformanceHintType,
         PressureLevel,
-
-        ScirS2Event,
-
-        // SciRS2 integration
-        ScirS2Integration,
     };
 }
 
@@ -238,7 +242,7 @@ pub mod collections {
 
     /// Types for SciRS2 integration
     pub mod scirs2 {
-        pub use crate::memory_profiler::{
+        pub use crate::memory_profiler::scirs2::{
             AllocatorAdvancedMetrics, IntegrationStatus, PoolAdvancedAnalytics,
             ScirS2AllocatorStats, ScirS2Event, ScirS2Integration, ScirS2IntegrationConfig,
             ScirS2PoolInfo,
@@ -265,6 +269,7 @@ pub mod collections {
 
 /// Factory functions for creating common configurations
 pub mod factory {
+    use super::scirs2::ScirS2IntegrationConfig;
     use super::*;
     use std::time::Duration;
 
@@ -527,7 +532,7 @@ pub mod utils {
     }
 
     /// Create a summary of memory profiler state
-    pub fn create_profiler_summary(profiler: &MemoryProfiler) -> ProfilerSummary {
+    pub fn create_profiler_summary(_profiler: &MemoryProfiler) -> ProfilerSummary {
         ProfilerSummary {
             total_allocations: 0, // Would need access to internal state
             current_memory_usage: format_memory_size(0),
@@ -777,6 +782,7 @@ mod tests {
     #[test]
     fn test_collections_exports() {
         // Test that collections re-export the correct types
+        #![allow(unused_imports)]
         use collections::monitoring::*;
         use collections::optimization::*;
         use collections::profiling::*;
@@ -819,6 +825,7 @@ mod tests {
     fn test_backward_compatibility() {
         // Test that all the original types are still accessible
         // This ensures backward compatibility after the module split
+        use scirs2::ScirS2IntegrationConfig;
 
         // Core types
         let _config = MemoryProfilerConfig::default();
@@ -840,6 +847,6 @@ mod tests {
         let _scirs2_config = ScirS2IntegrationConfig::default();
 
         // All types should be accessible without qualification
-        // after importing the module root
+        // after importing the module root (except scirs2 types which require explicit import)
     }
 }

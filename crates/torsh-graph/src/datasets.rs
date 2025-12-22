@@ -3,7 +3,9 @@
 //! Implementation of comprehensive graph dataset loading capabilities
 //! as specified in TODO.md, including GraphML, GML, and other formats.
 
-use crate::{conv::HeteroGraphData, GraphData};
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
+use crate::GraphData;
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::collections::HashMap;
@@ -365,7 +367,7 @@ impl GraphDatasetLoader for JSONLoader {
 impl JSONLoader {
     fn convert_json_to_graph(&self, data: JsonGraphData) -> IoResult<GraphData> {
         let num_nodes = data.nodes.len();
-        let num_edges = data.edges.len();
+        let _num_edges = data.edges.len();
 
         if num_nodes == 0 {
             return Err(std::io::Error::new(
@@ -559,7 +561,7 @@ impl GraphSampler {
             use scirs2_core::random::Rng;
             let mut rng = scirs2_core::random::thread_rng();
             for i in (1..indices.len()).rev() {
-                let j = (rng.gen::<f64>() * (i + 1) as f64) as usize;
+                let j = (rng.random::<f64>() * (i + 1) as f64) as usize;
                 indices.swap(i, j);
             }
         }

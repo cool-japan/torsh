@@ -11,9 +11,11 @@
 //! - **Copy-on-write**: Safe in-place modifications with gradient preservation
 //! - **Graph integration**: Coordination with computation graph for gradient tracking
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::autograd_traits::AutogradTensor;
 use crate::grad_mode::is_grad_enabled;
-use scirs2::autograd::VariableEnvironment;
+use scirs2_autograd::VariableEnvironment;
 use torsh_core::error::{Result, TorshError};
 
 // Thread-local variable environment for managing tensor gradients
@@ -182,7 +184,7 @@ where
             let operation_id = ctx.new_tensor_id();
 
             // Record the in-place operation as a graph mutation
-            ctx.add_operation(
+            let _ = ctx.add_operation(
                 format!("inplace_{operation_name}"),
                 vec![], // In-place operations don't have separate inputs
                 operation_id,

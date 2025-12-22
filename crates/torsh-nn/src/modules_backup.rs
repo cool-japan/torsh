@@ -2,7 +2,7 @@
 
 use crate::{Module, ModuleBase, Parameter};
 use parking_lot::RwLock;
-use scirs2::neural::{activations as sci_act, layers as sci_layers};
+use scirs2_neural::{activations as sci_act, layers as sci_layers};
 use std::collections::HashMap;
 use std::sync::Arc;
 use torsh_autograd::prelude::*;
@@ -271,9 +271,138 @@ impl MultiheadAttention {
 
 impl Module for MultiheadAttention {
     fn forward(&self, input: &Tensor) -> Result<Tensor> {
-        // Simplified implementation - placeholder
-        // TODO: Implement proper multi-head attention when tensor ops are available
-        Ok(input.clone())
+        // Implement scaled dot-product multi-head attention
+        // Simplified version: self-attention with query=key=value=input
+        // Input: [batch, seq_len, embed_dim]
+        // Output: [batch, seq_len, embed_dim]
+
+        let input_shape = input.shape().dims();
+        if input_shape.len() != 3 {
+            return Err(torsh_core::error::TorshError::InvalidShape(
+                format!("MultiheadAttention expects 3D input [batch, seq, embed], got {}D", input_shape.len())
+            ));
+        }
+
+        let batch_size = input_shape[0];
+        let seq_len = input_shape[1];
+        let embed_dim = input_shape[2];
+
+        // Get projection weights
+        let q_proj = self.base.parameters.get("q_proj_weight")
+            .ok_or_else(|| torsh_core::error::TorshError::InvalidArgument("Missing q_proj_weight".to_string()))?
+            .tensor().read();
+        let k_proj = self.base.parameters.get("k_proj_weight")
+            .ok_or_else(|| torsh_core::error::TorshError::InvalidArgument("Missing k_proj_weight".to_string()))?
+            .tensor().read();
+        let v_proj = self.base.parameters.get("v_proj_weight")
+            .ok_or_else(|| torsh_core::error::TorshError::InvalidArgument("Missing v_proj_weight".to_string()))?
+            .tensor().read();
+        let out_proj = self.base.parameters.get("out_proj_weight")
+            .ok_or_else(|| torsh_core::error::TorshError::InvalidArgument("Missing out_proj_weight".to_string()))?
+            .tensor().read();
+
+        let q_w = q_proj.to_vec()?;
+        let k_w = k_proj.to_vec()?;
+        let v_w = v_proj.to_vec()?;
+        let o_w = out_proj.to_vec()?;
+        let input_data = input.to_vec()?;
+
+        let head_dim = embed_dim / self.num_heads;
+        let scale = (head_dim as f32).sqrt();
+
+        // Storage for output
+        let mut output_data = vec![0.0f32; batch_size * seq_len * embed_dim];
+
+        // Process each batch
+        for b in 0..batch_size {
+            // Project Q, K, V for all positions
+            let mut queries = vec![vec![0.0f32; embed_dim]; seq_len];
+            let mut keys = vec![vec![0.0f32; embed_dim]; seq_len];
+            let mut values = vec![vec![0.0f32; embed_dim]; seq_len];
+
+            for pos in 0..seq_len {
+                let input_base = b * seq_len * embed_dim + pos * embed_dim;
+
+                // Q = input @ W_q
+                for i in 0..embed_dim {
+                    for j in 0..embed_dim {
+                        let inp = input_data[input_base + j];
+                        queries[pos][i] += inp * q_w[i * embed_dim + j];
+                        keys[pos][i] += inp * k_w[i * embed_dim + j];
+                        values[pos][i] += inp * v_w[i * embed_dim + j];
+                    }
+                }
+            }
+
+            // Process each head
+            let mut head_outputs = vec![vec![vec![0.0f32; head_dim]; seq_len]; self.num_heads];
+
+            for h in 0..self.num_heads {
+                let head_start = h * head_dim;
+                let head_end = head_start + head_dim;
+
+                // Compute attention for this head
+                for q_pos in 0..seq_len {
+                    let mut attention_weights = vec![0.0f32; seq_len];
+                    let mut max_score = f32::NEG_INFINITY;
+
+                    // Compute attention scores
+                    for k_pos in 0..seq_len {
+                        let mut score = 0.0f32;
+                        for d in 0..head_dim {
+                            let q_val = queries[q_pos][head_start + d];
+                            let k_val = keys[k_pos][head_start + d];
+                            score += q_val * k_val;
+                        }
+                        score /= scale;
+                        attention_weights[k_pos] = score;
+                        max_score = max_score.max(score);
+                    }
+
+                    // Softmax
+                    let mut sum_exp = 0.0f32;
+                    for weight in attention_weights.iter_mut() {
+                        *weight = (*weight - max_score).exp();
+                        sum_exp += *weight;
+                    }
+                    for weight in attention_weights.iter_mut() {
+                        *weight /= sum_exp;
+                    }
+
+                    // Weighted sum of values
+                    for d in 0..head_dim {
+                        let mut sum = 0.0f32;
+                        for k_pos in 0..seq_len {
+                            sum += attention_weights[k_pos] * values[k_pos][head_start + d];
+                        }
+                        head_outputs[h][q_pos][d] = sum;
+                    }
+                }
+            }
+
+            // Concatenate heads and project
+            for pos in 0..seq_len {
+                // Concatenate all heads
+                let mut concat = vec![0.0f32; embed_dim];
+                for h in 0..self.num_heads {
+                    for d in 0..head_dim {
+                        concat[h * head_dim + d] = head_outputs[h][pos][d];
+                    }
+                }
+
+                // Output projection
+                for i in 0..embed_dim {
+                    let mut sum = 0.0f32;
+                    for j in 0..embed_dim {
+                        sum += concat[j] * o_w[i * embed_dim + j];
+                    }
+                    let output_idx = b * seq_len * embed_dim + pos * embed_dim + i;
+                    output_data[output_idx] = sum;
+                }
+            }
+        }
+
+        Tensor::from_vec(output_data, &[batch_size, seq_len, embed_dim])
     }
 
     fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
@@ -346,10 +475,46 @@ impl Embedding {
 
 impl Module for Embedding {
     fn forward(&self, input: &Tensor) -> Result<Tensor> {
-        // Simplified implementation - placeholder
-        // TODO: Implement proper embedding lookup
-        let weight = self.base.parameters["weight"].tensor().read().clone();
-        Ok(weight.clone())
+        // Implement proper embedding lookup
+        // Input: [batch_size, seq_len] or [seq_len] containing indices
+        // Output: [batch_size, seq_len, embedding_dim] or [seq_len, embedding_dim]
+
+        let weight = self.base.parameters["weight"].tensor().read();
+        let indices = input.to_vec()?;
+        let input_shape = input.shape().dims();
+
+        // Get embedding dimensions
+        let weight_shape = weight.shape().dims();
+        let embedding_dim = weight_shape[1];
+
+        // Get weight data
+        let weight_data = weight.to_vec()?;
+
+        // Build output
+        let total_lookups = indices.len();
+        let mut output_data = Vec::with_capacity(total_lookups * embedding_dim);
+
+        for &idx_f32 in indices.iter() {
+            let idx = idx_f32 as usize;
+
+            // Bounds check
+            if idx >= self.num_embeddings {
+                return Err(torsh_core::error::TorshError::InvalidArgument(format!(
+                    "Index {} out of bounds for embedding with {} entries", idx, self.num_embeddings
+                )));
+            }
+
+            // Copy embedding vector
+            let start = idx * embedding_dim;
+            let end = start + embedding_dim;
+            output_data.extend_from_slice(&weight_data[start..end]);
+        }
+
+        // Create output shape
+        let mut output_shape = input_shape.to_vec();
+        output_shape.push(embedding_dim);
+
+        Tensor::from_vec(output_data, &output_shape)
     }
 
     fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
@@ -1367,9 +1532,108 @@ impl RNN {
 
 impl Module for RNN {
     fn forward(&self, input: &Tensor) -> Result<Tensor> {
-        // Simplified RNN implementation
-        // TODO: Implement proper RNN forward pass with hidden states
-        Ok(input.clone())
+        // Implement basic RNN forward pass
+        // Input: [seq_len, batch, input_size] or [batch, seq_len, input_size] if batch_first
+        // Output: [seq_len, batch, hidden_size] or [batch, seq_len, hidden_size]
+
+        let input_shape = input.shape().dims();
+        let (seq_len, batch_size, _input_size) = if self.batch_first {
+            (input_shape[1], input_shape[0], input_shape[2])
+        } else {
+            (input_shape[0], input_shape[1], input_shape[2])
+        };
+
+        // Initialize hidden state with zeros
+        let mut hidden = vec![vec![0.0f32; self.hidden_size]; batch_size];
+
+        // Get parameters for first layer (simplified - only use first layer)
+        let weight_ih = self.base.parameters.get("weight_ih_l0")
+            .ok_or_else(|| torsh_core::error::TorshError::InvalidArgument("Missing weight_ih_l0".to_string()))?
+            .tensor().read();
+        let weight_hh = self.base.parameters.get("weight_hh_l0")
+            .ok_or_else(|| torsh_core::error::TorshError::InvalidArgument("Missing weight_hh_l0".to_string()))?
+            .tensor().read();
+        let bias_ih = self.base.parameters.get("bias_ih_l0")
+            .ok_or_else(|| torsh_core::error::TorshError::InvalidArgument("Missing bias_ih_l0".to_string()))?
+            .tensor().read();
+        let bias_hh = self.base.parameters.get("bias_hh_l0")
+            .ok_or_else(|| torsh_core::error::TorshError::InvalidArgument("Missing bias_hh_l0".to_string()))?
+            .tensor().read();
+
+        let w_ih_data = weight_ih.to_vec()?;
+        let w_hh_data = weight_hh.to_vec()?;
+        let b_ih_data = bias_ih.to_vec()?;
+        let b_hh_data = bias_hh.to_vec()?;
+        let input_data = input.to_vec()?;
+
+        // Compute input size from input shape
+        let input_size = if self.batch_first { input_shape[2] } else { input_shape[2] };
+
+        // Storage for all timestep outputs
+        let mut all_outputs = Vec::with_capacity(seq_len * batch_size * self.hidden_size);
+
+        // Process each timestep
+        for t in 0..seq_len {
+            for b in 0..batch_size {
+                // Get input at timestep t for batch b
+                let input_idx_base = if self.batch_first {
+                    b * seq_len * input_size + t * input_size
+                } else {
+                    t * batch_size * input_size + b * input_size
+                };
+
+                // Compute: h_t = tanh(W_ih @ x_t + b_ih + W_hh @ h_{t-1} + b_hh)
+                for h in 0..self.hidden_size {
+                    let mut sum = b_ih_data[h] + b_hh_data[h];
+
+                    // W_ih @ x_t
+                    for i in 0..input_size {
+                        let x_val = input_data[input_idx_base + i];
+                        let w_val = w_ih_data[h * input_size + i];
+                        sum += w_val * x_val;
+                    }
+
+                    // W_hh @ h_{t-1}
+                    for h_prev in 0..self.hidden_size {
+                        let h_val = hidden[b][h_prev];
+                        let w_val = w_hh_data[h * self.hidden_size + h_prev];
+                        sum += w_val * h_val;
+                    }
+
+                    // Apply tanh activation
+                    hidden[b][h] = sum.tanh();
+                }
+            }
+
+            // Store outputs for this timestep
+            for b in 0..batch_size {
+                all_outputs.extend_from_slice(&hidden[b]);
+            }
+        }
+
+        // Reshape output
+        let output_shape = if self.batch_first {
+            vec![batch_size, seq_len, self.hidden_size]
+        } else {
+            vec![seq_len, batch_size, self.hidden_size]
+        };
+
+        // Reorder if batch_first
+        let final_output = if self.batch_first {
+            // all_outputs is in [seq, batch, hidden] order, need [batch, seq, hidden]
+            let mut reordered = Vec::with_capacity(all_outputs.len());
+            for b in 0..batch_size {
+                for t in 0..seq_len {
+                    let src_idx = (t * batch_size + b) * self.hidden_size;
+                    reordered.extend_from_slice(&all_outputs[src_idx..src_idx + self.hidden_size]);
+                }
+            }
+            reordered
+        } else {
+            all_outputs
+        };
+
+        Tensor::from_vec(final_output, &output_shape)
     }
 
     fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
@@ -1517,9 +1781,142 @@ impl LSTM {
 
 impl Module for LSTM {
     fn forward(&self, input: &Tensor) -> Result<Tensor> {
-        // Simplified LSTM implementation
-        // TODO: Implement proper LSTM forward pass with cell states and hidden states
-        Ok(input.clone())
+        // Implement LSTM forward pass
+        // Input: [seq_len, batch, input_size] or [batch, seq_len, input_size] if batch_first
+        // Output: [seq_len, batch, hidden_size] or [batch, seq_len, hidden_size]
+        // LSTM: i_t = σ(W_ii x_t + b_ii + W_hi h_{t-1} + b_hi)
+        //       f_t = σ(W_if x_t + b_if + W_hf h_{t-1} + b_hf)
+        //       g_t = tanh(W_ig x_t + b_ig + W_hg h_{t-1} + b_hg)
+        //       o_t = σ(W_io x_t + b_io + W_ho h_{t-1} + b_ho)
+        //       c_t = f_t ⊙ c_{t-1} + i_t ⊙ g_t
+        //       h_t = o_t ⊙ tanh(c_t)
+
+        let input_shape = input.shape().dims();
+        let (seq_len, batch_size, _input_size) = if self.batch_first {
+            (input_shape[1], input_shape[0], input_shape[2])
+        } else {
+            (input_shape[0], input_shape[1], input_shape[2])
+        };
+
+        // Initialize hidden and cell states with zeros
+        let mut hidden = vec![vec![0.0f32; self.hidden_size]; batch_size];
+        let mut cell = vec![vec![0.0f32; self.hidden_size]; batch_size];
+
+        // Get parameters for first layer
+        let weight_ih = self.base.parameters.get("weight_ih_l0")
+            .ok_or_else(|| torsh_core::error::TorshError::InvalidArgument("Missing weight_ih_l0".to_string()))?
+            .tensor().read();
+        let weight_hh = self.base.parameters.get("weight_hh_l0")
+            .ok_or_else(|| torsh_core::error::TorshError::InvalidArgument("Missing weight_hh_l0".to_string()))?
+            .tensor().read();
+        let bias_ih = self.base.parameters.get("bias_ih_l0")
+            .ok_or_else(|| torsh_core::error::TorshError::InvalidArgument("Missing bias_ih_l0".to_string()))?
+            .tensor().read();
+        let bias_hh = self.base.parameters.get("bias_hh_l0")
+            .ok_or_else(|| torsh_core::error::TorshError::InvalidArgument("Missing bias_hh_l0".to_string()))?
+            .tensor().read();
+
+        let w_ih_data = weight_ih.to_vec()?;
+        let w_hh_data = weight_hh.to_vec()?;
+        let b_ih_data = bias_ih.to_vec()?;
+        let b_hh_data = bias_hh.to_vec()?;
+        let input_data = input.to_vec()?;
+
+        let input_size = input_shape[if self.batch_first { 2 } else { 2 }];
+        let mut all_outputs = Vec::with_capacity(seq_len * batch_size * self.hidden_size);
+
+        // Process each timestep
+        for t in 0..seq_len {
+            for b in 0..batch_size {
+                // Get input at timestep t for batch b
+                let input_idx_base = if self.batch_first {
+                    b * seq_len * input_size + t * input_size
+                } else {
+                    t * batch_size * input_size + b * input_size
+                };
+
+                // Compute gates: LSTM has 4 gates (input, forget, cell, output)
+                // Weights are stacked: [i, f, g, o]
+                for gate in 0..4 {
+                    for h in 0..self.hidden_size {
+                        let gate_h = gate * self.hidden_size + h;
+                        let mut sum = b_ih_data[gate_h] + b_hh_data[gate_h];
+
+                        // W_ih @ x_t
+                        for i in 0..input_size {
+                            let x_val = input_data[input_idx_base + i];
+                            let w_val = w_ih_data[gate_h * input_size + i];
+                            sum += w_val * x_val;
+                        }
+
+                        // W_hh @ h_{t-1}
+                        for h_prev in 0..self.hidden_size {
+                            let h_val = hidden[b][h_prev];
+                            let w_val = w_hh_data[gate_h * self.hidden_size + h_prev];
+                            sum += w_val * h_val;
+                        }
+
+                        // Apply activation and store in temporary gate values
+                        let gate_val = match gate {
+                            0 | 1 | 3 => 1.0 / (1.0 + (-sum).exp()), // sigmoid for i, f, o
+                            2 => sum.tanh(), // tanh for g
+                            _ => unreachable!(),
+                        };
+
+                        // Update cell and hidden based on gate
+                        match gate {
+                            0 => { /* input gate - will use in gate 2 */ },
+                            1 => cell[b][h] *= gate_val, // forget gate
+                            2 => {
+                                // cell gate - combine with input gate
+                                let i_val = {
+                                    let ig_h = h;
+                                    let mut i_sum = b_ih_data[ig_h] + b_hh_data[ig_h];
+                                    for i in 0..input_size {
+                                        i_sum += w_ih_data[ig_h * input_size + i] * input_data[input_idx_base + i];
+                                    }
+                                    for h_prev in 0..self.hidden_size {
+                                        i_sum += w_hh_data[ig_h * self.hidden_size + h_prev] * hidden[b][h_prev];
+                                    }
+                                    1.0 / (1.0 + (-i_sum).exp())
+                                };
+                                cell[b][h] += i_val * gate_val;
+                            },
+                            3 => hidden[b][h] = gate_val * cell[b][h].tanh(), // output gate
+                            _ => unreachable!(),
+                        }
+                    }
+                }
+            }
+
+            // Store outputs for this timestep
+            for b in 0..batch_size {
+                all_outputs.extend_from_slice(&hidden[b]);
+            }
+        }
+
+        // Reshape output
+        let output_shape = if self.batch_first {
+            vec![batch_size, seq_len, self.hidden_size]
+        } else {
+            vec![seq_len, batch_size, self.hidden_size]
+        };
+
+        // Reorder if batch_first
+        let final_output = if self.batch_first {
+            let mut reordered = Vec::with_capacity(all_outputs.len());
+            for b in 0..batch_size {
+                for t in 0..seq_len {
+                    let src_idx = (t * batch_size + b) * self.hidden_size;
+                    reordered.extend_from_slice(&all_outputs[src_idx..src_idx + self.hidden_size]);
+                }
+            }
+            reordered
+        } else {
+            all_outputs
+        };
+
+        Tensor::from_vec(final_output, &output_shape)
     }
 
     fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
@@ -1667,9 +2064,139 @@ impl GRU {
 
 impl Module for GRU {
     fn forward(&self, input: &Tensor) -> Result<Tensor> {
-        // Simplified GRU implementation
-        // TODO: Implement proper GRU forward pass with hidden states
-        Ok(input.clone())
+        // Implement GRU forward pass
+        // Input: [seq_len, batch, input_size] or [batch, seq_len, input_size] if batch_first
+        // Output: [seq_len, batch, hidden_size] or [batch, seq_len, hidden_size]
+        // GRU: r_t = σ(W_ir x_t + b_ir + W_hr h_{t-1} + b_hr)
+        //      z_t = σ(W_iz x_t + b_iz + W_hz h_{t-1} + b_hz)
+        //      n_t = tanh(W_in x_t + b_in + r_t ⊙ (W_hn h_{t-1} + b_hn))
+        //      h_t = (1 - z_t) ⊙ n_t + z_t ⊙ h_{t-1}
+
+        let input_shape = input.shape().dims();
+        let (seq_len, batch_size, _input_size) = if self.batch_first {
+            (input_shape[1], input_shape[0], input_shape[2])
+        } else {
+            (input_shape[0], input_shape[1], input_shape[2])
+        };
+
+        // Initialize hidden state with zeros
+        let mut hidden = vec![vec![0.0f32; self.hidden_size]; batch_size];
+
+        // Get parameters for first layer
+        let weight_ih = self.base.parameters.get("weight_ih_l0")
+            .ok_or_else(|| torsh_core::error::TorshError::InvalidArgument("Missing weight_ih_l0".to_string()))?
+            .tensor().read();
+        let weight_hh = self.base.parameters.get("weight_hh_l0")
+            .ok_or_else(|| torsh_core::error::TorshError::InvalidArgument("Missing weight_hh_l0".to_string()))?
+            .tensor().read();
+        let bias_ih = self.base.parameters.get("bias_ih_l0")
+            .ok_or_else(|| torsh_core::error::TorshError::InvalidArgument("Missing bias_ih_l0".to_string()))?
+            .tensor().read();
+        let bias_hh = self.base.parameters.get("bias_hh_l0")
+            .ok_or_else(|| torsh_core::error::TorshError::InvalidArgument("Missing bias_hh_l0".to_string()))?
+            .tensor().read();
+
+        let w_ih_data = weight_ih.to_vec()?;
+        let w_hh_data = weight_hh.to_vec()?;
+        let b_ih_data = bias_ih.to_vec()?;
+        let b_hh_data = bias_hh.to_vec()?;
+        let input_data = input.to_vec()?;
+
+        let input_size = input_shape[if self.batch_first { 2 } else { 2 }];
+        let mut all_outputs = Vec::with_capacity(seq_len * batch_size * self.hidden_size);
+
+        // Process each timestep
+        for t in 0..seq_len {
+            for b in 0..batch_size {
+                // Get input at timestep t for batch b
+                let input_idx_base = if self.batch_first {
+                    b * seq_len * input_size + t * input_size
+                } else {
+                    t * batch_size * input_size + b * input_size
+                };
+
+                // Temporary storage for gates
+                let mut r_gate = vec![0.0f32; self.hidden_size];
+                let mut z_gate = vec![0.0f32; self.hidden_size];
+                let mut n_gate = vec![0.0f32; self.hidden_size];
+
+                // Compute reset gate (r), update gate (z), and new gate (n)
+                // Weights are stacked: [r, z, n]
+                for gate in 0..3 {
+                    for h in 0..self.hidden_size {
+                        let gate_h = gate * self.hidden_size + h;
+                        let mut sum = b_ih_data[gate_h] + b_hh_data[gate_h];
+
+                        // W_ih @ x_t
+                        for i in 0..input_size {
+                            let x_val = input_data[input_idx_base + i];
+                            let w_val = w_ih_data[gate_h * input_size + i];
+                            sum += w_val * x_val;
+                        }
+
+                        // W_hh @ h_{t-1} (for r and z gates)
+                        // For n gate, we apply reset gate first
+                        if gate < 2 {
+                            for h_prev in 0..self.hidden_size {
+                                let h_val = hidden[b][h_prev];
+                                let w_val = w_hh_data[gate_h * self.hidden_size + h_prev];
+                                sum += w_val * h_val;
+                            }
+                        }
+
+                        // Store gate value
+                        match gate {
+                            0 => r_gate[h] = 1.0 / (1.0 + (-sum).exp()), // sigmoid for reset
+                            1 => z_gate[h] = 1.0 / (1.0 + (-sum).exp()), // sigmoid for update
+                            2 => {
+                                // For new gate, apply reset to hidden state
+                                let mut n_sum = sum;
+                                for h_prev in 0..self.hidden_size {
+                                    let h_val = hidden[b][h_prev];
+                                    let w_val = w_hh_data[gate_h * self.hidden_size + h_prev];
+                                    n_sum += r_gate[h_prev] * w_val * h_val;
+                                }
+                                n_gate[h] = n_sum.tanh(); // tanh for new
+                            },
+                            _ => unreachable!(),
+                        }
+                    }
+                }
+
+                // Update hidden state: h_t = (1 - z_t) ⊙ n_t + z_t ⊙ h_{t-1}
+                for h in 0..self.hidden_size {
+                    hidden[b][h] = (1.0 - z_gate[h]) * n_gate[h] + z_gate[h] * hidden[b][h];
+                }
+            }
+
+            // Store outputs for this timestep
+            for b in 0..batch_size {
+                all_outputs.extend_from_slice(&hidden[b]);
+            }
+        }
+
+        // Reshape output
+        let output_shape = if self.batch_first {
+            vec![batch_size, seq_len, self.hidden_size]
+        } else {
+            vec![seq_len, batch_size, self.hidden_size]
+        };
+
+        // Reorder if batch_first
+        let final_output = if self.batch_first {
+            let mut reordered = Vec::with_capacity(all_outputs.len());
+            for b in 0..batch_size {
+                for t in 0..seq_len {
+                    let src_idx = (t * batch_size + b) * self.hidden_size;
+                    reordered.extend_from_slice(&all_outputs[src_idx..src_idx + self.hidden_size]);
+                }
+            }
+            reordered
+        } else {
+            all_outputs
+        };
+
+        Tensor::from_vec(final_output, &output_shape)
     }
 
     fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {

@@ -1,9 +1,165 @@
-//! Convolution operations for neural networks
+//! # Convolution Operations for Neural Networks
+//!
+//! This module provides comprehensive convolution operations fundamental to deep learning,
+//! including standard, transposed, depthwise, and separable convolutions.
+//!
+//! ## Mathematical Foundation
+//!
+//! ### Standard Convolution
+//! The discrete convolution operation computes:
+//! ```text
+//! y[n] = Σ(k) x[n + k] * w[k] + b
+//! ```
+//! where:
+//! - `x` is the input signal
+//! - `w` is the convolution kernel (learnable weights)
+//! - `b` is the bias term
+//! - `k` ranges over the kernel size
+//!
+//! ### Output Size Calculation
+//! For a 1D convolution with stride `s`, padding `p`, dilation `d`, and kernel size `k`:
+//! ```text
+//! L_out = floor((L_in + 2p - d(k - 1) - 1) / s) + 1
+//! ```
+//!
+//! For 2D convolutions (height and width computed independently):
+//! ```text
+//! H_out = floor((H_in + 2p_h - d_h(k_h - 1) - 1) / s_h) + 1
+//! W_out = floor((W_in + 2p_w - d_w(k_w - 1) - 1) / s_w) + 1
+//! ```
+//!
+//! ### Transposed Convolution (Deconvolution)
+//! Transposed convolution reverses the spatial transformation:
+//! ```text
+//! L_out = (L_in - 1) * s - 2p + d(k - 1) + op + 1
+//! ```
+//! where `op` is the output padding parameter.
+//!
+//! ### Grouped Convolution
+//! Groups divide channels into independent convolution operations:
+//! - Total parameters: `C_out * (C_in / groups) * k`
+//! - Computational efficiency: O(1/groups) compared to standard convolution
+//! - Depthwise convolution is the special case where `groups = C_in = C_out`
+//!
+//! ## Performance Characteristics
+//!
+//! ### Computational Complexity
+//! - **Standard Conv2D**: O(N * C_in * C_out * k_h * k_w * H_out * W_out)
+//! - **Grouped Conv2D**: O(N * C_in * C_out * k_h * k_w * H_out * W_out / groups)
+//! - **Depthwise Conv2D**: O(N * C * k_h * k_w * H_out * W_out) where C = C_in = C_out
+//! - **Separable Conv2D**: O(N * C * k * H_out * W_out + N * C_in * C_out * H_out * W_out)
+//!
+//! ### Memory Usage
+//! - **Weights**: C_out * C_in * k_h * k_w * sizeof(dtype)
+//! - **Activations**: N * C_out * H_out * W_out * sizeof(dtype)
+//! - **Workspace** (for im2col): N * C_in * k_h * k_w * H_out * W_out * sizeof(dtype)
+//!
+//! ## Examples
+//!
+//! ### Basic 2D Convolution
+//! ```rust,no_run
+//! # use torsh_tensor::Tensor;
+//! # use torsh_functional::conv::conv2d;
+//! # fn example() -> torsh_core::Result<()> {
+//! // Input: batch=1, channels=3 (RGB), height=32, width=32
+//! let input = randn(&[1, 3, 32, 32])?;
+//!
+//! // Kernel: 64 output channels, 3 input channels, 3x3 kernel
+//! let weight = randn(&[64, 3, 3, 3])?;
+//! let bias = Some(Tensor::zeros(&[64])?);
+//!
+//! // Standard convolution: stride=1, padding=1
+//! let output = conv2d(
+//!     &input,
+//!     &weight,
+//!     bias.as_ref(),
+//!     (1, 1),  // stride
+//!     (1, 1),  // padding (maintains spatial dimensions)
+//!     (1, 1),  // dilation
+//!     1,       // groups
+//! )?;
+//!
+//! // Output shape: [1, 64, 32, 32]
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ### Depthwise Separable Convolution
+//! ```rust,no_run
+//! # use torsh_tensor::Tensor;
+//! # use torsh_functional::conv::{depthwise_conv2d, conv2d};
+//! # fn example() -> torsh_core::Result<()> {
+//! let input = randn(&[1, 64, 32, 32])?;
+//!
+//! // Depthwise convolution (spatial filtering)
+//! let depthwise_weight = randn(&[64, 1, 3, 3])?;
+//! let depthwise = depthwise_conv2d(
+//!     &input,
+//!     &depthwise_weight,
+//!     None,
+//!     (1, 1),
+//!     (1, 1),
+//!     (1, 1),
+//! )?;
+//!
+//! // Pointwise convolution (channel mixing)
+//! let pointwise_weight = randn(&[128, 64, 1, 1])?;
+//! let output = conv2d(
+//!     &depthwise,
+//!     &pointwise_weight,
+//!     None,
+//!     (1, 1),
+//!     (0, 0),
+//!     (1, 1),
+//!     1,
+//! )?;
+//!
+//! // Output shape: [1, 128, 32, 32]
+//! // Parameters: 64*(3*3) + 128*64 = 8768 (vs 64*128*3*3 = 73728 for standard)
+//! # Ok(())
+//! # }
+//! ```
 
 use torsh_core::Result as TorshResult;
 use torsh_tensor::Tensor;
 
 /// 1D convolution over an input signal composed of several input planes.
+///
+/// # Mathematical Definition
+/// ```text
+/// out[c_out][l] = bias[c_out] + Σ(c_in, k) weight[c_out][c_in][k] * input[c_in][l*s + k*d - p]
+/// ```
+///
+/// # Arguments
+/// * `input` - Input tensor of shape `[N, C_in, L]`
+/// * `weight` - Convolution kernel of shape `[C_out, C_in/groups, K]`
+/// * `bias` - Optional bias tensor of shape `[C_out]`
+/// * `stride` - Stride of the convolution
+/// * `padding` - Zero padding added to both sides
+/// * `dilation` - Spacing between kernel elements
+/// * `groups` - Number of blocked connections from input to output channels
+///
+/// # Shape
+/// - Input: `[N, C_in, L]`
+/// - Weight: `[C_out, C_in/groups, K]`
+/// - Bias: `[C_out]` (optional)
+/// - Output: `[N, C_out, L_out]` where `L_out = floor((L + 2*padding - dilation*(K-1) - 1) / stride) + 1`
+///
+/// # Examples
+/// ```rust,no_run
+/// # use torsh_tensor::Tensor;
+/// # use torsh_functional::conv::conv1d;
+/// # use torsh_functional::random_ops::randn;
+/// # fn example() -> torsh_core::Result<()> {
+/// let input = randn(&[2, 16, 100])?;  // batch=2, channels=16, length=100
+/// let weight = randn(&[32, 16, 5])?;  // 32 output channels, kernel_size=5
+/// let bias = Some(Tensor::zeros(&[32])?);
+///
+/// let output = conv1d(&input, &weight, bias.as_ref(), 1, 2, 1, 1)?;
+/// // Output shape: [2, 32, 100] (padding=2 maintains length)
+/// # Ok(())
+/// # }
+/// ```
 pub fn conv1d(
     input: &Tensor,
     weight: &Tensor,
@@ -13,14 +169,65 @@ pub fn conv1d(
     dilation: usize,
     groups: usize,
 ) -> TorshResult<Tensor> {
-    // Input shape: (N, C_in, L)
-    // Weight shape: (C_out, C_in/groups, kernel_size)
-    // Output shape: (N, C_out, L_out)
-
     input.conv1d(weight, bias, stride, padding, dilation, groups)
 }
 
 /// 2D convolution over an input image composed of several input planes.
+///
+/// # Mathematical Definition
+/// ```text
+/// out[c_out][h][w] = bias[c_out] +
+///     Σ(c_in, kh, kw) weight[c_out][c_in][kh][kw] *
+///                     input[c_in][h*s_h + kh*d_h - p_h][w*s_w + kw*d_w - p_w]
+/// ```
+///
+/// # Arguments
+/// * `input` - Input tensor of shape `[N, C_in, H, W]`
+/// * `weight` - Convolution kernel of shape `[C_out, C_in/groups, K_h, K_w]`
+/// * `bias` - Optional bias tensor of shape `[C_out]`
+/// * `stride` - Stride of the convolution `(stride_h, stride_w)`
+/// * `padding` - Zero padding added to both sides `(padding_h, padding_w)`
+/// * `dilation` - Spacing between kernel elements `(dilation_h, dilation_w)`
+/// * `groups` - Number of blocked connections from input to output channels
+///
+/// # Shape
+/// - Input: `[N, C_in, H, W]`
+/// - Weight: `[C_out, C_in/groups, K_h, K_w]`
+/// - Bias: `[C_out]` (optional)
+/// - Output: `[N, C_out, H_out, W_out]` where:
+///   - `H_out = floor((H + 2*padding_h - dilation_h*(K_h-1) - 1) / stride_h) + 1`
+///   - `W_out = floor((W + 2*padding_w - dilation_w*(K_w-1) - 1) / stride_w) + 1`
+///
+/// # Performance Notes
+/// - Computational complexity: O(N * C_in * C_out * K_h * K_w * H_out * W_out / groups)
+/// - Memory usage scales with batch size and output spatial dimensions
+/// - For large kernels (K > 5), consider using FFT-based convolution
+/// - Grouped convolutions reduce computation by factor of 1/groups
+///
+/// # Examples
+/// ```rust,no_run
+/// # use torsh_tensor::Tensor;
+/// # use torsh_functional::conv::conv2d;
+/// # use torsh_functional::random_ops::randn;
+/// # fn example() -> torsh_core::Result<()> {
+/// // Standard convolution for image classification
+/// let input = randn(&[8, 3, 224, 224])?;    // ImageNet-like input
+/// let weight = randn(&[64, 3, 7, 7])?;      // First layer kernel
+/// let bias = Some(Tensor::zeros(&[64])?);
+///
+/// let output = conv2d(
+///     &input,
+///     &weight,
+///     bias.as_ref(),
+///     (2, 2),  // stride=2 reduces spatial dimensions by half
+///     (3, 3),  // padding=3 for kernel_size=7
+///     (1, 1),  // standard dilation
+///     1,       // no grouping
+/// )?;
+/// // Output shape: [8, 64, 112, 112]
+/// # Ok(())
+/// # }
+/// ```
 pub fn conv2d(
     input: &Tensor,
     weight: &Tensor,
@@ -30,14 +237,74 @@ pub fn conv2d(
     dilation: (usize, usize),
     groups: usize,
 ) -> TorshResult<Tensor> {
-    // Input shape: (N, C_in, H, W)
-    // Weight shape: (C_out, C_in/groups, kernel_h, kernel_w)
-    // Output shape: (N, C_out, H_out, W_out)
-
     input.conv2d(weight, bias, stride, padding, dilation, groups)
 }
 
-/// 3D convolution over an input image composed of several input planes.
+/// 3D convolution over a volumetric input composed of several input planes.
+///
+/// # Mathematical Definition
+/// ```text
+/// out[c_out][d][h][w] = bias[c_out] +
+///     Σ(c_in, kd, kh, kw) weight[c_out][c_in][kd][kh][kw] *
+///                         input[c_in][d*s_d + kd*dil_d - p_d]
+///                                    [h*s_h + kh*dil_h - p_h]
+///                                    [w*s_w + kw*dil_w - p_w]
+/// ```
+///
+/// # Arguments
+/// * `input` - Input tensor of shape `[N, C_in, D, H, W]`
+/// * `weight` - Convolution kernel of shape `[C_out, C_in/groups, K_d, K_h, K_w]`
+/// * `bias` - Optional bias tensor of shape `[C_out]`
+/// * `stride` - Stride of the convolution `(stride_d, stride_h, stride_w)`
+/// * `padding` - Zero padding added to all sides `(padding_d, padding_h, padding_w)`
+/// * `dilation` - Spacing between kernel elements `(dilation_d, dilation_h, dilation_w)`
+/// * `groups` - Number of blocked connections from input to output channels
+///
+/// # Shape
+/// - Input: `[N, C_in, D, H, W]`
+/// - Weight: `[C_out, C_in/groups, K_d, K_h, K_w]`
+/// - Bias: `[C_out]` (optional)
+/// - Output: `[N, C_out, D_out, H_out, W_out]` where each dimension follows:
+///   - `D_out = floor((D + 2*padding_d - dilation_d*(K_d-1) - 1) / stride_d) + 1`
+///   - `H_out = floor((H + 2*padding_h - dilation_h*(K_h-1) - 1) / stride_h) + 1`
+///   - `W_out = floor((W + 2*padding_w - dilation_w*(K_w-1) - 1) / stride_w) + 1`
+///
+/// # Applications
+/// - **Video processing**: Temporal convolutions across video frames
+/// - **Medical imaging**: 3D CT/MRI scan analysis
+/// - **Point cloud processing**: Volumetric deep learning
+/// - **Action recognition**: Spatio-temporal feature extraction
+///
+/// # Performance Notes
+/// - Computational complexity: O(N * C_in * C_out * K_d * K_h * K_w * D_out * H_out * W_out / groups)
+/// - Memory intensive due to 3D spatial dimensions
+/// - Consider using (2+1)D convolutions for video: separate spatial and temporal convolutions
+/// - Grouped convolutions particularly beneficial for 3D due to high computational cost
+///
+/// # Examples
+/// ```rust,no_run
+/// # use torsh_tensor::Tensor;
+/// # use torsh_functional::conv::conv3d;
+/// # use torsh_functional::random_ops::randn;
+/// # fn example() -> torsh_core::Result<()> {
+/// // Video classification: 16-frame clips
+/// let input = randn(&[4, 3, 16, 112, 112])?;  // batch=4, RGB, 16 frames, 112x112
+/// let weight = randn(&[64, 3, 3, 3, 3])?;     // 3x3x3 kernel
+/// let bias = Some(Tensor::zeros(&[64])?);
+///
+/// let output = conv3d(
+///     &input,
+///     &weight,
+///     bias.as_ref(),
+///     (1, 1, 1),  // unit stride
+///     (1, 1, 1),  // same padding
+///     (1, 1, 1),  // standard dilation
+///     1,          // no grouping
+/// )?;
+/// // Output shape: [4, 64, 16, 112, 112]
+/// # Ok(())
+/// # }
+/// ```
 pub fn conv3d(
     input: &Tensor,
     weight: &Tensor,
@@ -47,10 +314,6 @@ pub fn conv3d(
     dilation: (usize, usize, usize),
     groups: usize,
 ) -> TorshResult<Tensor> {
-    // Input shape: (N, C_in, D, H, W)
-    // Weight shape: (C_out, C_in/groups, kernel_d, kernel_h, kernel_w)
-    // Output shape: (N, C_out, D_out, H_out, W_out)
-
     input.conv3d(weight, bias, stride, padding, dilation, groups)
 }
 

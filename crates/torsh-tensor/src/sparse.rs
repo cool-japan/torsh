@@ -1,19 +1,23 @@
-//! Sparse tensor implementation using COO (Coordinate) format
+//! Sparse tensor implementation with multiple storage formats
 //!
 //! This module provides efficient sparse tensor operations for tensors with many zero elements.
-//! COO format stores only non-zero elements along with their coordinates, providing significant
-//! memory savings for sparse data.
+//! Supports three storage formats:
+//! - COO (Coordinate): General purpose, easy to construct and modify
+//! - CSR (Compressed Sparse Row): Efficient for row-wise operations and matrix-vector multiplication
+//! - CSC (Compressed Sparse Column): Efficient for column-wise operations
+//!
+//! Each format has different performance characteristics:
+//! - COO: Best for construction, random access, and format conversion
+//! - CSR: Best for row slicing, matrix-vector multiplication (A*x)
+//! - CSC: Best for column slicing, matrix-vector multiplication (A^T*x)
 
 use crate::{core_ops::Tensor, TensorElement};
+use scirs2_core::parallel_ops::*;
 use std::collections::HashMap;
 use torsh_core::{
     device::DeviceType,
-    dtype::TensorElement as CoreTensorElement,
     error::{Result, TorshError},
-    shape::Shape,
-};
-// SciRS2 Parallel Operations for sparse tensor processing
-use scirs2_core::parallel_ops::*;
+}; // SciRS2 Parallel Operations for sparse tensor processing
 
 /// Sparse tensor in COO (Coordinate) format
 ///
@@ -112,22 +116,23 @@ impl<T: TensorElement> SparseTensor<T> {
     /// A new sparse tensor containing only the non-zero elements
     pub fn from_dense(dense: &Tensor<T>, tolerance: T) -> Result<Self>
     where
-        T: Copy + PartialOrd + num_traits::Zero,
+        T: Copy + PartialOrd + num_traits::Zero + num_traits::Signed,
     {
         let data = dense.data()?;
         let shape = dense.shape().dims().to_vec();
-        let ndim = shape.len();
 
         let mut indices = Vec::new();
         let mut values = Vec::new();
-        let zero = <T as num_traits::Zero>::zero();
 
-        // Iterate through all elements and collect non-zero ones
+        // Iterate through all elements and collect values above tolerance
         for flat_idx in 0..data.len() {
             let value = data[flat_idx];
 
-            // Check if value is significantly different from zero
-            if value != zero {
+            // Check if absolute value exceeds tolerance threshold
+            let abs_value = value.abs();
+
+            // Only include values that exceed the tolerance threshold
+            if abs_value > tolerance {
                 // Convert flat index to multi-dimensional coordinates
                 let coords = Self::flat_to_coords(flat_idx, &shape);
                 indices.push(coords);
@@ -348,6 +353,10 @@ impl<T: TensorElement> SparseTensor<T> {
         let m = self.shape[0];
         let n = other.shape[1];
         let k = self.shape[1];
+
+        // Sparse matrix multiplication uses only non-zero entries
+        // k (inner dimension) is validated for compatibility but not directly iterated
+        let _ = (m, k, n); // Use dimensions for validation
 
         // Create efficient lookup structures
         let mut left_rows: HashMap<usize, Vec<(usize, T)>> = HashMap::new();
@@ -606,6 +615,576 @@ impl<T: TensorElement> SparseTensor<T> {
     }
 }
 
+/// Sparse tensor in CSR (Compressed Sparse Row) format
+///
+/// CSR format is optimized for row-wise operations and matrix-vector multiplication.
+/// It stores:
+/// - `row_ptr`: Array of size (num_rows + 1) indicating where each row starts
+/// - `col_indices`: Column indices for each non-zero value
+/// - `values`: Non-zero values in row-major order
+///
+/// # Example
+/// ```rust
+/// use torsh_tensor::sparse::SparseCSR;
+///
+/// // Create a 3x3 sparse matrix in CSR format
+/// // [[1.0, 0.0, 2.0],
+/// //  [0.0, 3.0, 0.0],
+/// //  [4.0, 0.0, 5.0]]
+/// let row_ptr = vec![0, 2, 3, 5];  // Row pointers
+/// let col_indices = vec![0, 2, 1, 0, 2];  // Column indices
+/// let values = vec![1.0, 2.0, 3.0, 4.0, 5.0];  // Values
+/// let shape = vec![3, 3];
+///
+/// let sparse = SparseCSR::new(row_ptr, col_indices, values, shape).unwrap();
+/// ```
+#[derive(Debug, Clone)]
+pub struct SparseCSR<T: TensorElement> {
+    /// Row pointers (size: num_rows + 1)
+    row_ptr: Vec<usize>,
+    /// Column indices for each non-zero value
+    col_indices: Vec<usize>,
+    /// Non-zero values in row-major order
+    values: Vec<T>,
+    /// Shape of the full dense tensor [num_rows, num_cols]
+    shape: Vec<usize>,
+    /// Device where the tensor resides
+    device: DeviceType,
+    /// Number of non-zero elements
+    nnz: usize,
+}
+
+impl<T: TensorElement> SparseCSR<T> {
+    /// Create a new CSR sparse tensor
+    ///
+    /// # Arguments
+    /// * `row_ptr` - Row pointers (length: num_rows + 1)
+    /// * `col_indices` - Column indices for non-zero values
+    /// * `values` - Non-zero values
+    /// * `shape` - Shape [num_rows, num_cols]
+    pub fn new(
+        row_ptr: Vec<usize>,
+        col_indices: Vec<usize>,
+        values: Vec<T>,
+        shape: Vec<usize>,
+    ) -> Result<Self> {
+        if shape.len() != 2 {
+            return Err(TorshError::InvalidArgument(
+                "CSR format only supports 2D tensors".to_string(),
+            ));
+        }
+
+        if col_indices.len() != values.len() {
+            return Err(TorshError::InvalidArgument(format!(
+                "Column indices length ({}) must match values length ({})",
+                col_indices.len(),
+                values.len()
+            )));
+        }
+
+        if row_ptr.len() != shape[0] + 1 {
+            return Err(TorshError::InvalidArgument(format!(
+                "Row pointer length ({}) must be num_rows + 1 ({})",
+                row_ptr.len(),
+                shape[0] + 1
+            )));
+        }
+
+        // Validate row pointers are monotonically increasing
+        for i in 1..row_ptr.len() {
+            if row_ptr[i] < row_ptr[i - 1] {
+                return Err(TorshError::InvalidArgument(
+                    "Row pointers must be monotonically increasing".to_string(),
+                ));
+            }
+        }
+
+        // Validate column indices are within bounds
+        for &col_idx in &col_indices {
+            if col_idx >= shape[1] {
+                return Err(TorshError::InvalidArgument(format!(
+                    "Column index {} out of bounds for shape {:?}",
+                    col_idx, shape
+                )));
+            }
+        }
+
+        let nnz = values.len();
+        if row_ptr.last().copied().unwrap_or(0) != nnz {
+            return Err(TorshError::InvalidArgument(
+                "Last row pointer must equal number of non-zero values".to_string(),
+            ));
+        }
+
+        Ok(Self {
+            row_ptr,
+            col_indices,
+            values,
+            shape,
+            device: DeviceType::Cpu,
+            nnz,
+        })
+    }
+
+    /// Convert from COO format to CSR format
+    pub fn from_coo(coo: &SparseTensor<T>) -> Result<Self>
+    where
+        T: Copy,
+    {
+        if coo.shape().len() != 2 {
+            return Err(TorshError::InvalidArgument(
+                "CSR format only supports 2D tensors".to_string(),
+            ));
+        }
+
+        let num_rows = coo.shape()[0];
+        let num_cols = coo.shape()[1];
+
+        // Sort COO entries by row, then column
+        let mut entries: Vec<(usize, usize, T)> = coo
+            .indices()
+            .iter()
+            .zip(coo.values())
+            .map(|(coords, &val)| (coords[0], coords[1], val))
+            .collect();
+
+        entries.sort_by(|a, b| {
+            if a.0 == b.0 {
+                a.1.cmp(&b.1)
+            } else {
+                a.0.cmp(&b.0)
+            }
+        });
+
+        // Build CSR structure
+        let mut row_ptr = vec![0; num_rows + 1];
+        let mut col_indices = Vec::with_capacity(entries.len());
+        let mut values = Vec::with_capacity(entries.len());
+
+        for (row, col, val) in entries {
+            col_indices.push(col);
+            values.push(val);
+            row_ptr[row + 1] += 1;
+        }
+
+        // Convert counts to cumulative sum
+        for i in 1..=num_rows {
+            row_ptr[i] += row_ptr[i - 1];
+        }
+
+        Self::new(row_ptr, col_indices, values, vec![num_rows, num_cols])
+    }
+
+    /// Convert to COO format
+    pub fn to_coo(&self) -> Result<SparseTensor<T>>
+    where
+        T: Copy,
+    {
+        let mut indices = Vec::new();
+        let mut values = Vec::new();
+
+        for row in 0..self.shape[0] {
+            let start = self.row_ptr[row];
+            let end = self.row_ptr[row + 1];
+
+            for idx in start..end {
+                indices.push(vec![row, self.col_indices[idx]]);
+                values.push(self.values[idx]);
+            }
+        }
+
+        SparseTensor::from_coo(indices, values, self.shape.clone())
+    }
+
+    /// Convert to dense tensor
+    pub fn to_dense(&self) -> Result<Tensor<T>>
+    where
+        T: Copy + num_traits::Zero,
+    {
+        let total_elements = self.shape[0] * self.shape[1];
+        let mut data = vec![<T as num_traits::Zero>::zero(); total_elements];
+
+        for row in 0..self.shape[0] {
+            let start = self.row_ptr[row];
+            let end = self.row_ptr[row + 1];
+
+            for idx in start..end {
+                let col = self.col_indices[idx];
+                let flat_idx = row * self.shape[1] + col;
+                data[flat_idx] = self.values[idx];
+            }
+        }
+
+        Tensor::from_data(data, self.shape.clone(), self.device)
+    }
+
+    /// Matrix-vector multiplication (optimized for CSR)
+    pub fn matvec(&self, vec: &[T]) -> Result<Vec<T>>
+    where
+        T: Copy + std::ops::Add<Output = T> + std::ops::Mul<Output = T> + num_traits::Zero,
+    {
+        if vec.len() != self.shape[1] {
+            return Err(TorshError::InvalidArgument(format!(
+                "Vector length ({}) must match number of columns ({})",
+                vec.len(),
+                self.shape[1]
+            )));
+        }
+
+        let mut result = vec![<T as num_traits::Zero>::zero(); self.shape[0]];
+
+        // Parallel row-wise computation using SciRS2
+        result
+            .par_iter_mut()
+            .enumerate()
+            .for_each(|(row, result_val)| {
+                let start = self.row_ptr[row];
+                let end = self.row_ptr[row + 1];
+                let mut sum = <T as num_traits::Zero>::zero();
+
+                for idx in start..end {
+                    let col = self.col_indices[idx];
+                    sum = sum + self.values[idx] * vec[col];
+                }
+
+                *result_val = sum;
+            });
+
+        Ok(result)
+    }
+
+    /// Get a specific row as a sparse vector
+    pub fn get_row(&self, row: usize) -> Result<(Vec<usize>, Vec<T>)>
+    where
+        T: Copy,
+    {
+        if row >= self.shape[0] {
+            return Err(TorshError::InvalidArgument(format!(
+                "Row {} out of bounds for shape {:?}",
+                row, self.shape
+            )));
+        }
+
+        let start = self.row_ptr[row];
+        let end = self.row_ptr[row + 1];
+
+        let col_indices = self.col_indices[start..end].to_vec();
+        let values = self.values[start..end].to_vec();
+
+        Ok((col_indices, values))
+    }
+
+    /// Getters
+    pub fn nnz(&self) -> usize {
+        self.nnz
+    }
+
+    pub fn shape(&self) -> &[usize] {
+        &self.shape
+    }
+
+    pub fn device(&self) -> DeviceType {
+        self.device
+    }
+
+    pub fn row_ptr(&self) -> &[usize] {
+        &self.row_ptr
+    }
+
+    pub fn col_indices(&self) -> &[usize] {
+        &self.col_indices
+    }
+
+    pub fn values(&self) -> &[T] {
+        &self.values
+    }
+}
+
+/// Sparse tensor in CSC (Compressed Sparse Column) format
+///
+/// CSC format is optimized for column-wise operations.
+/// It stores:
+/// - `col_ptr`: Array of size (num_cols + 1) indicating where each column starts
+/// - `row_indices`: Row indices for each non-zero value
+/// - `values`: Non-zero values in column-major order
+///
+/// # Example
+/// ```rust
+/// use torsh_tensor::sparse::SparseCSC;
+///
+/// // Create a 3x3 sparse matrix in CSC format
+/// // [[1.0, 0.0, 2.0],
+/// //  [0.0, 3.0, 0.0],
+/// //  [4.0, 0.0, 5.0]]
+/// let col_ptr = vec![0, 2, 3, 5];  // Column pointers
+/// let row_indices = vec![0, 2, 1, 0, 2];  // Row indices
+/// let values = vec![1.0, 4.0, 3.0, 2.0, 5.0];  // Values
+/// let shape = vec![3, 3];
+///
+/// let sparse = SparseCSC::new(col_ptr, row_indices, values, shape).unwrap();
+/// ```
+#[derive(Debug, Clone)]
+pub struct SparseCSC<T: TensorElement> {
+    /// Column pointers (size: num_cols + 1)
+    col_ptr: Vec<usize>,
+    /// Row indices for each non-zero value
+    row_indices: Vec<usize>,
+    /// Non-zero values in column-major order
+    values: Vec<T>,
+    /// Shape of the full dense tensor [num_rows, num_cols]
+    shape: Vec<usize>,
+    /// Device where the tensor resides
+    device: DeviceType,
+    /// Number of non-zero elements
+    nnz: usize,
+}
+
+impl<T: TensorElement> SparseCSC<T> {
+    /// Create a new CSC sparse tensor
+    ///
+    /// # Arguments
+    /// * `col_ptr` - Column pointers (length: num_cols + 1)
+    /// * `row_indices` - Row indices for non-zero values
+    /// * `values` - Non-zero values
+    /// * `shape` - Shape [num_rows, num_cols]
+    pub fn new(
+        col_ptr: Vec<usize>,
+        row_indices: Vec<usize>,
+        values: Vec<T>,
+        shape: Vec<usize>,
+    ) -> Result<Self> {
+        if shape.len() != 2 {
+            return Err(TorshError::InvalidArgument(
+                "CSC format only supports 2D tensors".to_string(),
+            ));
+        }
+
+        if row_indices.len() != values.len() {
+            return Err(TorshError::InvalidArgument(format!(
+                "Row indices length ({}) must match values length ({})",
+                row_indices.len(),
+                values.len()
+            )));
+        }
+
+        if col_ptr.len() != shape[1] + 1 {
+            return Err(TorshError::InvalidArgument(format!(
+                "Column pointer length ({}) must be num_cols + 1 ({})",
+                col_ptr.len(),
+                shape[1] + 1
+            )));
+        }
+
+        // Validate column pointers are monotonically increasing
+        for i in 1..col_ptr.len() {
+            if col_ptr[i] < col_ptr[i - 1] {
+                return Err(TorshError::InvalidArgument(
+                    "Column pointers must be monotonically increasing".to_string(),
+                ));
+            }
+        }
+
+        // Validate row indices are within bounds
+        for &row_idx in &row_indices {
+            if row_idx >= shape[0] {
+                return Err(TorshError::InvalidArgument(format!(
+                    "Row index {} out of bounds for shape {:?}",
+                    row_idx, shape
+                )));
+            }
+        }
+
+        let nnz = values.len();
+        if col_ptr.last().copied().unwrap_or(0) != nnz {
+            return Err(TorshError::InvalidArgument(
+                "Last column pointer must equal number of non-zero values".to_string(),
+            ));
+        }
+
+        Ok(Self {
+            col_ptr,
+            row_indices,
+            values,
+            shape,
+            device: DeviceType::Cpu,
+            nnz,
+        })
+    }
+
+    /// Convert from COO format to CSC format
+    pub fn from_coo(coo: &SparseTensor<T>) -> Result<Self>
+    where
+        T: Copy,
+    {
+        if coo.shape().len() != 2 {
+            return Err(TorshError::InvalidArgument(
+                "CSC format only supports 2D tensors".to_string(),
+            ));
+        }
+
+        let num_rows = coo.shape()[0];
+        let num_cols = coo.shape()[1];
+
+        // Sort COO entries by column, then row
+        let mut entries: Vec<(usize, usize, T)> = coo
+            .indices()
+            .iter()
+            .zip(coo.values())
+            .map(|(coords, &val)| (coords[0], coords[1], val))
+            .collect();
+
+        entries.sort_by(|a, b| {
+            if a.1 == b.1 {
+                a.0.cmp(&b.0)
+            } else {
+                a.1.cmp(&b.1)
+            }
+        });
+
+        // Build CSC structure
+        let mut col_ptr = vec![0; num_cols + 1];
+        let mut row_indices = Vec::with_capacity(entries.len());
+        let mut values = Vec::with_capacity(entries.len());
+
+        for (row, col, val) in entries {
+            row_indices.push(row);
+            values.push(val);
+            col_ptr[col + 1] += 1;
+        }
+
+        // Convert counts to cumulative sum
+        for i in 1..=num_cols {
+            col_ptr[i] += col_ptr[i - 1];
+        }
+
+        Self::new(col_ptr, row_indices, values, vec![num_rows, num_cols])
+    }
+
+    /// Convert to COO format
+    pub fn to_coo(&self) -> Result<SparseTensor<T>>
+    where
+        T: Copy,
+    {
+        let mut indices = Vec::new();
+        let mut values = Vec::new();
+
+        for col in 0..self.shape[1] {
+            let start = self.col_ptr[col];
+            let end = self.col_ptr[col + 1];
+
+            for idx in start..end {
+                indices.push(vec![self.row_indices[idx], col]);
+                values.push(self.values[idx]);
+            }
+        }
+
+        SparseTensor::from_coo(indices, values, self.shape.clone())
+    }
+
+    /// Convert to dense tensor
+    pub fn to_dense(&self) -> Result<Tensor<T>>
+    where
+        T: Copy + num_traits::Zero,
+    {
+        let total_elements = self.shape[0] * self.shape[1];
+        let mut data = vec![<T as num_traits::Zero>::zero(); total_elements];
+
+        for col in 0..self.shape[1] {
+            let start = self.col_ptr[col];
+            let end = self.col_ptr[col + 1];
+
+            for idx in start..end {
+                let row = self.row_indices[idx];
+                let flat_idx = row * self.shape[1] + col;
+                data[flat_idx] = self.values[idx];
+            }
+        }
+
+        Tensor::from_data(data, self.shape.clone(), self.device)
+    }
+
+    /// Matrix-vector multiplication with transposed matrix (A^T * v) - optimized for CSC
+    pub fn transpose_matvec(&self, vec: &[T]) -> Result<Vec<T>>
+    where
+        T: Copy + std::ops::Add<Output = T> + std::ops::Mul<Output = T> + num_traits::Zero,
+    {
+        if vec.len() != self.shape[0] {
+            return Err(TorshError::InvalidArgument(format!(
+                "Vector length ({}) must match number of rows ({})",
+                vec.len(),
+                self.shape[0]
+            )));
+        }
+
+        let mut result = vec![<T as num_traits::Zero>::zero(); self.shape[1]];
+
+        // Parallel column-wise computation using SciRS2
+        result
+            .par_iter_mut()
+            .enumerate()
+            .for_each(|(col, result_val)| {
+                let start = self.col_ptr[col];
+                let end = self.col_ptr[col + 1];
+                let mut sum = <T as num_traits::Zero>::zero();
+
+                for idx in start..end {
+                    let row = self.row_indices[idx];
+                    sum = sum + self.values[idx] * vec[row];
+                }
+
+                *result_val = sum;
+            });
+
+        Ok(result)
+    }
+
+    /// Get a specific column as a sparse vector
+    pub fn get_col(&self, col: usize) -> Result<(Vec<usize>, Vec<T>)>
+    where
+        T: Copy,
+    {
+        if col >= self.shape[1] {
+            return Err(TorshError::InvalidArgument(format!(
+                "Column {} out of bounds for shape {:?}",
+                col, self.shape
+            )));
+        }
+
+        let start = self.col_ptr[col];
+        let end = self.col_ptr[col + 1];
+
+        let row_indices = self.row_indices[start..end].to_vec();
+        let values = self.values[start..end].to_vec();
+
+        Ok((row_indices, values))
+    }
+
+    /// Getters
+    pub fn nnz(&self) -> usize {
+        self.nnz
+    }
+
+    pub fn shape(&self) -> &[usize] {
+        &self.shape
+    }
+
+    pub fn device(&self) -> DeviceType {
+        self.device
+    }
+
+    pub fn col_ptr(&self) -> &[usize] {
+        &self.col_ptr
+    }
+
+    pub fn row_indices(&self) -> &[usize] {
+        &self.row_indices
+    }
+
+    pub fn values(&self) -> &[T] {
+        &self.values
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -813,5 +1392,290 @@ mod tests {
         let values = vec![1.0];
         let shape = vec![2, 2];
         assert!(SparseTensor::from_coo(indices, values, shape).is_err());
+    }
+
+    // Tests for CSR format
+    #[test]
+    fn test_csr_creation() {
+        // Create CSR matrix:
+        // [[1.0, 0.0, 2.0],
+        //  [0.0, 3.0, 0.0],
+        //  [4.0, 0.0, 5.0]]
+        let row_ptr = vec![0, 2, 3, 5];
+        let col_indices = vec![0, 2, 1, 0, 2];
+        let values = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let shape = vec![3, 3];
+
+        let sparse = SparseCSR::new(row_ptr, col_indices, values, shape).unwrap();
+        assert_eq!(sparse.nnz(), 5);
+        assert_eq!(sparse.shape(), &[3, 3]);
+    }
+
+    #[test]
+    fn test_csr_to_dense() {
+        let row_ptr = vec![0, 2, 3, 5];
+        let col_indices = vec![0, 2, 1, 0, 2];
+        let values = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let shape = vec![3, 3];
+
+        let sparse = SparseCSR::new(row_ptr, col_indices, values, shape).unwrap();
+        let dense = sparse.to_dense().unwrap();
+
+        let expected = vec![1.0, 0.0, 2.0, 0.0, 3.0, 0.0, 4.0, 0.0, 5.0];
+        assert_eq!(dense.data().unwrap(), expected);
+    }
+
+    #[test]
+    fn test_csr_from_coo() {
+        let indices = vec![vec![0, 0], vec![0, 2], vec![1, 1], vec![2, 0], vec![2, 2]];
+        let values = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let shape = vec![3, 3];
+
+        let coo = SparseTensor::from_coo(indices, values, shape).unwrap();
+        let csr = SparseCSR::from_coo(&coo).unwrap();
+
+        assert_eq!(csr.nnz(), 5);
+        assert_eq!(csr.shape(), &[3, 3]);
+
+        // Verify CSR structure
+        assert_eq!(csr.row_ptr(), &[0, 2, 3, 5]);
+        assert_eq!(csr.col_indices(), &[0, 2, 1, 0, 2]);
+    }
+
+    #[test]
+    fn test_csr_matvec() {
+        // Matrix: [[1.0, 0.0], [0.0, 2.0]]
+        let row_ptr = vec![0, 1, 2];
+        let col_indices = vec![0, 1];
+        let values = vec![1.0, 2.0];
+        let shape = vec![2, 2];
+
+        let sparse = SparseCSR::new(row_ptr, col_indices, values, shape).unwrap();
+        let vec = vec![3.0, 4.0];
+        let result = sparse.matvec(&vec).unwrap();
+
+        // Expected: [1*3, 2*4] = [3.0, 8.0]
+        assert_eq!(result, vec![3.0, 8.0]);
+    }
+
+    #[test]
+    fn test_csr_get_row() {
+        let row_ptr = vec![0, 2, 3, 5];
+        let col_indices = vec![0, 2, 1, 0, 2];
+        let values = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let shape = vec![3, 3];
+
+        let sparse = SparseCSR::new(row_ptr, col_indices, values, shape).unwrap();
+
+        // Get row 0
+        let (cols, vals) = sparse.get_row(0).unwrap();
+        assert_eq!(cols, vec![0, 2]);
+        assert_eq!(vals, vec![1.0, 2.0]);
+
+        // Get row 1
+        let (cols, vals) = sparse.get_row(1).unwrap();
+        assert_eq!(cols, vec![1]);
+        assert_eq!(vals, vec![3.0]);
+    }
+
+    #[test]
+    fn test_csr_to_coo() {
+        let row_ptr = vec![0, 2, 3, 5];
+        let col_indices = vec![0, 2, 1, 0, 2];
+        let values = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let shape = vec![3, 3];
+
+        let csr = SparseCSR::new(row_ptr, col_indices, values, shape).unwrap();
+        let coo = csr.to_coo().unwrap();
+
+        assert_eq!(coo.nnz(), 5);
+        let dense_coo = coo.to_dense().unwrap();
+        let dense_csr = csr.to_dense().unwrap();
+        assert_eq!(dense_coo.data().unwrap(), dense_csr.data().unwrap());
+    }
+
+    // Tests for CSC format
+    #[test]
+    fn test_csc_creation() {
+        // Create CSC matrix:
+        // [[1.0, 0.0, 2.0],
+        //  [0.0, 3.0, 0.0],
+        //  [4.0, 0.0, 5.0]]
+        let col_ptr = vec![0, 2, 3, 5];
+        let row_indices = vec![0, 2, 1, 0, 2];
+        let values = vec![1.0, 4.0, 3.0, 2.0, 5.0];
+        let shape = vec![3, 3];
+
+        let sparse = SparseCSC::new(col_ptr, row_indices, values, shape).unwrap();
+        assert_eq!(sparse.nnz(), 5);
+        assert_eq!(sparse.shape(), &[3, 3]);
+    }
+
+    #[test]
+    fn test_csc_to_dense() {
+        let col_ptr = vec![0, 2, 3, 5];
+        let row_indices = vec![0, 2, 1, 0, 2];
+        let values = vec![1.0, 4.0, 3.0, 2.0, 5.0];
+        let shape = vec![3, 3];
+
+        let sparse = SparseCSC::new(col_ptr, row_indices, values, shape).unwrap();
+        let dense = sparse.to_dense().unwrap();
+
+        let expected = vec![1.0, 0.0, 2.0, 0.0, 3.0, 0.0, 4.0, 0.0, 5.0];
+        assert_eq!(dense.data().unwrap(), expected);
+    }
+
+    #[test]
+    fn test_csc_from_coo() {
+        let indices = vec![vec![0, 0], vec![0, 2], vec![1, 1], vec![2, 0], vec![2, 2]];
+        let values = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let shape = vec![3, 3];
+
+        let coo = SparseTensor::from_coo(indices, values, shape).unwrap();
+        let csc = SparseCSC::from_coo(&coo).unwrap();
+
+        assert_eq!(csc.nnz(), 5);
+        assert_eq!(csc.shape(), &[3, 3]);
+
+        // Verify CSC structure
+        assert_eq!(csc.col_ptr(), &[0, 2, 3, 5]);
+        assert_eq!(csc.row_indices(), &[0, 2, 1, 0, 2]);
+    }
+
+    #[test]
+    fn test_csc_transpose_matvec() {
+        // Matrix: [[1.0, 0.0], [0.0, 2.0]]
+        // CSC stores column-wise
+        let col_ptr = vec![0, 1, 2];
+        let row_indices = vec![0, 1];
+        let values = vec![1.0, 2.0];
+        let shape = vec![2, 2];
+
+        let sparse = SparseCSC::new(col_ptr, row_indices, values, shape).unwrap();
+        let vec = vec![3.0, 4.0];
+        let result = sparse.transpose_matvec(&vec).unwrap();
+
+        // Expected: A^T * [3, 4] = [[1, 0], [0, 2]]^T * [3, 4] = [3.0, 8.0]
+        assert_eq!(result, vec![3.0, 8.0]);
+    }
+
+    #[test]
+    fn test_csc_get_col() {
+        let col_ptr = vec![0, 2, 3, 5];
+        let row_indices = vec![0, 2, 1, 0, 2];
+        let values = vec![1.0, 4.0, 3.0, 2.0, 5.0];
+        let shape = vec![3, 3];
+
+        let sparse = SparseCSC::new(col_ptr, row_indices, values, shape).unwrap();
+
+        // Get column 0
+        let (rows, vals) = sparse.get_col(0).unwrap();
+        assert_eq!(rows, vec![0, 2]);
+        assert_eq!(vals, vec![1.0, 4.0]);
+
+        // Get column 1
+        let (rows, vals) = sparse.get_col(1).unwrap();
+        assert_eq!(rows, vec![1]);
+        assert_eq!(vals, vec![3.0]);
+    }
+
+    #[test]
+    fn test_csc_to_coo() {
+        let col_ptr = vec![0, 2, 3, 5];
+        let row_indices = vec![0, 2, 1, 0, 2];
+        let values = vec![1.0, 4.0, 3.0, 2.0, 5.0];
+        let shape = vec![3, 3];
+
+        let csc = SparseCSC::new(col_ptr, row_indices, values, shape).unwrap();
+        let coo = csc.to_coo().unwrap();
+
+        assert_eq!(coo.nnz(), 5);
+        let dense_coo = coo.to_dense().unwrap();
+        let dense_csc = csc.to_dense().unwrap();
+        assert_eq!(dense_coo.data().unwrap(), dense_csc.data().unwrap());
+    }
+
+    #[test]
+    fn test_format_conversions() {
+        // Test round-trip: COO -> CSR -> COO -> CSC -> COO
+        let indices = vec![vec![0, 0], vec![0, 2], vec![1, 1], vec![2, 0], vec![2, 2]];
+        let values = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let shape = vec![3, 3];
+
+        let coo1 = SparseTensor::from_coo(indices, values, shape).unwrap();
+        let csr = SparseCSR::from_coo(&coo1).unwrap();
+        let coo2 = csr.to_coo().unwrap();
+        let csc = SparseCSC::from_coo(&coo2).unwrap();
+        let coo3 = csc.to_coo().unwrap();
+
+        // All should represent the same matrix
+        let dense1 = coo1.to_dense().unwrap();
+        let dense2 = coo2.to_dense().unwrap();
+        let dense3 = coo3.to_dense().unwrap();
+
+        assert_eq!(dense1.data().unwrap(), dense2.data().unwrap());
+        assert_eq!(dense2.data().unwrap(), dense3.data().unwrap());
+    }
+
+    #[test]
+    fn test_csr_error_cases() {
+        // Wrong shape length
+        let row_ptr = vec![0, 1];
+        let col_indices = vec![0];
+        let values = vec![1.0];
+        let shape = vec![1]; // 1D not supported
+        assert!(SparseCSR::new(row_ptr, col_indices, values, shape).is_err());
+
+        // Mismatched lengths
+        let row_ptr = vec![0, 2];
+        let col_indices = vec![0];
+        let values = vec![1.0, 2.0]; // Different from col_indices
+        let shape = vec![1, 2];
+        assert!(SparseCSR::new(row_ptr, col_indices, values, shape).is_err());
+
+        // Non-monotonic row pointers
+        let row_ptr = vec![0, 2, 1]; // Decreases
+        let col_indices = vec![0, 1];
+        let values = vec![1.0, 2.0];
+        let shape = vec![2, 2];
+        assert!(SparseCSR::new(row_ptr, col_indices, values, shape).is_err());
+
+        // Column index out of bounds
+        let row_ptr = vec![0, 1];
+        let col_indices = vec![5]; // Out of bounds
+        let values = vec![1.0];
+        let shape = vec![1, 2];
+        assert!(SparseCSR::new(row_ptr, col_indices, values, shape).is_err());
+    }
+
+    #[test]
+    fn test_csc_error_cases() {
+        // Wrong shape length
+        let col_ptr = vec![0, 1];
+        let row_indices = vec![0];
+        let values = vec![1.0];
+        let shape = vec![1]; // 1D not supported
+        assert!(SparseCSC::new(col_ptr, row_indices, values, shape).is_err());
+
+        // Mismatched lengths
+        let col_ptr = vec![0, 2];
+        let row_indices = vec![0];
+        let values = vec![1.0, 2.0]; // Different from row_indices
+        let shape = vec![2, 1];
+        assert!(SparseCSC::new(col_ptr, row_indices, values, shape).is_err());
+
+        // Non-monotonic column pointers
+        let col_ptr = vec![0, 2, 1]; // Decreases
+        let row_indices = vec![0, 1];
+        let values = vec![1.0, 2.0];
+        let shape = vec![2, 2];
+        assert!(SparseCSC::new(col_ptr, row_indices, values, shape).is_err());
+
+        // Row index out of bounds
+        let col_ptr = vec![0, 1];
+        let row_indices = vec![5]; // Out of bounds
+        let values = vec![1.0];
+        let shape = vec![2, 1];
+        assert!(SparseCSC::new(col_ptr, row_indices, values, shape).is_err());
     }
 }

@@ -88,6 +88,11 @@ pub enum AutogradError {
         requested: usize,
         suggestions: Vec<String>,
     },
+    /// Operation was cancelled by user request
+    OperationCancelled {
+        operation: String,
+        partial_completion: Option<f64>,
+    },
 }
 
 /// Types of resources that can be exhausted
@@ -239,6 +244,16 @@ impl fmt::Display for AutogradError {
                 )?;
                 if !suggestions.is_empty() {
                     write!(f, "\nSuggestions: {}", suggestions.join(", "))?;
+                }
+                Ok(())
+            }
+            AutogradError::OperationCancelled {
+                operation,
+                partial_completion,
+            } => {
+                write!(f, "Operation '{}' was cancelled", operation)?;
+                if let Some(completion) = partial_completion {
+                    write!(f, " ({:.1}% complete)", completion)?;
                 }
                 Ok(())
             }
@@ -771,6 +786,7 @@ pub mod recovery {
                 AutogradError::TensorState { .. } => "tensor_state".to_string(),
                 AutogradError::Configuration { .. } => "configuration".to_string(),
                 AutogradError::ResourceExhaustion { .. } => "resource_exhaustion".to_string(),
+                AutogradError::OperationCancelled { .. } => "operation_cancelled".to_string(),
             }
         }
 

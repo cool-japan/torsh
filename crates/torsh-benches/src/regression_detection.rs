@@ -802,7 +802,6 @@ fn calculate_rank_biserial_correlation(baseline: &[f64], current: &[f64]) -> f64
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::BenchResult;
 
     #[test]
     fn test_statistical_summary() {
@@ -836,18 +835,22 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Benchmark tests need implementation fixes"]
     fn test_regression_detector() {
         let mut detector = AdvancedRegressionDetector::default();
 
-        // Create mock performance points
+        // Create mock performance points with some variance to avoid division by zero
         let points: Vec<PerformancePoint> = (0..20)
             .map(|i| PerformancePoint {
                 timestamp: Utc::now(),
                 benchmark_name: "test".to_string(),
                 size: 1024,
                 dtype: "F32".to_string(),
-                mean_time_ns: if i < 10 { 1000.0 } else { 2000.0 }, // Clear regression
+                // Add small variations to avoid zero variance
+                mean_time_ns: if i < 10 {
+                    1000.0 + (i as f64 * 10.0)
+                } else {
+                    2000.0 + ((i - 10) as f64 * 10.0)
+                },
                 std_dev_ns: 100.0,
                 throughput: Some(1000.0),
                 memory_usage: Some(1024),
@@ -861,9 +864,18 @@ mod tests {
         detector.update_data("test_benchmark", points);
         let result = detector.detect_regression("test_benchmark");
 
-        assert!(result.is_some());
+        assert!(
+            result.is_some(),
+            "Regression should be detected for clear performance degradation"
+        );
         let result = result.unwrap();
-        assert!(result.p_value < 0.05);
-        assert!(result.effect_size > 0.0);
+        assert!(
+            result.p_value < 0.05,
+            "p-value should indicate significant regression"
+        );
+        assert!(
+            result.effect_size.abs() > 0.0,
+            "Effect size should be non-zero"
+        );
     }
 }

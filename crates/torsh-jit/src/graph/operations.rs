@@ -1,7 +1,6 @@
 //! Operation definitions and related structures
 
 use crate::graph::core::NodeId;
-use serde::{Deserialize, Serialize};
 
 /// Parameter information for parameter nodes
 #[derive(Debug, Clone, PartialEq)]

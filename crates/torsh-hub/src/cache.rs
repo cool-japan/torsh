@@ -20,6 +20,12 @@ struct CacheMetadata {
     version: String,
     repositories: HashMap<String, RepoMetadata>,
     models: HashMap<String, ModelMetadata>,
+    /// Total number of cache lookups
+    #[serde(default)]
+    total_lookups: u64,
+    /// Number of successful cache hits
+    #[serde(default)]
+    cache_hits: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,6 +60,8 @@ impl CacheManager {
                 version: "1.0".to_string(),
                 repositories: HashMap::new(),
                 models: HashMap::new(),
+                total_lookups: 0,
+                cache_hits: 0,
             }
         };
 
@@ -80,15 +88,25 @@ impl CacheManager {
     }
 
     /// Check if repository is cached
-    pub fn is_repo_cached(&self, owner: &str, repo: &str, branch: &str) -> bool {
+    pub fn is_repo_cached(&mut self, owner: &str, repo: &str, branch: &str) -> bool {
         let key = format!("{}/{}/{}", owner, repo, branch);
-        self.metadata.repositories.contains_key(&key)
+        self.metadata.total_lookups += 1;
+        let is_cached = self.metadata.repositories.contains_key(&key);
+        if is_cached {
+            self.metadata.cache_hits += 1;
+        }
+        is_cached
     }
 
     /// Check if model is cached
-    pub fn is_model_cached(&self, repo: &str, model: &str, version: &str) -> bool {
+    pub fn is_model_cached(&mut self, repo: &str, model: &str, version: &str) -> bool {
         let key = format!("{}/{}@{}", repo, model, version);
-        self.metadata.models.contains_key(&key)
+        self.metadata.total_lookups += 1;
+        let is_cached = self.metadata.models.contains_key(&key);
+        if is_cached {
+            self.metadata.cache_hits += 1;
+        }
+        is_cached
     }
 
     /// Add repository to cache
@@ -184,7 +202,7 @@ impl CacheManager {
 
         CacheStats {
             total_repositories: total_repos,
-            total_models: total_models,
+            total_models,
             total_size_bytes: total_size,
             total_size_formatted: format_bytes(total_size),
             oldest_access,
@@ -316,14 +334,12 @@ impl CacheManager {
         Ok(compression_result)
     }
 
-    /// Calculate cache hit rate (simplified implementation)
+    /// Calculate cache hit rate
     fn calculate_hit_rate(&self) -> f32 {
-        // This would need to be implemented with proper hit/miss tracking
-        // For now, return a placeholder based on cache usage
-        if self.metadata.models.is_empty() {
+        if self.metadata.total_lookups == 0 {
             0.0
         } else {
-            0.85 // Placeholder value
+            self.metadata.cache_hits as f32 / self.metadata.total_lookups as f32
         }
     }
 

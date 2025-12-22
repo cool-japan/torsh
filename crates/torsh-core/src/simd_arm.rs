@@ -2,6 +2,31 @@
 //!
 //! This module provides optimized implementations of common operations using
 //! ARM NEON SIMD instructions for improved performance on ARM64 platforms.
+//!
+//! # SciRS2 POLICY COMPLIANCE
+//!
+//! ## Recommended Usage (NEW CODE)
+//! For new code, prefer using scirs2-core SIMD operations which provide:
+//! - Memory-aligned operations for 2-4x better performance
+//! - Cross-platform consistency (ARM64, x86_64)
+//! - Automatic hardware detection and fallback
+//!
+//! ```ignore
+//! use torsh_core::simd::*;  // scirs2-core aligned SIMD
+//! let result = simd_add_aligned_f32(aligned_a.as_slice(), aligned_b.as_slice())?;
+//! ```
+//!
+//! ## Legacy Usage (EXISTING CODE)
+//! This module maintains ARM-specific SIMD for backward compatibility
+//! and specialized use cases. Use these when:
+//! - Working with legacy ToRSh code
+//! - Need ARM-specific optimizations
+//! - Memory alignment cannot be guaranteed
+//!
+//! ```ignore
+//! use torsh_core::simd_arm::ArmSimdOps;
+//! unsafe { ArmSimdOps::add_f32_neon(&a, &b, &mut result)?; }
+//! ```
 
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;

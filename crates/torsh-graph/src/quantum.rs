@@ -3,11 +3,12 @@
 //! This module provides quantum-inspired algorithms for graph processing
 //! and quantum neural network architectures adapted for graph data.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{GraphData, GraphLayer};
-use std::collections::HashMap;
 use std::f32::consts::PI;
 use torsh_tensor::{
-    creation::{ones, randn, zeros},
+    creation::{randn, zeros},
     Tensor,
 };
 
@@ -120,8 +121,8 @@ impl QuantumGraphLayer {
         let edge_data = edge_index.to_vec()?;
         let num_edges = edge_data.len() / 2;
 
-        let mut interfered_real = state.real_part.clone();
-        let mut interfered_imag = state.imaginary_part.clone();
+        let interfered_real = state.real_part.clone();
+        let interfered_imag = state.imaginary_part.clone();
 
         // Apply interference effects between connected nodes
         for edge_idx in 0..num_edges {
@@ -129,7 +130,7 @@ impl QuantumGraphLayer {
             let dst_idx = edge_data[edge_idx + num_edges] as usize;
 
             // Compute interference coefficient
-            let interference_coeff =
+            let _interference_coeff =
                 (2.0 * PI * (src_idx + dst_idx) as f32 / self.quantum_dim as f32).cos();
 
             // Apply interference modulation (simplified)
@@ -148,7 +149,7 @@ impl QuantumGraphLayer {
     fn cos_tensor(&self, tensor: &Tensor) -> Result<Tensor, Box<dyn std::error::Error>> {
         // Simplified cosine implementation - in practice would use proper tensor operations
         let data = tensor.to_vec()?;
-        let cos_data: Vec<f32> = data.iter().map(|&x| x.cos()).collect();
+        let _cos_data: Vec<f32> = data.iter().map(|&x| x.cos()).collect();
 
         // Note: This is a simplified implementation due to tensor API limitations
         Ok(tensor.clone()) // Placeholder
@@ -157,7 +158,7 @@ impl QuantumGraphLayer {
     fn sin_tensor(&self, tensor: &Tensor) -> Result<Tensor, Box<dyn std::error::Error>> {
         // Simplified sine implementation
         let data = tensor.to_vec()?;
-        let sin_data: Vec<f32> = data.iter().map(|&x| x.sin()).collect();
+        let _sin_data: Vec<f32> = data.iter().map(|&x| x.sin()).collect();
 
         // Note: This is a simplified implementation due to tensor API limitations
         Ok(tensor.clone()) // Placeholder
@@ -210,7 +211,7 @@ impl QuantumGraphLayer {
         graph: &GraphData,
     ) -> Result<Tensor, Box<dyn std::error::Error>> {
         // Build adjacency matrix from edge_index
-        let mut adjacency = zeros(&[graph.num_nodes, graph.num_nodes])?;
+        let adjacency = zeros(&[graph.num_nodes, graph.num_nodes])?;
 
         // Note: Simplified implementation due to tensor indexing limitations
         Ok(adjacency)
@@ -308,7 +309,7 @@ impl QuantumQAOA {
         let mut best_energy = f32::INFINITY;
         let mut best_params = (self.beta_params.clone(), self.gamma_params.clone());
 
-        for iteration in 0..max_iterations {
+        for _iteration in 0..max_iterations {
             // Evaluate current parameters
             let energy = self.evaluate_energy(graph)?;
 
@@ -436,7 +437,7 @@ impl QuantumWalk {
         let mut current_state = self.initial_state.clone();
         let mut position_history = Vec::new();
 
-        for step in 0..self.walk_length {
+        for _step in 0..self.walk_length {
             // Apply coin operation
             current_state = self.apply_coin_operator(&current_state)?;
 
@@ -470,7 +471,7 @@ impl QuantumWalk {
     fn apply_shift_operator(
         &self,
         state: &QuantumState,
-        graph: &GraphData,
+        _graph: &GraphData,
     ) -> Result<QuantumState, Box<dyn std::error::Error>> {
         // Shift based on graph adjacency
         // Simplified implementation
@@ -566,8 +567,6 @@ impl QuantumAttention {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use torsh_core::device::DeviceType;
-    use torsh_tensor::creation::from_vec;
 
     #[test]
     fn test_quantum_layer_creation() {

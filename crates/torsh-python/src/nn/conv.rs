@@ -1,8 +1,9 @@
 //! Convolutional neural network layers
 
 use super::module::PyModule;
-use crate::{device::PyDevice, error::PyResult, py_result, tensor::PyTensor};
+use crate::{error::PyResult, py_result, tensor::PyTensor};
 use pyo3::prelude::*;
+use pyo3::types::PyAny;
 use std::collections::HashMap;
 use torsh_tensor::Tensor;
 
@@ -28,10 +29,10 @@ impl PyConv2d {
     fn new(
         in_channels: usize,
         out_channels: usize,
-        kernel_size: PyObject,
-        stride: Option<PyObject>,
-        padding: Option<PyObject>,
-        dilation: Option<PyObject>,
+        kernel_size: Py<PyAny>,
+        stride: Option<Py<PyAny>>,
+        padding: Option<Py<PyAny>>,
+        dilation: Option<Py<PyAny>>,
         groups: Option<usize>,
         bias: Option<bool>,
     ) -> PyResult<(Self, PyModule)> {
@@ -39,7 +40,7 @@ impl PyConv2d {
         let groups = groups.unwrap_or(1);
 
         // Parse kernel size
-        let kernel_size = Python::with_gil(|py| -> PyResult<(usize, usize)> {
+        let kernel_size = Python::attach(|py| -> PyResult<(usize, usize)> {
             if let Ok(size) = kernel_size.extract::<usize>(py) {
                 Ok((size, size))
             } else if let Ok(tuple) = kernel_size.extract::<(usize, usize)>(py) {
@@ -53,7 +54,7 @@ impl PyConv2d {
 
         // Parse stride (default to kernel_size)
         let stride = if let Some(stride_obj) = stride {
-            Python::with_gil(|py| -> PyResult<(usize, usize)> {
+            Python::attach(|py| -> PyResult<(usize, usize)> {
                 if let Ok(stride) = stride_obj.extract::<usize>(py) {
                     Ok((stride, stride))
                 } else if let Ok(tuple) = stride_obj.extract::<(usize, usize)>(py) {
@@ -70,7 +71,7 @@ impl PyConv2d {
 
         // Parse padding (default to 0)
         let padding = if let Some(padding_obj) = padding {
-            Python::with_gil(|py| -> PyResult<(usize, usize)> {
+            Python::attach(|py| -> PyResult<(usize, usize)> {
                 if let Ok(padding) = padding_obj.extract::<usize>(py) {
                     Ok((padding, padding))
                 } else if let Ok(tuple) = padding_obj.extract::<(usize, usize)>(py) {
@@ -87,7 +88,7 @@ impl PyConv2d {
 
         // Parse dilation (default to 1)
         let dilation = if let Some(dilation_obj) = dilation {
-            Python::with_gil(|py| -> PyResult<(usize, usize)> {
+            Python::attach(|py| -> PyResult<(usize, usize)> {
                 if let Ok(dilation) = dilation_obj.extract::<usize>(py) {
                     Ok((dilation, dilation))
                 } else if let Ok(tuple) = dilation_obj.extract::<(usize, usize)>(py) {

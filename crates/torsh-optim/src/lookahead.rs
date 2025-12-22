@@ -52,7 +52,9 @@ impl<O: Optimizer> Lookahead<O> {
 
     /// Get parameter key for slow weight storage
     fn get_param_key(param: &Tensor) -> Result<String> {
-        Ok(format!("param_{:p}", param.data()?.as_ptr()))
+        // Bind data to a variable to extend lifetime before taking pointer
+        let data = param.data()?;
+        Ok(format!("param_{:p}", data.as_ptr()))
     }
 
     /// Initialize slow weights if not already done

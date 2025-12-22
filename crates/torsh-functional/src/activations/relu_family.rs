@@ -268,7 +268,7 @@ where
 {
     let slope = if training {
         // Random slope between lower and upper during training
-        use scirs2_core::random::{thread_rng, Rng};
+        use scirs2_core::random::thread_rng;
         let mut rng = thread_rng();
         rng.gen_range(lower..upper)
     } else {

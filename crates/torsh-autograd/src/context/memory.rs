@@ -1,10 +1,11 @@
 //! Memory management and leak prevention for autograd contexts
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use super::core::AutogradContext;
 use crate::gradient_storage::GradientStorage;
 use petgraph::visit::EdgeRef;
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Weak};
 use std::time::{Duration, Instant};
 use torsh_core::error::Result;
 
@@ -232,8 +233,8 @@ impl AutogradContext {
     }
 
     /// Clean up gradients that have expired based on age
-    fn cleanup_expired_gradients(&mut self, max_age: Duration) -> Result<usize> {
-        let now = Instant::now();
+    fn cleanup_expired_gradients(&mut self, _max_age: Duration) -> Result<usize> {
+        let _now = Instant::now();
         let mut expired = Vec::new();
 
         // This is a simplified implementation - in practice, you'd track gradient ages

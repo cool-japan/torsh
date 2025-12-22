@@ -3,7 +3,6 @@
 //! These tests verify end-to-end functionality of the package system,
 //! including complex scenarios and edge cases.
 
-use std::collections::HashMap;
 use tempfile::TempDir;
 use torsh_package::{
     BuilderConfig, ExportConfig, ImportConfig, Package, PackageBuilder, PackageExporter,
@@ -249,7 +248,7 @@ fn test_integrity_verification() {
         .insert(resource.name.clone(), resource);
 
     // Add checksum to resource metadata
-    let mut resource_mut = package.resources_mut().get_mut("test.txt").unwrap();
+    let resource_mut = package.resources_mut().get_mut("test.txt").unwrap();
     let checksum = resource_mut.sha256();
     resource_mut.add_metadata("sha256".to_string(), checksum);
 
@@ -373,7 +372,7 @@ fn test_error_handling() {
     assert!(result.is_err());
 
     // Test package with invalid manifest
-    let mut package = Package::new("".to_string(), "invalid_version".to_string()); // Invalid name and version
+    let package = Package::new("".to_string(), "invalid_version".to_string()); // Invalid name and version
     let package_path = temp_dir.path().join("invalid_manifest.torshpkg");
     let result = package.save(&package_path);
     assert!(result.is_err());

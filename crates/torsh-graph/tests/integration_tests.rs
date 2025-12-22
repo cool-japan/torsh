@@ -6,7 +6,7 @@ use torsh_graph::{
     conv::{AggregationType, GATConv, GCNConv, GINConv, GraphTransformer, MPNNConv, SAGEConv},
     functional::{elu, gelu, leaky_relu, mish, swish},
     pool::{global, hierarchical},
-    scirs2_integration::{algorithms, generation, spatial, spectral},
+    scirs2_integration::{algorithms, generation, spatial},
     utils::{connectivity, graph_laplacian, metrics},
     GraphData, GraphLayer,
 };
@@ -599,7 +599,7 @@ fn test_scirs2_graph_generation() {
     let er_graph = generation::erdos_renyi(8, 0.3);
     assert_eq!(er_graph.num_nodes, 8);
     assert_eq!(er_graph.x.shape().dims(), &[8, 16]); // Default features
-    assert!(er_graph.num_edges >= 0);
+                                                     // num_edges is usize, always >= 0
 
     // Test Barabási-Albert graph generation
     let ba_graph = generation::barabasi_albert(10, 3);
@@ -651,7 +651,7 @@ fn test_scirs2_spatial_graphs() {
     // Test Delaunay triangulation (approximation)
     let delaunay_graph = spatial::delaunay_graph(&points);
     assert_eq!(delaunay_graph.num_nodes, 5);
-    assert!(delaunay_graph.num_edges >= 0);
+    // num_edges is usize, always >= 0
 }
 
 #[test]
@@ -763,4 +763,256 @@ fn test_graph_level_prediction_pipeline() {
         let vals = embedding.to_vec().unwrap();
         assert!(vals.iter().all(|&x| x.is_finite()));
     }
+}
+
+// =============================================================================
+// Foundation Model Integration Tests
+// =============================================================================
+
+#[test]
+fn test_foundation_model_creation() {
+    use torsh_graph::foundation::{
+        FoundationModelConfig, GraphFoundationModel, PretrainingObjective,
+    };
+
+    let config = FoundationModelConfig {
+        model_dim: 64,
+        num_layers: 2,
+        num_heads: 4,
+        ff_dim: 256,
+        max_seq_length: 50,
+        vocab_size: 100,
+        dropout: 0.1,
+        pretraining_objectives: vec![
+            PretrainingObjective::MaskedNodeModeling,
+            PretrainingObjective::GraphContrastive,
+        ],
+    };
+
+    let model_result = GraphFoundationModel::new(config);
+    assert!(model_result.is_ok());
+
+    let model = model_result.unwrap();
+    assert_eq!(model.config.model_dim, 64);
+    assert_eq!(model.config.num_layers, 2);
+    assert_eq!(model.pretraining_head.active_objectives.len(), 2);
+}
+
+#[test]
+fn test_foundation_model_pretraining() {
+    use torsh_graph::foundation::{
+        FoundationModelConfig, GraphFoundationModel, PretrainingObjective,
+    };
+
+    let config = FoundationModelConfig {
+        model_dim: 32,
+        num_layers: 1,
+        num_heads: 2,
+        ff_dim: 128,
+        max_seq_length: 20,
+        vocab_size: 50,
+        dropout: 0.0,
+        pretraining_objectives: vec![
+            PretrainingObjective::MaskedNodeModeling,
+            PretrainingObjective::GraphContrastive,
+        ],
+    };
+
+    let mut model = GraphFoundationModel::new(config).unwrap();
+
+    // Create small graphs for pretraining with correct feature dimension
+    let graphs = vec![
+        create_foundation_test_graph(5, 32),
+        create_foundation_test_graph(6, 32),
+        create_foundation_test_graph(4, 32),
+    ];
+
+    // Run pretraining for 2 epochs
+    let stats_result = model.pretrain(&graphs, 2);
+    assert!(stats_result.is_ok());
+
+    let stats = stats_result.unwrap();
+    assert_eq!(stats.current_epoch, 1); // 0-indexed
+    assert_eq!(stats.epoch_losses.len(), 2);
+    assert!(stats.total_samples > 0);
+    assert!(stats.pretraining_completed);
+
+    // Verify all losses are finite
+    for loss in &stats.epoch_losses {
+        assert!(loss.is_finite());
+    }
+}
+
+#[test]
+fn test_foundation_model_finetuning() {
+    use std::collections::HashMap;
+    use torsh_graph::foundation::{
+        FoundationModelConfig, GraphFoundationModel, PretrainingObjective, TaskConfig, TaskType,
+    };
+
+    let config = FoundationModelConfig {
+        model_dim: 32,
+        num_layers: 1,
+        num_heads: 2,
+        ff_dim: 128,
+        max_seq_length: 20,
+        vocab_size: 50,
+        dropout: 0.0,
+        pretraining_objectives: vec![PretrainingObjective::MaskedNodeModeling],
+    };
+
+    let mut model = GraphFoundationModel::new(config).unwrap();
+
+    // Create labeled data for finetuning
+    let train_data = vec![
+        (
+            create_foundation_test_graph(4, 32),
+            from_vec(vec![0.0; 4], &[4], DeviceType::Cpu).unwrap(),
+        ),
+        (
+            create_foundation_test_graph(5, 32),
+            from_vec(vec![1.0; 5], &[5], DeviceType::Cpu).unwrap(),
+        ),
+    ];
+
+    let val_data = vec![(
+        create_foundation_test_graph(4, 32),
+        from_vec(vec![0.0; 4], &[4], DeviceType::Cpu).unwrap(),
+    )];
+
+    let task_config = TaskConfig {
+        task_type: TaskType::NodeClassification { num_classes: 2 },
+        num_epochs: 2,
+        learning_rate: 0.001,
+        freeze_pretrained: false,
+        task_params: HashMap::new(),
+    };
+
+    let finetune_result = model.finetune("test_task", &train_data, &val_data, task_config);
+    assert!(finetune_result.is_ok());
+
+    let stats = finetune_result.unwrap();
+    assert_eq!(stats.train_losses.len(), 2);
+    assert_eq!(stats.val_losses.len(), 2);
+    assert_eq!(stats.val_accuracies.len(), 2);
+
+    // Verify all metrics are finite and in valid ranges
+    for loss in &stats.train_losses {
+        assert!(loss.is_finite());
+        assert!(*loss >= 0.0);
+    }
+    for acc in &stats.val_accuracies {
+        assert!(acc.is_finite());
+        assert!(*acc >= 0.0 && *acc <= 1.0);
+    }
+}
+
+#[test]
+fn test_foundation_model_tokenization() {
+    use torsh_graph::foundation::GraphTokenizer;
+
+    let tokenizer_result = GraphTokenizer::new(100);
+    assert!(tokenizer_result.is_ok());
+
+    let tokenizer = tokenizer_result.unwrap();
+
+    // Test tokenization on a graph
+    let graph = create_foundation_test_graph(5, 16);
+    let tokens_result = tokenizer.tokenize(&graph);
+    assert!(tokens_result.is_ok());
+
+    let tokens = tokens_result.unwrap();
+    assert!(!tokens.is_empty());
+
+    // Verify tokens are in valid range
+    for token in &tokens {
+        assert!(*token < 100); // Within vocab size
+    }
+}
+
+#[test]
+fn test_foundation_model_task_heads() {
+    use torsh_graph::foundation::{
+        GraphClassificationHead, GraphRegressionHead, LinkPredictionHead, NodeClassificationHead,
+        TaskHead,
+    };
+
+    // Test node classification head
+    let node_head_result = NodeClassificationHead::new(64, 5);
+    assert!(node_head_result.is_ok());
+    let node_head = node_head_result.unwrap();
+    assert_eq!(node_head.parameters().len(), 2); // classifier + bias
+
+    // Test graph classification head
+    let graph_head_result = GraphClassificationHead::new(64, 3);
+    assert!(graph_head_result.is_ok());
+    let graph_head = graph_head_result.unwrap();
+    assert_eq!(graph_head.parameters().len(), 3); // pooling + classifier + bias
+
+    // Test link prediction head
+    let link_head_result = LinkPredictionHead::new(64);
+    assert!(link_head_result.is_ok());
+    let link_head = link_head_result.unwrap();
+    assert_eq!(link_head.parameters().len(), 1); // edge_predictor
+
+    // Test graph regression head
+    let regression_head_result = GraphRegressionHead::new(64);
+    assert!(regression_head_result.is_ok());
+    let regression_head = regression_head_result.unwrap();
+    assert_eq!(regression_head.parameters().len(), 2); // regressor + bias
+
+    // Test forward passes with dummy data
+    let dummy_embeddings = randn(&[5, 64]).unwrap();
+
+    let node_output = node_head.forward(&dummy_embeddings);
+    assert!(node_output.is_ok());
+
+    let graph_output = graph_head.forward(&dummy_embeddings);
+    assert!(graph_output.is_ok());
+
+    // Link prediction expects concatenated node pairs [num_pairs, 128]
+    let link_embeddings = randn(&[3, 128]).unwrap(); // 3 node pairs
+    let link_output = link_head.forward(&link_embeddings);
+    assert!(link_output.is_ok());
+
+    let regression_output = regression_head.forward(&dummy_embeddings);
+    assert!(regression_output.is_ok());
+}
+
+#[test]
+fn test_foundation_model_pretraining_objectives() {
+    use torsh_graph::foundation::PretrainingObjective;
+
+    let objectives = vec![
+        PretrainingObjective::MaskedNodeModeling,
+        PretrainingObjective::MaskedEdgeModeling,
+        PretrainingObjective::GraphContrastive,
+        PretrainingObjective::NodeContrastive,
+        PretrainingObjective::StructurePrediction,
+        PretrainingObjective::MotifPrediction,
+        PretrainingObjective::PropertyPrediction,
+        PretrainingObjective::GraphDenoising,
+    ];
+
+    // Verify all objectives can be cloned and debugged
+    for objective in &objectives {
+        let cloned = objective.clone();
+        let debug_str = format!("{:?}", cloned);
+        assert!(!debug_str.is_empty());
+    }
+}
+
+/// Helper function to create a test graph for foundation models
+fn create_foundation_test_graph(num_nodes: usize, num_features: usize) -> GraphData {
+    let features = randn(&[num_nodes, num_features]).unwrap();
+
+    // Create a simple cycle graph
+    let mut edges = Vec::new();
+    for i in 0..num_nodes {
+        edges.push(i as f32);
+        edges.push(((i + 1) % num_nodes) as f32);
+    }
+
+    let edge_index = from_vec(edges, &[2, num_nodes], DeviceType::Cpu).unwrap();
+    GraphData::new(features, edge_index)
 }

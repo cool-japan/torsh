@@ -10,7 +10,7 @@ use std::fs::{self, File};
 use std::io::{self, Read, SeekFrom, Write};
 use std::path::Path;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tokio::fs::File as AsyncFile;
 use tokio::io::{AsyncSeekExt, AsyncWriteExt};
 use tokio::sync::Semaphore;
@@ -18,7 +18,7 @@ use torsh_core::error::{Result, TorshError};
 
 // Import from our validation and config modules
 use super::config::ParallelDownloadConfig;
-use super::validation::{validate_url, verify_download};
+use super::validation::validate_url;
 
 /// Download a file with optional progress reporting (synchronous version)
 ///
@@ -37,17 +37,15 @@ use super::validation::{validate_url, verify_download};
 /// * `Err(TorshError)` if the download failed
 ///
 /// # Examples
-/// ```rust
+/// ```rust,no_run
 /// use std::path::Path;
 /// use torsh_hub::download::core::download_file;
 ///
-/// # tokio_test::block_on(async {
 /// let result = download_file(
 ///     "https://example.com/file.txt",
 ///     Path::new("/tmp/downloaded_file.txt"),
 ///     true
 /// );
-/// # });
 /// ```
 pub fn download_file(url: &str, dest_path: &Path, progress: bool) -> Result<()> {
     // Validate URL before attempting download
@@ -60,7 +58,7 @@ pub fn download_file(url: &str, dest_path: &Path, progress: bool) -> Result<()> 
 
     // Create HTTP client
     let client = BlockingClient::builder()
-        .user_agent("torsh-hub/0.1.0-alpha.1")
+        .user_agent("torsh-hub/0.1.0-alpha.2")
         .timeout(std::time::Duration::from_secs(300))
         .build()
         .map_err(|e| TorshError::IoError(e.to_string()))?;
@@ -145,18 +143,16 @@ pub fn download_file(url: &str, dest_path: &Path, progress: bool) -> Result<()> 
 /// * `Err(TorshError)` if all attempts failed
 ///
 /// # Examples
-/// ```rust
+/// ```rust,no_run
 /// use std::path::Path;
 /// use torsh_hub::download::core::download_with_retry;
 ///
-/// # tokio_test::block_on(async {
 /// let result = download_with_retry(
 ///     "https://example.com/file.txt",
 ///     Path::new("/tmp/downloaded_file.txt"),
 ///     3,  // max 3 retries
 ///     true
 /// );
-/// # });
 /// ```
 pub fn download_with_retry(
     url: &str,
@@ -230,20 +226,22 @@ pub fn print_progress(current: u64, total: u64) {
 /// * `Err(TorshError)` if the download failed
 ///
 /// # Examples
-/// ```rust
+/// ```rust,no_run
 /// use std::path::Path;
 /// use torsh_hub::download::core::download_file_parallel;
 /// use torsh_hub::download::config::ParallelDownloadConfig;
 ///
-/// # tokio_test::block_on(async {
+/// # #[tokio::main]
+/// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let config = ParallelDownloadConfig::default();
 /// let result = download_file_parallel(
 ///     "https://example.com/large_file.zip",
 ///     Path::new("/tmp/large_file.zip"),
 ///     config,
 ///     true
-/// ).await;
-/// # });
+/// ).await?;
+/// # Ok(())
+/// # }
 /// ```
 pub async fn download_file_parallel(
     url: &str,
@@ -261,7 +259,7 @@ pub async fn download_file_parallel(
 
     // Create async HTTP client
     let client = Client::builder()
-        .user_agent("torsh-hub/0.1.0-alpha.1")
+        .user_agent("torsh-hub/0.1.0-alpha.2")
         .timeout(Duration::from_secs(config.timeout_seconds))
         .build()
         .map_err(|e| TorshError::IoError(e.to_string()))?;
@@ -325,7 +323,7 @@ async fn download_file_chunked(
     progress: bool,
 ) -> Result<()> {
     let chunk_size = config.chunk_size as u64;
-    let num_chunks = (total_size + chunk_size - 1) / chunk_size;
+    let num_chunks = total_size.div_ceil(chunk_size);
 
     if progress {
         println!(
@@ -591,7 +589,6 @@ async fn download_file_simple(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
 
     #[test]
     fn test_download_progress() {
@@ -605,7 +602,6 @@ mod tests {
     #[test]
     fn test_progress_calculation() {
         // Test progress calculation with different values
-        use std::io::{self, Write};
 
         // Capture output for testing
         print_progress(0, 100);

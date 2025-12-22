@@ -4,8 +4,7 @@
 //! including initialization, cleanup, device management, error handling,
 //! and version information.
 
-use std::collections::HashMap;
-use std::os::raw::{c_char, c_float, c_int, c_void};
+use std::os::raw::{c_char, c_int};
 use std::ptr;
 use std::sync::{Mutex, OnceLock};
 
@@ -19,7 +18,7 @@ static mut DEVICE_TYPE: c_int = 0; // 0 = CPU
 static mut DEVICE_ID: c_int = 0;
 
 // Version information
-static VERSION_STRING: &str = "0.1.0-alpha.1\0";
+static VERSION_STRING: &str = "0.1.0-alpha.2\0";
 
 /// Get the global error store
 pub fn get_last_error() -> &'static Mutex<Option<String>> {
@@ -140,7 +139,7 @@ pub unsafe extern "C" fn torsh_cuda_device_count() -> c_int {
 
 /// Get CUDA device name
 #[no_mangle]
-pub unsafe extern "C" fn torsh_cuda_device_name(device_id: c_int) -> *const c_char {
+pub unsafe extern "C" fn torsh_cuda_device_name(_device_id: c_int) -> *const c_char {
     // In a real implementation, this would return the actual device name
     // For now, return null as we don't have CUDA support
     ptr::null()
@@ -148,7 +147,7 @@ pub unsafe extern "C" fn torsh_cuda_device_name(device_id: c_int) -> *const c_ch
 
 /// Get CUDA device memory
 #[no_mangle]
-pub unsafe extern "C" fn torsh_cuda_device_memory(device_id: c_int) -> usize {
+pub unsafe extern "C" fn torsh_cuda_device_memory(_device_id: c_int) -> usize {
     // In a real implementation, this would return available memory in bytes
     // For now, return 0 as we don't have CUDA support
     0
@@ -244,7 +243,7 @@ pub unsafe extern "C" fn torsh_set_num_threads(num_threads: c_int) -> TorshError
 
 /// Enable or disable automatic mixed precision
 #[no_mangle]
-pub unsafe extern "C" fn torsh_set_autocast(enabled: c_int) -> TorshError {
+pub unsafe extern "C" fn torsh_set_autocast(_enabled: c_int) -> TorshError {
     // In a real implementation, this would configure automatic mixed precision
     // For now, just return success
     TorshError::Success
@@ -268,7 +267,7 @@ pub unsafe extern "C" fn torsh_set_random_seed(seed: u64) -> TorshError {
 
 /// Enable or disable gradient computation
 #[no_mangle]
-pub unsafe extern "C" fn torsh_set_grad_enabled(enabled: c_int) -> TorshError {
+pub unsafe extern "C" fn torsh_set_grad_enabled(_enabled: c_int) -> TorshError {
     // In a real implementation, this would configure gradient computation
     // For now, just return success
     TorshError::Success
@@ -288,7 +287,7 @@ pub unsafe extern "C" fn torsh_is_grad_enabled() -> c_int {
 
 /// Enable or disable debug mode
 #[no_mangle]
-pub unsafe extern "C" fn torsh_set_debug_mode(enabled: c_int) -> TorshError {
+pub unsafe extern "C" fn torsh_set_debug_mode(_enabled: c_int) -> TorshError {
     // In a real implementation, this would configure debug output
     // For now, just return success
     TorshError::Success

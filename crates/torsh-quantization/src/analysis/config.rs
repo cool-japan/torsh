@@ -1,6 +1,6 @@
 //! Configuration and core types for quantization analysis
 
-use crate::{QScheme, TorshResult};
+use crate::QScheme;
 use std::collections::HashMap;
 
 /// Configuration parameters for sensitivity analysis

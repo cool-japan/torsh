@@ -483,7 +483,7 @@ impl AutogradLogger {
 
         // Apply sampling rate - SciRS2 POLICY compliant
         if self.config.sampling_rate < 1.0 {
-            thread_rng().gen::<f64>() < self.config.sampling_rate
+            thread_rng().random::<f64>() < self.config.sampling_rate
         } else {
             true
         }

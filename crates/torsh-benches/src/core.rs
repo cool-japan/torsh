@@ -313,7 +313,7 @@ impl RegressionDetector {
 
                     let fields: Vec<&str> = line.split(',').collect();
                     if fields.len() >= 7 {
-                        let mut metrics = HashMap::new();
+                        let metrics = HashMap::new();
 
                         let result = BenchResult {
                             name: fields[0].to_string(),

@@ -5,7 +5,7 @@
  * including format selection, memory management, and profiling.
  */
 
-use scirs2_core::random::{thread_rng, Random, Rng};
+use scirs2_core::random::{thread_rng, Rng};
 use std::time::Instant;
 use torsh_core::TorshError;
 use torsh_sparse::*;
@@ -329,7 +329,7 @@ fn create_random_sparse_matrix(size: usize, density: f64) -> Result<CsrTensor, T
     for _ in 0..nnz as usize {
         let i = rng.gen_range(0..size);
         let j = rng.gen_range(0..size);
-        let value = rng.gen();
+        let value = rng.random();
         triplets.push((i, j, value));
     }
 
@@ -361,13 +361,13 @@ fn create_block_structured_matrix(size: usize, block_size: usize) -> Result<CsrT
 
     for block_i in 0..num_blocks {
         for block_j in 0..num_blocks {
-            if rng.gen::<f64>() < 0.1 {
+            if rng.random::<f64>() < 0.1 {
                 // 10% of blocks are non-zero
                 for i in 0..block_size {
                     for j in 0..block_size {
                         let row = block_i * block_size + i;
                         let col = block_j * block_size + j;
-                        let value = rng.gen();
+                        let value = rng.random();
                         triplets.push((row, col, value));
                     }
                 }

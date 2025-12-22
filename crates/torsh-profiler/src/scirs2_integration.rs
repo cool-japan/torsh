@@ -7,6 +7,9 @@
 //! Following the SciRS2 policy, this module makes FULL USE of scirs2-core's
 //! extensive capabilities for production-ready profiling enhancements.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
+#![allow(unexpected_cfgs)]
 use scirs2_core::{
     config::{get_config, set_config_value, Config, ConfigValue},
     constants::{math, physical},

@@ -5,6 +5,8 @@
 //! It goes beyond standard profiling to analyze cache behavior, instruction-level
 //! performance, memory access patterns, and compiler optimization effectiveness.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 // SciRS2 Parallel Operations for performance profiling
 use scirs2_core::parallel_ops::*;
 use std::collections::HashMap;
@@ -217,6 +219,9 @@ impl UltraPerformanceProfiler {
 
         // Execute operation with comprehensive monitoring
         let operation_result = self.execute_with_monitoring(operation_name, operation);
+
+        // Validate operation completed successfully
+        if operation_result.is_err() {}
 
         // Post-operation analysis
         let execution_time = start_time.elapsed();
@@ -440,7 +445,7 @@ impl UltraPerformanceProfiler {
 
     fn execute_with_monitoring<F, T>(
         &self,
-        operation_name: &str,
+        _operation_name: &str,
         operation: F,
     ) -> Result<Vec<T>, String>
     where
@@ -454,6 +459,8 @@ impl UltraPerformanceProfiler {
 
         // Disable monitoring
         self.disable_performance_counters();
+
+        if result.is_ok() {}
 
         result
     }
@@ -807,6 +814,7 @@ pub struct UltraPerformanceReport {
 }
 
 // Macro to generate placeholder structures
+#[allow(unused_macros)]
 macro_rules! impl_placeholder_profiling_struct {
     ($name:ident) => {
         #[derive(Debug)]

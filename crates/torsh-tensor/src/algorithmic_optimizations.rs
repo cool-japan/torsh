@@ -15,21 +15,17 @@
 
 use std::cmp::min;
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::time::Instant;
 
 // SciRS2 Parallel Operations for algorithmic optimizations
 use scirs2_core::parallel_ops::*;
 use torsh_core::{
-    dtype::{ComplexElement, FloatElement, TensorElement},
+    dtype::FloatElement,
     error::{Result, TorshError},
 };
 
 // Standard Rust Algorithm Integration (fallback from scirs2_core)
 // Note: Using stable Rust APIs instead of unstable std::simd
-
-#[cfg(feature = "profiling")]
-use std::time::Instant as ProfileInstant;
 
 /// Configuration for algorithmic optimizations
 #[derive(Debug, Clone)]
@@ -116,8 +112,9 @@ impl AlgorithmicOptimizer {
         T: FloatElement + Send + Sync + std::ops::AddAssign,
     {
         #[cfg(feature = "profiling")]
-        let _profile = profile_section!("optimized_matmul");
-
+        {
+            // let _profile = profile_section!("optimized_matmul");
+        }
         let signature = OperationSignature::MatMul { m, k, n };
 
         // Select optimal algorithm based on size and previous performance
@@ -298,7 +295,7 @@ impl AlgorithmicOptimizer {
 
         let half = n / 2;
 
-        // Allocate temporary matrices for Strassen products
+        // Allocate temporary matrices for Strassen products and intermediate results
         let temp_size = half * half;
         let mut m1 = vec![<T as torsh_core::TensorElement>::zero(); temp_size];
         let mut m2 = vec![<T as torsh_core::TensorElement>::zero(); temp_size];
@@ -308,11 +305,153 @@ impl AlgorithmicOptimizer {
         let mut m6 = vec![<T as torsh_core::TensorElement>::zero(); temp_size];
         let mut m7 = vec![<T as torsh_core::TensorElement>::zero(); temp_size];
 
-        // Strassen's 7 recursive multiplications would go here
-        // This is a simplified version - full implementation would be more complex
+        // Allocate temporary matrices for sums/differences
+        let mut temp_a = vec![<T as torsh_core::TensorElement>::zero(); temp_size];
+        let mut temp_b = vec![<T as torsh_core::TensorElement>::zero(); temp_size];
 
-        // For now, fall back to blocked multiplication
-        self.blocked_matmul(a, b, c, n, n, n)
+        // Helper to add two matrix quadrants: temp = A_quad1 + A_quad2
+        let add_quadrants = |temp: &mut [T],
+                             quad1_row: usize,
+                             quad1_col: usize,
+                             quad2_row: usize,
+                             quad2_col: usize,
+                             source: &[T]| {
+            for i in 0..half {
+                for j in 0..half {
+                    let val1 = source[(quad1_row + i) * n + (quad1_col + j)];
+                    let val2 = source[(quad2_row + i) * n + (quad2_col + j)];
+                    temp[i * half + j] = val1 + val2;
+                }
+            }
+        };
+
+        // Helper to subtract two matrix quadrants: temp = A_quad1 - A_quad2
+        let sub_quadrants = |temp: &mut [T],
+                             quad1_row: usize,
+                             quad1_col: usize,
+                             quad2_row: usize,
+                             quad2_col: usize,
+                             source: &[T]| {
+            for i in 0..half {
+                for j in 0..half {
+                    let val1 = source[(quad1_row + i) * n + (quad1_col + j)];
+                    let val2 = source[(quad2_row + i) * n + (quad2_col + j)];
+                    temp[i * half + j] = val1 - val2;
+                }
+            }
+        };
+
+        // M1 = (A11 + A22)(B11 + B22)
+        add_quadrants(&mut temp_a, a_row, a_col, a_row + half, a_col + half, a);
+        add_quadrants(&mut temp_b, b_row, b_col, b_row + half, b_col + half, b);
+        self.blocked_matmul(&temp_a, &temp_b, &mut m1, half, half, half)?;
+
+        // M2 = (A21 + A22)B11
+        add_quadrants(
+            &mut temp_a,
+            a_row + half,
+            a_col,
+            a_row + half,
+            a_col + half,
+            a,
+        );
+        for i in 0..half {
+            for j in 0..half {
+                temp_b[i * half + j] = b[(b_row + i) * n + (b_col + j)];
+            }
+        }
+        self.blocked_matmul(&temp_a, &temp_b, &mut m2, half, half, half)?;
+
+        // M3 = A11(B12 - B22)
+        for i in 0..half {
+            for j in 0..half {
+                temp_a[i * half + j] = a[(a_row + i) * n + (a_col + j)];
+            }
+        }
+        sub_quadrants(
+            &mut temp_b,
+            b_row,
+            b_col + half,
+            b_row + half,
+            b_col + half,
+            b,
+        );
+        self.blocked_matmul(&temp_a, &temp_b, &mut m3, half, half, half)?;
+
+        // M4 = A22(B21 - B11)
+        for i in 0..half {
+            for j in 0..half {
+                temp_a[i * half + j] = a[(a_row + half + i) * n + (a_col + half + j)];
+            }
+        }
+        sub_quadrants(&mut temp_b, b_row + half, b_col, b_row, b_col, b);
+        self.blocked_matmul(&temp_a, &temp_b, &mut m4, half, half, half)?;
+
+        // M5 = (A11 + A12)B22
+        add_quadrants(&mut temp_a, a_row, a_col, a_row, a_col + half, a);
+        for i in 0..half {
+            for j in 0..half {
+                temp_b[i * half + j] = b[(b_row + half + i) * n + (b_col + half + j)];
+            }
+        }
+        self.blocked_matmul(&temp_a, &temp_b, &mut m5, half, half, half)?;
+
+        // M6 = (A21 - A11)(B11 + B12)
+        sub_quadrants(&mut temp_a, a_row + half, a_col, a_row, a_col, a);
+        add_quadrants(&mut temp_b, b_row, b_col, b_row, b_col + half, b);
+        self.blocked_matmul(&temp_a, &temp_b, &mut m6, half, half, half)?;
+
+        // M7 = (A12 - A22)(B21 + B22)
+        sub_quadrants(
+            &mut temp_a,
+            a_row,
+            a_col + half,
+            a_row + half,
+            a_col + half,
+            a,
+        );
+        add_quadrants(
+            &mut temp_b,
+            b_row + half,
+            b_col,
+            b_row + half,
+            b_col + half,
+            b,
+        );
+        self.blocked_matmul(&temp_a, &temp_b, &mut m7, half, half, half)?;
+
+        // Combine results into output quadrants
+        // C11 = M1 + M4 - M5 + M7
+        for i in 0..half {
+            for j in 0..half {
+                c[(c_row + i) * n + (c_col + j)] =
+                    m1[i * half + j] + m4[i * half + j] - m5[i * half + j] + m7[i * half + j];
+            }
+        }
+
+        // C12 = M3 + M5
+        for i in 0..half {
+            for j in 0..half {
+                c[(c_row + i) * n + (c_col + half + j)] = m3[i * half + j] + m5[i * half + j];
+            }
+        }
+
+        // C21 = M2 + M4
+        for i in 0..half {
+            for j in 0..half {
+                c[(c_row + half + i) * n + (c_col + j)] = m2[i * half + j] + m4[i * half + j];
+            }
+        }
+
+        // C22 = M1 - M2 + M3 + M6
+        for i in 0..half {
+            for j in 0..half {
+                c[(c_row + half + i) * n + (c_col + half + j)] =
+                    m1[i * half + j] - m2[i * half + j] + m3[i * half + j] + m6[i * half + j];
+            }
+        }
+
+        Ok(())
     }
 
     /// Cache-oblivious matrix multiplication
@@ -483,6 +622,16 @@ impl AlgorithmicOptimizer {
         let num_cores = get_num_threads();
         let block_size = self.calculate_optimal_block_size(m, k, n);
 
+        // Decide whether to parallelize based on problem size and available cores
+        let total_operations = m * k * n;
+        let min_work_per_core = 100_000; // Minimum operations to justify parallelization overhead
+        let should_parallelize = num_cores > 1 && total_operations > min_work_per_core * num_cores;
+
+        if !should_parallelize {
+            // Fall back to serial blocked multiplication for small problems
+            return self.blocked_matmul(a, b, c, m, k, n);
+        }
+
         // Create work items for parallel execution
         let work_items: Vec<_> = (0..m)
             .step_by(block_size)
@@ -520,14 +669,29 @@ impl AlgorithmicOptimizer {
 
     /// Calculate optimal block size for cache efficiency
     fn calculate_optimal_block_size(&self, m: usize, k: usize, n: usize) -> usize {
-        // Simple heuristic based on L1 cache size
+        // Calculate block size based on cache size and matrix dimensions
         let element_size = std::mem::size_of::<f32>(); // Assume f32 for estimation
-        let l1_elements = self.config.l1_cache_size / element_size / 3; // Divide by 3 for A, B, C blocks
 
-        let optimal_block = (l1_elements as f64).sqrt() as usize;
+        // For matrix multiplication C = A*B, we need to fit blocks of A, B, and C in cache
+        // A block: block_size × k, B block: k × block_size, C block: block_size × block_size
+        let l1_elements = self.config.l1_cache_size / element_size;
 
-        // Ensure block size is reasonable
-        optimal_block.clamp(16, 256)
+        // Target: block_size² + 2*block_size*k ≤ L1_elements
+        // Simplified: block_size ≈ sqrt(L1_elements / 3)
+        let cache_optimal = (l1_elements as f64 / 3.0).sqrt() as usize;
+
+        // Consider matrix dimensions - don't make blocks larger than necessary
+        let dim_optimal = m.min(k).min(n);
+
+        // Combine heuristics: use smaller of cache-optimal and dimension-optimal
+        let optimal_block = cache_optimal.min(dim_optimal);
+
+        // Ensure block size is reasonable (power of 2 friendly, between 16 and 256)
+        let clamped = optimal_block.clamp(16, 256);
+
+        // Round to nearest power of 2 for better memory alignment
+        let log2 = (clamped as f64).log2().round() as u32;
+        2usize.pow(log2).min(256)
     }
 
     /// Record performance metrics for algorithm selection
@@ -562,10 +726,39 @@ impl AlgorithmicOptimizer {
         T: FloatElement + Send + Sync + std::ops::AddAssign,
     {
         #[cfg(feature = "profiling")]
-        let _profile = profile_section!("optimized_conv2d");
+        {
+            // let _profile = profile_section!("optimized_conv2d");
+        }
 
+        // Calculate expected output dimensions
         let output_h = (input_h + 2 * padding - kernel_h) / stride + 1;
         let output_w = (input_w + 2 * padding - kernel_w) / stride + 1;
+        let expected_output_size = output_h * output_w;
+
+        // Validate output buffer size
+        if output.len() < expected_output_size {
+            return Err(torsh_core::error::TorshError::InvalidShape(format!(
+                "Output buffer too small: expected at least {} ({}x{}) elements, got {}",
+                expected_output_size,
+                output_h,
+                output_w,
+                output.len()
+            )));
+        }
+
+        // TODO: Re-enable when tracing is added to dependencies
+        // #[cfg(feature = "profiling")]
+        // tracing::trace!(
+        //     "Conv2d: input={}x{}, kernel={}x{}, output={}x{}, stride={}, padding={}",
+        //     input_h,
+        //     input_w,
+        //     kernel_h,
+        //     kernel_w,
+        //     output_h,
+        //     output_w,
+        //     stride,
+        //     padding
+        // );
 
         // Select convolution algorithm based on kernel size and input size
         if kernel_h * kernel_w <= 9 && input_h * input_w > 10000 {
@@ -707,7 +900,9 @@ impl AlgorithmicOptimizer {
         }
 
         #[cfg(feature = "profiling")]
-        let _profile = profile_section!("execute_fused_operations");
+        {
+            // let _profile = profile_section!("execute_fused_operations");
+        }
 
         // Compile fusion directly (caching disabled for now due to generic complexity)
         let compiled = self.compile_fusion(operations)?;
@@ -798,7 +993,7 @@ enum OperationSignature {
 
 /// Matrix multiplication algorithms
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-enum MatMulAlgorithm {
+pub enum MatMulAlgorithm {
     Naive,
     Blocked,
     Strassen,
@@ -863,7 +1058,7 @@ impl PerformanceMetrics {
 
 /// Fused operation types
 #[derive(Debug, Clone)]
-enum FusedOperation<T> {
+pub enum FusedOperation<T> {
     ElementwiseAdd {
         alpha: T,
     },
@@ -879,12 +1074,14 @@ enum FusedOperation<T> {
 }
 
 /// Fusion signature for caching
+#[allow(dead_code)]
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 struct FusionSignature {
     operation_types: Vec<String>,
     tensor_shapes: Vec<Vec<usize>>,
 }
 
+#[allow(dead_code)]
 impl FusionSignature {
     fn from_operations<T>(operations: &[FusedOperation<T>]) -> Self
     where
@@ -900,6 +1097,7 @@ impl FusionSignature {
 }
 
 /// Compiled fusion execution plan
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 struct CompiledFusion<T> {
     plan: ExecutionPlan<T>,
@@ -917,6 +1115,7 @@ impl<T> CompiledFusion<T> {
 }
 
 /// Execution plan for fused operations
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 struct ExecutionPlan<T> {
     operations: Vec<FusedOperation<T>>,
@@ -928,12 +1127,65 @@ impl<T> ExecutionPlan<T> {
     where
         T: FloatElement + std::ops::AddAssign,
     {
-        // Simplified execution - would implement actual fused kernel execution
+        if outputs.is_empty() || inputs.is_empty() {
+            return Ok(());
+        }
+
+        // Simple sequential execution of fused operations
+        // In a production system, this would be a compiled kernel
+        let output = outputs.get_mut(0).ok_or_else(|| {
+            torsh_core::error::TorshError::InvalidShape("No output buffer".to_string())
+        })?;
+
+        // Copy first input to output as base
+        if let Some(first_input) = inputs.first() {
+            if first_input.len() == output.len() {
+                output.copy_from_slice(first_input);
+            }
+        }
+
+        // Apply each operation in sequence
+        for op in &self.operations {
+            match op {
+                FusedOperation::ElementwiseAdd { alpha } => {
+                    for val in output.iter_mut() {
+                        *val += *alpha;
+                    }
+                }
+                FusedOperation::ElementwiseMul { scale } => {
+                    for val in output.iter_mut() {
+                        *val = *val * *scale;
+                    }
+                }
+                FusedOperation::ReLU => {
+                    let zero = <T as torsh_core::dtype::TensorElement>::zero();
+                    for val in output.iter_mut() {
+                        if *val < zero {
+                            *val = zero;
+                        }
+                    }
+                }
+                FusedOperation::Sigmoid => {
+                    let one = <T as num_traits::One>::one();
+                    for val in output.iter_mut() {
+                        // sigmoid(x) = 1 / (1 + exp(-x))
+                        let exp_neg = (-*val).exp();
+                        *val = one / (one + exp_neg);
+                    }
+                }
+                FusedOperation::MatMul { .. } => {
+                    // Matrix multiplication would require reshape and proper indexing
+                    // Skip for now in this simplified implementation
+                }
+            }
+        }
+
         Ok(())
     }
 }
 
 /// Optimization levels for compilation
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 enum OptimizationLevel {
     Conservative,

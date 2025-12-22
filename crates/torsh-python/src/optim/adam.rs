@@ -1,10 +1,10 @@
 //! Adam and AdamW optimizers
 
 use super::base::{create_param_group, extract_parameters, PyOptimizer};
-use crate::{error::PyResult, py_optimizer_result, py_result, tensor::PyTensor};
+use crate::{error::PyResult, tensor::PyTensor};
 use parking_lot::RwLock;
 use pyo3::prelude::*;
-use pyo3::types::PyBool;
+use pyo3::types::{PyAny, PyBool};
 use std::collections::HashMap;
 use std::sync::Arc;
 use torsh_optim::{Adam, AdamW, Optimizer};
@@ -13,7 +13,7 @@ use torsh_optim::{Adam, AdamW, Optimizer};
 #[pyclass(name = "Adam", extends = PyOptimizer)]
 pub struct PyAdam {
     adam: Adam,
-    param_groups: Vec<HashMap<String, PyObject>>,
+    param_groups: Vec<HashMap<String, Py<PyAny>>>,
     lr: f32,
     betas: (f32, f32),
     eps: f32,
@@ -55,7 +55,7 @@ impl PyAdam {
 
         // Create parameter groups
         let mut param_group_data = HashMap::new();
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             param_group_data.insert(
                 "betas".to_string(),
                 betas.into_pyobject(py).unwrap().into_any().unbind(),
@@ -92,7 +92,12 @@ impl PyAdam {
 
     /// Perform a single optimization step
     fn step(&mut self) -> PyResult<()> {
-        py_optimizer_result!(self.adam.step())?;
+        self.adam.step().map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                "Optimizer step failed: {}",
+                e
+            ))
+        })?;
         Ok(())
     }
 
@@ -103,9 +108,9 @@ impl PyAdam {
     }
 
     /// Get parameter groups
-    fn param_groups(&self) -> PyResult<Vec<HashMap<String, PyObject>>> {
+    fn param_groups(&self) -> PyResult<Vec<HashMap<String, Py<PyAny>>>> {
         // Manual clone since Py<PyAny> doesn't implement Clone
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let cloned_groups = self
                 .param_groups
                 .iter()
@@ -121,9 +126,9 @@ impl PyAdam {
     }
 
     /// Get current state
-    fn state(&self) -> PyResult<HashMap<String, PyObject>> {
+    fn state(&self) -> PyResult<HashMap<String, Py<PyAny>>> {
         let mut state = HashMap::new();
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             state.insert(
                 "step".to_string(),
                 0i64.into_pyobject(py).unwrap().into_any().unbind(),
@@ -155,9 +160,9 @@ impl PyAdam {
     }
 
     /// Get defaults
-    fn defaults(&self) -> PyResult<HashMap<String, PyObject>> {
+    fn defaults(&self) -> PyResult<HashMap<String, Py<PyAny>>> {
         let mut defaults = HashMap::new();
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             defaults.insert(
                 "lr".to_string(),
                 self.lr.into_pyobject(py).unwrap().into_any().unbind(),
@@ -196,7 +201,7 @@ impl PyAdam {
     #[setter]
     fn set_lr(&mut self, lr: f32) {
         self.lr = lr;
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             for param_group in &mut self.param_groups {
                 param_group.insert(
                     "lr".to_string(),
@@ -235,7 +240,7 @@ impl PyAdam {
 #[pyclass(name = "AdamW", extends = PyOptimizer)]
 pub struct PyAdamW {
     adamw: AdamW,
-    param_groups: Vec<HashMap<String, PyObject>>,
+    param_groups: Vec<HashMap<String, Py<PyAny>>>,
     lr: f32,
     betas: (f32, f32),
     eps: f32,
@@ -277,7 +282,7 @@ impl PyAdamW {
 
         // Create parameter groups
         let mut param_group_data = HashMap::new();
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             param_group_data.insert(
                 "betas".to_string(),
                 betas.into_pyobject(py).unwrap().into_any().unbind(),
@@ -314,7 +319,12 @@ impl PyAdamW {
 
     /// Perform a single optimization step
     fn step(&mut self) -> PyResult<()> {
-        py_optimizer_result!(self.adamw.step())?;
+        self.adamw.step().map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                "Optimizer step failed: {}",
+                e
+            ))
+        })?;
         Ok(())
     }
 
@@ -325,9 +335,9 @@ impl PyAdamW {
     }
 
     /// Get parameter groups
-    fn param_groups(&self) -> PyResult<Vec<HashMap<String, PyObject>>> {
+    fn param_groups(&self) -> PyResult<Vec<HashMap<String, Py<PyAny>>>> {
         // Manual clone since Py<PyAny> doesn't implement Clone
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let cloned_groups = self
                 .param_groups
                 .iter()
@@ -343,9 +353,9 @@ impl PyAdamW {
     }
 
     /// Get current state
-    fn state(&self) -> PyResult<HashMap<String, PyObject>> {
+    fn state(&self) -> PyResult<HashMap<String, Py<PyAny>>> {
         let mut state = HashMap::new();
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             state.insert(
                 "step".to_string(),
                 0i64.into_pyobject(py).unwrap().into_any().unbind(),
@@ -377,9 +387,9 @@ impl PyAdamW {
     }
 
     /// Get defaults
-    fn defaults(&self) -> PyResult<HashMap<String, PyObject>> {
+    fn defaults(&self) -> PyResult<HashMap<String, Py<PyAny>>> {
         let mut defaults = HashMap::new();
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             defaults.insert(
                 "lr".to_string(),
                 self.lr.into_pyobject(py).unwrap().into_any().unbind(),
@@ -418,7 +428,7 @@ impl PyAdamW {
     #[setter]
     fn set_lr(&mut self, lr: f32) {
         self.lr = lr;
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             for param_group in &mut self.param_groups {
                 param_group.insert(
                     "lr".to_string(),

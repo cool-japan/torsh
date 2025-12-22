@@ -3,13 +3,12 @@
 //! This module provides comprehensive testing infrastructure for SciRS2 autograd integration,
 //! ensuring compatibility, correctness, and performance across different versions and configurations.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::error_handling::{AutogradError, AutogradResult};
 use crate::scirs2_integration::{
-    GradientTensor, SciRS2AutogradAdapter, SciRS2CompatibilityShim, SciRS2MigrationHelper,
+    SciRS2AutogradAdapter, SciRS2CompatibilityShim, SciRS2MigrationHelper,
 };
-use scirs2_core::error::CoreError;
-use scirs2_core::ndarray::{Array, ArrayView};
-use scirs2_core::random::{Random, Rng};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -280,8 +279,8 @@ impl SciRS2IntegrationTester {
         test_case: &SciRS2IntegrationTestCase,
     ) -> AutogradResult<SciRS2TestResult> {
         let start_time = Instant::now();
-        let mut warnings = Vec::new();
-        let mut metadata = HashMap::new();
+        let warnings = Vec::new();
+        let metadata = HashMap::new();
 
         // Check version compatibility
         if let Some(ref min_version) = test_case.min_scirs2_version {
@@ -704,7 +703,12 @@ impl SciRS2IntegrationTester {
         Ok(result)
     }
 
-    fn compute_gradient_accuracy(&self, computed: &[f64], expected: &[f64], tolerance: f64) -> f64 {
+    fn compute_gradient_accuracy(
+        &self,
+        computed: &[f64],
+        expected: &[f64],
+        _tolerance: f64,
+    ) -> f64 {
         if computed.len() != expected.len() {
             return 0.0;
         }
@@ -1085,20 +1089,17 @@ impl SciRS2IntegrationTestSuite {
 }
 
 /// Global test runner instance
-static mut GLOBAL_TESTER: Option<Arc<Mutex<SciRS2IntegrationTester>>> = None;
-static TESTER_INIT: std::sync::Once = std::sync::Once::new();
+static GLOBAL_TESTER: std::sync::OnceLock<Arc<Mutex<SciRS2IntegrationTester>>> =
+    std::sync::OnceLock::new();
 
 pub fn get_global_integration_tester() -> &'static Arc<Mutex<SciRS2IntegrationTester>> {
-    unsafe {
-        TESTER_INIT.call_once(|| {
-            let mut tester = SciRS2IntegrationTester::new();
-            if let Err(e) = tester.initialize() {
-                tracing::error!("Failed to initialize SciRS2 integration tester: {}", e);
-            }
-            GLOBAL_TESTER = Some(Arc::new(Mutex::new(tester)));
-        });
-        GLOBAL_TESTER.as_ref().unwrap()
-    }
+    GLOBAL_TESTER.get_or_init(|| {
+        let mut tester = SciRS2IntegrationTester::new();
+        if let Err(e) = tester.initialize() {
+            tracing::error!("Failed to initialize SciRS2 integration tester: {}", e);
+        }
+        Arc::new(Mutex::new(tester))
+    })
 }
 
 pub fn run_scirs2_integration_tests() -> AutogradResult<SciRS2IntegrationTestSuite> {

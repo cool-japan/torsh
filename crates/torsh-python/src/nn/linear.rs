@@ -25,8 +25,6 @@ impl PyLinear {
         out_features: usize,
         bias: Option<bool>,
     ) -> PyResult<(Self, PyModule)> {
-        use torsh_core::device::DeviceType;
-
         let has_bias = bias.unwrap_or(true);
 
         // Initialize weight with Xavier/Glorot uniform initialization

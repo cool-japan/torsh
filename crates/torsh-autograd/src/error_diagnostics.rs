@@ -13,7 +13,9 @@
 //! - **Diagnostic Reporting**: Generate comprehensive error diagnostic reports
 //! - **Remediation Suggestions**: Provide actionable suggestions for error fixes
 
-use crate::error_handling::{AutogradError, AutogradResult};
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
+use crate::error_handling::AutogradError;
 use scirs2_core::ndarray::Array2;
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;

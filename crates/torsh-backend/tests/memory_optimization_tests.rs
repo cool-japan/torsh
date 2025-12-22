@@ -4,7 +4,7 @@
 //! including predictive pooling, intelligent prefetching, bandwidth optimization,
 //! and memory pattern analysis under various workload conditions.
 
-#![cfg(feature = "cuda")]
+#![cfg(cuda_available)]
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -17,7 +17,7 @@ use torsh_backend::cuda::memory::optimization::advanced_memory_optimizer::{
     OptimizationAggressiveness,
 };
 
-#[cfg(all(test, feature = "cuda"))]
+#[cfg(all(test, cuda_available))]
 mod memory_optimization_tests {
     use super::*;
 

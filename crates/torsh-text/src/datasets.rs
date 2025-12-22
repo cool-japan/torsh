@@ -1,3 +1,5 @@
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{Result, TextError};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -443,7 +445,7 @@ pub trait Dataset {
     fn get_item(&self, index: usize) -> Result<Self::Item>;
 
     /// Iterator over the dataset
-    fn iter(&self) -> DatasetIterator<Self>
+    fn iter(&self) -> DatasetIterator<'_, Self>
     where
         Self: Sized,
     {

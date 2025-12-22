@@ -742,19 +742,19 @@ impl ModelCardRenderer {
         for use_case in &card.intended_use.primary_uses {
             markdown.push_str(&format!("- {}\n", use_case));
         }
-        markdown.push_str("\n");
+        markdown.push('\n');
 
         markdown.push_str("**Primary users:**\n");
         for user in &card.intended_use.primary_users {
             markdown.push_str(&format!("- {}\n", user));
         }
-        markdown.push_str("\n");
+        markdown.push('\n');
 
         markdown.push_str("**Out-of-scope uses:**\n");
         for use_case in &card.intended_use.out_of_scope_uses {
             markdown.push_str(&format!("- {}\n", use_case));
         }
-        markdown.push_str("\n");
+        markdown.push('\n');
 
         // Training Data
         markdown.push_str("## Training Data\n\n");
@@ -770,15 +770,15 @@ impl ModelCardRenderer {
             if let Some(ref notes) = dataset.notes {
                 markdown.push_str(&format!(" - Notes: {}", notes));
             }
-            markdown.push_str("\n");
+            markdown.push('\n');
         }
-        markdown.push_str("\n");
+        markdown.push('\n');
 
         markdown.push_str("**Preprocessing:**\n");
         for step in &card.training_data.preprocessing {
             markdown.push_str(&format!("- {}\n", step));
         }
-        markdown.push_str("\n");
+        markdown.push('\n');
 
         // Evaluation
         markdown.push_str("## Evaluation\n\n");
@@ -794,9 +794,9 @@ impl ModelCardRenderer {
             if let Some(ref notes) = dataset.notes {
                 markdown.push_str(&format!(" - Notes: {}", notes));
             }
-            markdown.push_str("\n");
+            markdown.push('\n');
         }
-        markdown.push_str("\n");
+        markdown.push('\n');
 
         markdown.push_str("**Metrics:**\n");
         for (metric_name, metric_info) in &card.evaluation.metrics {
@@ -807,9 +807,9 @@ impl ModelCardRenderer {
             if let Some((low, high)) = metric_info.confidence_interval {
                 markdown.push_str(&format!(" (95% CI: {:.3}-{:.3})", low, high));
             }
-            markdown.push_str("\n");
+            markdown.push('\n');
         }
-        markdown.push_str("\n");
+        markdown.push('\n');
 
         // Ethical Considerations
         if let Some(ref ethical) = card.ethical_considerations {

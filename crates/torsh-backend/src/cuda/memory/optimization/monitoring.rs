@@ -4,12 +4,10 @@
 //! including system state tracking, performance monitoring, alerting, dashboards, and advanced
 //! observability features for production environments.
 
-use scirs2_core::ndarray::{Array1, Array2};
-use scirs2_core::random::Random;
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
-use std::sync::{Arc, Mutex, RwLock};
+use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, RwLock};
 use std::thread;
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, Instant};
 
 /// Comprehensive real-time monitoring system
 #[derive(Debug)]
@@ -209,7 +207,7 @@ pub struct ChangeDetector {
 }
 
 /// Types of change detection algorithms
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ChangeDetectionAlgorithm {
     /// Cumulative Sum (CUSUM) algorithm
     CUSUM,
@@ -1183,37 +1181,6 @@ pub trait MetricCollector: std::fmt::Debug + Send + Sync {
     fn get_name(&self) -> &str;
     fn configure(&mut self, config: HashMap<String, String>) -> Result<(), MonitoringError>;
 }
-
-// Default implementations and placeholder structures
-// (Due to space constraints, providing abbreviated versions)
-
-#[derive(Debug, Default)]
-pub struct MonitoringConfig;
-#[derive(Debug, Default)]
-pub struct StateMonitorConfig;
-#[derive(Debug, Default)]
-pub struct OptimizationMonitorConfig;
-#[derive(Debug, Default)]
-pub struct MetricsCollector;
-#[derive(Debug, Default)]
-pub struct AlertingSystem;
-#[derive(Debug, Default)]
-pub struct LogAnalyzer;
-#[derive(Debug, Default)]
-pub struct AnomalyDetectionSystem;
-#[derive(Debug, Default)]
-pub struct PerformanceTrendAnalyzer;
-#[derive(Debug, Default)]
-pub struct HealthCheckSystem;
-#[derive(Debug, Default)]
-pub struct ResourceUsageTracker;
-#[derive(Debug, Default)]
-pub struct EventCorrelationEngine;
-#[derive(Debug, Default)]
-pub struct DistributedTracingSystem;
-
-// Many more supporting structures and implementations would be provided
-// This represents the core monitoring system architecture
 
 impl Default for SystemState {
     fn default() -> Self {

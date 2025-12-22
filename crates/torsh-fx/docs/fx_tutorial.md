@@ -20,7 +20,7 @@ Add torsh-fx to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-torsh-fx = "0.1.0-alpha.1"
+torsh-fx = "0.1.0-alpha.2"
 ```
 
 Import the basic components:

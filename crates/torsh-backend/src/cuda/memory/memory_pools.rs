@@ -4,16 +4,10 @@
 //! including device, unified, and pinned memory pools with intelligent optimization,
 //! automatic cleanup, and performance analytics.
 
-use super::allocation::{
-    pinned_size_class, size_class, AllocationStats, CudaAllocation, PinnedAllocation,
-    UnifiedAllocation,
-};
-use crate::error::{CudaError, CudaResult};
+use super::allocation::{CudaAllocation, PinnedAllocation, UnifiedAllocation};
+use crate::cuda::error::{CudaError, CudaResult};
 use std::collections::HashMap;
-use std::sync::{
-    atomic::{AtomicUsize, Ordering},
-    Arc, Mutex, RwLock,
-};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
 /// Comprehensive memory pool manager for all CUDA memory types
@@ -1857,5 +1851,56 @@ mod tests {
         assert!(OptimizationPriority::Critical > OptimizationPriority::High);
         assert!(OptimizationPriority::High > OptimizationPriority::Normal);
         assert!(OptimizationPriority::Normal > OptimizationPriority::Low);
+    }
+}
+
+// Type aliases and missing types for compatibility
+
+/// Cross-pool metrics
+#[derive(Debug, Clone, Default)]
+pub struct CrossPoolMetrics {
+    /// Total allocations across all pools
+    pub total_allocations: usize,
+    /// Total memory used across pools
+    pub total_memory_used: usize,
+    /// Sharing efficiency between pools
+    pub sharing_efficiency: f64,
+}
+
+/// Pool coordination strategy
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PoolCoordinationStrategy {
+    /// Pools operate independently
+    Independent,
+    /// Cooperative allocation across pools
+    Cooperative,
+    /// Centralized coordination
+    Centralized,
+}
+
+impl Default for PoolCoordinationStrategy {
+    fn default() -> Self {
+        Self::Cooperative
+    }
+}
+
+/// Resource sharing configuration
+#[derive(Debug, Clone)]
+pub struct ResourceSharingConfig {
+    /// Enable cross-pool sharing
+    pub enable_sharing: bool,
+    /// Maximum percentage of memory that can be shared
+    pub max_sharing_percentage: f64,
+    /// Coordination strategy to use
+    pub strategy: PoolCoordinationStrategy,
+}
+
+impl Default for ResourceSharingConfig {
+    fn default() -> Self {
+        Self {
+            enable_sharing: true,
+            max_sharing_percentage: 0.3,
+            strategy: PoolCoordinationStrategy::default(),
+        }
     }
 }

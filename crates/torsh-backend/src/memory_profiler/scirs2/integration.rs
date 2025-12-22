@@ -3,6 +3,8 @@
 //! This module provides the central ScirS2Integration coordination layer
 //! that orchestrates all components and provides the unified interface.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::memory_profiler::allocation::{HintSeverity, PerformanceHint, PerformanceHintType};
 use parking_lot::RwLock;
 use std::collections::HashMap;
@@ -731,7 +733,7 @@ impl ScirS2Integration {
     fn check_optimization_opportunities(&self, _event: &ScirS2Event) {
         // Analyze the event for optimization opportunities
         // This would trigger the optimization engine in a real implementation
-        if let Ok(mut features) = self.advanced_features.lock() {
+        if let Ok(_features) = self.advanced_features.lock() {
             // Add optimization tasks based on event analysis
         }
     }

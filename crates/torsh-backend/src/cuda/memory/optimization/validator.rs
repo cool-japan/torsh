@@ -3,10 +3,8 @@
 //! This module provides comprehensive validation capabilities for CUDA memory optimization strategies,
 //! including risk assessment, compliance checking, performance validation, and safety enforcement.
 
-use scirs2_core::ndarray::{Array1, Array2};
-use scirs2_core::random::Random;
-use std::collections::{HashMap, HashSet, VecDeque};
-use std::sync::{Arc, Mutex, RwLock};
+use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
 /// Comprehensive optimization validator with enterprise-grade validation capabilities
@@ -1574,36 +1572,6 @@ pub struct ValidationContext {
 impl ValidationContext {
     fn get_hash(&self) -> String {
         "context_hash".to_string()
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct StatisticalValidator;
-
-impl StatisticalValidator {
-    fn new(config: &ValidatorConfig) -> Self {
-        Self
-    }
-    fn validate(
-        &self,
-        session: &ValidationSession,
-    ) -> Result<StatisticalValidationResults, ValidationError> {
-        Ok(StatisticalValidationResults::default())
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct ABTestingFramework;
-
-impl ABTestingFramework {
-    fn new(config: &ValidatorConfig) -> Self {
-        Self
-    }
-    fn validate(&self, session: &ValidationSession) -> Result<ABTestResults, ValidationError> {
-        Ok(ABTestResults::default())
-    }
-    fn execute_test(&mut self, config: ABTestConfig) -> Result<ABTestResults, ValidationError> {
-        Ok(ABTestResults::default())
     }
 }
 

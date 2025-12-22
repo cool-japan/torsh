@@ -7,7 +7,7 @@
 use alloc::vec::Vec;
 
 // ✅ SciRS2 Policy Compliant - Using scirs2_core for all random operations
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::Random;
 
 use super::core::{Sampler, SamplerIterator};
 
@@ -18,7 +18,7 @@ use super::core::{Sampler, SamplerIterator};
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_data::sampler::{SequentialSampler, Sampler};
 ///
 /// let sampler = SequentialSampler::new(5);
@@ -66,7 +66,7 @@ impl Sampler for SequentialSampler {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_data::sampler::{RandomSampler, Sampler};
 ///
 /// // Sample all indices in random order

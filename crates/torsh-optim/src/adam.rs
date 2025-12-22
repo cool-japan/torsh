@@ -70,32 +70,46 @@
 //!
 //! ### Basic Usage
 //! ```rust
-//! use torsh_optim::{Adam, AdamW};
+//! # use torsh_tensor::creation::{randn, tensor_1d};
+//! # use torsh_core::error::Result;
+//! # fn main() -> Result<()> {
+//! use torsh_optim::{Adam, AdamW, Optimizer};
 //! use torsh_tensor::Tensor;
 //! use parking_lot::RwLock;
 //! use std::sync::Arc;
 //!
 //! // Create some parameters
-//! let param1 = Arc::new(RwLock::new(Tensor::randn(&[10, 20])?));
-//! let param2 = Arc::new(RwLock::new(Tensor::randn(&[20, 1])?));
+//! let param1 = Arc::new(RwLock::new(randn::<f32>(&[10, 20])?));
+//! let param2 = Arc::new(RwLock::new(randn::<f32>(&[20, 1])?));
 //! let params = vec![param1.clone(), param2.clone()];
 //!
 //! // Create Adam optimizer with default settings
 //! let mut optimizer = Adam::new(params, None, None, None, None, false);
 //!
 //! // Training loop
-//! for epoch in 0..100 {
+//! for _epoch in 0..100 {
 //!     // ... compute gradients ...
 //!
 //!     // Optimizer step
 //!     optimizer.step()?;
 //!     optimizer.zero_grad();
 //! }
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ### Advanced Configuration
 //! ```rust
-//! use torsh_optim::AdamBuilder;
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # use parking_lot::RwLock;
+//! # use std::sync::Arc;
+//! # fn main() -> Result<()> {
+//! use torsh_optim::adam::AdamBuilder;
+//!
+//! // Create some parameters
+//! let param1 = Arc::new(RwLock::new(randn::<f32>(&[10, 20])?));
+//! let params = vec![param1];
 //!
 //! // Using the builder pattern for better readability
 //! let optimizer = AdamBuilder::new()
@@ -105,22 +119,35 @@
 //!     .eps(1e-6)                  // Tighter numerical stability
 //!     .amsgrad(true)              // Use AMSGrad variant
 //!     .build(params);
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ### Domain-Specific Configurations
 //! ```rust
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # use parking_lot::RwLock;
+//! # use std::sync::Arc;
+//! # fn main() -> Result<()> {
+//! use torsh_optim::adam::AdamBuilder;
+//!
+//! // Create some parameters
+//! let param1 = Arc::new(RwLock::new(randn::<f32>(&[10, 20])?));
+//! let params = vec![param1.clone()];
+//!
 //! // Computer Vision (ImageNet training)
 //! let cv_optimizer = AdamBuilder::new()
 //!     .lr(1e-3)
 //!     .weight_decay(1e-4)
-//!     .build(params);
+//!     .build(params.clone());
 //!
 //! // NLP Transformers (BERT/GPT fine-tuning)
 //! let nlp_optimizer = AdamBuilder::new()
 //!     .lr(5e-5)                   // Lower learning rate for fine-tuning
 //!     .weight_decay(0.01)         // Strong regularization
 //!     .eps(1e-6)                  // Tighter epsilon for stability
-//!     .build_adamw(params);       // Use AdamW for better weight decay
+//!     .build_adamw(params.clone());       // Use AdamW for better weight decay
 //!
 //! // Research / Experimentation
 //! let research_optimizer = AdamBuilder::new()
@@ -128,6 +155,8 @@
 //!     .betas(0.9, 0.999)
 //!     .amsgrad(true)              // More stable for research
 //!     .build(params);
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Performance Tips
@@ -231,13 +260,16 @@ use torsh_tensor::{creation::zeros_like, Tensor};
 /// # Example Usage
 ///
 /// ```rust
+/// # use torsh_tensor::creation::{randn, tensor_1d};
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// use torsh_optim::{Adam, Optimizer};
 /// use torsh_tensor::Tensor;
 /// use parking_lot::RwLock;
 /// use std::sync::Arc;
 ///
 /// // Create parameters
-/// let param = Arc::new(RwLock::new(Tensor::randn(&[100, 50])?));
+/// let param = Arc::new(RwLock::new(randn(&[100, 50])?));
 /// let params = vec![param.clone()];
 ///
 /// // Create Adam optimizer
@@ -254,6 +286,8 @@ use torsh_tensor::{creation::zeros_like, Tensor};
 /// // ... compute gradients ...
 /// optimizer.step()?;
 /// optimizer.zero_grad();
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Clone)]
 pub struct Adam {
@@ -296,14 +330,17 @@ impl Adam {
     /// # Example
     ///
     /// ```rust
+    /// # use torsh_tensor::creation::{randn, zeros};
+    /// # use torsh_core::error::Result;
+    /// # fn main() -> Result<()> {
     /// use torsh_optim::Adam;
     /// use torsh_tensor::Tensor;
     /// use parking_lot::RwLock;
     /// use std::sync::Arc;
     ///
     /// // Create parameters for a simple linear layer
-    /// let weight = Arc::new(RwLock::new(Tensor::randn(&[10, 5])?));
-    /// let bias = Arc::new(RwLock::new(Tensor::zeros(&[5])?));
+    /// let weight = Arc::new(RwLock::new(randn::<f32>(&[10, 5])?));
+    /// let bias = Arc::new(RwLock::new(zeros::<f32>(&[5])?));
     /// let params = vec![weight, bias];
     ///
     /// // Conservative settings for stable training
@@ -315,6 +352,8 @@ impl Adam {
     ///     Some(0.01),        // Light weight decay
     ///     false              // Standard Adam (not AMSGrad)
     /// );
+    /// # Ok(())
+    /// # }
     /// ```
     ///
     /// # Panics
@@ -577,13 +616,17 @@ impl Optimizer for Adam {
 /// # Example Usage
 ///
 /// ```rust
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// use torsh_optim::{AdamW, Optimizer};
 /// use torsh_tensor::Tensor;
 /// use parking_lot::RwLock;
 /// use std::sync::Arc;
 ///
 /// // Transformer fine-tuning setup
-/// let params = vec![/* your model parameters */];
+/// let param1 = Arc::new(RwLock::new(randn::<f32>(&[10, 20])?));
+/// let params = vec![param1];
 /// let mut optimizer = AdamW::new(
 ///     params,
 ///     Some(5e-5),         // Conservative LR for fine-tuning
@@ -593,13 +636,13 @@ impl Optimizer for Adam {
 ///     false               // Standard AdamW
 /// );
 ///
-/// // Training loop
-/// for batch in dataloader {
+/// // Training loop (simplified example)
+/// for _batch in 0..10 {
 ///     // Forward pass and loss computation
 ///     // ...
 ///
-///     // Backward pass
-///     loss.backward()?;
+///     // Backward pass (in real code)
+///     // loss.backward()?;
 ///
 ///     // Optional: gradient clipping for transformers
 ///     // clip_grad_norm_(&params, 1.0);
@@ -608,6 +651,8 @@ impl Optimizer for Adam {
 ///     optimizer.step()?;
 ///     optimizer.zero_grad();
 /// }
+/// # Ok(())
+/// # }
 /// ```
 pub struct AdamW {
     base: BaseOptimizer,
@@ -653,11 +698,20 @@ impl AdamW {
     /// # Recommended Configurations
     ///
     /// ```rust
+    /// # use torsh_tensor::creation::randn;
+    /// # use torsh_core::error::Result;
+    /// # use parking_lot::RwLock;
+    /// # use std::sync::Arc;
+    /// # fn main() -> Result<()> {
     /// use torsh_optim::AdamW;
+    ///
+    /// // Create some parameters
+    /// let param1 = Arc::new(RwLock::new(randn::<f32>(&[10, 20])?));
+    /// let params = vec![param1.clone()];
     ///
     /// // BERT/RoBERTa fine-tuning (conservative)
     /// let bert_optimizer = AdamW::new(
-    ///     params,
+    ///     params.clone(),
     ///     Some(5e-5),         // Low LR for fine-tuning
     ///     Some((0.9, 0.999)), // Standard betas
     ///     Some(1e-8),         // Standard eps
@@ -667,7 +721,7 @@ impl AdamW {
     ///
     /// // GPT pre-training (more aggressive)
     /// let gpt_optimizer = AdamW::new(
-    ///     params,
+    ///     params.clone(),
     ///     Some(3e-4),         // Higher LR for pre-training
     ///     Some((0.9, 0.98)),  // Faster second moment adaptation
     ///     Some(1e-6),         // Tighter epsilon
@@ -684,6 +738,8 @@ impl AdamW {
     ///     Some(1e-4),         // Light weight decay
     ///     false
     /// );
+    /// # Ok(())
+    /// # }
     /// ```
     ///
     /// # Performance Notes

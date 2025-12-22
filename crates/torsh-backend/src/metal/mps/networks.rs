@@ -1,15 +1,13 @@
 //! High-level neural network building blocks using Metal Performance Shaders
 
 use metal::{CommandBuffer, Device};
-use std::collections::HashMap;
 
 use crate::metal::{
     mps::{
-        ActivationType, ConvolutionAlgorithm, MPSBatchNormalization, MPSLinear,
-        MPSMultiHeadAttention, MPSOptimizedConv2d,
-        neural_ops::Conv2dParams,
+        neural_ops::Conv2dParams, ActivationType, ConvolutionAlgorithm, MPSBatchNormalization,
+        MPSLinear, MPSMultiHeadAttention, MPSOptimizedConv2d,
     },
-    MetalBuffer, MetalError, Result,
+    MetalBuffer, Result,
 };
 
 /// Residual block (ResNet-style)
@@ -336,7 +334,7 @@ pub struct MPSLayerNorm {
 
 impl MPSLayerNorm {
     /// Create a new layer normalization layer
-    pub fn new(device: &Device, normalized_shape: usize, eps: f32) -> Result<Self> {
+    pub fn new(_device: &Device, normalized_shape: usize, eps: f32) -> Result<Self> {
         let weight = MetalBuffer::ones(
             &torsh_core::Shape::from(vec![normalized_shape]),
             &torsh_core::DType::F32,
@@ -360,9 +358,9 @@ impl MPSLayerNorm {
     /// Forward pass: layer normalization
     pub fn forward(
         &self,
-        command_buffer: &CommandBuffer,
-        input: &MetalBuffer,
-        output: &MetalBuffer,
+        _command_buffer: &CommandBuffer,
+        _input: &MetalBuffer,
+        _output: &MetalBuffer,
     ) -> Result<()> {
         // Layer normalization implementation would go here
         // For now, this is a placeholder
@@ -533,7 +531,7 @@ impl MPSOptimizations {
         ];
 
         // Heuristics for algorithm selection based on problem size
-        let input_size = height * width;
+        let _input_size = height * width;
         let kernel_size = conv_params.kernel_height * conv_params.kernel_width;
         let output_channels = conv_params.out_channels;
 
@@ -576,7 +574,7 @@ impl MPSOptimizations {
     }
 
     /// Calculate theoretical FLOPS for operations
-    pub fn calculate_flops(operation: &dyn MPSOperation, input_shapes: &[Vec<usize>]) -> u64 {
+    pub fn calculate_flops(_operation: &dyn MPSOperation, _input_shapes: &[Vec<usize>]) -> u64 {
         // Implementation would calculate FLOPs based on operation type
         // This is simplified for now
         0

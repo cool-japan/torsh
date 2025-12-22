@@ -8,6 +8,7 @@ use torsh_tensor::{
 };
 
 /// Graph Convolutional Network (GCN) layer
+#[derive(Debug)]
 pub struct GCNConv {
     in_features: usize,
     out_features: usize,
@@ -31,6 +32,16 @@ impl GCNConv {
             weight,
             bias,
         }
+    }
+
+    /// Get input feature dimension
+    pub fn in_features(&self) -> usize {
+        self.in_features
+    }
+
+    /// Get output feature dimension
+    pub fn out_features(&self) -> usize {
+        self.out_features
     }
 
     /// Apply graph convolution

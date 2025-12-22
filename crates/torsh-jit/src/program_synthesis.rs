@@ -4,9 +4,8 @@
 //! It can generate optimized code patterns based on input/output examples and constraints.
 
 use crate::graph::{ComputationGraph, NodeId};
-use crate::ir::{IrModule, IrOpcode};
-use crate::{JitError, JitResult};
-use std::collections::HashMap;
+use crate::ir::IrOpcode;
+use crate::JitResult;
 
 /// Program synthesis engine for generating code from specifications
 #[derive(Debug, Clone)]

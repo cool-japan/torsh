@@ -64,19 +64,13 @@
 //! let output = model.forward(&input)?;
 //! ```
 
-use crate::error::{Result, TorshError};
+use torsh_core::error::{Result, TorshError};
+use torsh_core::DeviceType;
 use scirs2_core::random::{Random, rng};
 use std::collections::HashMap;
-use torsh_core::{DeviceType, Tensor};
-use torsh_nn::{
-    activations::{GELU, Softmax},
-    dropout::Dropout,
-    layers::{Conv2d, Linear},
-    normalization::LayerNorm,
-    pooling::AdaptiveAvgPool2d,
-    module::{Module, Parameter},
-    Sequential,
-};
+use torsh_tensor::Tensor;
+use torsh_nn::prelude::*;
+use torsh_nn::{Module, Parameter};
 
 /// Swin Transformer Configuration
 #[derive(Debug, Clone)]
@@ -1309,14 +1303,4 @@ mod tests {
     }
 }
 
-/// Re-export commonly used types
-pub use self::{
-    PatchEmbed,
-    WindowAttention,
-    SwinTransformerBlock,
-    PatchMerging,
-    BasicLayer,
-    SwinTransformer,
-    SwinConfig,
-    SwinFactory,
-};
+// Types are already public, no need for re-export

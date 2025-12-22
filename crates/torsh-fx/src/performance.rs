@@ -9,7 +9,8 @@
 use crate::{FxGraph, Node, TorshResult};
 use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
-use rayon::prelude::*;
+// SCIRS2 POLICY COMPLIANCE: Use scirs2_core::parallel_ops instead of direct rayon
+use scirs2_core::parallel_ops::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, RwLock};

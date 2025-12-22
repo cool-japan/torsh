@@ -6,15 +6,28 @@
 //! to ensure optimal system performance and resource utilization.
 
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap, VecDeque};
-use std::sync::{
-    atomic::{AtomicBool, AtomicI64, AtomicU64, AtomicUsize, Ordering},
-    Arc, Mutex, RwLock,
-};
+use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant, SystemTime};
 
-use super::config::{MetricsConfig, PerformanceMonitoringConfig, ProfilingConfig};
-use super::task_management::{TaskId, TaskStatus};
+use super::config::ProfilingConfig;
+
+/// Task execution status for monitoring
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TaskStatus {
+    /// Task is pending execution
+    Pending,
+    /// Task is currently running
+    Running,
+    /// Task completed successfully
+    Completed,
+    /// Task failed
+    Failed,
+    /// Task was cancelled
+    Cancelled,
+    /// Task timed out
+    TimedOut,
+}
 
 /// Comprehensive performance monitoring manager for CUDA execution
 ///

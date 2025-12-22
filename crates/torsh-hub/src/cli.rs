@@ -3,6 +3,8 @@
 //! This module provides a comprehensive CLI for interacting with the torsh-hub
 //! model repository and management system.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{
     analytics::{AnalyticsManager, ExportFormat},
     fine_tuning::{FineTuner, FineTuningConfig},
@@ -19,7 +21,7 @@ use torsh_core::error::{Result, TorshError};
 #[derive(Parser)]
 #[command(name = "torsh-hub")]
 #[command(about = "A CLI tool for managing ToRSh machine learning models")]
-#[command(version = "0.1.0-alpha.1")]
+#[command(version = "0.1.0-alpha.2")]
 #[command(long_about = None)]
 pub struct Cli {
     #[command(subcommand)]
@@ -884,7 +886,7 @@ impl CliApp {
     }
 
     /// Display search results
-    fn display_search_results(&self, results: &[&RegistryEntry], sort_by: &SortBy) -> Result<()> {
+    fn display_search_results(&self, results: &[&RegistryEntry], _sort_by: &SortBy) -> Result<()> {
         if results.is_empty() {
             println!("No models found");
             return Ok(());
@@ -1037,7 +1039,7 @@ impl CliApp {
     /// Configure adapter strategy based on model architecture
     async fn configure_adapter_strategy(
         &self,
-        config: &mut FineTuningConfig,
+        _config: &mut FineTuningConfig,
         model: &str,
     ) -> Result<()> {
         // Determine adapter placement based on model type
@@ -1096,11 +1098,9 @@ impl CliApp {
 
         let mut class_count = 0;
         if let Ok(entries) = fs::read_dir(classes_path) {
-            for entry in entries {
-                if let Ok(entry) = entry {
-                    if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
-                        class_count += 1;
-                    }
+            for entry in entries.flatten() {
+                if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
+                    class_count += 1;
                 }
             }
         }
@@ -1117,7 +1117,7 @@ impl CliApp {
     /// Get model metadata from hub or local cache
     async fn get_model_metadata(&self, model: &str) -> Result<serde_json::Value> {
         // Try to fetch metadata from the model registry
-        let registry = crate::registry::ModelRegistry::new("./torsh_registry");
+        let _registry = crate::registry::ModelRegistry::new("./torsh_registry");
 
         // This is a simplified implementation - in practice, you'd have a proper metadata API
         let metadata = serde_json::json!({

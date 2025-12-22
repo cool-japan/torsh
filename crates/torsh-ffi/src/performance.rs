@@ -7,15 +7,149 @@
 
 use crate::c_api::*;
 use crate::error::{FfiError, FfiResult};
+use parking_lot::{Mutex, RwLock};
 use std::collections::VecDeque;
 use std::os::raw::{c_char, c_float, c_int};
 use std::ptr;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::Instant;
 
 /// Performance statistics for monitoring FFI operations
-#[derive(Debug, Clone, Default)]
+/// Uses atomic operations for lock-free counter updates
+#[derive(Debug)]
 pub struct PerformanceStats {
+    pub total_operations: AtomicU64,
+    pub total_time_ms: AtomicU64,
+    pub min_time_ms: AtomicU64,
+    pub max_time_ms: AtomicU64,
+    pub cache_hits: AtomicU64,
+    pub cache_misses: AtomicU64,
+    pub memory_pool_allocations: AtomicU64,
+    pub memory_pool_deallocations: AtomicU64,
+}
+
+impl Default for PerformanceStats {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl PerformanceStats {
+    pub fn new() -> Self {
+        Self {
+            total_operations: AtomicU64::new(0),
+            total_time_ms: AtomicU64::new(0),
+            min_time_ms: AtomicU64::new(u64::MAX),
+            max_time_ms: AtomicU64::new(0),
+            cache_hits: AtomicU64::new(0),
+            cache_misses: AtomicU64::new(0),
+            memory_pool_allocations: AtomicU64::new(0),
+            memory_pool_deallocations: AtomicU64::new(0),
+        }
+    }
+
+    /// Record an operation with lock-free atomic updates
+    pub fn record_operation(&self, duration_ms: u64) {
+        self.total_operations.fetch_add(1, Ordering::Relaxed);
+        self.total_time_ms.fetch_add(duration_ms, Ordering::Relaxed);
+
+        // Update min using compare-and-swap loop
+        let mut current_min = self.min_time_ms.load(Ordering::Relaxed);
+        while duration_ms < current_min {
+            match self.min_time_ms.compare_exchange_weak(
+                current_min,
+                duration_ms,
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+            ) {
+                Ok(_) => break,
+                Err(actual) => current_min = actual,
+            }
+        }
+
+        // Update max using compare-and-swap loop
+        let mut current_max = self.max_time_ms.load(Ordering::Relaxed);
+        while duration_ms > current_max {
+            match self.max_time_ms.compare_exchange_weak(
+                current_max,
+                duration_ms,
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+            ) {
+                Ok(_) => break,
+                Err(actual) => current_max = actual,
+            }
+        }
+    }
+
+    pub fn record_cache_hit(&self) {
+        self.cache_hits.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub fn record_cache_miss(&self) {
+        self.cache_misses.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub fn record_allocation(&self) {
+        self.memory_pool_allocations.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub fn record_deallocation(&self) {
+        self.memory_pool_deallocations
+            .fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub fn avg_time_ms(&self) -> f64 {
+        let total_ops = self.total_operations.load(Ordering::Relaxed);
+        if total_ops == 0 {
+            0.0
+        } else {
+            self.total_time_ms.load(Ordering::Relaxed) as f64 / total_ops as f64
+        }
+    }
+
+    pub fn cache_hit_rate(&self) -> f64 {
+        let hits = self.cache_hits.load(Ordering::Relaxed);
+        let misses = self.cache_misses.load(Ordering::Relaxed);
+        if hits + misses == 0 {
+            0.0
+        } else {
+            hits as f64 / (hits + misses) as f64
+        }
+    }
+
+    /// Get a snapshot of stats for display/reporting
+    pub fn snapshot(&self) -> PerformanceStatsSnapshot {
+        PerformanceStatsSnapshot {
+            total_operations: self.total_operations.load(Ordering::Relaxed),
+            total_time_ms: self.total_time_ms.load(Ordering::Relaxed),
+            avg_time_ms: self.avg_time_ms(),
+            min_time_ms: self.min_time_ms.load(Ordering::Relaxed),
+            max_time_ms: self.max_time_ms.load(Ordering::Relaxed),
+            cache_hits: self.cache_hits.load(Ordering::Relaxed),
+            cache_misses: self.cache_misses.load(Ordering::Relaxed),
+            memory_pool_allocations: self.memory_pool_allocations.load(Ordering::Relaxed),
+            memory_pool_deallocations: self.memory_pool_deallocations.load(Ordering::Relaxed),
+        }
+    }
+
+    /// Reset all stats to zero
+    pub fn reset(&self) {
+        self.total_operations.store(0, Ordering::Relaxed);
+        self.total_time_ms.store(0, Ordering::Relaxed);
+        self.min_time_ms.store(u64::MAX, Ordering::Relaxed);
+        self.max_time_ms.store(0, Ordering::Relaxed);
+        self.cache_hits.store(0, Ordering::Relaxed);
+        self.cache_misses.store(0, Ordering::Relaxed);
+        self.memory_pool_allocations.store(0, Ordering::Relaxed);
+        self.memory_pool_deallocations.store(0, Ordering::Relaxed);
+    }
+}
+
+/// Snapshot of performance statistics (for display/reporting)
+#[derive(Debug, Clone, Default)]
+pub struct PerformanceStatsSnapshot {
     pub total_operations: u64,
     pub total_time_ms: u64,
     pub avg_time_ms: f64,
@@ -27,41 +161,7 @@ pub struct PerformanceStats {
     pub memory_pool_deallocations: u64,
 }
 
-impl PerformanceStats {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn record_operation(&mut self, duration_ms: u64) {
-        self.total_operations += 1;
-        self.total_time_ms += duration_ms;
-        self.avg_time_ms = self.total_time_ms as f64 / self.total_operations as f64;
-
-        if duration_ms < self.min_time_ms || self.min_time_ms == 0 {
-            self.min_time_ms = duration_ms;
-        }
-
-        if duration_ms > self.max_time_ms {
-            self.max_time_ms = duration_ms;
-        }
-    }
-
-    pub fn record_cache_hit(&mut self) {
-        self.cache_hits += 1;
-    }
-
-    pub fn record_cache_miss(&mut self) {
-        self.cache_misses += 1;
-    }
-
-    pub fn record_allocation(&mut self) {
-        self.memory_pool_allocations += 1;
-    }
-
-    pub fn record_deallocation(&mut self) {
-        self.memory_pool_deallocations += 1;
-    }
-
+impl PerformanceStatsSnapshot {
     pub fn cache_hit_rate(&self) -> f64 {
         if self.cache_hits + self.cache_misses == 0 {
             0.0
@@ -71,9 +171,9 @@ impl PerformanceStats {
     }
 }
 
-/// Global performance statistics
-static PERF_STATS: std::sync::LazyLock<Arc<Mutex<PerformanceStats>>> =
-    std::sync::LazyLock::new(|| Arc::new(Mutex::new(PerformanceStats::new())));
+/// Global performance statistics (lock-free with atomics)
+static PERF_STATS: std::sync::LazyLock<Arc<PerformanceStats>> =
+    std::sync::LazyLock::new(|| Arc::new(PerformanceStats::new()));
 
 /// Operation cache for frequently used operations
 #[derive(Debug)]
@@ -100,24 +200,20 @@ impl OperationCache {
     }
 
     fn get(&self, key: &str) -> Option<Vec<u8>> {
-        let cache = self.cache.read().unwrap();
+        let cache = self.cache.read();
         if let Some(cached) = cache.get(key) {
             if cached.created_at.elapsed().as_millis() as u64 <= self.ttl_ms {
-                if let Ok(mut stats) = PERF_STATS.lock() {
-                    stats.record_cache_hit();
-                }
+                PERF_STATS.record_cache_hit();
                 return Some(cached.result.clone());
             }
         }
 
-        if let Ok(mut stats) = PERF_STATS.lock() {
-            stats.record_cache_miss();
-        }
+        PERF_STATS.record_cache_miss();
         None
     }
 
     fn put(&self, key: String, value: Vec<u8>) {
-        let mut cache = self.cache.write().unwrap();
+        let mut cache = self.cache.write();
 
         // Remove expired entries and maintain size limit
         if cache.len() >= self.max_size {
@@ -182,15 +278,13 @@ impl TensorMemoryPool {
             return Vec::with_capacity(size);
         }
 
-        let mut pools = self.pools.write().unwrap();
+        let mut pools = self.pools.write();
         if let Some(pool) = pools.get_mut(&size) {
             if let Some(mut buffer) = pool.pop() {
                 buffer.clear();
                 buffer.reserve(size);
 
-                if let Ok(mut stats) = PERF_STATS.lock() {
-                    stats.record_allocation();
-                }
+                PERF_STATS.record_allocation();
 
                 return buffer;
             }
@@ -209,21 +303,19 @@ impl TensorMemoryPool {
 
         buffer.clear();
 
-        let mut pools = self.pools.write().unwrap();
+        let mut pools = self.pools.write();
         let pool = pools.entry(size).or_insert_with(Vec::new);
 
         if pool.len() < self.max_pool_size {
             pool.push(buffer);
 
-            if let Ok(mut stats) = PERF_STATS.lock() {
-                stats.record_deallocation();
-            }
+            PERF_STATS.record_deallocation();
         }
     }
 
     /// Get pool statistics
     pub fn stats(&self) -> PoolStats {
-        let pools = self.pools.read().unwrap();
+        let pools = self.pools.read();
         let mut total_pools = 0;
         let mut total_buffers = 0;
         let mut memory_usage = 0;
@@ -243,7 +335,7 @@ impl TensorMemoryPool {
 
     /// Clean up expired or unused buffers
     pub fn cleanup(&self) {
-        let mut pools = self.pools.write().unwrap();
+        let mut pools = self.pools.write();
         // Keep only smaller pools and limit buffer count per pool
         pools.retain(|size, pool| {
             if *size > self.max_buffer_size / 4 {
@@ -434,9 +526,7 @@ impl BatchedOperations {
         }
 
         let duration = start.elapsed().as_millis() as u64;
-        if let Ok(mut stats) = PERF_STATS.lock() {
-            stats.record_operation(duration);
-        }
+        PERF_STATS.record_operation(duration);
 
         Ok(results)
     }
@@ -467,9 +557,7 @@ impl AsyncOperationQueue {
         F: Fn() -> *mut TorshTensor + Send + Sync + 'static,
         C: Fn(*mut TorshTensor) + Send + Sync + 'static,
     {
-        let mut queue = self.queue.lock().map_err(|_| FfiError::Tensor {
-            message: "Failed to acquire queue lock".to_string(),
-        })?;
+        let mut queue = self.queue.lock();
 
         if queue.len() >= self.max_queue_size {
             return Err(FfiError::AllocationFailed {
@@ -488,9 +576,7 @@ impl AsyncOperationQueue {
 
     pub fn process_next(&self) -> FfiResult<bool> {
         let operation = {
-            let mut queue = self.queue.lock().map_err(|_| FfiError::Tensor {
-                message: "Failed to acquire queue lock".to_string(),
-            })?;
+            let mut queue = self.queue.lock();
             queue.pop_front()
         };
 
@@ -499,9 +585,7 @@ impl AsyncOperationQueue {
             let result = (op.operation)();
             let duration = start.elapsed().as_millis() as u64;
 
-            if let Ok(mut stats) = PERF_STATS.lock() {
-                stats.record_operation(duration);
-            }
+            PERF_STATS.record_operation(duration);
 
             if let Some(callback) = op.callback {
                 callback(result);
@@ -514,7 +598,7 @@ impl AsyncOperationQueue {
     }
 
     pub fn queue_size(&self) -> usize {
-        self.queue.lock().map_or(0, |q| q.len())
+        self.queue.lock().len()
     }
 }
 
@@ -649,25 +733,18 @@ pub unsafe extern "C" fn torsh_get_performance_stats(
         return TorshError::InvalidArgument;
     }
 
-    if let Ok(stats) = PERF_STATS.lock() {
-        *total_ops = stats.total_operations;
-        *avg_time_ms = stats.avg_time_ms as c_float;
-        *cache_hit_rate = stats.cache_hit_rate() as c_float;
-        TorshError::Success
-    } else {
-        TorshError::RuntimeError
-    }
+    let snapshot = PERF_STATS.snapshot();
+    *total_ops = snapshot.total_operations;
+    *avg_time_ms = snapshot.avg_time_ms as c_float;
+    *cache_hit_rate = snapshot.cache_hit_rate() as c_float;
+    TorshError::Success
 }
 
 /// Reset performance statistics
 #[no_mangle]
 pub unsafe extern "C" fn torsh_reset_performance_stats() -> TorshError {
-    if let Ok(mut stats) = PERF_STATS.lock() {
-        *stats = PerformanceStats::new();
-        TorshError::Success
-    } else {
-        TorshError::RuntimeError
-    }
+    PERF_STATS.reset();
+    TorshError::Success
 }
 
 /// Process one item from the async operation queue
@@ -690,7 +767,7 @@ pub unsafe extern "C" fn torsh_async_queue_size() -> c_int {
 #[no_mangle]
 pub unsafe extern "C" fn torsh_clear_operation_cache() -> TorshError {
     {
-        let mut cache = OP_CACHE.cache.write().unwrap();
+        let mut cache = OP_CACHE.cache.write();
         cache.clear();
     }
     TorshError::Success
@@ -736,13 +813,9 @@ pub fn return_pooled_buffer(buffer: Vec<f32>) {
     MEMORY_POOL.return_buffer(buffer);
 }
 
-/// Get current performance statistics (Rust API)
-pub fn get_performance_stats() -> PerformanceStats {
-    if let Ok(stats) = PERF_STATS.lock() {
-        stats.clone()
-    } else {
-        PerformanceStats::default()
-    }
+/// Get current performance statistics snapshot (Rust API)
+pub fn get_performance_stats() -> PerformanceStatsSnapshot {
+    PERF_STATS.snapshot()
 }
 
 /// Advanced performance profiler for fine-grained analysis
@@ -759,7 +832,7 @@ impl AdvancedProfiler {
 
     /// Record timing for a specific operation type
     pub fn record_timing(&self, operation: &str, duration_ms: u64) {
-        let mut timings = self.operation_timings.write().unwrap();
+        let mut timings = self.operation_timings.write();
         timings
             .entry(operation.to_string())
             .or_default()
@@ -768,7 +841,7 @@ impl AdvancedProfiler {
 
     /// Record memory usage snapshot
     pub fn record_memory_snapshot(&self, label: &str, memory_bytes: usize) {
-        let mut snapshots = self.memory_snapshots.write().unwrap();
+        let mut snapshots = self.memory_snapshots.write();
         snapshots.push((label.to_string(), memory_bytes, Instant::now()));
 
         // Keep only recent snapshots
@@ -779,7 +852,7 @@ impl AdvancedProfiler {
 
     /// Get timing statistics for an operation
     pub fn get_timing_stats(&self, operation: &str) -> Option<TimingStats> {
-        let timings = self.operation_timings.read().unwrap();
+        let timings = self.operation_timings.read();
         if let Some(times) = timings.get(operation) {
             if times.is_empty() {
                 return None;
@@ -819,7 +892,7 @@ impl AdvancedProfiler {
 
     /// Get memory usage over time
     pub fn get_memory_usage_trend(&self) -> Vec<(String, usize, std::time::Duration)> {
-        let snapshots = self.memory_snapshots.read().unwrap();
+        let snapshots = self.memory_snapshots.read();
         let start_time = snapshots
             .first()
             .map(|(_, _, t)| *t)
@@ -858,9 +931,7 @@ where
 
     ADVANCED_PROFILER.record_timing(operation, duration);
 
-    if let Ok(mut stats) = PERF_STATS.lock() {
-        stats.record_operation(duration);
-    }
+    PERF_STATS.record_operation(duration);
 
     result
 }
@@ -905,21 +976,21 @@ mod tests {
 
     #[test]
     fn test_performance_stats() {
-        let mut stats = PerformanceStats::new();
+        let stats = PerformanceStats::new();
 
         stats.record_operation(100);
         stats.record_operation(200);
         stats.record_operation(150);
 
-        assert_eq!(stats.total_operations, 3);
-        assert_eq!(stats.avg_time_ms, 150.0);
-        assert_eq!(stats.min_time_ms, 100);
-        assert_eq!(stats.max_time_ms, 200);
+        assert_eq!(stats.total_operations.load(Ordering::Relaxed), 3);
+        assert_eq!(stats.avg_time_ms(), 150.0);
+        assert_eq!(stats.min_time_ms.load(Ordering::Relaxed), 100);
+        assert_eq!(stats.max_time_ms.load(Ordering::Relaxed), 200);
     }
 
     #[test]
     fn test_cache_hit_rate() {
-        let mut stats = PerformanceStats::new();
+        let stats = PerformanceStats::new();
 
         stats.record_cache_hit();
         stats.record_cache_hit();

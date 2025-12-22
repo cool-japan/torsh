@@ -6,13 +6,9 @@
 //! functions like ReLU, or in specialized applications like medical imaging and satellite data.
 
 use crate::{CooTensor, CsrTensor, SparseTensor, TorshResult};
-use scirs2_core::random::{Random, Rng};
-use std::collections::HashMap;
+use scirs2_core::random::Rng;
 use torsh_core::{Shape, TorshError};
-use torsh_tensor::{
-    creation::{randn, zeros},
-    Tensor,
-};
+use torsh_tensor::{creation::zeros, Tensor};
 
 /// Sparse 2D Convolution layer
 ///
@@ -323,7 +319,7 @@ impl SparseConv2d {
             let fan_in = in_channels * kernel_size.0 * kernel_size.1;
             let std_dev = (2.0 / fan_in as f32).sqrt();
             let mut rng = scirs2_core::random::thread_rng();
-            values.push((rng.gen::<f32>() * 2.0 - 1.0) * std_dev);
+            values.push((rng.random::<f32>() * 2.0 - 1.0) * std_dev);
         }
 
         let shape = Shape::new(vec![out_channels, channel_size]);
@@ -636,7 +632,7 @@ impl SparseConv1d {
             let fan_in = in_channels * kernel_size;
             let std_dev = (2.0 / fan_in as f32).sqrt();
             let mut rng = scirs2_core::random::thread_rng();
-            values.push((rng.gen::<f32>() * 2.0 - 1.0) * std_dev);
+            values.push((rng.random::<f32>() * 2.0 - 1.0) * std_dev);
         }
 
         let shape = Shape::new(vec![out_channels, channel_size]);

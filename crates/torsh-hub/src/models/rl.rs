@@ -59,7 +59,7 @@ impl DQN {
     /// Select action with epsilon-greedy policy
     pub fn select_action(&self, state: &Tensor, epsilon: f32) -> Result<usize> {
         let mut rng = Random::seed(42);
-        if rng.gen::<f32>() < epsilon {
+        if rng.random::<f32>() < epsilon {
             // Random action
             Ok(rng.gen_range(0..self.num_actions))
         } else {
@@ -312,7 +312,7 @@ impl PPOAgent {
 
         let numerator = advantages - &mean;
         let denominator = std.add_scalar(eps)?;
-        Ok(numerator.div(&denominator)?)
+        numerator.div(&denominator)
     }
 
     /// Compute GAE advantages
@@ -460,7 +460,7 @@ impl DDPGAgent {
     pub fn actor_loss(&self, states: &Tensor) -> Result<Tensor> {
         let actions = self.get_action(states)?;
         let q_values = self.get_q_value(states, &actions)?;
-        Ok(q_values.mean(None, false)?.neg()?)
+        q_values.mean(None, false)?.neg()
     }
 
     /// Compute critic loss
@@ -648,7 +648,6 @@ pub mod factory {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use torsh_tensor::creation::*;
 
     #[test]
     fn test_dqn_creation() {

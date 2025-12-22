@@ -3,6 +3,8 @@
 //! This module contains implementations of popular computer vision models
 //! including ResNet, EfficientNet, Vision Transformer, and others.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use std::collections::HashMap;
 use torsh_core::error::Result;
 use torsh_nn::{prelude::*, Parameter};
@@ -44,6 +46,11 @@ impl BasicBlock {
             relu: ReLU::new(),
             stride,
         }
+    }
+
+    /// Get the stride value
+    pub fn stride(&self) -> usize {
+        self.stride
     }
 }
 
@@ -603,7 +610,7 @@ impl VisionTransformer {
         num_classes: usize,
         embed_dim: usize,
         depth: usize,
-        num_heads: usize,
+        _num_heads: usize,
     ) -> Result<Self> {
         use torsh_tensor::creation::zeros;
 
@@ -639,6 +646,11 @@ impl VisionTransformer {
             num_patches,
             embed_dim,
         })
+    }
+
+    /// Get number of patches
+    pub fn num_patches(&self) -> usize {
+        self.num_patches
     }
 
     /// Create ViT-Base
@@ -742,7 +754,7 @@ pub mod pretrained {
 
     /// Load ResNet-18 with ImageNet pretrained weights
     pub fn resnet18(pretrained: bool) -> Result<Box<dyn Module>> {
-        let mut model = ResNet::resnet18(1000);
+        let model = ResNet::resnet18(1000);
 
         if pretrained {
             // In a real implementation, this would download and load pretrained weights
@@ -757,7 +769,7 @@ pub mod pretrained {
 
     /// Load ResNet-50 with ImageNet pretrained weights
     pub fn resnet50(pretrained: bool) -> Result<Box<dyn Module>> {
-        let mut model = ResNet::resnet50(1000);
+        let model = ResNet::resnet50(1000);
 
         if pretrained {
             println!(
@@ -770,7 +782,7 @@ pub mod pretrained {
 
     /// Load EfficientNet-B0 with ImageNet pretrained weights
     pub fn efficientnet_b0(pretrained: bool) -> Result<Box<dyn Module>> {
-        let mut model = EfficientNet::efficientnet_b0(1000);
+        let model = EfficientNet::efficientnet_b0(1000);
 
         if pretrained {
             println!("Loading EfficientNet-B0 with random weights (pretrained weights not implemented yet)");
@@ -781,7 +793,7 @@ pub mod pretrained {
 
     /// Load Vision Transformer Base with ImageNet pretrained weights
     pub fn vit_base_patch16_224(pretrained: bool) -> Result<Box<dyn Module>> {
-        let mut model = VisionTransformer::vit_base_patch16_224(1000)?;
+        let model = VisionTransformer::vit_base_patch16_224(1000)?;
 
         if pretrained {
             println!(

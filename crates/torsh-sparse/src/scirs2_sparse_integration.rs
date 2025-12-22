@@ -12,6 +12,8 @@
 //! - **Memory Optimization**: Adaptive compression and memory pooling
 //! - **Pattern Analysis**: Sparsity pattern detection and optimization
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::TorshResult;
 use std::collections::HashMap;
 use torsh_core::{DType, DeviceType, TorshError};
@@ -411,7 +413,7 @@ impl SciRS2SparseProcessor {
     fn perform_spmv_operation(
         &self,
         matrix: &SparseTensor,
-        vector: &Tensor,
+        _vector: &Tensor,
     ) -> TorshResult<Tensor> {
         // Placeholder implementation
         torsh_tensor::creation::zeros(&[matrix.rows])
@@ -433,12 +435,12 @@ impl SciRS2SparseProcessor {
         )
     }
 
-    fn direct_solve(&mut self, matrix: &SparseTensor, rhs: &Tensor) -> TorshResult<Tensor> {
+    fn direct_solve(&mut self, matrix: &SparseTensor, _rhs: &Tensor) -> TorshResult<Tensor> {
         // Placeholder: direct sparse solver
         torsh_tensor::creation::zeros(&[matrix.cols])
     }
 
-    fn iterative_solve(&mut self, matrix: &SparseTensor, rhs: &Tensor) -> TorshResult<Tensor> {
+    fn iterative_solve(&mut self, matrix: &SparseTensor, _rhs: &Tensor) -> TorshResult<Tensor> {
         // Placeholder: iterative sparse solver
         torsh_tensor::creation::zeros(&[matrix.cols])
     }

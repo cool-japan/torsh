@@ -1,7 +1,7 @@
 use super::core::Transform;
 use crate::{Result, VisionError};
 //  SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::Random;
 use torsh_tensor::{creation, Tensor};
 
 /// MixUp data augmentation transform
@@ -89,7 +89,7 @@ impl MixUp {
             .add(&input2.mul_scalar(1.0 - lambda)?)?;
 
         // Create one-hot labels and mix them
-        let mut mixed_labels = creation::zeros(&[num_classes]).unwrap();
+        let mixed_labels = creation::zeros(&[num_classes]).unwrap();
         if label1 == label2 {
             // If both labels are the same, the mixed label is 1.0
             mixed_labels.set(&[label1], 1.0)?;
@@ -138,7 +138,7 @@ impl MixUp {
             .add(&input2.mul_scalar(1.0 - lambda)?)?;
 
         // Create mixed labels
-        let mut mixed_labels = creation::zeros(&[num_classes]).unwrap();
+        let mixed_labels = creation::zeros(&[num_classes]).unwrap();
         if label1 == label2 {
             // If both labels are the same, the mixed label is 1.0
             mixed_labels.set(&[label1], 1.0)?;
@@ -276,7 +276,7 @@ impl CutMix {
         let y2 = (y1 + cut_h).min(height);
 
         // Create mixed image
-        let mut mixed_image = input1.clone();
+        let mixed_image = input1.clone();
 
         // Paste region from input2 to input1
         for c in 0..channels {
@@ -294,7 +294,7 @@ impl CutMix {
         let actual_lambda = 1.0 - (cut_area as f32 / total_area as f32);
 
         // Create mixed labels
-        let mut mixed_labels = creation::zeros(&[num_classes]).unwrap();
+        let mixed_labels = creation::zeros(&[num_classes]).unwrap();
         mixed_labels.set(&[label1], actual_lambda)?;
         mixed_labels.set(&[label2], 1.0 - actual_lambda)?;
 
@@ -349,7 +349,7 @@ impl CutMix {
         }
 
         // Create mixed image
-        let mut mixed_image = input1.clone();
+        let mixed_image = input1.clone();
 
         // Paste region from input2 to input1
         for c in 0..channels {
@@ -367,7 +367,7 @@ impl CutMix {
         let lambda = 1.0 - (cut_area as f32 / total_area as f32);
 
         // Create mixed labels
-        let mut mixed_labels = creation::zeros(&[num_classes]).unwrap();
+        let mixed_labels = creation::zeros(&[num_classes]).unwrap();
         mixed_labels.set(&[label1], lambda)?;
         mixed_labels.set(&[label2], 1.0 - lambda)?;
 
@@ -449,7 +449,7 @@ mod tests {
         let result = mixup.apply_pair_with_lambda(&input1, &input2, 0, 2, 5, 0.3);
         assert!(result.is_ok());
 
-        let (mixed_image, mixed_labels) = result.unwrap();
+        let (_mixed_image, mixed_labels) = result.unwrap();
 
         // Check exact lambda values
         assert!((mixed_labels.get(&[0]).unwrap() - 0.3).abs() < 1e-6);

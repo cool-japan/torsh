@@ -449,71 +449,99 @@ pub fn focal_loss(
     gamma: f32,
     reduction: &str,
 ) -> Result<Tensor> {
-    // Apply softmax to get probabilities
-    let log_probs = input.log_softmax(-1)?;
+    // Focal Loss: FL(pt) = -alpha * (1 - pt)^gamma * log(pt)
+    // where pt is the probability of the true class
 
-    // Gather the log probabilities for the true classes
-    // This is a simplified implementation - a full implementation would need proper gather operation
-    let batch_size = input.shape().dims()[0];
-    let num_classes = input.shape().dims()[1];
+    let input_shape = input.shape();
+    let input_dims = input_shape.dims();
 
-    // For now, implement a simplified version that returns a scalar loss
-    // TODO: Implement proper focal loss with scirs2 operations when available
-
-    // Convert log probabilities to probabilities
-    let probs = log_probs.exp()?;
-
-    // Create alpha weights if provided
-    let alpha_weight = alpha.unwrap_or(1.0);
-
-    // Simplified focal loss computation
-    // In a full implementation, we would:
-    // 1. Gather log_probs[i, target[i]] for each sample i
-    // 2. Compute pt = exp(log_pt) for true class probabilities
-    // 3. Apply focal term: alpha * (1 - pt)^gamma * log_pt
-    // 4. Apply reduction (mean, sum, none)
-
-    // For now, return a placeholder loss tensor
-    let mut loss_val = 0.0f32;
-
-    // Simple approximation of focal loss behavior
-    let target_data = target.to_vec()?;
-    for i in 0..batch_size {
-        for j in 0..num_classes {
-            let prob = probs.to_vec()?[i * num_classes + j];
-            let log_prob = log_probs.to_vec()?[i * num_classes + j];
-
-            // Check if this is the target class
-            if j == target_data[i] as usize {
-                // Simplified focal loss term
-                let focal_weight = alpha_weight * (1.0 - prob).powf(gamma);
-                loss_val += focal_weight * (-log_prob);
-            }
-        }
+    if input_dims.len() != 2 {
+        return Err(torsh_core::error::TorshError::InvalidShape(format!(
+            "Input must be 2D [batch_size, num_classes], got shape {:?}",
+            input_dims
+        )));
     }
 
-    match reduction {
-        "mean" => loss_val /= batch_size as f32,
-        "sum" => {} // Keep as is
+    let batch_size = input_dims[0];
+    let num_classes = input_dims[1];
+
+    // Apply log_softmax to get log probabilities
+    let log_probs = input.log_softmax(-1)?;
+
+    // Convert to probabilities
+    let probs = log_probs.exp()?;
+
+    // Get data for indexing
+    let log_probs_data = log_probs.to_vec()?;
+    let probs_data = probs.to_vec()?;
+    let target_data = target.to_vec()?;
+
+    // Compute focal loss for each sample
+    let alpha_weight = alpha.unwrap_or(1.0);
+    let mut losses = Vec::with_capacity(batch_size);
+
+    for i in 0..batch_size {
+        let target_class = target_data[i] as usize;
+
+        if target_class >= num_classes {
+            return Err(torsh_core::error::TorshError::InvalidArgument(format!(
+                "Target class {} out of range for {} classes",
+                target_class, num_classes
+            )));
+        }
+
+        // Get probability and log probability for the true class
+        let idx = i * num_classes + target_class;
+        let pt = probs_data[idx];
+        let log_pt = log_probs_data[idx];
+
+        // Focal loss: -alpha * (1 - pt)^gamma * log(pt)
+        let focal_weight = alpha_weight * (1.0 - pt).powf(gamma);
+        let sample_loss = -focal_weight * log_pt;
+
+        losses.push(sample_loss);
+    }
+
+    // Apply reduction
+    let result = match reduction {
+        "mean" => {
+            let mean_loss: f32 = losses.iter().sum::<f32>() / batch_size as f32;
+            Tensor::from_data(vec![mean_loss], vec![1], input.device())?
+        }
+        "sum" => {
+            let sum_loss: f32 = losses.iter().sum();
+            Tensor::from_data(vec![sum_loss], vec![1], input.device())?
+        }
         "none" => {
-            // Should return per-sample losses, but simplified to scalar for now
+            // Return per-sample losses
+            Tensor::from_data(losses, vec![batch_size], input.device())?
         }
         _ => {
             return Err(TorshError::InvalidArgument(format!(
-                "Invalid reduction mode: {}",
+                "Invalid reduction mode: '{}'. Expected 'mean', 'sum', or 'none'",
                 reduction
             )))
         }
-    }
+    };
 
-    // Return scalar loss
-    Ok(Tensor::from_data(vec![loss_val], vec![1], input.device())?)
+    Ok(result)
 }
 
 /// Triplet margin loss function
 ///
 /// Computes the triplet loss between anchor, positive, and negative samples.
-/// L = max(d(a,p) - d(a,n) + margin, 0)
+/// The loss encourages the distance between anchor and positive to be smaller
+/// than the distance between anchor and negative by at least margin.
+///
+/// Formula: L = max(d(a,p) - d(a,n) + margin, 0)
+///
+/// # Arguments
+/// * `anchor` - Anchor samples tensor
+/// * `positive` - Positive samples tensor (similar to anchor)
+/// * `negative` - Negative samples tensor (dissimilar to anchor)
+/// * `margin` - Minimum distance difference between positive and negative pairs
+/// * `p` - Norm degree for pairwise distance (e.g., 2.0 for L2 distance)
+/// * `reduction` - Reduction method: "mean", "sum", or "none"
 pub fn triplet_margin_loss(
     anchor: &Tensor,
     positive: &Tensor,
@@ -522,36 +550,87 @@ pub fn triplet_margin_loss(
     p: f32,
     reduction: &str,
 ) -> Result<Tensor> {
-    // TODO: Implement proper triplet margin loss with scirs2
-    // For now, return a placeholder that computes a simple distance-based loss
+    let anchor_shape_obj = anchor.shape();
+    let anchor_shape = anchor_shape_obj.dims();
+    let batch_size = anchor_shape[0];
+    let feature_dim: usize = anchor_shape[1..].iter().product();
 
-    let _ = (positive, negative, p); // Suppress warnings
+    let anchor_data = anchor.to_vec()?;
+    let positive_data = positive.to_vec()?;
+    let negative_data = negative.to_vec()?;
 
-    // Simplified implementation - return margin as loss for now
-    let loss_val = margin;
+    let mut losses = Vec::with_capacity(batch_size);
 
+    for i in 0..batch_size {
+        let start_idx = i * feature_dim;
+        let end_idx = start_idx + feature_dim;
+
+        // Compute distance between anchor and positive: ||a - p||_p
+        let mut dist_ap = 0.0f32;
+        for j in start_idx..end_idx {
+            let diff = anchor_data[j] - positive_data[j];
+            dist_ap += diff.abs().powf(p);
+        }
+        dist_ap = dist_ap.powf(1.0 / p);
+
+        // Compute distance between anchor and negative: ||a - n||_p
+        let mut dist_an = 0.0f32;
+        for j in start_idx..end_idx {
+            let diff = anchor_data[j] - negative_data[j];
+            dist_an += diff.abs().powf(p);
+        }
+        dist_an = dist_an.powf(1.0 / p);
+
+        // Compute triplet loss: max(dist_ap - dist_an + margin, 0)
+        let loss = (dist_ap - dist_an + margin).max(0.0);
+        losses.push(loss);
+    }
+
+    // Apply reduction
     let final_loss = match reduction {
-        "mean" | "sum" => loss_val,
-        "none" => loss_val,
+        "mean" => {
+            let sum: f32 = losses.iter().sum();
+            vec![sum / batch_size as f32]
+        }
+        "sum" => {
+            let sum: f32 = losses.iter().sum();
+            vec![sum]
+        }
+        "none" => losses,
         _ => {
             return Err(TorshError::InvalidArgument(format!(
-                "Invalid reduction mode: {}",
+                "Invalid reduction mode: {}. Expected 'mean', 'sum', or 'none'",
                 reduction
             )))
         }
     };
 
-    Ok(Tensor::from_data(
-        vec![final_loss],
-        vec![1],
-        anchor.device(),
-    )?)
+    let output_shape = if reduction == "none" {
+        vec![batch_size]
+    } else {
+        vec![1]
+    };
+
+    Tensor::from_vec(final_loss, &output_shape)
 }
 
 /// Contrastive loss function
 ///
 /// Used for learning embeddings where similar pairs should have small distances
-/// and dissimilar pairs should have large distances.
+/// and dissimilar pairs should have large distances (at least margin apart).
+///
+/// Formula:
+/// - For similar pairs (target=1): L = d^2
+/// - For dissimilar pairs (target=0): L = max(margin - d, 0)^2
+///
+/// where d is the Euclidean distance between embeddings.
+///
+/// # Arguments
+/// * `output1` - First embedding tensor [batch_size, feature_dim]
+/// * `output2` - Second embedding tensor [batch_size, feature_dim]
+/// * `target` - Binary labels (1 for similar, 0 for dissimilar)
+/// * `margin` - Minimum distance for dissimilar pairs
+/// * `reduction` - Reduction method: "mean", "sum", or "none"
 pub fn contrastive_loss(
     output1: &Tensor,
     output2: &Tensor,
@@ -559,29 +638,71 @@ pub fn contrastive_loss(
     margin: f32,
     reduction: &str,
 ) -> Result<Tensor> {
-    // TODO: Implement proper contrastive loss with scirs2
-    // For now, return a placeholder
+    let output1_shape_obj = output1.shape();
+    let output1_shape = output1_shape_obj.dims();
+    let batch_size = output1_shape[0];
+    let feature_dim: usize = output1_shape[1..].iter().product();
 
-    let _ = (output2, target); // Suppress warnings
+    let output1_data = output1.to_vec()?;
+    let output2_data = output2.to_vec()?;
+    let target_data = target.to_vec()?;
 
-    let loss_val = margin;
+    let mut losses = Vec::with_capacity(batch_size);
 
+    for i in 0..batch_size {
+        let start_idx = i * feature_dim;
+        let end_idx = start_idx + feature_dim;
+
+        // Compute Euclidean distance: ||output1 - output2||_2
+        let mut dist_squared = 0.0f32;
+        for j in start_idx..end_idx {
+            let diff = output1_data[j] - output2_data[j];
+            dist_squared += diff * diff;
+        }
+        let dist = dist_squared.sqrt();
+
+        // Get target label (1 for similar, 0 for dissimilar)
+        let label = target_data[i];
+
+        // Compute contrastive loss
+        let loss = if label > 0.5 {
+            // Similar pair: minimize distance
+            dist_squared
+        } else {
+            // Dissimilar pair: push distance to at least margin
+            let margin_diff = (margin - dist).max(0.0);
+            margin_diff * margin_diff
+        };
+
+        losses.push(loss);
+    }
+
+    // Apply reduction
     let final_loss = match reduction {
-        "mean" | "sum" => loss_val,
-        "none" => loss_val,
+        "mean" => {
+            let sum: f32 = losses.iter().sum();
+            vec![sum / batch_size as f32]
+        }
+        "sum" => {
+            let sum: f32 = losses.iter().sum();
+            vec![sum]
+        }
+        "none" => losses,
         _ => {
             return Err(TorshError::InvalidArgument(format!(
-                "Invalid reduction mode: {}",
+                "Invalid reduction mode: {}. Expected 'mean', 'sum', or 'none'",
                 reduction
             )))
         }
     };
 
-    Ok(Tensor::from_data(
-        vec![final_loss],
-        vec![1],
-        output1.device(),
-    )?)
+    let output_shape = if reduction == "none" {
+        vec![batch_size]
+    } else {
+        vec![1]
+    };
+
+    Tensor::from_vec(final_loss, &output_shape)
 }
 
 /// Cosine Embedding Loss for similarity learning
@@ -713,5 +834,573 @@ fn pairwise_distance(x1: &Tensor, x2: &Tensor, p: f32) -> Result<Tensor> {
         let sum_powered = powered.sum()?;
         let inv_p = 1.0 / p;
         sum_powered.pow(inv_p)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_triplet_margin_loss_basic() -> Result<()> {
+        // Create simple embeddings where positive is closer to anchor than negative
+        // Anchor: [1, 1]
+        // Positive: [1.1, 1.1] (close to anchor)
+        // Negative: [5, 5] (far from anchor)
+        let anchor = Tensor::from_vec(vec![1.0, 1.0], &[1, 2])?;
+        let positive = Tensor::from_vec(vec![1.1, 1.1], &[1, 2])?;
+        let negative = Tensor::from_vec(vec![5.0, 5.0], &[1, 2])?;
+
+        let loss = triplet_margin_loss(&anchor, &positive, &negative, 1.0, 2.0, "mean")?;
+        let loss_data = loss.to_vec()?;
+
+        // Distance anchor-positive: sqrt((0.1)^2 + (0.1)^2) ≈ 0.141
+        // Distance anchor-negative: sqrt(16 + 16) ≈ 5.657
+        // Loss should be 0 since dist_an - dist_ap > margin
+        assert!(
+            loss_data[0] < 0.1,
+            "Loss should be near zero when constraint is satisfied"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_triplet_margin_loss_violation() -> Result<()> {
+        // Create case where margin is violated
+        // Anchor: [0, 0]
+        // Positive: [2, 0] (distance = 2)
+        // Negative: [1, 0] (distance = 1, closer than positive!)
+        let anchor = Tensor::from_vec(vec![0.0, 0.0], &[1, 2])?;
+        let positive = Tensor::from_vec(vec![2.0, 0.0], &[1, 2])?;
+        let negative = Tensor::from_vec(vec![1.0, 0.0], &[1, 2])?;
+
+        let loss = triplet_margin_loss(&anchor, &positive, &negative, 0.5, 2.0, "mean")?;
+        let loss_data = loss.to_vec()?;
+
+        // dist_ap = 2.0, dist_an = 1.0, margin = 0.5
+        // Loss = max(2.0 - 1.0 + 0.5, 0) = 1.5
+        assert!((loss_data[0] - 1.5).abs() < 1e-5, "Loss should be 1.5");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_triplet_margin_loss_batch() -> Result<()> {
+        // Test with batch size 2
+        let anchor = Tensor::from_vec(
+            vec![
+                0.0, 0.0, // Sample 1
+                1.0, 1.0, // Sample 2
+            ],
+            &[2, 2],
+        )?;
+        let positive = Tensor::from_vec(
+            vec![
+                0.1, 0.1, // Sample 1
+                1.1, 1.1, // Sample 2
+            ],
+            &[2, 2],
+        )?;
+        let negative = Tensor::from_vec(
+            vec![
+                5.0, 5.0, // Sample 1
+                6.0, 6.0, // Sample 2
+            ],
+            &[2, 2],
+        )?;
+
+        let loss = triplet_margin_loss(&anchor, &positive, &negative, 1.0, 2.0, "none")?;
+        assert_eq!(loss.shape().dims(), &[2]);
+
+        let loss_mean = triplet_margin_loss(&anchor, &positive, &negative, 1.0, 2.0, "mean")?;
+        assert_eq!(loss_mean.shape().dims(), &[1]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_contrastive_loss_similar_pairs() -> Result<()> {
+        // Test with similar pairs (target=1)
+        // Similar pairs should have small distance
+        let output1 = Tensor::from_vec(vec![1.0, 2.0], &[1, 2])?;
+        let output2 = Tensor::from_vec(vec![1.1, 2.1], &[1, 2])?;
+        let target = Tensor::from_vec(vec![1.0], &[1])?;
+
+        let loss = contrastive_loss(&output1, &output2, &target, 2.0, "mean")?;
+        let loss_data = loss.to_vec()?;
+
+        // Distance^2 = (0.1)^2 + (0.1)^2 = 0.02
+        // For similar pairs: loss = d^2 = 0.02
+        assert!(
+            (loss_data[0] - 0.02).abs() < 1e-5,
+            "Loss for similar pair should be distance squared"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_contrastive_loss_dissimilar_pairs() -> Result<()> {
+        // Test with dissimilar pairs (target=0)
+        // Dissimilar pairs should be pushed apart
+        let output1 = Tensor::from_vec(vec![0.0, 0.0], &[1, 2])?;
+        let output2 = Tensor::from_vec(vec![0.5, 0.0], &[1, 2])?;
+        let target = Tensor::from_vec(vec![0.0], &[1])?;
+
+        let loss = contrastive_loss(&output1, &output2, &target, 2.0, "mean")?;
+        let loss_data = loss.to_vec()?;
+
+        // Distance = 0.5, margin = 2.0
+        // For dissimilar pairs: loss = max(margin - d, 0)^2 = (2.0 - 0.5)^2 = 2.25
+        assert!(
+            (loss_data[0] - 2.25).abs() < 1e-5,
+            "Loss for dissimilar pair should be (margin - dist)^2"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_contrastive_loss_dissimilar_beyond_margin() -> Result<()> {
+        // Test dissimilar pairs that are already beyond margin
+        let output1 = Tensor::from_vec(vec![0.0, 0.0], &[1, 2])?;
+        let output2 = Tensor::from_vec(vec![5.0, 0.0], &[1, 2])?;
+        let target = Tensor::from_vec(vec![0.0], &[1])?;
+
+        let loss = contrastive_loss(&output1, &output2, &target, 2.0, "mean")?;
+        let loss_data = loss.to_vec()?;
+
+        // Distance = 5.0 > margin = 2.0
+        // Loss should be 0 (already separated enough)
+        assert!(
+            loss_data[0] < 1e-5,
+            "Loss should be zero when dissimilar pairs are beyond margin"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_contrastive_loss_batch() -> Result<()> {
+        // Test with multiple samples
+        let output1 = Tensor::from_vec(
+            vec![
+                0.0, 0.0, // Sample 1
+                1.0, 1.0, // Sample 2
+            ],
+            &[2, 2],
+        )?;
+        let output2 = Tensor::from_vec(
+            vec![
+                0.1, 0.0, // Sample 1
+                1.0, 2.0, // Sample 2
+            ],
+            &[2, 2],
+        )?;
+        let target = Tensor::from_vec(
+            vec![
+                1.0, // Similar
+                0.0, // Dissimilar
+            ],
+            &[2],
+        )?;
+
+        let loss = contrastive_loss(&output1, &output2, &target, 2.0, "none")?;
+        assert_eq!(loss.shape().dims(), &[2]);
+
+        let loss_mean = contrastive_loss(&output1, &output2, &target, 2.0, "mean")?;
+        assert_eq!(loss_mean.shape().dims(), &[1]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_reduction_modes() -> Result<()> {
+        let anchor = Tensor::from_vec(vec![0.0, 0.0, 1.0, 1.0], &[2, 2])?;
+        let positive = Tensor::from_vec(vec![0.1, 0.1, 1.1, 1.1], &[2, 2])?;
+        let negative = Tensor::from_vec(vec![5.0, 5.0, 6.0, 6.0], &[2, 2])?;
+
+        // Test "none" reduction
+        let loss_none = triplet_margin_loss(&anchor, &positive, &negative, 1.0, 2.0, "none")?;
+        assert_eq!(
+            loss_none.shape().dims(),
+            &[2],
+            "none reduction should return batch_size losses"
+        );
+
+        // Test "mean" reduction
+        let loss_mean = triplet_margin_loss(&anchor, &positive, &negative, 1.0, 2.0, "mean")?;
+        assert_eq!(
+            loss_mean.shape().dims(),
+            &[1],
+            "mean reduction should return scalar"
+        );
+
+        // Test "sum" reduction
+        let loss_sum = triplet_margin_loss(&anchor, &positive, &negative, 1.0, 2.0, "sum")?;
+        assert_eq!(
+            loss_sum.shape().dims(),
+            &[1],
+            "sum reduction should return scalar"
+        );
+
+        Ok(())
+    }
+}
+
+// =============================================================================
+// MODERN LOSS FUNCTIONS
+// =============================================================================
+
+/// Dice Loss for segmentation tasks
+///
+/// Dice loss is particularly effective for imbalanced segmentation problems
+/// where the foreground class is much smaller than the background.
+///
+/// # Arguments
+/// * `input` - Predicted probabilities (after sigmoid/softmax) with shape (batch_size, num_classes, ...)
+/// * `target` - Ground truth labels with same shape as input
+/// * `smooth` - Smoothing factor to avoid division by zero (typically 1.0)
+/// * `reduction` - Reduction mode: "mean", "sum", or "none"
+///
+/// # Formula
+/// Dice = 1 - (2 * intersection + smooth) / (sum_pred + sum_target + smooth)
+///
+/// # Reference
+/// Milletari et al., "V-Net: Fully Convolutional Neural Networks for Volumetric Medical Image Segmentation", 3DV 2016
+pub fn dice_loss(input: &Tensor, target: &Tensor, smooth: f32, reduction: &str) -> Result<Tensor> {
+    // Validate inputs
+    if input.shape().dims() != target.shape().dims() {
+        return Err(TorshError::ShapeMismatch {
+            expected: target.shape().dims().to_vec(),
+            got: input.shape().dims().to_vec(),
+        });
+    }
+
+    // Flatten spatial dimensions while keeping batch and channel dimensions
+    let input_shape_binding = input.shape();
+    let input_shape = input_shape_binding.dims();
+    let _batch_size = input_shape[0];
+    let _num_elements: usize = input_shape.iter().product();
+
+    // Compute intersection and union
+    let intersection = input.mul_op(target)?;
+    let intersection_sum = intersection.sum()?;
+    let intersection_val = intersection_sum.to_vec()?[0];
+
+    let input_sum = input.sum()?;
+    let input_val = input_sum.to_vec()?[0];
+
+    let target_sum = target.sum()?;
+    let target_val = target_sum.to_vec()?[0];
+
+    // Compute Dice coefficient
+    let dice_coeff = (2.0 * intersection_val + smooth) / (input_val + target_val + smooth);
+    let dice_loss_val = 1.0 - dice_coeff;
+
+    let loss = Tensor::from_data(vec![dice_loss_val], vec![1], input.device())?;
+    apply_reduction(&loss, reduction, None, &[])
+}
+
+/// Tversky Loss for imbalanced segmentation
+///
+/// Tversky loss is a generalization of Dice loss that allows controlling the
+/// balance between false positives and false negatives through alpha and beta parameters.
+///
+/// # Arguments
+/// * `input` - Predicted probabilities (after sigmoid/softmax) with shape (batch_size, ...)
+/// * `target` - Ground truth labels with same shape as input
+/// * `alpha` - Weight for false positives (typically 0.3-0.7)
+/// * `beta` - Weight for false negatives (typically 0.3-0.7, alpha + beta should be ≤ 1)
+/// * `smooth` - Smoothing factor to avoid division by zero (typically 1.0)
+/// * `reduction` - Reduction mode: "mean", "sum", or "none"
+///
+/// # Formula
+/// Tversky = (TP + smooth) / (TP + alpha*FP + beta*FN + smooth)
+/// Loss = 1 - Tversky
+///
+/// # Reference
+/// Salehi et al., "Tversky Loss Function for Image Segmentation Using 3D Fully Convolutional Deep Networks", MICCAI 2017
+pub fn tversky_loss(
+    input: &Tensor,
+    target: &Tensor,
+    alpha: f32,
+    beta: f32,
+    smooth: f32,
+    reduction: &str,
+) -> Result<Tensor> {
+    // Validate inputs
+    if input.shape().dims() != target.shape().dims() {
+        return Err(TorshError::ShapeMismatch {
+            expected: target.shape().dims().to_vec(),
+            got: input.shape().dims().to_vec(),
+        });
+    }
+
+    if alpha + beta > 1.0 {
+        return Err(TorshError::InvalidArgument(
+            "alpha + beta should be <= 1.0 for Tversky loss".to_string(),
+        ));
+    }
+
+    // Compute true positives (TP), false positives (FP), false negatives (FN)
+    let tp = input.mul_op(target)?.sum()?;
+    let tp_val = tp.to_vec()?[0];
+
+    let ones = torsh_tensor::creation::ones_like(target)?;
+    let fp = input.mul_op(&ones.sub(target)?)?.sum()?;
+    let fp_val = fp.to_vec()?[0];
+
+    let fn_tensor = ones.sub(input)?.mul_op(target)?.sum()?;
+    let fn_val = fn_tensor.to_vec()?[0];
+
+    // Compute Tversky index
+    let tversky_index = (tp_val + smooth) / (tp_val + alpha * fp_val + beta * fn_val + smooth);
+    let tversky_loss_val = 1.0 - tversky_index;
+
+    let loss = Tensor::from_data(vec![tversky_loss_val], vec![1], input.device())?;
+    apply_reduction(&loss, reduction, None, &[])
+}
+
+/// Wing Loss for robust regression
+///
+/// Wing loss is designed to be more robust to outliers than MSE and L1 loss,
+/// particularly effective for facial landmark detection and other regression tasks
+/// with varying difficulty across samples.
+///
+/// # Arguments
+/// * `input` - Predicted values with shape (batch_size, ...)
+/// * `target` - Ground truth values with same shape as input
+/// * `width` - Width parameter controlling the transition between L1 and log (typically 5.0-10.0)
+/// * `curvature` - Curvature parameter epsilon (typically 0.5-2.0)
+/// * `reduction` - Reduction mode: "mean", "sum", or "none"
+///
+/// # Formula
+/// For |x| < width:
+///   loss = width * ln(1 + |x|/epsilon)
+/// For |x| >= width:
+///   loss = |x| - C
+/// where C is a constant ensuring continuity
+///
+/// # Reference
+/// Feng et al., "Wing Loss for Robust Facial Landmark Localisation with Convolutional Neural Networks", CVPR 2018
+pub fn wing_loss(
+    input: &Tensor,
+    target: &Tensor,
+    width: f32,
+    curvature: f32,
+    reduction: &str,
+) -> Result<Tensor> {
+    // Validate inputs
+    if input.shape().dims() != target.shape().dims() {
+        return Err(TorshError::ShapeMismatch {
+            expected: target.shape().dims().to_vec(),
+            got: input.shape().dims().to_vec(),
+        });
+    }
+
+    // Compute C constant for continuity
+    let c = width - width * (1.0 + width / curvature).ln();
+
+    // Compute element-wise Wing loss
+    let input_vec: Vec<f32> = input.to_vec()?;
+    let target_vec: Vec<f32> = target.to_vec()?;
+
+    let loss_vec: Vec<f32> = input_vec
+        .iter()
+        .zip(target_vec.iter())
+        .map(|(&pred, &tgt)| {
+            let abs_diff = (pred - tgt).abs();
+            if abs_diff < width {
+                width * (1.0 + abs_diff / curvature).ln()
+            } else {
+                abs_diff - c
+            }
+        })
+        .collect();
+
+    let loss = Tensor::from_data(loss_vec, input.shape().dims().to_vec(), input.device())?;
+
+    apply_reduction(&loss, reduction, None, &[])
+}
+
+/// Center Loss for metric learning
+///
+/// Center loss learns a center for each class and penalizes the distance of samples
+/// from their corresponding class centers. Often used together with softmax loss
+/// for improved feature discrimination in face recognition and person re-identification.
+///
+/// # Arguments
+/// * `features` - Feature embeddings with shape (batch_size, feature_dim)
+/// * `labels` - Class labels with shape (batch_size,)
+/// * `centers` - Class centers with shape (num_classes, feature_dim)
+/// * `reduction` - Reduction mode: "mean", "sum", or "none"
+///
+/// # Formula
+/// loss = 0.5 * sum((features - centers[labels])^2)
+///
+/// # Reference
+/// Wen et al., "A Discriminative Feature Learning Approach for Deep Face Recognition", ECCV 2016
+pub fn center_loss(
+    features: &Tensor,
+    labels: &Tensor<i64>,
+    centers: &Tensor,
+    reduction: &str,
+) -> Result<Tensor> {
+    let features_shape_binding = features.shape();
+    let features_shape = features_shape_binding.dims();
+    let batch_size = features_shape[0];
+    let feature_dim = features_shape[1];
+
+    let centers_shape_binding = centers.shape();
+    let centers_shape = centers_shape_binding.dims();
+    let num_classes = centers_shape[0];
+
+    // Validate dimensions
+    if centers_shape[1] != feature_dim {
+        return Err(TorshError::ShapeMismatch {
+            expected: vec![num_classes, feature_dim],
+            got: centers_shape.to_vec(),
+        });
+    }
+
+    // Get feature and center vectors
+    let features_vec: Vec<f32> = features.to_vec()?;
+    let centers_vec: Vec<f32> = centers.to_vec()?;
+    let labels_vec: Vec<i64> = labels.to_vec()?;
+
+    // Compute squared distance from each sample to its class center
+    let mut loss_vec = Vec::with_capacity(batch_size);
+
+    for (i, &label) in labels_vec.iter().enumerate() {
+        let label_idx = label as usize;
+        if label_idx >= num_classes {
+            return Err(TorshError::InvalidArgument(format!(
+                "Label {} out of range for {} classes",
+                label, num_classes
+            )));
+        }
+
+        // Compute squared distance
+        let mut squared_dist = 0.0_f32;
+        for j in 0..feature_dim {
+            let feature_val = features_vec[i * feature_dim + j];
+            let center_val = centers_vec[label_idx * feature_dim + j];
+            let diff = feature_val - center_val;
+            squared_dist += diff * diff;
+        }
+
+        loss_vec.push(0.5 * squared_dist);
+    }
+
+    let loss = Tensor::from_data(loss_vec, vec![batch_size], features.device())?;
+    apply_reduction(&loss, reduction, None, &[])
+}
+
+/// InfoNCE Loss for contrastive learning
+///
+/// InfoNCE (Information Noise-Contrastive Estimation) loss is widely used in
+/// self-supervised learning frameworks like SimCLR and MoCo. It maximizes
+/// agreement between differently augmented views of the same data.
+///
+/// # Arguments
+/// * `anchor` - Anchor embeddings with shape (batch_size, embedding_dim)
+/// * `positive` - Positive (similar) embeddings with shape (batch_size, embedding_dim)
+/// * `negatives` - Negative (dissimilar) embeddings with shape (num_negatives, embedding_dim)
+/// * `temperature` - Temperature parameter for softmax (typically 0.1-0.5)
+/// * `reduction` - Reduction mode: "mean", "sum", or "none"
+///
+/// # Formula
+/// loss = -log(exp(sim(anchor, positive)/τ) / (exp(sim(anchor, positive)/τ) + sum(exp(sim(anchor, negative_i)/τ))))
+/// where sim is cosine similarity
+///
+/// # Reference
+/// Oord et al., "Representation Learning with Contrastive Predictive Coding", arXiv 2018
+/// Chen et al., "A Simple Framework for Contrastive Learning of Visual Representations", ICML 2020
+pub fn infonce_loss(
+    anchor: &Tensor,
+    positive: &Tensor,
+    negatives: &Tensor,
+    temperature: f32,
+    reduction: &str,
+) -> Result<Tensor> {
+    let anchor_shape_binding = anchor.shape();
+    let anchor_shape = anchor_shape_binding.dims();
+    let batch_size = anchor_shape[0];
+    let embedding_dim = anchor_shape[1];
+
+    // Validate shapes
+    let positive_shape = positive.shape();
+    if positive_shape.dims() != anchor_shape {
+        return Err(TorshError::ShapeMismatch {
+            expected: anchor_shape.to_vec(),
+            got: positive_shape.dims().to_vec(),
+        });
+    }
+
+    let negatives_shape_binding = negatives.shape();
+    let negatives_shape = negatives_shape_binding.dims();
+    if negatives_shape.len() != 2 || negatives_shape[1] != embedding_dim {
+        return Err(TorshError::ShapeMismatch {
+            expected: vec![negatives_shape[0], embedding_dim],
+            got: negatives_shape.to_vec(),
+        });
+    }
+
+    let num_negatives = negatives_shape[0];
+
+    // Get vectors
+    let anchor_vec: Vec<f32> = anchor.to_vec()?;
+    let positive_vec: Vec<f32> = positive.to_vec()?;
+    let negatives_vec: Vec<f32> = negatives.to_vec()?;
+
+    // Compute InfoNCE loss for each sample in batch
+    let mut loss_vec = Vec::with_capacity(batch_size);
+
+    for i in 0..batch_size {
+        // Get anchor and positive for this sample
+        let anchor_start = i * embedding_dim;
+        let anchor_end = anchor_start + embedding_dim;
+        let anchor_emb = &anchor_vec[anchor_start..anchor_end];
+        let positive_emb = &positive_vec[anchor_start..anchor_end];
+
+        // Compute cosine similarity with positive
+        let pos_sim = cosine_similarity(anchor_emb, positive_emb) / temperature;
+
+        // Compute cosine similarities with all negatives
+        let mut neg_sims = Vec::with_capacity(num_negatives);
+        for j in 0..num_negatives {
+            let neg_start = j * embedding_dim;
+            let neg_end = neg_start + embedding_dim;
+            let neg_emb = &negatives_vec[neg_start..neg_end];
+            let neg_sim = cosine_similarity(anchor_emb, neg_emb) / temperature;
+            neg_sims.push(neg_sim);
+        }
+
+        // Compute log-sum-exp for numerical stability
+        let max_sim = pos_sim.max(neg_sims.iter().copied().fold(f32::NEG_INFINITY, f32::max));
+
+        let exp_pos = (pos_sim - max_sim).exp();
+        let sum_exp_neg: f32 = neg_sims.iter().map(|&s| (s - max_sim).exp()).sum();
+
+        let loss = -(pos_sim - max_sim - (exp_pos + sum_exp_neg).ln());
+        loss_vec.push(loss);
+    }
+
+    let loss = Tensor::from_data(loss_vec, vec![batch_size], anchor.device())?;
+    apply_reduction(&loss, reduction, None, &[])
+}
+
+/// Compute cosine similarity between two vectors
+fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
+    let dot_product: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
+    let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
+    let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
+
+    if norm_a == 0.0 || norm_b == 0.0 {
+        0.0
+    } else {
+        dot_product / (norm_a * norm_b)
     }
 }

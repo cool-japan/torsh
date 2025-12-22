@@ -24,10 +24,10 @@ use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
 #[cfg(feature = "std")]
-use scirs2_core::random::{thread_rng, Random, Rng};
+use scirs2_core::random::{thread_rng, Rng};
 
 #[cfg(not(feature = "std"))]
-use scirs2_core::random::{thread_rng, Random, Rng};
+use scirs2_core::random::{thread_rng, Rng};
 
 /// Online augmentation engine that applies transforms in real-time during data loading
 pub struct OnlineAugmentationEngine<T> {
@@ -240,7 +240,7 @@ impl<T: Clone + Send + Sync + 'static> DynamicAugmentationStrategy<T> {
         }
 
         let mut rng = thread_rng();
-        let random_value = rng.gen::<f32>() * total_weight;
+        let random_value = rng.random::<f32>() * total_weight;
         let mut cumulative_weight = 0.0;
 
         for strategy in &active_strategies {
@@ -462,10 +462,11 @@ pub struct AugmentationQueue<T> {
     max_queue_size: usize,
 }
 
+// Placeholder for future async task processing
+#[allow(dead_code)]
 struct AugmentationTask<T> {
     input: T,
     cache_key: Option<String>,
-    #[allow(dead_code)]
     task_id: usize,
 }
 

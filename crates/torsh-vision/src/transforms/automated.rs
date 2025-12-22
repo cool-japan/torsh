@@ -101,7 +101,7 @@ impl AutoAugment {
 
         // Apply transforms in the selected policy
         for (transform_name, probability) in policy {
-            if rng.gen::<f32>() < *probability {
+            if rng.random::<f32>() < *probability {
                 output = match transform_name.as_str() {
                     "rotate" => {
                         let rotation = RandomRotation::new((-30.0, 30.0));

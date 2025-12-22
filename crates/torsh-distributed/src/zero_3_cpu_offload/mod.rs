@@ -50,7 +50,7 @@
 //!
 //! // Create ZeRO-3 manager
 //! # let process_group = torsh_distributed::init_process_group(
-//! #     torsh_distributed::BackendType::Nccl, 0, 4, "127.0.0.1", 29500
+//! #     torsh_distributed::BackendType::Gloo, 0, 4, "127.0.0.1", 29500
 //! # )?;
 //! let mut manager = Zero3CpuOffloadManager::new(
 //!     config,
@@ -73,6 +73,8 @@
 //! # }
 //! ```
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 // Module declarations - order matters for compilation
 pub mod config;
 pub mod gradient_management;
@@ -99,13 +101,12 @@ pub use prefetch::*;
 pub use stats::*;
 
 // Core dependencies
-use crate::backend::Backend;
 use crate::{ProcessGroup, TorshDistributedError, TorshResult};
 use half::{bf16, f16};
-use log::{debug, info, warn};
-use std::collections::{HashMap, VecDeque};
-use std::sync::{Arc, Mutex, RwLock};
-use std::time::{Duration, Instant};
+use log::info;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
 use torsh_core::device::DeviceType;
 use torsh_tensor::Tensor;
 
@@ -415,7 +416,7 @@ impl Zero3CpuOffloadManager {
         // Step 2: Update optimizer states and parameters
         for (param_name, gradient) in owned_param_grads.iter() {
             // Fetch optimizer state from CPU if offloaded
-            let mut optimizer_state = self.optimizer_state_manager.fetch_state(param_name).await?;
+            let optimizer_state = self.optimizer_state_manager.fetch_state(param_name).await?;
 
             // Compute parameter update using optimizer state and gradient
             let param_update =
@@ -977,7 +978,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_zero3_manager_creation() {
-        let pg = init_process_group(BackendType::Nccl, 0, 4, "127.0.0.1", 29500)
+        let pg = init_process_group(BackendType::Gloo, 0, 4, "127.0.0.1", 29500)
             .await
             .unwrap();
         let config = Zero3CpuOffloadConfig::default();
@@ -993,13 +994,13 @@ mod tests {
         let stats = manager.get_performance_stats();
         assert_eq!(stats.forward_passes, 0);
 
-        let memory_stats = manager.get_memory_stats();
-        assert!(memory_stats.total_parameters >= 0);
+        let _memory_stats = manager.get_memory_stats();
+        // total_parameters is usize, always >= 0
     }
 
     #[tokio::test]
     async fn test_manager_operations() {
-        let pg = init_process_group(BackendType::Nccl, 0, 1, "127.0.0.1", 29500)
+        let pg = init_process_group(BackendType::Gloo, 0, 1, "127.0.0.1", 29500)
             .await
             .unwrap();
         let config = Zero3CpuOffloadConfig::default();
@@ -1007,7 +1008,7 @@ mod tests {
         let mut model_params = ConfigModelParameters::new();
         model_params.add_parameter("test_layer".to_string(), vec![10, 10]);
 
-        let mut manager = Zero3CpuOffloadManager::new(config, Arc::new(pg), &model_params).unwrap();
+        let manager = Zero3CpuOffloadManager::new(config, Arc::new(pg), &model_params).unwrap();
 
         // Test state reset
         manager.reset_state().await.unwrap();
@@ -1023,7 +1024,7 @@ mod tests {
     #[tokio::test]
     async fn test_compression_methods() {
         let config = Zero3CpuOffloadConfig::default();
-        let pg = init_process_group(BackendType::Nccl, 0, 1, "127.0.0.1", 29500)
+        let pg = init_process_group(BackendType::Gloo, 0, 1, "127.0.0.1", 29500)
             .await
             .unwrap();
         let model_params = ConfigModelParameters::new();

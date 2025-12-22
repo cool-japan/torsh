@@ -1,5 +1,7 @@
 //! Extended Kalman filter implementation for nonlinear systems
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::TimeSeries;
 use torsh_tensor::{
     creation::{eye, zeros},
@@ -118,8 +120,8 @@ impl ExtendedKalmanFilter {
     /// Compute numerical Jacobian if analytical not provided
     fn numerical_jacobian(
         &self,
-        f: &dyn Fn(&Tensor) -> Tensor,
-        x: &Tensor,
+        _f: &dyn Fn(&Tensor) -> Tensor,
+        _x: &Tensor,
         output_dim: usize,
     ) -> Tensor {
         // Finite difference approximation of Jacobian
@@ -154,7 +156,7 @@ impl ExtendedKalmanFilter {
 
         // Covariance prediction: P = F @ P @ F.T + Q
         // where F is the Jacobian of transition function
-        let f_jacobian = self.transition_jacobian(&self.state);
+        let _f_jacobian = self.transition_jacobian(&self.state);
         // TODO: Implement matrix operations when tensor API is complete
         // self.covariance = &f_jacobian @ &self.covariance @ &f_jacobian.transpose() + &self.process_noise;
 
@@ -164,14 +166,14 @@ impl ExtendedKalmanFilter {
     /// Update step
     pub fn update(&mut self, observation: &Tensor) {
         // Predicted observation: z_pred = h(x)
-        let predicted_obs = (self.observation_fn)(&self.state);
+        let _predicted_obs = (self.observation_fn)(&self.state);
 
         // Innovation: y = z - z_pred
         // TODO: Implement subtraction when tensor API is complete
-        let innovation = observation.clone();
+        let _innovation = observation.clone();
 
         // Observation Jacobian: H = ∂h/∂x
-        let h_jacobian = self.observation_jacobian(&self.state);
+        let _h_jacobian = self.observation_jacobian(&self.state);
 
         // Innovation covariance: S = H @ P @ H.T + R
         // TODO: Implement matrix operations when tensor API is complete
@@ -212,7 +214,7 @@ impl ExtendedKalmanFilter {
     }
 
     /// Compute log-likelihood
-    pub fn log_likelihood(&mut self, series: &TimeSeries) -> f32 {
+    pub fn log_likelihood(&mut self, _series: &TimeSeries) -> f32 {
         // TODO: Implement log-likelihood computation
         0.0
     }

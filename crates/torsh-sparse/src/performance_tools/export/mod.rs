@@ -38,7 +38,7 @@ pub use trend_analyzer::{TrendAnalysis, TrendAnalyzer, TrendDirection};
 #[cfg(test)]
 mod tests {
     use super::super::core::PerformanceMeasurement;
-    use super::super::reporting::{OperationStatistics, PerformanceReport};
+    use super::super::reporting::PerformanceReport;
     use super::*;
     use std::time::Duration;
 

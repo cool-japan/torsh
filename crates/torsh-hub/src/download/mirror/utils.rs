@@ -437,12 +437,12 @@ pub fn validate_mirror_server(mirror: &MirrorServer) -> Result<()> {
 
     // Validate geographic coordinates if provided
     if let (Some(lat), Some(lon)) = (mirror.location.latitude, mirror.location.longitude) {
-        if lat < -90.0 || lat > 90.0 {
+        if !(-90.0..=90.0).contains(&lat) {
             return Err(TorshError::IoError(
                 "Mirror latitude must be between -90.0 and 90.0".to_string(),
             ));
         }
-        if lon < -180.0 || lon > 180.0 {
+        if !(-180.0..=180.0).contains(&lon) {
             return Err(TorshError::IoError(
                 "Mirror longitude must be between -180.0 and 180.0".to_string(),
             ));
@@ -451,7 +451,7 @@ pub fn validate_mirror_server(mirror: &MirrorServer) -> Result<()> {
 
     // Validate capacity information if provided
     if let Some(load) = mirror.capacity.current_load {
-        if load < 0.0 || load > 100.0 {
+        if !(0.0..=100.0).contains(&load) {
             return Err(TorshError::IoError(
                 "Mirror current load must be between 0.0 and 100.0".to_string(),
             ));
@@ -592,7 +592,7 @@ pub fn filter_mirrors_by_network_tier<'a>(
             m.provider_info
                 .network_tier
                 .as_ref()
-                .map_or(false, |tier| tier == target_tier)
+                .is_some_and(|tier| tier == target_tier)
         })
         .collect()
 }
@@ -606,7 +606,7 @@ pub fn get_low_latency_mirrors(
         .iter()
         .filter(|m| {
             m.avg_response_time
-                .map_or(false, |latency| latency <= max_latency_ms)
+                .is_some_and(|latency| latency <= max_latency_ms)
         })
         .collect()
 }

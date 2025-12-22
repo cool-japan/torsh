@@ -14,10 +14,7 @@
 
 use crate::{Tensor, TensorElement};
 use std::fmt;
-use torsh_core::{
-    dtype::FloatElement,
-    error::{Result, TorshError},
-};
+use torsh_core::{dtype::FloatElement, error::Result};
 
 /// Configuration for NaN/Inf detection
 #[derive(Debug, Clone)]

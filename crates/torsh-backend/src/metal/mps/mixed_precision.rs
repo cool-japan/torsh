@@ -3,10 +3,7 @@
 use metal::{CommandBuffer, Device};
 use std::collections::HashMap;
 
-use crate::metal::{
-    mps::{MPSDataType, MPSOperation},
-    MetalBuffer, MetalError, Result,
-};
+use crate::metal::{mps::MPSDataType, MetalBuffer, Result};
 
 /// Mixed precision training manager
 pub struct MPSMixedPrecision {
@@ -164,7 +161,7 @@ impl MPSMixedPrecision {
         &self,
         command_buffer: &CommandBuffer,
         input: &MetalBuffer,
-        scale: f32,
+        _scale: f32,
         output: &MetalBuffer,
     ) -> Result<()> {
         // Implementation would use a Metal compute shader for efficient scaling
@@ -175,9 +172,9 @@ impl MPSMixedPrecision {
     /// Copy buffer contents
     fn copy_buffer(
         &self,
-        command_buffer: &CommandBuffer,
-        src: &MetalBuffer,
-        dst: &MetalBuffer,
+        _command_buffer: &CommandBuffer,
+        _src: &MetalBuffer,
+        _dst: &MetalBuffer,
     ) -> Result<()> {
         // Implementation would use Metal's blit encoder for efficient copying
         // For now, this is a placeholder
@@ -187,10 +184,10 @@ impl MPSMixedPrecision {
     /// Cast tensor to different data type
     fn cast_tensor(
         &self,
-        command_buffer: &CommandBuffer,
-        input: &MetalBuffer,
-        output: &MetalBuffer,
-        target_type: MPSDataType,
+        _command_buffer: &CommandBuffer,
+        _input: &MetalBuffer,
+        _output: &MetalBuffer,
+        _target_type: MPSDataType,
     ) -> Result<()> {
         // Implementation would use Metal compute shaders for type conversion
         // For now, this is a placeholder
@@ -198,7 +195,11 @@ impl MPSMixedPrecision {
     }
 
     /// Check if tensor contains inf or nan values
-    fn has_inf_or_nan(&self, command_buffer: &CommandBuffer, tensor: &MetalBuffer) -> Result<bool> {
+    fn has_inf_or_nan(
+        &self,
+        _command_buffer: &CommandBuffer,
+        _tensor: &MetalBuffer,
+    ) -> Result<bool> {
         // Implementation would use a reduction operation to check for inf/nan
         // For now, return false (no inf/nan detected)
         Ok(false)
@@ -409,7 +410,7 @@ pub mod utils {
     }
 
     /// Check if device supports FP16 operations efficiently
-    pub fn supports_efficient_fp16(device: &Device) -> bool {
+    pub fn supports_efficient_fp16(_device: &Device) -> bool {
         // Check device capabilities
         // This would query Metal device properties
         // For now, assume modern devices support efficient FP16
@@ -417,7 +418,7 @@ pub mod utils {
     }
 
     /// Estimate memory savings from mixed precision
-    pub fn estimate_memory_savings(model_params: usize) -> f32 {
+    pub fn estimate_memory_savings(_model_params: usize) -> f32 {
         // Rough estimate: FP16 uses half the memory of FP32 for weights and activations
         // But gradients and optimizer states might still be FP32
         // Conservative estimate: 25-40% memory savings
@@ -482,7 +483,10 @@ mod tests {
     #[test]
     fn test_loss_scale_update() {
         // Test loss scale update logic
-        let device = unsafe { std::mem::zeroed() }; // Placeholder
+        let Some(device) = metal::Device::system_default() else {
+            // Skip test if Metal device is not available
+            return;
+        };
         let mut mp = MPSMixedPrecision::new(&device);
 
         let initial_scale = mp.get_loss_scale();
@@ -494,7 +498,10 @@ mod tests {
 
     #[test]
     fn test_autocast_op_detection() {
-        let device = unsafe { std::mem::zeroed() }; // Placeholder
+        let Some(device) = metal::Device::system_default() else {
+            // Skip test if Metal device is not available
+            return;
+        };
         let autocast = MPSAutocast::new(&device, true);
 
         assert!(autocast.should_use_fp16("conv2d"));

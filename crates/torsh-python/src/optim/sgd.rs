@@ -3,7 +3,7 @@
 use super::base::{create_param_group, PyOptimizer};
 use crate::{error::PyResult, py_result, tensor::PyTensor};
 use pyo3::prelude::*;
-use pyo3::types::PyBool;
+use pyo3::types::{PyAny, PyBool};
 use std::collections::HashMap;
 use torsh_tensor::Tensor;
 
@@ -12,7 +12,7 @@ use torsh_tensor::Tensor;
 pub struct PySGD {
     parameters: Vec<Tensor<f32>>,
     momentum_buffers: Vec<Option<Tensor<f32>>>,
-    param_groups: Vec<HashMap<String, PyObject>>,
+    param_groups: Vec<HashMap<String, Py<PyAny>>>,
     lr: f32,
     momentum: f32,
     dampening: f32,
@@ -42,7 +42,7 @@ impl PySGD {
 
         // Create parameter groups
         let mut param_group_data = HashMap::new();
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             param_group_data.insert(
                 "momentum".to_string(),
                 momentum.into_pyobject(py).unwrap().into_any().unbind(),
@@ -130,9 +130,9 @@ impl PySGD {
     }
 
     /// Get parameter groups
-    fn param_groups(&self) -> PyResult<Vec<HashMap<String, PyObject>>> {
+    fn param_groups(&self) -> PyResult<Vec<HashMap<String, Py<PyAny>>>> {
         // Manual clone since Py<PyAny> doesn't implement Clone
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let cloned_groups = self
                 .param_groups
                 .iter()
@@ -148,10 +148,10 @@ impl PySGD {
     }
 
     /// Get current state
-    fn state(&self) -> PyResult<HashMap<String, PyObject>> {
+    fn state(&self) -> PyResult<HashMap<String, Py<PyAny>>> {
         // For SGD, state includes momentum buffers
         let mut state = HashMap::new();
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             if self.momentum != 0.0 {
                 state.insert(
                     "momentum_buffer".to_string(),
@@ -163,9 +163,9 @@ impl PySGD {
     }
 
     /// Get state dictionary
-    fn state_dict(&self) -> PyResult<HashMap<String, PyObject>> {
+    fn state_dict(&self) -> PyResult<HashMap<String, Py<PyAny>>> {
         let mut state_dict = HashMap::new();
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             state_dict.insert(
                 "state".to_string(),
                 self.state()
@@ -182,7 +182,7 @@ impl PySGD {
                     group
                         .iter()
                         .map(|(k, v)| (k.clone(), v.clone_ref(py)))
-                        .collect::<HashMap<String, PyObject>>()
+                        .collect::<HashMap<String, Py<PyAny>>>()
                 })
                 .collect::<Vec<_>>();
             state_dict.insert(
@@ -198,16 +198,16 @@ impl PySGD {
     }
 
     /// Load state dictionary
-    fn load_state_dict(&mut self, state_dict: HashMap<String, PyObject>) -> PyResult<()> {
+    fn load_state_dict(&mut self, state_dict: HashMap<String, Py<PyAny>>) -> PyResult<()> {
         // Implementation for loading state dict
         let _state_dict = state_dict;
         Ok(())
     }
 
     /// Add a new parameter group
-    fn add_param_group(&mut self, mut param_group: HashMap<String, PyObject>) -> PyResult<()> {
+    fn add_param_group(&mut self, mut param_group: HashMap<String, Py<PyAny>>) -> PyResult<()> {
         // Set default values if not provided
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             if !param_group.contains_key("lr") {
                 param_group.insert(
                     "lr".to_string(),
@@ -261,9 +261,9 @@ impl PySGD {
     }
 
     /// Get defaults (default hyperparameters)
-    fn defaults(&self) -> PyResult<HashMap<String, PyObject>> {
+    fn defaults(&self) -> PyResult<HashMap<String, Py<PyAny>>> {
         let mut defaults = HashMap::new();
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             defaults.insert(
                 "lr".to_string(),
                 self.lr.into_pyobject(py).unwrap().into_any().unbind(),
@@ -307,7 +307,7 @@ impl PySGD {
     fn set_lr(&mut self, lr: f32) {
         self.lr = lr;
         // Update all parameter groups
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             for param_group in &mut self.param_groups {
                 param_group.insert(
                     "lr".to_string(),

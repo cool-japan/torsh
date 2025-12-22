@@ -4,7 +4,7 @@
 //! for expert routing decisions, load balancing effectiveness, and system performance.
 
 use super::router::RoutingDecision;
-use log::{debug, info, warn};
+use log::info;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};

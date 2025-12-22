@@ -1,18 +1,8 @@
 //! Whisper models for automatic speech recognition
 //!
 //! Implementation of Whisper architecture for ASR and speech translation.
-//! Reference: https://arxiv.org/abs/2212.04356
-
-use std::collections::HashMap;
-use torsh_core::{
-    error::{Result, TorshError},
-    DeviceType,
-};
-use torsh_nn::prelude::{
-    Conv1d, Dropout, Embedding, GroupNorm, LayerNorm, Linear, MultiheadAttention, GELU,
-};
-use torsh_nn::{Module, Parameter};
-use torsh_tensor::{creation, Tensor};
+//!
+//! Reference: [Robust Speech Recognition via Large-Scale Weak Supervision](https://arxiv.org/abs/2212.04356)
 
 /// Whisper Configuration
 #[derive(Debug, Clone)]

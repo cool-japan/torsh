@@ -1,4 +1,170 @@
-//! Reduction operations
+//! # Reduction Operations for Tensors
+//!
+//! This module provides comprehensive reduction operations that collapse tensor dimensions
+//! by applying aggregation functions across specified axes.
+//!
+//! ## Mathematical Foundation
+//!
+//! ### Basic Reductions
+//!
+//! #### Sum
+//! Computes the sum of tensor elements:
+//! ```text
+//! sum(X) = Σ(i=1 to n) x_i
+//! sum_dim(X, d) = Σ(i in dimension d) x_i
+//! ```
+//!
+//! #### Mean (Arithmetic Average)
+//! ```text
+//! mean(X) = (1/n) Σ(i=1 to n) x_i
+//! mean_dim(X, d) = (1/n_d) Σ(i in dimension d) x_i
+//! ```
+//! where `n_d` is the size of dimension `d`.
+//!
+//! #### Product
+//! ```text
+//! prod(X) = Π(i=1 to n) x_i
+//! prod_dim(X, d) = Π(i in dimension d) x_i
+//! ```
+//!
+//! #### Max/Min
+//! ```text
+//! max(X) = max{x_1, x_2, ..., x_n}
+//! min(X) = min{x_1, x_2, ..., x_n}
+//! ```
+//!
+//! ### Statistical Reductions
+//!
+//! #### Variance
+//! ```text
+//! var(X) = (1/n) Σ(i=1 to n) (x_i - μ)²
+//! where μ = mean(X)
+//! ```
+//! - **Sample variance**: Use `n-1` denominator (Bessel's correction)
+//! - **Population variance**: Use `n` denominator
+//!
+//! #### Standard Deviation
+//! ```text
+//! std(X) = √var(X)
+//! ```
+//!
+//! ### Norm Operations
+//!
+//! #### L-p Norm
+//! ```text
+//! ||X||_p = (Σ|x_i|^p)^(1/p)
+//! ```
+//! Special cases:
+//! - **L1 norm** (p=1): Manhattan distance = Σ|x_i|
+//! - **L2 norm** (p=2): Euclidean distance = √(Σx_i²)
+//! - **L∞ norm** (p=∞): Maximum absolute value = max|x_i|
+//!
+//! ### Advanced Reductions
+//!
+//! #### LogSumExp (Numerically Stable)
+//! ```text
+//! logsumexp(X) = log(Σ exp(x_i))
+//!              = max(X) + log(Σ exp(x_i - max(X)))  [stable version]
+//! ```
+//! Used in softmax computation to prevent overflow.
+//!
+//! #### Cumulative Sum
+//! ```text
+//! cumsum(X)[i] = Σ(j=0 to i) x_j
+//! ```
+//!
+//! ## Performance Characteristics
+//!
+//! ### Computational Complexity
+//! For tensor with `n` elements:
+//! - **Basic reductions** (sum, mean, max, min): O(n)
+//! - **Statistical** (var, std): O(n) - requires two passes (mean, then variance)
+//! - **Norm operations**: O(n)
+//! - **Cumulative operations**: O(n)
+//!
+//! ### Memory Usage
+//! - **Full reduction**: O(1) - single scalar output
+//! - **Dimension reduction**: O(n / d_size) where `d_size` is the reduced dimension size
+//! - **Cumulative operations**: O(n) - same size as input
+//!
+//! ### Optimization Strategies
+//! - **Parallel reduction**: Tree-based reduction for parallel backends
+//! - **SIMD**: Vectorized operations for element-wise computation
+//! - **Fusion**: Combine multiple reductions in single pass when possible
+//! - **Numerical stability**: Use Kahan summation or compensated summation for float precision
+//!
+//! ## Common Use Cases
+//!
+//! ### Loss Function Computation
+//! ```rust,no_run
+//! # use torsh_tensor::Tensor;
+//! # use torsh_functional::reduction::{mean, sum};
+//! # fn example() -> torsh_core::Result<()> {
+//! // Compute mean squared error
+//! let predictions = randn(&[32, 10])?;  // batch_size=32, num_classes=10
+//! let targets = randn(&[32, 10])?;
+//!
+//! let diff = predictions.sub_op(&targets)?;
+//! let squared = diff.pow_scalar(2.0)?;
+//! let mse_loss = mean(&squared)?;
+//!
+//! // Or compute sum for total loss
+//! let total_loss = sum(&squared)?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ### Batch Statistics for Normalization
+//! ```rust,no_run
+//! # use torsh_tensor::Tensor;
+//! # use torsh_functional::reduction::{mean_dim, std_dim};
+//! # fn example() -> torsh_core::Result<()> {
+//! // Compute mean and std across batch dimension for BatchNorm
+//! let features = randn(&[64, 128, 28, 28])?;  // [N, C, H, W]
+//!
+//! // Compute statistics over batch and spatial dimensions (0, 2, 3)
+//! // keeping channel dimension (1)
+//! let batch_mean = mean_dim(&features, &[0, 2, 3], true)?;
+//! let batch_std = std_dim(&features, &[0, 2, 3], true, false)?;
+//!
+//! // Normalize: (x - mean) / std
+//! let normalized = features.sub_op(&batch_mean)?
+//!                          .div_op(&batch_std)?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ### Attention Score Normalization
+//! ```rust,no_run
+//! # use torsh_tensor::Tensor;
+//! # use torsh_functional::reduction::{max_dim, sum_dim};
+//! # fn example() -> torsh_core::Result<()> {
+//! // Softmax using max for numerical stability
+//! let scores = randn(&[8, 64, 64])?;  // [batch, seq_len, seq_len]
+//!
+//! // Stable softmax: exp(x - max(x)) / sum(exp(x - max(x)))
+//! let (max_scores, _) = max_dim(&scores, -1, true)?;
+//! let shifted = scores.sub_op(&max_scores)?;
+//! let exp_scores = shifted.exp()?;
+//! let sum_exp = sum_dim(&exp_scores, &[-1], true)?;
+//! let softmax = exp_scores.div_op(&sum_exp)?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Numerical Stability Considerations
+//!
+//! ### Sum Accumulation
+//! - Use Kahan summation for large arrays to minimize floating-point error
+//! - For very large tensors, consider hierarchical reduction
+//!
+//! ### Variance Computation
+//! - Use Welford's online algorithm for single-pass stable variance
+//! - Avoid naive formula `E[X²] - E[X]²` which suffers from catastrophic cancellation
+//!
+//! ### LogSumExp
+//! - Always use max-subtraction trick: `max(x) + log(sum(exp(x - max(x))))`
+//! - Essential for preventing overflow in exp() computation
 
 use std::collections::HashMap;
 use torsh_core::{Result as TorshResult, TorshError};
@@ -8,46 +174,264 @@ use torsh_tensor::{creation::zeros, stats::StatMode, Tensor};
 // Basic Reduction Operations
 // ============================================================================
 
-/// Sum all elements in a tensor
+/// Sum all elements in a tensor.
+///
+/// # Mathematical Definition
+/// ```text
+/// sum(X) = Σ(i=1 to n) x_i
+/// ```
+///
+/// # Arguments
+/// * `tensor` - Input tensor of any shape
+///
+/// # Returns
+/// Scalar tensor containing the sum of all elements
+///
+/// # Complexity
+/// - Time: O(n) where n is the number of elements
+/// - Space: O(1)
+///
+/// # Examples
+/// ```rust,no_run
+/// # use torsh_tensor::Tensor;
+/// # use torsh_functional::reduction::sum;
+/// # use torsh_functional::random_ops::randn;
+/// # fn example() -> torsh_core::Result<()> {
+/// let x = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0], &[5])?;
+/// let result = sum(&x)?;  // Returns tensor with value 15.0
+/// # Ok(())
+/// # }
+/// ```
 pub fn sum(tensor: &Tensor) -> TorshResult<Tensor> {
     tensor.sum()
 }
 
-/// Sum along specified dimensions
+/// Sum along specified dimensions.
+///
+/// # Mathematical Definition
+/// ```text
+/// sum_dim(X, d) = Σ(i in dimension d) x_i
+/// ```
+///
+/// # Arguments
+/// * `tensor` - Input tensor
+/// * `dim` - Dimensions to reduce (negative indexing supported)
+/// * `keepdim` - If true, reduced dimensions are retained with size 1
+///
+/// # Returns
+/// Tensor with specified dimensions reduced
+///
+/// # Shape
+/// - Input: `[..., d_i, ...]` where `d_i` is a dimension to reduce
+/// - Output (keepdim=false): `[..., ...]` with `d_i` removed
+/// - Output (keepdim=true): `[..., 1, ...]` with `d_i` replaced by 1
+///
+/// # Examples
+/// ```rust,no_run
+/// # use torsh_tensor::Tensor;
+/// # use torsh_functional::reduction::sum_dim;
+/// # use torsh_functional::random_ops::randn;
+/// # fn example() -> torsh_core::Result<()> {
+/// let x = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], &[2, 3])?;
+/// // [[1, 2, 3],
+/// //  [4, 5, 6]]
+///
+/// let row_sums = sum_dim(&x, &[1], false)?;  // [6, 15]
+/// let col_sums = sum_dim(&x, &[0], false)?;  // [5, 7, 9]
+/// let total = sum_dim(&x, &[0, 1], false)?;  // 21
+/// # Ok(())
+/// # }
+/// ```
 pub fn sum_dim(tensor: &Tensor, dim: &[isize], keepdim: bool) -> TorshResult<Tensor> {
     let i32_dims: Vec<i32> = dim.iter().map(|&d| d as i32).collect();
     tensor.sum_dim(&i32_dims, keepdim)
 }
 
-/// Mean of all elements in a tensor
+/// Mean (arithmetic average) of all elements in a tensor.
+///
+/// # Mathematical Definition
+/// ```text
+/// mean(X) = (1/n) Σ(i=1 to n) x_i
+/// ```
+///
+/// # Arguments
+/// * `tensor` - Input tensor of any shape
+///
+/// # Returns
+/// Scalar tensor containing the mean of all elements
+///
+/// # Complexity
+/// - Time: O(n)
+/// - Space: O(1)
+///
+/// # Examples
+/// ```rust,no_run
+/// # use torsh_tensor::Tensor;
+/// # use torsh_functional::reduction::mean;
+/// # use torsh_functional::random_ops::randn;
+/// # fn example() -> torsh_core::Result<()> {
+/// let x = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0], &[5])?;
+/// let result = mean(&x)?;  // Returns tensor with value 3.0
+/// # Ok(())
+/// # }
+/// ```
 pub fn mean(tensor: &Tensor) -> TorshResult<Tensor> {
     tensor.mean(None, false)
 }
 
-/// Mean along specified dimensions
+/// Mean along specified dimensions.
+///
+/// # Mathematical Definition
+/// ```text
+/// mean_dim(X, d) = (1/n_d) Σ(i in dimension d) x_i
+/// ```
+/// where `n_d` is the size of dimension `d`.
+///
+/// # Arguments
+/// * `tensor` - Input tensor
+/// * `dim` - Dimensions to reduce
+/// * `keepdim` - If true, reduced dimensions are retained with size 1
+///
+/// # Returns
+/// Tensor with specified dimensions reduced by averaging
+///
+/// # Examples
+/// ```rust,no_run
+/// # use torsh_tensor::Tensor;
+/// # use torsh_functional::reduction::mean_dim;
+/// # use torsh_functional::random_ops::randn;
+/// # fn example() -> torsh_core::Result<()> {
+/// // Compute mean across batch dimension for normalization
+/// let batch_data = randn(&[32, 128])?;  // [batch, features]
+/// let feature_means = mean_dim(&batch_data, &[0], false)?;  // [128]
+/// # Ok(())
+/// # }
+/// ```
 pub fn mean_dim(tensor: &Tensor, dim: &[isize], keepdim: bool) -> TorshResult<Tensor> {
     let usize_dims: Vec<usize> = dim.iter().map(|&d| d as usize).collect();
     tensor.mean(Some(&usize_dims), keepdim)
 }
 
-/// Maximum value in a tensor
+/// Maximum value in a tensor.
+///
+/// # Mathematical Definition
+/// ```text
+/// max(X) = max{x_1, x_2, ..., x_n}
+/// ```
+///
+/// # Arguments
+/// * `tensor` - Input tensor of any shape
+///
+/// # Returns
+/// Scalar tensor containing the maximum element value
+///
+/// # Complexity
+/// - Time: O(n)
+/// - Space: O(1)
+///
+/// # Examples
+/// ```rust,no_run
+/// # use torsh_tensor::Tensor;
+/// # use torsh_functional::reduction::max;
+/// # use torsh_functional::random_ops::randn;
+/// # fn example() -> torsh_core::Result<()> {
+/// let x = Tensor::from_vec(vec![1.0, 5.0, 3.0, 9.0, 2.0], &[5])?;
+/// let result = max(&x)?;  // Returns tensor with value 9.0
+/// # Ok(())
+/// # }
+/// ```
 pub fn max(tensor: &Tensor) -> TorshResult<Tensor> {
     tensor.max(None, false)
 }
 
-/// Maximum along specified dimension
+/// Maximum along specified dimension with indices.
+///
+/// # Arguments
+/// * `tensor` - Input tensor
+/// * `dim` - Dimension to reduce
+/// * `keepdim` - If true, reduced dimension is retained with size 1
+///
+/// # Returns
+/// Tuple of (max_values, indices) where:
+/// - `max_values`: Maximum values along the dimension
+/// - `indices`: Indices of maximum values (useful for pooling operations)
+///
+/// # Examples
+/// ```rust,no_run
+/// # use torsh_tensor::Tensor;
+/// # use torsh_functional::reduction::max_dim;
+/// # use torsh_functional::random_ops::randn;
+/// # fn example() -> torsh_core::Result<()> {
+/// let x = Tensor::from_vec(vec![1.0, 5.0, 3.0, 9.0, 2.0, 7.0], &[2, 3])?;
+/// let (max_vals, indices) = max_dim(&x, 1, false)?;
+/// // max_vals: [5.0, 9.0] - max of each row
+/// // indices: [1, 1] - position of max in each row
+/// # Ok(())
+/// # }
+/// ```
 pub fn max_dim(tensor: &Tensor, dim: isize, keepdim: bool) -> TorshResult<(Tensor, Tensor<i64>)> {
     let values = tensor.max_dim(dim as i32, keepdim)?;
     let indices = tensor.argmax(Some(dim as i32))?;
     Ok((values, indices))
 }
 
-/// Minimum value in a tensor
+/// Minimum value in a tensor.
+///
+/// # Mathematical Definition
+/// ```text
+/// min(X) = min{x_1, x_2, ..., x_n}
+/// ```
+///
+/// # Arguments
+/// * `tensor` - Input tensor of any shape
+///
+/// # Returns
+/// Scalar tensor containing the minimum element value
+///
+/// # Complexity
+/// - Time: O(n)
+/// - Space: O(1)
+///
+/// # Examples
+/// ```rust,no_run
+/// # use torsh_tensor::Tensor;
+/// # use torsh_functional::reduction::min;
+/// # use torsh_functional::random_ops::randn;
+/// # fn example() -> torsh_core::Result<()> {
+/// let x = Tensor::from_vec(vec![1.0, 5.0, 3.0, 9.0, 2.0], &[5])?;
+/// let result = min(&x)?;  // Returns tensor with value 1.0
+/// # Ok(())
+/// # }
+/// ```
 pub fn min(tensor: &Tensor) -> TorshResult<Tensor> {
     tensor.min()
 }
 
-/// Minimum along specified dimension
+/// Minimum along specified dimension with indices.
+///
+/// # Arguments
+/// * `tensor` - Input tensor
+/// * `dim` - Dimension to reduce
+/// * `keepdim` - If true, reduced dimension is retained with size 1
+///
+/// # Returns
+/// Tuple of (min_values, indices) where:
+/// - `min_values`: Minimum values along the dimension
+/// - `indices`: Indices of minimum values
+///
+/// # Examples
+/// ```rust,no_run
+/// # use torsh_tensor::Tensor;
+/// # use torsh_functional::reduction::min_dim;
+/// # use torsh_functional::random_ops::randn;
+/// # fn example() -> torsh_core::Result<()> {
+/// let x = Tensor::from_vec(vec![1.0, 5.0, 3.0, 9.0, 2.0, 7.0], &[2, 3])?;
+/// let (min_vals, indices) = min_dim(&x, 1, false)?;
+/// // min_vals: [1.0, 2.0] - min of each row
+/// // indices: [0, 1] - position of min in each row
+/// # Ok(())
+/// # }
+/// ```
 pub fn min_dim(tensor: &Tensor, dim: isize, keepdim: bool) -> TorshResult<(Tensor, Tensor<i64>)> {
     let values = tensor.min_dim(dim as i32, keepdim)?;
     let indices = tensor.argmin(Some(dim as i32))?;
@@ -198,12 +582,34 @@ pub fn norm_frobenius(tensor: &Tensor) -> TorshResult<Tensor> {
 }
 
 /// Nuclear norm (sum of singular values)
-pub fn norm_nuclear(_tensor: &Tensor) -> TorshResult<Tensor> {
-    // This would require SVD implementation
-    // For now, return a simplified version
-    Err(TorshError::Other(
-        "Nuclear norm not yet implemented".to_string(),
-    ))
+///
+/// The nuclear norm is defined as the sum of singular values of a matrix:
+/// ```text
+/// ||A||_* = Σ σ_i(A)
+/// ```
+/// where σ_i are the singular values obtained from SVD: A = UΣV^T
+///
+/// This is also known as the trace norm or Schatten 1-norm.
+/// It's commonly used in:
+/// - Low-rank matrix approximation
+/// - Matrix completion problems
+/// - Compressed sensing
+/// - Regularization for machine learning models
+pub fn norm_nuclear(tensor: &Tensor) -> TorshResult<Tensor> {
+    // Ensure input is 2D
+    if tensor.shape().ndim() != 2 {
+        return Err(TorshError::InvalidArgument(
+            "Nuclear norm requires 2D tensor (matrix)".to_string(),
+        ));
+    }
+
+    // Compute SVD: A = U * S * V^T
+    // The singular values S contain the information we need
+    let (_u, s, _vt) = torsh_linalg::decomposition::svd(tensor, false)?;
+
+    // Nuclear norm is the sum of singular values
+    // The singular values are already sorted in descending order
+    s.sum()
 }
 
 /// Count non-zero elements

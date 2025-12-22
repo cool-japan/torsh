@@ -5,7 +5,7 @@
 //! computation patterns.
 
 use crate::{TorshDistributedError, TorshResult};
-use log::{debug, info, warn};
+use log::info;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -14,6 +14,11 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{mpsc, oneshot, RwLock};
 use uuid::Uuid;
+
+// Type aliases for complex types
+type PendingRequestMap = Arc<Mutex<HashMap<String, oneshot::Sender<Result<Vec<u8>, String>>>>>;
+type FunctionRegistry =
+    Arc<RwLock<HashMap<String, Box<dyn Fn(&[u8]) -> Result<Vec<u8>, String> + Send + Sync>>>>;
 
 /// RPC backend options
 #[derive(Debug, Clone)]
@@ -102,10 +107,9 @@ struct RpcWorker {
     rank: u32,
     world_size: u32,
     connections: Arc<RwLock<HashMap<u32, TcpStream>>>,
-    pending_requests: Arc<Mutex<HashMap<String, oneshot::Sender<Result<Vec<u8>, String>>>>>,
+    pending_requests: PendingRequestMap,
     remote_refs: Arc<RwLock<HashMap<String, Box<dyn std::any::Any + Send + Sync>>>>,
-    function_registry:
-        Arc<RwLock<HashMap<String, Box<dyn Fn(&[u8]) -> Result<Vec<u8>, String> + Send + Sync>>>>,
+    function_registry: FunctionRegistry,
     shutdown_tx: Option<mpsc::Sender<()>>,
 }
 
@@ -113,10 +117,10 @@ struct RpcWorker {
 static RPC_WORKER: once_cell::sync::OnceCell<Arc<Mutex<Option<RpcWorker>>>> =
     once_cell::sync::OnceCell::new();
 
-/// Test-only RPC worker for isolated testing
+// Test-only RPC worker for isolated testing
 #[cfg(test)]
 thread_local! {
-    static TEST_RPC_WORKER: std::cell::RefCell<Option<Arc<Mutex<Option<RpcWorker>>>>> = std::cell::RefCell::new(None);
+    static TEST_RPC_WORKER: std::cell::RefCell<Option<Arc<Mutex<Option<RpcWorker>>>>> = const { std::cell::RefCell::new(None) };
 }
 
 /// Get the global RPC worker
@@ -132,8 +136,8 @@ fn get_rpc_worker() -> TorshResult<Arc<Mutex<Option<RpcWorker>>>> {
 
     RPC_WORKER
         .get()
-        .ok_or_else(|| TorshDistributedError::BackendNotInitialized.into())
-        .map(|w| w.clone())
+        .ok_or(TorshDistributedError::BackendNotInitialized)
+        .cloned()
 }
 
 /// Initialize RPC framework
@@ -195,8 +199,7 @@ pub async fn init_rpc(
                     return Err(TorshDistributedError::communication_error(
                         "rpc_server",
                         format!("Failed to bind after trying 10 ports: {}", e),
-                    )
-                    .into());
+                    ));
                 }
             }
         }
@@ -286,8 +289,7 @@ pub async fn init_rpc(
                                             "Failed to connect to worker {}: {}",
                                             other_rank, e
                                         ),
-                                    )
-                                    .into());
+                                    ));
                                 }
                             }
                         }
@@ -315,7 +317,8 @@ async fn handle_connection(mut stream: TcpStream, worker: Arc<Mutex<Option<RpcWo
                 let data = &buffer[..n];
 
                 // Try to deserialize the message
-                let result: Result<(RpcMessage, usize), _> = bincode::serde::decode_from_slice(data, bincode::config::standard());
+                let result: Result<(RpcMessage, usize), _> =
+                    bincode::serde::decode_from_slice(data, bincode::config::standard());
                 match result {
                     Ok((message, _)) => {
                         if let Err(e) = handle_rpc_message(message, &mut stream, &worker).await {
@@ -364,12 +367,15 @@ async fn handle_rpc_message(
             };
 
             let response = RpcMessage::FunctionResponse { id, result };
-            let response_data = bincode::serde::encode_to_vec(&response, bincode::config::standard()).map_err(|e| {
-                TorshDistributedError::communication_error(
-                    "rpc",
-                    format!("Serialization error: {}", e),
-                )
-            })?;
+            let response_data =
+                bincode::serde::encode_to_vec(&response, bincode::config::standard()).map_err(
+                    |e| {
+                        TorshDistributedError::communication_error(
+                            "rpc",
+                            format!("Serialization error: {}", e),
+                        )
+                    },
+                )?;
 
             stream.write_all(&response_data).await.map_err(|e| {
                 TorshDistributedError::communication_error("rpc", format!("Write error: {}", e))
@@ -411,12 +417,15 @@ async fn handle_rpc_message(
             };
 
             let response = RpcMessage::RemoteRefResponse { id, result };
-            let response_data = bincode::serde::encode_to_vec(&response, bincode::config::standard()).map_err(|e| {
-                TorshDistributedError::communication_error(
-                    "rpc",
-                    format!("Serialization error: {}", e),
-                )
-            })?;
+            let response_data =
+                bincode::serde::encode_to_vec(&response, bincode::config::standard()).map_err(
+                    |e| {
+                        TorshDistributedError::communication_error(
+                            "rpc",
+                            format!("Serialization error: {}", e),
+                        )
+                    },
+                )?;
 
             stream.write_all(&response_data).await.map_err(|e| {
                 TorshDistributedError::communication_error("rpc", format!("Write error: {}", e))
@@ -436,12 +445,15 @@ async fn handle_rpc_message(
 
         RpcMessage::Ping => {
             let response = RpcMessage::Pong;
-            let response_data = bincode::serde::encode_to_vec(&response, bincode::config::standard()).map_err(|e| {
-                TorshDistributedError::communication_error(
-                    "rpc",
-                    format!("Serialization error: {}", e),
-                )
-            })?;
+            let response_data =
+                bincode::serde::encode_to_vec(&response, bincode::config::standard()).map_err(
+                    |e| {
+                        TorshDistributedError::communication_error(
+                            "rpc",
+                            format!("Serialization error: {}", e),
+                        )
+                    },
+                )?;
 
             stream.write_all(&response_data).await.map_err(|e| {
                 TorshDistributedError::communication_error("rpc", format!("Write error: {}", e))
@@ -507,12 +519,14 @@ where
     };
 
     let wrapper = move |args_bytes: &[u8]| -> Result<Vec<u8>, String> {
-        let (args, _): (Args, usize) = bincode::serde::decode_from_slice(args_bytes, bincode::config::standard())
-            .map_err(|e| format!("Deserialization error: {}", e))?;
+        let (args, _): (Args, usize) =
+            bincode::serde::decode_from_slice(args_bytes, bincode::config::standard())
+                .map_err(|e| format!("Deserialization error: {}", e))?;
 
         let result = func(args)?;
 
-    bincode::serde::encode_to_vec(&result, bincode::config::standard()).map_err(|e| format!("Serialization error: {}", e))
+        bincode::serde::encode_to_vec(&result, bincode::config::standard())
+            .map_err(|e| format!("Serialization error: {}", e))
     };
 
     let mut registry = function_registry.write().await;
@@ -530,9 +544,10 @@ where
     let worker_arc = get_rpc_worker()?;
 
     // Serialize arguments
-    let args_bytes = bincode::serde::encode_to_vec(&args, bincode::config::standard()).map_err(|e| {
-        TorshDistributedError::communication_error("rpc", format!("Serialization error: {}", e))
-    })?;
+    let args_bytes =
+        bincode::serde::encode_to_vec(&args, bincode::config::standard()).map_err(|e| {
+            TorshDistributedError::communication_error("rpc", format!("Serialization error: {}", e))
+        })?;
 
     // Generate request ID
     let request_id = Uuid::new_v4().to_string();
@@ -545,9 +560,10 @@ where
     };
 
     // Serialize message
-    let message_bytes = bincode::serde::encode_to_vec(&message, bincode::config::standard()).map_err(|e| {
-        TorshDistributedError::communication_error("rpc", format!("Serialization error: {}", e))
-    })?;
+    let message_bytes = bincode::serde::encode_to_vec(&message, bincode::config::standard())
+        .map_err(|e| {
+            TorshDistributedError::communication_error("rpc", format!("Serialization error: {}", e))
+        })?;
 
     // Get clones to avoid holding locks across await
     let (connections, pending_requests) = {
@@ -591,12 +607,14 @@ where
 
     match result {
         Ok(result_bytes) => {
-            let (value, _): (Ret, usize) = bincode::serde::decode_from_slice(&result_bytes, bincode::config::standard()).map_err(|e| {
-                TorshDistributedError::communication_error(
-                    "rpc",
-                    format!("Deserialization error: {}", e),
-                )
-            })?;
+            let (value, _): (Ret, usize) =
+                bincode::serde::decode_from_slice(&result_bytes, bincode::config::standard())
+                    .map_err(|e| {
+                        TorshDistributedError::communication_error(
+                            "rpc",
+                            format!("Deserialization error: {}", e),
+                        )
+                    })?;
             Ok(value)
         }
         Err(error_msg) => Err(TorshDistributedError::communication_error(
@@ -615,9 +633,10 @@ where
     let worker_arc = get_rpc_worker()?;
 
     // Serialize arguments
-    let args_bytes = bincode::serde::encode_to_vec(&args, bincode::config::standard()).map_err(|e| {
-        TorshDistributedError::communication_error("rpc", format!("Serialization error: {}", e))
-    })?;
+    let args_bytes =
+        bincode::serde::encode_to_vec(&args, bincode::config::standard()).map_err(|e| {
+            TorshDistributedError::communication_error("rpc", format!("Serialization error: {}", e))
+        })?;
 
     // Generate request and RRef IDs
     let request_id = Uuid::new_v4().to_string();
@@ -632,9 +651,10 @@ where
     };
 
     // Serialize message
-    let message_bytes = bincode::serde::encode_to_vec(&message, bincode::config::standard()).map_err(|e| {
-        TorshDistributedError::communication_error("rpc", format!("Serialization error: {}", e))
-    })?;
+    let message_bytes = bincode::serde::encode_to_vec(&message, bincode::config::standard())
+        .map_err(|e| {
+            TorshDistributedError::communication_error("rpc", format!("Serialization error: {}", e))
+        })?;
 
     // Get clones to avoid holding locks across await
     let (connections, pending_requests) = {
@@ -678,20 +698,21 @@ where
 
     match result {
         Ok(returned_rref_id) => {
-            let (actual_rref_id, _): (String, usize) = bincode::serde::decode_from_slice(&returned_rref_id, bincode::config::standard()).map_err(|e| {
-                TorshDistributedError::communication_error(
-                    "rpc",
-                    format!("Deserialization error: {}", e),
-                )
-            })?;
+            let (actual_rref_id, _): (String, usize) =
+                bincode::serde::decode_from_slice(&returned_rref_id, bincode::config::standard())
+                    .map_err(|e| {
+                    TorshDistributedError::communication_error(
+                        "rpc",
+                        format!("Deserialization error: {}", e),
+                    )
+                })?;
 
             Ok(RRef::new(actual_rref_id, to))
         }
         Err(error_msg) => Err(TorshDistributedError::communication_error(
             "rpc_remote",
             format!("Remote function error: {}", error_msg),
-        )
-        .into()),
+        )),
     }
 }
 
@@ -708,9 +729,10 @@ pub async fn delete_rref<T>(rref: RRef<T>) -> TorshResult<()> {
         rref_id: rref.id().to_string(),
     };
 
-    let message_bytes = bincode::serde::encode_to_vec(&message, bincode::config::standard()).map_err(|e| {
-        TorshDistributedError::communication_error("rpc", format!("Serialization error: {}", e))
-    })?;
+    let message_bytes = bincode::serde::encode_to_vec(&message, bincode::config::standard())
+        .map_err(|e| {
+            TorshDistributedError::communication_error("rpc", format!("Serialization error: {}", e))
+        })?;
 
     let mut connections_guard = connections.write().await;
     if let Some(connection) = connections_guard.get_mut(&rref.owner_rank()) {
@@ -822,11 +844,12 @@ mod tests {
         register_function("multiply", multiply_function).await?;
 
         // Verify functions are registered
-        let worker_arc = get_rpc_worker()?;
-        let worker_guard = worker_arc.lock().unwrap();
-        let worker_ref = worker_guard.as_ref().unwrap();
-        let function_registry = worker_ref.function_registry.clone();
-        drop(worker_guard); // Release the guard before await
+        let function_registry = {
+            let worker_arc = get_rpc_worker()?;
+            let worker_guard = worker_arc.lock().unwrap();
+            let worker_ref = worker_guard.as_ref().unwrap();
+            worker_ref.function_registry.clone()
+        }; // Guard dropped here
 
         let registry = function_registry.read().await;
         assert!(registry.contains_key("add"));
@@ -848,10 +871,12 @@ mod tests {
         };
 
         // Test serialization
-    let serialized = bincode::serde::encode_to_vec(&message, bincode::config::standard()).unwrap();
+        let serialized =
+            bincode::serde::encode_to_vec(&message, bincode::config::standard()).unwrap();
 
-    // Test deserialization
-    let (deserialized, _): (RpcMessage, usize) = bincode::serde::decode_from_slice(&serialized, bincode::config::standard()).unwrap();
+        // Test deserialization
+        let (deserialized, _): (RpcMessage, usize) =
+            bincode::serde::decode_from_slice(&serialized, bincode::config::standard()).unwrap();
 
         match (message, deserialized) {
             (

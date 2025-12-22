@@ -1,3 +1,5 @@
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::hardware::{GpuTransform, HardwareContext};
 use crate::transforms::Transform;
 use crate::{Result, VisionError};
@@ -309,8 +311,8 @@ impl OpticalFlow {
                 )),
             ));
         };
-        let mut flow_x = Tensor::zeros(&[height, width], self.device)?;
-        let mut flow_y = Tensor::zeros(&[height, width], self.device)?;
+        let flow_x = Tensor::zeros(&[height, width], self.device)?;
+        let flow_y = Tensor::zeros(&[height, width], self.device)?;
 
         // Window size for Lucas-Kanade
         let window_size = 5;
@@ -375,7 +377,7 @@ impl OpticalFlow {
             ));
         };
         let (kh, kw) = (kernel.shape().dims()[0], kernel.shape().dims()[1]);
-        let mut output = Tensor::zeros(&[h, w], self.device)?;
+        let output = Tensor::zeros(&[h, w], self.device)?;
 
         let pad_h = kh / 2;
         let pad_w = kw / 2;
@@ -478,7 +480,7 @@ impl VideoModel {
             ));
         }
 
-        let (batch_size, in_channels, time_steps, height, width) = (
+        let (batch_size, _in_channels, time_steps, height, width) = (
             input_shape.dims()[0],
             input_shape.dims()[1],
             input_shape.dims()[2],
@@ -523,7 +525,7 @@ impl VideoModel {
             ));
         }
 
-        let (batch_size, channels, _time_steps, height, width) = (
+        let (_batch_size, _channels, _time_steps, _height, _width) = (
             shape.dims()[0],
             shape.dims()[1],
             shape.dims()[2],

@@ -9,9 +9,9 @@ use torsh_core::device::DeviceType;
 use torsh_graph::{
     conv::{AggregationType, GCNConv, GINConv, GraphTransformer, MPNNConv, SAGEConv},
     functional::{elu, gelu, leaky_relu, mish, swish},
-    pool::{global, hierarchical},
-    scirs2_integration::{algorithms, generation, spatial, spectral},
-    utils::{connectivity, graph_laplacian, metrics},
+    pool::global,
+    scirs2_integration::generation,
+    utils::graph_laplacian,
     GraphData, GraphLayer,
 };
 use torsh_tensor::creation::{from_vec, ones, randn, zeros};
@@ -1031,7 +1031,7 @@ fn test_gradient_flow_numerical_stability() {
     // Test that gradients remain stable with extreme inputs
     // This is a placeholder for future gradient checking implementation
     let extreme_graph = create_extreme_value_graph();
-    let challenging_graph = create_challenging_topology_graph();
+    let _challenging_graph = create_challenging_topology_graph();
 
     // Test multiple layers in sequence don't explode/vanish
     let gcn1 = GCNConv::new(4, 8, true);

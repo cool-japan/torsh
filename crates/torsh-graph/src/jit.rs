@@ -3,6 +3,8 @@
 //! This module provides JIT compilation capabilities for graph neural network
 //! operations, enabling runtime optimization and kernel fusion for better performance.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{GraphData, GraphLayer};
 use std::collections::HashMap;
 use std::fmt;
@@ -207,7 +209,7 @@ impl GraphJITCompiler {
         input_shapes: &[Vec<usize>],
     ) -> Result<CompiledKernel, JITError> {
         // Analyze fusion opportunities
-        let fusion_plan = self.analyze_fusion_opportunities(operations)?;
+        let _fusion_plan = self.analyze_fusion_opportunities(operations)?;
 
         // Generate fused operation name
         let fused_name = format!(
@@ -395,7 +397,7 @@ impl GraphJITCompiler {
     fn generate_cuda_code(
         &self,
         operation: &GraphOperation,
-        input_shapes: &[Vec<usize>],
+        _input_shapes: &[Vec<usize>],
     ) -> Result<Vec<u8>, JITError> {
         // Generate CUDA kernel code
         let cuda_code = match operation {
@@ -653,6 +655,7 @@ impl fmt::Display for JITError {
 impl std::error::Error for JITError {}
 
 /// JIT-optimized graph layer that automatically compiles operations
+#[derive(Debug)]
 pub struct JITGraphLayer {
     /// Underlying layer implementation
     pub base_layer: Box<dyn GraphLayer>,

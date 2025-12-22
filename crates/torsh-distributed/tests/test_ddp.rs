@@ -18,7 +18,7 @@ struct TestModel {
 
 impl TestModel {
     fn new() -> Self {
-        let mut model = Self {
+        let model = Self {
             fc1: Linear::new(10, 20, true),
             fc2: Linear::new(20, 5, true),
         };
@@ -255,15 +255,9 @@ fn test_ddp_train_eval_modes() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_sequential_model_ddp() -> Result<()> {
-    let pg = Arc::new(init_process_group(
-        BackendType::Gloo,
-        0,
-        2,
-        "127.0.0.1",
-        29500,
-    )?);
+#[tokio::test]
+async fn test_sequential_model_ddp() -> Result<()> {
+    let pg = Arc::new(init_process_group(BackendType::Gloo, 0, 2, "127.0.0.1", 29500).await?);
 
     // Create a sequential model
     let model = Sequential::new()
@@ -274,7 +268,7 @@ fn test_sequential_model_ddp() -> Result<()> {
     let ddp = DistributedDataParallel::new(model, pg, vec![0], None, true, 25.0)?;
 
     // Test forward pass
-    let input = randn::<f32>(&[16, 784]);
+    let input = randn::<f32>(&[16, 784])?;
     let output = ddp.forward(&input)?;
 
     assert_eq!(output.shape().dims(), &[16, 10]);

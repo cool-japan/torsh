@@ -611,22 +611,15 @@ pub struct GlobalMemoryStats {
 }
 
 /// Thread-safe global memory manager instance
-static mut GLOBAL_MEMORY_MANAGER: Option<GlobalMemoryManager> = None;
-static MEMORY_INIT: std::sync::Once = std::sync::Once::new();
+static GLOBAL_MEMORY_MANAGER: std::sync::OnceLock<GlobalMemoryManager> = std::sync::OnceLock::new();
 
 /// Get the global memory manager instance
 pub fn global_memory_manager() -> &'static GlobalMemoryManager {
-    unsafe {
-        MEMORY_INIT.call_once(|| {
-            GLOBAL_MEMORY_MANAGER = Some(GlobalMemoryManager::new(MemorySettings::default()));
-        });
-        GLOBAL_MEMORY_MANAGER.as_ref().unwrap()
-    }
+    GLOBAL_MEMORY_MANAGER.get_or_init(|| GlobalMemoryManager::new(MemorySettings::default()))
 }
 
 /// Configure the global memory manager
+/// Note: This only works if called before first access to global_memory_manager()
 pub fn configure_global_memory(settings: MemorySettings) {
-    unsafe {
-        GLOBAL_MEMORY_MANAGER = Some(GlobalMemoryManager::new(settings));
-    }
+    let _ = GLOBAL_MEMORY_MANAGER.set(GlobalMemoryManager::new(settings));
 }

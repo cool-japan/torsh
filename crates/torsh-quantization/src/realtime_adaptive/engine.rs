@@ -105,6 +105,9 @@ impl AdaptiveQuantizationEngine {
                 let adapted_params = self.adapt_parameters(&optimized_params, &quality)?;
                 let adapted_result = self.apply_quantization(tensor, &adapted_params)?;
 
+                // Update runtime statistics before returning
+                self.update_runtime_stats(&adapted_params, start_time.elapsed());
+
                 return Ok(AdaptiveQuantizationResult {
                     quantized_tensor: adapted_result.quantized_tensor,
                     parameters: adapted_params.clone(),

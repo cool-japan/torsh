@@ -6,9 +6,9 @@
 //! distributed workers and efficiently moving them between CPU and GPU memory.
 
 use crate::{TorshDistributedError, TorshResult};
-use log::{debug, info, warn};
+use log::info;
 use std::collections::{HashMap, VecDeque};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Mutex, RwLock};
 use torsh_tensor::Tensor;
 
 use super::config::{
@@ -67,7 +67,7 @@ impl ParameterPartitioner {
         world_size: usize,
     ) -> Vec<ParameterPartition> {
         let total_elements = shape.iter().product::<usize>();
-        let elements_per_partition = (total_elements + world_size - 1) / world_size;
+        let elements_per_partition = total_elements.div_ceil(world_size);
 
         let mut partitions = Vec::new();
         for rank in 0..world_size {
@@ -235,8 +235,7 @@ impl CpuParameterStore {
             return Err(TorshDistributedError::memory_allocation_failed(
                 new_memory_usage,
                 "CPU memory budget exceeded",
-            )
-            .into());
+            ));
         }
 
         if let Some(old_data) = params.insert(param_name.to_string(), data.clone()) {
@@ -266,7 +265,6 @@ impl CpuParameterStore {
                 format!("Parameter {} not found in CPU store", param_name),
                 "valid parameter name that exists in CPU store",
             )
-            .into()
         })
     }
 

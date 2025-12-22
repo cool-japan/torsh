@@ -7,7 +7,7 @@
 use crate::{ComputationGraph, JitError, JitResult, Node, NodeId};
 use petgraph::graph::NodeIndex;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
     Arc, RwLock,

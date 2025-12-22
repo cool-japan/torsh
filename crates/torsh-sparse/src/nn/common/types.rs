@@ -1,8 +1,6 @@
 //! Common types for sparse neural networks
 
-use crate::{CooTensor, CscTensor, CsrTensor, SparseTensor, TorshResult};
-use torsh_core::TorshError;
-use torsh_tensor::Tensor;
+use crate::SparseTensor;
 
 /// Sparse tensor format types
 #[derive(Debug, Clone, PartialEq, Eq)]

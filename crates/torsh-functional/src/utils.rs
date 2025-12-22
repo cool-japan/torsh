@@ -265,6 +265,73 @@ pub fn create_function_docs(
     docs
 }
 
+/// Computes the safe logarithm of a tensor, clamping values to avoid log(0) or log(negative)
+///
+/// This utility function prevents numerical instability when computing logarithms
+/// by clamping input values to be within a safe range.
+///
+/// # Arguments
+/// * `input` - Input tensor
+/// * `eps` - Minimum value for clamping (default: 1e-8)
+/// * `max_val` - Maximum value for clamping (default: f32::MAX)
+///
+/// # Returns
+/// Tensor with logarithm applied to clamped values
+///
+/// # Example
+/// ```ignore
+/// let tensor = Tensor::from_vec(vec![0.0, 1.0, 2.0], &[3]).unwrap();
+/// let log_tensor = safe_log(&tensor, None, None).unwrap();
+/// ```
+pub fn safe_log(input: &Tensor, eps: Option<f32>, max_val: Option<f32>) -> TorshResult<Tensor> {
+    let epsilon = eps.unwrap_or(1e-8_f32);
+    let maximum = max_val.unwrap_or(f32::MAX);
+
+    let clamped = input.clamp(epsilon, maximum)?;
+    clamped.log()
+}
+
+/// Computes the safe logarithm of probability values, clamping to valid probability range
+///
+/// This is specifically designed for probability tensors where values should be
+/// between 0 and 1. It clamps values to [eps, 1-eps] before taking the logarithm.
+///
+/// # Arguments
+/// * `input` - Input tensor containing probability values
+/// * `eps` - Small epsilon value for numerical stability (default: 1e-8)
+///
+/// # Returns
+/// Tensor with logarithm applied to clamped probability values
+///
+/// # Example
+/// ```ignore
+/// let probs = Tensor::from_vec(vec![0.1, 0.5, 0.9], &[3]).unwrap();
+/// let log_probs = safe_log_prob(&probs, None).unwrap();
+/// ```
+pub fn safe_log_prob(input: &Tensor, eps: Option<f32>) -> TorshResult<Tensor> {
+    let epsilon = eps.unwrap_or(1e-8_f32);
+    let clamped = input.clamp(epsilon, 1.0 - epsilon)?;
+    clamped.log()
+}
+
+/// Creates a safe version of tensor for logarithm operations by clamping
+///
+/// This is a lightweight helper that only performs clamping without the logarithm.
+/// Useful when you need to perform the clamping separately from the log operation.
+///
+/// # Arguments
+/// * `input` - Input tensor
+/// * `eps` - Minimum value for clamping (default: 1e-8)
+/// * `max_val` - Maximum value for clamping (default: f32::MAX)
+///
+/// # Returns
+/// Clamped tensor safe for logarithm operations
+pub fn safe_for_log(input: &Tensor, eps: Option<f32>, max_val: Option<f32>) -> TorshResult<Tensor> {
+    let epsilon = eps.unwrap_or(1e-8_f32);
+    let maximum = max_val.unwrap_or(f32::MAX);
+    input.clamp(epsilon, maximum)
+}
+
 /// Standardized inplace operation handling
 pub fn handle_inplace_operation<F>(
     input: &Tensor,

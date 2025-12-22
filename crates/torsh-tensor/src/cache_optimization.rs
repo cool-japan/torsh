@@ -1,7 +1,6 @@
 // Cache optimization module for improving memory layout and access patterns
 
 use crate::{Tensor, TensorStorage};
-use scirs2_core::simd_aligned::AlignedVec;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -10,6 +9,9 @@ use torsh_core::{
     error::{Result, TorshError},
     shape::Shape,
 };
+
+#[cfg(feature = "simd")]
+use scirs2_core::simd_aligned::AlignedVec;
 
 /// Cache analysis report providing detailed performance metrics
 #[derive(Debug, Clone)]

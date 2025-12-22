@@ -6,15 +6,12 @@
 //! hardware abstraction to ensure optimal hardware utilization and system reliability.
 
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
-use std::sync::{
-    atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
-    Arc, Mutex, RwLock,
-};
-use std::time::{Duration, Instant, SystemTime};
+use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, Mutex, RwLock};
+use std::time::{Duration, SystemTime};
 
-use super::config::{GpuConfig, HardwareConfig, ThermalConfig};
-use super::resource_management::{ResourceId, ResourceType};
+use super::config::HardwareConfig;
+use super::task_management::ResourceType;
 
 /// Comprehensive hardware manager for CUDA execution
 ///
@@ -58,7 +55,7 @@ pub struct HardwareManager {
     statistics: Arc<Mutex<HardwareStatistics>>,
 
     /// Active hardware sessions
-    active_sessions: Arc::new(Mutex::new(HashMap::new())),
+    active_sessions: Arc<Mutex<HashMap<u64, HardwareSession>>>,
 }
 
 /// GPU device manager for CUDA device control
@@ -1372,6 +1369,41 @@ impl Default for CapabilityDetectionConfig {
             benchmark_timeout: Duration::from_secs(5 * 60),
             capability_cache_duration: Duration::from_secs(1 * 60 * 60),
             enable_validation: true,
+        }
+    }
+}
+
+/// Represents an active hardware session
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HardwareSession {
+    /// Session identifier
+    pub id: u64,
+    /// Session start time
+    pub start_time: SystemTime,
+    /// Associated device IDs
+    pub device_ids: Vec<u32>,
+    /// Session state
+    pub state: SessionState,
+}
+
+/// Session state
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SessionState {
+    /// Session is active
+    Active,
+    /// Session is suspended
+    Suspended,
+    /// Session is terminated
+    Terminated,
+}
+
+impl Default for HardwareSession {
+    fn default() -> Self {
+        Self {
+            id: 0,
+            start_time: SystemTime::now(),
+            device_ids: Vec::new(),
+            state: SessionState::Active,
         }
     }
 }

@@ -256,7 +256,7 @@ impl CIFAR10 {
             labels.push(label);
 
             // Next 3072 bytes are the image data (R, G, B channels in that order)
-            let mut tensor = creation::zeros(&[3, 32, 32]).unwrap();
+            let tensor = creation::zeros(&[3, 32, 32]).unwrap();
 
             // CIFAR-10 format: first 1024 bytes are red channel, next 1024 green, last 1024 blue
             for channel in 0..3 {
@@ -391,7 +391,7 @@ impl MNIST {
                 break;
             }
 
-            let mut tensor = creation::zeros(&[1, rows, cols]).unwrap();
+            let tensor = creation::zeros(&[1, rows, cols]).unwrap();
 
             for (pixel_idx, &pixel_val) in data[start_idx..end_idx].iter().enumerate() {
                 let y = pixel_idx / cols;

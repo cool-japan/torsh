@@ -56,8 +56,7 @@ impl Store for MemoryStore {
                 return Err(TorshDistributedError::communication_error(
                     "Store wait",
                     "Timeout waiting for keys",
-                )
-                .into());
+                ));
             }
 
             tokio::time::sleep(Duration::from_millis(10)).await;

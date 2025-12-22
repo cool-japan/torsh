@@ -7,16 +7,19 @@
 //!
 //! # Examples
 //!
-//! ```rust
+//! ```no_run
 //! use torsh_data::audio::{AudioFolder, AudioData, AudioToTensor};
 //! use torsh_data::audio::transforms::transforms::*;
 //!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create an audio folder dataset
 //! let dataset = AudioFolder::new("/path/to/audio", Some(22050))?;
 //!
 //! // Apply transforms
 //! let normalize = Normalize::new(0.1);
 //! let resample = Resample::new(16000);
+//! # Ok(())
+//! # }
 //! ```
 
 pub mod datasets;

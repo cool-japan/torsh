@@ -1,12 +1,50 @@
 //! Optimization algorithms for ToRSh
 //!
 //! This crate provides PyTorch-compatible optimizers built on top of scirs2-optim.
+//!
+//! # Features
+//!
+//! - **80+ optimizers**: Comprehensive collection including Adam, SGD, RAdam, Ranger, Lion, Sophia, and more
+//! - **Modern optimizers**: Latest research including Schedule-Free AdamW and Prodigy
+//! - **Second-order methods**: L-BFGS, Newton-CG, Trust Region, K-FAC, AdaHessian
+//! - **Learning rate schedulers**: Step, exponential, cosine annealing, one-cycle, and more
+//! - **Mixed precision training**: Full fp16/fp32 support with loss scaling
+//! - **Distributed optimization**: AsyncSGD, Elastic Averaging, Federated Learning
+//! - **Advanced features**: Gradient accumulation, fused kernels, memory-efficient implementations
+//! - **Research features**: Quantum-inspired, neuromorphic, continual learning, green AI optimizers
+//!
+//! # Quick Start
+//!
+//! ```rust,no_run
+//! use torsh_optim::prelude::*;
+//! use torsh_tensor::Tensor;
+//! use std::sync::Arc;
+//! use parking_lot::RwLock;
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! // Create parameters
+//! let params = vec![Arc::new(RwLock::new(Tensor::scalar(1.0)?))];
+//!
+//! // Create optimizer
+//! let mut optimizer = Adam::new(params, Some(0.001), None, None, None, false);
+//!
+//! // Training loop
+//! for _ in 0..100 {
+//!     // ... compute gradients ...
+//!     optimizer.step()?;
+//!     optimizer.zero_grad();
+//! }
+//! # Ok(())
+//! # }
+//! ```
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![allow(dead_code)]
-#![allow(unused_imports)]
-#![allow(unused_variables)]
-#![allow(unused_mut)]
+// Note: These allows are necessary for maintaining compatibility with diverse optimizer implementations
+// and reducing noise from legitimate design patterns used across the codebase
+#![allow(dead_code)] // Many optimizers have internal methods not called externally
+#![allow(unused_imports)] // Conditional compilation features may leave some imports unused
+#![allow(unused_variables)] // Some optimizer variants have parameters used only in specific configurations
+#![allow(unused_mut)] // Mutability annotations required for consistency even when not always modified
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;
@@ -24,6 +62,7 @@ pub mod bayesian_optimization;
 pub mod benchmarks;
 pub mod checkpointing;
 pub mod composition;
+pub mod continual_learning;
 pub mod cross_framework_validation;
 pub mod debugging;
 pub mod differential_privacy;
@@ -33,11 +72,13 @@ pub mod ftrl;
 pub mod fused_kernels;
 pub mod grad_accumulation;
 pub mod gradient_free;
+pub mod green_ai;
 pub mod hyperparameter_tuning;
 pub mod kfac;
 pub mod lamb;
 pub mod lazy_updates;
 pub mod lbfgs;
+pub mod lion;
 pub mod lookahead;
 pub mod low_precision;
 pub mod lr_scheduler;
@@ -49,17 +90,22 @@ pub mod mixed_precision;
 pub mod nadam;
 pub mod natural_gradient;
 pub mod neural_optimizer;
+pub mod neuromorphic;
 pub mod newton_cg;
 pub mod numerical_stability_tests;
 pub mod online_learning;
 pub mod optimizer;
+pub mod prodigy;
+pub mod quantum_inspired;
 pub mod radam;
 pub mod ranger;
 pub mod rmsprop;
 pub mod robustness;
 pub mod rprop;
+pub mod schedule_free;
 pub mod sgd;
 pub mod shampoo;
+pub mod sophia;
 pub mod sparse_adam;
 pub mod sparse_updates;
 pub mod state_dict_ops;
@@ -854,6 +900,7 @@ pub mod prelude {
         UpdatePriority,
     };
     pub use crate::lbfgs::LBFGS;
+    pub use crate::lion::{Lion, LionBuilder, LionConfig};
     pub use crate::lookahead::{lookahead_adam, lookahead_radam, lookahead_sgd, Lookahead};
     pub use crate::low_precision::{
         LowPrecisionConvertible, LowPrecisionOptimizer, LowPrecisionState, PrecisionType,
@@ -886,12 +933,15 @@ pub mod prelude {
     pub use crate::online_learning::{
         OnlineGradientDescent, ProximalGradient, ProximalOperator, SAGA, SVRG,
     };
+    pub use crate::prodigy::{Prodigy, ProdigyBuilder, ProdigyConfig};
     pub use crate::radam::RAdam;
     pub use crate::ranger::{Ranger, RangerBuilder};
     pub use crate::rmsprop::RMSprop;
     pub use crate::rprop::Rprop;
+    pub use crate::schedule_free::{ScheduleFreeAdamW, ScheduleFreeAdamWBuilder};
     pub use crate::sgd::SGD;
     pub use crate::shampoo::{Shampoo, ShampooBuilder};
+    pub use crate::sophia::{Sophia, SophiaBuilder, SophiaConfig};
     pub use crate::sparse_adam::SparseAdam;
     pub use crate::state_dict_ops::{
         CompressionMethod, CompressionStats, MemoryEstimate, SerializationFormat, StateDictConfig,

@@ -338,6 +338,12 @@ pub struct Performance3DStats {
     pub memory_usage_mb: f64,
 }
 
+impl Default for Performance3DStats {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Performance3DStats {
     pub fn new() -> Self {
         Self {
@@ -532,12 +538,12 @@ impl CommunicationMetrics {
     ) {
         self.communication_times
             .entry(comm_type)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(duration);
 
         self.bytes_transferred
             .entry(comm_type)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(bytes);
     }
 
@@ -577,6 +583,12 @@ pub struct Memory3DStats {
     pub total_memory: usize,
     pub peak_memory: usize,
     pub memory_efficiency: f32,
+}
+
+impl Default for Memory3DStats {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Memory3DStats {

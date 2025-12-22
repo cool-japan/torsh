@@ -6,7 +6,7 @@
 use crate::{BenchConfig, BenchResult};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 /// Advanced performance analysis results
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -275,6 +275,7 @@ pub struct AdvancedAnalyzer {
     /// System information
     system_info: SystemInfo,
     /// Historical data for comparison
+    #[allow(dead_code)] // Reserved for trend analysis
     historical_data: Vec<BenchResult>,
     /// Analysis configuration
     config: AnalysisConfig,

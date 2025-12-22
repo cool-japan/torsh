@@ -4,8 +4,8 @@
 //! such as KL divergence, mutual information, and entropy-based losses.
 
 use crate::loss::common::ReductionType;
-use crate::utils::{function_context, validate_elementwise_shapes};
-use torsh_core::{Result as TorshResult, TorshError};
+use crate::utils::{function_context, safe_for_log, safe_log, validate_elementwise_shapes};
+use torsh_core::Result as TorshResult;
 use torsh_tensor::Tensor;
 
 /// Kullback-Leibler divergence loss
@@ -36,7 +36,7 @@ pub fn kl_div(
     reduction: ReductionType,
     log_target: bool,
 ) -> TorshResult<Tensor> {
-    let context = function_context("kl_div");
+    let _context = function_context("kl_div");
     validate_elementwise_shapes(input, target)?;
 
     // Ensure input is in log space (input should be log probabilities)
@@ -46,10 +46,8 @@ pub fn kl_div(
         target.mul(&target.sub(input)?)?
     } else {
         // target is in linear space, input is in log space
-        // Need to handle target = 0 case to avoid log(0)
-        let eps = 1e-8_f32;
-        let target_safe = target.clamp(eps, f32::MAX)?;
-        let log_target = target_safe.log()?;
+        // Use safe_log to handle target = 0 case
+        let log_target = safe_log(target, None, None)?;
         let log_ratio = log_target.sub(input)?;
         target.mul(&log_ratio)?
     };
@@ -82,11 +80,10 @@ pub fn js_divergence(
     // Compute mixture distribution M = 0.5 * (P + Q)
     let mixture = input.add(target)?.mul_scalar(0.5)?;
 
-    // Avoid log(0) by adding small epsilon
-    let eps = 1e-8_f32;
-    let input_safe = input.clamp(eps, f32::MAX)?;
-    let target_safe = target.clamp(eps, f32::MAX)?;
-    let mixture_safe = mixture.clamp(eps, f32::MAX)?;
+    // Use safe_for_log to avoid log(0) issues
+    let input_safe = safe_for_log(input, None, None)?;
+    let target_safe = safe_for_log(target, None, None)?;
+    let mixture_safe = safe_for_log(&mixture, None, None)?;
 
     // Compute log probabilities
     let log_input = input_safe.log()?;
@@ -126,12 +123,9 @@ pub fn cross_entropy_continuous(
 ) -> TorshResult<Tensor> {
     validate_elementwise_shapes(input, target)?;
 
-    // Avoid log(0) by clamping
-    let eps = 1e-8_f32;
-    let input_safe = input.clamp(eps, f32::MAX)?;
-
     // Cross entropy: -Σ target * log(input)
-    let log_input = input_safe.log()?;
+    // Use safe_log to avoid log(0) issues
+    let log_input = safe_log(input, None, None)?;
     let cross_entropy = target.mul(&log_input)?.neg()?;
 
     reduction.apply(cross_entropy)
@@ -189,12 +183,9 @@ pub fn mutual_information_loss(
 /// H(P) = -Σ P(x) * log(P(x))
 /// ```
 pub fn entropy_loss(input: &Tensor, reduction: ReductionType) -> TorshResult<Tensor> {
-    // Avoid log(0) by clamping
-    let eps = 1e-8_f32;
-    let input_safe = input.clamp(eps, f32::MAX)?;
-
     // Entropy: -Σ P * log(P)
-    let log_input = input_safe.log()?;
+    // Use safe_log to avoid log(0) issues
+    let log_input = safe_log(input, None, None)?;
     let entropy = input.mul(&log_input)?.neg()?;
 
     reduction.apply(entropy)

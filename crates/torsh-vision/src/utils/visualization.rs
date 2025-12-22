@@ -82,7 +82,7 @@ pub fn make_grid(tensors: &[Tensor<f32>], nrow: usize, padding: usize) -> Result
     let grid_width = ncol * width + (ncol - 1) * padding;
 
     // Create output grid tensor
-    let mut grid = creation::zeros(&[channels, grid_height, grid_width]).unwrap();
+    let grid = creation::zeros(&[channels, grid_height, grid_width]).unwrap();
 
     // Fill the grid
     for (idx, tensor) in tensors.iter().enumerate() {

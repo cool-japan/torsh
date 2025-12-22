@@ -1,9 +1,166 @@
-//! Activation functions for neural networks
+//! # Activation Functions for Neural Networks
 //!
 //! This module provides a comprehensive collection of activation functions organized into
 //! focused sub-modules for better maintainability and discoverability.
 //!
-//! # Organization
+//! ## Mathematical Foundation
+//!
+//! Activation functions introduce **non-linearity** into neural networks, enabling them to
+//! learn complex patterns beyond linear transformations. Without activation functions, a
+//! multi-layer network would be equivalent to a single-layer linear transformation.
+//!
+//! ### Role in Neural Networks
+//! ```text
+//! Layer output: y = σ(Wx + b)
+//! ```
+//! where:
+//! - `W` is the weight matrix
+//! - `x` is the input
+//! - `b` is the bias
+//! - `σ` is the activation function
+//!
+//! ### Key Properties
+//!
+//! #### Non-linearity
+//! - **Essential**: Linear compositions remain linear: f(g(x)) = linear
+//! - **Non-linear**: Enables learning of complex decision boundaries
+//!
+//! #### Differentiability
+//! - Required for backpropagation and gradient descent
+//! - Sub-differentiable at isolated points (e.g., ReLU at 0) is acceptable
+//!
+//! #### Range and Saturation
+//! - **Unbounded** (ReLU): Can cause exploding activations
+//! - **Bounded** (Sigmoid, Tanh): May cause vanishing gradients in deep networks
+//!
+//! #### Zero-Centered
+//! - **Zero-centered** (Tanh): Gradients can be positive or negative, faster convergence
+//! - **Not zero-centered** (ReLU, Sigmoid): Can cause zig-zagging dynamics
+//!
+//! ## Activation Function Families
+//!
+//! ### ReLU Family (Piecewise Linear)
+//! ```text
+//! ReLU(x) = max(0, x)
+//! LeakyReLU(x) = max(αx, x)  where α ∈ (0, 1)
+//! ELU(x) = { x if x > 0, α(exp(x) - 1) if x ≤ 0 }
+//! ```
+//! **Best for**: Hidden layers in deep networks, CNNs
+//! **Advantages**: Computationally efficient, sparse activation, no vanishing gradient for x > 0
+//! **Disadvantages**: "Dying ReLU" problem, not zero-centered
+//!
+//! ### Sigmoid Family (Smooth Bounded)
+//! ```text
+//! Sigmoid(x) = 1 / (1 + exp(-x))  ∈ (0, 1)
+//! SiLU(x) = x · Sigmoid(x)  (Swish)
+//! ```
+//! **Best for**: Binary classification (output layer), gates in LSTMs
+//! **Advantages**: Smooth, interpretable as probability
+//! **Disadvantages**: Vanishing gradient problem, not zero-centered, expensive exp()
+//!
+//! ### Tanh Family (Zero-Centered Bounded)
+//! ```text
+//! Tanh(x) = (exp(x) - exp(-x)) / (exp(x) + exp(-x))  ∈ (-1, 1)
+//! ```
+//! **Best for**: Hidden layers when zero-centered output desired, RNNs
+//! **Advantages**: Zero-centered, stronger gradients than sigmoid
+//! **Disadvantages**: Still suffers from vanishing gradient, expensive computation
+//!
+//! ### Softmax Family (Normalization)
+//! ```text
+//! Softmax(x_i) = exp(x_i) / Σ_j exp(x_j)
+//! ```
+//! **Best for**: Multi-class classification (output layer)
+//! **Advantages**: Probabilistic interpretation, differentiable
+//! **Disadvantages**: Only for output layer, sensitive to outliers
+//!
+//! ### Advanced Functions (Modern)
+//! ```text
+//! GELU(x) = x · Φ(x)  where Φ is Gaussian CDF
+//! Mish(x) = x · tanh(softplus(x))
+//! ```
+//! **Best for**: Transformers (GELU), general deep learning (Mish)
+//! **Advantages**: Smooth, non-monotonic, state-of-the-art performance
+//! **Disadvantages**: More expensive computation
+//!
+//! ## Performance Characteristics
+//!
+//! ### Computational Complexity (per element)
+//! - **ReLU family**: O(1) - simple comparison/multiplication
+//! - **Sigmoid/Tanh**: O(1) but requires exp() - ~10-100x slower than ReLU
+//! - **Softmax**: O(n) where n is the number of classes - reduction operation
+//! - **GELU/Mish**: O(1) but more complex than ReLU - ~2-5x slower
+//!
+//! ### Memory Usage
+//! - **Standard operations**: O(n) - same as input
+//! - **In-place operations**: O(1) - modify input directly
+//! - **Softmax**: O(n) - requires temporary storage for normalization
+//!
+//! ### Gradient Computation
+//! - **ReLU**: Fastest - binary gradient (0 or 1)
+//! - **Sigmoid/Tanh**: Moderate - requires output value
+//! - **Softmax**: Expensive - requires full Jacobian for multi-dimensional
+//!
+//! ## Choosing the Right Activation
+//!
+//! ### Decision Tree
+//! 1. **Output Layer?**
+//!    - Binary classification → **Sigmoid**
+//!    - Multi-class classification → **Softmax**
+//!    - Regression → **None** or **ReLU** (for non-negative)
+//!
+//! 2. **Hidden Layer in CNN?**
+//!    - Default → **ReLU**
+//!    - Want smoothness → **GELU**
+//!    - Concerned about dying ReLU → **Leaky ReLU** or **ELU**
+//!
+//! 3. **Hidden Layer in Transformer?**
+//!    - Modern standard → **GELU**
+//!    - Alternative → **SiLU/Swish**
+//!
+//! 4. **Hidden Layer in RNN/LSTM?**
+//!    - Gates → **Sigmoid** (by design)
+//!    - Hidden state → **Tanh** (by design)
+//!
+//! 5. **Memory Constrained?**
+//!    - Use **in-place variants** (relu_, sigmoid_, etc.)
+//!
+//! ## Common Use Cases
+//!
+//! ### Convolutional Neural Network
+//! ```rust,no_run
+//! # use torsh_functional::activations::{relu, softmax};
+//! # use torsh_functional::random_ops::randn;
+//! # fn example() -> torsh_core::Result<()> {
+//! // Conv → ReLU → Pool → Conv → ReLU → Pool → FC → Softmax
+//! let conv1_out = randn(&[32, 64, 28, 28], None, None, None)?;
+//! let relu1_out = relu(&conv1_out, false)?;
+//!
+//! // ... more layers ...
+//!
+//! let logits = randn(&[32, 10], None, None, None)?;
+//! let predictions = softmax(&logits, 1, None)?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ### Transformer Architecture
+//! ```rust,no_run
+//! # use torsh_functional::activations::gelu;
+//! # use torsh_functional::random_ops::randn;
+//! # fn example() -> torsh_core::Result<()> {
+//! // Attention → LayerNorm → FFN(GELU) → LayerNorm
+//! let ffn_input = randn(&[32, 512, 768], None, None, None)?;
+//! let weights1 = randn(&[768, 3072], None, None, None)?;
+//! let hidden = ffn_input.matmul(&weights1)?;
+//! let activated = gelu(&hidden)?;
+//! let weights2 = randn(&[3072, 768], None, None, None)?;
+//! let output = activated.matmul(&weights2)?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Organization
 //!
 //! The activation functions are organized into the following sub-modules:
 //!
@@ -14,41 +171,18 @@
 //! - [`advanced`]: Advanced functions (GELU, GLU, Scaled Dot-Product Attention, etc.)
 //! - [`inplace`]: In-place variants for memory-efficient operations
 //!
-//! # Usage Examples
+//! ## Quick Reference
 //!
-//! ```rust
-//! use torsh_functional::activations::{relu, sigmoid, softmax};
-//! use torsh_tensor::creation::from_vec;
-//! use torsh_core::device::DeviceType;
-//!
-//! // Basic activation functions
-//! let input = from_vec(vec![-2.0, -1.0, 0.0, 1.0, 2.0], &[5], DeviceType::Cpu).unwrap();
-//!
-//! // ReLU activation
-//! let relu_out = relu(&input, false).unwrap();
-//!
-//! // Sigmoid activation
-//! let sigmoid_out = sigmoid(&input).unwrap();
-//!
-//! // Softmax for classification
-//! let logits = from_vec(vec![1.0, 2.0, 3.0], &[3], DeviceType::Cpu).unwrap();
-//! let probabilities = softmax(&logits, 0, None).unwrap();
-//! ```
-//!
-//! # In-place Operations
-//!
-//! For memory efficiency, in-place variants are available:
-//!
-//! ```rust
-//! use torsh_functional::activations::{relu_, sigmoid_};
-//! use torsh_tensor::creation::from_vec;
-//! use torsh_core::device::DeviceType;
-//!
-//! let mut input = from_vec(vec![-1.0, 0.0, 1.0], &[3], DeviceType::Cpu).unwrap();
-//!
-//! // In-place ReLU (modifies input directly)
-//! relu_(&mut input).unwrap();
-//! ```
+//! | Function | Range | Zero-Centered | Computation | Best For |
+//! |----------|-------|---------------|-------------|----------|
+//! | ReLU | [0, ∞) | No | Fast | CNNs, hidden layers |
+//! | Leaky ReLU | (-∞, ∞) | No | Fast | Avoid dying ReLU |
+//! | ELU | (-α, ∞) | Nearly | Moderate | Smoother gradients |
+//! | Sigmoid | (0, 1) | No | Slow | Binary output |
+//! | Tanh | (-1, 1) | Yes | Slow | RNN hidden layers |
+//! | Softmax | (0, 1), sum=1 | No | Moderate | Multi-class output |
+//! | GELU | (-∞, ∞) | Nearly | Moderate | Transformers |
+//! | SiLU/Swish | (-∞, ∞) | No | Moderate | General deep learning |
 
 // Sub-modules
 pub mod advanced;
@@ -59,8 +193,8 @@ pub mod softmax_family;
 pub mod tanh_family;
 
 // Helper functions for reducing code duplication
-use torsh_core::dtype::{FloatElement, TensorElement};
-use torsh_core::{Result as TorshResult, TorshError};
+use torsh_core::dtype::FloatElement;
+use torsh_core::Result as TorshResult;
 use torsh_tensor::Tensor;
 
 /// Generic element-wise activation function helper

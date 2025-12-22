@@ -10,7 +10,6 @@
 //!
 //! Run with: cargo run --example comprehensive_demo
 
-use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
 use tempfile::TempDir;
@@ -390,7 +389,7 @@ fn demonstrate_delta_patching(
         original.get_version().to_string(),
     );
     // Copy original resources first
-    for (name, resource) in original.resources() {
+    for (_name, resource) in original.resources() {
         patched_package.add_resource(resource.clone());
     }
     // Copy metadata
@@ -416,7 +415,7 @@ fn demonstrate_delta_patching(
 
 /// Demonstrate advanced dependency resolution
 fn demonstrate_dependency_resolution(
-    base_path: &std::path::Path,
+    _base_path: &std::path::Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Create a local package registry
     let mut registry = LocalPackageRegistry::new();

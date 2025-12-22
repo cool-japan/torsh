@@ -1,7 +1,9 @@
 //! ARIMA (AutoRegressive Integrated Moving Average) models
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::TimeSeries;
-use torsh_tensor::{creation::zeros, Tensor};
+use torsh_tensor::creation::zeros;
 
 /// ARIMA model for time series forecasting
 pub struct ARIMA {
@@ -167,7 +169,7 @@ impl Default for AutoARIMA {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use torsh_tensor::creation::*;
+    use torsh_tensor::Tensor;
 
     fn create_test_series() -> TimeSeries {
         let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];

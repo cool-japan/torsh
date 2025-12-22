@@ -4,6 +4,8 @@
 //! including cache-friendly data layouts, prefetching strategies, and
 //! NUMA-aware memory allocation patterns.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use std::alloc::{self, Layout};
 use std::ptr::NonNull;
 
@@ -371,18 +373,18 @@ impl AccessPatternOptimizer {
     /// Software prefetching implementation
     fn software_prefetch<T>(
         &self,
-        ptr: *const T,
+        _ptr: *const T,
         len: usize,
         distance: usize,
         pattern: AccessPattern,
     ) {
         match pattern {
             AccessPattern::Sequential => {
-                for i in (0..len).step_by(self.cache_line_size / std::mem::size_of::<T>()) {
-                    if i + distance < len {
+                for _i in (0..len).step_by(self.cache_line_size / std::mem::size_of::<T>()) {
+                    if _i + distance < len {
                         #[cfg(target_arch = "x86_64")]
                         unsafe {
-                            let prefetch_ptr = ptr.add(i + distance);
+                            let prefetch_ptr = _ptr.add(_i + distance);
                             std::arch::x86_64::_mm_prefetch(
                                 prefetch_ptr as *const i8,
                                 std::arch::x86_64::_MM_HINT_T0,
@@ -392,11 +394,11 @@ impl AccessPatternOptimizer {
                 }
             }
             AccessPattern::Strided(stride) => {
-                for i in (0..len).step_by(stride) {
-                    if i + distance * stride < len {
+                for _i in (0..len).step_by(stride) {
+                    if _i + distance * stride < len {
                         #[cfg(target_arch = "x86_64")]
                         unsafe {
-                            let prefetch_ptr = ptr.add(i + distance * stride);
+                            let prefetch_ptr = _ptr.add(_i + distance * stride);
                             std::arch::x86_64::_mm_prefetch(
                                 prefetch_ptr as *const i8,
                                 std::arch::x86_64::_MM_HINT_T0,
@@ -407,10 +409,10 @@ impl AccessPatternOptimizer {
             }
             _ => {
                 // Default to cache line granularity
-                for i in (0..len).step_by(self.cache_line_size / std::mem::size_of::<T>()) {
+                for _i in (0..len).step_by(self.cache_line_size / std::mem::size_of::<T>()) {
                     #[cfg(target_arch = "x86_64")]
                     unsafe {
-                        let prefetch_ptr = ptr.add(i);
+                        let prefetch_ptr = _ptr.add(_i);
                         std::arch::x86_64::_mm_prefetch(
                             prefetch_ptr as *const i8,
                             std::arch::x86_64::_MM_HINT_T1,

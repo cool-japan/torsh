@@ -2,11 +2,12 @@
 
 use crate::cuda::device::CudaDevice;
 use crate::cuda::error::{CudaError, CudaResult};
-use crate::cuda::memory::{CudaAllocation, CudaMemoryManager};
+use crate::cuda::memory::CudaAllocation;
 use crate::cuda::stream::CudaStream;
 use crate::{Buffer, BufferError};
+use cust::prelude::DevicePointer;
 use std::sync::Arc;
-use torsh_core::{DType, TensorError};
+use torsh_core::DType;
 
 /// CUDA buffer implementation
 #[derive(Debug, Clone)]
@@ -50,7 +51,7 @@ impl<T: Clone + Send + Sync + 'static> CudaBuffer<T> {
     }
 
     /// Get device pointer
-    pub fn device_ptr(&self) -> cust::DevicePointer<T> {
+    pub fn device_ptr(&self) -> DevicePointer<T> {
         self.allocation.as_ptr()
     }
 
@@ -276,7 +277,7 @@ impl<T: Clone + Send + Sync + 'static> Buffer<T> for CudaBuffer<T> {
     }
 }
 
-impl<T: Clone + Send + Sync + 'static> Drop for CudaBuffer<T> {
+impl<T> Drop for CudaBuffer<T> {
     fn drop(&mut self) {
         // Memory will be returned to pool automatically when allocation is dropped
         if let Err(e) = self

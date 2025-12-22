@@ -6,11 +6,10 @@
 
 use super::{
     binary,
-    common::{SerializationFormat, SerializationOptions, TensorMetadata},
+    common::{SerializationFormat, SerializationOptions},
     data_science, ml_formats, scientific, text_formats,
 };
 use crate::{Tensor, TensorElement};
-use std::io::{Read, Write};
 use std::path::Path;
 use torsh_core::error::{Result, TorshError};
 

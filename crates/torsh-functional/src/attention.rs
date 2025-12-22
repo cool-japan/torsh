@@ -1,27 +1,194 @@
-//! Attention mechanisms for neural networks
+//! # Attention Mechanisms for Neural Networks
 //!
-//! This module provides functional-style attention operations that complement
-//! the layer-based attention implementations in torsh-nn.
+//! This module provides functional-style attention operations that form the foundation
+//! of modern transformer architectures and sequence-to-sequence models.
+//!
+//! ## Mathematical Foundation
+//!
+//! ### Scaled Dot-Product Attention
+//! The fundamental attention operation computes:
+//! ```text
+//! Attention(Q, K, V) = softmax(QK^T / √d_k) V
+//! ```
+//! where:
+//! - `Q` (Query): What we're looking for - shape `[batch, heads, seq_q, d_k]`
+//! - `K` (Key): What each position represents - shape `[batch, heads, seq_k, d_k]`
+//! - `V` (Value): The actual information to retrieve - shape `[batch, heads, seq_v, d_v]`
+//! - `d_k`: Dimension of keys/queries (scaling factor prevents softmax saturation)
+//!
+//! ### Multi-Head Attention
+//! Multi-head attention runs multiple attention operations in parallel:
+//! ```text
+//! MultiHead(Q, K, V) = Concat(head_1, ..., head_h) W^O
+//! where head_i = Attention(Q W^Q_i, K W^K_i, V W^V_i)
+//! ```
+//!
+//! Benefits:
+//! - **Parallel attention**: Different heads can attend to different aspects
+//! - **Representation subspaces**: Each head learns different query-key-value relationships
+//! - **Model capacity**: Increases expressiveness without increasing d_model
+//!
+//! ### Self-Attention
+//! Special case where Q, K, V come from the same source:
+//! ```text
+//! SelfAttention(X) = Attention(X W^Q, X W^K, X W^V)
+//! ```
+//!
+//! ### Cross-Attention
+//! Used in encoder-decoder architectures:
+//! ```text
+//! CrossAttention(X_dec, X_enc) = Attention(X_dec W^Q, X_enc W^K, X_enc W^V)
+//! ```
+//! - Queries from decoder
+//! - Keys and Values from encoder
+//! - Allows decoder to attend to encoder representations
+//!
+//! ## Performance Characteristics
+//!
+//! ### Computational Complexity
+//! For sequence length `n` and dimension `d`:
+//! - **Scaled Dot-Product**: O(n² · d) - quadratic in sequence length
+//! - **Multi-Head Attention**: O(n² · d + n · d²) - includes projection overhead
+//! - **Self-Attention**: Same as scaled dot-product but shares Q, K, V source
+//!
+//! ### Memory Requirements
+//! - **Attention weights**: O(batch · heads · n²) - dominant for long sequences
+//! - **Activations**: O(batch · heads · n · d_v)
+//! - **Gradients**: Approximately 2× forward pass memory
+//!
+//! ### Optimization Techniques
+//! - **Flash Attention**: Reduces memory from O(n²) to O(n) using tiling
+//! - **Sparse Attention**: Only attend to subset of positions (local, strided)
+//! - **Linear Attention**: Kernel-based methods achieving O(n · d²) complexity
+//! - **Grouped Query Attention (GQA)**: Share K/V across multiple Q heads
+//!
+//! ## Applications
+//!
+//! - **Language Models**: GPT, BERT, T5 for text generation and understanding
+//! - **Vision Transformers**: Image classification and object detection
+//! - **Multimodal Models**: CLIP, Flamingo for vision-language tasks
+//! - **Speech Recognition**: Whisper, Conformer for audio processing
+//! - **Protein Folding**: AlphaFold for structure prediction
+//!
+//! ## Examples
+//!
+//! ### Basic Self-Attention
+//! ```rust,no_run
+//! # use torsh_tensor::Tensor;
+//! # use torsh_functional::attention::self_attention;
+//! # use torsh_functional::random_ops::randn;
+//! # fn example() -> torsh_core::Result<()> {
+//! // Input sequence: [batch=2, seq_len=10, dim=512]
+//! let input = randn(&[2, 10, 512])?;
+//!
+//! // Self-attention with 8 heads, dimension 64 per head
+//! let (output, attn_weights) = self_attention(
+//!     &input,
+//!     512,      // embed_dim
+//!     8,        // num_heads
+//!     None,     // no mask
+//!     0.1,      // dropout
+//!     false,    // not causal
+//! )?;
+//!
+//! // Output: [2, 10, 512], Weights: [2, 8, 10, 10]
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ### Causal Self-Attention (for Language Modeling)
+//! ```rust,no_run
+//! # use torsh_tensor::Tensor;
+//! # use torsh_functional::attention::scaled_dot_product_attention;
+//! # use torsh_functional::random_ops::randn;
+//! # fn example() -> torsh_core::Result<()> {
+//! // Decoder input: [batch=4, heads=12, seq=128, head_dim=64]
+//! let query = randn(&[4, 12, 128, 64])?;
+//! let key = query.clone();
+//! let value = query.clone();
+//!
+//! // Causal attention prevents attending to future tokens
+//! let (output, weights) = scaled_dot_product_attention(
+//!     &query,
+//!     &key,
+//!     &value,
+//!     None,     // no additional mask
+//!     0.0,      // no dropout during inference
+//!     true,     // causal masking for autoregressive generation
+//! )?;
+//!
+//! // Each position can only attend to itself and previous positions
+//! # Ok(())
+//! # }
+//! ```
 
 use torsh_core::{Result as TorshResult, TorshError};
 use torsh_tensor::Tensor;
 
-/// Scaled Dot-Product Attention
+/// Scaled Dot-Product Attention - Core transformer attention mechanism
 ///
-/// Computes Attention(Q, K, V) = softmax(QK^T / sqrt(d_k))V
+/// # Mathematical Definition
+/// ```text
+/// scores = (Q @ K^T) / √d_k
+/// attn_weights = softmax(scores + mask)
+/// output = attn_weights @ V
+/// ```
 ///
-/// This is the core attention mechanism used in transformers.
+/// # Masking
+/// - **Causal Mask**: Lower triangular matrix for autoregressive models (GPT-style)
+///   - Prevents position i from attending to positions > i
+///   - Essential for language modeling to prevent "looking into the future"
+/// - **Padding Mask**: Masks out padding tokens in variable-length sequences
+///   - Typically represented as boolean mask (1 = mask, 0 = attend)
+///   - Applied by adding large negative value (-1e9) before softmax
 ///
 /// # Arguments
-/// * `query` - Query tensor of shape [batch_size, num_heads, seq_len, head_dim]
-/// * `key` - Key tensor of shape [batch_size, num_heads, seq_len, head_dim]  
-/// * `value` - Value tensor of shape [batch_size, num_heads, seq_len, head_dim]
-/// * `attn_mask` - Optional attention mask tensor
-/// * `dropout_p` - Dropout probability (0.0 to 1.0)
-/// * `is_causal` - Whether to apply causal masking for autoregressive models
+/// * `query` - Query tensor of shape `[batch, heads, seq_q, d_k]`
+/// * `key` - Key tensor of shape `[batch, heads, seq_k, d_k]`
+/// * `value` - Value tensor of shape `[batch, heads, seq_v, d_v]`
+/// * `attn_mask` - Optional boolean attention mask (1 = masked position)
+/// * `dropout_p` - Dropout probability applied to attention weights (0.0 to 1.0)
+/// * `is_causal` - If true, applies causal (lower triangular) masking
 ///
 /// # Returns
-/// Tuple of (attention_output, attention_weights)
+/// Tuple of:
+/// - `output`: Attention output of shape `[batch, heads, seq_q, d_v]`
+/// - `attn_weights`: Attention weights of shape `[batch, heads, seq_q, seq_k]`
+///
+/// # Performance Notes
+/// - Complexity: O(batch · heads · seq_q · seq_k · d_k + batch · heads · seq_q · seq_k · d_v)
+/// - Memory: O(batch · heads · seq_q · seq_k) for attention weights (can be large!)
+/// - For seq > 1024, consider Flash Attention or sparse attention variants
+/// - The √d_k scaling prevents softmax saturation for large d_k
+///
+/// # Examples
+/// ```rust,no_run
+/// # use torsh_tensor::Tensor;
+/// # use torsh_functional::attention::scaled_dot_product_attention;
+/// # fn example() -> torsh_core::Result<()> {
+/// // Standard transformer attention
+/// let batch_size = 8;
+/// let num_heads = 12;
+/// let seq_len = 64;
+/// let head_dim = 64;
+///
+/// let q = randn(&[batch_size, num_heads, seq_len, head_dim])?;
+/// let k = randn(&[batch_size, num_heads, seq_len, head_dim])?;
+/// let v = randn(&[batch_size, num_heads, seq_len, head_dim])?;
+///
+/// // Compute attention
+/// let (output, weights) = scaled_dot_product_attention(
+///     &q, &k, &v,
+///     None,   // no mask
+///     0.1,    // 10% dropout
+///     false,  // bidirectional attention
+/// )?;
+///
+/// // output: [8, 12, 64, 64]
+/// // weights: [8, 12, 64, 64] - shows which positions attend to which
+/// # Ok(())
+/// # }
+/// ```
 pub fn scaled_dot_product_attention(
     query: &Tensor,
     key: &Tensor,

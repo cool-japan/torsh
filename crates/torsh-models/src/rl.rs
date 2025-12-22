@@ -4,6 +4,8 @@
 //! including Deep Q-Networks (DQN), Proximal Policy Optimization (PPO), and
 //! Asynchronous Advantage Actor-Critic (A3C).
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use torsh_core::{error::Result as TorshResult, DType, DeviceType};
@@ -114,7 +116,7 @@ impl DQN {
         use scirs2_core::random::{Random, Rng};
         let mut rng = Random::seed(42);
 
-        if rng.gen::<f32>() < epsilon {
+        if rng.random::<f32>() < epsilon {
             // Random action
             Ok(rng.gen_range(0..self.config.action_dim))
         } else {
@@ -160,7 +162,8 @@ impl Module for DQN {
         let mut x = input.clone();
 
         // Forward through hidden layers
-        for (i, layer) in self.layers[..self.layers.len() - if self.config.dueling { 0 } else { 1 }]
+        for (_i, layer) in self.layers
+            [..self.layers.len() - if self.config.dueling { 0 } else { 1 }]
             .iter()
             .enumerate()
         {
@@ -445,7 +448,7 @@ impl PPOActor {
         // Multinomial sampling
         use scirs2_core::random::{Random, Rng};
         let mut rng = Random::seed(42);
-        let random_val = rng.gen::<f32>();
+        let random_val = rng.random::<f32>();
 
         // Simple implementation: use multinomial sampling
         let cumprobs = probs.cumsum(1)?;
@@ -766,7 +769,7 @@ impl PPO {
         // Entropy bonus (approximation for discrete actions)
         let entropy = if self.config.continuous_actions {
             // For continuous: 0.5 * log(2πe * σ²)
-            let action_logits = self.actor.forward(states)?;
+            let _action_logits = self.actor.forward(states)?;
             let log_std = self.actor.log_std_head.as_ref().unwrap().forward(states)?;
             let constant_term = creation::tensor_scalar(
                 0.5 * (2.0 * std::f32::consts::PI * std::f32::consts::E).ln(),
@@ -1039,7 +1042,7 @@ impl A3C {
             // Sample action (simplified multinomial)
             use scirs2_core::random::{Random, Rng};
             let mut rng = Random::seed(42);
-            let random_val = rng.gen::<f32>();
+            let random_val = rng.random::<f32>();
             let cumprobs = probs.cumsum(1)?;
             let random_tensor =
                 torsh_tensor::creation::full(&[probs.shape().dims()[0], 1], random_val)?;

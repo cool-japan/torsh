@@ -15,6 +15,12 @@
 //! ## Usage Example
 //!
 //! ```rust
+//! # use torsh_tensor::creation::{randn, tensor_1d};
+//! # use torsh_core::error::Result;
+//! # fn main() -> Result<()> {
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # fn main() -> Result<()> {
 //! use torsh_nn::layers::activation::threshold::{Hardshrink, Softshrink, Hardtanh, Threshold};
 //! use torsh_nn::Module;
 //! use torsh_tensor::Tensor;
@@ -26,9 +32,13 @@
 //! let threshold = Threshold::new(0.1, 0.0);
 //!
 //! // Apply to tensors
-//! let input = Tensor::randn(&[2, 3]);
+//! let input = randn(&[2, 3])?;
 //! let hardshrink_output = hardshrink.forward(&input)?;
 //! let softshrink_output = softshrink.forward(&input)?;
+//! # Ok(())
+//! # }
+//! # Ok(())
+//! # }
 //! ```
 
 use crate::{Module, ModuleBase, Parameter};
@@ -68,13 +78,23 @@ use hashbrown::HashMap;
 ///
 /// # Example
 /// ```rust
+/// # use torsh_tensor::creation::{randn, tensor_1d};
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// use torsh_nn::layers::activation::threshold::Hardshrink;
 /// use torsh_nn::Module;
 /// use torsh_tensor::Tensor;
 ///
 /// let hardshrink = Hardshrink::new(0.5); // λ = 0.5
-/// let input = Tensor::from(vec![-1.0, -0.3, 0.0, 0.3, 1.0]);
+/// let input = tensor_1d(&[-1.0, -0.3, 0.0, 0.3, 1.0])?;
 /// let output = hardshrink.forward(&input)?; // [-1.0, 0.0, 0.0, 0.0, 1.0]
+/// # Ok(())
+/// # }
+/// # Ok(())
+/// # }
 /// ```
 pub struct Hardshrink {
     base: ModuleBase,
@@ -170,13 +190,23 @@ impl Module for Hardshrink {
 ///
 /// # Example
 /// ```rust
+/// # use torsh_tensor::creation::{randn, tensor_1d};
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// use torsh_nn::layers::activation::threshold::Softshrink;
 /// use torsh_nn::Module;
 /// use torsh_tensor::Tensor;
 ///
 /// let softshrink = Softshrink::new(0.5); // λ = 0.5
-/// let input = Tensor::from(vec![-2.0, -0.3, 0.0, 0.3, 2.0]);
+/// let input = tensor_1d(&[-2.0, -0.3, 0.0, 0.3, 2.0])?;
 /// let output = softshrink.forward(&input)?; // [-1.5, 0.0, 0.0, 0.0, 1.5]
+/// # Ok(())
+/// # }
+/// # Ok(())
+/// # }
 /// ```
 pub struct Softshrink {
     base: ModuleBase,
@@ -278,13 +308,23 @@ impl Module for Softshrink {
 ///
 /// # Example
 /// ```rust
+/// # use torsh_tensor::creation::{randn, tensor_1d};
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// use torsh_nn::layers::activation::threshold::Hardtanh;
 /// use torsh_nn::Module;
 /// use torsh_tensor::Tensor;
 ///
 /// let hardtanh = Hardtanh::new(-1.0, 1.0); // Clamp to [-1, 1]
-/// let input = Tensor::from(vec![-2.0, -0.5, 0.0, 0.5, 2.0]);
+/// let input = tensor_1d(&[-2.0, -0.5, 0.0, 0.5, 2.0])?;
 /// let output = hardtanh.forward(&input)?; // [-1.0, -0.5, 0.0, 0.5, 1.0]
+/// # Ok(())
+/// # }
+/// # Ok(())
+/// # }
 /// ```
 pub struct Hardtanh {
     base: ModuleBase,
@@ -394,13 +434,23 @@ impl Module for Hardtanh {
 ///
 /// # Example
 /// ```rust
+/// # use torsh_tensor::creation::{randn, tensor_1d};
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// use torsh_nn::layers::activation::threshold::Threshold;
 /// use torsh_nn::Module;
 /// use torsh_tensor::Tensor;
 ///
 /// let threshold = Threshold::new(0.1, 0.0); // Threshold=0.1, replace with 0.0
-/// let input = Tensor::from(vec![-0.5, 0.05, 0.1, 0.2, 0.5]);
+/// let input = tensor_1d(&[-0.5, 0.05, 0.1, 0.2, 0.5])?;
 /// let output = threshold.forward(&input)?; // [0.0, 0.0, 0.0, 0.2, 0.5]
+/// # Ok(())
+/// # }
+/// # Ok(())
+/// # }
 /// ```
 pub struct Threshold {
     base: ModuleBase,
@@ -504,14 +554,24 @@ impl Module for Threshold {
 ///
 /// # Example
 /// ```rust
+/// # use torsh_tensor::creation::{randn, tensor_1d};
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// use torsh_nn::layers::activation::threshold::Tanhshrink;
 /// use torsh_nn::Module;
 /// use torsh_tensor::Tensor;
 ///
 /// let tanhshrink = Tanhshrink::new();
-/// let input = Tensor::from(vec![-2.0, -1.0, 0.0, 1.0, 2.0]);
+/// let input = tensor_1d(&[-2.0, -1.0, 0.0, 1.0, 2.0])?;
 /// let output = tanhshrink.forward(&input)?;
 /// // Output will be x - tanh(x) for each element
+/// # Ok(())
+/// # }
+/// # Ok(())
+/// # }
 /// ```
 pub struct Tanhshrink {
     base: ModuleBase,
@@ -571,7 +631,6 @@ impl Module for Tanhshrink {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use torsh_tensor::creation::*;
 
     #[test]
     fn test_hardshrink_parameters() {

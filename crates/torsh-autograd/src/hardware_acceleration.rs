@@ -4,14 +4,14 @@
 //! supporting various accelerators including GPUs, TPUs, and specialized AI chips.
 //! It automatically detects available hardware and selects optimal implementations.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::error_handling::{AutogradError, AutogradResult};
-use scirs2_core::error::CoreError;
-use scirs2_core::ndarray::{Array, ArrayView, IxDyn};
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::ndarray::{Array, IxDyn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Mutex, RwLock};
 
 /// Hardware accelerator types
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -222,6 +222,7 @@ impl Default for AccelerationConfig {
                 AcceleratorType::CUDA,
                 AcceleratorType::Metal,
                 AcceleratorType::ROCm,
+                AcceleratorType::WebGPU,
                 AcceleratorType::OpenCL,
             ],
             memory_limit_per_device: None,
@@ -537,9 +538,9 @@ impl HardwareAccelerator for CudaAccelerator {
     fn accelerated_add(
         &self,
         device_id: u32,
-        a: &HardwareMemoryHandle,
-        b: &HardwareMemoryHandle,
-        result: &HardwareMemoryHandle,
+        _a: &HardwareMemoryHandle,
+        _b: &HardwareMemoryHandle,
+        _result: &HardwareMemoryHandle,
         size: usize,
     ) -> AutogradResult<()> {
         // Simulate CUDA kernel launch for addition
@@ -555,9 +556,9 @@ impl HardwareAccelerator for CudaAccelerator {
     fn accelerated_mul(
         &self,
         device_id: u32,
-        a: &HardwareMemoryHandle,
-        b: &HardwareMemoryHandle,
-        result: &HardwareMemoryHandle,
+        _a: &HardwareMemoryHandle,
+        _b: &HardwareMemoryHandle,
+        _result: &HardwareMemoryHandle,
         size: usize,
     ) -> AutogradResult<()> {
         tracing::debug!(
@@ -572,9 +573,9 @@ impl HardwareAccelerator for CudaAccelerator {
     fn accelerated_matmul(
         &self,
         device_id: u32,
-        a: &HardwareMemoryHandle,
-        b: &HardwareMemoryHandle,
-        result: &HardwareMemoryHandle,
+        _a: &HardwareMemoryHandle,
+        _b: &HardwareMemoryHandle,
+        _result: &HardwareMemoryHandle,
         m: usize,
         n: usize,
         k: usize,
@@ -593,9 +594,9 @@ impl HardwareAccelerator for CudaAccelerator {
     fn accelerated_conv2d(
         &self,
         device_id: u32,
-        input: &HardwareMemoryHandle,
-        kernel: &HardwareMemoryHandle,
-        result: &HardwareMemoryHandle,
+        _input: &HardwareMemoryHandle,
+        _kernel: &HardwareMemoryHandle,
+        _result: &HardwareMemoryHandle,
         params: &Conv2DParams,
     ) -> AutogradResult<()> {
         tracing::debug!(
@@ -611,9 +612,9 @@ impl HardwareAccelerator for CudaAccelerator {
     fn accelerated_backward_add(
         &self,
         device_id: u32,
-        grad_output: &HardwareMemoryHandle,
-        grad_a: &HardwareMemoryHandle,
-        grad_b: &HardwareMemoryHandle,
+        _grad_output: &HardwareMemoryHandle,
+        _grad_a: &HardwareMemoryHandle,
+        _grad_b: &HardwareMemoryHandle,
         size: usize,
     ) -> AutogradResult<()> {
         tracing::debug!(
@@ -628,11 +629,11 @@ impl HardwareAccelerator for CudaAccelerator {
     fn accelerated_backward_mul(
         &self,
         device_id: u32,
-        grad_output: &HardwareMemoryHandle,
-        a: &HardwareMemoryHandle,
-        b: &HardwareMemoryHandle,
-        grad_a: &HardwareMemoryHandle,
-        grad_b: &HardwareMemoryHandle,
+        _grad_output: &HardwareMemoryHandle,
+        _a: &HardwareMemoryHandle,
+        _b: &HardwareMemoryHandle,
+        _grad_a: &HardwareMemoryHandle,
+        _grad_b: &HardwareMemoryHandle,
         size: usize,
     ) -> AutogradResult<()> {
         tracing::debug!(
@@ -659,7 +660,7 @@ impl HardwareAccelerator for CudaAccelerator {
 
     fn benchmark_operation(
         &self,
-        device_id: u32,
+        _device_id: u32,
         operation: &str,
         size: usize,
     ) -> AutogradResult<f64> {
@@ -958,7 +959,7 @@ impl HardwareAccelerator for MetalAccelerator {
 
     fn benchmark_operation(
         &self,
-        device_id: u32,
+        _device_id: u32,
         operation: &str,
         size: usize,
     ) -> AutogradResult<f64> {
@@ -990,6 +991,330 @@ impl HardwareAccelerator for MetalAccelerator {
     }
 }
 
+/// WebGPU accelerator implementation for browser deployment
+#[derive(Debug)]
+pub struct WebGpuAccelerator {
+    initialized: bool,
+    devices: Vec<HardwareDevice>,
+    config: Option<AccelerationConfig>,
+}
+
+impl WebGpuAccelerator {
+    pub fn new() -> Self {
+        Self {
+            initialized: false,
+            devices: Vec::new(),
+            config: None,
+        }
+    }
+
+    fn detect_webgpu_devices(&self) -> AutogradResult<Vec<HardwareDevice>> {
+        if !self.is_webgpu_available() {
+            return Ok(Vec::new());
+        }
+
+        let mut devices = Vec::new();
+
+        // Simulate WebGPU device (typically integrated GPU in browser)
+        let mut device = HardwareDevice::new(
+            0,
+            "WebGPU Default Adapter".to_string(),
+            AcceleratorType::WebGPU,
+        );
+
+        device.capabilities = vec![
+            HardwareCapability::FP32,
+            HardwareCapability::FP16,
+            HardwareCapability::ConcurrentKernels,
+        ];
+
+        // WebGPU devices typically have limited memory
+        device.memory_size = 4 * 1024 * 1024 * 1024; // 4GB shared memory
+        device.compute_units = 12; // Typical integrated GPU
+        device.peak_performance = 2.5; // TFLOPS (lower for integrated)
+        device.memory_bandwidth = 68.0; // GB/s (shared with CPU)
+        device.power_consumption = Some(15.0); // Watts
+        device.driver_version = "WebGPU 1.0".to_string();
+        device.is_available = true;
+
+        devices.push(device);
+        Ok(devices)
+    }
+
+    fn is_webgpu_available(&self) -> bool {
+        // WebGPU is available in browser contexts (WASM target)
+        // For native builds, this is a simulation/fallback
+        cfg!(target_arch = "wasm32") || cfg!(feature = "webgpu")
+    }
+}
+
+impl HardwareAccelerator for WebGpuAccelerator {
+    fn accelerator_type(&self) -> AcceleratorType {
+        AcceleratorType::WebGPU
+    }
+
+    fn is_available(&self) -> bool {
+        self.is_webgpu_available()
+    }
+
+    fn get_devices(&self) -> AutogradResult<Vec<HardwareDevice>> {
+        if self.initialized {
+            Ok(self.devices.clone())
+        } else {
+            self.detect_webgpu_devices()
+        }
+    }
+
+    fn initialize(&mut self, config: &AccelerationConfig) -> AutogradResult<()> {
+        if !self.is_available() {
+            return Err(AutogradError::gradient_computation(
+                "webgpu_availability",
+                "WebGPU not available on this system",
+            ));
+        }
+
+        self.devices = self.detect_webgpu_devices()?;
+        self.config = Some(config.clone());
+        self.initialized = true;
+
+        tracing::info!(
+            "WebGPU accelerator initialized with {} devices",
+            self.devices.len()
+        );
+        Ok(())
+    }
+
+    fn shutdown(&mut self) -> AutogradResult<()> {
+        self.initialized = false;
+        self.devices.clear();
+        self.config = None;
+        tracing::info!("WebGPU accelerator shutdown");
+        Ok(())
+    }
+
+    fn allocate_memory(&self, device_id: u32, size: usize) -> AutogradResult<HardwareMemoryHandle> {
+        // WebGPU uses buffer objects
+        let handle = HardwareMemoryHandle {
+            device_id,
+            ptr: 0x3000000 + size, // Simulated WebGPU buffer handle
+            size,
+            accelerator_type: AcceleratorType::WebGPU,
+        };
+
+        tracing::debug!("Allocated {} bytes on WebGPU device {}", size, device_id);
+        Ok(handle)
+    }
+
+    fn deallocate_memory(&self, handle: HardwareMemoryHandle) -> AutogradResult<()> {
+        tracing::debug!(
+            "Deallocated {} bytes on WebGPU device {}",
+            handle.size,
+            handle.device_id
+        );
+        Ok(())
+    }
+
+    fn copy_to_device(&self, data: &[f64], handle: &HardwareMemoryHandle) -> AutogradResult<()> {
+        // WebGPU buffer upload (asynchronous in real implementation)
+        tracing::debug!(
+            "Copied {} elements to WebGPU device {}",
+            data.len(),
+            handle.device_id
+        );
+        Ok(())
+    }
+
+    fn copy_from_device(
+        &self,
+        handle: &HardwareMemoryHandle,
+        data: &mut [f64],
+    ) -> AutogradResult<()> {
+        // WebGPU buffer download (asynchronous in real implementation)
+        for (i, val) in data.iter_mut().enumerate() {
+            *val = (i as f64) * 0.15; // Different pattern for WebGPU
+        }
+        tracing::debug!(
+            "Copied {} elements from WebGPU device {}",
+            data.len(),
+            handle.device_id
+        );
+        Ok(())
+    }
+
+    fn accelerated_add(
+        &self,
+        device_id: u32,
+        _a: &HardwareMemoryHandle,
+        _b: &HardwareMemoryHandle,
+        _result: &HardwareMemoryHandle,
+        size: usize,
+    ) -> AutogradResult<()> {
+        // WebGPU compute shader for element-wise addition
+        tracing::debug!(
+            "WebGPU add compute shader executed on device {} for {} elements",
+            device_id,
+            size
+        );
+        // WebGPU has some overhead due to browser context
+        std::thread::sleep(std::time::Duration::from_micros(15));
+        Ok(())
+    }
+
+    fn accelerated_mul(
+        &self,
+        device_id: u32,
+        _a: &HardwareMemoryHandle,
+        _b: &HardwareMemoryHandle,
+        _result: &HardwareMemoryHandle,
+        size: usize,
+    ) -> AutogradResult<()> {
+        // WebGPU compute shader for element-wise multiplication
+        tracing::debug!(
+            "WebGPU mul compute shader executed on device {} for {} elements",
+            device_id,
+            size
+        );
+        std::thread::sleep(std::time::Duration::from_micros(18));
+        Ok(())
+    }
+
+    fn accelerated_matmul(
+        &self,
+        device_id: u32,
+        _a: &HardwareMemoryHandle,
+        _b: &HardwareMemoryHandle,
+        _result: &HardwareMemoryHandle,
+        m: usize,
+        n: usize,
+        k: usize,
+    ) -> AutogradResult<()> {
+        // WebGPU compute shader for matrix multiplication
+        tracing::debug!(
+            "WebGPU matmul compute shader executed on device {} for {}x{}x{}",
+            device_id,
+            m,
+            n,
+            k
+        );
+        // Matrix operations are more expensive in WebGPU
+        std::thread::sleep(std::time::Duration::from_micros(60));
+        Ok(())
+    }
+
+    fn accelerated_conv2d(
+        &self,
+        device_id: u32,
+        _input: &HardwareMemoryHandle,
+        _kernel: &HardwareMemoryHandle,
+        _result: &HardwareMemoryHandle,
+        params: &Conv2DParams,
+    ) -> AutogradResult<()> {
+        // WebGPU compute shader for 2D convolution
+        tracing::debug!(
+            "WebGPU conv2d compute shader executed on device {} with stride {}x{}",
+            device_id,
+            params.stride_h,
+            params.stride_w
+        );
+        std::thread::sleep(std::time::Duration::from_micros(100));
+        Ok(())
+    }
+
+    fn accelerated_backward_add(
+        &self,
+        device_id: u32,
+        _grad_output: &HardwareMemoryHandle,
+        _grad_a: &HardwareMemoryHandle,
+        _grad_b: &HardwareMemoryHandle,
+        size: usize,
+    ) -> AutogradResult<()> {
+        // WebGPU backward pass for addition
+        tracing::debug!(
+            "WebGPU backward add executed on device {} for {} elements",
+            device_id,
+            size
+        );
+        std::thread::sleep(std::time::Duration::from_micros(12));
+        Ok(())
+    }
+
+    fn accelerated_backward_mul(
+        &self,
+        device_id: u32,
+        _grad_output: &HardwareMemoryHandle,
+        _a: &HardwareMemoryHandle,
+        _b: &HardwareMemoryHandle,
+        _grad_a: &HardwareMemoryHandle,
+        _grad_b: &HardwareMemoryHandle,
+        size: usize,
+    ) -> AutogradResult<()> {
+        // WebGPU backward pass for multiplication
+        tracing::debug!(
+            "WebGPU backward mul executed on device {} for {} elements",
+            device_id,
+            size
+        );
+        std::thread::sleep(std::time::Duration::from_micros(16));
+        Ok(())
+    }
+
+    fn get_device_stats(&self, device_id: u32) -> AutogradResult<DeviceStats> {
+        // WebGPU device statistics (limited API in browsers)
+        Ok(DeviceStats {
+            device_id,
+            memory_used: 2 * 1024 * 1024 * 1024, // 2GB used
+            memory_free: 2 * 1024 * 1024 * 1024, // 2GB free
+            temperature: None,                   // Not available in WebGPU
+            utilization: Some(40.0),             // Estimated
+            power_draw: None,                    // Not available in WebGPU
+            clock_rate: Some(1200.0),            // MHz (typical integrated GPU)
+            memory_clock_rate: Some(6000.0),     // MHz
+        })
+    }
+
+    fn benchmark_operation(
+        &self,
+        _device_id: u32,
+        operation: &str,
+        size: usize,
+    ) -> AutogradResult<f64> {
+        let start = std::time::Instant::now();
+        let iterations = 100; // Moderate iterations for WebGPU
+
+        for _ in 0..iterations {
+            match operation {
+                "add" => {
+                    // WebGPU add operation simulation
+                    std::thread::sleep(std::time::Duration::from_nanos(size as u64));
+                }
+                "mul" => {
+                    // WebGPU mul operation simulation
+                    std::thread::sleep(std::time::Duration::from_nanos(size as u64 * 2));
+                }
+                "matmul" => {
+                    // WebGPU matmul operation simulation
+                    std::thread::sleep(std::time::Duration::from_nanos(size as u64 * 4));
+                }
+                _ => {
+                    return Err(AutogradError::gradient_computation(
+                        "benchmark_operation",
+                        format!("Benchmark not supported for operation: {}", operation),
+                    ));
+                }
+            }
+        }
+
+        let total_time = start.elapsed().as_secs_f64();
+        Ok(total_time / iterations as f64)
+    }
+}
+
+impl Default for WebGpuAccelerator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Hardware acceleration manager
 pub struct HardwareAccelerationManager {
     accelerators: HashMap<AcceleratorType, Box<dyn HardwareAccelerator>>,
@@ -1001,12 +1326,12 @@ pub struct HardwareAccelerationManager {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-struct AcceleratorUsageStats {
-    total_operations: usize,
-    total_time: f64,
-    memory_allocated: usize,
-    memory_peak: usize,
-    errors: usize,
+pub struct AcceleratorUsageStats {
+    pub total_operations: usize,
+    pub total_time: f64,
+    pub memory_allocated: usize,
+    pub memory_peak: usize,
+    pub errors: usize,
 }
 
 impl HardwareAccelerationManager {
@@ -1057,6 +1382,15 @@ impl HardwareAccelerationManager {
             if let Ok(()) = metal.initialize(&self.config) {
                 self.accelerators.insert(AcceleratorType::Metal, metal);
                 tracing::info!("Registered Metal accelerator");
+            }
+        }
+
+        // Register WebGPU accelerator
+        let mut webgpu = Box::new(WebGpuAccelerator::new());
+        if webgpu.is_available() {
+            if let Ok(()) = webgpu.initialize(&self.config) {
+                self.accelerators.insert(AcceleratorType::WebGPU, webgpu);
+                tracing::info!("Registered WebGPU accelerator");
             }
         }
 
@@ -1183,7 +1517,7 @@ impl HardwareAccelerationManager {
                 AutogradError::gradient_computation("device_selection", "No suitable device found")
             })?;
 
-        let accelerator = self.get_accelerator(acc_type.clone()).ok_or_else(|| {
+        let _accelerator = self.get_accelerator(acc_type.clone()).ok_or_else(|| {
             AutogradError::gradient_computation(
                 "accelerator_availability",
                 "Accelerator not available",
@@ -1381,20 +1715,17 @@ impl AcceleratorUsageReport {
 }
 
 /// Global hardware acceleration manager
-static mut GLOBAL_ACCELERATION_MANAGER: Option<HardwareAccelerationManager> = None;
-static ACCELERATION_INIT: std::sync::Once = std::sync::Once::new();
+static GLOBAL_ACCELERATION_MANAGER: std::sync::OnceLock<HardwareAccelerationManager> =
+    std::sync::OnceLock::new();
 
 pub fn get_global_acceleration_manager() -> &'static HardwareAccelerationManager {
-    unsafe {
-        ACCELERATION_INIT.call_once(|| {
-            let mut manager = HardwareAccelerationManager::with_default_config();
-            if let Err(e) = manager.initialize() {
-                tracing::error!("Failed to initialize hardware acceleration manager: {}", e);
-            }
-            GLOBAL_ACCELERATION_MANAGER = Some(manager);
-        });
-        GLOBAL_ACCELERATION_MANAGER.as_ref().unwrap()
-    }
+    GLOBAL_ACCELERATION_MANAGER.get_or_init(|| {
+        let mut manager = HardwareAccelerationManager::with_default_config();
+        if let Err(e) = manager.initialize() {
+            tracing::error!("Failed to initialize hardware acceleration manager: {}", e);
+        }
+        manager
+    })
 }
 
 #[cfg(test)]
@@ -1479,6 +1810,33 @@ mod tests {
         #[cfg(not(target_os = "macos"))]
         {
             assert!(!metal.is_available());
+        }
+    }
+
+    #[test]
+    fn test_webgpu_accelerator() {
+        let webgpu = WebGpuAccelerator::new();
+        assert_eq!(webgpu.accelerator_type(), AcceleratorType::WebGPU);
+
+        // Availability depends on target architecture and features
+        #[cfg(target_arch = "wasm32")]
+        {
+            assert!(webgpu.is_available());
+        }
+
+        #[cfg(feature = "webgpu")]
+        {
+            assert!(webgpu.is_available());
+        }
+
+        // Test device detection
+        if webgpu.is_available() {
+            let devices = webgpu.get_devices();
+            assert!(devices.is_ok());
+            if let Ok(devs) = devices {
+                assert!(!devs.is_empty());
+                assert_eq!(devs[0].accelerator_type, AcceleratorType::WebGPU);
+            }
         }
     }
 

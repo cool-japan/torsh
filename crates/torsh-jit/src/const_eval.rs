@@ -5,7 +5,7 @@
 
 use crate::{ComputationGraph, JitError, JitResult, Node, NodeId};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 /// Compile-time evaluation manager
@@ -770,10 +770,19 @@ impl ConstantEvaluator {
                             // Replace branch with the appropriate path
                             let branch_index = if *condition { 1 } else { 2 };
                             if inputs.len() > branch_index {
-                                // TODO: Implement replace_node_with_input method on ComputationGraph
-                                // graph.replace_node_with_input(node_id, inputs[branch_index])?;
-                                log::debug!("Skipping branch optimization - replace_node_with_input not implemented");
-                                applied += 1;
+                                // Replace the branch node with the selected path
+                                match graph.replace_node_with_input(node_id, inputs[branch_index]) {
+                                    Ok(_) => {
+                                        log::debug!(
+                                            "Successfully eliminated branch by replacing with {}",
+                                            if *condition { "true" } else { "false" }
+                                        );
+                                        applied += 1;
+                                    }
+                                    Err(e) => {
+                                        log::warn!("Failed to eliminate branch: {}", e);
+                                    }
+                                }
                             }
                         }
                     }
@@ -802,12 +811,18 @@ impl ConstantEvaluator {
                     let unrolled_body = self.create_unrolled_body(body_str, iterations)?;
 
                     // Replace loop with unrolled body
-                    // TODO: Implement replace_node_with_sequence method on ComputationGraph
-                    // graph.replace_node_with_sequence(node_id, &unrolled_body)?;
-                    log::debug!(
-                        "Skipping loop unrolling - replace_node_with_sequence not implemented"
-                    );
-                    applied += 1;
+                    match graph.replace_node_with_sequence(node_id, &unrolled_body) {
+                        Ok(_) => {
+                            log::debug!(
+                                "Successfully unrolled loop with {} iterations",
+                                iterations
+                            );
+                            applied += 1;
+                        }
+                        Err(e) => {
+                            log::warn!("Failed to unroll loop: {}", e);
+                        }
+                    }
                 }
             }
         }
@@ -825,14 +840,29 @@ impl ConstantEvaluator {
         Ok(0)
     }
 
-    fn create_unrolled_body(&self, _loop_body: &str, iterations: usize) -> JitResult<Vec<NodeId>> {
+    fn create_unrolled_body(
+        &self,
+        _loop_body: &str,
+        iterations: usize,
+    ) -> JitResult<Vec<crate::Node>> {
+        use crate::graph::{Node, Operation};
+        use torsh_core::{DType, DeviceType, Shape};
+
         // Simplified implementation - would need proper loop body parsing and replication
         let mut unrolled_nodes = Vec::new();
 
         for i in 0..iterations {
             // Create nodes for each iteration
             // This is a placeholder - actual implementation would parse and replicate the loop body
-            unrolled_nodes.push(NodeId::new(i)); // Placeholder
+            // For now, create a simple pass-through node for each iteration
+            // Use Input as a placeholder operation for unrolled iterations
+            // In a full implementation, this would replicate the actual loop body operations
+            let node = Node::new(Operation::Input, format!("unrolled_iter_{}", i))
+                .with_output_shapes(vec![Some(Shape::new(vec![1]))])
+                .with_dtypes(vec![DType::F32])
+                .with_device(DeviceType::Cpu);
+
+            unrolled_nodes.push(node);
         }
 
         Ok(unrolled_nodes)

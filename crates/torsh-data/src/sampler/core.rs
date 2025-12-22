@@ -6,8 +6,7 @@
 use alloc::{boxed::Box, vec::Vec};
 
 // ✅ SciRS2 Policy Compliant - Using scirs2_core for all random operations
-use scirs2_core::rand_prelude::SliceRandom;
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::Random;
 
 /// Common RNG utilities for samplers
 pub(crate) mod rng_utils {
@@ -387,7 +386,7 @@ pub mod utils {
 
         let train_size = (dataset_size as f32 * train_ratio).round() as usize;
         let val_size = (dataset_size as f32 * val_ratio).round() as usize;
-        let test_size = dataset_size - train_size - val_size;
+        let _test_size = dataset_size - train_size - val_size;
 
         let indices = random_indices(dataset_size, dataset_size, seed);
 
@@ -406,7 +405,7 @@ mod tests {
     #[test]
     fn test_sampler_iterator_basic() {
         let indices = vec![0, 1, 2, 3, 4];
-        let mut iter = SamplerIterator::new(indices.clone());
+        let iter = SamplerIterator::new(indices.clone());
 
         assert_eq!(iter.len(), 5);
         assert_eq!(iter.remaining(), 5);

@@ -6,14 +6,9 @@
 //! significantly reduce computational complexity.
 
 use crate::layers::linear::SparseLinear;
-use crate::{CooTensor, CsrTensor, SparseTensor, TorshResult};
-use scirs2_core::random::{Random, Rng};
-use std::collections::HashMap;
+use crate::{CooTensor, CsrTensor, TorshResult};
 use torsh_core::{Shape, TorshError};
-use torsh_tensor::{
-    creation::{randn, zeros},
-    Tensor,
-};
+use torsh_tensor::{creation::zeros, Tensor};
 
 /// Sparse Multi-Head Attention mechanism
 ///
@@ -535,6 +530,7 @@ impl SparseAttention {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::SparseTensor;
     use torsh_tensor::creation::ones;
 
     #[test]

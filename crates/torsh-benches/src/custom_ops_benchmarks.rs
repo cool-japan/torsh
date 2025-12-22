@@ -7,7 +7,6 @@
 use crate::{BenchConfig, BenchRunner, Benchmarkable};
 use criterion::black_box;
 use std::time::{Duration, Instant};
-use torsh_core::device::DeviceType;
 use torsh_core::dtype::DType;
 use torsh_tensor::{creation::*, Tensor};
 
@@ -232,7 +231,7 @@ impl CustomOperation for ConvolutionOperation {
     }
 
     fn execute(&self, input: &Self::Input) -> Self::Output {
-        let (input_tensor, kernel) = input;
+        let (input_tensor, _kernel) = input;
 
         // Simulate convolution computation time
         let computation_time = 20 + (self.kernel_size * self.kernel_size) as u64 * 2;

@@ -1038,7 +1038,6 @@ pub mod caching {
 pub mod advanced_execution {
     use super::*;
     use crate::fusion::FusionStrategy;
-    use std::sync::Arc;
 
     /// Execution context for custom operators
     #[derive(Debug, Clone)]

@@ -19,7 +19,7 @@ mod lock_utilities {
     #[allow(dead_code)]
     pub fn acquire_with_timeout<T>(
         mutex: &Arc<Mutex<T>>,
-    ) -> Result<std::sync::MutexGuard<T>, &'static str> {
+    ) -> Result<std::sync::MutexGuard<'_, T>, &'static str> {
         // For now, we use try_lock as std::sync::Mutex doesn't have timeout
         // In production code, consider using parking_lot::Mutex which has timeout
         mutex.try_lock().map_err(|_| "Lock acquisition timeout")

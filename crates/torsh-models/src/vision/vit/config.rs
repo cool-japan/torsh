@@ -1,6 +1,6 @@
 //! Vision Transformer (ViT) configuration
 
-use super::super::common::types::ModelInitConfig;
+use super::super::vision_common::types::ModelInitConfig;
 
 /// Vision Transformer variants
 #[derive(Debug, Clone, PartialEq, Eq)]

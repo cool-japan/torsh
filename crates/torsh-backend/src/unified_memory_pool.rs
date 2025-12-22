@@ -222,14 +222,23 @@ impl UnifiedMemoryPool {
     /// Garbage collect a specific backend
     pub fn garbage_collect_backend(&self, backend_type: BackendType) -> Result<usize> {
         let pools = self.backend_pools.read();
-        if let Some(pool) = pools.get(&backend_type) {
+        let available = if let Some(pool) = pools.get(&backend_type) {
             let mut pool = pool.lock();
             pool.reset()?;
-            self.update_global_stats()?;
-            Ok(pool.available())
+            let available = pool.available();
+            // Drop the pool lock before updating global stats to avoid deadlock
+            drop(pool);
+            available
         } else {
-            Ok(0)
-        }
+            0
+        };
+
+        // Drop the pools read lock as well
+        drop(pools);
+
+        // Now update global stats without holding any locks
+        self.update_global_stats()?;
+        Ok(available)
     }
 
     /// Garbage collect all backends
@@ -1267,7 +1276,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Temporarily ignore due to performance issues - TODO: Fix underlying gc implementation
     fn test_garbage_collection() {
         let pool = UnifiedMemoryPool::with_default_config();
         let device = create_test_device(DeviceType::Cpu);

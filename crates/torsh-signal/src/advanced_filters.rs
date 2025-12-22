@@ -120,8 +120,8 @@ impl IIRFilterDesigner {
         &self,
         order: usize,
         ripple_db: f32,
-        cutoff: &[f32],
-        filter_type: FilterType,
+        _cutoff: &[f32],
+        _filter_type: FilterType,
     ) -> Result<DigitalFilter> {
         // Simplified implementation - in production would implement actual Chebyshev design
         let num = zeros(&[order + 1])?;
@@ -138,8 +138,8 @@ impl IIRFilterDesigner {
         &self,
         order: usize,
         attenuation_db: f32,
-        cutoff: &[f32],
-        filter_type: FilterType,
+        _cutoff: &[f32],
+        _filter_type: FilterType,
     ) -> Result<DigitalFilter> {
         // Simplified implementation
         let num = zeros(&[order + 1])?;
@@ -157,8 +157,8 @@ impl IIRFilterDesigner {
         order: usize,
         ripple_db: f32,
         attenuation_db: f32,
-        cutoff: &[f32],
-        filter_type: FilterType,
+        _cutoff: &[f32],
+        _filter_type: FilterType,
     ) -> Result<DigitalFilter> {
         // Simplified implementation
         let num = zeros(&[order + 1])?;
@@ -174,12 +174,12 @@ impl IIRFilterDesigner {
     pub fn bessel(
         &self,
         order: usize,
-        cutoff: &[f32],
-        filter_type: FilterType,
+        _cutoff: &[f32],
+        _filter_type: FilterType,
     ) -> Result<DigitalFilter> {
         // Simplified implementation
         let num = zeros(&[order + 1])?;
-        let mut den = ones(&[order + 1])?;
+        let den = ones(&[order + 1])?;
         Ok(DigitalFilter::new(num, den))
     }
 
@@ -366,7 +366,7 @@ impl FIRFilterDesigner {
         // Basic frequency sampling - sum sinusoids
         for i in 0..num_taps {
             let mut sum = 0.0;
-            for (j, (&freq, &gain)) in frequencies.iter().zip(gains.iter()).enumerate() {
+            for (_j, (&freq, &gain)) in frequencies.iter().zip(gains.iter()).enumerate() {
                 let normalized_freq = freq / (self.sample_rate / 2.0);
                 sum +=
                     gain * (PI * normalized_freq * (i as f32 - (num_taps - 1) as f32 / 2.0)).cos();
@@ -390,7 +390,7 @@ impl FIRFilterDesigner {
         bands: &[f32],
         desired: &[f32],
         weights: Option<&[f32]>,
-        filter_type: FilterType,
+        _filter_type: FilterType,
     ) -> Result<FIRDigitalFilter> {
         // Simplified implementation - in production would use actual Remez exchange algorithm
         let mut coeffs = vec![0.0f32; num_taps];
@@ -1027,7 +1027,6 @@ impl FilterAnalysis {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
 
     #[test]
     fn test_butterworth_filter() -> Result<()> {

@@ -1,9 +1,17 @@
 # ToRSh CLI Implementation Roadmap
 
-## Current Status: v0.1.0-alpha.1 - Foundation Complete, Implementation Needed
+## Current Status: v0.1.0-alpha.2 - Foundation Complete, Active Implementation Phase
 
 ### Overview
-The torsh-cli crate has an **excellent architectural foundation** with comprehensive command structure and CLI framework. However, most command implementations are currently **stubs or mock implementations** that need to be connected to actual ToRSh functionality.
+The torsh-cli crate has an **excellent architectural foundation** with comprehensive command structure and CLI framework. We are actively implementing real functionality to replace stubs and mock implementations.
+
+### Recent Progress (v0.1.0-alpha.2)
+- ✅ Basic model analysis with format detection (ToRSh, PyTorch, ONNX, TensorFlow, TFLite)
+- ✅ Enhanced system information and device detection
+- ✅ Real hardware detection for CUDA, Metal, ROCm, Vulkan, OpenCL
+- ✅ SciRS2 POLICY compliant implementations with unified access patterns
+- 🚧 Model validation with realistic inference simulation using SciRS2
+- 🚧 Enhanced model types and structures
 
 ### Architecture ✅ (Complete)
 - [x] Comprehensive CLI structure with clap 4.x
@@ -250,3 +258,117 @@ The torsh-cli crate has an **excellent architectural foundation** with comprehen
 - Create comprehensive test coverage for all commands
 
 This roadmap prioritizes **real functionality over mock implementations** while maintaining the excellent CLI architecture already established.
+
+## Immediate Action Items (Next Sprint)
+
+### 🔥 Critical Priority (Week 1-2)
+
+#### 1. Model Serialization & Loading
+- [ ] Implement real ToRSh model serialization format (`.torsh` files)
+  - [ ] Design binary format with versioning support
+  - [ ] Implement model saving with full metadata
+  - [ ] Implement model loading with validation
+  - [ ] Add backward compatibility handling
+- [ ] PyTorch model loading integration
+  - [ ] Use existing PyTorch format parsers
+  - [ ] Map PyTorch tensors to torsh-tensor
+  - [ ] Preserve model architecture information
+- [ ] Add model format validation and conversion
+
+#### 2. Enhanced Model Analysis
+- [ ] Real parameter counting (not just file size estimation)
+- [ ] Layer-by-layer analysis with memory profiling
+- [ ] FLOPS calculation for common operations
+- [ ] Activation shape inference through model graph
+- [ ] Add visual model architecture representation (ASCII art)
+
+#### 3. Core Tensor Integration
+- [ ] Replace SciRS2 placeholder tensors with real torsh-tensor operations
+- [ ] Implement real forward pass for model validation
+- [ ] Add gradient checking utilities
+- [ ] Memory-efficient large model handling
+
+### ⚡ High Priority (Week 3-4)
+
+#### 4. Training Command Implementation
+- [ ] Basic training loop with torsh-optim
+- [ ] Checkpoint saving and loading
+- [ ] TensorBoard integration for metrics
+- [ ] Learning rate scheduling
+- [ ] Mixed precision training support
+
+#### 5. Dataset Operations
+- [ ] torsh-data DataLoader integration
+- [ ] Common dataset support (CIFAR-10, MNIST, ImageNet)
+- [ ] Custom dataset validation
+- [ ] Data augmentation pipeline
+
+#### 6. Hub Integration Foundation
+- [ ] Model registry design
+- [ ] Upload/download protocol
+- [ ] Model versioning system
+- [ ] Authentication framework
+
+### 📋 Medium Priority (Week 5-8)
+
+#### 7. Advanced Model Operations
+- [ ] Real quantization using torsh-quantization
+  - [ ] Dynamic quantization
+  - [ ] Static quantization with calibration
+  - [ ] QAT (Quantization-Aware Training)
+- [ ] Model pruning implementation
+  - [ ] Magnitude-based pruning
+  - [ ] Structured pruning
+  - [ ] Iterative pruning with fine-tuning
+
+#### 8. Benchmarking & Profiling
+- [ ] Real performance benchmarking with hardware metrics
+- [ ] Memory profiling integration
+- [ ] Bottleneck identification
+- [ ] Multi-device comparison
+
+#### 9. Development Tools
+- [ ] Code generation for model architectures
+- [ ] Training script templates
+- [ ] Model debugging utilities
+- [ ] Numerical stability checks
+
+### 🔧 Technical Improvements (Ongoing)
+
+#### Code Quality
+- [ ] Remove all `tokio::time::sleep` stubs
+- [ ] Add comprehensive error types
+- [ ] Improve error messages with actionable suggestions
+- [ ] Add progress bars for all long operations
+
+#### Testing
+- [ ] Unit tests for all model operations
+- [ ] Integration tests with real models
+- [ ] CLI argument parsing tests
+- [ ] Performance regression tests
+
+#### Documentation
+- [ ] Add inline documentation for all public APIs
+- [ ] Create usage examples for each command
+- [ ] Add troubleshooting guide
+- [ ] Create video tutorials
+
+## Success Metrics
+
+### v0.1.0-alpha.2 Goals (Current)
+- [ ] 50% of model commands functional with real operations
+- [ ] Basic training workflow operational
+- [ ] Model inspection working with all supported formats
+- [ ] Zero SCIRS2 POLICY violations
+
+### v0.1.0-alpha.3 Goals (Next Release)
+- [ ] 80% of core commands functional
+- [ ] Distributed training support
+- [ ] Complete quantization pipeline
+- [ ] Hub integration operational
+
+### v0.1.0-beta.1 Goals (Production-Ready)
+- [ ] 100% core functionality implemented
+- [ ] Comprehensive test coverage (>80%)
+- [ ] Performance comparable to PyTorch CLI tools
+- [ ] Production deployment examples

@@ -5,8 +5,11 @@
 //! retrieval, and synchronization of optimizer states (momentum, variance, etc.)
 //! across distributed workers while supporting offloading to CPU memory.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
+#![allow(clippy::await_holding_lock)]
 use crate::{TorshDistributedError, TorshResult};
-use log::{debug, info, warn};
+use log::info;
 use std::collections::HashMap;
 use std::sync::RwLock;
 use torsh_tensor::Tensor;
@@ -89,8 +92,7 @@ impl OptimizerStateManager {
                     param_name, owner_rank, self.rank_mapping.rank
                 ),
                 "parameter owned by this rank",
-            )
-            .into());
+            ));
         }
 
         // First check GPU cache
@@ -107,6 +109,7 @@ impl OptimizerStateManager {
 
         // Check CPU storage if GPU cache miss
         if self.config.offload_optimizer_states {
+            #[allow(clippy::await_holding_lock)]
             let cpu_states = self.cpu_optimizer_states.read().unwrap();
             if let Some(cpu_state) = cpu_states.get(param_name) {
                 info!(
@@ -155,8 +158,7 @@ impl OptimizerStateManager {
                     param_name, owner_rank
                 ),
                 "parameter owned by this rank",
-            )
-            .into());
+            ));
         }
 
         if self.config.offload_optimizer_states {
@@ -398,10 +400,10 @@ impl OptimizerStateManager {
         &self,
         param_name: &str,
         gradient: &Tensor<f32>,
-        learning_rate: f32,
+        _learning_rate: f32,
         beta1: Option<f32>,
         beta2: Option<f32>,
-        epsilon: f32,
+        _epsilon: f32,
     ) -> TorshResult<()> {
         let mut state = self.fetch_state(param_name).await?;
 

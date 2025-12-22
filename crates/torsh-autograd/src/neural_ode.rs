@@ -5,10 +5,11 @@
 //! continuous-depth neural networks and are particularly useful for modeling
 //! dynamical systems and time series data.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::error_handling::{AutogradError, AutogradResult};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
 
 /// Trait for ODE system functions
 pub trait ODESystem: Send + Sync {
@@ -855,7 +856,7 @@ impl<'a> ODESystem for AdjointSystem<'a> {
         }
 
         let lambda = &adjoint_state[0..dim];
-        let param_grad_accum = &adjoint_state[dim..dim + param_count];
+        let _param_grad_accum = &adjoint_state[dim..dim + param_count];
 
         // Interpolate forward solution at time t
         let y_forward = self.forward_solution.interpolate_at(t)?;

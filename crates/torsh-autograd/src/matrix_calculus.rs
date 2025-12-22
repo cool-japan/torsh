@@ -5,6 +5,8 @@
 //! and other advanced linear algebra operations that require special gradient
 //! computation rules.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use torsh_core::error::{Result, TorshError};
 use torsh_tensor::Tensor;
 

@@ -5,10 +5,11 @@
 //! quantum parameters in variational quantum algorithms, quantum neural networks,
 //! and hybrid classical-quantum models.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::error_handling::{AutogradError, AutogradResult};
 use std::collections::HashMap;
 use std::f64::consts::PI;
-use std::sync::{Arc, Mutex};
 
 /// Represents a quantum bit (qubit) in a quantum circuit
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -382,8 +383,8 @@ impl QuantumGate for RotationY {
         let num_states = state.amplitudes.len();
         let bit_mask = 1 << qubit_index;
 
-        let cos_half = (self.angle / 2.0).cos();
-        let sin_half = (self.angle / 2.0).sin();
+        let _cos_half = (self.angle / 2.0).cos();
+        let _sin_half = (self.angle / 2.0).sin();
 
         // Gradient of RY with respect to angle
         let d_cos = -0.5 * (self.angle / 2.0).sin();
@@ -633,10 +634,8 @@ impl QuantumCircuit {
         let shift = PI / 2.0;
 
         // Create modified circuits with shifted parameters
-        let mut circuit_plus =
-            self.clone_with_parameter_shift(*gate_idx, *local_param_idx, shift)?;
-        let mut circuit_minus =
-            self.clone_with_parameter_shift(*gate_idx, *local_param_idx, -shift)?;
+        let circuit_plus = self.clone_with_parameter_shift(*gate_idx, *local_param_idx, shift)?;
+        let circuit_minus = self.clone_with_parameter_shift(*gate_idx, *local_param_idx, -shift)?;
 
         // Execute both circuits
         let state_plus = circuit_plus.execute(initial_state)?;
@@ -671,7 +670,7 @@ impl QuantumCircuit {
         for (i, gate) in self.gates.iter().enumerate() {
             if i == gate_idx {
                 // Clone gate with shifted parameter
-                let mut cloned_gate = self.clone_gate_with_shift(gate, local_param_idx, shift)?;
+                let cloned_gate = self.clone_gate_with_shift(gate, local_param_idx, shift)?;
                 new_circuit.add_gate(cloned_gate);
             } else {
                 // Clone gate as-is
@@ -928,7 +927,7 @@ impl Observable {
         // Real implementation would compute ⟨∂ψ/∂θ|O|ψ⟩ + ⟨ψ|O|∂ψ/∂θ⟩
         let mut gradient = 0.0;
 
-        for (i, (amp, grad_amp)) in state
+        for (_i, (amp, grad_amp)) in state
             .amplitudes()
             .iter()
             .zip(state_gradient.iter())

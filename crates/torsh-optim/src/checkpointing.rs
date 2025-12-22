@@ -172,17 +172,25 @@ impl CheckpointManager {
         let checkpoint: Checkpoint = if self.config.compress {
             // Decompress if needed
             let decompressed = self.decompress_data(&data)?;
-                {
-                    let (checkpoint, _): (Checkpoint, usize) = bincode::serde::decode_from_slice(&decompressed, bincode::config::standard()).map_err(|e| {
-                        OptimizerError::CheckpointError(format!("Failed to deserialize checkpoint: {e}"))
+            {
+                let (checkpoint, _): (Checkpoint, usize) =
+                    bincode::serde::decode_from_slice(&decompressed, bincode::config::standard())
+                        .map_err(|e| {
+                        OptimizerError::CheckpointError(format!(
+                            "Failed to deserialize checkpoint: {e}"
+                        ))
                     })?;
-                    checkpoint
-                }
-        } else {
-                let (checkpoint, _): (Checkpoint, usize) = bincode::serde::decode_from_slice(&data, bincode::config::standard()).map_err(|e| {
-                    OptimizerError::CheckpointError(format!("Failed to deserialize checkpoint: {e}"))
-                })?;
                 checkpoint
+            }
+        } else {
+            let (checkpoint, _): (Checkpoint, usize) = bincode::serde::decode_from_slice(
+                &data,
+                bincode::config::standard(),
+            )
+            .map_err(|e| {
+                OptimizerError::CheckpointError(format!("Failed to deserialize checkpoint: {e}"))
+            })?;
+            checkpoint
         };
 
         Ok(checkpoint)
@@ -316,9 +324,9 @@ impl CheckpointManager {
             })?;
         }
 
-        let data = bincode::serde::encode_to_vec(checkpoint, bincode::config::standard()).map_err(|e| {
-            OptimizerError::CheckpointError(format!("Failed to serialize checkpoint: {e}"))
-        })?;
+        let data = bincode::serde::encode_to_vec(checkpoint, bincode::config::standard()).map_err(
+            |e| OptimizerError::CheckpointError(format!("Failed to serialize checkpoint: {e}")),
+        )?;
 
         let final_data = if self.config.compress {
             self.compress_data(&data)?
@@ -339,7 +347,8 @@ impl CheckpointManager {
         let compress = self.config.compress;
 
         std::thread::spawn(move || {
-            let data = bincode::serde::encode_to_vec(&checkpoint, bincode::config::standard()).unwrap();
+            let data =
+                bincode::serde::encode_to_vec(&checkpoint, bincode::config::standard()).unwrap();
             let final_data = if compress {
                 // Simple compression implementation
                 data // For now, just use the original data
@@ -533,7 +542,8 @@ mod tests {
         }
 
         fn load_state_from_checkpoint(&mut self, data: &[u8]) -> Result<(), OptimizerError> {
-            let (state, _): (HashMap<String, f32>, usize) = bincode::serde::decode_from_slice(data, bincode::config::standard()).unwrap();
+            let (state, _): (HashMap<String, f32>, usize) =
+                bincode::serde::decode_from_slice(data, bincode::config::standard()).unwrap();
             self.state = state;
             Ok(())
         }

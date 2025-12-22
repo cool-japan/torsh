@@ -8,12 +8,9 @@
 //! - Type systems
 //! - Debug tools
 
-use crate::{
-    custom_ops::{CustomOpBuilder, CustomOperator},
-    JitError, JitResult,
-};
+use crate::{custom_ops::CustomOpBuilder, JitError, JitResult};
 use std::collections::HashMap;
-use std::ffi::{CStr, CString, OsStr};
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
@@ -404,7 +401,7 @@ impl PluginRegistry {
     }
 }
 
-/// Global plugin registry
+// Global plugin registry (documentation on accessor function below)
 lazy_static::lazy_static! {
     static ref GLOBAL_REGISTRY: Arc<RwLock<PluginRegistry>> =
         Arc::new(RwLock::new(PluginRegistry::new()));

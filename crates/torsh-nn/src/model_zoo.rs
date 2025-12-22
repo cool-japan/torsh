@@ -5,7 +5,9 @@
 
 use crate::container::Sequential;
 use crate::layers::*;
-use crate::{Module, Parameter};
+use crate::Module;
+#[cfg(feature = "serialize")]
+use crate::Parameter;
 use torsh_core::error::{Result, TorshError};
 
 // Conditional imports for std/no_std compatibility
@@ -115,7 +117,10 @@ impl ModelZoo {
             let weights = get_pretrained_weights();
             if weights.is_available("lenet5_mnist") {
                 if let Err(e) = weights.load_weights(&mut model, "lenet5_mnist") {
-                    eprintln!("Warning: Failed to load pretrained weights for LeNet-5: {}", e);
+                    eprintln!(
+                        "Warning: Failed to load pretrained weights for LeNet-5: {}",
+                        e
+                    );
                 }
             } else {
                 eprintln!("Warning: Pretrained weights for LeNet-5 not available");
@@ -635,6 +640,11 @@ impl PretrainedWeights {
     }
 
     /// Verify file integrity
+    ///
+    /// Verifies the downloaded file by checking:
+    /// 1. File existence
+    /// 2. File size (if specified)
+    /// 3. SHA256 checksum (if specified)
     fn verify_file(&self, file_path: &Path, model_name: &str) -> Result<bool> {
         if !file_path.exists() {
             return Ok(false);
@@ -650,15 +660,44 @@ impl PretrainedWeights {
             let actual_size = fs::metadata(file_path)?.len() as usize;
             if actual_size != expected_size {
                 eprintln!(
-                    "File size mismatch: expected {}, got {}",
-                    expected_size, actual_size
+                    "File size mismatch for {}: expected {}, got {}",
+                    model_name, expected_size, actual_size
                 );
                 return Ok(false);
             }
         }
 
-        // TODO: Implement checksum verification
-        // For now, we'll just check if the file exists and has reasonable size
+        // Verify SHA256 checksum if specified
+        if let Some(expected_checksum) = &weight_info.checksum {
+            use sha2::{Digest, Sha256};
+            use std::io::Read;
+
+            // Read file and compute SHA256 hash
+            let mut file = fs::File::open(file_path)?;
+            let mut hasher = Sha256::new();
+            let mut buffer = vec![0u8; 8192]; // 8KB buffer for efficient reading
+
+            loop {
+                let bytes_read = file.read(&mut buffer)?;
+                if bytes_read == 0 {
+                    break;
+                }
+                hasher.update(&buffer[..bytes_read]);
+            }
+
+            // Get the hash result as hex string
+            let actual_checksum = format!("{:x}", hasher.finalize());
+
+            // Compare checksums (case-insensitive)
+            if actual_checksum.to_lowercase() != expected_checksum.to_lowercase() {
+                eprintln!(
+                    "SHA256 checksum mismatch for {}:\n  Expected: {}\n  Actual:   {}",
+                    model_name, expected_checksum, actual_checksum
+                );
+                return Ok(false);
+            }
+        }
+
         Ok(true)
     }
 

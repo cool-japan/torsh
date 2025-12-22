@@ -4,6 +4,8 @@
 //! of torsh-vision including transforms, datasets, models, I/O operations,
 //! and advanced computer vision techniques powered by SciRS2 integration.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 pub mod comprehensive_showcase;
 
 use crate::datasets::{ImageFolder, OptimizedDataset, OptimizedImageDataset};
@@ -76,7 +78,7 @@ pub mod image_classification {
         println!("=== Real-time Image Classification Inference ===");
 
         // 1. Set up GPU acceleration if available
-        let hardware = HardwareContext::auto_detect()?;
+        let _hardware = HardwareContext::auto_detect()?;
 
         // 2. Create inference transforms
         let inference_transforms = TransformBuilder::new()
@@ -202,7 +204,7 @@ pub mod data_augmentation {
         }
 
         // 3. Demonstrate advanced techniques
-        let mut mixup = MixUp::new(1.0);
+        let mixup = MixUp::new(1.0);
         let image1 = creation::randn(&[3, 224, 224]).unwrap();
         let image2 = creation::randn(&[3, 224, 224]).unwrap();
 
@@ -339,7 +341,7 @@ pub mod memory_optimization {
             // Simulate batch processing
             let mut batch_tensors = Vec::new();
 
-            for i in 0..batch_size {
+            for _i in 0..batch_size {
                 // Get tensor from pool
                 let tensor = tensor_pool.get_tensor(&image_shape)?;
                 profiler.record_allocation(
@@ -397,7 +399,7 @@ pub mod memory_optimization {
             vec![3, 128, 128],
         ];
 
-        for (i, shape) in tensor_shapes.iter().enumerate() {
+        for (_i, shape) in tensor_shapes.iter().enumerate() {
             let tensor = creation::randn(shape)?;
             let tensor_id = batch_processor.add_tensor(tensor)?;
 
@@ -449,7 +451,7 @@ pub mod hardware_acceleration {
         } else {
             Arc::new(CpuDevice::new())
         };
-        let context = TransformContext::new(device);
+        let _context = TransformContext::new(device);
 
         // In a real implementation, this would use the UnifiedTransform API
         // to automatically select GPU vs CPU execution
@@ -492,7 +494,7 @@ pub mod hardware_acceleration {
         println!("✓ Mixed precision training supported");
 
         // Simulate mixed precision training
-        let batch_size = 32;
+        let _batch_size = 32;
         let iterations = 10;
 
         for i in 0..iterations {
@@ -525,12 +527,12 @@ pub mod complete_workflows {
 
         // 1. Setup phase
         println!("1. Setting up environment...");
-        let hardware = HardwareContext::auto_detect()?;
+        let _hardware = HardwareContext::auto_detect()?;
         let memory_manager = GlobalMemoryManager::new(MemorySettings::default());
 
         // 2. Data preparation
         println!("2. Preparing data pipeline...");
-        let transforms = TransformBuilder::new()
+        let _transforms = TransformBuilder::new()
             .resize((256, 256))
             .random_horizontal_flip(0.5)
             .center_crop((224, 224))
@@ -549,8 +551,8 @@ pub mod complete_workflows {
 
             // Simulate batch processing
             for batch in 1..=5 {
-                let batch_images: Tensor<f32> = creation::randn(&[32, 3, 224, 224]).unwrap();
-                let batch_labels: Tensor<f32> = creation::zeros(&[32]).unwrap();
+                let _batch_images: Tensor<f32> = creation::randn(&[32, 3, 224, 224]).unwrap();
+                let _batch_labels: Tensor<f32> = creation::zeros(&[32]).unwrap();
 
                 // Apply transforms
                 // In real usage: apply transforms to each image in batch
@@ -586,7 +588,7 @@ pub mod complete_workflows {
 
         // 1. Data preparation for detection
         println!("1. Setting up detection pipeline...");
-        let detection_transforms = TransformBuilder::new()
+        let _detection_transforms = TransformBuilder::new()
             .resize((640, 640))
             .normalize(vec![0.0, 0.0, 0.0], vec![1.0, 1.0, 1.0])
             .build();
@@ -597,7 +599,7 @@ pub mod complete_workflows {
 
         // 3. Training with detection-specific augmentations
         println!("3. Training with detection augmentations...");
-        let mosaic = Mosaic::new((640, 640));
+        let _mosaic = Mosaic::new((640, 640));
 
         // Simulate mosaic augmentation
         println!("  Applying mosaic augmentation...");
@@ -677,7 +679,7 @@ pub mod interactive_visualization {
         println!("✓ Added {} annotations", viewer.annotations().len());
 
         // 4. Export annotations
-        let exported = viewer.export_annotations()?;
+        let _exported = viewer.export_annotations()?;
         println!("✓ Exported annotations to JSON format");
 
         // 5. Set up event handlers
@@ -801,7 +803,7 @@ pub mod viz3d_examples {
             points.push(Point3D::with_color(x, y, z, color));
         }
 
-        let mut cloud = PointCloud3D::new(points);
+        let cloud = PointCloud3D::new(points);
         println!("✓ Created point cloud with {} points", cloud.len());
 
         // 2. Apply voxel downsampling

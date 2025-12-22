@@ -3,6 +3,8 @@
 //! This module provides advanced explainability methods for graph neural networks,
 //! including Layer-wise Relevance Propagation (LRP) adapted for graph structures.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{GraphData, GraphLayer};
 use std::collections::HashMap;
 use torsh_tensor::{
@@ -60,7 +62,7 @@ impl GraphLRP {
     pub fn compute_relevance_epsilon(
         &self,
         input: &Tensor,
-        output: &Tensor,
+        _output: &Tensor,
         weight: &Tensor,
         output_relevance: &Tensor,
     ) -> Result<Tensor, Box<dyn std::error::Error>> {
@@ -119,12 +121,12 @@ impl GraphLRP {
         node_relevance: &Tensor,
         layer_name: &str,
     ) -> Result<GraphRelevanceResult, Box<dyn std::error::Error>> {
-        let num_nodes = graph.num_nodes;
+        let _num_nodes = graph.num_nodes;
         let num_edges = graph.num_edges;
 
         // Initialize edge relevance scores
         let mut edge_relevance = zeros(&[num_edges])?;
-        let mut node_relevance_propagated = node_relevance.clone();
+        let node_relevance_propagated = node_relevance.clone();
 
         // Get edge indices
         let edge_data = graph.edge_index.to_vec()?;
@@ -153,7 +155,7 @@ impl GraphLRP {
     /// Analyze relevance patterns across the entire graph
     pub fn analyze_relevance_patterns(
         &self,
-        graph: &GraphData,
+        _graph: &GraphData,
         relevance_result: &GraphRelevanceResult,
     ) -> RelevanceAnalysis {
         let node_stats = self.compute_node_relevance_stats(&relevance_result.node_relevance);
@@ -234,15 +236,15 @@ impl GraphLRP {
 
     fn set_edge_relevance(
         &self,
-        mut edge_relevance: Tensor,
-        edge_idx: usize,
-        value: f32,
+        edge_relevance: Tensor,
+        _edge_idx: usize,
+        _value: f32,
     ) -> Result<Tensor, Box<dyn std::error::Error>> {
         // This is a simplified implementation - in practice would need tensor indexing
         Ok(edge_relevance)
     }
 
-    fn compute_node_relevance_stats(&self, relevance: &Tensor) -> RelevanceStats {
+    fn compute_node_relevance_stats(&self, _relevance: &Tensor) -> RelevanceStats {
         // Simplified stats computation
         RelevanceStats {
             mean: 0.0,
@@ -253,7 +255,7 @@ impl GraphLRP {
         }
     }
 
-    fn compute_edge_relevance_stats(&self, relevance: &Tensor) -> RelevanceStats {
+    fn compute_edge_relevance_stats(&self, _relevance: &Tensor) -> RelevanceStats {
         // Simplified stats computation
         RelevanceStats {
             mean: 0.0,
@@ -264,12 +266,12 @@ impl GraphLRP {
         }
     }
 
-    fn find_important_nodes(&self, relevance: &Tensor, threshold: f32) -> Vec<usize> {
+    fn find_important_nodes(&self, _relevance: &Tensor, _threshold: f32) -> Vec<usize> {
         // Simplified implementation
         Vec::new()
     }
 
-    fn find_important_edges(&self, relevance: &Tensor, threshold: f32) -> Vec<usize> {
+    fn find_important_edges(&self, _relevance: &Tensor, _threshold: f32) -> Vec<usize> {
         // Simplified implementation
         Vec::new()
     }
@@ -330,12 +332,12 @@ impl GraphGradientAttribution {
     pub fn integrated_gradients(
         &self,
         graph: &GraphData,
-        baseline_graph: &GraphData,
-        target_class: usize,
+        _baseline_graph: &GraphData,
+        _target_class: usize,
     ) -> Result<GraphData, Box<dyn std::error::Error>> {
         // Simplified integrated gradients implementation
-        let mut integrated_features = graph.x.clone();
-        let mut integrated_edges = graph.edge_index.clone();
+        let integrated_features = graph.x.clone();
+        let integrated_edges = graph.edge_index.clone();
 
         // In practice, this would compute gradients along interpolated path
         // from baseline to input and integrate them
@@ -347,7 +349,7 @@ impl GraphGradientAttribution {
     pub fn gradient_saliency(
         &self,
         graph: &GraphData,
-        target_output: &Tensor,
+        _target_output: &Tensor,
     ) -> Result<Tensor, Box<dyn std::error::Error>> {
         // Simplified gradient saliency computation
         // In practice, this would compute gradients of output w.r.t. input features
@@ -467,7 +469,7 @@ mod tests {
         let output_relevance = ones(&[3, 2]).unwrap();
 
         // This should not panic (actual computation may have API limitations)
-        let result = lrp.compute_relevance_epsilon(&input, &output, &weight, &output_relevance);
+        let _result = lrp.compute_relevance_epsilon(&input, &output, &weight, &output_relevance);
         // Note: May fail due to tensor API limitations, but structure is correct
     }
 
@@ -488,7 +490,7 @@ mod tests {
         let node_relevance = ones(&[4]).unwrap();
 
         // Test graph relevance computation structure
-        let result = lrp.compute_graph_relevance(&graph, &node_relevance, "test_layer");
+        let _result = lrp.compute_graph_relevance(&graph, &node_relevance, "test_layer");
         // Note: May fail due to tensor API limitations, but structure is correct
     }
 }

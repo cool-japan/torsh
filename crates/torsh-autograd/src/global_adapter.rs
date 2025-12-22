@@ -69,7 +69,6 @@ pub fn reset_global_adapter() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use torsh_core::device::DeviceType;
 
     #[test]
     fn test_global_adapter_initialization() {
@@ -88,7 +87,7 @@ mod tests {
 
         // This test would require a full SciRS2AutogradAdapter implementation
         // For now, we just verify the function signature
-        let result = create_gradient_tensor(&data, &shape, &device, true);
+        let _result = create_gradient_tensor(&data, &shape, &device, true);
         // The actual result would depend on the SciRS2AutogradAdapter implementation
     }
 

@@ -3,6 +3,8 @@
 //! This module provides a working implementation of comprehensive benchmarks
 //! for the advanced systems implemented in ToRSh.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::benchmarks::BenchmarkResult;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
@@ -438,7 +440,7 @@ impl Benchmarkable for AutoTuningBench {
         size
     }
 
-    fn run(&mut self, input: &Self::Input) -> Self::Output {
+    fn run(&mut self, _input: &Self::Input) -> Self::Output {
         let start = Instant::now();
         // Simulate auto-tuning work
         std::thread::sleep(Duration::from_millis(10));
@@ -465,7 +467,7 @@ impl Benchmarkable for ErrorDiagnosticsBench {
         size
     }
 
-    fn run(&mut self, input: &Self::Input) -> Self::Output {
+    fn run(&mut self, _input: &Self::Input) -> Self::Output {
         let start = Instant::now();
         // Simulate diagnostic work
         std::thread::sleep(Duration::from_millis(15));
@@ -492,7 +494,7 @@ impl Benchmarkable for VectorizedMetricsBench {
         size
     }
 
-    fn run(&mut self, input: &Self::Input) -> Self::Output {
+    fn run(&mut self, _input: &Self::Input) -> Self::Output {
         let start = Instant::now();
         // Simulate vectorized metrics computation
         std::thread::sleep(Duration::from_millis(12));
@@ -519,7 +521,7 @@ impl Benchmarkable for SIMDGNNBench {
         size
     }
 
-    fn run(&mut self, input: &Self::Input) -> Self::Output {
+    fn run(&mut self, _input: &Self::Input) -> Self::Output {
         let start = Instant::now();
         // Simulate SIMD GNN computation
         std::thread::sleep(Duration::from_millis(20));

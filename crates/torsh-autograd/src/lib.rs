@@ -3,6 +3,20 @@
 //! This crate provides a PyTorch-compatible autograd API that fully leverages
 //! scirs2-autograd's powerful automatic differentiation capabilities.
 //!
+//! # Quick Start
+//!
+//! ```rust,ignore
+//! use torsh_autograd::prelude::*;
+//!
+//! // Enable gradient computation
+//! let x = tensor::ones(&[2, 3]).requires_grad_(true);
+//! let y = x.pow(2).sum();
+//!
+//! // Compute gradients
+//! y.backward();
+//! let grad = x.grad();
+//! ```
+//!
 //! # Architecture
 //!
 //! The autograd system is built around several key components:
@@ -13,19 +27,73 @@
 //! - **Guard system**: RAII guards for gradient mode management
 //! - **Anomaly detection**: Detection and recovery from numerical anomalies
 //! - **SciRS2 integration**: Deep integration with the SciRS2 autograd system
+//! - **Hardware acceleration**: Multi-platform support (CUDA, Metal, WebGPU)
+//!
+//! # API Stability
+//!
+//! The crate follows semantic versioning with clearly defined stability levels:
+//!
+//! - **Stable APIs** ([`stable_api::stable`]): Core functionality with backward compatibility
+//! - **Beta APIs** ([`stable_api::beta`]): Feature-complete but may evolve
+//! - **Experimental APIs** ([`stable_api::experimental`]): May change significantly
+//!
+//! See [`stable_api`] for details on stability guarantees.
+//!
+//! # Examples
+//!
+//! The [`examples`] module provides comprehensive usage examples:
+//!
+//! - Basic gradient computation
+//! - Inference with `no_grad`
+//! - Gradient accumulation
+//! - Custom differentiable functions
+//! - Higher-order gradients
+//! - Hardware acceleration
+//! - Distributed training
+//!
+//! Run all examples: `examples::run_all_examples()`
 //!
 //! # Key Modules
 //!
+//! ## Core Autograd
 //! - [`autograd_traits`]: Core traits for differentiable tensors
 //! - [`gradient_storage`]: Thread-safe gradient storage management
 //! - [`grad_mode`]: Global gradient computation mode management
 //! - [`guards`]: RAII guards for automatic gradient mode restoration
 //! - [`variable_env`]: Thread-local variable environment management
+//!
+//! ## Advanced Features
 //! - [`complex_ops`]: Complex number operations with Wirtinger derivatives
 //! - [`anomaly_detection`]: Numerical anomaly detection and automatic recovery
-//! - [`global_adapter`]: Global singleton adapter for SciRS2 integration
+//! - [`gradient_clipping`]: Gradient clipping strategies
+//! - [`checkpoint_scheduler`]: Memory-efficient gradient checkpointing
+//! - [`higher_order_gradients`]: Higher-order derivative computation
+//!
+//! ## Hardware & Performance
+//! - [`hardware_acceleration`]: Multi-platform hardware acceleration
+//! - [`profiler`]: Performance profiling and analysis
+//! - [`simd_ops`]: SIMD-optimized gradient operations
+//! - [`distributed`]: Distributed gradient computation
+//!
+//! ## Integration & Compatibility
+//! - [`pytorch_compat`]: PyTorch compatibility layer
+//! - [`jax_transformations`]: JAX-style transformations
+//! - [`tensorflow_compat`]: TensorFlow compatibility
+//! - [`mlx_compat`]: Apple MLX compatibility
+//!
+//! # Feature Flags
+//!
+//! - `default`: Enables autograd, SIMD, and parallel features
+//! - `autograd`: SciRS2 autograd integration
+//! - `simd`: SIMD optimizations
+//! - `parallel`: Parallel gradient computation
+//! - `gpu`: GPU acceleration support
+//! - `webgpu`: WebGPU for browser deployment
+//! - `profiling`: Performance profiling tools
+//! - `scirs2-full`: All SciRS2 features
 
 // Core extracted modules for autograd functionality
+pub mod anomaly_alerts;
 pub mod anomaly_detection;
 pub mod autograd_traits;
 pub mod complex_ops;
@@ -37,6 +105,7 @@ pub mod variable_env;
 
 // Existing specialized modules
 pub mod checkpoint_scheduler;
+pub mod common_utils;
 pub mod communication_efficient;
 pub mod compression;
 pub mod context;
@@ -47,15 +116,19 @@ pub mod error_diagnostics;
 pub mod error_handling;
 pub mod external_ad_integration;
 pub mod federated_learning;
+pub mod flamegraph;
 pub mod function;
 pub mod function_optimization;
 pub mod garbage_collection;
 pub mod gradient_checking;
 pub mod gradient_filtering;
+pub mod gradient_flow_analysis;
 pub mod gradient_scaling;
 pub mod gradient_scheduler;
+pub mod gradient_tracer;
 pub mod gradient_validation;
 pub mod graph_opt;
+pub mod graph_visualization;
 pub mod hyperparameter_optimization;
 pub mod iterative_solvers;
 pub mod jax_transformations;
@@ -65,12 +138,15 @@ pub mod meta_gradient;
 pub mod metrics_collection;
 pub mod mlx_compat;
 pub mod onnx_integration;
+pub mod operation_introspection;
+pub mod operation_replay;
 pub mod optimization_diff;
 pub mod parameter_server;
 pub mod profiler;
 pub mod property_testing;
 pub mod pytorch_compat;
 pub mod scirs2_integration;
+pub mod simd_gradient;
 pub mod simd_ops;
 pub mod staleness_handling;
 pub mod stochastic_graphs;
@@ -89,12 +165,22 @@ pub mod cross_framework_verification;
 pub mod custom_backends;
 pub mod edge_case_handling;
 pub mod exception_safety;
+pub mod gpu_gradient;
 pub mod graceful_degradation;
+pub mod gradient_clipping;
+pub mod gradient_hooks;
 pub mod hardware_acceleration;
+pub mod health_diagnostics;
+pub mod higher_order_gradients;
 pub mod integration_patterns;
+pub mod intelligent_chunking;
+pub mod interactive_debugger;
 pub mod neural_architecture_search;
 pub mod neural_ode;
+pub mod parallel_gradient;
+pub mod performance_regression;
 pub mod profiling_debugging_integration;
+pub mod progress_reporting;
 pub mod quantum_autograd;
 pub mod raii_resources;
 pub mod regression_testing;
@@ -104,6 +190,21 @@ pub mod stress_testing;
 
 // Additional framework integration modules
 pub mod ad_framework_compatibility;
+
+// API stability and versioning
+pub mod stable_api;
+
+// Comprehensive examples and documentation
+pub mod examples;
+
+// Production monitoring and observability modules
+pub mod audit_logging;
+pub mod capacity_planning;
+pub mod error_rate_monitoring;
+pub mod flamegraph_generation;
+pub mod gradient_tracing;
+pub mod operation_cost_analysis;
+pub mod performance_dashboard;
 
 // Re-exports for convenience
 pub use crate::error_handling::{AutogradError, AutogradResult};
@@ -163,8 +264,6 @@ pub const VERSION_MINOR: u32 = 1;
 pub const VERSION_PATCH: u32 = 0;
 
 // Common imports and utilities
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
 use torsh_core::error::{Result, TorshError};
 
 /// Version tracking for tensor operations
@@ -306,6 +405,48 @@ pub mod prelude {
     pub use crate::neural_ode::{
         AdjointMethod, AdjointSolution, IntegrationMethod, NeuralODE, NeuralODELayer, ODESolver,
         ODESolverConfig, ODESystem,
+    };
+
+    // Parallel Gradient Computation (SciRS2-Core Integration - Phase 1)
+    pub use crate::parallel_gradient::{
+        configure_global_parallel, get_global_parallel_computer, get_global_parallel_computer_mut,
+        ParallelConfig, ParallelGradientComputer, ParallelStats,
+    };
+
+    // GPU Gradient Computation (SciRS2-Core Integration - Phase 2)
+    pub use crate::gpu_gradient::{
+        get_global_gpu_computer, initialize_global_gpu, is_global_gpu_available, ActivationType,
+        GpuBackend, GpuConfig, GpuGradientComputer, GpuStats,
+    };
+
+    // SIMD Gradient Computation (SciRS2-Core Integration - Phase 3)
+    pub use crate::simd_gradient::{
+        configure_global_simd, get_global_simd_computer, get_global_simd_computer_mut,
+        SimdCapability, SimdConfig, SimdGradientComputer, SimdStats,
+    };
+
+    // Intelligent Chunking (SciRS2-Core Integration - Phase 4)
+    pub use crate::intelligent_chunking::{
+        configure_global_chunker, get_global_chunker, get_global_chunker_mut, ChunkingConfig,
+        ChunkingStats, ChunkingStrategy, IntelligentChunker,
+    };
+
+    // Advanced Gradient Clipping
+    pub use crate::gradient_clipping::{
+        clip_gradients_global, configure_global_clipper, get_global_clipper,
+        get_global_clipper_mut, ClippingStats, ClippingStrategy, GradientClipper,
+    };
+
+    // Higher-Order Gradients (Hessian, Jacobian)
+    pub use crate::higher_order_gradients::{
+        configure_global_higher_order, get_global_higher_order, get_global_higher_order_mut,
+        ComputationMode, GradientOrder, HigherOrderConfig, HigherOrderGradient, HigherOrderStats,
+    };
+
+    // Gradient Hooks System
+    pub use crate::gradient_hooks::{
+        get_global_hook_manager, get_global_hook_manager_mut, register_global_hook, GradientHook,
+        GradientHookManager, HookContext, HookPriority, HookStats, HookType,
     };
 
     // Automatic Error Recovery
@@ -572,8 +713,7 @@ pub mod clip {
 
 /// Forward-mode automatic differentiation
 pub mod forward_mode {
-    use super::*;
-    use crate::autograd_traits::AutogradTensor;
+
     use num_traits::Float;
 
     /// Dual number for forward-mode AD

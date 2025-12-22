@@ -1274,17 +1274,17 @@ impl SciRS2VisionProcessor {
         let mut result = Array2::zeros((img_h - tmpl_h + 1, img_w - tmpl_w + 1));
 
         let template_mean = template.mean().unwrap();
-        let template_std = ((template.mapv(|x| (x - template_mean).powi(2)).sum()
+        let template_std = (template.mapv(|x| (x - template_mean).powi(2)).sum()
             / (tmpl_h * tmpl_w) as f32)
-            .sqrt());
+            .sqrt();
 
         for i in 0..(img_h - tmpl_h + 1) {
             for j in 0..(img_w - tmpl_w + 1) {
                 let patch = image.slice(s![i..i + tmpl_h, j..j + tmpl_w]);
                 let patch_mean = patch.mean().unwrap();
-                let patch_std = ((patch.mapv(|x| (x - patch_mean).powi(2)).sum()
+                let patch_std = (patch.mapv(|x| (x - patch_mean).powi(2)).sum()
                     / (tmpl_h * tmpl_w) as f32)
-                    .sqrt());
+                    .sqrt();
 
                 if patch_std > 1e-8 && template_std > 1e-8 {
                     let mut correlation = 0.0;

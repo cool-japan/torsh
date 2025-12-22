@@ -16,24 +16,27 @@
 //! ## Usage Example
 //!
 //! ```rust
-//! use torsh_nn::layers::activation::basic::{ReLU, Sigmoid, Tanh};
-//! use torsh_nn::Module;
-//! use torsh_tensor::Tensor;
-//!
+//! # use torsh_nn::layers::activation::basic::{ReLU, Sigmoid, Tanh};
+//! # use torsh_nn::Module;
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # fn main() -> Result<()> {
 //! // Create activation functions
 //! let relu = ReLU::new();
 //! let sigmoid = Sigmoid::new();
 //! let tanh = Tanh::new();
 //!
 //! // Apply to tensors
-//! let input = Tensor::randn(&[2, 3]);
+//! let input = randn(&[2, 3])?;
 //! let relu_output = relu.forward(&input)?;
 //! let sigmoid_output = sigmoid.forward(&input)?;
 //! let tanh_output = tanh.forward(&input)?;
+//! # Ok(())
+//! # }
 //! ```
 
 use crate::{Module, ModuleBase, Parameter};
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use torsh_core::device::DeviceType;
 use torsh_core::error::Result;
 use torsh_tensor::{creation::*, Tensor};
@@ -70,13 +73,16 @@ use hashbrown::HashMap;
 ///
 /// # Example
 /// ```rust
-/// use torsh_nn::layers::activation::basic::ReLU;
-/// use torsh_nn::Module;
-/// use torsh_tensor::Tensor;
-///
+/// # use torsh_nn::layers::activation::basic::ReLU;
+/// # use torsh_nn::Module;
+/// # use torsh_tensor::creation::tensor_1d;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// let relu = ReLU::new();
-/// let input = Tensor::from(vec![-2.0, -1.0, 0.0, 1.0, 2.0]);
+/// let input = tensor_1d(&[-2.0, -1.0, 0.0, 1.0, 2.0])?;
 /// let output = relu.forward(&input)?; // [0.0, 0.0, 0.0, 1.0, 2.0]
+/// # Ok(())
+/// # }
 /// ```
 pub struct ReLU {
     base: ModuleBase,
@@ -153,13 +159,16 @@ impl Module for ReLU {
 ///
 /// # Example
 /// ```rust
-/// use torsh_nn::layers::activation::basic::Sigmoid;
-/// use torsh_nn::Module;
-/// use torsh_tensor::Tensor;
-///
+/// # use torsh_nn::layers::activation::basic::Sigmoid;
+/// # use torsh_nn::Module;
+/// # use torsh_tensor::creation::tensor_1d;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// let sigmoid = Sigmoid::new();
-/// let input = Tensor::from(vec![-2.0, 0.0, 2.0]);
+/// let input = tensor_1d(&[-2.0, 0.0, 2.0])?;
 /// let output = sigmoid.forward(&input)?; // [~0.119, 0.5, ~0.881]
+/// # Ok(())
+/// # }
 /// ```
 pub struct Sigmoid {
     base: ModuleBase,
@@ -240,13 +249,16 @@ impl Module for Sigmoid {
 ///
 /// # Example
 /// ```rust
-/// use torsh_nn::layers::activation::basic::Tanh;
-/// use torsh_nn::Module;
-/// use torsh_tensor::Tensor;
-///
+/// # use torsh_nn::layers::activation::basic::Tanh;
+/// # use torsh_nn::Module;
+/// # use torsh_tensor::creation::tensor_1d;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// let tanh = Tanh::new();
-/// let input = Tensor::from(vec![-2.0, 0.0, 2.0]);
+/// let input = tensor_1d(&[-2.0, 0.0, 2.0])?;
 /// let output = tanh.forward(&input)?; // [~-0.964, 0.0, ~0.964]
+/// # Ok(())
+/// # }
 /// ```
 pub struct Tanh {
     base: ModuleBase,
@@ -325,13 +337,16 @@ impl Module for Tanh {
 ///
 /// # Example
 /// ```rust
-/// use torsh_nn::layers::activation::basic::LeakyReLU;
-/// use torsh_nn::Module;
-/// use torsh_tensor::Tensor;
-///
+/// # use torsh_nn::layers::activation::basic::LeakyReLU;
+/// # use torsh_nn::Module;
+/// # use torsh_tensor::creation::tensor_1d;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// let leaky_relu = LeakyReLU::new(0.01);
-/// let input = Tensor::from(vec![-2.0, -1.0, 0.0, 1.0, 2.0]);
+/// let input = tensor_1d(&[-2.0, -1.0, 0.0, 1.0, 2.0])?;
 /// let output = leaky_relu.forward(&input)?; // [-0.02, -0.01, 0.0, 1.0, 2.0]
+/// # Ok(())
+/// # }
 /// ```
 pub struct LeakyReLU {
     base: ModuleBase,
@@ -422,13 +437,16 @@ impl Module for LeakyReLU {
 ///
 /// # Example
 /// ```rust
-/// use torsh_nn::layers::activation::basic::ReLU6;
-/// use torsh_nn::Module;
-/// use torsh_tensor::Tensor;
-///
+/// # use torsh_nn::layers::activation::basic::ReLU6;
+/// # use torsh_nn::Module;
+/// # use torsh_tensor::creation::tensor_1d;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// let relu6 = ReLU6::new();
-/// let input = Tensor::from(vec![-2.0, 0.0, 3.0, 8.0]);
+/// let input = tensor_1d(&[-2.0, 0.0, 3.0, 8.0])?;
 /// let output = relu6.forward(&input)?; // [0.0, 0.0, 3.0, 6.0]
+/// # Ok(())
+/// # }
 /// ```
 pub struct ReLU6 {
     base: ModuleBase,
@@ -511,13 +529,16 @@ impl Module for ReLU6 {
 ///
 /// # Example
 /// ```rust
-/// use torsh_nn::layers::activation::basic::PReLU;
-/// use torsh_nn::Module;
-/// use torsh_tensor::Tensor;
-///
+/// # use torsh_nn::layers::activation::basic::PReLU;
+/// # use torsh_nn::Module;
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// let mut prelu = PReLU::new(64)?; // 64 channels
-/// let input = Tensor::randn(&[1, 64, 32, 32]); // Batch of images
+/// let input = randn(&[1, 64, 32, 32])?; // Batch of images
 /// let output = prelu.forward(&input)?;
+/// # Ok(())
+/// # }
 /// ```
 pub struct PReLU {
     base: ModuleBase,
@@ -623,7 +644,6 @@ impl Module for PReLU {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use torsh_tensor::creation::*;
 
     #[test]
     fn test_relu_forward() -> Result<()> {

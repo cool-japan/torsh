@@ -3,11 +3,8 @@
 //! This module provides mel-scale filterbank operations commonly used in
 //! audio processing and speech recognition, with full PyTorch compatibility.
 
-use torsh_core::{
-    device::DeviceType,
-    error::{Result, TorshError},
-};
-use torsh_tensor::{creation::zeros, Tensor};
+use torsh_core::{device::DeviceType, error::Result};
+use torsh_tensor::Tensor;
 
 /// Mel scale filterbank
 pub fn mel_filterbank(
@@ -282,7 +279,6 @@ pub fn mel_spectrogram(
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
-    use torsh_tensor::creation::ones;
 
     #[test]
     fn test_mel_filterbank() -> Result<()> {

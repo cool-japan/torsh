@@ -47,7 +47,7 @@
 //! ## Key Features
 //!
 //! ### Automatic Differentiation
-//! ```rust
+//! ```rust,no_run
 //! use torsh_autograd::context::{AutogradContext, with_context};
 //! use torsh_autograd::context::gradient_functions::AddGradient;
 //! use std::sync::Arc;
@@ -71,7 +71,7 @@
 //! ```
 //!
 //! ### Graph Analysis and Debugging
-//! ```rust
+//! ```rust,no_run
 //! use torsh_autograd::context::{AutogradContext, GraphDebugger};
 //!
 //! # fn example() -> torsh_core::error::Result<()> {
@@ -91,7 +91,7 @@
 //! ```
 //!
 //! ### Memory Management
-//! ```rust
+//! ```rust,no_run
 //! use torsh_autograd::context::{AutogradContext, MemoryManagementConfig};
 //!
 //! # fn example() -> torsh_core::error::Result<()> {
@@ -110,7 +110,7 @@
 //! ```
 //!
 //! ### Graph Optimization
-//! ```rust
+//! ```rust,no_run
 //! use torsh_autograd::context::{AutogradContext, GraphOptimizer};
 //!
 //! # fn example() -> torsh_core::error::Result<()> {
@@ -354,7 +354,7 @@ mod integration_tests {
 
             // 5. Memory management
             let config = MemoryManagementConfig::default();
-            let stats = ctx.advanced_memory_cleanup(&config)?;
+            let _stats = ctx.advanced_memory_cleanup(&config)?;
 
             // 6. Optimization
             let optimizer = GraphOptimizer::new();

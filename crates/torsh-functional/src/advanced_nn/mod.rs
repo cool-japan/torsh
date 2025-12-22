@@ -43,7 +43,7 @@ pub use normalization::{spectral_norm, weight_standardization};
 
 // Additional functions that don't fit into the main categories
 use torsh_core::{Result as TorshResult, TorshError};
-use torsh_tensor::{creation::ones, Tensor};
+use torsh_tensor::Tensor;
 
 /// Label smoothing regularization
 ///
@@ -53,7 +53,7 @@ use torsh_tensor::{creation::ones, Tensor};
 /// ## Mathematical Definition
 ///
 /// For a one-hot label y and smoothing parameter ε, label smoothing produces:
-/// ```
+/// ```text
 /// y_smooth = (1 - ε) * y + ε / K
 /// ```
 /// where K is the number of classes.
@@ -146,7 +146,7 @@ pub fn temperature_scale(logits: &Tensor, temperature: f32) -> TorshResult<Tenso
 /// ## Mathematical Definition
 ///
 /// The knowledge distillation loss combines:
-/// ```
+/// ```text
 /// L_KD = α * L_CE(y, σ(z_s)) + (1-α) * T² * L_CE(σ(z_t/T), σ(z_s/T))
 /// ```
 /// where:
@@ -208,7 +208,7 @@ pub fn knowledge_distillation_loss(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use torsh_tensor::creation::randn;
+    use torsh_tensor::creation::{ones, randn};
 
     #[test]
     fn test_advanced_nn_integration() -> TorshResult<()> {

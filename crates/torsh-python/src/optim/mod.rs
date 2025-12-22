@@ -24,7 +24,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyModule, PyModuleMethods};
 
 /// Register the optim module with Python
-pub fn register_optim_module(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+pub fn register_optim_module(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Register base optimizer
     m.add_class::<PyOptimizer>()?;
 

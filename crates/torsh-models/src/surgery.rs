@@ -6,6 +6,8 @@
 //! - Architecture modification
 //! - Module grafting and transplantation
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use torsh_core::error::{Result, TorshError};
@@ -95,7 +97,7 @@ pub enum LayerType {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LayerConfig {
     /// Additional parameters specific to layer type
-    pub params: HashMap<String, ConfigValue>,
+    pub params: HashMap<String, SurgeryConfigValue>,
     /// Whether the layer should be trainable
     pub trainable: bool,
     /// Initialization parameters
@@ -112,9 +114,9 @@ impl Default for LayerConfig {
     }
 }
 
-/// Configuration value types
+/// Configuration value types for surgery operations
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ConfigValue {
+pub enum SurgeryConfigValue {
     Float(f64),
     Int(i64),
     Bool(bool),
@@ -153,7 +155,7 @@ pub enum CompositionOperation {
     /// Parallel composition (run models in parallel)
     Parallel { combination: CombinationMethod },
     /// Ensemble composition
-    Ensemble { method: EnsembleMethod },
+    Ensemble { method: SurgeryCompositionMethod },
     /// Branch and merge
     BranchMerge {
         branch_point: String,
@@ -179,9 +181,9 @@ pub enum CombinationMethod {
     Attention,
 }
 
-/// Ensemble methods for model composition
+/// Composition methods for model surgery operations
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum EnsembleMethod {
+pub enum SurgeryCompositionMethod {
     /// Simple averaging
     Average,
     /// Weighted averaging
@@ -239,7 +241,7 @@ pub struct SurgeryStats {
     /// Parameter count changes
     pub parameter_changes: ParameterChanges,
     /// Architecture validation results
-    pub validation_results: ValidationResults,
+    pub validation_results: SurgeryValidationResults,
 }
 
 /// Parameter count changes
@@ -257,7 +259,7 @@ pub struct ParameterChanges {
 
 /// Architecture validation results
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ValidationResults {
+pub struct SurgeryValidationResults {
     /// Whether the architecture is valid
     pub is_valid: bool,
     /// Validation errors if any
@@ -292,13 +294,13 @@ impl ModelSurgeon {
         let replacement_stats = self.apply_layer_replacements(model)?;
 
         // Apply model compositions
-        let composition_stats = self.apply_model_compositions(model)?;
+        let _composition_stats = self.apply_model_compositions(model)?;
 
         // Validate the resulting architecture
         let validation_results = if self.modification_plan.settings.validate_architecture {
             self.validate_modified_architecture(model)?
         } else {
-            ValidationResults {
+            SurgeryValidationResults {
                 is_valid: true,
                 errors: vec![],
                 warnings: vec![],
@@ -349,7 +351,7 @@ impl ModelSurgeon {
     pub fn create_layer(
         &self,
         layer_type: &LayerType,
-        config: &LayerConfig,
+        _config: &LayerConfig,
     ) -> Result<Box<dyn Module>> {
         match layer_type {
             LayerType::Linear {
@@ -496,8 +498,11 @@ impl ModelSurgeon {
         Ok(())
     }
 
-    fn validate_modified_architecture<M: Module>(&self, model: &M) -> Result<ValidationResults> {
-        let mut errors = vec![];
+    fn validate_modified_architecture<M: Module>(
+        &self,
+        model: &M,
+    ) -> Result<SurgeryValidationResults> {
+        let errors = vec![];
         let mut warnings = vec![];
 
         // Check for common architecture issues
@@ -514,7 +519,7 @@ impl ModelSurgeon {
             warnings.push("Model is very large (>1B parameters)".to_string());
         }
 
-        Ok(ValidationResults {
+        Ok(SurgeryValidationResults {
             is_valid: errors.is_empty(),
             errors,
             warnings,
@@ -625,7 +630,6 @@ struct SimpleLinearLayer {
 
 impl SimpleLinearLayer {
     fn new(in_features: usize, out_features: usize) -> Self {
-        use torsh_core::DeviceType;
         // Simplified weight initialization
         let weight = torsh_tensor::creation::randn(&[out_features, in_features]).unwrap();
         let bias = Some(torsh_tensor::creation::zeros(&[out_features]).unwrap());
@@ -686,7 +690,6 @@ struct SimpleConv2dLayer {
 
 impl SimpleConv2dLayer {
     fn new(in_channels: usize, out_channels: usize, kernel_size: usize) -> Self {
-        use torsh_core::DeviceType;
         let weight =
             torsh_tensor::creation::randn(&[out_channels, in_channels, kernel_size, kernel_size])
                 .unwrap();
@@ -849,7 +852,6 @@ struct LoRALayer {
 
 impl LoRALayer {
     fn new(in_features: usize, out_features: usize, rank: usize) -> Self {
-        use torsh_core::DeviceType;
         let lora_a = torsh_tensor::creation::randn(&[rank, in_features]).unwrap();
         let lora_b = torsh_tensor::creation::zeros(&[out_features, rank]).unwrap();
         let scaling = 1.0 / rank as f32;
@@ -897,7 +899,7 @@ struct SequentialComposition<M: Module> {
 }
 
 impl<M: Module> SequentialComposition<M> {
-    fn new(models: Vec<&M>) -> Self {
+    fn new(_models: Vec<&M>) -> Self {
         // This is a simplified implementation
         // In practice, you'd need proper ownership handling
         Self { models: vec![] }
@@ -953,7 +955,7 @@ struct ParallelComposition<M: Module> {
 }
 
 impl<M: Module> ParallelComposition<M> {
-    fn new(models: Vec<&M>, combination: CombinationMethod) -> Self {
+    fn new(_models: Vec<&M>, combination: CombinationMethod) -> Self {
         Self {
             models: vec![],
             combination,
@@ -1025,11 +1027,11 @@ impl<M: Module> Module for ParallelComposition<M> {
 
 struct EnsembleComposition<M: Module> {
     models: Vec<M>,
-    method: EnsembleMethod,
+    method: SurgeryCompositionMethod,
 }
 
 impl<M: Module> EnsembleComposition<M> {
-    fn new(_models: Vec<&M>, method: EnsembleMethod) -> Self {
+    fn new(_models: Vec<&M>, method: SurgeryCompositionMethod) -> Self {
         Self {
             models: vec![],
             method,
@@ -1047,14 +1049,14 @@ impl<M: Module> Module for EnsembleComposition<M> {
         let outputs = outputs?;
 
         match &self.method {
-            EnsembleMethod::Average => {
+            SurgeryCompositionMethod::Average => {
                 let mut result = outputs[0].clone();
                 for output in &outputs[1..] {
                     result = result.add(output)?;
                 }
                 result.div_scalar(outputs.len() as f32)
             }
-            EnsembleMethod::WeightedAverage { weights } => {
+            SurgeryCompositionMethod::WeightedAverage { weights } => {
                 let mut result = outputs[0].mul_scalar(weights[0] as f32)?;
                 for (output, &weight) in outputs[1..].iter().zip(&weights[1..]) {
                     let weighted = output.mul_scalar(weight as f32)?;
@@ -1133,7 +1135,7 @@ impl<M: Module> Module for BranchMergeComposition<M> {
 }
 
 /// Utility functions for model surgery
-pub mod utils {
+pub mod surgery_utils {
     use super::*;
 
     /// Create a simple layer replacement
@@ -1212,7 +1214,7 @@ pub mod utils {
     pub fn validate_architecture_compatibility(
         source_architecture: &[String],
         target_architecture: &[String],
-    ) -> ValidationResults {
+    ) -> SurgeryValidationResults {
         let errors = vec![];
         let mut warnings = vec![];
 
@@ -1226,7 +1228,7 @@ pub mod utils {
             }
         }
 
-        ValidationResults {
+        SurgeryValidationResults {
             is_valid: errors.is_empty(),
             errors,
             warnings,
@@ -1240,7 +1242,7 @@ mod tests {
 
     #[test]
     fn test_layer_replacement_creation() {
-        let replacement = utils::simple_layer_replacement(
+        let replacement = surgery_utils::simple_layer_replacement(
             "fc1",
             LayerType::Linear {
                 in_features: 128,
@@ -1254,7 +1256,7 @@ mod tests {
 
     #[test]
     fn test_adapter_insertion() {
-        let adapter = utils::adapter_insertion("attention", 768, 64);
+        let adapter = surgery_utils::adapter_insertion("attention", 768, 64);
 
         assert_eq!(adapter.target_layer, "attention");
         assert!(matches!(
@@ -1265,7 +1267,7 @@ mod tests {
 
     #[test]
     fn test_lora_insertion() {
-        let lora = utils::lora_insertion("linear", 768, 768, 16);
+        let lora = surgery_utils::lora_insertion("linear", 768, 768, 16);
 
         assert_eq!(lora.target_layer, "linear");
         assert!(matches!(lora.replacement, ReplacementType::NewLayer { .. }));
@@ -1275,14 +1277,14 @@ mod tests {
     fn test_surgery_complexity_calculation() {
         let modification = ArchitectureModification {
             replacements: vec![
-                utils::simple_layer_replacement("fc1", LayerType::Identity),
-                utils::adapter_insertion("attn", 768, 64),
+                surgery_utils::simple_layer_replacement("fc1", LayerType::Identity),
+                surgery_utils::adapter_insertion("attn", 768, 64),
             ],
             compositions: vec![],
             settings: ModificationSettings::default(),
         };
 
-        let complexity = utils::calculate_surgery_complexity(&modification);
+        let complexity = surgery_utils::calculate_surgery_complexity(&modification);
         assert!(complexity > 0.0);
     }
 
@@ -1291,7 +1293,7 @@ mod tests {
         let source = vec!["layer1".to_string(), "layer2".to_string()];
         let target = vec!["layer1".to_string(), "layer3".to_string()];
 
-        let validation = utils::validate_architecture_compatibility(&source, &target);
+        let validation = surgery_utils::validate_architecture_compatibility(&source, &target);
         assert!(validation.is_valid);
         assert_eq!(validation.warnings.len(), 1);
     }
@@ -1299,7 +1301,10 @@ mod tests {
     #[test]
     fn test_config_serialization() {
         let modification = ArchitectureModification {
-            replacements: vec![utils::simple_layer_replacement("test", LayerType::ReLU)],
+            replacements: vec![surgery_utils::simple_layer_replacement(
+                "test",
+                LayerType::ReLU,
+            )],
             compositions: vec![],
             settings: ModificationSettings::default(),
         };
@@ -1315,8 +1320,6 @@ mod tests {
 
     #[test]
     fn test_simple_linear_layer() {
-        use torsh_core::DeviceType;
-
         let layer = SimpleLinearLayer::new(10, 5);
         let input = torsh_tensor::creation::randn(&[1, 10]).unwrap();
         let output = layer.forward(&input).unwrap();
@@ -1326,8 +1329,6 @@ mod tests {
 
     #[test]
     fn test_adapter_layer() {
-        use torsh_core::DeviceType;
-
         let adapter = AdapterLayer::new(768, 64);
         let input = torsh_tensor::creation::randn(&[1, 768]).unwrap();
         let output = adapter.forward(&input).unwrap();
@@ -1337,8 +1338,6 @@ mod tests {
 
     #[test]
     fn test_lora_layer() {
-        use torsh_core::DeviceType;
-
         let lora = LoRALayer::new(768, 768, 16);
         let input = torsh_tensor::creation::randn(&[1, 768]).unwrap();
         let output = lora.forward(&input).unwrap();

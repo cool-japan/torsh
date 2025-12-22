@@ -1,10 +1,10 @@
 //! RMSprop optimizer
 
 use super::base::{create_param_group, extract_parameters, PyOptimizer};
-use crate::{error::PyResult, py_optimizer_result, py_result, tensor::PyTensor};
+use crate::{error::PyResult, tensor::PyTensor};
 use parking_lot::RwLock;
 use pyo3::prelude::*;
-use pyo3::types::PyBool;
+use pyo3::types::{PyAny, PyBool};
 use std::collections::HashMap;
 use std::sync::Arc;
 use torsh_optim::{rmsprop::RMSprop, Optimizer};
@@ -13,7 +13,7 @@ use torsh_optim::{rmsprop::RMSprop, Optimizer};
 #[pyclass(name = "RMSprop", extends = PyOptimizer)]
 pub struct PyRMSprop {
     rmsprop: RMSprop,
-    param_groups: Vec<HashMap<String, PyObject>>,
+    param_groups: Vec<HashMap<String, Py<PyAny>>>,
     lr: f32,
     alpha: f32,
     eps: f32,
@@ -59,7 +59,7 @@ impl PyRMSprop {
 
         // Create parameter groups
         let mut param_group_data = HashMap::new();
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             param_group_data.insert(
                 "alpha".to_string(),
                 alpha.into_pyobject(py).unwrap().into_any().unbind(),
@@ -101,7 +101,12 @@ impl PyRMSprop {
 
     /// Perform a single optimization step
     fn step(&mut self) -> PyResult<()> {
-        py_optimizer_result!(self.rmsprop.step())?;
+        self.rmsprop.step().map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                "Optimizer step failed: {}",
+                e
+            ))
+        })?;
         Ok(())
     }
 
@@ -112,9 +117,9 @@ impl PyRMSprop {
     }
 
     /// Get parameter groups
-    fn param_groups(&self) -> PyResult<Vec<HashMap<String, PyObject>>> {
+    fn param_groups(&self) -> PyResult<Vec<HashMap<String, Py<PyAny>>>> {
         // Manual clone since Py<PyAny> doesn't implement Clone
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let cloned_groups = self
                 .param_groups
                 .iter()
@@ -130,9 +135,9 @@ impl PyRMSprop {
     }
 
     /// Get current state
-    fn state(&self) -> PyResult<HashMap<String, PyObject>> {
+    fn state(&self) -> PyResult<HashMap<String, Py<PyAny>>> {
         let mut state = HashMap::new();
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             state.insert(
                 "step".to_string(),
                 0i64.into_pyobject(py).unwrap().into_any().unbind(),
@@ -166,9 +171,9 @@ impl PyRMSprop {
     }
 
     /// Get defaults
-    fn defaults(&self) -> PyResult<HashMap<String, PyObject>> {
+    fn defaults(&self) -> PyResult<HashMap<String, Py<PyAny>>> {
         let mut defaults = HashMap::new();
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             defaults.insert(
                 "lr".to_string(),
                 self.lr.into_pyobject(py).unwrap().into_any().unbind(),
@@ -211,7 +216,7 @@ impl PyRMSprop {
     #[setter]
     fn set_lr(&mut self, lr: f32) {
         self.lr = lr;
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             for param_group in &mut self.param_groups {
                 param_group.insert(
                     "lr".to_string(),

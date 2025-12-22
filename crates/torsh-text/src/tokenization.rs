@@ -1,17 +1,14 @@
 use crate::{Result, TextError};
 use scirs2_core::random::{Random, Rng};
 use std::cmp::Ordering;
-use std::collections::{BinaryHeap, HashMap};
+use std::collections::HashMap;
 use tokenizers::{
     models::{bpe::BPE, unigram::Unigram, wordpiece::WordPiece},
-    normalizers::{BertNormalizer, Lowercase, StripAccents, NFD},
-    pre_tokenizers::{bert::BertPreTokenizer, byte_level::ByteLevel, whitespace::Whitespace},
+    normalizers::BertNormalizer,
+    pre_tokenizers::{bert::BertPreTokenizer, byte_level::ByteLevel},
     processors::bert::BertProcessing,
-    tokenizer::{Encoding, Model, Tokenizer as HFTokenizer},
-    Tokenizer as TokenizerTrait,
+    tokenizer::Tokenizer as HFTokenizer,
 };
-use torsh_core::device::DeviceType;
-use torsh_tensor::Tensor;
 use unicode_segmentation::UnicodeSegmentation;
 
 /// Type alias for complex tensor output from tokenizers
@@ -523,7 +520,7 @@ pub mod advanced {
             let mut rng = Random::seed(0);
             merges
                 .iter()
-                .filter(|_| rng.gen::<f32>() > self.dropout_prob)
+                .filter(|_| rng.random::<f32>() > self.dropout_prob)
                 .cloned()
                 .collect()
         }
@@ -537,7 +534,7 @@ pub mod advanced {
             let mut rng = Random::seed(0);
             vocab
                 .iter()
-                .filter(|(_, _)| rng.gen::<f32>() > self.dropout_prob)
+                .filter(|(_, _)| rng.random::<f32>() > self.dropout_prob)
                 .map(|(k, v)| (k.clone(), *v))
                 .collect()
         }

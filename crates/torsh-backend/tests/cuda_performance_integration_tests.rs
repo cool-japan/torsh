@@ -4,7 +4,7 @@
 //! memory optimization, kernel fusion, intelligent task scheduling, and the comprehensive
 //! performance coordinator under realistic workload conditions.
 
-#![cfg(feature = "cuda")]
+#![cfg(cuda_available)]
 
 use futures;
 use std::collections::HashMap;
@@ -34,7 +34,7 @@ use torsh_backend::cuda::{
 };
 
 /// Comprehensive integration test suite for CUDA performance optimization
-#[cfg(all(test, feature = "cuda"))]
+#[cfg(all(test, cuda_available))]
 mod integration_tests {
     use super::*;
 
@@ -836,7 +836,7 @@ mod integration_tests {
 }
 
 /// Performance regression detection tests
-#[cfg(all(test, feature = "cuda"))]
+#[cfg(all(test, cuda_available))]
 mod regression_tests {
     use super::*;
 
@@ -905,7 +905,7 @@ mod regression_tests {
 }
 
 /// Stress testing for high-load scenarios
-#[cfg(all(test, feature = "cuda"))]
+#[cfg(all(test, cuda_available))]
 mod stress_tests {
     use super::*;
 

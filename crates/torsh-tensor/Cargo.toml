@@ -17,7 +17,6 @@ workspace = true
 torsh-core = { workspace = true }
 # torsh-autograd = { workspace = true, optional = true }
 torsh-backend = { workspace = true, optional = true }
-scirs2 = { workspace = true }
 scirs2-core = { workspace = true }
 scirs2-autograd = { workspace = true }
 scirs2-stats = { workspace = true }
@@ -26,7 +25,7 @@ numrs2 = { workspace = true }
 # Utilities
 num-traits = { workspace = true }
 num-complex = { workspace = true }
-half = "2.6"
+half = "2.7"
 # ndarray = { workspace = true, optional = true }  # REMOVED: Use scirs2_core::ndarray instead (SciRS2 POLICY)
 rayon = { workspace = true }  # Keep temporarily during migration
 parking_lot = { workspace = true }
@@ -41,10 +40,14 @@ serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 bincode = { workspace = true, optional = true }
 hdf5 = { version = "0.8", optional = true }
-arrow = { version = "56.2", optional = true }
-parquet = { version = "56.2", optional = true }
+arrow = { version = "57.1", optional = true }
+parquet = { version = "57.1", optional = true }
 onnx = { version = "0.1.0", optional = true }
 protobuf = { version = "3.7", optional = true }
+
+# Operation logging
+chrono = { version = "0.4", optional = true }
+once_cell = "1.21"
 
 # Random number generation - USE SCIRS2 ONLY (POLICY COMPLIANCE)
 # rand = "0.9"           # REMOVED: Use scirs2_core::random instead
@@ -63,15 +66,20 @@ serde_json = { workspace = true }
 [features]
 default = ["std"]
 std = ["torsh-core/std"]
-# autograd = ["torsh-autograd"]
+autograd = []
 async = ["tokio"]
 simd = ["torsh-backend", "torsh-backend/simd"]
+gpu = ["torsh-backend"]
+profiling = []
+memory_efficient = []
 # ndarray-interop = ["ndarray"]  # REMOVED: Use scirs2_core::ndarray instead (SciRS2 POLICY)
 serialize = ["serde", "serde_json", "bincode", "torsh-core/serialize"]
 serialize-hdf5 = ["serialize", "hdf5"]
 serialize-arrow = ["serialize", "arrow", "parquet"]
 serialize-onnx = ["serialize", "onnx", "protobuf"]
 serialize-all = ["serialize", "serialize-hdf5", "serialize-arrow", "serialize-onnx"]
+operation-logging = ["serde", "serde_json", "chrono"]
+memory-profiling = ["serde", "serde_json"]
 debug = []
 trace = []
 bench = []

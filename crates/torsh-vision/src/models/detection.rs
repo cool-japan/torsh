@@ -1,3 +1,5 @@
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use anyhow;
 use torsh_core::dtype::DType;
 use torsh_core::{Device, DeviceType};
@@ -317,8 +319,8 @@ impl YOLOv5 {
     fn focus_transform(&self, x: &Tensor) -> Result<Tensor> {
         // Split image into 4 quadrants and stack as channels
         // Input: [B, 3, H, W] -> Output: [B, 12, H/2, W/2]
-        let b = x.size(0)?;
-        let c = x.size(1)?;
+        let _b = x.size(0)?;
+        let _c = x.size(1)?;
         let h = x.size(2)?;
         let w = x.size(3)?;
 

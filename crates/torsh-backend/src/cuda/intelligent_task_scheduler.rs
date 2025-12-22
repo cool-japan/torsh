@@ -5,15 +5,10 @@
 //! predictive load balancing, and adaptive execution strategies to maximize CUDA performance
 //! and minimize resource contention across multiple GPU devices.
 
-use scirs2_core::ndarray::{array, Array1, Array2, ArrayView1};
-use scirs2_core::random::Random;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering as CmpOrdering;
-use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque};
-use std::sync::{
-    atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
-    Arc, Mutex, RwLock,
-};
+use std::collections::{BinaryHeap, HashMap, VecDeque};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant, SystemTime};
 
 /// Intelligent CUDA task scheduling system
@@ -826,13 +821,35 @@ default_placeholder_type!(AvailableResources);
 default_placeholder_type!(DevicePerformanceMetrics);
 default_placeholder_type!(PriorityAdjustments);
 default_placeholder_type!(ResourceAllocation);
-default_placeholder_type!(PerformancePrediction);
 default_placeholder_type!(DependencyAnalysisResult);
-default_placeholder_type!(DeviceSelectionResult);
 default_placeholder_type!(DeviceUpdateResult);
 default_placeholder_type!(PerformanceAnalysisResult);
 default_placeholder_type!(LoadBalancingDecision);
-default_placeholder_type!(StrategySelectionResult);
+
+/// Performance prediction result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerformancePrediction {
+    /// Estimated duration for task execution
+    pub estimated_duration: Duration,
+}
+
+/// Device selection result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceSelectionResult {
+    /// Selected device ID
+    pub selected_device: String,
+    /// Estimated start time
+    pub estimated_start_time: SystemTime,
+    /// Estimated completion time
+    pub estimated_completion_time: SystemTime,
+}
+
+/// Strategy selection result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StrategySelectionResult {
+    /// Selected execution strategy
+    pub selected_strategy: ExecutionStrategyType,
+}
 default_placeholder_type!(TaskSchedulingDecision);
 default_placeholder_type!(TaskExecutionResult);
 default_placeholder_type!(CycleStatistics);

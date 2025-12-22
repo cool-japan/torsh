@@ -1,4 +1,323 @@
-//! Image processing operations
+//! Image Processing Operations
+//!
+//! This module provides comprehensive image processing operations for computer vision
+//! and deep learning applications. All operations are designed to work with tensors
+//! in standard image formats (CHW or NCHW).
+//!
+//! # Mathematical Foundation
+//!
+//! ## Image Representation
+//!
+//! Images are represented as tensors with dimensions:
+//! - **2D**: `[H, W]` - Grayscale images
+//! - **3D**: `[C, H, W]` - Multi-channel images (RGB, etc.)
+//! - **4D**: `[N, C, H, W]` - Batched images
+//!
+//! where:
+//! - `N` = batch size
+//! - `C` = number of channels
+//! - `H` = height (rows)
+//! - `W` = width (columns)
+//!
+//! ## Interpolation Methods
+//!
+//! ### Nearest Neighbor
+//! ```text
+//! I_out(x, y) = I_in(round(x * scale_x), round(y * scale_y))
+//! ```
+//! - **Complexity**: O(1) per pixel
+//! - **Quality**: Blocky, preserves sharp edges
+//! - **Use case**: Fast resizing, pixel art
+//!
+//! ### Bilinear Interpolation
+//! ```text
+//! I_out(x, y) = Σᵢ Σⱼ w(i,j) * I_in(x+i, y+j)
+//!
+//! where w(i,j) = (1 - dx) * (1 - dy)  for i=0, j=0
+//!              = dx * (1 - dy)        for i=1, j=0
+//!              = (1 - dx) * dy        for i=0, j=1
+//!              = dx * dy              for i=1, j=1
+//! ```
+//! - **Complexity**: O(4) per pixel (4 neighbor lookups)
+//! - **Quality**: Smooth, good for photos
+//! - **Use case**: Standard resizing, transformations
+//!
+//! ### Bicubic Interpolation
+//! ```text
+//! I_out(x, y) = Σᵢ₌₀³ Σⱼ₌₀³ w(i,j) * I_in(x+i-1, y+j-1)
+//!
+//! where w(i,j) uses cubic kernel:
+//! k(t) = { (a+2)|t|³ - (a+3)|t|² + 1           for |t| ≤ 1
+//!        { a|t|³ - 5a|t|² + 8a|t| - 4a         for 1 < |t| < 2
+//!        { 0                                    for |t| ≥ 2
+//!
+//! with a = -0.5 (most common)
+//! ```
+//! - **Complexity**: O(16) per pixel (4×4 neighborhood)
+//! - **Quality**: High quality, smooth gradients
+//! - **Use case**: High-quality resizing, professional graphics
+//!
+//! ## Color Space Conversions
+//!
+//! ### RGB to Grayscale
+//! ```text
+//! Y = 0.299 * R + 0.587 * G + 0.114 * B  (luminosity method)
+//! ```
+//!
+//! ### RGB to HSV
+//! ```text
+//! V = max(R, G, B)
+//! S = (V - min(R, G, B)) / V  if V ≠ 0, else 0
+//! H = { 60° × (G - B) / (V - min)        if V = R
+//!     { 60° × (2 + (B - R) / (V - min))  if V = G
+//!     { 60° × (4 + (R - G) / (V - min))  if V = B
+//! ```
+//!
+//! ## Filtering Operations
+//!
+//! ### Gaussian Filter
+//! ```text
+//! G(x, y) = (1 / (2πσ²)) * exp(-(x² + y²) / (2σ²))
+//!
+//! Kernel size: typically ⌈6σ⌉ to capture 99.7% of distribution
+//! ```
+//! - **Purpose**: Blur, noise reduction, anti-aliasing
+//! - **Properties**: Linear, separable, isotropic
+//!
+//! ### Sobel Filter
+//! ```text
+//! Gₓ = [-1  0  1]      Gᵧ = [-1 -2 -1]
+//!      [-2  0  2]           [ 0  0  0]
+//!      [-1  0  1]           [ 1  2  1]
+//!
+//! Magnitude = √(Gₓ² + Gᵧ²)
+//! Direction = atan2(Gᵧ, Gₓ)
+//! ```
+//! - **Purpose**: Edge detection, gradient computation
+//! - **Properties**: First derivative approximation
+//!
+//! ### Laplacian Filter
+//! ```text
+//! L = [ 0  1  0]      or    L = [ 1  1  1]
+//!     [ 1 -4  1]            [ 1 -8  1]
+//!     [ 0  1  0]            [ 1  1  1]
+//!
+//! ∇²I ≈ ∂²I/∂x² + ∂²I/∂y²
+//! ```
+//! - **Purpose**: Edge detection, feature enhancement
+//! - **Properties**: Second derivative, rotation invariant
+//!
+//! ## Morphological Operations
+//!
+//! ### Erosion
+//! ```text
+//! (A ⊖ B)(x, y) = min{A(x+i, y+j) | (i,j) ∈ B}
+//! ```
+//! - **Effect**: Shrinks bright regions, removes small objects
+//!
+//! ### Dilation
+//! ```text
+//! (A ⊕ B)(x, y) = max{A(x+i, y+j) | (i,j) ∈ B}
+//! ```
+//! - **Effect**: Expands bright regions, fills holes
+//!
+//! ### Opening
+//! ```text
+//! A ∘ B = (A ⊖ B) ⊕ B
+//! ```
+//! - **Effect**: Removes small objects while preserving shape
+//!
+//! ### Closing
+//! ```text
+//! A • B = (A ⊕ B) ⊖ B
+//! ```
+//! - **Effect**: Fills small holes while preserving shape
+//!
+//! # Performance Characteristics
+//!
+//! | Operation | Complexity | Memory | Notes |
+//! |-----------|------------|--------|-------|
+//! | Resize (nearest) | O(N×C×H×W) | O(output) | Fastest |
+//! | Resize (bilinear) | O(4×N×C×H×W) | O(output) | Good quality/speed |
+//! | Resize (bicubic) | O(16×N×C×H×W) | O(output) | Best quality |
+//! | Gaussian blur | O(N×C×H×W×k²) | O(output + kernel) | Separable: O(2k) |
+//! | Sobel | O(9×N×C×H×W) | O(output) | Fixed 3×3 kernel |
+//! | Color conversion | O(N×H×W) | O(output) | Element-wise |
+//! | Morphology | O(N×C×H×W×k²) | O(output) | Depends on structuring element |
+//!
+//! # Common Use Cases
+//!
+//! ## Data Augmentation
+//! ```rust
+//! use torsh_functional::image::{resize, rotate, adjust_brightness};
+//!
+//! // Resize for different input sizes
+//! let resized = resize(&image, (224, 224), InterpolationMode::Bilinear, true)?;
+//!
+//! // Random rotation for augmentation
+//! let rotated = rotate(&image, 15.0, InterpolationMode::Bilinear)?;
+//!
+//! // Brightness adjustment
+//! let brightened = adjust_brightness(&image, 1.2)?;
+//! ```
+//!
+//! ## Preprocessing Pipelines
+//! ```rust
+//! // Normalize to [-1, 1] range
+//! let normalized = (image - 0.5) * 2.0;
+//!
+//! // Apply Gaussian blur for smoothing
+//! let smoothed = gaussian_blur(&normalized, 1.5)?;
+//!
+//! // Convert to grayscale for single-channel networks
+//! let gray = rgb_to_grayscale(&smoothed)?;
+//! ```
+//!
+//! ## Feature Extraction
+//! ```rust
+//! // Edge detection for feature maps
+//! let edges = sobel_filter(&image)?;
+//!
+//! // Multi-scale analysis
+//! let pyramid = vec![
+//!     resize(&image, (224, 224), InterpolationMode::Bilinear, false)?,
+//!     resize(&image, (112, 112), InterpolationMode::Bilinear, false)?,
+//!     resize(&image, (56, 56), InterpolationMode::Bilinear, false)?,
+//! ];
+//! ```
+//!
+//! # Advanced Algorithms
+//!
+//! ## Separable Filtering
+//!
+//! Many 2D filters can be decomposed into 1D operations:
+//! ```text
+//! K₂D = K₁D_vertical ⊗ K₁D_horizontal
+//!
+//! Complexity reduction: O(k²) → O(2k) per pixel
+//! ```
+//! **Examples**: Gaussian blur, box filter, motion blur
+//!
+//! ## Image Pyramid
+//!
+//! Multi-scale representation for coarse-to-fine processing:
+//! ```text
+//! Level 0: Original image I₀
+//! Level k: Iₖ = downsample(Iₖ₋₁) by factor 2
+//! ```
+//! **Applications**:
+//! - Object detection at multiple scales
+//! - Feature matching (SIFT, SURF)
+//! - Image blending (Laplacian pyramids)
+//!
+//! ## Integral Images (Summed Area Tables)
+//!
+//! Fast computation of rectangular region sums:
+//! ```text
+//! II(x, y) = Σᵢ≤ₓ Σⱼ≤y I(i, j)
+//!
+//! Rectangle sum = II(x₂,y₂) - II(x₁,y₂) - II(x₂,y₁) + II(x₁,y₁)
+//! ```
+//! **Complexity**: O(1) per query after O(HW) preprocessing
+//!
+//! **Applications**:
+//! - Box filtering
+//! - Haar-like features (face detection)
+//! - Adaptive thresholding
+//!
+//! ## Frequency Domain Processing
+//!
+//! Using Fourier transforms for global operations:
+//! ```text
+//! I_filtered = ℱ⁻¹(ℱ(I) · H)
+//! ```
+//! where H is the frequency domain filter.
+//!
+//! **Advantages**:
+//! - O(n log n) complexity for large kernels (via FFT)
+//! - Ideal for global operations (deconvolution, frequency-based filtering)
+//!
+//! ## Bilateral Filtering
+//!
+//! Edge-preserving smoothing:
+//! ```text
+//! BF(x) = (1/W) Σₚ G_σₛ(‖p-x‖) · G_σᵣ(|I(p)-I(x)|) · I(p)
+//! ```
+//! where:
+//! - G_σₛ: Spatial Gaussian (distance weight)
+//! - G_σᵣ: Range Gaussian (intensity similarity weight)
+//!
+//! **Properties**: Smooths while preserving edges
+//!
+//! ## Non-Maximum Suppression
+//!
+//! For edge thinning in edge detection:
+//! ```text
+//! Keep pixel if it's local maximum along gradient direction
+//! ```
+//! Essential step in Canny edge detection.
+//!
+//! # Computer Vision Applications
+//!
+//! ## Image Classification Preprocessing
+//! 1. Resize to fixed size (224×224 for ImageNet)
+//! 2. Normalize: μ=0, σ=1 per channel
+//! 3. Data augmentation: random crops, flips, color jitter
+//!
+//! ## Object Detection Preprocessing
+//! 1. Multi-scale processing (image pyramids)
+//! 2. Aspect ratio preservation with padding
+//! 3. Anchor-based or anchor-free coordinate systems
+//!
+//! ## Semantic Segmentation
+//! 1. High-resolution input preservation
+//! 2. Multi-scale feature extraction
+//! 3. Skip connections for fine details
+//!
+//! ## Style Transfer
+//! 1. Content loss: Feature matching in conv layers
+//! 2. Style loss: Gram matrix matching
+//! 3. Color space considerations (RGB vs LAB)
+//!
+//! # Best Practices
+//!
+//! 1. **Interpolation Selection**:
+//!    - Nearest: Masks, labels, pixel art, segmentation maps
+//!    - Bilinear: General purpose, good balance of speed/quality
+//!    - Bicubic: High quality, when quality matters more than speed
+//!    - Lanczos: Highest quality, slowest, professional graphics
+//!
+//! 2. **Anti-aliasing**:
+//!    - Always enable when downsampling > 2× to avoid Moiré patterns
+//!    - Use Gaussian pre-filtering for high-quality downsampling
+//!
+//! 3. **Color Space Selection**:
+//!    - RGB: Display, color manipulation, neural network input
+//!    - HSV: Hue/saturation adjustments, color-based segmentation
+//!    - LAB: Perceptually uniform, better for style transfer
+//!    - Grayscale: Edge detection, classical CV algorithms, faster processing
+//!
+//! 4. **Memory Efficiency**:
+//!    - Process in batches for large datasets
+//!    - Use in-place operations where possible
+//!    - Consider image pyramids for multi-scale processing
+//!
+//! 5. **Numerical Stability**:
+//!    - Normalize pixel values to [0, 1] or [-1, 1]
+//!    - Use double precision for accumulation in filters
+//!    - Clamp outputs to valid range after operations
+//!
+//! 6. **Padding Strategies**:
+//!    - Zero padding: Fast, but introduces boundary artifacts
+//!    - Reflection: Good for natural images
+//!    - Replication: Reduces boundary artifacts
+//!    - Circular: For periodic patterns
+//!
+//! 7. **Performance Optimization**:
+//!    - Use separable filters when possible
+//!    - Exploit SIMD for element-wise operations
+//!    - Pre-compute lookup tables for repeated operations
+//!    - Cache-friendly memory access patterns
 
 use torsh_core::{Result as TorshResult, TorshError};
 use torsh_tensor::Tensor;

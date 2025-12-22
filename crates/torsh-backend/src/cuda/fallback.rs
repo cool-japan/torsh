@@ -6,15 +6,14 @@
 use crate::backend::{
     Backend, BackendCapabilities, BackendCore, BackendDeviceManager, BackendExecutor,
     BackendLifecycle, BackendOperations, BackendOps, BackendResourceManager, BackendType,
-    ExtendedCapabilities, OperationsBundle, PerformanceHints
+    ExtendedCapabilities, OperationsBundle, PerformanceHints,
 };
 use crate::error::BackendError;
 use crate::{
-    Buffer, BufferDescriptor, Device, Kernel, KernelDescriptor, MemoryManager, Profiler,
-    BackendResult
+    BackendResult, Buffer, BufferDescriptor, Device, Kernel, KernelDescriptor, MemoryManager,
+    Profiler,
 };
-use std::sync::Arc;
-use torsh_core::{device::DeviceType, DType, error::TorshError};
+use torsh_core::{device::DeviceType, error::TorshError};
 
 /// Fallback CUDA error type
 #[derive(Debug, Clone)]
@@ -408,7 +407,10 @@ impl BackendResourceManager for CudaBackend {
         Err(TorshError::BackendError("CUDA not available".to_string()))
     }
 
-    fn memory_manager(&self, _device: &Device) -> BackendResult<Box<dyn MemoryManager + Send + Sync>> {
+    fn memory_manager(
+        &self,
+        _device: &Device,
+    ) -> BackendResult<Box<dyn MemoryManager + Send + Sync>> {
         Err(TorshError::BackendError("CUDA not available".to_string()))
     }
 
@@ -487,7 +489,12 @@ impl BackendOperations for CudaBackend {
 
     fn sparse_ops(&self) -> Box<dyn crate::sparse_ops::SparseOps<f32>> {
         Box::new(crate::sparse_ops::DefaultSparseOps::new(
-            crate::Device::new(0, DeviceType::Cuda(0), "CUDA Fallback".to_string(), crate::DeviceInfo::default())
+            crate::Device::new(
+                0,
+                DeviceType::Cuda(0),
+                "CUDA Fallback".to_string(),
+                crate::DeviceInfo::default(),
+            ),
         ))
     }
 

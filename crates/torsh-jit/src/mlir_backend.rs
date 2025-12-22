@@ -17,7 +17,7 @@ use crate::{
 use petgraph::visit::EdgeRef;
 use std::collections::HashMap;
 use std::fmt::Write;
-use torsh_core::{DType, Shape};
+use torsh_core::Shape;
 
 /// MLIR backend for code generation
 #[derive(Debug, Clone)]
@@ -873,7 +873,7 @@ impl MlirOptimizer {
 mod tests {
     use super::*;
     use crate::graph::{ComputationGraph, ConstantInfo, Operation};
-    use torsh_core::DeviceType;
+    use torsh_core::{DType, DeviceType};
 
     #[test]
     fn test_mlir_backend_creation() {

@@ -96,6 +96,7 @@ pub mod filters;
 pub mod performance;
 pub mod resampling;
 pub mod spectral;
+pub mod streaming;
 pub mod wavelets;
 pub mod windows;
 
@@ -114,11 +115,22 @@ pub use filters::{convolve1d, correlate1d};
 pub use performance::{
     MemoryEfficientProcessor, OptimizationLevel, PerformanceConfig, SIMDSignalProcessor,
 };
-// pub use resampling::{}; // Simplified implementation - exports will be added when stable
+pub use resampling::{
+    decimate, interpolate, linear_resample, InterpolationProcessor, InterpolationType,
+    PolyphaseResamplerConfig, PolyphaseResamplerProcessor, RationalResamplerProcessor,
+    SincResamplerConfig, SincResamplerProcessor,
+};
 pub use spectral::{
     create_fb_matrix, inverse_mel_scale, istft, mel_scale, mel_spectrogram, spectrogram, stft,
 };
-// pub use wavelets::{}; // Simplified implementation - exports will be added when stable
+pub use streaming::{
+    ChunkedProcessorConfig, ChunkedSignalProcessor, OverlapAddProcessor, RingBuffer,
+    StreamingFilterProcessor, StreamingProcessor, StreamingSTFTProcessor,
+};
+pub use wavelets::{
+    ContinuousWaveletProcessor, DiscreteWaveletProcessor, LiftingSchemeProcessor, ThresholdMethod,
+    WaveletDenoiser, WaveletPacketProcessor, WaveletType, WaveletUtils,
+};
 pub use windows::{
     bartlett_window, blackman_window, cosine_window, exponential_window, gaussian_window,
     hamming_window, hann_window, kaiser_window, tukey_window, window, Window,
@@ -132,6 +144,7 @@ pub mod prelude {
     pub use crate::performance::*;
     pub use crate::resampling::*;
     pub use crate::spectral::*;
+    pub use crate::streaming::*;
     pub use crate::wavelets::*;
     pub use crate::windows::*;
 
@@ -140,8 +153,6 @@ pub mod prelude {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_module_loading() {
         // Basic test to ensure the module compiles and loads

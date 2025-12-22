@@ -5,11 +5,11 @@
 //! for understanding the performance characteristics of the gradient computation
 //! engine in neural network training.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use super::common::*;
-use crate::{BenchConfig, BenchRunner, Benchmarkable};
-use std::time::{Duration, Instant};
-use torsh_core::device::DeviceType;
-use torsh_core::dtype::DType;
+use crate::{BenchRunner, Benchmarkable};
+use std::time::Duration;
 use torsh_tensor::{creation::*, Tensor};
 
 // ================================================================================================
@@ -138,7 +138,7 @@ impl Benchmarkable for BackwardPassBench {
         forward_time += forward_duration;
 
         // Backward pass with timing
-        let (backward_result, backward_duration) = measure_execution_time(|| {
+        let (_backward_result, backward_duration) = measure_execution_time(|| {
             // Simulate backward pass - need scalar for backward()
             let scalar_result = forward_result.sum().unwrap();
             scalar_result.backward().unwrap();
@@ -461,7 +461,7 @@ impl Benchmarkable for CheckpointingBench {
             total_forward_time += forward_time;
 
             // Simulate checkpointing behavior
-            let (backward_result, backward_time, recomputation_time) =
+            let (_backward_result, backward_time, recomputation_time) =
                 match self.checkpointing_strategy {
                     CheckpointStrategy::None => {
                         // Standard backward pass - keep all intermediates
@@ -851,6 +851,7 @@ pub fn run_autograd_benchmarks() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use torsh_core::DeviceType;
 
     #[test]
     fn test_indexing_bench() {
@@ -893,7 +894,8 @@ mod tests {
             for computation in output.gradient_computations {
                 assert!(!computation.operation_name.is_empty());
                 assert!(computation.forward_time >= Duration::from_nanos(0));
-                assert!(computation.memory_overhead >= 0);
+                // memory_overhead is usize, always >= 0, so just check it exists
+                let _ = computation.memory_overhead;
             }
         }
     }
@@ -920,7 +922,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_gradient_clipping_bench() {
         let clipping_types = vec![
             ClippingType::NormClipping,

@@ -3,14 +3,11 @@
 //! This module provides optimization algorithms optimized for sparse tensors,
 //! including SGD, Adam, AdamW, and RMSprop with efficient sparse parameter updates.
 
-use crate::{CooTensor, CscTensor, CsrTensor, SparseTensor, TorshResult};
-use scirs2_core::random::{Random, Rng};
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
+use crate::{CooTensor, CsrTensor, SparseTensor, TorshResult};
 use std::collections::HashMap;
-use torsh_core::{Shape, TorshError};
-use torsh_tensor::{
-    creation::{randn, zeros},
-    Tensor,
-};
+use torsh_core::TorshError;
 
 /// Trait for sparse optimizers
 pub trait SparseOptimizer {
@@ -83,14 +80,14 @@ impl SparseOptimizer for SparseSGD {
             self.momentum_buffers.push(None);
         }
 
-        for (i, (param, grad)) in parameters.iter_mut().zip(gradients.iter()).enumerate() {
+        for (_i, (param, grad)) in parameters.iter_mut().zip(gradients.iter()).enumerate() {
             // Apply weight decay and momentum (simplified for space)
             let update_coo = grad.to_coo()?;
             let update_triplets = update_coo.triplets();
 
             // Apply update: param = param - lr * grad
             let param_coo = param.to_coo()?;
-            let mut param_triplets = param_coo.triplets();
+            let param_triplets = param_coo.triplets();
 
             // Update parameters based on gradients
             let mut updated_positions = HashMap::new();
@@ -222,7 +219,7 @@ impl SparseOptimizer for SparseAdam {
         let bias_correction1 = 1.0 - self.beta1.powi(self.step_count as i32);
         let bias_correction2 = 1.0 - self.beta2.powi(self.step_count as i32);
 
-        for (i, (param, grad)) in parameters.iter_mut().zip(gradients.iter()).enumerate() {
+        for (_i, (param, grad)) in parameters.iter_mut().zip(gradients.iter()).enumerate() {
             // Simplified Adam update for sparse tensors
             let grad_coo = grad.to_coo()?;
             let grad_triplets = grad_coo.triplets();
@@ -360,7 +357,7 @@ impl SparseOptimizer for SparseAdamW {
             }
         }
 
-        for (i, (param, grad)) in parameters.iter_mut().zip(gradients.iter()).enumerate() {
+        for (_i, (param, grad)) in parameters.iter_mut().zip(gradients.iter()).enumerate() {
             // Simplified AdamW update for sparse tensors (decoupled weight decay)
             let grad_coo = grad.to_coo()?;
             let param_coo = param.to_coo()?;
@@ -490,7 +487,7 @@ impl SparseOptimizer for SparseRMSprop {
             }
         }
 
-        for (i, (param, grad)) in parameters.iter_mut().zip(gradients.iter()).enumerate() {
+        for (_i, (param, grad)) in parameters.iter_mut().zip(gradients.iter()).enumerate() {
             // Simplified RMSprop update for sparse tensors
             let grad_coo = grad.to_coo()?;
             let param_coo = param.to_coo()?;

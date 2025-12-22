@@ -1,16 +1,8 @@
 //! Configuration and core types for the optimization advisor
 
-use crate::{
-    abstract_interpretation::{AbstractAnalysisResult, AbstractValue},
-    metaprogramming::GraphReflection,
-    partial_evaluation::OptimizedGraph,
-    profiler::ProfilingSession,
-    symbolic_execution::SymbolicExecutionResult,
-    ComputationGraph, JitError, JitResult, NodeId,
-};
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use crate::{profiler::ProfilingSession, ComputationGraph, NodeId};
+use std::collections::HashMap;
 use std::time::{Duration, SystemTime};
-use torsh_core::{DType, Shape};
 
 /// Configuration for the optimization advisor
 #[derive(Debug, Clone)]

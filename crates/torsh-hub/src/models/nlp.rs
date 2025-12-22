@@ -521,6 +521,11 @@ impl BertEncoder {
         })
     }
 
+    /// Get number of transformer layers
+    pub fn num_layers(&self) -> usize {
+        self.num_layers
+    }
+
     /// Create BERT-Base configuration
     pub fn bert_base(vocab_size: usize) -> Result<Self> {
         Self::new(vocab_size, 768, 12, 12, 3072, 512, 0.1)
@@ -647,6 +652,11 @@ impl BertEmbeddings {
             dropout: Dropout::new(dropout),
             max_position_embeddings,
         })
+    }
+
+    /// Get maximum position embeddings
+    pub fn max_position_embeddings(&self) -> usize {
+        self.max_position_embeddings
     }
 }
 
@@ -792,6 +802,11 @@ impl GPTDecoder {
         })
     }
 
+    /// Get number of transformer layers
+    pub fn num_layers(&self) -> usize {
+        self.num_layers
+    }
+
     /// Create GPT-2 Small configuration
     pub fn gpt2_small(vocab_size: usize) -> Result<Self> {
         Self::new(vocab_size, 768, 12, 12, 3072, 1024, 0.1)
@@ -907,6 +922,11 @@ impl GPTEmbeddings {
             max_position_embeddings,
         })
     }
+
+    /// Get maximum position embeddings
+    pub fn max_position_embeddings(&self) -> usize {
+        self.max_position_embeddings
+    }
 }
 
 impl Module for GPTEmbeddings {
@@ -997,7 +1017,7 @@ pub mod pretrained {
     /// Load BERT-Base with pretrained weights
     pub fn bert_base_uncased(pretrained: bool) -> Result<Box<dyn Module>> {
         let vocab_size = 30522; // BERT vocabulary size
-        let mut model = BertEncoder::bert_base(vocab_size)?;
+        let model = BertEncoder::bert_base(vocab_size)?;
 
         if pretrained {
             println!(
@@ -1011,7 +1031,7 @@ pub mod pretrained {
     /// Load BERT-Large with pretrained weights
     pub fn bert_large_uncased(pretrained: bool) -> Result<Box<dyn Module>> {
         let vocab_size = 30522;
-        let mut model = BertEncoder::bert_large(vocab_size)?;
+        let model = BertEncoder::bert_large(vocab_size)?;
 
         if pretrained {
             println!(
@@ -1025,7 +1045,7 @@ pub mod pretrained {
     /// Load GPT-2 Small with pretrained weights
     pub fn gpt2_small(pretrained: bool) -> Result<Box<dyn Module>> {
         let vocab_size = 50257; // GPT-2 vocabulary size
-        let mut model = GPTDecoder::gpt2_small(vocab_size)?;
+        let model = GPTDecoder::gpt2_small(vocab_size)?;
 
         if pretrained {
             println!(
@@ -1039,7 +1059,7 @@ pub mod pretrained {
     /// Load GPT-2 Medium with pretrained weights
     pub fn gpt2_medium(pretrained: bool) -> Result<Box<dyn Module>> {
         let vocab_size = 50257;
-        let mut model = GPTDecoder::gpt2_medium(vocab_size)?;
+        let model = GPTDecoder::gpt2_medium(vocab_size)?;
 
         if pretrained {
             println!(
@@ -1054,7 +1074,6 @@ pub mod pretrained {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use torsh_tensor::creation::randint;
 
     #[test]
     fn test_multi_head_attention_creation() {

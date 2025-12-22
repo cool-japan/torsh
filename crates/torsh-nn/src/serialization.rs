@@ -172,8 +172,9 @@ impl ModelState {
         let mut file = File::open(path)?;
         let mut data = Vec::new();
         file.read_to_end(&mut data)?;
-        let (model_state, _): (ModelState, usize) = bincode::serde::decode_from_slice(&data, bincode::config::standard())
-            .map_err(|e| TorshError::SerializationError(e.to_string()))?;
+        let (model_state, _): (ModelState, usize) =
+            bincode::serde::decode_from_slice(&data, bincode::config::standard())
+                .map_err(|e| TorshError::SerializationError(e.to_string()))?;
         Ok(model_state)
     }
 

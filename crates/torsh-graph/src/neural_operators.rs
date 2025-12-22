@@ -12,13 +12,12 @@
 //! - Spectral graph convolutions with learnable kernels
 //! - Graph wavelet neural operators
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::parameter::Parameter;
 use crate::{GraphData, GraphLayer};
-use scirs2_core::ndarray::{Array1, Array2, ArrayView1, ArrayView2};
-use scirs2_core::random::Random;
-use std::collections::HashMap;
 use torsh_tensor::{
-    creation::{from_vec, ones, randn, zeros},
+    creation::{from_vec, randn, zeros},
     Tensor,
 };
 
@@ -92,7 +91,7 @@ impl GraphFNO {
 
     /// Forward pass through GraphFNO
     pub fn forward(&self, graph: &GraphData) -> GraphData {
-        let num_nodes = graph.num_nodes;
+        let _num_nodes = graph.num_nodes;
 
         // Input projection
         let mut x = graph.x.matmul(&self.input_projection.clone_data()).unwrap();
@@ -550,7 +549,7 @@ impl PhysicsInformedGNN {
     /// Compute graph Laplacian matrix
     fn compute_graph_laplacian(&self, graph: &GraphData) -> Tensor {
         let num_nodes = graph.num_nodes;
-        let num_edges = graph.num_edges;
+        let _num_edges = graph.num_edges;
 
         // Initialize adjacency matrix
         let mut adj_data = vec![0.0f32; num_nodes * num_nodes];

@@ -742,7 +742,7 @@ impl MLAnalyzer {
             }
 
             // Choose next centroid with probability proportional to squared distance
-            let threshold = rng.gen::<f64>() * total_distance;
+            let threshold = rng.random::<f64>() * total_distance;
             let mut cumulative = 0.0;
             let mut chosen_idx = 0;
 
@@ -1048,7 +1048,7 @@ where
     // ✅ SciRS2 Policy Compliant: Using scirs2_core::random instead of direct rand
     let actual_sample_size = sample_size.min(total_size);
     (0..actual_sample_size)
-        .map(|_| rng.gen_range(0..total_size))
+        .map(|_| rng.random_range(0..total_size))
         .collect()
 }
 

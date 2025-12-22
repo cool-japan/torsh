@@ -3,7 +3,7 @@
 //! This module provides advanced analysis capabilities for benchmark results
 //! including statistical analysis, performance trend detection, and detailed reporting.
 
-use crate::{BenchConfig, BenchResult};
+use crate::BenchResult;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

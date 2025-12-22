@@ -3,14 +3,12 @@
 //! This module provides conversion between ToRSh sparse tensors and SciPy sparse matrices,
 //! enabling seamless integration with Python scientific computing ecosystem.
 
-#![recursion_limit = "256"]
-
 #[cfg(feature = "scipy")]
 use numpy::{PyArray1, PyReadonlyArray1};
 #[cfg(feature = "scipy")]
 use pyo3::prelude::*;
 #[cfg(feature = "scipy")]
-use pyo3::types::{PyDict, PyTuple};
+use pyo3::types::PyDict;
 #[cfg(feature = "scipy")]
 use pyo3::Bound;
 
@@ -364,7 +362,7 @@ pub mod python_bindings {
         data: Vec<f64>,
         indices: Vec<usize>,
         indptr: Vec<usize>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let scipy = py.import("scipy.sparse")?;
 
         let data_array = PyArray1::from_vec(py, data);
@@ -389,7 +387,7 @@ pub mod python_bindings {
     /// Import sparse tensor from Python SciPy format
     #[pyfunction]
     pub fn scipy_to_torsh(
-        py: Python,
+        _py: Python,
         scipy_matrix: &Bound<PyAny>,
     ) -> PyResult<(String, (usize, usize), Vec<f64>, Vec<usize>, Vec<usize>)> {
         // Get format

@@ -11,14 +11,71 @@ use std::sync::{Arc, RwLock};
 use torsh_core::{device::DeviceType, dtype::TensorElement, error::Result};
 
 // 🚀 SciRS2 GPU integration for breakthrough performance
+// TODO: scirs2_core::gpu module not available yet
+// #[cfg(feature = "gpu")]
+// use scirs2_core::gpu::{
+//     GpuBuffer, GpuContext, GpuKernel,
+//     // TODO: These types are not yet available in scirs2_core
+//     // CudaBackend, GpuMemoryManager, MetalBackend, OpenClBackend,
+//     // RocmBackend, UnifiedMemory, WebGpuBackend,
+// };
+
+// TODO: Tensor cores not yet available in scirs2_core
+// #[cfg(feature = "gpu")]
+// use scirs2_core::tensor_cores::{AutoTuning, MixedPrecision, TensorCore};
+
+// Placeholder GPU types until scirs2_core::gpu module is available
 #[cfg(feature = "gpu")]
-use scirs2_core::gpu::{
-    CudaBackend, GpuBuffer, GpuContext, GpuKernel, GpuMemoryManager, MetalBackend, OpenClBackend,
-    RocmBackend, UnifiedMemory, WebGpuBackend,
-};
+pub struct GpuContext;
 
 #[cfg(feature = "gpu")]
-use scirs2_core::tensor_cores::{AutoTuning, MixedPrecision, TensorCore};
+pub struct GpuKernel;
+
+#[cfg(feature = "gpu")]
+impl GpuContext {
+    pub fn new() -> Result<Self> {
+        Err(torsh_core::error::TorshError::InvalidArgument(
+            "GPU support temporarily unavailable".to_string(),
+        ))
+    }
+}
+
+#[cfg(feature = "gpu")]
+impl GpuKernel {
+    pub fn load(_context: &GpuContext, _name: &str) -> Result<Self> {
+        Err(torsh_core::error::TorshError::InvalidArgument(
+            "GPU support temporarily unavailable".to_string(),
+        ))
+    }
+
+    pub fn auto_tune(&mut self, _tuning_params: &[(String, f32)]) -> Result<()> {
+        Err(torsh_core::error::TorshError::InvalidArgument(
+            "GPU support temporarily unavailable".to_string(),
+        ))
+    }
+
+    pub fn enable_fusion(&mut self, _enable: bool) -> Result<()> {
+        Err(torsh_core::error::TorshError::InvalidArgument(
+            "GPU support temporarily unavailable".to_string(),
+        ))
+    }
+
+    pub fn enable_tensor_cores(&mut self, _enable: bool) -> Result<()> {
+        Err(torsh_core::error::TorshError::InvalidArgument(
+            "GPU support temporarily unavailable".to_string(),
+        ))
+    }
+
+    pub fn supports_tensor_cores(&self) -> bool {
+        false
+    }
+
+    pub fn execute<T>(&self, _input: &[T], _output: &mut [T]) -> Result<()> {
+        Err(torsh_core::error::TorshError::InvalidArgument(
+            "GPU support temporarily unavailable".to_string(),
+        ))
+    }
+}
 
 /// Device-specific optimization strategies
 #[derive(Debug, Clone)]
@@ -622,7 +679,7 @@ pub fn initialize_global_scheduler() -> Result<()> {
 
 // 🚀 SciRS2 Advanced GPU Integration Functions
 #[cfg(feature = "gpu")]
-impl<T: TensorElement + Copy> Tensor<T> {
+impl<T: TensorElement + Copy + Default> Tensor<T> {
     /// 🚀 Enhanced GPU kernel execution with automatic optimization
     pub fn execute_gpu_kernel(&self, kernel_name: &str, params: Vec<T>) -> Result<Self> {
         let gpu_opt = match self.get_device_optimization(self.device) {
@@ -642,73 +699,75 @@ impl<T: TensorElement + Copy> Tensor<T> {
 
         // Select and execute optimized kernel
         let kernel = self.select_optimal_kernel(&gpu_context, kernel_name, &gpu_opt)?;
-        let output_buffer = kernel.execute(&input_buffer, &params)?;
+
+        // Create output buffer
+        let mut output_buffer = vec![T::default(); input_buffer.len()];
+        kernel.execute(&input_buffer, &mut output_buffer)?;
 
         // Transfer result back with optimal strategy
         self.gpu_buffer_to_tensor(output_buffer, &gpu_context, &gpu_opt)
     }
 
     /// Create optimal GPU context based on backend preference and hardware detection
-    fn create_optimal_gpu_context(&self, gpu_opt: &GpuOptimization) -> Result<GpuContext> {
-        for backend_type in &gpu_opt.backend_preference {
-            match backend_type {
-                GpuBackendType::Cuda => {
-                    if let Ok(context) = CudaBackend::create_context() {
-                        return Ok(context);
-                    }
-                }
-                GpuBackendType::Metal => {
-                    if let Ok(context) = MetalBackend::create_context() {
-                        return Ok(context);
-                    }
-                }
-                GpuBackendType::WebGpu => {
-                    if let Ok(context) = WebGpuBackend::create_context() {
-                        return Ok(context);
-                    }
-                }
-                GpuBackendType::Rocm => {
-                    if let Ok(context) = RocmBackend::create_context() {
-                        return Ok(context);
-                    }
-                }
-                GpuBackendType::OpenCl => {
-                    if let Ok(context) = OpenClBackend::create_context() {
-                        return Ok(context);
-                    }
-                }
-            }
-        }
+    // TODO: Temporarily disabled - backend types not yet available in scirs2_core
+    #[allow(dead_code)]
+    fn create_optimal_gpu_context(&self, _gpu_opt: &GpuOptimization) -> Result<GpuContext> {
+        // TODO: Implement when scirs2_core GPU backends are available
+        // for backend_type in &gpu_opt.backend_preference {
+        //     match backend_type {
+        //         GpuBackendType::Cuda => {
+        //             if let Ok(context) = CudaBackend::create_context() {
+        //                 return Ok(context);
+        //             }
+        //         }
+        //         GpuBackendType::Metal => {
+        //             if let Ok(context) = MetalBackend::create_context() {
+        //                 return Ok(context);
+        //             }
+        //         }
+        //         GpuBackendType::WebGpu => {
+        //             if let Ok(context) = WebGpuBackend::create_context() {
+        //                 return Ok(context);
+        //             }
+        //         }
+        //         GpuBackendType::Rocm => {
+        //             if let Ok(context) = RocmBackend::create_context() {
+        //                 return Ok(context);
+        //             }
+        //         }
+        //         GpuBackendType::OpenCl => {
+        //             if let Ok(context) = OpenClBackend::create_context() {
+        //                 return Ok(context);
+        //             }
+        //         }
+        //     }
+        // }
 
         Err(torsh_core::error::TorshError::InvalidArgument(
-            "No compatible GPU backend found".to_string(),
+            "GPU backend creation temporarily disabled".to_string(),
         ))
     }
 
     /// Create GPU buffer with optimal memory management
-    fn create_gpu_buffer(
-        &self,
-        context: &GpuContext,
-        gpu_opt: &GpuOptimization,
-    ) -> Result<GpuBuffer<T>> {
+    /// TODO: Temporarily disabled - GpuDataType trait requirements
+    #[allow(dead_code)]
+    fn create_gpu_buffer(&self, _context: &GpuContext, _gpu_opt: &GpuOptimization) -> Result<Vec<T>>
+    where
+        T: Copy,
+    {
         let data = self.to_vec()?;
-
-        if gpu_opt.use_unified_memory {
-            // Use unified memory for simplified management
-            GpuBuffer::from_unified_memory(context, &data)
-        } else if gpu_opt.use_pinned_memory {
-            // Use pinned memory for faster transfers
-            GpuBuffer::from_pinned_memory(context, &data)
-        } else {
-            // Standard GPU memory allocation
-            GpuBuffer::from_data(context, &data)
-        }
-        .map_err(|e| {
-            torsh_core::error::TorshError::InvalidArgument(format!(
-                "Failed to create GPU buffer: {}",
-                e
-            ))
-        })
+        // TODO: Return actual GpuBuffer when GpuDataType trait is available
+        // if _gpu_opt.use_unified_memory {
+        //     // Use unified memory for simplified management
+        //     GpuBuffer::from_unified_memory(_context, &data)
+        // } else if _gpu_opt.use_pinned_memory {
+        //     // Use pinned memory for faster transfers
+        //     GpuBuffer::from_pinned_memory(_context, &data)
+        // } else {
+        //     // Standard GPU memory allocation
+        //     GpuBuffer::from_data(_context, &data)
+        // }
+        Ok(data)
     }
 
     /// Select optimal kernel with automatic tuning
@@ -727,38 +786,45 @@ impl<T: TensorElement + Copy> Tensor<T> {
 
         if gpu_opt.auto_kernel_tuning {
             // Automatic performance tuning
-            kernel.auto_tune(self.shape().dims(), self.numel())?;
+            // TODO: Fix tuning params - should be &[(String, f32)]
+            kernel.auto_tune(&[])?;
         }
 
         if gpu_opt.use_tensor_cores && kernel.supports_tensor_cores() {
             // Enable tensor core acceleration for supported operations
-            kernel.enable_tensor_cores()?;
+            kernel.enable_tensor_cores(true)?;
         }
 
         if gpu_opt.kernel_fusion_level > 0 {
             // Apply kernel fusion optimization
-            kernel.enable_fusion(gpu_opt.kernel_fusion_level)?;
+            kernel.enable_fusion(gpu_opt.kernel_fusion_level > 0)?;
         }
 
         Ok(kernel)
     }
 
     /// Convert GPU buffer back to tensor with optimal transfer strategy
+    /// TODO: Temporarily disabled - GpuDataType trait requirements
+    #[allow(dead_code)]
     fn gpu_buffer_to_tensor(
         &self,
-        buffer: GpuBuffer<T>,
-        context: &GpuContext,
-        gpu_opt: &GpuOptimization,
-    ) -> Result<Self> {
-        let data = if gpu_opt.memory_coalescing {
-            // Use memory coalescing for optimal bandwidth
-            buffer.to_vec_coalesced()?
-        } else {
-            // Standard memory transfer
-            buffer.to_vec()?
-        };
+        buffer: Vec<T>, // TODO: Change back to GpuBuffer<T> when available
+        _context: &GpuContext,
+        _gpu_opt: &GpuOptimization,
+    ) -> Result<Self>
+    where
+        T: Copy,
+    {
+        // TODO: Implement proper GPU buffer conversion
+        // let data = if _gpu_opt.memory_coalescing {
+        //     // Use memory coalescing for optimal bandwidth
+        //     buffer.to_vec_coalesced()?
+        // } else {
+        //     // Standard memory transfer
+        //     buffer.to_vec()?
+        // };
 
-        Self::from_data(data, self.shape().dims().to_vec(), self.device)
+        Self::from_data(buffer, self.shape().dims().to_vec(), self.device)
     }
 
     /// 🚀 Multi-GPU tensor distribution with automatic strategy selection
@@ -787,8 +853,9 @@ impl<T: TensorElement + Copy> Tensor<T> {
 
     /// Select optimal multi-GPU strategy based on tensor characteristics
     fn select_optimal_multi_gpu_strategy(&self, gpu_count: usize) -> MultiGpuStrategy {
-        let total_elements = self.numel();
-        let dims = self.shape().dims();
+        let _total_elements = self.numel();
+        let shape = self.shape();
+        let dims = shape.dims();
 
         // Data parallel for large batch dimensions
         if dims.len() > 0 && dims[0] >= gpu_count * 4 {
@@ -811,7 +878,8 @@ impl<T: TensorElement + Copy> Tensor<T> {
 
     /// Data parallel distribution across multiple GPUs
     fn data_parallel_distribution(&self, gpu_count: usize) -> Result<Vec<Self>> {
-        let dims = self.shape().dims();
+        let shape = self.shape();
+        let dims = shape.dims();
         if dims.is_empty() {
             return Err(torsh_core::error::TorshError::InvalidArgument(
                 "Cannot distribute scalar tensor".to_string(),
@@ -850,7 +918,8 @@ impl<T: TensorElement + Copy> Tensor<T> {
 
     /// Model parallel distribution (split feature dimensions)
     fn model_parallel_distribution(&self, gpu_count: usize) -> Result<Vec<Self>> {
-        let dims = self.shape().dims();
+        let shape = self.shape();
+        let dims = shape.dims();
         if dims.len() < 2 {
             return Err(torsh_core::error::TorshError::InvalidArgument(
                 "Model parallel requires at least 2D tensor".to_string(),
@@ -909,17 +978,23 @@ impl<T: TensorElement + Copy> Tensor<T> {
     }
 
     /// 🚀 Mixed precision training support with tensor cores
-    pub fn enable_mixed_precision(&mut self, precision: MixedPrecision) -> Result<()> {
-        if let DeviceOptimization::Gpu(gpu_opt) = self.get_device_optimization(self.device) {
-            if gpu_opt.use_tensor_cores {
-                // Enable tensor core mixed precision
-                TensorCore::enable_mixed_precision(precision)?;
-                return Ok(());
-            }
-        }
+    // TODO: Temporarily disabled - MixedPrecision and TensorCore not yet available in scirs2_core
+    #[allow(dead_code)]
+    pub fn enable_mixed_precision(
+        &mut self,
+        _precision: i32, /* MixedPrecision */
+    ) -> Result<()> {
+        // TODO: Implement when scirs2_core tensor_cores module is available
+        // if let DeviceOptimization::Gpu(gpu_opt) = self.get_device_optimization(self.device) {
+        //     if gpu_opt.use_tensor_cores {
+        //         // Enable tensor core mixed precision
+        //         TensorCore::enable_mixed_precision(precision)?;
+        //         return Ok(());
+        //     }
+        // }
 
         Err(torsh_core::error::TorshError::InvalidArgument(
-            "Mixed precision requires tensor core support".to_string(),
+            "Mixed precision temporarily disabled".to_string(),
         ))
     }
 }

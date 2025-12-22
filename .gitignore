@@ -70,4 +70,4 @@ crates/torsh-hub/targets/
 
 # Miscs
 .claude/
-**/.claude/
+**/.ipynb_checkpoints/

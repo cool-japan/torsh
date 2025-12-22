@@ -5,23 +5,18 @@
 //! intelligent task scheduling, and execution engine management to deliver maximum
 //! CUDA performance across all operations and workloads.
 
-use scirs2_core::ndarray::{array, Array1, Array2, ArrayView1};
-use scirs2_core::random::Random;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
-use std::sync::{
-    atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
-    Arc, Mutex, RwLock,
-};
+use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant, SystemTime};
 
 use super::intelligent_task_scheduler::{
-    ExecutionStrategyType, IntelligentSchedulingConfig, IntelligentTaskScheduler, SchedulableTask,
-    SchedulingStatus, TaskSubmissionResult, TaskType,
+    IntelligentSchedulingConfig, IntelligentTaskScheduler, SchedulableTask, SchedulingStatus,
+    TaskType,
 };
 use super::kernel_fusion_optimizer::{
-    AdvancedKernelFusionOptimizer, FusionOperation, FusionOptimizationResult, KernelFusionConfig,
-    KernelFusionStatus, OperationType as FusionOperationType,
+    AdvancedKernelFusionOptimizer, FusionOperation, KernelFusionConfig, KernelFusionStatus,
+    OperationType as FusionOperationType,
 };
 use super::memory::optimization::advanced_memory_optimizer::{
     AdvancedMemoryConfig, AdvancedMemoryOptimizer, MemoryOptimizationReport,

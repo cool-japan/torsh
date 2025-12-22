@@ -4,7 +4,7 @@
 //! strategies based on the target hardware architecture and capabilities.
 
 use crate::adaptive_compilation::OptimizationLevel;
-use crate::{CompilationStrategy, ComputationGraph, JitError, JitResult, OptimizationType};
+use crate::{CompilationStrategy, ComputationGraph, JitError, JitResult};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{
@@ -456,6 +456,7 @@ impl HardwareTuner {
     }
 
     fn detect_cpu_features() -> Vec<String> {
+        #[cfg_attr(not(target_arch = "x86_64"), allow(unused_mut))]
         let mut features = Vec::new();
 
         #[cfg(target_arch = "x86_64")]

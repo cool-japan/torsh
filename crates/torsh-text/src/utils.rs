@@ -364,7 +364,7 @@ impl TextAugmenter {
         let mut result_words = Vec::new();
 
         for word in words {
-            if rng.gen::<f32>() < replacement_prob {
+            if rng.random::<f32>() < replacement_prob {
                 if let Some(syns) = synonyms.get(word.to_lowercase().as_str()) {
                     let idx = rng.gen_range(0..syns.len());
                     result_words.push(syns[idx].to_string());
@@ -391,7 +391,7 @@ impl TextAugmenter {
         for word in words {
             result_words.push(word.to_string());
 
-            if rng.gen::<f32>() < insertion_prob {
+            if rng.random::<f32>() < insertion_prob {
                 let idx = rng.gen_range(0..insert_words.len());
                 result_words.push(insert_words[idx].to_string());
             }
@@ -407,7 +407,7 @@ impl TextAugmenter {
         let mut result_words = Vec::new();
 
         for word in words {
-            if rng.gen::<f32>() >= deletion_prob {
+            if rng.random::<f32>() >= deletion_prob {
                 result_words.push(word.to_string());
             }
         }
@@ -429,7 +429,7 @@ impl TextAugmenter {
         }
 
         for i in 0..words.len() {
-            if rng.gen::<f32>() < swap_prob {
+            if rng.random::<f32>() < swap_prob {
                 let j = rng.gen_range(0..words.len());
                 words.swap(i, j);
             }
@@ -722,7 +722,7 @@ impl TextPreprocessingPipeline {
 
     /// Process texts in parallel for better performance
     pub fn process_batch_parallel(&self, texts: &[String]) -> Result<Vec<String>> {
-        use rayon::prelude::*;
+        use scirs2_core::parallel_ops::*;
 
         texts
             .par_iter()
@@ -1103,7 +1103,7 @@ impl BatchProcessor {
         F: FnMut(&str) -> Result<T> + Send + Sync,
         T: Send + Sync,
     {
-        use rayon::prelude::*;
+        use scirs2_core::parallel_ops::*;
         use std::sync::Mutex;
 
         let processor = Mutex::new(processor);
@@ -1155,7 +1155,7 @@ impl OptimizedBatchOps {
         parallel: bool,
     ) -> Result<Vec<Vec<u32>>> {
         if parallel && texts.len() > 100 {
-            use rayon::prelude::*;
+            use scirs2_core::parallel_ops::*;
             texts
                 .par_iter()
                 .map(|text| tokenizer.encode(text))
@@ -1179,7 +1179,7 @@ impl OptimizedBatchOps {
 
     /// Optimized batch normalization
     pub fn batch_normalize(texts: &[String], normalizer: &TextNormalizer) -> Vec<String> {
-        use rayon::prelude::*;
+        use scirs2_core::parallel_ops::*;
 
         if texts.len() > 100 {
             texts
@@ -1196,7 +1196,7 @@ impl OptimizedBatchOps {
 
     /// Memory-efficient batch statistics computation
     pub fn batch_statistics(texts: &[String]) -> BatchTextStats {
-        use rayon::prelude::*;
+        use scirs2_core::parallel_ops::*;
 
         let chunk_size = 1000;
 
@@ -1292,7 +1292,7 @@ impl OptimizedBatchOps {
     where
         F: Fn(&str) -> bool + Send + Sync,
     {
-        use rayon::prelude::*;
+        use scirs2_core::parallel_ops::*;
 
         if texts.len() > 1000 {
             texts
@@ -1337,7 +1337,7 @@ impl OptimizedBatchOps {
             if batch.len() >= BATCH_SIZE {
                 // Process batch
                 let processed: Vec<String> = if batch.len() > 100 {
-                    use rayon::prelude::*;
+                    use scirs2_core::parallel_ops::*;
                     batch.par_iter().map(|text| processor(text)).collect()
                 } else {
                     batch.iter().map(|text| processor(text)).collect()

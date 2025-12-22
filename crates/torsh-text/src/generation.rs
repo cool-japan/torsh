@@ -2,9 +2,6 @@ use crate::{Result, TextError};
 // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
 use scirs2_core::random::{Random, Rng};
 use scirs2_core::rngs::StdRng;
-use std::collections::VecDeque;
-use torsh_core::{DType, Device};
-use torsh_tensor::creation::full;
 use torsh_tensor::Tensor;
 
 // ============================================================================
@@ -230,7 +227,7 @@ impl TextSampler {
     // Helper methods
     fn multinomial_sample(&mut self, probs: &Tensor) -> Result<u32> {
         let vocab_size = probs.shape().dims()[probs.shape().ndim() - 1];
-        let random_val: f32 = self.rng.gen();
+        let random_val: f32 = self.rng.random();
 
         let mut cumulative = 0.0;
         for i in 0..vocab_size {

@@ -79,13 +79,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Demonstrate memory-intensive operations with enhanced tracking
     println!("💾 Memory-Enhanced Profiling:");
-    #[cfg(feature = "memory_management")]
-    {
-        let result = profiler
-            .profile_memory_operation("memory_intensive", || simulate_memory_intensive_task())?;
-        println!("   ✅ Memory operation result: {}", result);
-    }
-    #[cfg(not(feature = "memory_management"))]
     {
         let result = profiler.profile_with_comprehensive_metrics("memory_simulation", || {
             simulate_memory_intensive_task()

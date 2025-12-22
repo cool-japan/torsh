@@ -122,39 +122,46 @@ pub fn qr(tensor: &Tensor, reduced: bool) -> TorshResult<(Tensor, Tensor)> {
         ));
     }
 
-    // Convert tensor to ndarray for scirs2-linalg processing
-    let _array = tensor_to_array2(tensor)?;
+    // Use torsh-linalg's QR implementation
+    // Note: torsh-linalg::decomposition::qr always returns reduced form
+    // We need to adapt it if full_matrices is requested
+    let (q, r) = torsh_linalg::decomposition::qr(tensor)?;
 
-    // Fallback QR decomposition implementation
-    let shape_binding = tensor.shape();
-    let dims = shape_binding.dims();
-    let m = dims[0];
-    let n = dims[1];
-
-    // Simple fallback implementation using basic approach
-    let k = if reduced { m.min(n) } else { m };
-
-    // Simple fallback: return identity matrix for Q and input for R
-    let q = if reduced {
-        eye(k)?.reshape(&[m as i32, k as i32])?
+    if reduced {
+        // Already in reduced form
+        Ok((q, r))
     } else {
-        eye(m)?
-    };
+        // Need to expand Q to full m×m matrix
+        let shape = tensor.shape();
+        let dims = shape.dims();
+        let m = dims[0];
+        let n = dims[1];
+        let k = m.min(n);
 
-    let r = if reduced {
-        // Create upper triangular matrix
-        let mut r_data = vec![0.0f32; k * n];
-        for i in 0..k {
-            for j in i..n {
-                r_data[i * n + j] = if i == j { 1.0 } else { 0.1 }; // Simple placeholder
+        if k == m {
+            // Already full size
+            Ok((q, r))
+        } else {
+            // Expand Q from m×k to m×m by padding with identity
+            let mut q_data = vec![0.0f32; m * m];
+
+            // Copy existing Q
+            let q_vec = q.to_vec()?;
+            for i in 0..m {
+                for j in 0..k {
+                    q_data[i * m + j] = q_vec[i * k + j];
+                }
             }
-        }
-        Tensor::from_data(r_data, vec![k, n], tensor.device())?
-    } else {
-        tensor.clone()
-    };
 
-    Ok((q, r))
+            // Add identity for remaining columns
+            for i in k..m {
+                q_data[i * m + i] = 1.0;
+            }
+
+            let q_full = Tensor::from_data(q_data, vec![m, m], tensor.device())?;
+            Ok((q_full, r))
+        }
+    }
 }
 
 /// Cholesky Decomposition
@@ -221,31 +228,8 @@ pub fn cholesky(tensor: &Tensor, upper: bool) -> TorshResult<Tensor> {
         ));
     }
 
-    let n = dims[0];
-
-    // This is a placeholder implementation
-    // Real implementation would compute actual Cholesky decomposition
-    let result = if upper {
-        // Upper triangular
-        let mut data = vec![0.0f32; n * n];
-        for i in 0..n {
-            for j in i..n {
-                data[i * n + j] = 1.0; // Placeholder values
-            }
-        }
-        Tensor::from_data(data, vec![n, n], tensor.device())
-    } else {
-        // Lower triangular
-        let mut data = vec![0.0f32; n * n];
-        for i in 0..n {
-            for j in 0..=i {
-                data[i * n + j] = 1.0; // Placeholder values
-            }
-        }
-        Tensor::from_data(data, vec![n, n], tensor.device())
-    };
-
-    result
+    // Use torsh-linalg's Cholesky implementation
+    torsh_linalg::decomposition::cholesky(tensor, upper)
 }
 
 /// Singular Value Decomposition (SVD)
@@ -293,19 +277,8 @@ pub fn svd(tensor: &Tensor, full_matrices: bool) -> TorshResult<(Tensor, Tensor,
         ));
     }
 
-    // Fallback implementation using identity matrices and ones
-    // TODO: Implement proper SVD using scirs2-linalg when available
-    let shape = tensor.shape();
-    let dims = shape.dims();
-    let m = dims[0];
-    let n = dims[1];
-    let k = m.min(n);
-
-    let u = if full_matrices { eye(m)? } else { eye(k)? };
-    let s = ones(&[k])?;
-    let vt = if full_matrices { eye(n)? } else { eye(k)? };
-
-    Ok((u, s, vt))
+    // Use torsh-linalg's SVD implementation
+    torsh_linalg::decomposition::svd(tensor, full_matrices)
 }
 
 /// Eigenvalue decomposition for square matrices

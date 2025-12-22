@@ -3,6 +3,9 @@
 pub use crate::error::{BackendError, BackendResult as CudaResult, ErrorContext, ErrorContextExt};
 pub use torsh_core::error::TorshError;
 
+/// Type alias for CUDA errors (uses unified TorshError)
+pub type CudaError = TorshError;
+
 /// Helper functions for CUDA-specific error creation
 pub mod cuda_errors {
     use super::*;

@@ -7,7 +7,7 @@
 use torsh_core::device::DeviceType;
 use torsh_metrics::{
     // Core metrics
-    classification::{Accuracy, AverageMethod, F1Score, Precision, Recall},
+    classification::{Accuracy, F1Score, Precision, Recall},
     // Advanced metrics
     deep_learning::{InceptionScore, Perplexity, SemanticSimilarity},
     fairness::{Calibration, DemographicParity},

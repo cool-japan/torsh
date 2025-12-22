@@ -517,9 +517,65 @@ impl<T: FloatElement> Tensor<T> {
                 Ok(pos - neg)
             }
             _ => {
-                // For larger matrices, we would implement LU decomposition
-                // This is a simplified placeholder
-                Err(TorshError::Other("Determinant computation for matrices larger than 3x3 not implemented".to_string()))
+                // For larger matrices, use LU decomposition: det(A) = det(P) * det(L) * det(U)
+                // where det(P) = (-1)^(number of row swaps)
+                // det(L) = 1 (unit diagonal)
+                // det(U) = product of diagonal elements
+
+                let data = self.to_vec()?;
+                let mut lu = data.clone();
+                let mut swaps = 0;
+
+                // LU decomposition with partial pivoting
+                for k in 0..n {
+                    // Find pivot
+                    let mut max_val = lu[k * n + k];
+                    let mut max_row = k;
+
+                    for i in (k + 1)..n {
+                        let val = lu[i * n + k];
+                        if val.abs() > max_val.abs() {
+                            max_val = val;
+                            max_row = i;
+                        }
+                    }
+
+                    // Swap rows if needed
+                    if max_row != k {
+                        for j in 0..n {
+                            let temp = lu[k * n + j];
+                            lu[k * n + j] = lu[max_row * n + j];
+                            lu[max_row * n + j] = temp;
+                        }
+                        swaps += 1;
+                    }
+
+                    // Check for singularity
+                    if lu[k * n + k].abs() < <T as TensorElement>::zero() {
+                        return Ok(<T as TensorElement>::zero());
+                    }
+
+                    // Eliminate column
+                    for i in (k + 1)..n {
+                        lu[i * n + k] = lu[i * n + k] / lu[k * n + k];
+                        for j in (k + 1)..n {
+                            lu[i * n + j] = lu[i * n + j] - lu[i * n + k] * lu[k * n + j];
+                        }
+                    }
+                }
+
+                // Compute determinant: product of diagonal elements * sign from swaps
+                let mut det = if swaps % 2 == 0 {
+                    <T as TensorElement>::one()
+                } else {
+                    <T as TensorElement>::zero() - <T as TensorElement>::one()
+                };
+
+                for i in 0..n {
+                    det = det * lu[i * n + i];
+                }
+
+                Ok(det)
             }
         }
     }
@@ -573,9 +629,83 @@ impl<T: FloatElement> Tensor<T> {
                 Ok(result)
             }
             _ => {
-                // For larger matrices, we would implement LU decomposition or Gauss-Jordan
-                // This is a simplified placeholder
-                Err(TorshError::Other("Matrix inverse for matrices larger than 2x2 not implemented".to_string()))
+                // For larger matrices, use LU decomposition to solve A*X = I
+                // where X is the inverse matrix
+
+                let data = self.to_vec()?;
+                let mut lu = data.clone();
+                let mut perm: Vec<usize> = (0..n).collect(); // Permutation vector
+
+                // LU decomposition with partial pivoting
+                for k in 0..n {
+                    // Find pivot
+                    let mut max_val = lu[perm[k] * n + k];
+                    let mut max_row = k;
+
+                    for i in (k + 1)..n {
+                        let val = lu[perm[i] * n + k];
+                        if val.abs() > max_val.abs() {
+                            max_val = val;
+                            max_row = i;
+                        }
+                    }
+
+                    // Swap permutation indices
+                    if max_row != k {
+                        perm.swap(k, max_row);
+                    }
+
+                    // Check for singularity
+                    let pivot = lu[perm[k] * n + k];
+                    if pivot.abs() < <T as TensorElement>::zero() {
+                        return Err(TorshError::Other("Matrix is singular".to_string()));
+                    }
+
+                    // Eliminate column
+                    for i in (k + 1)..n {
+                        let factor = lu[perm[i] * n + k] / lu[perm[k] * n + k];
+                        lu[perm[i] * n + k] = factor;
+                        for j in (k + 1)..n {
+                            lu[perm[i] * n + j] = lu[perm[i] * n + j] - factor * lu[perm[k] * n + j];
+                        }
+                    }
+                }
+
+                // Solve for each column of the inverse
+                let mut result_data = vec![<T as TensorElement>::zero(); n * n];
+
+                for col in 0..n {
+                    // Create right-hand side (column of identity matrix)
+                    let mut b = vec![<T as TensorElement>::zero(); n];
+                    b[col] = <T as TensorElement>::one();
+
+                    // Forward substitution (solve L*y = P*b)
+                    let mut y = vec![<T as TensorElement>::zero(); n];
+                    for i in 0..n {
+                        let mut sum = b[perm[i]];
+                        for j in 0..i {
+                            sum = sum - lu[perm[i] * n + j] * y[j];
+                        }
+                        y[i] = sum;
+                    }
+
+                    // Backward substitution (solve U*x = y)
+                    let mut x = vec![<T as TensorElement>::zero(); n];
+                    for i in (0..n).rev() {
+                        let mut sum = y[i];
+                        for j in (i + 1)..n {
+                            sum = sum - lu[perm[i] * n + j] * x[j];
+                        }
+                        x[i] = sum / lu[perm[i] * n + i];
+                    }
+
+                    // Store column in result
+                    for row in 0..n {
+                        result_data[row * n + col] = x[row];
+                    }
+                }
+
+                Self::from_vec(result_data, &[n, n], self.device())
             }
         }
     }

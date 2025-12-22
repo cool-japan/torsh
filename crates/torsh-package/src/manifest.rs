@@ -284,7 +284,7 @@ mod tests {
             .author("Test Author".to_string())
             .description("Test package".to_string())
             .license("MIT".to_string())
-            .add_dependency("torsh-core".to_string(), "0.1.0-alpha.1".to_string())
+            .add_dependency("torsh-core".to_string(), "0.1.0-alpha.2".to_string())
             .build();
 
         assert_eq!(manifest.author.as_deref(), Some("Test Author"));
@@ -292,7 +292,7 @@ mod tests {
         assert_eq!(manifest.license.as_deref(), Some("MIT"));
         assert_eq!(
             manifest.dependencies.get("torsh-core"),
-            Some(&"0.1.0".to_string())
+            Some(&"0.1.0-alpha.2".to_string())
         );
     }
 }

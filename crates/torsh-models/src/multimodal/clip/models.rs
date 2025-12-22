@@ -1,13 +1,10 @@
 //! CLIP main model implementations
 
-use super::super::common::utils::contrastive_loss;
+use super::super::multimodal_common::utils::contrastive_loss;
 use super::config::CLIPConfig;
 use super::encoders::{CLIPTextTransformer, CLIPVisionTransformer};
 use std::collections::HashMap;
-use torsh_core::{
-    error::{Result, TorshError},
-    DeviceType,
-};
+use torsh_core::{error::Result, DeviceType};
 use torsh_nn::prelude::*;
 use torsh_nn::{Module, Parameter};
 use torsh_tensor::{creation, Tensor};

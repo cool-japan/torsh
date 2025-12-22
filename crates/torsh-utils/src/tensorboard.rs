@@ -3,6 +3,8 @@
 //! This module provides a SummaryWriter compatible with TensorBoard for logging
 //! training metrics, images, graphs, and other data.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use base64::Engine;
 use chrono::{DateTime, Utc};
 use serde_json::json;
@@ -261,7 +263,7 @@ impl SummaryWriter {
 
         if trace_execution {
             // Trace execution for each sample input
-            for (i, input) in sample_inputs.iter().enumerate() {
+            for (i, _input) in sample_inputs.iter().enumerate() {
                 // TODO: Implement trace_model_execution method
                 // let execution_trace = self.trace_model_execution(model, input)?;
                 let execution_trace = ExecutionTrace {
@@ -297,7 +299,7 @@ impl SummaryWriter {
     /// Add layer-wise analysis visualization
     pub fn add_layer_analysis(
         &mut self,
-        model: &dyn torsh_nn::Module,
+        _model: &dyn torsh_nn::Module,
         analysis_data: &LayerAnalysisData,
         step: Option<i64>,
     ) -> Result<()> {
@@ -364,7 +366,8 @@ impl SummaryWriter {
                     dtype: node.dtype,
                     device: node.device,
                     params: node.params,
-                    // TODO: Implement these estimation methods
+                    // TODO: Implement these estimation methods in SummaryWriter
+                    // (currently implemented in TensorBoardWriter)
                     computational_complexity: ComputationalComplexity {
                         flops: 0,
                         memory_accesses: 0,
@@ -399,8 +402,8 @@ impl SummaryWriter {
                 version: basic_graph.metadata.version,
                 total_params: basic_graph.metadata.total_params,
                 trainable_params: basic_graph.metadata.trainable_params,
-                model_size_mb: 0.0, // TODO: Implement estimate_model_size method
-                flops: 0,           // TODO: Implement estimate_flops method
+                model_size_mb: 0.0, // TODO: Implement estimate_model_size method in SummaryWriter
+                flops: 0,           // TODO: Implement estimate_flops method in SummaryWriter
                 inference_time_ms: None,
                 memory_usage_mb: None,
             },

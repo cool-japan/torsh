@@ -388,3 +388,332 @@ pub trait Activation {
         }
     }
 }
+
+// =============================================================================
+// TESTS
+// =============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+
+    // =========================================================================
+    // CONFIGURATION TESTS
+    // =========================================================================
+
+    #[test]
+    fn test_functional_config_default() {
+        let config = FunctionalConfig::default();
+        assert!(config.validate_inputs);
+        assert_relative_eq!(config.eps, 1e-8);
+        assert!(!config.inplace);
+        assert_eq!(config.memory_opt, MemoryOptLevel::Balanced);
+    }
+
+    #[test]
+    fn test_functional_builder_basic() {
+        let config = FunctionalBuilder::new()
+            .validate(false)
+            .eps(1e-6)
+            .inplace(true)
+            .memory_opt(MemoryOptLevel::Maximum)
+            .build();
+
+        assert!(!config.validate_inputs);
+        assert_relative_eq!(config.eps, 1e-6);
+        assert!(config.inplace);
+        assert_eq!(config.memory_opt, MemoryOptLevel::Maximum);
+    }
+
+    #[test]
+    fn test_functional_builder_optimized() {
+        let config = optimized().build();
+        assert!(config.inplace);
+        assert_eq!(config.memory_opt, MemoryOptLevel::Maximum);
+    }
+
+    #[test]
+    fn test_functional_builder_safe() {
+        let config = safe().build();
+        assert!(config.validate_inputs);
+        assert_eq!(config.memory_opt, MemoryOptLevel::None);
+    }
+
+    #[test]
+    fn test_activation_config_default() {
+        let config = ActivationConfig::default();
+        assert!(!config.clamp_output);
+        assert_eq!(config.clamp_range, (-10.0, 10.0));
+    }
+
+    // =========================================================================
+    // VALIDATION TESTS
+    // =========================================================================
+
+    #[test]
+    fn test_validate_not_empty_valid() -> Result<()> {
+        let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0], &[3])?;
+        validation::validate_not_empty(&tensor, "test")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_not_empty_invalid() {
+        let tensor: Tensor = Tensor::from_vec(vec![], &[0]).unwrap();
+        let result = validation::validate_not_empty(&tensor, "test");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_ndim_valid() -> Result<()> {
+        let tensor = Tensor::from_vec(vec![1.0; 12], &[3, 4])?;
+        validation::validate_ndim(&tensor, 2, "test")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_ndim_invalid() {
+        let tensor = Tensor::from_vec(vec![1.0; 12], &[3, 4]).unwrap();
+        let result = validation::validate_ndim(&tensor, 3, "test");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_min_ndim_valid() -> Result<()> {
+        let tensor = Tensor::from_vec(vec![1.0; 24], &[2, 3, 4])?;
+        validation::validate_min_ndim(&tensor, 2, "test")?;
+        validation::validate_min_ndim(&tensor, 3, "test")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_min_ndim_invalid() {
+        let tensor = Tensor::from_vec(vec![1.0; 12], &[3, 4]).unwrap();
+        let result = validation::validate_min_ndim(&tensor, 3, "test");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_range_valid() -> Result<()> {
+        validation::validate_range(5.0, 0.0, 10.0, "test")?;
+        validation::validate_range(0.0, 0.0, 10.0, "test")?;
+        validation::validate_range(10.0, 0.0, 10.0, "test")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_range_invalid() {
+        assert!(validation::validate_range(-1.0, 0.0, 10.0, "test").is_err());
+        assert!(validation::validate_range(11.0, 0.0, 10.0, "test").is_err());
+    }
+
+    #[test]
+    fn test_validate_positive_valid() -> Result<()> {
+        validation::validate_positive(1.0, "test")?;
+        validation::validate_positive(0.001, "test")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_positive_invalid() {
+        assert!(validation::validate_positive(0.0, "test").is_err());
+        assert!(validation::validate_positive(-1.0, "test").is_err());
+    }
+
+    #[test]
+    fn test_validate_compatible_shapes_same() -> Result<()> {
+        let a = Tensor::from_vec(vec![1.0; 12], &[3, 4])?;
+        let b = Tensor::from_vec(vec![2.0; 12], &[3, 4])?;
+        validation::validate_compatible_shapes(&a, &b, "test")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_compatible_shapes_scalar() -> Result<()> {
+        let a = Tensor::from_vec(vec![1.0; 12], &[3, 4])?;
+        let scalar = Tensor::from_vec(vec![2.0], &[1])?;
+        validation::validate_compatible_shapes(&a, &scalar, "test")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_compatible_shapes_broadcastable() -> Result<()> {
+        let a = Tensor::from_vec(vec![1.0; 12], &[3, 4])?;
+        let b = Tensor::from_vec(vec![2.0; 4], &[1, 4])?;
+        validation::validate_compatible_shapes(&a, &b, "test")?;
+        Ok(())
+    }
+
+    // =========================================================================
+    // NUMERICAL UTILITIES TESTS
+    // =========================================================================
+
+    #[test]
+    fn test_epsilon_tensor() -> Result<()> {
+        let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0], &[3])?;
+        let eps = numerics::epsilon_tensor(&tensor, 1e-5)?;
+
+        let eps_data = eps.to_vec()?;
+        assert_eq!(eps_data.len(), 3);
+        for &val in eps_data.iter() {
+            assert_relative_eq!(val, 1e-5, epsilon = 1e-10);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_safe_clamp_basic() -> Result<()> {
+        let tensor = Tensor::from_vec(vec![-5.0, 0.0, 5.0, 10.0, 15.0], &[5])?;
+        let clamped = numerics::safe_clamp(&tensor, 0.0, 10.0)?;
+
+        let clamped_data = clamped.to_vec()?;
+        assert_relative_eq!(clamped_data[0], 0.0, epsilon = 1e-6); // -5 clamped to 0
+        assert_relative_eq!(clamped_data[1], 0.0, epsilon = 1e-6); // 0 stays 0
+        assert_relative_eq!(clamped_data[2], 5.0, epsilon = 1e-6); // 5 stays 5
+        assert_relative_eq!(clamped_data[3], 10.0, epsilon = 1e-6); // 10 stays 10
+        assert_relative_eq!(clamped_data[4], 10.0, epsilon = 1e-6); // 15 clamped to 10
+        Ok(())
+    }
+
+    #[test]
+    fn test_safe_clamp_negative_range() -> Result<()> {
+        let tensor = Tensor::from_vec(vec![-10.0, -5.0, 0.0, 5.0], &[4])?;
+        let clamped = numerics::safe_clamp(&tensor, -6.0, -2.0)?;
+
+        let clamped_data = clamped.to_vec()?;
+        assert_relative_eq!(clamped_data[0], -6.0, epsilon = 1e-6); // -10 clamped to -6
+        assert_relative_eq!(clamped_data[1], -5.0, epsilon = 1e-6); // -5 stays -5
+        assert_relative_eq!(clamped_data[2], -2.0, epsilon = 1e-6); // 0 clamped to -2
+        assert_relative_eq!(clamped_data[3], -2.0, epsilon = 1e-6); // 5 clamped to -2
+        Ok(())
+    }
+
+    #[test]
+    fn test_safe_div_basic() -> Result<()> {
+        let numerator = Tensor::from_vec(vec![10.0, 20.0, 30.0], &[3])?;
+        let denominator = Tensor::from_vec(vec![2.0, 4.0, 5.0], &[3])?;
+        let result = numerics::safe_div(&numerator, &denominator, 1e-8)?;
+
+        let result_data = result.to_vec()?;
+        assert_relative_eq!(result_data[0], 5.0, epsilon = 1e-5);
+        assert_relative_eq!(result_data[1], 5.0, epsilon = 1e-5);
+        assert_relative_eq!(result_data[2], 6.0, epsilon = 1e-5);
+        Ok(())
+    }
+
+    #[test]
+    fn test_safe_div_near_zero() -> Result<()> {
+        let numerator = Tensor::from_vec(vec![1.0], &[1])?;
+        let denominator = Tensor::from_vec(vec![0.0], &[1])?;
+        let result = numerics::safe_div(&numerator, &denominator, 1e-8)?;
+
+        // Should not crash, should give very large but finite result
+        let result_data = result.to_vec()?;
+        assert!(result_data[0].is_finite());
+        Ok(())
+    }
+
+    #[test]
+    fn test_safe_sqrt_basic() -> Result<()> {
+        let tensor = Tensor::from_vec(vec![4.0, 9.0, 16.0], &[3])?;
+        let result = numerics::safe_sqrt(&tensor, 1e-8)?;
+
+        let result_data = result.to_vec()?;
+        assert_relative_eq!(result_data[0], 2.0, epsilon = 1e-5);
+        assert_relative_eq!(result_data[1], 3.0, epsilon = 1e-5);
+        assert_relative_eq!(result_data[2], 4.0, epsilon = 1e-5);
+        Ok(())
+    }
+
+    #[test]
+    fn test_safe_sqrt_near_zero() -> Result<()> {
+        let tensor = Tensor::from_vec(vec![0.0], &[1])?;
+        let result = numerics::safe_sqrt(&tensor, 1e-8)?;
+
+        // Should not crash, epsilon prevents negative sqrt
+        let result_data = result.to_vec()?;
+        assert!(result_data[0] > 0.0);
+        Ok(())
+    }
+
+    #[test]
+    fn test_safe_rsqrt_basic() -> Result<()> {
+        let tensor = Tensor::from_vec(vec![4.0, 9.0, 16.0], &[3])?;
+        let result = numerics::safe_rsqrt(&tensor, 1e-8)?;
+
+        let result_data = result.to_vec()?;
+        assert_relative_eq!(result_data[0], 0.5, epsilon = 1e-5); // 1/sqrt(4) = 0.5
+        assert_relative_eq!(result_data[1], 1.0 / 3.0, epsilon = 1e-5); // 1/sqrt(9) = 1/3
+        assert_relative_eq!(result_data[2], 0.25, epsilon = 1e-5); // 1/sqrt(16) = 0.25
+        Ok(())
+    }
+
+    #[test]
+    fn test_safe_rsqrt_near_zero() -> Result<()> {
+        let tensor = Tensor::from_vec(vec![0.0], &[1])?;
+        let result = numerics::safe_rsqrt(&tensor, 1e-8)?;
+
+        // Should not crash, epsilon prevents division by zero
+        let result_data = result.to_vec()?;
+        assert!(result_data[0].is_finite());
+        Ok(())
+    }
+
+    // =========================================================================
+    // PERFORMANCE UTILITIES TESTS
+    // =========================================================================
+
+    #[test]
+    fn test_with_memory_opt_none() -> Result<()> {
+        let config = FunctionalBuilder::new()
+            .memory_opt(MemoryOptLevel::None)
+            .build();
+
+        let result = performance::with_memory_opt(&config, || Ok(42))?;
+        assert_eq!(result, 42);
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_memory_opt_balanced() -> Result<()> {
+        let config = FunctionalBuilder::new()
+            .memory_opt(MemoryOptLevel::Balanced)
+            .build();
+
+        let result = performance::with_memory_opt(&config, || Ok(42))?;
+        assert_eq!(result, 42);
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_memory_opt_maximum() -> Result<()> {
+        let config = FunctionalBuilder::new()
+            .memory_opt(MemoryOptLevel::Maximum)
+            .build();
+
+        let result = performance::with_memory_opt(&config, || Ok(42))?;
+        assert_eq!(result, 42);
+        Ok(())
+    }
+
+    #[test]
+    fn test_should_use_inplace_small() {
+        let config = FunctionalBuilder::new().inplace(true).build();
+        assert!(!performance::should_use_inplace(&config, 100));
+        assert!(!performance::should_use_inplace(&config, 1000));
+    }
+
+    #[test]
+    fn test_should_use_inplace_large() {
+        let config = FunctionalBuilder::new().inplace(true).build();
+        assert!(performance::should_use_inplace(&config, 1001));
+        assert!(performance::should_use_inplace(&config, 10000));
+    }
+
+    #[test]
+    fn test_should_use_inplace_disabled() {
+        let config = FunctionalBuilder::new().inplace(false).build();
+        assert!(!performance::should_use_inplace(&config, 10000));
+    }
+}

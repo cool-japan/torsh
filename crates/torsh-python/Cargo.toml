@@ -15,27 +15,31 @@ workspace = true
 [lib]
 name = "torsh_python"
 crate-type = ["cdylib"]
+# Disable Rust test harness for cdylib - use pytest instead
+test = false
 
 [dependencies]
 # PyO3 for Python bindings
-pyo3 = { version = "0.26", features = ["extension-module", "abi3-py38"] }
-numpy = "0.26"
+pyo3 = { version = "0.27", features = ["extension-module", "abi3-py38"] }
+numpy = "0.27"
 
 # ToRSh crates
 torsh-core = { workspace = true }
-# torsh-tensor = { path = "../torsh-tensor" }  # Temporarily disabled due to scirs2-autograd conflicts
-# torsh-nn = { path = "../torsh-nn" }  # Temporarily disabled due to scirs2-autograd conflicts
-# torsh-optim = { path = "../torsh-optim" }  # Temporarily disabled due to scirs2-autograd conflicts
-# torsh-data = { path = "../torsh-data" }  # Temporarily disabled due to compilation errors
-# torsh-autograd = { path = "../torsh-autograd" }  # Temporarily disabled due to scirs2 API incompatibilities
-# torsh-distributed = { path = "../torsh-distributed" }  # Temporarily disabled due to compilation errors
+torsh-tensor = { workspace = true }
+torsh-nn = { workspace = true }
+torsh-optim = { workspace = true }
+# torsh-data = { workspace = true }  # Temporarily disabled due to compilation errors
+# torsh-autograd = { workspace = true }  # Temporarily disabled due to scirs2 API incompatibilities
+# torsh-distributed = { workspace = true }  # Temporarily disabled due to compilation errors
+
+# ✅ SciRS2 POLICY: Use scirs2-core for all scientific computing needs
+scirs2-core = { workspace = true }
 
 # Error handling
 thiserror = "2.0"
 anyhow = "1.0"
 
 # Utilities
-num-traits = "0.2"
 parking_lot = "0.12"
 
 [features]

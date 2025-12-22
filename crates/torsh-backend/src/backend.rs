@@ -849,7 +849,7 @@ impl DeviceEnumerator {
         }
 
         // Metal devices
-        #[cfg(feature = "metal")]
+        #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
         {
             if let Ok(metal_backend) = crate::metal::MetalBackend::new() {
                 if let Ok(devices) = metal_backend.devices() {
@@ -937,11 +937,11 @@ impl DeviceEnumerator {
                 cpu_backend.devices()
             }
             #[cfg(feature = "cuda")]
-            DeviceType::Cuda(device_id) => {
+            DeviceType::Cuda(_device_id) => {
                 // Since this is a fallback CUDA implementation, return empty vector
                 Ok(vec![])
             }
-            #[cfg(feature = "metal")]
+            #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
             DeviceType::Metal(_) => {
                 let metal_backend = crate::metal::MetalBackend::new()?;
                 metal_backend.devices()
@@ -951,6 +951,7 @@ impl DeviceEnumerator {
                 let webgpu_backend = crate::webgpu::WebGpuBackend::with_default_config();
                 webgpu_backend.devices()
             }
+            #[allow(unreachable_patterns)]
             _ => Err(TorshError::BackendError(format!(
                 "Backend type {device_type:?} not available"
             ))),
@@ -963,11 +964,14 @@ impl DeviceEnumerator {
             #[cfg(feature = "cpu")]
             DeviceType::Cpu => true,
             #[cfg(feature = "cuda")]
-            DeviceType::Cuda(device_id) => crate::cuda::CudaBackend::new(device_id as usize).is_ok(),
-            #[cfg(feature = "metal")]
+            DeviceType::Cuda(device_id) => {
+                crate::cuda::CudaBackend::new(device_id as usize).is_ok()
+            }
+            #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
             DeviceType::Metal(_) => crate::metal::MetalBackend::new().is_ok(),
             #[cfg(feature = "webgpu")]
             DeviceType::Wgpu(_) => true, // WebGPU backend with default config is always available
+            #[allow(unreachable_patterns)]
             _ => false,
         }
     }
@@ -1275,11 +1279,16 @@ impl dyn Backend {
             #[cfg(feature = "cpu")]
             DeviceType::Cpu => Ok(Box::new(crate::cpu::CpuBackend::new()?)),
             #[cfg(feature = "cuda")]
-            DeviceType::Cuda(device_id) => Ok(Box::new(crate::cuda::CudaBackend::new(device_id as usize)?)),
-            #[cfg(feature = "metal")]
+            DeviceType::Cuda(device_id) => {
+                Ok(Box::new(crate::cuda::CudaBackend::new(device_id as usize)?))
+            }
+            #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
             DeviceType::Metal(_) => Ok(Box::new(crate::metal::MetalBackend::new()?)),
             #[cfg(feature = "webgpu")]
-            DeviceType::Wgpu(_) => Ok(Box::new(crate::webgpu::WebGpuBackend::with_default_config())),
+            DeviceType::Wgpu(_) => {
+                Ok(Box::new(crate::webgpu::WebGpuBackend::with_default_config()))
+            }
+            #[allow(unreachable_patterns)]
             _ => Err(TorshError::BackendError(
                 "No suitable backend found".to_string(),
             )),

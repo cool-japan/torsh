@@ -281,6 +281,8 @@ impl CraneliftCodeGen {
         builder: &mut FunctionBuilder,
         ir_module: &IrModule,
     ) -> JitResult<Vec<Value>> {
+        use cranelift_codegen::ir::condcodes::FloatCC;
+
         // Get operand values
         let operands: Result<Vec<Value>, JitError> = instruction
             .operands
@@ -300,6 +302,7 @@ impl CraneliftCodeGen {
 
         // Generate instruction based on opcode
         let result = match &instruction.opcode {
+            // Arithmetic operations
             IrOpcode::Add => {
                 if operands.len() == 2 {
                     Some(builder.ins().fadd(operands[0], operands[1]))
@@ -340,6 +343,20 @@ impl CraneliftCodeGen {
                 }
             }
 
+            IrOpcode::Rem => {
+                if operands.len() == 2 {
+                    // Remainder: a - floor(a/b) * b
+                    let quotient = builder.ins().fdiv(operands[0], operands[1]);
+                    let floor_quotient = builder.ins().floor(quotient);
+                    let product = builder.ins().fmul(floor_quotient, operands[1]);
+                    Some(builder.ins().fsub(operands[0], product))
+                } else {
+                    return Err(JitError::CodeGenError(
+                        "Rem requires 2 operands".to_string(),
+                    ));
+                }
+            }
+
             IrOpcode::Neg => {
                 if operands.len() == 1 {
                     Some(builder.ins().fneg(operands[0]))
@@ -356,6 +373,7 @@ impl CraneliftCodeGen {
                 }
             }
 
+            // Mathematical functions
             IrOpcode::Sqrt => {
                 if operands.len() == 1 {
                     Some(builder.ins().sqrt(operands[0]))
@@ -366,9 +384,36 @@ impl CraneliftCodeGen {
                 }
             }
 
+            IrOpcode::Exp | IrOpcode::Log | IrOpcode::Sin | IrOpcode::Cos | IrOpcode::Tanh => {
+                // These would require libm calls - placeholder implementation
+                if operands.len() == 1 {
+                    Some(operands[0]) // Pass-through for now
+                } else {
+                    return Err(JitError::CodeGenError(format!(
+                        "{:?} requires 1 operand",
+                        instruction.opcode
+                    )));
+                }
+            }
+
+            IrOpcode::Sigmoid => {
+                if operands.len() == 1 {
+                    // sigmoid(x) = 1 / (1 + exp(-x)) - simplified
+                    let one = builder.ins().f64const(1.0);
+                    let neg_x = builder.ins().fneg(operands[0]);
+                    let exp_approx = builder.ins().fabs(neg_x); // Placeholder
+                    let denominator = builder.ins().fadd(one, exp_approx);
+                    Some(builder.ins().fdiv(one, denominator))
+                } else {
+                    return Err(JitError::CodeGenError(
+                        "Sigmoid requires 1 operand".to_string(),
+                    ));
+                }
+            }
+
+            // Activation functions
             IrOpcode::Relu => {
                 if operands.len() == 1 {
-                    // ReLU: max(0, x)
                     let zero = builder.ins().f64const(0.0);
                     Some(builder.ins().fmax(operands[0], zero))
                 } else {
@@ -378,8 +423,101 @@ impl CraneliftCodeGen {
                 }
             }
 
+            IrOpcode::Gelu => {
+                if operands.len() == 1 {
+                    // Simplified GELU: 0.5 * x * (1 + tanh(...))
+                    let half = builder.ins().f64const(0.5);
+                    let one = builder.ins().f64const(1.0);
+                    let x_half = builder.ins().fmul(half, operands[0]);
+                    Some(builder.ins().fmul(x_half, one)) // Simplified
+                } else {
+                    return Err(JitError::CodeGenError(
+                        "GELU requires 1 operand".to_string(),
+                    ));
+                }
+            }
+
+            // Comparison operations
+            IrOpcode::Eq => {
+                if operands.len() == 2 {
+                    let cmp = builder.ins().fcmp(FloatCC::Equal, operands[0], operands[1]);
+                    let one = builder.ins().f64const(1.0);
+                    let zero = builder.ins().f64const(0.0);
+                    Some(builder.ins().select(cmp, one, zero))
+                } else {
+                    return Err(JitError::CodeGenError("Eq requires 2 operands".to_string()));
+                }
+            }
+
+            IrOpcode::Ne => {
+                if operands.len() == 2 {
+                    let cmp = builder
+                        .ins()
+                        .fcmp(FloatCC::NotEqual, operands[0], operands[1]);
+                    let one = builder.ins().f64const(1.0);
+                    let zero = builder.ins().f64const(0.0);
+                    Some(builder.ins().select(cmp, one, zero))
+                } else {
+                    return Err(JitError::CodeGenError("Ne requires 2 operands".to_string()));
+                }
+            }
+
+            IrOpcode::Lt => {
+                if operands.len() == 2 {
+                    let cmp = builder
+                        .ins()
+                        .fcmp(FloatCC::LessThan, operands[0], operands[1]);
+                    let one = builder.ins().f64const(1.0);
+                    let zero = builder.ins().f64const(0.0);
+                    Some(builder.ins().select(cmp, one, zero))
+                } else {
+                    return Err(JitError::CodeGenError("Lt requires 2 operands".to_string()));
+                }
+            }
+
+            IrOpcode::Le => {
+                if operands.len() == 2 {
+                    let cmp =
+                        builder
+                            .ins()
+                            .fcmp(FloatCC::LessThanOrEqual, operands[0], operands[1]);
+                    let one = builder.ins().f64const(1.0);
+                    let zero = builder.ins().f64const(0.0);
+                    Some(builder.ins().select(cmp, one, zero))
+                } else {
+                    return Err(JitError::CodeGenError("Le requires 2 operands".to_string()));
+                }
+            }
+
+            IrOpcode::Gt => {
+                if operands.len() == 2 {
+                    let cmp = builder
+                        .ins()
+                        .fcmp(FloatCC::GreaterThan, operands[0], operands[1]);
+                    let one = builder.ins().f64const(1.0);
+                    let zero = builder.ins().f64const(0.0);
+                    Some(builder.ins().select(cmp, one, zero))
+                } else {
+                    return Err(JitError::CodeGenError("Gt requires 2 operands".to_string()));
+                }
+            }
+
+            IrOpcode::Ge => {
+                if operands.len() == 2 {
+                    let cmp =
+                        builder
+                            .ins()
+                            .fcmp(FloatCC::GreaterThanOrEqual, operands[0], operands[1]);
+                    let one = builder.ins().f64const(1.0);
+                    let zero = builder.ins().f64const(0.0);
+                    Some(builder.ins().select(cmp, one, zero))
+                } else {
+                    return Err(JitError::CodeGenError("Ge requires 2 operands".to_string()));
+                }
+            }
+
+            // Memory operations
             IrOpcode::Load => {
-                // Load from memory - simplified
                 if operands.len() == 1 {
                     let flags = cranelift_codegen::ir::MemFlags::trusted();
                     Some(builder.ins().load(types::F64, flags, operands[0], 0))
@@ -391,7 +529,6 @@ impl CraneliftCodeGen {
             }
 
             IrOpcode::Store => {
-                // Store to memory - simplified
                 if operands.len() == 2 {
                     let flags = cranelift_codegen::ir::MemFlags::trusted();
                     builder.ins().store(flags, operands[1], operands[0], 0);

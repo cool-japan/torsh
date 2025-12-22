@@ -1,5 +1,7 @@
 //! Utility functions for ToRSh CLI
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use anyhow::{Context, Result};
 use byte_unit::Byte;
 use chrono::Local;

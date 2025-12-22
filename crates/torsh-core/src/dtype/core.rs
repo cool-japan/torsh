@@ -46,6 +46,8 @@ pub enum DType {
     QInt8,
     /// Quantized 8-bit unsigned integer with scale and zero-point
     QUInt8,
+    /// Quantized 32-bit signed integer with scale and zero-point (higher precision)
+    QInt32,
 }
 
 impl DType {
@@ -87,7 +89,7 @@ impl DType {
         match self {
             DType::U8 | DType::I8 | DType::Bool | DType::QInt8 | DType::QUInt8 => 1,
             DType::I16 | DType::F16 | DType::BF16 => 2,
-            DType::I32 | DType::U32 | DType::F32 => 4,
+            DType::I32 | DType::U32 | DType::F32 | DType::QInt32 => 4,
             DType::I64 | DType::U64 | DType::F64 | DType::C64 => 8,
             DType::C128 => 16,
         }
@@ -224,6 +226,7 @@ impl DType {
     /// // Quantized types return true
     /// assert!(DType::QInt8.is_quantized());
     /// assert!(DType::QUInt8.is_quantized());
+    /// assert!(DType::QInt32.is_quantized());
     ///
     /// // Non-quantized types return false
     /// assert!(!DType::U8.is_quantized());
@@ -232,7 +235,7 @@ impl DType {
     /// assert!(!DType::Bool.is_quantized());
     /// ```
     pub const fn is_quantized(&self) -> bool {
-        matches!(self, DType::QInt8 | DType::QUInt8)
+        matches!(self, DType::QInt8 | DType::QUInt8 | DType::QInt32)
     }
 
     /// Get the name of the dtype as a string
@@ -268,6 +271,7 @@ impl DType {
             DType::C128 => "c128",
             DType::QInt8 => "qint8",
             DType::QUInt8 => "quint8",
+            DType::QInt32 => "qint32",
         }
     }
 

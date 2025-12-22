@@ -13,8 +13,8 @@
 //! - **Generation**: Text generation, summarization, question answering
 
 use crate::{Result, TextError};
-use scirs2_core::ndarray::{Array1, Array2, Array3, ArrayView1, ArrayView2};
-use std::collections::HashMap;
+use scirs2_core::ndarray::{Array1, Array2};
+use scirs2_core::random::{thread_rng, Rng};
 use torsh_tensor::Tensor;
 
 /// Comprehensive NLP processor using scirs2-text
@@ -101,8 +101,9 @@ impl SciRS2TextProcessor {
 
         // Placeholder: Create random embeddings (would use scirs2-text in practice)
         let mut embeddings_data = Vec::with_capacity(num_texts * embedding_dim);
+        let mut rng = thread_rng();
         for _ in 0..(num_texts * embedding_dim) {
-            embeddings_data.push(rand::random::<f32>() * 0.1); // Small random values
+            embeddings_data.push(rng.random::<f32>() * 0.1); // Small random values
         }
 
         let embeddings_tensor = Tensor::from_vec(embeddings_data, &[num_texts, embedding_dim])?;
@@ -271,12 +272,13 @@ impl SciRS2TextProcessor {
         let text_lower = text.to_lowercase();
         let mut scores = Vec::new();
 
+        let mut rng = thread_rng();
         for category in categories {
             let category_lower = category.to_lowercase();
             let score = if text_lower.contains(&category_lower) {
-                0.8 + rand::random::<f32>() * 0.2
+                0.8 + rng.random::<f32>() * 0.2
             } else {
-                rand::random::<f32>() * 0.3
+                rng.random::<f32>() * 0.3
             };
             scores.push(score);
         }
@@ -320,7 +322,7 @@ impl SciRS2TextProcessor {
         let mut scored_sentences: Vec<(usize, &str)> = sentences
             .iter()
             .enumerate()
-            .map(|(idx, sentence)| (sentence.split_whitespace().count(), *sentence))
+            .map(|(_idx, sentence)| (sentence.split_whitespace().count(), *sentence))
             .collect();
 
         // Sort by score descending
@@ -413,7 +415,7 @@ impl SciRS2TextProcessor {
         }
 
         Array1::from_vec(data)
-            .into_shape((shape.dims()[0],))
+            .into_shape_with_order((shape.dims()[0],))
             .map_err(|e| TextError::Other(anyhow::anyhow!("Array conversion failed: {}", e)))
     }
 
@@ -546,7 +548,7 @@ pub mod advanced_ops {
     use super::*;
 
     /// Topic modeling using LDA-style approach
-    pub fn extract_topics(texts: &[String], num_topics: usize) -> Result<Vec<Topic>> {
+    pub fn extract_topics(_texts: &[String], num_topics: usize) -> Result<Vec<Topic>> {
         // TODO: Use actual scirs2-text topic modeling when available
         // Placeholder implementation
 

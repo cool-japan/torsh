@@ -3,11 +3,11 @@
 //! This module provides comprehensive statistical analysis for machine learning metrics,
 //! including bootstrap confidence intervals, hypothesis testing, and cross-validation.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::Metric;
-use scirs2_core::ndarray::{Array1, Array2, Axis};
-use scirs2_core::ndarray_ext::stats;
-use scirs2_core::random::{Random, Rng};
-use std::collections::{HashMap, HashSet};
+use scirs2_core::random::Random;
+use std::collections::HashMap;
 use torsh_tensor::Tensor;
 
 /// Bootstrap confidence interval result
@@ -208,7 +208,7 @@ impl BootstrapCI {
         let mut boot_target = Vec::with_capacity(n);
 
         for _ in 0..n {
-            let idx = rng.gen_range(0..n);
+            let idx = rng.random_range(0..n);
             boot_pred.push(predictions[idx]);
             boot_target.push(targets[idx]);
         }
@@ -233,13 +233,13 @@ impl BootstrapCI {
         let mut boot_target = Vec::with_capacity(n);
 
         // Sample proportionally from each class
-        for (class, indices) in &class_indices {
+        for (_class, indices) in &class_indices {
             let class_size = indices.len();
             let n_samples =
                 (class_size as f64 * n as f64 / predictions.len() as f64).round() as usize;
 
             for _ in 0..n_samples {
-                let idx = rng.gen_range(0..indices.len());
+                let idx = rng.random_range(0..indices.len());
                 let sample_idx = indices[idx];
                 boot_pred.push(predictions[sample_idx]);
                 boot_target.push(targets[sample_idx]);
@@ -248,7 +248,7 @@ impl BootstrapCI {
 
         // Fill remaining samples if needed
         while boot_pred.len() < n {
-            let idx = rng.gen_range(0..predictions.len());
+            let idx = rng.random_range(0..predictions.len());
             boot_pred.push(predictions[idx]);
             boot_target.push(targets[idx]);
         }

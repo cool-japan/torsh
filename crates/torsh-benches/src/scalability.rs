@@ -995,19 +995,33 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Benchmark tests need implementation fixes"]
     fn test_complexity_inference() {
         let suite = ScalabilityTestSuite::new();
 
-        // Test linear complexity
-        let linear_factors = vec![1.0, 1.1, 1.0, 1.1];
+        // Test constant complexity (avg_factor < 1.1)
+        let constant_factors = vec![1.0, 1.05, 1.02, 1.03];
+        let complexity = suite.infer_complexity(&constant_factors);
+        assert!(matches!(complexity, ComplexityClass::Constant));
+
+        // Test linear complexity (avg_factor between 1.5 and 2.2)
+        let linear_factors = vec![1.6, 1.7, 1.5, 1.8];
         let complexity = suite.infer_complexity(&linear_factors);
         assert!(matches!(complexity, ComplexityClass::Linear));
 
-        // Test quadratic complexity
-        let quadratic_factors = vec![2.5, 2.8, 2.3, 2.7];
+        // Test quadratic complexity (avg_factor between 3.0 and 5.0)
+        let quadratic_factors = vec![3.5, 4.0, 3.8, 4.2];
         let complexity = suite.infer_complexity(&quadratic_factors);
         assert!(matches!(complexity, ComplexityClass::Quadratic));
+
+        // Test logarithmic complexity (avg_factor between 1.1 and 1.5)
+        let log_factors = vec![1.2, 1.3, 1.25, 1.35];
+        let complexity = suite.infer_complexity(&log_factors);
+        assert!(matches!(complexity, ComplexityClass::Logarithmic));
+
+        // Test cubic complexity (avg_factor between 5.0 and 10.0)
+        let cubic_factors = vec![6.0, 7.0, 6.5, 7.5];
+        let complexity = suite.infer_complexity(&cubic_factors);
+        assert!(matches!(complexity, ComplexityClass::Cubic));
     }
 
     #[test]

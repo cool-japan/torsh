@@ -370,6 +370,7 @@ impl SystemInfo {
 
     /// Detect hardware features
     fn detect_hardware_features() -> Vec<String> {
+        #[allow(unused_mut)]
         let mut features = Vec::new();
 
         // In a real implementation, this would check actual CPU features

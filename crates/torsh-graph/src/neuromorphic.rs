@@ -3,10 +3,14 @@
 //! This module implements neuromorphic computing principles for graph neural networks,
 //! including spike-based communication, temporal dynamics, and event-driven processing.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{GraphData, GraphLayer};
-use torsh_tensor::{creation::{zeros, ones, randn}, Tensor};
 use std::collections::{HashMap, VecDeque};
-use std::time::{Duration, Instant};
+use torsh_tensor::{
+    creation::{randn, zeros},
+    Tensor,
+};
 
 /// Neuromorphic spiking graph neural network
 #[derive(Debug, Clone)]
@@ -102,9 +106,13 @@ impl SpikingGraphNetwork {
     }
 
     /// Process input through the spiking network
-    pub fn forward_spike(&mut self, graph: &GraphData, input_spikes: &Tensor) -> Result<SpikingOutput, Box<dyn std::error::Error>> {
-        let mut output_spikes = zeros(&[self.num_nodes])?;
-        let mut spike_times = Vec::new();
+    pub fn forward_spike(
+        &mut self,
+        graph: &GraphData,
+        input_spikes: &Tensor,
+    ) -> Result<SpikingOutput, Box<dyn std::error::Error>> {
+        let _output_spikes = zeros::<f32>(&[self.num_nodes])?;
+        let spike_times = Vec::new();
 
         // Update membrane potentials
         self.update_membrane_potentials(input_spikes)?;
@@ -135,7 +143,10 @@ impl SpikingGraphNetwork {
     }
 
     /// Update membrane potentials based on input and decay
-    fn update_membrane_potentials(&mut self, input_spikes: &Tensor) -> Result<(), Box<dyn std::error::Error>> {
+    fn update_membrane_potentials(
+        &mut self,
+        input_spikes: &Tensor,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         // Membrane potential decay: V(t+1) = V(t) * exp(-dt/tau) + I(t)
         let decay_factor = (-1.0 / self.tau_membrane).exp();
 
@@ -150,12 +161,17 @@ impl SpikingGraphNetwork {
     }
 
     /// Compute input current from spikes
-    fn compute_input_current(&self, input_spikes: &Tensor) -> Result<Tensor, Box<dyn std::error::Error>> {
+    fn compute_input_current(
+        &self,
+        input_spikes: &Tensor,
+    ) -> Result<Tensor, Box<dyn std::error::Error>> {
         // Transform input spikes to current with synaptic filtering
         let input_weights = randn(&[self.input_dim, self.hidden_dim])?.mul_scalar(0.5)?;
 
         // Simplified current computation - in practice would involve more complex synaptic dynamics
-        input_spikes.matmul(&input_weights)
+        input_spikes
+            .matmul(&input_weights)
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)
     }
 
     /// Generate spikes based on membrane potentials
@@ -187,7 +203,11 @@ impl SpikingGraphNetwork {
     }
 
     /// Propagate spikes through graph structure
-    fn propagate_spikes(&self, spikes: &Tensor, graph: &GraphData) -> Result<Tensor, Box<dyn std::error::Error>> {
+    fn propagate_spikes(
+        &self,
+        spikes: &Tensor,
+        graph: &GraphData,
+    ) -> Result<Tensor, Box<dyn std::error::Error>> {
         // Extract edge information
         let edge_data = graph.edge_index.to_vec()?;
         let num_edges = edge_data.len() / 2;
@@ -207,7 +227,8 @@ impl SpikingGraphNetwork {
                 let src_spike = self.get_spike_value(spikes, src_node)?;
                 if src_spike > 0.0 {
                     let propagated_value = src_spike * weight;
-                    propagated = self.add_spike_contribution(propagated, dst_node, propagated_value)?;
+                    propagated =
+                        self.add_spike_contribution(propagated, dst_node, propagated_value)?;
                 }
             }
         }
@@ -226,15 +247,16 @@ impl SpikingGraphNetwork {
                 }
 
                 // Check if both nodes have spike history
-                if let (Some(pre_history), Some(post_history)) =
-                    (self.spike_history.get(&pre_node), self.spike_history.get(&post_node)) {
-
+                if let (Some(pre_history), Some(post_history)) = (
+                    self.spike_history.get(&pre_node),
+                    self.spike_history.get(&post_node),
+                ) {
                     // Calculate STDP weight update
                     let weight_update = self.calculate_stdp_update(
                         pre_history,
                         post_history,
                         spike_data[pre_node],
-                        spike_data[post_node]
+                        spike_data[post_node],
                     );
 
                     // Update synaptic weight
@@ -270,11 +292,13 @@ impl SpikingGraphNetwork {
 
                     if dt > 0.0 {
                         // Pre before post - potentiation
-                        let strength = self.stdp_params.a_plus * (-dt / self.stdp_params.tau_pre).exp();
+                        let strength =
+                            self.stdp_params.a_plus * (-dt / self.stdp_params.tau_pre).exp();
                         weight_update += strength;
                     } else if dt < 0.0 {
                         // Post before pre - depression
-                        let strength = self.stdp_params.a_minus * (dt / self.stdp_params.tau_post).exp();
+                        let strength =
+                            self.stdp_params.a_minus * (dt / self.stdp_params.tau_post).exp();
                         weight_update -= strength;
                     }
                 }
@@ -334,7 +358,12 @@ impl SpikingGraphNetwork {
 
     // Helper methods for tensor operations (simplified implementations)
 
-    fn set_spike(&self, mut spikes: Tensor, node: usize, value: f32) -> Result<Tensor, Box<dyn std::error::Error>> {
+    fn set_spike(
+        &self,
+        spikes: Tensor,
+        _node: usize,
+        _value: f32,
+    ) -> Result<Tensor, Box<dyn std::error::Error>> {
         // Simplified spike setting - in practice would use proper tensor indexing
         Ok(spikes)
     }
@@ -345,32 +374,59 @@ impl SpikingGraphNetwork {
         Ok(())
     }
 
-    fn set_membrane_potential(&mut self, node: usize, value: f32) -> Result<(), Box<dyn std::error::Error>> {
+    fn set_membrane_potential(
+        &mut self,
+        _node: usize,
+        _value: f32,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         // Simplified membrane potential setting
         Ok(())
     }
 
-    fn get_synaptic_weight(&self, src: usize, dst: usize) -> Result<f32, Box<dyn std::error::Error>> {
+    fn get_synaptic_weight(
+        &self,
+        _src: usize,
+        _dst: usize,
+    ) -> Result<f32, Box<dyn std::error::Error>> {
         // Simplified weight access
         Ok(0.1)
     }
 
-    fn update_synaptic_weight(&mut self, src: usize, dst: usize, update: f32) -> Result<(), Box<dyn std::error::Error>> {
+    fn update_synaptic_weight(
+        &mut self,
+        _src: usize,
+        _dst: usize,
+        _update: f32,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         // Simplified weight update
         Ok(())
     }
 
-    fn get_spike_value(&self, spikes: &Tensor, node: usize) -> Result<f32, Box<dyn std::error::Error>> {
+    fn get_spike_value(
+        &self,
+        _spikes: &Tensor,
+        _node: usize,
+    ) -> Result<f32, Box<dyn std::error::Error>> {
         // Simplified spike value access
         Ok(0.0)
     }
 
-    fn add_spike_contribution(&self, mut spikes: Tensor, node: usize, value: f32) -> Result<Tensor, Box<dyn std::error::Error>> {
+    fn add_spike_contribution(
+        &self,
+        spikes: Tensor,
+        _node: usize,
+        _value: f32,
+    ) -> Result<Tensor, Box<dyn std::error::Error>> {
         // Simplified spike contribution addition
         Ok(spikes)
     }
 
-    fn set_firing_rate(&self, mut rates: Tensor, node: usize, rate: f32) -> Result<Tensor, Box<dyn std::error::Error>> {
+    fn set_firing_rate(
+        &self,
+        rates: Tensor,
+        _node: usize,
+        _rate: f32,
+    ) -> Result<Tensor, Box<dyn std::error::Error>> {
         // Simplified firing rate setting
         Ok(rates)
     }
@@ -455,14 +511,17 @@ impl EventDrivenGraphProcessor {
     pub fn new(num_nodes: usize) -> Self {
         let mut node_states = HashMap::new();
         for i in 0..num_nodes {
-            node_states.insert(i, NodeState {
-                membrane_potential: -0.7,
-                last_update: 0.0,
-                charge: 0.0,
-                threshold: 1.0,
-                refractory_until: 0.0,
-                energy_consumed: 0.0,
-            });
+            node_states.insert(
+                i,
+                NodeState {
+                    membrane_potential: -0.7,
+                    last_update: 0.0,
+                    charge: 0.0,
+                    threshold: 1.0,
+                    refractory_until: 0.0,
+                    energy_consumed: 0.0,
+                },
+            );
         }
 
         Self {
@@ -571,7 +630,7 @@ impl EventDrivenGraphProcessor {
         }
     }
 
-    fn process_weight_update(&mut self, event: &GraphEvent, current_time: f64) {
+    fn process_weight_update(&mut self, _event: &GraphEvent, _current_time: f64) {
         // Update synaptic weights (simplified)
         self.energy_tracker.record_weight_update();
     }
@@ -583,7 +642,11 @@ impl EventDrivenGraphProcessor {
         }
     }
 
-    fn process_topology_change(&mut self, event: &GraphEvent, current_time: f64) -> Vec<GraphEvent> {
+    fn process_topology_change(
+        &mut self,
+        _event: &GraphEvent,
+        _current_time: f64,
+    ) -> Vec<GraphEvent> {
         // Handle dynamic topology changes
         vec![]
     }
@@ -591,7 +654,9 @@ impl EventDrivenGraphProcessor {
     /// Add event to the queue
     pub fn add_event(&mut self, event: GraphEvent) {
         // Insert event in chronological order
-        let insert_pos = self.event_queue.iter()
+        let insert_pos = self
+            .event_queue
+            .iter()
             .position(|e| e.timestamp > event.timestamp)
             .unwrap_or(self.event_queue.len());
 
@@ -640,7 +705,7 @@ impl EnergyTracker {
     pub fn new() -> Self {
         Self {
             total_energy: 0.0,
-            energy_per_spike: 1e-12, // Picojoules
+            energy_per_spike: 1e-12,         // Picojoules
             energy_per_weight_update: 1e-15, // Femtojoules
             energy_per_event: 1e-15,
             spike_count: 0,
@@ -737,7 +802,10 @@ impl LiquidStateMachine {
 
         // Leaky integration
         let leak_complement = 1.0 - self.leak_rate;
-        self.state = self.state.mul_scalar(leak_complement)?.add(&activated.mul_scalar(self.leak_rate)?)?;
+        self.state = self
+            .state
+            .mul_scalar(leak_complement)?
+            .add(&activated.mul_scalar(self.leak_rate)?)?;
 
         // Store state history
         self.state_history.push_back(self.state.clone());
@@ -748,7 +816,10 @@ impl LiquidStateMachine {
         Ok(self.state.clone())
     }
 
-    fn create_sparse_reservoir(size: usize, prob: f32) -> Result<Tensor, Box<dyn std::error::Error>> {
+    fn create_sparse_reservoir(
+        size: usize,
+        prob: f32,
+    ) -> Result<Tensor, Box<dyn std::error::Error>> {
         // Create sparse random reservoir matrix
         let mut weights = randn(&[size, size])?;
 
@@ -765,6 +836,7 @@ impl LiquidStateMachine {
 }
 
 /// Neuromorphic graph layer implementing bio-inspired computation
+#[derive(Debug)]
 pub struct NeuromorphicGraphLayer {
     /// Spiking network
     pub spiking_network: SpikingGraphNetwork,
@@ -831,8 +903,6 @@ impl GraphLayer for NeuromorphicGraphLayer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use torsh_tensor::creation::from_vec;
-    use torsh_core::device::DeviceType;
 
     #[test]
     fn test_spiking_network_creation() {

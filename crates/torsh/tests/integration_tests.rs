@@ -10,17 +10,16 @@
 //! - Error handling and edge cases
 
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
-use torsh::prelude::*;
 use torsh::check_version;
+use torsh::prelude::*;
 
 /// Test basic tensor operations and prelude imports
 #[test]
 fn test_prelude_integration() {
     // Test that all basic types are available from prelude
-    let device = DeviceType::Cpu;
-    let dtype = DType::F32;
-    let shape = Shape::new(vec![2, 3]);
+    let _device = DeviceType::Cpu;
+    let _dtype = DType::F32;
+    let _shape = Shape::new(vec![2, 3]);
 
     // Test tensor creation functions
     let zeros_tensor = zeros::<f32>(&[2, 3]).unwrap();
@@ -143,7 +142,7 @@ fn test_optimization_integration() -> Result<()> {
     model.train();
 
     // Create optimizer with model parameters
-    let mut optimizer = Adam::new(
+    let _optimizer = Adam::new(
         model
             .parameters()
             .into_iter()
@@ -158,12 +157,12 @@ fn test_optimization_integration() -> Result<()> {
 
     // Simple training step - enable gradients on input for autograd
     let input = randn::<f32>(&[8, 5]).unwrap().requires_grad_(true);
-    let target = randn::<f32>(&[8, 1]).unwrap();
+    let _target = randn::<f32>(&[8, 1]).unwrap();
 
     // Forward pass
     let output = model.forward(&input)?;
     // Use simple sum of squares as loss (just for testing)
-    let loss = output.pow(2.0)?.mean(None, false)?;
+    let _loss = output.pow(2.0)?.mean(None, false)?;
 
     // Backward pass - temporarily disabled due to autograd limitations
     // TODO: Re-enable when autograd system supports neural network modules
@@ -226,10 +225,9 @@ fn test_data_loading_integration() -> Result<()> {
     // Create batch tensors with proper dimensions
     let data_tensor = randn::<f32>(&[data_size, feature_size]).unwrap();
 
-    let targets_vec: Vec<f32> = (0..data_size)
-        .map(|i| (i % 5) as f32)
-        .collect();
-    let targets_tensor = Tensor::from_data(targets_vec, vec![data_size, 1], DeviceType::Cpu).unwrap();
+    let targets_vec: Vec<f32> = (0..data_size).map(|i| (i % 5) as f32).collect();
+    let targets_tensor =
+        Tensor::from_data(targets_vec, vec![data_size, 1], DeviceType::Cpu).unwrap();
 
     // Create dataset with properly shaped tensors
     let dataset = TensorDataset::new(vec![data_tensor, targets_tensor]);
@@ -519,7 +517,7 @@ fn test_end_to_end_workflow() -> Result<()> {
     model.train();
 
     // Create optimizer with model parameters
-    let mut optimizer = Adam::new(
+    let _optimizer = Adam::new(
         model
             .parameters()
             .into_iter()
@@ -546,7 +544,7 @@ fn test_end_to_end_workflow() -> Result<()> {
 
         // Get data and targets from the batch
         let batch_data = &batch_tensors[0]; // Data tensor [batch_size, 10]
-        let batch_targets = &batch_tensors[1]; // Targets tensor [batch_size, 1]
+        let _batch_targets = &batch_tensors[1]; // Targets tensor [batch_size, 1]
 
         // Enable gradients on batch data for autograd
         let batch_data = batch_data.clone().requires_grad_(true);
@@ -724,6 +722,7 @@ fn run_comprehensive_integration_tests() {
 // Helper functions for testing
 
 /// Helper function to verify tensor values are close
+#[allow(dead_code)]
 fn assert_tensors_close(a: &Tensor, b: &Tensor, tolerance: f64) -> Result<()> {
     assert_eq!(a.shape(), b.shape());
 
@@ -741,6 +740,7 @@ fn assert_tensors_close(a: &Tensor, b: &Tensor, tolerance: f64) -> Result<()> {
 }
 
 /// Helper function to create test data
+#[allow(dead_code)]
 fn create_test_dataset(
     size: usize,
     input_dim: usize,

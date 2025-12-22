@@ -1,5 +1,7 @@
 //! Model conversion, compression, extraction, and merging operations
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use tracing::{info, warn};
@@ -13,12 +15,10 @@ use super::types::ModelResult;
 // ToRSh Core functionality - following SciRS2 POLICY
 // ToRSh Core types (available for future expansion)
 
-// SciRS2 ecosystem - MUST use instead of rand/ndarray (SCIRS2 POLICY COMPLIANT - legacy but allowed)
-use scirs2_autograd::ndarray::Array2;
-use scirs2_core::random::{Random, Rng};
-
-// NumRS2 for numerical operations
-use numrs2::prelude::*;
+// ✅ UNIFIED ACCESS (v0.1.0-RC.1+): Complete ndarray/random functionality through scirs2-core
+// SciRS2 ecosystem - MUST use instead of rand/ndarray (SCIRS2 POLICY COMPLIANT)
+use scirs2_core::ndarray::Array2;
+use scirs2_core::random::{thread_rng, Rng};
 
 /// Convert model between different formats
 pub async fn convert_model(args: ConvertArgs, _config: &Config, output_format: &str) -> Result<()> {
@@ -26,7 +26,7 @@ pub async fn convert_model(args: ConvertArgs, _config: &Config, output_format: &
     validation::validate_file_exists(&args.input)?;
     validation::validate_model_format(&args.format)?;
 
-    let (result, duration) = time::measure_time(async {
+    let (result, _duration) = time::measure_time(async {
         info!(
             "Converting model from {} to {}",
             args.input.display(),
@@ -177,25 +177,63 @@ pub async fn extract_model(args: ExtractArgs, _config: &Config, output_format: &
 
     let pb = progress::create_spinner(&format!("Extracting {}...", args.component));
 
-    // Simulate extraction
-    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    // Real extraction using model analysis
+    use super::serialization::load_model;
+    use super::types::{calculate_model_statistics, visualize_model_json};
+
+    let model = load_model(&args.input).await?;
 
     let extracted_data = match args.component.as_str() {
-        "weights" => "model weights data",
-        "architecture" => "model architecture data",
-        "metadata" => "model metadata data",
+        "weights" => {
+            // Extract weights as JSON
+            let weights_data: Vec<_> = model
+                .weights
+                .iter()
+                .map(|(name, tensor)| {
+                    serde_json::json!({
+                        "name": name,
+                        "shape": tensor.shape,
+                        "dtype": tensor.dtype.name(),
+                        "requires_grad": tensor.requires_grad,
+                        "device": tensor.device.name(),
+                    })
+                })
+                .collect();
+            serde_json::to_string_pretty(&weights_data)?
+        }
+        "architecture" => {
+            // Extract architecture visualization
+            visualize_model_json(&model)?
+        }
+        "metadata" => {
+            // Extract metadata
+            serde_json::to_string_pretty(&model.metadata)?
+        }
+        "statistics" => {
+            // Extract statistics
+            let stats = calculate_model_statistics(&model);
+            serde_json::to_string_pretty(&stats)?
+        }
         _ => {
-            warn!("Unknown component: {}", args.component);
-            "unknown component data"
+            warn!("Unknown component: {}, using metadata", args.component);
+            serde_json::to_string_pretty(&model.metadata)?
         }
     };
 
-    tokio::fs::write(&args.output, extracted_data).await?;
+    tokio::fs::write(&args.output, &extracted_data).await?;
 
     pb.finish_with_message(format!("{} extraction completed", args.component));
 
     let mut metrics = HashMap::new();
     metrics.insert("component".to_string(), serde_json::json!(args.component));
+    metrics.insert(
+        "items_extracted".to_string(),
+        serde_json::json!(match args.component.as_str() {
+            "weights" => model.weights.len(),
+            "architecture" => model.layers.len(),
+            _ => 1,
+        }),
+    );
 
     let result = ModelResult {
         operation: "extract".to_string(),
@@ -325,27 +363,33 @@ async fn convert_pytorch_to_torsh(
 ) -> Result<()> {
     info!("Converting PyTorch model to ToRSh format");
 
-    // Read PyTorch model file
-    let model_data = tokio::fs::read(input_path)
-        .await
-        .with_context(|| format!("Failed to read PyTorch model: {}", input_path.display()))?;
+    // Use the new PyTorch parser module
+    use super::pytorch_parser::{
+        convert_pytorch_to_torsh as pytorch_convert, generate_conversion_report,
+        parse_pytorch_model, validate_conversion,
+    };
+    use torsh_core::device::DeviceType;
 
-    // Use SciRS2 for tensor operations during conversion
-    let mut rng = Random::seed(42);
-    let conversion_tensor: Array2<f32> = Array2::zeros((100, 100));
+    // Parse PyTorch model
+    let pytorch_info = parse_pytorch_model(input_path).await?;
+    info!(
+        "Parsed PyTorch model: version {}, {} parameters",
+        pytorch_info.pytorch_version, pytorch_info.num_parameters
+    );
 
-    info!("Processing PyTorch model with {} bytes", model_data.len());
+    // Convert to ToRSh model
+    let torsh_model = pytorch_convert(input_path, DeviceType::Cpu).await?;
 
-    // Convert model structure to ToRSh format
-    let torsh_model = create_torsh_model_from_pytorch(&model_data, _args)?;
+    // Validate conversion
+    validate_conversion(&pytorch_info, &torsh_model)?;
 
-    // Serialize ToRSh model
-    let serialized_model = serialize_torsh_model(&torsh_model)?;
+    // Generate conversion report
+    let report = generate_conversion_report(&pytorch_info, &torsh_model);
+    info!("\n{}", report);
 
-    // Write converted model
-    tokio::fs::write(output_path, serialized_model)
-        .await
-        .with_context(|| format!("Failed to write ToRSh model: {}", output_path.display()))?;
+    // Serialize using enhanced serialization
+    use super::serialization::save_model;
+    save_model(&torsh_model, output_path).await?;
 
     info!("Successfully converted PyTorch model to ToRSh format");
     Ok(())
@@ -517,8 +561,8 @@ fn create_torsh_model_from_pytorch(data: &[u8], _args: &ConvertArgs) -> Result<T
     info!("Parsing PyTorch model with {} bytes", data.len());
 
     // Use SciRS2 for weight processing
-    let mut rng = Random::seed(123);
-    let sample_weights = Array2::from_shape_fn((64, 64), |_| rng.gen::<f32>());
+    let mut rng = thread_rng();
+    let sample_weights = Array2::from_shape_fn((64, 64), |_| rng.random::<f32>());
 
     let mut weights = HashMap::new();
     weights.insert("layer1.weight".to_string(), sample_weights);
@@ -579,10 +623,10 @@ fn parse_onnx_graph(data: &[u8]) -> Result<OnnxGraphInfo> {
     ];
 
     let mut tensors = HashMap::new();
-    let mut rng = Random::seed(456);
+    let mut rng = thread_rng();
     tensors.insert(
         "weights".to_string(),
-        Array2::from_shape_fn((32, 32), |_| rng.gen::<f32>()),
+        Array2::from_shape_fn((32, 32), |_| rng.random::<f32>()),
     );
 
     Ok(OnnxGraphInfo {
@@ -638,11 +682,11 @@ async fn load_torsh_model(path: &std::path::PathBuf) -> Result<TorshModel> {
     info!("Loading ToRSh model with {} bytes", data.len());
 
     // Create mock model structure
-    let mut rng = Random::seed(789);
+    let mut rng = thread_rng();
     let mut weights = HashMap::new();
     weights.insert(
         "main.weight".to_string(),
-        Array2::from_shape_fn((128, 128), |_| rng.gen::<f32>()),
+        Array2::from_shape_fn((128, 128), |_| rng.random::<f32>()),
     );
 
     Ok(TorshModel {
@@ -747,11 +791,11 @@ async fn parse_tensorflow_saved_model(path: &std::path::PathBuf) -> Result<Torsh
     info!("Found SavedModel with {} bytes total", total_size);
 
     // Create simplified model structure
-    let mut rng = Random::seed(999);
+    let mut rng = thread_rng();
     let mut weights = HashMap::new();
     weights.insert(
         "dense/kernel".to_string(),
-        Array2::from_shape_fn((784, 128), |_| rng.gen::<f32>()),
+        Array2::from_shape_fn((784, 128), |_| rng.random::<f32>()),
     );
 
     Ok(TorshModel {
@@ -771,11 +815,11 @@ fn convert_tf_saved_model_to_torsh(model: TorshModel, _args: &ConvertArgs) -> Re
 fn parse_tensorflow_graph(data: &[u8]) -> Result<TorshModel> {
     info!("Parsing TensorFlow graph from {} bytes", data.len());
 
-    let mut rng = Random::seed(1001);
+    let mut rng = thread_rng();
     let mut weights = HashMap::new();
     weights.insert(
         "graph/weights".to_string(),
-        Array2::from_shape_fn((256, 256), |_| rng.gen::<f32>()),
+        Array2::from_shape_fn((256, 256), |_| rng.random::<f32>()),
     );
 
     Ok(TorshModel {

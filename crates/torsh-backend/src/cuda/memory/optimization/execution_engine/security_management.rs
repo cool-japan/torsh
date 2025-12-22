@@ -7,15 +7,11 @@
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
-use std::sync::{
-    atomic::{AtomicBool, AtomicU64, Ordering},
-    Arc, Mutex, RwLock,
-};
-use std::time::{Duration, Instant, SystemTime};
+use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, Mutex, RwLock};
+use std::time::{Duration, SystemTime};
 
-use super::config::{AuditConfig, EncryptionConfig, SecurityConfig};
-use super::task_management::{TaskId, TaskStatus};
+use super::config::{EncryptionConfig, SecurityConfig};
 
 /// Comprehensive security manager for CUDA execution
 ///

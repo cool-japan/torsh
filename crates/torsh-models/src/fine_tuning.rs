@@ -953,7 +953,6 @@ struct LoRAAdapter {
 
 impl LoRAAdapter {
     fn new(in_features: usize, out_features: usize, rank: usize) -> Self {
-        use torsh_core::DeviceType;
         let lora_a = torsh_tensor::creation::randn(&[rank, in_features]).unwrap();
         let lora_b = torsh_tensor::creation::zeros(&[out_features, rank]).unwrap();
         let scaling = 1.0 / rank as f32;
@@ -1003,7 +1002,6 @@ struct SimpleLinear {
 
 impl SimpleLinear {
     fn new(in_features: usize, out_features: usize) -> Self {
-        use torsh_core::DeviceType;
         let weight = torsh_tensor::creation::randn(&[out_features, in_features]).unwrap();
         let bias = Some(torsh_tensor::creation::zeros(&[out_features]).unwrap());
         Self { weight, bias }
@@ -1047,7 +1045,7 @@ impl Module for SimpleLinear {
 }
 
 /// Utility functions for fine-tuning
-pub mod utils {
+pub mod fine_tuning_utils {
     use super::*;
 
     /// Create a standard fine-tuning config
@@ -1209,7 +1207,7 @@ pub mod utils {
     /// Generate fine-tuning recommendations
     pub fn generate_recommendations(
         model_size: ModelSize,
-        task_type: TaskType,
+        task_type: FineTuningTaskType,
         available_memory_gb: f32,
     ) -> FineTuningRecommendation {
         match (model_size, task_type) {
@@ -1221,7 +1219,7 @@ pub mod utils {
                 expected_efficiency: 1.0,
                 memory_usage_gb: available_memory_gb * 0.3,
             },
-            (ModelSize::Large, TaskType::Classification) => FineTuningRecommendation {
+            (ModelSize::Large, FineTuningTaskType::Classification) => FineTuningRecommendation {
                 strategy: "LoRA fine-tuning".to_string(),
                 adapter_config: Some(AdapterType::LoRA {
                     rank: 16,
@@ -1233,7 +1231,7 @@ pub mod utils {
                 expected_efficiency: 0.1,
                 memory_usage_gb: available_memory_gb * 0.5,
             },
-            (ModelSize::Large, TaskType::Generation) => FineTuningRecommendation {
+            (ModelSize::Large, FineTuningTaskType::Generation) => FineTuningRecommendation {
                 strategy: "Progressive unfreezing with adapters".to_string(),
                 adapter_config: Some(AdapterType::LoRA {
                     rank: 32,
@@ -1278,9 +1276,9 @@ pub enum ModelSize {
     Large,  // > 1B parameters
 }
 
-/// Task types for fine-tuning
+/// Task types for fine-tuning operations
 #[derive(Debug, Clone)]
-pub enum TaskType {
+pub enum FineTuningTaskType {
     Classification,
     Generation,
     SequenceLabeling,
@@ -1312,7 +1310,7 @@ mod tests {
     impl MockModel {
         fn new() -> Self {
             let mut parameters = HashMap::new();
-            let device = DeviceType::Cpu;
+            let _device = DeviceType::Cpu;
 
             parameters.insert(
                 "layer1.weight".to_string(),
@@ -1356,7 +1354,7 @@ mod tests {
 
     #[test]
     fn test_fine_tuning_config_creation() {
-        let config = utils::standard_fine_tuning_config(1e-4);
+        let config = fine_tuning_utils::standard_fine_tuning_config(1e-4);
         assert!(matches!(
             config.layer_lr_schedule,
             LayerLearningRateSchedule::Uniform { .. }
@@ -1369,7 +1367,7 @@ mod tests {
 
     #[test]
     fn test_lora_config_creation() {
-        let config = utils::lora_fine_tuning_config(16, 32.0, 3e-4);
+        let config = fine_tuning_utils::lora_fine_tuning_config(16, 32.0, 3e-4);
         assert!(config.adapter_config.is_some());
         if let Some(adapter_config) = &config.adapter_config {
             assert!(matches!(
@@ -1382,14 +1380,15 @@ mod tests {
     #[test]
     fn test_fine_tuning_engine_initialization() {
         let model = MockModel::new();
-        let config = utils::standard_fine_tuning_config(1e-4);
+        let config = fine_tuning_utils::standard_fine_tuning_config(1e-4);
         let mut engine = FineTuningEngine::new(model, config);
 
         engine.initialize().unwrap();
 
         let stats = engine.get_stats().unwrap();
         assert!(stats.trainable_params > 0);
-        assert!(stats.frozen_params >= 0); // Allow for strategies with no frozen parameters
+        // Note: frozen_params is usize, so it's always >= 0 - just verify it's accessible
+        let _ = stats.frozen_params; // Allow for strategies with no frozen parameters
         assert!(stats.training_percentage > 0.0 && stats.training_percentage <= 100.0);
     }
 
@@ -1462,7 +1461,7 @@ mod tests {
     #[test]
     fn test_adapter_creation() {
         let model = MockModel::new();
-        let config = utils::lora_fine_tuning_config(8, 16.0, 2e-4);
+        let config = fine_tuning_utils::lora_fine_tuning_config(8, 16.0, 2e-4);
         let mut engine = FineTuningEngine::new(model, config);
 
         engine.initialize().unwrap();
@@ -1479,7 +1478,7 @@ mod tests {
     #[test]
     fn test_progressive_unfreezing() {
         let model = MockModel::new();
-        let config = utils::progressive_unfreezing_config(1e-4);
+        let config = fine_tuning_utils::progressive_unfreezing_config(1e-4);
         let mut engine = FineTuningEngine::new(model, config);
 
         engine.initialize().unwrap();
@@ -1500,10 +1499,10 @@ mod tests {
     #[test]
     fn test_domain_adaptation_loss() {
         let model = MockModel::new();
-        let config = utils::domain_adaptation_config("source", "target", 1e-4);
+        let config = fine_tuning_utils::domain_adaptation_config("source", "target", 1e-4);
         let engine = FineTuningEngine::new(model, config);
 
-        let device = DeviceType::Cpu;
+        let _device = DeviceType::Cpu;
         let source_features = torsh_tensor::creation::randn(&[10, 20]).unwrap();
         let target_features = torsh_tensor::creation::randn(&[10, 20]).unwrap();
 
@@ -1515,16 +1514,21 @@ mod tests {
 
     #[test]
     fn test_utility_functions() {
-        let (efficiency, reduction) = utils::calculate_parameter_efficiency(1_000_000, 50_000);
+        let (efficiency, reduction) =
+            fine_tuning_utils::calculate_parameter_efficiency(1_000_000, 50_000);
         assert_eq!(efficiency, 0.05);
         assert_eq!(reduction, 20.0);
 
-        let memory_est = utils::estimate_memory_requirements(1_000_000, 50_000, 16, 512);
+        let memory_est =
+            fine_tuning_utils::estimate_memory_requirements(1_000_000, 50_000, 16, 512);
         assert!(memory_est.total_memory > memory_est.base_model_memory);
         assert!(memory_est.total_memory > memory_est.adapter_memory);
 
-        let recommendation =
-            utils::generate_recommendations(ModelSize::Large, TaskType::Classification, 8.0);
+        let recommendation = fine_tuning_utils::generate_recommendations(
+            ModelSize::Large,
+            FineTuningTaskType::Classification,
+            8.0,
+        );
         assert!(!recommendation.strategy.is_empty());
         assert!(recommendation.learning_rate > 0.0);
         assert!(recommendation.batch_size > 0);
@@ -1532,7 +1536,7 @@ mod tests {
 
     #[test]
     fn test_config_serialization() {
-        let config = utils::lora_fine_tuning_config(16, 32.0, 3e-4);
+        let config = fine_tuning_utils::lora_fine_tuning_config(16, 32.0, 3e-4);
 
         let serialized = serde_json::to_string(&config).unwrap();
         let deserialized: FineTuningConfig = serde_json::from_str(&serialized).unwrap();
@@ -1548,7 +1552,7 @@ mod tests {
 
     #[test]
     fn test_adapter_modules() {
-        let device = DeviceType::Cpu;
+        let _device = DeviceType::Cpu;
 
         // Test StandardAdapter
         let standard_adapter = StandardAdapter::new(128, 32);

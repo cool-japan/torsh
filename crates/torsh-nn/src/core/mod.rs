@@ -3,6 +3,10 @@
 //! This module provides the foundational Module trait and essential interfaces
 //! for all neural network components in ToRSh.
 
+pub mod module_ext;
+
+pub use module_ext::{ModuleExt, ParameterStats, ValidationReport};
+
 use torsh_core::device::DeviceType;
 use torsh_core::error::Result;
 use torsh_tensor::Tensor;

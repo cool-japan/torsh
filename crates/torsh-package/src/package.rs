@@ -10,12 +10,13 @@ use torsh_core::error::{Result, TorshError};
 
 use crate::exporter::{ExportConfig, PackageExporter};
 use crate::importer::PackageImporter;
-use crate::manifest::{ModuleInfo, PackageManifest, ResourceInfo};
+use crate::manifest::{ModuleInfo, PackageManifest};
 use crate::resources::{Resource, ResourceType};
 use crate::utils::calculate_hash;
 use crate::PACKAGE_FORMAT_VERSION;
 
 /// Main package structure
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Package {
     pub(crate) manifest: PackageManifest,
     pub(crate) resources: HashMap<String, Resource>,
@@ -43,6 +44,11 @@ impl Package {
             manifest,
             resources: HashMap::new(),
         }
+    }
+
+    /// Get the package name
+    pub fn name(&self) -> &str {
+        &self.manifest.name
     }
 
     /// Get the package version

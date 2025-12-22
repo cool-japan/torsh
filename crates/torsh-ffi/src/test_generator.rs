@@ -675,7 +675,6 @@ fn format_lua_table_1d(data: &[usize]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
 
     #[test]
     fn test_python_test_generation() {

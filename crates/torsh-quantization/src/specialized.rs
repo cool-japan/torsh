@@ -647,7 +647,7 @@ mod tests {
         let result = quantize_group_wise(&tensor, 1, 2, &config);
         assert!(result.is_ok());
 
-        let (quantized, scale, zero_point) = result.unwrap();
+        let (quantized, scale, _zero_point) = result.unwrap();
         assert!(scale > 0.0);
         assert_eq!(quantized.shape().dims(), tensor.shape().dims());
     }

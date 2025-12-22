@@ -445,10 +445,7 @@ impl<R: tokio::io::AsyncRead + Unpin> tokio::io::AsyncRead for BandwidthLimitedR
                     self.pending_bytes = 0;
                 }
                 std::task::Poll::Ready(Err(e)) => {
-                    return std::task::Poll::Ready(Err(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        e,
-                    )));
+                    return std::task::Poll::Ready(Err(std::io::Error::other(e)));
                 }
                 std::task::Poll::Pending => {
                     // Still waiting for acquire, put the future back and return Pending
@@ -482,9 +479,9 @@ impl<R: tokio::io::AsyncRead + Unpin> tokio::io::AsyncRead for BandwidthLimitedR
                                 self.pending_bytes = 0;
                                 std::task::Poll::Ready(Ok(()))
                             }
-                            std::task::Poll::Ready(Err(e)) => std::task::Poll::Ready(Err(
-                                std::io::Error::new(std::io::ErrorKind::Other, e),
-                            )),
+                            std::task::Poll::Ready(Err(e)) => {
+                                std::task::Poll::Ready(Err(std::io::Error::other(e)))
+                            }
                             std::task::Poll::Pending => {
                                 // Need to wait for acquire, put future back
                                 self.acquire_future = Some(future);
@@ -506,7 +503,7 @@ impl<R: tokio::io::AsyncRead + Unpin> tokio::io::AsyncRead for BandwidthLimitedR
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio::time::{Duration, Instant};
+    use tokio::time::Duration;
 
     #[test]
     fn test_bandwidth_limiter_creation() {

@@ -339,7 +339,6 @@ impl KalmanFilter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use torsh_tensor::creation::*;
 
     fn create_test_series() -> TimeSeries {
         let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0];

@@ -585,6 +585,12 @@ pub struct ProfilingTimer {
     start_instant: Instant,
 }
 
+impl Default for ProfilingTimer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ProfilingTimer {
     /// Create a new timer and start timing
     pub fn new() -> Self {

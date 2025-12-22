@@ -4,10 +4,7 @@
 //! including rank, condition number, determinant, matrix inverse, and pseudoinverse.
 
 use torsh_core::{Result as TorshResult, TorshError};
-use torsh_tensor::{
-    creation::{eye, ones},
-    Tensor,
-};
+use torsh_tensor::Tensor;
 
 use super::core::NormOrd;
 use super::decompositions::svd;

@@ -4,6 +4,8 @@
 //! communication overhead in distributed training. Includes quantization,
 //! sparsification, and error feedback mechanisms.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{TorshDistributedError, TorshResult};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -361,8 +363,7 @@ impl GradientCompressor {
         let mut indices = Vec::new();
         let mut values = Vec::new();
 
-        for i in 0..k_elements.min(indexed_values.len()) {
-            let idx = indexed_values[i].0;
+        for &(idx, _) in indexed_values.iter().take(k_elements) {
             indices.push(idx);
             values.push(grad_data[idx]);
         }
@@ -612,8 +613,7 @@ impl GradientCompressor {
                 "gradient",
                 format!("PowerSGD requires 2D tensors, got {}D tensor", shape.len()),
                 "2D tensor with shape [rows, cols]",
-            )
-            .into());
+            ));
         }
 
         let rows = shape[0];
@@ -891,16 +891,14 @@ impl GradientCompressor {
         // Get or create error feedback buffer
         let error_key = format!("ef21_{}", param_name);
         let error_feedback = if let Some(prev_error) = self.error_buffers.get(&error_key) {
-            let prev_data = prev_error.flatten()?.to_vec()?;
-            prev_data
+            prev_error.flatten()?.to_vec()?
         } else {
             vec![0.0; grad_data.len()]
         };
 
         // Apply momentum to error feedback
         let mut adjusted_grad = Vec::new();
-        for (i, (&grad_val, &error_val)) in grad_data.iter().zip(error_feedback.iter()).enumerate()
-        {
+        for (&grad_val, &error_val) in grad_data.iter().zip(error_feedback.iter()) {
             adjusted_grad.push(grad_val + momentum * error_val);
         }
 
@@ -917,8 +915,7 @@ impl GradientCompressor {
         let mut new_error_feedback = adjusted_grad.clone();
 
         // Keep top-k values
-        for i in 0..k_elements.min(indexed_values.len()) {
-            let idx = indexed_values[i].0;
+        for &(idx, _) in indexed_values.iter().take(k_elements) {
             compressed_values[idx] = adjusted_grad[idx];
             new_error_feedback[idx] = 0.0; // Reset error for transmitted values
         }
@@ -1268,11 +1265,11 @@ mod tests {
             CompressedData::Quantized {
                 values,
                 scale,
-                zero_point,
+                zero_point: _,
             } => {
                 assert_eq!(values.len(), 16); // 4x4 = 16 elements
                 assert!(*scale > 0.0);
-                assert!(*zero_point <= 255);
+                // zero_point is u8, always <= 255
             }
             _ => panic!("Expected quantized compression"),
         }

@@ -6,7 +6,7 @@
 //! insights for optimization and monitoring.
 
 use std::collections::HashMap;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 /// Comprehensive performance statistics for ZeRO-3 operations
 ///
@@ -94,19 +94,13 @@ impl Zero3PerformanceStats {
 
     /// Record layer execution timing
     pub fn record_layer_execution(&mut self, layer_name: String, duration: Duration) {
-        let layer_stats = self
-            .layer_timings
-            .entry(layer_name.clone())
-            .or_insert_with(LayerTimingStats::new);
+        let layer_stats = self.layer_timings.entry(layer_name.clone()).or_default();
         layer_stats.record_forward_execution(duration);
     }
 
     /// Record layer backward pass timing
     pub fn record_layer_backward(&mut self, layer_name: String, duration: Duration) {
-        let layer_stats = self
-            .layer_timings
-            .entry(layer_name)
-            .or_insert_with(LayerTimingStats::new);
+        let layer_stats = self.layer_timings.entry(layer_name).or_default();
         layer_stats.record_backward_execution(duration);
     }
 
@@ -244,10 +238,7 @@ impl Zero3PerformanceStats {
 
         // Merge layer timings
         for (layer_name, other_stats) in &other.layer_timings {
-            let layer_stats = self
-                .layer_timings
-                .entry(layer_name.clone())
-                .or_insert_with(LayerTimingStats::new);
+            let layer_stats = self.layer_timings.entry(layer_name.clone()).or_default();
             layer_stats.merge(other_stats);
         }
 
@@ -803,16 +794,16 @@ impl OptimizationEfficiency {
         self.overall_efficiency = 0.5 * compute_ratio
             + 0.3 * self.memory_efficiency
             + 0.2 * self.parameter_update_efficiency;
-        self.overall_efficiency = self.overall_efficiency.min(1.0).max(0.0);
+        self.overall_efficiency = self.overall_efficiency.clamp(0.0, 1.0);
     }
 
     pub fn update_memory_efficiency(&mut self, efficiency: f64) {
-        self.memory_efficiency = efficiency.min(1.0).max(0.0);
+        self.memory_efficiency = efficiency.clamp(0.0, 1.0);
         self.update_efficiency();
     }
 
     pub fn update_parameter_efficiency(&mut self, efficiency: f64) {
-        self.parameter_update_efficiency = efficiency.min(1.0).max(0.0);
+        self.parameter_update_efficiency = efficiency.clamp(0.0, 1.0);
         self.update_efficiency();
     }
 
@@ -980,7 +971,7 @@ mod tests {
         );
         assert_eq!(stats.allreduce_operations, 1);
         assert_eq!(stats.allreduce_bytes, 1000);
-        assert_eq!(stats.get_allreduce_bandwidth(), 10.0); // 1000 bytes / 0.1 seconds
+        assert_eq!(stats.get_allreduce_bandwidth(), 10000.0); // 1000 bytes / 0.1 seconds = 10000 bytes/sec
     }
 
     #[test]

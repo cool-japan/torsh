@@ -12,32 +12,59 @@ use torsh_tensor::Tensor;
 /// Convenience type alias for Results in this crate
 pub type TorshResult<T> = Result<T>;
 
+pub mod advanced_ops;
+pub mod comparison;
 pub mod decomposition;
 pub mod matrix_functions;
+pub mod numerical_stability;
+pub mod perf;
+pub mod randomized;
 pub mod solve;
 pub mod solvers;
 pub mod sparse;
 pub mod special_matrices;
+pub mod taylor;
+pub mod utils;
+
+// Advanced features (scirs2-integration required)
+#[cfg(feature = "scirs2-integration")]
+pub mod attention;
+#[cfg(feature = "scirs2-integration")]
+pub mod matrix_calculus;
+#[cfg(feature = "scirs2-integration")]
+pub mod matrix_equations;
+#[cfg(feature = "scirs2-integration")]
+pub mod quantization;
 
 // SciRS2 integration
 #[cfg(feature = "scirs2-integration")]
 pub mod scirs2_linalg_integration;
 
 // Re-exports
+pub use advanced_ops::*;
+pub use comparison::*;
 pub use decomposition::*;
 pub use matrix_functions::*;
+// Note: numerical_stability is not wildcard re-exported to avoid conflicts with solvers
+pub use numerical_stability::{
+    check_numerical_stability, equilibrate_matrix, unequilibrate_solution, EquilibrationStrategy,
+    ScalingFactors, StabilityConfig,
+};
+pub use randomized::*;
 // Note: solve module is kept for internal use but not re-exported to avoid conflicts
 // Use the modular solvers instead for all linear algebra operations
 pub use solvers::*;
 pub use sparse::*;
 pub use special_matrices::*;
+pub use taylor::*;
+pub use utils::*;
 
 // SciRS2 enhanced capabilities
 #[cfg(feature = "scirs2-integration")]
 pub use scirs2_linalg_integration::*;
 
 /// Validate that tensor is a square 2D matrix
-fn validate_square_matrix(tensor: &Tensor, operation: &str) -> TorshResult<usize> {
+pub(crate) fn validate_square_matrix(tensor: &Tensor, operation: &str) -> TorshResult<usize> {
     if tensor.shape().ndim() != 2 {
         return Err(TorshError::InvalidArgument(format!(
             "{} requires a 2D tensor, got {}D tensor",
@@ -975,230 +1002,6 @@ pub fn bmm(batch1: &Tensor, batch2: &Tensor) -> TorshResult<Tensor> {
     batch1.matmul(batch2)
 }
 
-/// Check if all elements of two matrices are close within tolerance
-/// Similar to numpy.allclose
-pub fn allclose(a: &Tensor, b: &Tensor, rtol: Option<f32>, atol: Option<f32>) -> TorshResult<bool> {
-    if a.shape() != b.shape() {
-        return Ok(false);
-    }
-
-    let rtol = rtol.unwrap_or(1e-5);
-    let atol = atol.unwrap_or(1e-8);
-
-    let shape = a.shape();
-    let dims = shape.dims();
-
-    // Handle different tensor dimensions
-    match dims.len() {
-        1 => {
-            for i in 0..dims[0] {
-                let a_val = a.get(&[i])?;
-                let b_val = b.get(&[i])?;
-                let tolerance = atol + rtol * b_val.abs();
-                if (a_val - b_val).abs() > tolerance {
-                    return Ok(false);
-                }
-            }
-        }
-        2 => {
-            for i in 0..dims[0] {
-                for j in 0..dims[1] {
-                    let a_val = a.get(&[i, j])?;
-                    let b_val = b.get(&[i, j])?;
-                    let tolerance = atol + rtol * b_val.abs();
-                    if (a_val - b_val).abs() > tolerance {
-                        return Ok(false);
-                    }
-                }
-            }
-        }
-        3 => {
-            for i in 0..dims[0] {
-                for j in 0..dims[1] {
-                    for k in 0..dims[2] {
-                        let a_val = a.get(&[i, j, k])?;
-                        let b_val = b.get(&[i, j, k])?;
-                        let tolerance = atol + rtol * b_val.abs();
-                        if (a_val - b_val).abs() > tolerance {
-                            return Ok(false);
-                        }
-                    }
-                }
-            }
-        }
-        _ => {
-            return Err(TorshError::InvalidArgument(
-                "allclose supports tensors up to 3 dimensions".to_string(),
-            ));
-        }
-    }
-
-    Ok(true)
-}
-
-/// Element-wise comparison returning a boolean tensor indicating which elements are close
-/// Similar to numpy.isclose
-pub fn isclose(
-    a: &Tensor,
-    b: &Tensor,
-    rtol: Option<f32>,
-    atol: Option<f32>,
-) -> TorshResult<Tensor> {
-    if a.shape() != b.shape() {
-        return Err(TorshError::InvalidArgument(
-            "Input tensors must have the same shape".to_string(),
-        ));
-    }
-
-    let rtol = rtol.unwrap_or(1e-5);
-    let atol = atol.unwrap_or(1e-8);
-
-    let shape = a.shape();
-    let dims = shape.dims();
-    let total_elements = dims.iter().product::<usize>();
-    let mut result_data = vec![0.0f32; total_elements];
-
-    // Handle different tensor dimensions
-    #[allow(clippy::needless_range_loop)]
-    match dims.len() {
-        1 => {
-            for i in 0..dims[0] {
-                let a_val = a.get(&[i])?;
-                let b_val = b.get(&[i])?;
-                let tolerance = atol + rtol * b_val.abs();
-                result_data[i] = if (a_val - b_val).abs() <= tolerance {
-                    1.0
-                } else {
-                    0.0
-                };
-            }
-        }
-        2 => {
-            for i in 0..dims[0] {
-                for j in 0..dims[1] {
-                    let a_val = a.get(&[i, j])?;
-                    let b_val = b.get(&[i, j])?;
-                    let tolerance = atol + rtol * b_val.abs();
-                    let flat_idx = i * dims[1] + j;
-                    result_data[flat_idx] = if (a_val - b_val).abs() <= tolerance {
-                        1.0
-                    } else {
-                        0.0
-                    };
-                }
-            }
-        }
-        3 => {
-            for i in 0..dims[0] {
-                for j in 0..dims[1] {
-                    for k in 0..dims[2] {
-                        let a_val = a.get(&[i, j, k])?;
-                        let b_val = b.get(&[i, j, k])?;
-                        let tolerance = atol + rtol * b_val.abs();
-                        let flat_idx = i * dims[1] * dims[2] + j * dims[2] + k;
-                        result_data[flat_idx] = if (a_val - b_val).abs() <= tolerance {
-                            1.0
-                        } else {
-                            0.0
-                        };
-                    }
-                }
-            }
-        }
-        _ => {
-            return Err(TorshError::InvalidArgument(
-                "isclose supports tensors up to 3 dimensions".to_string(),
-            ));
-        }
-    }
-
-    Tensor::from_data(result_data, dims.to_vec(), a.device())
-}
-
-/// Check if two matrices are exactly equal
-pub fn matrix_equals(a: &Tensor, b: &Tensor) -> TorshResult<bool> {
-    if a.shape() != b.shape() {
-        return Ok(false);
-    }
-
-    let shape = a.shape();
-    let dims = shape.dims();
-
-    // Handle different tensor dimensions
-    match dims.len() {
-        1 => {
-            for i in 0..dims[0] {
-                let a_val = a.get(&[i])?;
-                let b_val = b.get(&[i])?;
-                if a_val != b_val {
-                    return Ok(false);
-                }
-            }
-        }
-        2 => {
-            for i in 0..dims[0] {
-                for j in 0..dims[1] {
-                    let a_val = a.get(&[i, j])?;
-                    let b_val = b.get(&[i, j])?;
-                    if a_val != b_val {
-                        return Ok(false);
-                    }
-                }
-            }
-        }
-        3 => {
-            for i in 0..dims[0] {
-                for j in 0..dims[1] {
-                    for k in 0..dims[2] {
-                        let a_val = a.get(&[i, j, k])?;
-                        let b_val = b.get(&[i, j, k])?;
-                        if a_val != b_val {
-                            return Ok(false);
-                        }
-                    }
-                }
-            }
-        }
-        _ => {
-            return Err(TorshError::InvalidArgument(
-                "matrix_equals supports tensors up to 3 dimensions".to_string(),
-            ));
-        }
-    }
-
-    Ok(true)
-}
-
-/// Compute the Frobenius distance between two matrices
-/// ||A - B||_F where ||·||_F is the Frobenius norm
-pub fn frobenius_distance(a: &Tensor, b: &Tensor) -> TorshResult<f32> {
-    if a.shape() != b.shape() {
-        return Err(TorshError::InvalidArgument(
-            "Input tensors must have the same shape".to_string(),
-        ));
-    }
-
-    let diff = a.sub(b)?;
-    matrix_norm(&diff, Some("fro"))
-}
-
-/// Check if a matrix is approximately symmetric within tolerance
-pub fn is_symmetric(tensor: &Tensor, tol: Option<f32>) -> TorshResult<bool> {
-    if tensor.shape().ndim() != 2 {
-        return Ok(false);
-    }
-
-    let (m, n) = (tensor.shape().dims()[0], tensor.shape().dims()[1]);
-    if m != n {
-        return Ok(false);
-    }
-
-    let tol = tol.unwrap_or(1e-8);
-    let transpose = tensor.transpose_view(0, 1)?;
-
-    allclose(tensor, &transpose, Some(tol), Some(tol))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1617,4 +1420,196 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_hadamard_product() -> TorshResult<()> {
+        // Test Hadamard product with simple matrices
+        let a = Tensor::from_data(
+            vec![1.0, 2.0, 3.0, 4.0],
+            vec![2, 2],
+            torsh_core::DeviceType::Cpu,
+        )?;
+        let b = Tensor::from_data(
+            vec![5.0, 6.0, 7.0, 8.0],
+            vec![2, 2],
+            torsh_core::DeviceType::Cpu,
+        )?;
+
+        let h = hadamard(&a, &b)?;
+
+        // Element-wise product: [[1*5, 2*6], [3*7, 4*8]] = [[5, 12], [21, 32]]
+        assert_relative_eq!(h.get(&[0, 0])?, 5.0, epsilon = 1e-6);
+        assert_relative_eq!(h.get(&[0, 1])?, 12.0, epsilon = 1e-6);
+        assert_relative_eq!(h.get(&[1, 0])?, 21.0, epsilon = 1e-6);
+        assert_relative_eq!(h.get(&[1, 1])?, 32.0, epsilon = 1e-6);
+
+        // Test commutativity
+        let h2 = hadamard(&b, &a)?;
+        for i in 0..2 {
+            for j in 0..2 {
+                assert_relative_eq!(h.get(&[i, j])?, h2.get(&[i, j])?, epsilon = 1e-6);
+            }
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_vec_unvec_roundtrip() -> TorshResult<()> {
+        // Test vec and unvec operations
+        let original = Tensor::from_data(
+            vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            vec![2, 3],
+            torsh_core::DeviceType::Cpu,
+        )?;
+
+        // Vectorize
+        let v = vec_matrix(&original)?;
+        assert_eq!(v.shape().dims(), &[6]);
+
+        // Check column-major order
+        // Matrix: [[1, 2, 3], [4, 5, 6]]
+        // Column 0: [1, 4]
+        // Column 1: [2, 5]
+        // Column 2: [3, 6]
+        // vec result: [1, 4, 2, 5, 3, 6]
+        assert_relative_eq!(v.get(&[0])?, 1.0, epsilon = 1e-6);
+        assert_relative_eq!(v.get(&[1])?, 4.0, epsilon = 1e-6);
+        assert_relative_eq!(v.get(&[2])?, 2.0, epsilon = 1e-6);
+        assert_relative_eq!(v.get(&[3])?, 5.0, epsilon = 1e-6);
+
+        // Unvec back to matrix
+        let reconstructed = unvec_matrix(&v, 2, 3)?;
+        assert_eq!(reconstructed.shape().dims(), &[2, 3]);
+
+        // Check roundtrip
+        for i in 0..2 {
+            for j in 0..3 {
+                assert_relative_eq!(
+                    original.get(&[i, j])?,
+                    reconstructed.get(&[i, j])?,
+                    epsilon = 1e-6
+                );
+            }
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_commutator() -> TorshResult<()> {
+        // Create two simple matrices
+        let a = Tensor::from_data(
+            vec![1.0, 2.0, 3.0, 4.0],
+            vec![2, 2],
+            torsh_core::DeviceType::Cpu,
+        )?;
+        let b = Tensor::from_data(
+            vec![0.0, 1.0, 1.0, 0.0],
+            vec![2, 2],
+            torsh_core::DeviceType::Cpu,
+        )?;
+
+        let comm = commutator(&a, &b)?;
+
+        // [A, B] = AB - BA
+        let ab = a.matmul(&b)?;
+        let ba = b.matmul(&a)?;
+        let expected = ab.sub(&ba)?;
+
+        for i in 0..2 {
+            for j in 0..2 {
+                assert_relative_eq!(comm.get(&[i, j])?, expected.get(&[i, j])?, epsilon = 1e-6);
+            }
+        }
+
+        // Test anti-symmetry: [A, B] = -[B, A]
+        let comm_ba = commutator(&b, &a)?;
+        for i in 0..2 {
+            for j in 0..2 {
+                assert_relative_eq!(comm.get(&[i, j])?, -comm_ba.get(&[i, j])?, epsilon = 1e-6);
+            }
+        }
+
+        // Test [A, A] = 0
+        let comm_aa = commutator(&a, &a)?;
+        for i in 0..2 {
+            for j in 0..2 {
+                assert_relative_eq!(comm_aa.get(&[i, j])?, 0.0, epsilon = 1e-6);
+            }
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_anticommutator() -> TorshResult<()> {
+        // Create two simple matrices
+        let a = Tensor::from_data(
+            vec![1.0, 2.0, 3.0, 4.0],
+            vec![2, 2],
+            torsh_core::DeviceType::Cpu,
+        )?;
+        let b = Tensor::from_data(
+            vec![0.0, 1.0, 1.0, 0.0],
+            vec![2, 2],
+            torsh_core::DeviceType::Cpu,
+        )?;
+
+        let anticomm = anticommutator(&a, &b)?;
+
+        // {A, B} = AB + BA
+        let ab = a.matmul(&b)?;
+        let ba = b.matmul(&a)?;
+        let expected = ab.add(&ba)?;
+
+        for i in 0..2 {
+            for j in 0..2 {
+                assert_relative_eq!(
+                    anticomm.get(&[i, j])?,
+                    expected.get(&[i, j])?,
+                    epsilon = 1e-6
+                );
+            }
+        }
+
+        // Test symmetry: {A, B} = {B, A}
+        let anticomm_ba = anticommutator(&b, &a)?;
+        for i in 0..2 {
+            for j in 0..2 {
+                assert_relative_eq!(
+                    anticomm.get(&[i, j])?,
+                    anticomm_ba.get(&[i, j])?,
+                    epsilon = 1e-6
+                );
+            }
+        }
+
+        // Test {A, A} = 2A²
+        let anticomm_aa = anticommutator(&a, &a)?;
+        let a_squared = a.matmul(&a)?;
+        for i in 0..2 {
+            for j in 0..2 {
+                assert_relative_eq!(
+                    anticomm_aa.get(&[i, j])?,
+                    2.0 * a_squared.get(&[i, j])?,
+                    epsilon = 1e-6
+                );
+            }
+        }
+
+        Ok(())
+    }
+}
+
+/// Prelude module for convenient imports
+pub mod prelude {
+    pub use crate::numerical_stability::{
+        check_numerical_stability, equilibrate_matrix, unequilibrate_solution,
+        EquilibrationStrategy, ScalingFactors, StabilityConfig,
+    };
+    pub use crate::{
+        advanced_ops::*, comparison::*, decomposition::*, matrix_functions::*, randomized::*,
+        solvers::*, sparse::*, special_matrices::*, taylor::*, utils::*,
+    };
 }

@@ -4,10 +4,10 @@
 //! across multiple CUDA streams with automatic dependency tracking, deadlock detection,
 //! and performance monitoring.
 
-use crate::cuda::{CudaEvent, CudaStream, StreamPriority};
-use crate::error::{CudaError, CudaResult};
+use crate::cuda::error::{CudaError, CudaResult};
+use crate::cuda::{CudaEvent, CudaStream};
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::sync::{Arc, Condvar, Mutex, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
 

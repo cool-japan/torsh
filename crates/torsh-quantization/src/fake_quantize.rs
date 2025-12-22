@@ -158,7 +158,7 @@ pub fn fake_quantize_auto(tensor: &Tensor, dtype: DType, scheme: QScheme) -> Tor
 /// Apply fake quantization to module weights during training
 // Temporarily disabled: pub fn apply_fake_quantization(_module: &mut dyn torsh_nn::Module) -> TorshResult<()> {
 #[allow(dead_code)]
-pub fn apply_fake_quantization(_module: &mut dyn crate::TemporaryModule) -> TorshResult<()> {
+pub fn apply_fake_quantization(_module: &mut dyn crate::qat::Module) -> TorshResult<()> {
     // This would iterate through module parameters and apply fake quantization
     // For now, this is a placeholder implementation
     Ok(())

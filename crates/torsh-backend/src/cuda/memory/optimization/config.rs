@@ -4,13 +4,10 @@
 //! including configuration validation, versioning, templates, dynamic updates, persistence, and
 //! environment-specific configuration management.
 
-use scirs2_core::ndarray::{Array1, Array2};
-use scirs2_core::random::Random;
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 use std::fmt;
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, RwLock};
-use std::time::{Duration, Instant, SystemTime};
+use std::sync::{Arc, RwLock};
+use std::time::{Duration, SystemTime};
 
 /// Comprehensive configuration management system
 #[derive(Debug)]
@@ -1232,28 +1229,3 @@ pub enum ConfigMergeStrategy {
     /// Apply custom merge rules
     Custom(Vec<ConfigMergeRule>),
 }
-
-// Default implementations and placeholder structures
-// (Due to space constraints, providing abbreviated versions)
-
-#[derive(Debug, Default)]
-pub struct ConfigManagerConfig;
-#[derive(Debug, Default)]
-pub struct ConfigRegistry;
-#[derive(Debug, Default)]
-pub struct ConfigEnvironmentManager;
-#[derive(Debug, Default)]
-pub struct ConfigPersistenceLayer;
-#[derive(Debug, Default)]
-pub struct ConfigAuditSystem;
-#[derive(Debug, Default)]
-pub struct ConfigBackupSystem;
-#[derive(Debug, Default)]
-pub struct ConfigSynchronizationSystem;
-#[derive(Debug, Default)]
-pub struct ConfigSchemaManager;
-#[derive(Debug, Default)]
-pub struct ConfigMigrationSystem;
-
-// This represents the comprehensive configuration management system
-// Additional implementations would be provided for complete functionality

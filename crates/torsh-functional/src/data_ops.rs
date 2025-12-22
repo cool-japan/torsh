@@ -30,11 +30,9 @@ pub fn unique(
     return_counts: bool,
     dim: Option<i32>,
 ) -> TorshResult<(Tensor, Option<Tensor>, Option<Tensor>)> {
-    // For now, implement the flattened version (dim = None)
-    if dim.is_some() {
-        return Err(TorshError::Other(
-            "unique with dim parameter not yet implemented".to_string(),
-        ));
+    // If dim is specified, delegate to dimension-specific implementation
+    if let Some(d) = dim {
+        return unique_dim(input, d, sorted, return_inverse, return_counts);
     }
 
     // Flatten the input tensor
@@ -122,6 +120,159 @@ pub fn unique(
     };
 
     Ok((output, inverse_indices, counts))
+}
+
+/// Helper function to find unique elements along a specific dimension
+fn unique_dim(
+    input: &Tensor,
+    dim: i32,
+    sorted: bool,
+    return_inverse: bool,
+    return_counts: bool,
+) -> TorshResult<(Tensor, Option<Tensor>, Option<Tensor>)> {
+    let shape = input.shape();
+    let ndim = shape.ndim() as i32;
+
+    // Normalize dimension (handle negative indices)
+    let dim = if dim < 0 { ndim + dim } else { dim };
+
+    if dim < 0 || dim >= ndim {
+        return Err(TorshError::InvalidArgument(format!(
+            "Dimension {} out of range for tensor with {} dimensions",
+            dim, ndim
+        )));
+    }
+
+    let dim_usize = dim as usize;
+    let dims = shape.dims();
+    let dim_size = dims[dim_usize];
+
+    // Strategy: Move the target dimension to position 0, then compare slices
+    // First, create a permutation that moves dim to the front
+    let mut perm: Vec<i32> = (0..ndim).collect();
+    perm.swap(0, dim_usize);
+
+    // Permute the input tensor
+    let permuted = input.permute(&perm)?;
+    let permuted_shape = permuted.shape();
+    let permuted_dims = permuted_shape.dims();
+
+    // Extract all slices and convert to vectors for comparison
+    let mut slices: Vec<Vec<f32>> = Vec::new();
+    for i in 0..dim_size {
+        let slice = permuted.narrow(0, i as i64, 1)?;
+        let slice_data: Vec<f32> = slice.to_vec()?;
+        slices.push(slice_data);
+    }
+
+    // Find unique slices by comparing vectors
+    let mut unique_slice_indices = Vec::new();
+    let mut inverse_indices_vec = vec![0usize; dim_size];
+    let mut counts_vec = Vec::new();
+
+    for (idx, slice_data) in slices.iter().enumerate() {
+        // Check if this slice already exists in unique slices
+        let mut found = false;
+        for (unique_idx, &unique_slice_idx) in unique_slice_indices.iter().enumerate() {
+            if slices_equal(&slices[unique_slice_idx], slice_data) {
+                inverse_indices_vec[idx] = unique_idx;
+                counts_vec[unique_idx] += 1;
+                found = true;
+                break;
+            }
+        }
+
+        if !found {
+            let unique_idx = unique_slice_indices.len();
+            unique_slice_indices.push(idx);
+            inverse_indices_vec[idx] = unique_idx;
+            counts_vec.push(1);
+        }
+    }
+
+    // Sort if requested
+    if sorted {
+        // Create pairs of (slice_index, unique_index) for sorting
+        let mut sort_pairs: Vec<(usize, usize)> = unique_slice_indices
+            .iter()
+            .enumerate()
+            .map(|(unique_idx, &slice_idx)| (slice_idx, unique_idx))
+            .collect();
+
+        // Sort by slice index (this gives lexicographic ordering)
+        sort_pairs.sort_by_key(|(slice_idx, _)| *slice_idx);
+
+        // Remap indices
+        let old_to_new: HashMap<usize, usize> = sort_pairs
+            .iter()
+            .enumerate()
+            .map(|(new_idx, &(_, old_idx))| (old_idx, new_idx))
+            .collect();
+
+        // Update unique_slice_indices
+        unique_slice_indices = sort_pairs.iter().map(|(slice_idx, _)| *slice_idx).collect();
+
+        // Update inverse indices
+        for idx in &mut inverse_indices_vec {
+            *idx = old_to_new[idx];
+        }
+
+        // Update counts
+        let old_counts = counts_vec.clone();
+        for (new_idx, &(_, old_idx)) in sort_pairs.iter().enumerate() {
+            counts_vec[new_idx] = old_counts[old_idx];
+        }
+    }
+
+    // Gather unique slices and stack them
+    let unique_count = unique_slice_indices.len();
+    let mut output_shape = permuted_dims.to_vec();
+    output_shape[0] = unique_count;
+
+    let mut output_data = Vec::new();
+    for &slice_idx in &unique_slice_indices {
+        output_data.extend(&slices[slice_idx]);
+    }
+
+    // Create output tensor with permuted shape
+    let output_permuted = Tensor::from_vec(output_data, &output_shape)?;
+
+    // Inverse permute to restore original dimension order
+    let mut inv_perm: Vec<i32> = vec![0; ndim as usize];
+    for (i, &p) in perm.iter().enumerate() {
+        inv_perm[p as usize] = i as i32;
+    }
+    let output = output_permuted.permute(&inv_perm)?;
+
+    // Create inverse indices tensor if requested
+    let inverse_indices = if return_inverse {
+        let inverse_data: Vec<f32> = inverse_indices_vec.iter().map(|&i| i as f32).collect();
+        Some(Tensor::from_vec(inverse_data, &[dim_size])?)
+    } else {
+        None
+    };
+
+    // Create counts tensor if requested
+    let counts = if return_counts {
+        let counts_data: Vec<f32> = counts_vec.iter().map(|&c| c as f32).collect();
+        Some(Tensor::from_vec(counts_data, &[unique_count])?)
+    } else {
+        None
+    };
+
+    Ok((output, inverse_indices, counts))
+}
+
+/// Helper function to compare two slices (as f32 vectors) for equality
+fn slices_equal(a: &Vec<f32>, b: &Vec<f32>) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+
+    a.iter().zip(b.iter()).all(|(x, y)| {
+        // Use epsilon comparison for floating point
+        (x - y).abs() < 1e-6
+    })
 }
 
 /// Count number of occurrences of each value in an array of non-negative integers

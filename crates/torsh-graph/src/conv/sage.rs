@@ -8,6 +8,7 @@ use torsh_tensor::{
 };
 
 /// GraphSAGE convolution layer
+#[derive(Debug)]
 pub struct SAGEConv {
     in_features: usize,
     out_features: usize,
@@ -34,6 +35,16 @@ impl SAGEConv {
             weight_self,
             bias,
         }
+    }
+
+    /// Get input feature dimension
+    pub fn in_features(&self) -> usize {
+        self.in_features
+    }
+
+    /// Get output feature dimension
+    pub fn out_features(&self) -> usize {
+        self.out_features
     }
 
     /// Apply GraphSAGE convolution

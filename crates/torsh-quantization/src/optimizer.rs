@@ -5,7 +5,7 @@
 //! and intelligent fusion pattern discovery.
 
 use crate::{QScheme, QuantConfig, TorshResult};
-use rayon::prelude::*;
+use scirs2_core::parallel_ops::*;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::{Arc, Mutex};
 use torsh_tensor::Tensor;

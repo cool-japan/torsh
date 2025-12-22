@@ -5,7 +5,6 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::LazyLock;
 use std::time::{Duration, Instant, SystemTime};
 
 /// Individual operation statistics
@@ -381,6 +380,7 @@ impl OperationTimer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::LazyLock;
     use std::thread::sleep;
 
     #[test]
@@ -396,7 +396,15 @@ mod tests {
         assert_eq!(stats.success_count, 2);
         assert_eq!(stats.error_count, 1);
         assert_eq!(stats.total_bytes, 3072);
-        assert_eq!(stats.success_rate(), 200.0 / 3.0);
+        // Use approximate equality for floating-point comparison
+        let expected = 200.0 / 3.0;
+        let actual = stats.success_rate();
+        assert!(
+            (actual - expected).abs() < 1e-10,
+            "Expected ~{}, got {}",
+            expected,
+            actual
+        );
     }
 
     #[test]

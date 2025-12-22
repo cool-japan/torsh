@@ -16,6 +16,9 @@
 //! ## Usage Example
 //!
 //! ```rust
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # fn main() -> Result<()> {
 //! use torsh_nn::layers::activation::modern::{GELU, SiLU, Mish};
 //! use torsh_nn::Module;
 //! use torsh_tensor::Tensor;
@@ -26,10 +29,12 @@
 //! let mish = Mish::new();
 //!
 //! // Apply to tensors
-//! let input = Tensor::randn(&[2, 3]);
+//! let input = randn(&[2, 3])?;
 //! let gelu_output = gelu.forward(&input)?;
 //! let silu_output = silu.forward(&input)?;
 //! let mish_output = mish.forward(&input)?;
+//! # Ok(())
+//! # }
 //! ```
 
 use crate::{Module, ModuleBase, Parameter};
@@ -70,14 +75,19 @@ use hashbrown::HashMap;
 ///
 /// # Example
 /// ```rust
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// use torsh_nn::layers::activation::modern::GELU;
 /// use torsh_nn::Module;
 /// use torsh_tensor::Tensor;
 ///
 /// let gelu = GELU::new();
 /// let gelu_approx = GELU::with_approximate(true);
-/// let input = Tensor::randn(&[2, 3]);
+/// let input = randn(&[2, 3])?;
 /// let output = gelu.forward(&input)?;
+/// # Ok(())
+/// # }
 /// ```
 pub struct GELU {
     base: ModuleBase,
@@ -191,14 +201,19 @@ impl Module for GELU {
 ///
 /// # Example
 /// ```rust
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// use torsh_nn::layers::activation::modern::{SiLU, Swish};
 /// use torsh_nn::Module;
 /// use torsh_tensor::Tensor;
 ///
 /// let silu = SiLU::new();
 /// let swish = Swish::new(); // Same as SiLU
-/// let input = Tensor::randn(&[2, 3]);
+/// let input = randn(&[2, 3])?;
 /// let output = silu.forward(&input)?;
+/// # Ok(())
+/// # }
 /// ```
 pub struct SiLU {
     base: ModuleBase,
@@ -283,13 +298,18 @@ impl Module for SiLU {
 ///
 /// # Example
 /// ```rust
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// use torsh_nn::layers::activation::modern::Mish;
 /// use torsh_nn::Module;
 /// use torsh_tensor::Tensor;
 ///
 /// let mish = Mish::new();
-/// let input = Tensor::randn(&[2, 3]);
+/// let input = randn(&[2, 3])?;
 /// let output = mish.forward(&input)?;
+/// # Ok(())
+/// # }
 /// ```
 pub struct Mish {
     base: ModuleBase,
@@ -373,13 +393,18 @@ impl Module for Mish {
 ///
 /// # Example
 /// ```rust
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// use torsh_nn::layers::activation::modern::Hardswish;
 /// use torsh_nn::Module;
 /// use torsh_tensor::Tensor;
 ///
 /// let hardswish = Hardswish::new();
-/// let input = Tensor::randn(&[2, 3]);
+/// let input = randn(&[2, 3])?;
 /// let output = hardswish.forward(&input)?;
+/// # Ok(())
+/// # }
 /// ```
 pub struct Hardswish {
     base: ModuleBase,
@@ -467,13 +492,18 @@ impl Module for Hardswish {
 ///
 /// # Example
 /// ```rust
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// use torsh_nn::layers::activation::modern::ELU;
 /// use torsh_nn::Module;
 /// use torsh_tensor::Tensor;
 ///
 /// let elu = ELU::new(1.0); // α = 1.0
-/// let input = Tensor::randn(&[2, 3]);
+/// let input = randn(&[2, 3])?;
 /// let output = elu.forward(&input)?;
+/// # Ok(())
+/// # }
 /// ```
 pub struct ELU {
     base: ModuleBase,
@@ -568,13 +598,18 @@ impl Module for ELU {
 ///
 /// # Example
 /// ```rust
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// use torsh_nn::layers::activation::modern::SELU;
 /// use torsh_nn::Module;
 /// use torsh_tensor::Tensor;
 ///
 /// let selu = SELU::new();
-/// let input = Tensor::randn(&[2, 3]);
+/// let input = randn(&[2, 3])?;
 /// let output = selu.forward(&input)?;
+/// # Ok(())
+/// # }
 /// ```
 pub struct SELU {
     base: ModuleBase,
@@ -654,7 +689,6 @@ impl Module for SELU {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use torsh_tensor::creation::*;
 
     #[test]
     fn test_gelu_creation() {
@@ -711,7 +745,7 @@ mod tests {
 
     #[test]
     fn test_selu_constants() {
-        let selu = SELU::new();
+        let _selu = SELU::new();
         // Test that constants are within expected ranges
         assert!((SELU::ALPHA - 1.6733).abs() < 0.01);
         assert!((SELU::SCALE - 1.0507).abs() < 0.01);

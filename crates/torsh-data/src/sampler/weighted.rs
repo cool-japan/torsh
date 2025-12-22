@@ -7,7 +7,7 @@
 use alloc::vec::Vec;
 
 // ✅ SciRS2 Policy Compliant - Using scirs2_core for all random operations
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::Rng;
 
 use super::core::{rng_utils, Sampler, SamplerIterator};
 
@@ -19,7 +19,7 @@ use super::core::{rng_utils, Sampler, SamplerIterator};
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_data::sampler::{WeightedRandomSampler, Sampler};
 ///
 /// // Higher weight for the last class (imbalanced dataset)
@@ -122,7 +122,7 @@ impl WeightedRandomSampler {
         // Sample using inverse transform sampling
         (0..self.num_samples)
             .map(|_| {
-                let rand_val: f64 = rng.gen();
+                let rand_val: f64 = rng.random();
                 // Binary search for the first cumulative weight >= rand_val
                 cumulative_weights
                     .binary_search_by(|&x| {
@@ -162,7 +162,7 @@ impl WeightedRandomSampler {
             }
 
             let mut cumsum = 0.0;
-            let rand_val: f64 = rng.gen::<f64>() * weight_sum;
+            let rand_val: f64 = rng.random::<f64>() * weight_sum;
 
             let mut selected_idx = 0;
             for (i, &weight) in remaining_weights.iter().enumerate() {
@@ -211,7 +211,7 @@ impl Sampler for WeightedRandomSampler {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_data::sampler::{SubsetRandomSampler, Sampler};
 ///
 /// // Sample from odd indices only

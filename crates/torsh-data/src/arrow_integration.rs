@@ -5,8 +5,7 @@
 
 #[cfg(feature = "arrow-support")]
 use arrow::{
-    array::{Array, ArrayRef, Float32Array, Float64Array, Int32Array, Int64Array, PrimitiveArray},
-    buffer::Buffer,
+    array::{Array, ArrayRef, Float32Array, Float64Array, Int32Array, Int64Array},
     datatypes::{DataType, Field, Schema, SchemaRef, ToByteSlice},
     record_batch::RecordBatch,
 };
@@ -28,6 +27,8 @@ use std::marker::PhantomData;
 #[cfg(feature = "arrow-support")]
 pub struct ArrowDataset {
     record_batches: Vec<RecordBatch>,
+    // Placeholder for future batch iteration support
+    #[allow(dead_code)]
     current_batch: usize,
     batch_size: usize,
     total_rows: usize,

@@ -2,6 +2,7 @@
 
 use crate::{error::PyResult, py_result, tensor::PyTensor};
 use pyo3::prelude::*;
+use pyo3::types::PyAny;
 use pyo3::wrap_pyfunction;
 use pyo3::PyRefMut;
 use std::cell::RefCell;
@@ -68,9 +69,9 @@ impl PyNoGrad {
 
     fn __exit__(
         mut slf: PyRefMut<'_, Self>,
-        exc_type: Option<PyObject>,
-        exc_val: Option<PyObject>,
-        exc_tb: Option<PyObject>,
+        exc_type: Option<Py<PyAny>>,
+        exc_val: Option<Py<PyAny>>,
+        exc_tb: Option<Py<PyAny>>,
     ) -> PyResult<bool> {
         // Restore previous gradient state
         AUTOGRAD_STATE.with(|state| {
@@ -111,9 +112,9 @@ impl PyEnableGrad {
 
     fn __exit__(
         mut slf: PyRefMut<'_, Self>,
-        exc_type: Option<PyObject>,
-        exc_val: Option<PyObject>,
-        exc_tb: Option<PyObject>,
+        exc_type: Option<Py<PyAny>>,
+        exc_val: Option<Py<PyAny>>,
+        exc_tb: Option<Py<PyAny>>,
     ) -> PyResult<bool> {
         // Restore previous gradient state
         AUTOGRAD_STATE.with(|state| {
@@ -155,9 +156,9 @@ impl PySetGradEnabled {
 
     fn __exit__(
         mut slf: PyRefMut<'_, Self>,
-        exc_type: Option<PyObject>,
-        exc_val: Option<PyObject>,
-        exc_tb: Option<PyObject>,
+        exc_type: Option<Py<PyAny>>,
+        exc_val: Option<Py<PyAny>>,
+        exc_tb: Option<Py<PyAny>>,
     ) -> PyResult<bool> {
         // Restore previous gradient state
         AUTOGRAD_STATE.with(|state| {
@@ -193,9 +194,9 @@ impl PyDetectAnomaly {
 
     fn __exit__(
         mut slf: PyRefMut<'_, Self>,
-        exc_type: Option<PyObject>,
-        exc_val: Option<PyObject>,
-        exc_tb: Option<PyObject>,
+        exc_type: Option<Py<PyAny>>,
+        exc_val: Option<Py<PyAny>>,
+        exc_tb: Option<Py<PyAny>>,
     ) -> PyResult<bool> {
         // Restore previous anomaly detection state
         AUTOGRAD_STATE.with(|state| {
@@ -229,13 +230,13 @@ impl PyFunction {
     }
 
     // Note: forward and backward need more complex implementation for PyO3 0.25
-    // fn forward(ctx: PyObject, inputs: Vec<PyTensor>) -> PyResult<PyTensor> {
+    // fn forward(ctx: Py<PyAny>, inputs: Vec<PyTensor>) -> PyResult<PyTensor> {
     //     Err(PyErr::new::<pyo3::exceptions::PyNotImplementedError, _>(
     //         "Subclasses must implement forward method"
     //     ))
     // }
     //
-    // fn backward(ctx: PyObject, grad_output: &PyTensor) -> PyResult<Vec<Option<PyTensor>>> {
+    // fn backward(ctx: Py<PyAny>, grad_output: &PyTensor) -> PyResult<Vec<Option<PyTensor>>> {
     //     Err(PyErr::new::<pyo3::exceptions::PyNotImplementedError, _>(
     //         "Subclasses must implement backward method"
     //     ))

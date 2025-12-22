@@ -1,6 +1,9 @@
 //! Particle filter implementation for non-linear/non-Gaussian systems
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::TimeSeries;
+use scirs2_core::random::{thread_rng, Distribution, Uniform};
 use torsh_tensor::{
     creation::{ones, randn, zeros},
     Tensor,
@@ -88,29 +91,163 @@ impl ParticleFilter {
 
     /// Normalize weights to sum to 1
     fn normalize_weights(&mut self) {
-        // TODO: Implement when tensor operations are available
-        // let weight_sum = self.weights.sum();
-        // self.weights = &self.weights / weight_sum;
+        // Extract weights as vector
+        let mut weights_vec = self.weights.to_vec().unwrap_or_default();
+
+        // Compute sum
+        let weight_sum: f32 = weights_vec.iter().sum();
+
+        if weight_sum > 1e-10 {
+            // Normalize each weight
+            for w in &mut weights_vec {
+                *w /= weight_sum;
+            }
+
+            // Create normalized weights tensor
+            self.weights = Tensor::from_vec(weights_vec, &[self.num_particles]).unwrap();
+        }
     }
 
     /// Compute effective sample size
+    ///
+    /// ESS = 1 / sum(w_i^2)
+    /// Measures the degeneracy of the particle filter.
+    /// Lower ESS indicates that few particles have significant weights.
     fn effective_sample_size(&self) -> f64 {
-        // ESS = 1 / sum(w_i^2)
-        // TODO: Implement when tensor operations are available
-        // 1.0 / self.weights.pow_scalar(2.0).sum().to_scalar::<f64>()
-        self.num_particles as f64 // Placeholder
+        let weights_vec = self.weights.to_vec().unwrap_or_default();
+
+        // Compute sum of squared weights
+        let sum_squared: f64 = weights_vec.iter().map(|&w| (w as f64) * (w as f64)).sum();
+
+        if sum_squared > 1e-10 {
+            1.0 / sum_squared
+        } else {
+            self.num_particles as f64
+        }
     }
 
     /// Systematic resampling
+    ///
+    /// Low-variance resampling method that uses deterministic spacing
+    /// between samples to reduce variance compared to multinomial resampling.
+    ///
+    /// Algorithm:
+    /// 1. Generate a random starting point u ~ U[0, 1/N]
+    /// 2. Sample at evenly spaced points: u + k/N for k = 0, ..., N-1
+    /// 3. Select particles proportional to cumulative weights
     fn systematic_resample(&mut self) {
-        // TODO: Implement systematic resampling
-        // For now, just keep existing particles
+        let weights_vec = self.weights.to_vec().unwrap_or_default();
+        let particles_vec = self.particles.to_vec().unwrap_or_default();
+
+        // Compute cumulative weights
+        let mut cumulative_weights = Vec::with_capacity(self.num_particles);
+        let mut cumsum = 0.0f64;
+        for &w in &weights_vec {
+            cumsum += w as f64;
+            cumulative_weights.push(cumsum);
+        }
+
+        // Normalize cumulative weights (should sum to 1.0 if weights were normalized)
+        let total_weight = cumulative_weights.last().copied().unwrap_or(1.0);
+        if total_weight > 1e-10 {
+            for cw in &mut cumulative_weights {
+                *cw /= total_weight;
+            }
+        }
+
+        // Generate systematic sample points
+        let mut rng = thread_rng();
+        let dist = Uniform::new(0.0, 1.0 / self.num_particles as f64).unwrap();
+        let u0 = dist.sample(&mut rng);
+
+        let mut resampled_indices = Vec::with_capacity(self.num_particles);
+        let mut j = 0;
+
+        for i in 0..self.num_particles {
+            let u = u0 + (i as f64) / (self.num_particles as f64);
+
+            // Find index where cumulative weight exceeds u
+            while j < cumulative_weights.len() && cumulative_weights[j] < u {
+                j += 1;
+            }
+
+            // Clamp to valid range
+            let idx = j.min(self.num_particles - 1);
+            resampled_indices.push(idx);
+        }
+
+        // Resample particles
+        let mut resampled_particles = Vec::with_capacity(self.num_particles * self.state_dim);
+        for &idx in &resampled_indices {
+            for d in 0..self.state_dim {
+                let particle_idx = idx * self.state_dim + d;
+                resampled_particles.push(particles_vec[particle_idx]);
+            }
+        }
+
+        // Update particles
+        self.particles =
+            Tensor::from_vec(resampled_particles, &[self.num_particles, self.state_dim]).unwrap();
     }
 
     /// Multinomial resampling
+    ///
+    /// Standard resampling method that samples N particles independently
+    /// from the discrete distribution defined by the particle weights.
+    ///
+    /// Algorithm:
+    /// 1. Compute cumulative weight distribution
+    /// 2. For each new particle, sample u ~ U[0,1]
+    /// 3. Select particle i where CDF[i-1] < u <= CDF[i]
     fn multinomial_resample(&mut self) {
-        // TODO: Implement multinomial resampling
-        // For now, just keep existing particles
+        let weights_vec = self.weights.to_vec().unwrap_or_default();
+        let particles_vec = self.particles.to_vec().unwrap_or_default();
+
+        // Compute cumulative weights
+        let mut cumulative_weights = Vec::with_capacity(self.num_particles);
+        let mut cumsum = 0.0f64;
+        for &w in &weights_vec {
+            cumsum += w as f64;
+            cumulative_weights.push(cumsum);
+        }
+
+        // Normalize cumulative weights
+        let total_weight = cumulative_weights.last().copied().unwrap_or(1.0);
+        if total_weight > 1e-10 {
+            for cw in &mut cumulative_weights {
+                *cw /= total_weight;
+            }
+        }
+
+        // Sample particles
+        let mut rng = thread_rng();
+        let dist = Uniform::new(0.0, 1.0).unwrap();
+
+        let mut resampled_indices = Vec::with_capacity(self.num_particles);
+        for _ in 0..self.num_particles {
+            let u = dist.sample(&mut rng);
+
+            // Binary search for the index where u falls in cumulative distribution
+            let idx = cumulative_weights
+                .iter()
+                .position(|&cw| cw >= u)
+                .unwrap_or(self.num_particles - 1);
+
+            resampled_indices.push(idx);
+        }
+
+        // Resample particles
+        let mut resampled_particles = Vec::with_capacity(self.num_particles * self.state_dim);
+        for &idx in &resampled_indices {
+            for d in 0..self.state_dim {
+                let particle_idx = idx * self.state_dim + d;
+                resampled_particles.push(particles_vec[particle_idx]);
+            }
+        }
+
+        // Update particles
+        self.particles =
+            Tensor::from_vec(resampled_particles, &[self.num_particles, self.state_dim]).unwrap();
     }
 
     /// Resample particles based on weights
@@ -135,7 +272,7 @@ impl ParticleFilter {
         // Apply transition to each particle
         for i in 0..self.num_particles {
             let particle = self.particles.slice_tensor(0, i, i + 1).unwrap();
-            let predicted = transition_fn(&particle);
+            let _predicted = transition_fn(&particle);
             // TODO: Update particle in place when tensor operations are available
         }
     }
@@ -144,15 +281,15 @@ impl ParticleFilter {
     pub fn predict_with_noise(
         &mut self,
         transition_fn: &dyn Fn(&Tensor) -> Tensor,
-        noise_std: f32,
+        _noise_std: f32,
     ) {
         // Apply transition and add noise to each particle
         for i in 0..self.num_particles {
             let particle = self.particles.slice_tensor(0, i, i + 1).unwrap();
-            let predicted = transition_fn(&particle);
+            let _predicted = transition_fn(&particle);
 
             // Add noise
-            let noise: Tensor<f32> = randn(&[1, self.state_dim]).unwrap();
+            let _noise: Tensor<f32> = randn(&[1, self.state_dim]).unwrap();
             // TODO: Implement scalar multiplication and addition
             // let noisy_predicted = &predicted + &(&noise * noise_std);
 
@@ -169,7 +306,7 @@ impl ParticleFilter {
         // Update particle weights based on likelihood
         for i in 0..self.num_particles {
             let particle = self.particles.slice_tensor(0, i, i + 1).unwrap();
-            let likelihood = likelihood_fn(&particle, observation);
+            let _likelihood = likelihood_fn(&particle, observation);
 
             // TODO: Update weight in place when tensor indexing is available
             // self.weights[i] *= likelihood as f32;
@@ -276,7 +413,6 @@ pub struct ParticleStats {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use torsh_tensor::creation::*;
 
     fn create_test_series() -> TimeSeries {
         let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0];

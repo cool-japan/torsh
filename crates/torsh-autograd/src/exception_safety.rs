@@ -6,13 +6,10 @@
 //! provides transactional semantics for critical operations.
 
 use crate::error_handling::{AutogradError, AutogradResult};
-use scirs2_core::error::CoreError;
-use scirs2_core::ndarray::{Array, ArrayView};
 use serde::{Deserialize, Serialize};
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex};
 
 /// Exception safety levels for autograd operations
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -801,16 +798,10 @@ impl SafetyViolationReport {
 }
 
 /// Global exception safety executor instance
-static mut GLOBAL_EXECUTOR: Option<ExceptionSafeExecutor> = None;
-static EXECUTOR_INIT: std::sync::Once = std::sync::Once::new();
+static GLOBAL_EXECUTOR: std::sync::OnceLock<ExceptionSafeExecutor> = std::sync::OnceLock::new();
 
 pub fn get_global_executor() -> &'static ExceptionSafeExecutor {
-    unsafe {
-        EXECUTOR_INIT.call_once(|| {
-            GLOBAL_EXECUTOR = Some(ExceptionSafeExecutor::with_default_safety());
-        });
-        GLOBAL_EXECUTOR.as_ref().unwrap()
-    }
+    GLOBAL_EXECUTOR.get_or_init(|| ExceptionSafeExecutor::with_default_safety())
 }
 
 /// Convenience macro for executing operations with strong exception safety

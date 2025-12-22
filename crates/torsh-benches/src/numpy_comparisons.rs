@@ -4,6 +4,8 @@
 //! with NumPy baseline implementations. NumPy serves as the foundational reference
 //! for scientific computing performance.
 
+#![allow(deprecated)]
+
 use crate::core::{ComparisonResult, ComparisonRunner, PerformanceAnalyzer};
 use crate::Benchmarkable;
 
@@ -77,8 +79,8 @@ impl NumPyBenchRunner {
         use pyo3::prelude::*;
 
         Python::with_gil(|py| -> PyResult<f64> {
-            let np = py.import("numpy")?;
-            let time_module = py.import("time")?;
+            let _np = py.import("numpy")?;
+            let _time_module = py.import("time")?;
 
             // Create the benchmark script as a string
             let benchmark_code = format!(
@@ -569,7 +571,8 @@ mod tests {
         // Test that the comparison suite can run without errors
         let runner = run_numpy_comparison_suite();
         // Should have some results if NumPy is available
-        assert!(runner.results().len() >= 0);
+        // Verify results collection exists (length is usize, always >= 0)
+        let _ = runner.results().len();
     }
 
     #[test]

@@ -182,21 +182,142 @@ impl ClusteringResult for SpectralResult {
 /// Spectral clustering algorithm
 ///
 /// Spectral clustering performs dimensionality reduction using eigenvectors
-/// of a similarity matrix, followed by K-means clustering on the reduced space.
+/// of a similarity matrix (graph Laplacian), followed by K-means clustering
+/// on the reduced spectral embedding.
+///
+/// # Mathematical Formulation
+///
+/// ## Graph Construction
+///
+/// Given data points X = {x₁, ..., xₙ}, construct a similarity graph where
+/// vertices represent data points and edges represent similarities.
+///
+/// ### Affinity Matrix
+///
+/// **RBF (Radial Basis Function) Kernel:**
+/// ```text
+/// W_{ij} = exp(-γ ||x_i - x_j||²)
+/// ```
+///
+/// **K-Nearest Neighbors:**
+/// ```text
+/// W_{ij} = { 1  if x_j is among k nearest neighbors of x_i
+///          { 0  otherwise
+/// ```
+///
+/// where γ is the kernel coefficient.
+///
+/// ## Graph Laplacian
+///
+/// The normalized graph Laplacian is constructed as:
+///
+/// ```text
+/// L_norm = I - D^(-1/2) W D^(-1/2)
+/// ```
+///
+/// where:
+/// - `W` is the affinity (similarity) matrix
+/// - `D` is the degree matrix: `D_{ii} = Σ_j W_{ij}`
+/// - `I` is the identity matrix
+///
+/// **Alternative (Symmetric) Normalization:**
+/// ```text
+/// L_sym = D^(-1/2) W D^(-1/2)
+/// ```
+///
+/// ## Eigendecomposition
+///
+/// Compute the k smallest eigenvectors of L_norm (or k largest of L_sym):
+///
+/// ```text
+/// L_norm v_i = λ_i v_i,  for i = 1, ..., k
+/// ```
+///
+/// where:
+/// - `λ₁ ≤ λ₂ ≤ ... ≤ λₙ` are eigenvalues
+/// - `v_i` are corresponding eigenvectors
+///
+/// ## Spectral Embedding
+///
+/// Form the embedding matrix U ∈ ℝⁿˣᵏ from the k eigenvectors:
+///
+/// ```text
+/// U = [v₁ | v₂ | ... | vₖ]
+/// ```
+///
+/// Each row u_i of U represents the embedding of point x_i in the k-dimensional space.
+///
+/// ### Row Normalization
+///
+/// Normalize each row to unit length:
+///
+/// ```text
+/// u_i ← u_i / ||u_i||₂
+/// ```
+///
+/// This ensures points lie on the unit sphere in embedding space.
+///
+/// ## K-Means Clustering
+///
+/// Apply K-means to the embedded points U to obtain final cluster assignments:
+///
+/// ```text
+/// {C₁, ..., Cₖ} = KMeans(U, k)
+/// ```
+///
+/// # Theoretical Properties
+///
+/// ## Graph Cut Interpretation
+///
+/// Spectral clustering approximates the normalized cut objective:
+///
+/// ```text
+/// NCut(C₁, ..., Cₖ) = Σᵢ cut(Cᵢ, C̄ᵢ) / vol(Cᵢ)
+/// ```
+///
+/// where:
+/// - `cut(A, B) = Σ_{i∈A, j∈B} W_{ij}`
+/// - `vol(A) = Σ_{i∈A} d_i`
+///
+/// ## Spectral Gap
+///
+/// The quality of clustering is related to the spectral gap:
+///
+/// ```text
+/// gap = λₖ₊₁ - λₖ
+/// ```
+///
+/// A larger gap suggests k is a good choice for the number of clusters.
+///
+/// # Advantages
+///
+/// - Can identify non-convex clusters (unlike K-means)
+/// - Works well when clusters have complex shapes
+/// - Based on graph theory and has strong theoretical foundations
+/// - No assumption about cluster shape or density
+///
+/// # When to Use
+///
+/// - Data has non-linearly separable clusters
+/// - Clusters have arbitrary shapes (moons, circles, etc.)
+/// - Graph structure is meaningful for your data
+/// - Computational resources allow eigendecomposition (O(n³) complexity)
 ///
 /// # Example
 ///
 /// ```rust
 /// use torsh_cluster::algorithms::spectral::{SpectralClustering, AffinityType};
-/// use torsh_tensor::Tensor;
+/// use torsh_cluster::traits::Fit;
+/// use torsh_tensor::creation::randn;
 ///
-/// let data = Tensor::randn(&[100, 2])?;
+/// let data = randn::<f32>(&[100, 2])?;
 /// let spectral = SpectralClustering::new(3)
 ///     .affinity(AffinityType::Rbf)
 ///     .gamma(1.0)
 ///     .n_neighbors(10);
 /// let result = spectral.fit(&data)?;
 /// println!("Embedding shape: {:?}", result.embedding.shape());
+/// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 #[derive(Debug, Clone)]
 pub struct SpectralClustering {

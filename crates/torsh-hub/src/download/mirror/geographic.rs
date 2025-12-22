@@ -114,11 +114,9 @@ impl GeographicCalculator {
             + lat1_rad.cos() * lat2_rad.cos() * (delta_lon / 2.0).sin().powi(2);
         let c = 2.0 * a.sqrt().atan2((1.0 - a).sqrt());
 
-        let distance = R * c;
-
         // Note: We can't cache here since this method takes &self
         // Caching would be handled by the caller if needed
-        distance
+        R * c
     }
 
     /// Calculate distance with caching support
@@ -394,7 +392,7 @@ pub fn get_continent_for_country(country_code: &str) -> &'static str {
 
 /// Validate geographic coordinates
 pub fn validate_coordinates(latitude: f64, longitude: f64) -> bool {
-    latitude >= -90.0 && latitude <= 90.0 && longitude >= -180.0 && longitude <= 180.0
+    (-90.0..=90.0).contains(&latitude) && (-180.0..=180.0).contains(&longitude)
 }
 
 /// Normalize longitude to [-180, 180] range

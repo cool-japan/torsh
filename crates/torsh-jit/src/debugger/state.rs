@@ -3,9 +3,9 @@
 //! This module provides comprehensive state management capabilities including
 //! call stack management, memory state tracking, and execution state management.
 
-use super::core::{CallFrame, DebugValue, ExecutionLocation};
+use super::core::{CallFrame, ExecutionLocation};
 use crate::{JitError, JitResult};
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 
 /// Call stack management
 #[derive(Debug, Clone)]

@@ -9,8 +9,6 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Instant;
 
-use scirs2_core::random::{Random, Rng};
-
 use super::byzantine::ByzantineDetector;
 use super::client::FederatedClient;
 use super::metrics::FederatedMetrics;
@@ -64,6 +62,7 @@ impl std::error::Error for FederatedError {}
 /// It supports various aggregation strategies and privacy mechanisms.
 ///
 /// # Examples
+/// use std::time::Duration;
 ///
 /// ```rust,ignore
 /// use torsh_autograd::federated_learning::aggregation::*;

@@ -613,7 +613,7 @@ impl<D: Dataset> DatasetSampler<D> {
             }
             SamplingStrategy::RandomWithReplacement => {
                 let mut rng = self.rng.lock();
-                let idx = rng.gen_range(0..self.indices.len());
+                let idx = rng.gen_range(0.. self.indices.len());
                 Some(self.indices[idx])
             }
             SamplingStrategy::RandomWithoutReplacement => {
@@ -633,7 +633,7 @@ impl<D: Dataset> DatasetSampler<D> {
             SamplingStrategy::WeightedByClass => {
                 // Simplified implementation - could be made more sophisticated
                 let mut rng = self.rng.lock();
-                let idx = rng.gen_range(0..self.indices.len());
+                let idx = rng.gen_range(0.. self.indices.len());
                 Some(self.indices[idx])
             }
         }

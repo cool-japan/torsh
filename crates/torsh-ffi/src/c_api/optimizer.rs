@@ -4,7 +4,7 @@
 //! including SGD, Adam, and other optimization algorithms with parameter updates.
 
 use std::collections::HashMap;
-use std::os::raw::{c_char, c_float, c_int, c_void};
+use std::os::raw::c_float;
 use std::ptr;
 use std::sync::{Mutex, OnceLock};
 
@@ -16,11 +16,17 @@ static OPTIMIZER_STORE: OnceLock<Mutex<HashMap<usize, Box<OptimizerImpl>>>> = On
 
 /// Internal optimizer implementation
 pub(crate) struct OptimizerImpl {
+    #[allow(dead_code)]
     pub optimizer_type: String,
+    #[allow(dead_code)]
     pub learning_rate: f32,
+    #[allow(dead_code)]
     pub momentum: Option<f32>,
+    #[allow(dead_code)]
     pub beta1: Option<f32>,
+    #[allow(dead_code)]
     pub beta2: Option<f32>,
+    #[allow(dead_code)]
     pub epsilon: Option<f32>,
 }
 
@@ -257,6 +263,7 @@ pub(crate) fn clear_optimizer_store() {
 // 4. Provide parameter management and state tracking
 
 /// Helper function to validate optimizer parameters
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn validate_optimizer_params(
     learning_rate: f32,
     beta1: Option<f32>,

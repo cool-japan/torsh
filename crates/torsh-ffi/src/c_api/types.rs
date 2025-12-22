@@ -26,7 +26,6 @@
 //! torsh_tensor_free(tensor);
 //! ```
 
-use std::os::raw::{c_char, c_float, c_int, c_void};
 use torsh_core::DType;
 
 /// Opaque handle for Tensor objects

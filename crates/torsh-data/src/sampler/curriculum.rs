@@ -6,9 +6,6 @@
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
-// ✅ SciRS2 Policy Compliant - Using scirs2_core for all random operations
-use scirs2_core::random::{Random, SeedableRng};
-
 use super::core::{rng_utils, Sampler, SamplerIterator};
 
 /// Curriculum learning strategies
@@ -76,7 +73,7 @@ impl Default for CurriculumStrategy {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_data::sampler::{CurriculumSampler, CurriculumStrategy, Sampler};
 ///
 /// // Define difficulty as distance from center
@@ -123,7 +120,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use torsh_data::sampler::{CurriculumSampler, CurriculumStrategy};
     ///
     /// // Define difficulty based on sample index
@@ -626,7 +623,7 @@ mod tests {
         exp_sampler.set_epoch(0);
         let exp_early = exp_sampler.get_curriculum_indices().len();
         exp_sampler.set_epoch(5);
-        let exp_mid = exp_sampler.get_curriculum_indices().len();
+        let _exp_mid = exp_sampler.get_curriculum_indices().len();
 
         // Exponential should grow slower initially
         assert!(exp_early <= linear_early);

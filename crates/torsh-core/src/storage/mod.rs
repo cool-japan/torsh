@@ -51,6 +51,7 @@
 //! across threads using [`SharedStorage`] and similar wrapper types.
 
 // Module declarations
+pub mod aligned;
 pub mod allocation;
 pub mod core;
 pub mod mapped;
@@ -120,6 +121,11 @@ pub use self::mapped::{
 pub use self::registry::{
     AllocatorCapability, AllocatorMetadata, AllocatorRegistry, AllocatorRequirements,
     RegistryStatistics,
+};
+
+// Aligned storage for SIMD optimization
+pub use self::aligned::{
+    alignment, AlignedVec, AlignmentChecker, SimdLayoutAnalysis, SimdLayoutAnalyzer,
 };
 
 // Utility modules - re-export selected utilities

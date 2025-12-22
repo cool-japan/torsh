@@ -74,7 +74,7 @@ pub trait SparseActivation {
     /// Apply activation function in-place (if possible)
     fn forward_inplace(&self, input: &mut dyn SparseTensor) -> TorshResult<()> {
         // Default implementation: not in-place
-        let result = self.forward(input)?;
+        let _result = self.forward(input)?;
         // Would need to copy result back to input
         // This is a simplified placeholder
         Ok(())

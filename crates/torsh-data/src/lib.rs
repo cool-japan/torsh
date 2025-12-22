@@ -17,7 +17,7 @@ pub mod sampler;
 pub mod transforms;
 pub mod utils;
 
-// TODO: Re-enable when async_dataloader module is implemented
+// NOTE: Async dataloader support is planned for future releases
 // #[cfg(feature = "async-support")]
 // pub use dataloader::async_dataloader::{
 //     async_dataloader, AsyncDataLoader, AsyncDataLoaderBuilder, AsyncDataLoaderStream,
@@ -61,10 +61,12 @@ pub mod tabular;
 pub mod audio;
 
 pub mod augmentation_pipeline;
+pub mod core_framework;
 pub mod online_transforms;
 pub mod tensor_transforms;
 pub mod text;
 pub mod text_processing;
+pub mod zero_copy;
 
 #[cfg(feature = "privacy")]
 pub mod privacy;
@@ -87,13 +89,14 @@ pub use collate::{optimized_collate_fn, OptimizedCollate};
 pub use collate::{MixedCollate, SparseCollate};
 pub use dataloader::{simple_random_dataloader, DataLoader, DataLoaderBuilder, DataLoaderTrait};
 pub use dataset::{
-    random_split, BufferedStreamingDataset, CachedDataset, ChainDataset, ConcatDataset,
-    DataPipeline, Dataset, DatasetToStreaming, InfiniteDataset, IterableDataset,
-    PipelineStreamingDataset, RealTimeDataset, StreamingDataset, Subset, TensorDataset,
+    dataset_statistics, random_split, stratified_split, BufferedStreamingDataset, CachedDataset,
+    ChainDataset, ConcatDataset, DataPipeline, Dataset, DatasetToStreaming, FeatureStats,
+    InfiniteDataset, IterableDataset, KFold, PipelineStreamingDataset, RealTimeDataset,
+    StreamingDataset, Subset, TensorDataset,
 };
 
 #[cfg(feature = "std")]
-pub use dataset::SharedMemoryDataset;
+pub use dataset::{DatasetProfileStats, DatasetProfiler, ProfiledDataset, SharedMemoryDataset};
 
 #[cfg(all(feature = "std", feature = "mmap-support"))]
 pub use dataset::MemoryMappedDataset;
@@ -131,7 +134,7 @@ pub use error::{
 };
 
 pub use transforms::{
-    // TODO: Re-enable when modules are implemented
+    // NOTE: Selective exports maintained for API stability
     // augmentation_pipeline,
     // // Specialized modules
     // core_framework,
@@ -196,11 +199,25 @@ pub const VERSION_PATCH: u32 = 0;
 /// Prelude module for convenient imports
 pub mod prelude {
     pub use crate::builtin::*;
-    pub use crate::collate::*;
+
+    // Collate - only re-export commonly used items, not internal modules
+    pub use crate::collate::{
+        collate_fn, Collate, CollateBuilder, CollateFn, CollateStrategy, DefaultCollate,
+        DynamicBatchCollate, PadCollate, TensorStacker,
+    };
+
     pub use crate::dataloader::*;
     pub use crate::dataset::*;
     pub use crate::error::{DataError, ErrorContext, Result, WithContext};
-    pub use crate::sampler::*;
+
+    // Sampler - only re-export commonly used items, not internal modules
+    pub use crate::sampler::{
+        AcquisitionStrategy, ActiveLearningSampler, AdaptiveSampler, BatchSampler, BatchingSampler,
+        CurriculumSampler, CurriculumStrategy, DistributedSampler, ImportanceSampler,
+        RandomSampler, Sampler, SamplerIterator, SequentialSampler, StratifiedSampler,
+        WeightedRandomSampler,
+    };
+
     pub use crate::text::*;
     pub use crate::utils::{
         batch, concurrent, memory, performance, validate_not_empty, validate_positive,
@@ -237,7 +254,7 @@ pub mod prelude {
     #[cfg(all(target_arch = "wasm32", feature = "wasm"))]
     pub use crate::wasm::{wasm_utils, WasmDataLoader, WasmDataset};
 
-    // TODO: Re-enable when async_dataloader module is implemented
+    // NOTE: Async dataloader utilities are planned for future releases
     // #[cfg(feature = "async-support")]
     // pub use crate::dataloader::async_dataloader::{
     //     async_dataloader, AsyncDataLoader, AsyncDataLoaderBuilder,

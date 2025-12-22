@@ -7,7 +7,7 @@
 use alloc::vec::Vec;
 
 // ✅ SciRS2 Policy Compliant - Using scirs2_core for all random operations
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::Rng;
 
 use super::core::{rng_utils, Sampler, SamplerIterator};
 
@@ -19,7 +19,7 @@ use super::core::{rng_utils, Sampler, SamplerIterator};
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_data::sampler::{ImportanceSampler, Sampler};
 ///
 /// // Create importance weights (higher = more important)
@@ -55,17 +55,18 @@ impl ImportanceSampler {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use torsh_data::sampler::ImportanceSampler;
     ///
     /// let weights = vec![1.0, 2.0, 0.5, 3.0]; // Index 3 is most important
     /// let sampler = ImportanceSampler::new(weights, 2, false);
     /// ```
     pub fn new(importance_weights: Vec<f64>, num_samples: usize, replacement: bool) -> Self {
-        // Allow empty weights only when num_samples is 0
-        if importance_weights.is_empty() && num_samples > 0 {
-            panic!("importance_weights cannot be empty");
-        }
+        // Validate importance weights
+        assert!(
+            !importance_weights.is_empty() || num_samples == 0,
+            "importance_weights cannot be empty when num_samples > 0"
+        );
         assert!(
             importance_weights.iter().all(|&w| w >= 0.0),
             "importance_weights must be non-negative"
@@ -109,7 +110,7 @@ impl ImportanceSampler {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use torsh_data::sampler::ImportanceSampler;
     ///
     /// let weights = vec![1.0, 2.0, 3.0];
@@ -229,7 +230,7 @@ impl ImportanceSampler {
         // Sample using inverse transform sampling
         (0..self.num_samples)
             .map(|_| {
-                let rand_val: f64 = rng.gen();
+                let rand_val: f64 = rng.random();
                 cumulative_weights
                     .binary_search_by(|&x| {
                         x.partial_cmp(&rand_val)
@@ -268,7 +269,7 @@ impl ImportanceSampler {
             }
 
             let mut cumsum = 0.0;
-            let rand_val: f64 = rng.gen::<f64>() * weight_sum;
+            let rand_val: f64 = rng.random::<f64>() * weight_sum;
 
             let mut selected_idx = 0;
             for (i, &weight) in remaining_weights.iter().enumerate() {

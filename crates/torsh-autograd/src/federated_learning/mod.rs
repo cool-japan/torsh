@@ -231,6 +231,8 @@
 //! - Homomorphic encryption for sensitive computations
 //! - Regular security audits and updates
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 // Module declarations
 pub mod aggregation;
 pub mod byzantine;
@@ -294,6 +296,7 @@ pub type FederatedResult<T> = Result<T, FederatedError>;
 /// A `FederatedLearningConfig` with reasonable default values
 ///
 /// # Examples
+/// use std::time::Duration;
 ///
 /// ```rust,ignore
 /// use torsh_autograd::federated_learning::create_default_config;
@@ -339,6 +342,7 @@ pub fn create_default_config(
 /// * `epsilon` - Privacy budget (smaller values = stronger privacy)
 ///
 /// # Examples
+/// use std::time::Duration;
 ///
 /// ```rust,ignore
 /// use torsh_autograd::federated_learning::create_private_config;
@@ -370,6 +374,7 @@ pub fn create_private_config(
 /// * `clients_per_round` - Number of clients to select for each round
 ///
 /// # Examples
+/// use std::time::Duration;
 ///
 /// ```rust,ignore
 /// use torsh_autograd::federated_learning::create_robust_config;
@@ -401,6 +406,7 @@ pub fn create_robust_config(
 /// * `strategy` - Personalization strategy to use
 ///
 /// # Examples
+/// use std::time::Duration;
 ///
 /// ```rust,ignore
 /// use torsh_autograd::federated_learning::{create_personalized_config, PersonalizationStrategy};
@@ -410,7 +416,7 @@ pub fn create_robust_config(
 pub fn create_personalized_config(
     communication_rounds: u32,
     clients_per_round: usize,
-    strategy: PersonalizationStrategy,
+    _strategy: PersonalizationStrategy,
 ) -> FederatedLearningConfig {
     FederatedLearningConfig {
         personalization_enabled: true,
@@ -434,6 +440,7 @@ pub fn create_personalized_config(
 /// A vector of warning messages for potential issues (empty if no issues found)
 ///
 /// # Examples
+/// use std::time::Duration;
 ///
 /// ```rust,ignore
 /// use torsh_autograd::federated_learning::{validate_config, create_default_config};
@@ -504,6 +511,7 @@ pub fn validate_config(config: &FederatedLearningConfig) -> Vec<String> {
 /// A tuple of (total_computation_hours, total_communication_gb)
 ///
 /// # Examples
+/// use std::time::Duration;
 ///
 /// ```rust,ignore
 /// use torsh_autograd::federated_learning::{estimate_costs, create_default_config};

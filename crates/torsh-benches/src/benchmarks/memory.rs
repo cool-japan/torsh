@@ -6,12 +6,10 @@
 //! memory bottlenecks in the ToRSh framework.
 
 use super::common::*;
-use crate::{BenchConfig, BenchRunner, Benchmarkable};
+use crate::{BenchRunner, Benchmarkable};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
-use torsh_core::device::DeviceType;
-use torsh_core::dtype::DType;
 use torsh_tensor::{creation::*, Tensor};
 
 // ================================================================================================
@@ -60,7 +58,7 @@ impl Benchmarkable for MemoryBench {
         }
 
         // Test immediate deallocation pattern
-        for i in 0..5 {
+        for _i in 0..5 {
             let shape = vec![size / 2, size / 2];
             let tensor = zeros::<f32>(&shape).unwrap();
             tensors.push(prevent_optimization(tensor));
@@ -325,7 +323,7 @@ impl Benchmarkable for ConcurrentMemoryBench {
         let start_time = Instant::now();
 
         // Spawn worker threads
-        for thread_id in 0..thread_count {
+        for _thread_id in 0..thread_count {
             let successful_ops = Arc::clone(&successful_ops);
             let failed_ops = Arc::clone(&failed_ops);
             let total_time = Arc::clone(&total_time);

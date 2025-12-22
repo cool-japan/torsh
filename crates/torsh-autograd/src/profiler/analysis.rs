@@ -51,8 +51,9 @@
 //! }
 //! ```
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use super::types::{AutogradProfile, BottleneckType, OperationProfile, PerformanceBottleneck};
-use std::collections::HashMap;
 use std::time::Duration;
 
 /// Performance analyzer for detecting bottlenecks and optimization opportunities
@@ -746,7 +747,7 @@ impl PerformanceAnalyzer {
     /// Computes overall performance score
     fn compute_performance_score(
         &self,
-        profile: &AutogradProfile,
+        _profile: &AutogradProfile,
         bottlenecks: &[PerformanceBottleneck],
     ) -> f32 {
         if bottlenecks.is_empty() {
@@ -870,7 +871,7 @@ mod tests {
     use crate::profiler::types::{
         AutogradProfile, HardwareUtilization, OperationProfile, ProfileSummary,
     };
-    use std::time::{Duration, SystemTime};
+    use std::time::Duration;
 
     fn create_test_profile() -> AutogradProfile {
         let mut profile = AutogradProfile::new("test_session".to_string());

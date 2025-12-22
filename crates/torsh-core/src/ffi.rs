@@ -42,6 +42,7 @@ impl TorshDType {
             DType::C128 => (11, 16),
             DType::QInt8 => (12, 1),
             DType::QUInt8 => (13, 1),
+            DType::QInt32 => (16, 4),
         };
         TorshDType {
             type_id,
@@ -66,6 +67,9 @@ impl TorshDType {
             11 => Ok(DType::C128),
             12 => Ok(DType::QInt8),
             13 => Ok(DType::QUInt8),
+            14 => Ok(DType::U32),
+            15 => Ok(DType::U64),
+            16 => Ok(DType::QInt32),
             _ => Err(TorshError::InvalidArgument(format!(
                 "Invalid FFI dtype ID: {}",
                 self.type_id

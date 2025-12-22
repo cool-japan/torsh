@@ -6,6 +6,8 @@
 //! Enhanced with SciRS2 profiling and benchmarking capabilities for production-ready
 //! performance analysis and optimization.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::profiling::get_global_profiler;
 use crate::{TorshDistributedError, TorshResult};
 use serde::{Deserialize, Serialize};
@@ -14,14 +16,16 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant, SystemTime};
 
 // Enhanced SciRS2 integration for advanced profiling
+// TODO: These features are not yet available in scirs2_core
+// Uncomment when scirs2_core provides these modules
+// #[cfg(feature = "scirs2-profiling")]
+// use scirs2_core::benchmarking::{BenchmarkRunner, BenchmarkSuite};
 #[cfg(feature = "scirs2-profiling")]
-use scirs2_core::benchmarking::{BenchmarkRunner, BenchmarkSuite};
-#[cfg(feature = "scirs2-profiling")]
-use scirs2_core::metrics::{Counter, Gauge, Histogram, MetricRegistry, Timer};
-#[cfg(feature = "scirs2-profiling")]
-use scirs2_core::observability::{audit, tracing as scirs2_tracing};
-#[cfg(feature = "scirs2-profiling")]
-use scirs2_core::profiling::{profiling_memory_tracker, Profiler};
+use scirs2_core::metrics::{Counter, Gauge, Histogram, MetricsRegistry, Timer};
+// #[cfg(feature = "scirs2-profiling")]
+// use scirs2_core::observability::{audit, tracing as scirs2_tracing};
+// #[cfg(feature = "scirs2-profiling")]
+// use scirs2_core::profiling::{profiling_memory_tracker, Profiler};
 
 /// Enhanced system resource metrics with SciRS2 profiling
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -779,52 +783,55 @@ impl MetricsCollector {
     /// Collect advanced system metrics using SciRS2 profiling
     #[cfg(feature = "scirs2-profiling")]
     pub fn collect_scirs2_system_metrics(&self) -> TorshResult<SystemMetrics> {
-        use scirs2_core::metrics::{Counter, Gauge, MetricRegistry};
-        use scirs2_core::profiling::profiling_memory_tracker;
+        use scirs2_core::metrics::{Counter, Gauge, MetricsRegistry};
+        // TODO: profiling module not yet available in scirs2_core
+        // use scirs2_core::profiling::profiling_memory_tracker;
 
         let mut metrics = self.collect_system_metrics()?;
 
+        // TODO: Enhanced memory profiling using SciRS2 - disabled until profiling module is available
         // Enhanced memory profiling using SciRS2
-        if let Ok(memory_tracker) = profiling_memory_tracker() {
-            let mut memory_profile = HashMap::new();
-            memory_profile.insert(
-                "peak_memory_usage".to_string(),
-                memory_tracker.peak_usage_bytes(),
-            );
-            memory_profile.insert(
-                "current_allocations".to_string(),
-                memory_tracker.current_allocations() as u64,
-            );
-            memory_profile.insert(
-                "total_allocations".to_string(),
-                memory_tracker.total_allocations() as u64,
-            );
-            memory_profile.insert(
-                "fragmentation_ratio".to_string(),
-                (memory_tracker.fragmentation_ratio() * 1000.0) as u64,
-            );
-            metrics.memory_profile = Some(memory_profile);
-        }
+        // if let Ok(memory_tracker) = profiling_memory_tracker() {
+        //     let mut memory_profile = HashMap::new();
+        //     memory_profile.insert(
+        //         "peak_memory_usage".to_string(),
+        //         memory_tracker.peak_usage_bytes(),
+        //     );
+        //     memory_profile.insert(
+        //         "current_allocations".to_string(),
+        //         memory_tracker.current_allocations() as u64,
+        //     );
+        //     memory_profile.insert(
+        //         "total_allocations".to_string(),
+        //         memory_tracker.total_allocations() as u64,
+        //     );
+        //     memory_profile.insert(
+        //         "fragmentation_ratio".to_string(),
+        //         (memory_tracker.fragmentation_ratio() * 1000.0) as u64,
+        //     );
+        //     metrics.memory_profile = Some(memory_profile);
+        // }
 
         // SciRS2 profiling metrics
         let mut scirs2_profile = HashMap::new();
 
+        // TODO: CPU profiling with enhanced precision - disabled until profiling module is available
         // CPU profiling with enhanced precision
-        if let Some(profiler) = Profiler::global() {
-            scirs2_profile.insert(
-                "cpu_efficiency".to_string(),
-                profiler.cpu_efficiency_ratio(),
-            );
-            scirs2_profile.insert("cache_hit_ratio".to_string(), profiler.cache_hit_ratio());
-            scirs2_profile.insert(
-                "simd_utilization".to_string(),
-                profiler.simd_utilization_ratio(),
-            );
-            scirs2_profile.insert(
-                "vectorization_efficiency".to_string(),
-                profiler.vectorization_efficiency(),
-            );
-        }
+        // if let Some(profiler) = Profiler::global() {
+        //     scirs2_profile.insert(
+        //         "cpu_efficiency".to_string(),
+        //         profiler.cpu_efficiency_ratio(),
+        //     );
+        //     scirs2_profile.insert("cache_hit_ratio".to_string(), profiler.cache_hit_ratio());
+        //     scirs2_profile.insert(
+        //         "simd_utilization".to_string(),
+        //         profiler.simd_utilization_ratio(),
+        //     );
+        //     scirs2_profile.insert(
+        //         "vectorization_efficiency".to_string(),
+        //         profiler.vectorization_efficiency(),
+        //     );
+        // }
 
         // Memory bandwidth and latency metrics
         scirs2_profile.insert(
@@ -841,61 +848,47 @@ impl MetricsCollector {
     }
 
     /// Run comprehensive benchmarks using SciRS2 benchmarking suite
+    /// TODO: Disabled until benchmarking module is available in scirs2_core
     #[cfg(feature = "scirs2-profiling")]
     pub fn run_performance_benchmarks(&self) -> TorshResult<HashMap<String, f64>> {
-        use scirs2_core::benchmarking::{BenchmarkRunner, BenchmarkSuite};
+        // TODO: benchmarking module not yet available in scirs2_core
+        // use scirs2_core::benchmarking::{BenchmarkRunner, BenchmarkSuite};
 
-        let mut results = HashMap::new();
-        let mut benchmark_suite = BenchmarkSuite::new("distributed_training_benchmarks");
+        // Return empty results until benchmarking module is available
+        let results = HashMap::new();
 
-        // Memory throughput benchmarks
-        benchmark_suite.add_benchmark("memory_throughput_sequential", || {
-            self.benchmark_memory_throughput_sequential()
-        });
-
-        benchmark_suite.add_benchmark("memory_throughput_random", || {
-            self.benchmark_memory_throughput_random()
-        });
-
-        // Network latency benchmarks
-        benchmark_suite.add_benchmark("network_latency", || self.benchmark_network_latency());
-
-        // Tensor operations benchmarks
-        benchmark_suite.add_benchmark("tensor_operations", || self.benchmark_tensor_operations());
-
-        let runner = BenchmarkRunner::new();
-        let benchmark_results = runner.run_suite(&benchmark_suite);
-
-        for (name, duration) in benchmark_results {
-            results.insert(name, duration.as_nanos() as f64);
-        }
+        // TODO: Implement when scirs2_core benchmarking module is available
+        // let mut benchmark_suite = BenchmarkSuite::new("distributed_training_benchmarks");
+        // ...
 
         Ok(results)
     }
 
     /// Enhanced metrics collection with SciRS2 observability
+    /// TODO: Disabled until observability module is available in scirs2_core
     #[cfg(feature = "scirs2-profiling")]
     pub fn collect_enhanced_metrics(&self) -> TorshResult<PerformanceMetrics> {
-        use scirs2_core::observability::{audit, tracing};
+        // TODO: observability module not yet available in scirs2_core
+        // use scirs2_core::observability::{audit, tracing};
 
-        // Start enhanced tracing
-        let _trace = tracing::span!("enhanced_metrics_collection");
+        // TODO: Start enhanced tracing when available
+        // let _trace = tracing::span!("enhanced_metrics_collection");
 
         let system_metrics = self.collect_scirs2_system_metrics()?;
         let comm_metrics = self.collect_communication_metrics()?;
         let training_metrics = self.collect_training_metrics()?;
 
-        // Create audit trail for metrics collection
-        audit::log_event(
-            "metrics_collected",
-            &format!(
-                "system_cpu={:.1}%, memory={:.1}%, comm_ops={}, training_epoch={}",
-                system_metrics.cpu_usage_pct,
-                system_metrics.memory_usage_pct,
-                comm_metrics.total_operations,
-                training_metrics.current_epoch
-            ),
-        );
+        // TODO: Create audit trail when observability module is available
+        // audit::log_event(
+        //     "metrics_collected",
+        //     &format!(
+        //         "system_cpu={:.1}%, memory={:.1}%, comm_ops={}, training_epoch={}",
+        //         system_metrics.cpu_usage_pct,
+        //         system_metrics.memory_usage_pct,
+        //         comm_metrics.total_operations,
+        //         training_metrics.current_epoch
+        //     ),
+        // );
 
         Ok(PerformanceMetrics {
             system: system_metrics,

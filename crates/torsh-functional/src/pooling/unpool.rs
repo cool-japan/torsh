@@ -1,7 +1,7 @@
 //! Unpooling operations for upsampling with sparse indices
 
 use crate::utils::{function_context, validate_tensor_dims};
-use torsh_core::{Result as TorshResult, TorshError};
+use torsh_core::Result as TorshResult;
 use torsh_tensor::Tensor;
 
 /// 1D max unpooling

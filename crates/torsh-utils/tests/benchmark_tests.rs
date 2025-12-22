@@ -2,8 +2,6 @@
 
 use std::collections::HashMap;
 use std::time::Duration;
-use tempfile::TempDir;
-use torsh_tensor::Tensor;
 use torsh_utils::benchmark::*;
 use torsh_utils::mobile_optimizer::{CpuInfo, MemoryInfo, MobilePlatform, PlatformBenchmarkInfo};
 
@@ -597,6 +595,7 @@ mod tests {
     // Test data structures
 
     #[derive(Debug)]
+    #[allow(dead_code)]
     struct StressTestConfig {
         duration_minutes: u32,
         thermal_monitoring: bool,
@@ -607,6 +606,7 @@ mod tests {
     }
 
     #[derive(Debug)]
+    #[allow(dead_code)]
     struct StressTestResults {
         initial_throughput: f32,
         final_throughput: f32,

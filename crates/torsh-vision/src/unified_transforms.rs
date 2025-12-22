@@ -1,3 +1,5 @@
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{Result, VisionError};
 // use half; // Commented out - half crate not available
 use std::collections::HashMap;
@@ -145,7 +147,7 @@ impl TransformContext {
 
     pub fn auto_detect() -> Result<Self> {
         // For now, default to CPU device since CUDA detection is not fully implemented
-        let device_type = DeviceType::Cpu;
+        let _device_type = DeviceType::Cpu;
 
         let device = Arc::new(CpuDevice::new()) as Arc<dyn Device>;
         let use_mixed_precision = false; // Set to false for CPU devices

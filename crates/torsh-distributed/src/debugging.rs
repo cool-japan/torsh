@@ -6,7 +6,7 @@
 use crate::metrics::get_global_metrics_collector;
 use crate::profiling::get_global_profiler;
 use crate::{TorshDistributedError, TorshResult};
-use log::{debug, info, warn};
+use log::info;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, RwLock};
@@ -584,10 +584,10 @@ impl DistributedDebugger {
 
     /// Run comprehensive system diagnostics
     pub fn run_diagnostics(&self) -> TorshResult<Vec<DiagnosticResult>> {
-        let mut results = Vec::new();
-
-        // Communication health check
-        results.push(self.check_communication_health()?);
+        let mut results = vec![
+            // Communication health check
+            self.check_communication_health()?,
+        ];
 
         // Resource utilization check
         results.push(self.check_resource_utilization()?);
@@ -693,7 +693,7 @@ impl DistributedDebugger {
 
         let high_cpu = state.cpu_usage_pct > 95.0;
         let high_memory = state.memory_usage_pct > 90.0;
-        let high_gpu = state.gpu_usage_pct.map_or(false, |gpu| gpu > 98.0);
+        let high_gpu = state.gpu_usage_pct.is_some_and(|gpu| gpu > 98.0);
 
         let passed = !high_cpu && !high_memory && !high_gpu;
 
@@ -948,7 +948,7 @@ impl DistributedDebugger {
             if let Some(gpu) = snapshot.resources.gpu_usage_pct {
                 report.push_str(&format!(", GPU {:.1}%", gpu));
             }
-            report.push_str("\n");
+            report.push('\n');
             report.push_str(&format!(
                 "Communication: {:.1}ms avg latency, {:.1} MB/s bandwidth\n",
                 snapshot.communication.avg_latency_ms, snapshot.communication.bandwidth_mbps
@@ -976,7 +976,7 @@ impl DistributedDebugger {
                     }
                 }
             }
-            report.push_str("\n");
+            report.push('\n');
         }
 
         // Recent errors
@@ -986,7 +986,7 @@ impl DistributedDebugger {
                 for error in &errors {
                     report.push_str(&error.format());
                 }
-                report.push_str("\n");
+                report.push('\n');
             }
         }
 
@@ -1057,7 +1057,6 @@ impl DistributedDebugger {
                 "debugging",
                 format!("JSON serialization failed: {}", e),
             )
-            .into()
         })
     }
 

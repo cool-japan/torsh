@@ -1,4 +1,4 @@
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::Random;
 use std::io::{self, Write};
 use torsh_text::prelude::*;
 use torsh_text::TextAnalyzer;

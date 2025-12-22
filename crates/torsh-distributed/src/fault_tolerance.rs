@@ -6,11 +6,13 @@
 //! - State synchronization during scaling events
 //! - Integration with error recovery mechanisms
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::error_recovery::{CircuitBreakerConfig, FailureDetector, RetryConfig};
 use crate::{TorshDistributedError, TorshResult};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::fs;
@@ -239,7 +241,6 @@ impl CheckpointManager {
                                 "checkpoint",
                                 format!("Failed to write checkpoint: {}", e),
                             )
-                            .into()
                         })
                 },
                 None,
@@ -344,8 +345,7 @@ impl CheckpointManager {
             return Err(TorshDistributedError::backend_error(
                 "checkpoint",
                 "Checkpoint verification failed: could not load",
-            )
-            .into());
+            ));
         }
 
         debug!("Checkpoint verification successful");
@@ -385,7 +385,7 @@ impl CheckpointManager {
     }
 
     /// Extract step number from checkpoint filename
-    fn extract_step_from_filename(&self, path: &PathBuf) -> usize {
+    fn extract_step_from_filename(&self, path: &Path) -> usize {
         if let Some(filename) = path.file_stem() {
             let filename_str = filename.to_string_lossy();
             if let Some(step_start) = filename_str.find("step_") {
@@ -713,17 +713,31 @@ impl ElasticTrainingManager {
 pub mod checkpoint_utils {
     use super::*;
 
+    /// Parameters for creating a checkpoint
+    #[allow(dead_code)]
+    pub struct CheckpointParams {
+        pub step: usize,
+        pub epoch: usize,
+        pub model_params: HashMap<String, Parameter>,
+        pub optimizer_state: HashMap<String, Tensor>,
+        pub loss: f32,
+        pub metrics: HashMap<String, f32>,
+        pub world_size: usize,
+        pub rank: usize,
+    }
+
     /// Create a checkpoint from model parameters and training state
-    pub fn create_checkpoint(
-        step: usize,
-        epoch: usize,
-        model_params: HashMap<String, Parameter>,
-        optimizer_state: HashMap<String, Tensor>,
-        loss: f32,
-        metrics: HashMap<String, f32>,
-        world_size: usize,
-        rank: usize,
-    ) -> TorshResult<TrainingCheckpoint> {
+    pub fn create_checkpoint(params: CheckpointParams) -> TorshResult<TrainingCheckpoint> {
+        let CheckpointParams {
+            step,
+            epoch,
+            model_params,
+            optimizer_state,
+            loss,
+            metrics,
+            world_size,
+            rank,
+        } = params;
         // Convert model parameters to serializable format
         let mut model_state = HashMap::new();
         for (name, param) in model_params {

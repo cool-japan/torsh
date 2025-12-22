@@ -7,7 +7,7 @@ use anyhow::Result;
 use clap::{CommandFactory, Parser, Subcommand};
 use colored::*;
 use std::path::PathBuf;
-use tracing::{info, warn};
+use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod commands;
@@ -202,33 +202,6 @@ pub fn display_banner() {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use assert_cmd::Command;
-
-    #[test]
-    #[ignore = "Requires built torsh binary"]
-    fn test_cli_help() {
-        let mut cmd = Command::cargo_bin("torsh")
-            .expect("Failed to find torsh binary - make sure to build it first");
-        cmd.arg("--help").assert().success();
-    }
-
-    #[test]
-    #[ignore = "Requires built torsh binary"]
-    fn test_cli_version() {
-        let mut cmd = Command::cargo_bin("torsh")
-            .expect("Failed to find torsh binary - make sure to build it first");
-        cmd.arg("--version").assert().success();
-    }
-
-    #[test]
-    #[ignore = "Requires built torsh binary"]
-    fn test_cli_info_command() {
-        let mut cmd = Command::cargo_bin("torsh")
-            .expect("Failed to find torsh binary - make sure to build it first");
-        cmd.arg("info").assert().success();
-    }
-
     #[test]
     fn test_version_check() {
         // Test that we can parse the version

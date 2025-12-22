@@ -5,7 +5,6 @@ use super::types::{
 };
 use crate::{FxGraph, Node, TorshResult};
 use petgraph::graph::NodeIndex;
-use petgraph::visit::IntoNodeReferences;
 use std::collections::HashMap;
 use torsh_core::error::TorshError;
 

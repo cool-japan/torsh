@@ -86,7 +86,7 @@ pub fn get_rank(process_group: &ProcessGroup) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{BackendType, Rank, WorldSize};
+    use crate::BackendType;
 
     #[test]
     fn test_validate_rank() {

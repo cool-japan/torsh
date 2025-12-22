@@ -179,52 +179,91 @@ impl MatlabSparseCompat {
         Ok(Box::new(coo))
     }
 
-    /// Export sparse tensor to MATLAB .mat file
+    /// Export sparse tensor to MATLAB .mat file (via script generation)
+    ///
+    /// Note: Direct .mat file export is not currently implemented due to matfile crate API limitations.
+    /// This function generates a MATLAB script that can be run to create the sparse matrix.
+    /// For a complete working solution, use `export_to_matlab_script()` which creates a .m file
+    /// with the matrix data embedded as code.
     #[cfg(feature = "matlab")]
     pub fn export_to_mat_file(
         sparse: &dyn SparseTensor,
         filepath: &Path,
         variable_name: &str,
     ) -> TorshResult<()> {
+        // Alternative implementation: Generate MATLAB script instead
         let matlab_matrix = Self::to_matlab(sparse, variable_name.to_string())?;
+        let matlab_code = matlab_matrix.to_matlab_code();
 
-        // Note: MatFile API has changed - using placeholder implementation
-        // TODO: Update to use current matfile crate API
-        #[cfg(not(feature = "matlab"))]
-        return Err(TorshError::InvalidArgument(
-            "MATLAB export not available - feature disabled".to_string(),
-        ));
+        // Change extension to .m for MATLAB script
+        let script_path = filepath.with_extension("m");
 
-        #[cfg(feature = "matlab")]
-        {
-            // Placeholder implementation - the MatFile API has changed
-            // In the current version, you would need to use MatFile::parse() with existing data
-            // or construct the file differently based on the current API
+        std::fs::write(&script_path, matlab_code)
+            .map_err(|e| TorshError::IoError(format!("Failed to write MATLAB script: {}", e)))?;
 
-            return Err(TorshError::InvalidArgument(
-                "MATLAB export not implemented - MatFile API changed".to_string(),
-            ));
-        }
+        eprintln!(
+            "Note: Exported as MATLAB script (.m) instead of .mat file.\n\
+             To use in MATLAB: run the script '{}'",
+            script_path.display()
+        );
+
+        Ok(())
     }
 
     /// Import sparse tensor from MATLAB .mat file
+    ///
+    /// Note: Direct .mat file import is not currently implemented due to matfile crate API limitations.
+    /// As a workaround:
+    /// 1. Export your MATLAB matrix to text format (save as CSV or use MATLAB's `save -ascii`)
+    /// 2. Use the Matrix Market format for interchange (`mmwrite` in MATLAB)
+    /// 3. Use HDF5 format which is supported by both MATLAB and torsh-sparse
     #[cfg(feature = "matlab")]
     pub fn import_from_mat_file(
         filepath: &Path,
         variable_name: &str,
     ) -> TorshResult<Box<dyn SparseTensor>> {
-        #[cfg(not(feature = "matlab"))]
-        return Err(TorshError::InvalidArgument(
-            "MATLAB import not available - feature disabled".to_string(),
-        ));
+        // Attempt to use matfile crate for reading (basic implementation)
+        use std::io::Cursor;
 
-        #[cfg(feature = "matlab")]
-        {
-            // TODO: Implement MatFile loading with updated API
-            return Err(TorshError::InvalidArgument(
-                "MATLAB import not implemented - MatFile API changed".to_string(),
-            ));
-        }
+        let file_data = std::fs::read(filepath)
+            .map_err(|e| TorshError::IoError(format!("Failed to read .mat file: {}", e)))?;
+
+        // Create a cursor for the Read trait
+        let cursor = Cursor::new(file_data);
+
+        // Try to parse the .mat file
+        let mat_file = MatFile::parse(cursor).map_err(|e| {
+            TorshError::InvalidArgument(format!(
+                "Failed to parse .mat file: {}. Consider using Matrix Market or HDF5 format instead.",
+                e
+            ))
+        })?;
+
+        // Try to find the variable in the .mat file
+        let _array = mat_file.find_by_name(variable_name).ok_or_else(|| {
+            TorshError::InvalidArgument(format!(
+                "Variable '{}' not found in .mat file. Available variables: {:?}",
+                variable_name,
+                mat_file
+                    .arrays()
+                    .iter()
+                    .map(|a| a.name())
+                    .collect::<Vec<_>>()
+            ))
+        })?;
+
+        // Check if it's a sparse array
+        // Note: This is a basic implementation and may need adjustment based on
+        // the actual matfile crate API and MATLAB sparse matrix encoding
+
+        // For now, return an error with guidance
+        Err(TorshError::InvalidArgument(format!(
+            ".mat file import is partially implemented. The file was parsed successfully, \
+                 but extracting sparse matrix data requires additional matfile crate features. \
+                 Please use Matrix Market (.mtx) or HDF5 (.h5) format for reliable import/export. \
+                 Variable '{}' was found in the file.",
+            variable_name
+        )))
     }
 
     /// Create MATLAB script to load sparse matrix from components

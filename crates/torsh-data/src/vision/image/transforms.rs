@@ -167,7 +167,7 @@ impl Transform<DynamicImage> for RandomHorizontalFlip {
             // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
             use scirs2_core::random::{Random, Rng};
             let mut rng = Random::seed(0);
-            if rng.gen::<f32>() < self.prob {
+            if rng.random::<f32>() < self.prob {
                 Ok(input.fliph())
             } else {
                 Ok(input)
@@ -204,7 +204,7 @@ impl Transform<DynamicImage> for RandomVerticalFlip {
             // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
             use scirs2_core::random::{Random, Rng};
             let mut rng = Random::seed(0);
-            if rng.gen::<f32>() < self.prob {
+            if rng.random::<f32>() < self.prob {
                 Ok(input.flipv())
             } else {
                 Ok(input)
@@ -239,7 +239,7 @@ impl Transform<DynamicImage> for RandomRotation {
         #[cfg(all(feature = "image-support", feature = "imageproc"))]
         {
             // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
-            use scirs2_core::random::{Random, Rng};
+            use scirs2_core::random::Random;
             let mut rng = Random::seed(0);
             let angle_deg = rng.gen_range(-self.degrees..=self.degrees);
             let angle_rad = angle_deg.to_radians();
@@ -262,7 +262,7 @@ impl Transform<DynamicImage> for RandomRotation {
         #[cfg(all(feature = "image-support", not(feature = "imageproc")))]
         {
             // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
-            use scirs2_core::random::{Random, Rng};
+            use scirs2_core::random::Random;
             let mut rng = Random::seed(0);
             let _angle = rng.gen_range(-self.degrees..=self.degrees);
             // imageproc not available, return input unchanged

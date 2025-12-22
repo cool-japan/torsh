@@ -20,6 +20,9 @@ pub use crate::custom_ops_benchmarks::*;
 
 // Analysis and reporting
 pub use crate::benchmark_analysis::*;
+pub use crate::benchmark_cache::{BenchmarkCache, CacheEntry, CacheStats};
+pub use crate::benchmark_comparison::*;
+pub use crate::cached_runner::{BatchCachedRunner, CachedBenchRunner};
 pub use crate::system_info::*;
 pub use crate::html_reporting::*;
 pub use crate::performance_dashboards::*;

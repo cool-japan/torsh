@@ -8,6 +8,8 @@
 //! Enhanced with SciRS2 memory-efficient operations for optimal performance
 //! and reduced memory footprint in distributed training scenarios.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::collectives::{all_gather, reduce_scatter};
 use crate::{ProcessGroup, TorshDistributedError, TorshResult};
 use std::collections::HashMap;
@@ -18,16 +20,18 @@ use torsh_tensor::Tensor;
 use tracing::{debug, info};
 
 // Enhanced SciRS2 integration for memory-efficient tensor operations
-#[cfg(feature = "scirs2-memory")]
-use scirs2_core::memory::{BufferPool, ChunkProcessor, GlobalBufferPool};
-#[cfg(feature = "scirs2-memory")]
-use scirs2_core::memory_efficient::{AdaptiveChunking, DiskBackedArray, ZeroCopyOps};
-#[cfg(feature = "scirs2-memory")]
-use scirs2_core::memory_efficient::{ChunkedArray, LazyArray, MemoryMappedArray};
-#[cfg(feature = "scirs2-memory")]
-use scirs2_core::parallel_ops::{par_chunks, par_join, par_scope};
-#[cfg(feature = "scirs2-memory")]
-use scirs2_core::simd_ops::{simd_dot_product, simd_matrix_multiply};
+// TODO: These features are not yet available in scirs2_core
+// Uncomment when scirs2_core provides these modules
+// #[cfg(feature = "scirs2-memory")]
+// use scirs2_core::memory::{BufferPool, ChunkProcessor, GlobalBufferPool};
+// #[cfg(feature = "scirs2-memory")]
+// use scirs2_core::memory_efficient::{AdaptiveChunking, DiskBackedArray, ZeroCopyOps};
+// #[cfg(feature = "scirs2-memory")]
+// use scirs2_core::memory_efficient::{ChunkedArray, LazyArray, MemoryMappedArray};
+// #[cfg(feature = "scirs2-memory")]
+// use scirs2_core::parallel_ops::{par_chunks, par_join, par_scope};
+// #[cfg(feature = "scirs2-memory")]
+// use scirs2_core::simd_ops::{simd_dot_product, simd_matrix_multiply};
 
 /// Enhanced tensor parallelism configuration with SciRS2 memory optimizations
 #[derive(Debug, Clone)]
@@ -184,8 +188,7 @@ impl TensorParallel {
                     tp_size, config.tp_size
                 ),
                 format!("tp_size = {}", config.tp_size),
-            )
-            .into());
+            ));
         }
 
         let mut tensor_parallel = Self {
@@ -240,7 +243,7 @@ impl TensorParallel {
         parameters: &HashMap<String, Parameter>,
         output_size: usize,
     ) -> TorshResult<()> {
-        for (name, _param) in parameters {
+        for name in parameters.keys() {
             if name.contains("weight") {
                 let shard_size = output_size / self.config.tp_size;
                 let start_idx = self.tp_rank * shard_size;
@@ -267,7 +270,7 @@ impl TensorParallel {
         parameters: &HashMap<String, Parameter>,
         input_size: usize,
     ) -> TorshResult<()> {
-        for (name, _param) in parameters {
+        for name in parameters.keys() {
             if name.contains("weight") {
                 let shard_size = input_size / self.config.tp_size;
                 let start_idx = self.tp_rank * shard_size;
@@ -294,7 +297,7 @@ impl TensorParallel {
         parameters: &HashMap<String, Parameter>,
         num_embeddings: usize,
     ) -> TorshResult<()> {
-        for (name, _param) in parameters {
+        for name in parameters.keys() {
             if name.contains("weight") {
                 let shard_size = num_embeddings / self.config.tp_size;
                 let start_idx = self.tp_rank * shard_size;
@@ -324,7 +327,7 @@ impl TensorParallel {
         let heads_per_partition = num_attention_heads / self.config.tp_size;
         let start_head = self.tp_rank * heads_per_partition;
 
-        for (name, _param) in parameters {
+        for name in parameters.keys() {
             if name.contains("query")
                 || name.contains("key")
                 || name.contains("value")
@@ -642,14 +645,14 @@ impl TensorParallel {
         let weights_dims = weights_shape.dims();
 
         let output_dims = vec![input_dims[0], weights_dims[1]];
-        Ok(Shape::from_dims(&output_dims))
+        Shape::from_dims(output_dims)
     }
 
     #[cfg(feature = "scirs2-memory")]
     fn compute_gathered_shape(&self, shard_shape: &Shape) -> TorshResult<Shape> {
         let mut dims = shard_shape.dims().to_vec();
         dims[1] *= self.config.tp_size; // Assuming gathering along dimension 1
-        Ok(Shape::from_dims(&dims))
+        Shape::from_dims(dims)
     }
 
     #[cfg(feature = "scirs2-memory")]
@@ -847,8 +850,7 @@ pub mod utils {
                     dim_size, tp_size
                 ),
                 format!("dimension size must be multiple of tp_size ({})", tp_size),
-            )
-            .into());
+            ));
         }
 
         let shard_size = dim_size / tp_size;
@@ -873,8 +875,7 @@ pub mod utils {
             Err(TorshDistributedError::communication_error(
                 "tensor_parallel",
                 "No tensors gathered",
-            )
-            .into())
+            ))
         } else {
             Ok(gathered_tensors.into_iter().next().unwrap())
         }
@@ -885,7 +886,6 @@ pub mod utils {
 mod tests {
     use super::*;
     use crate::{init_process_group, BackendType};
-    use torsh_nn::layers::Linear;
 
     #[tokio::test]
     async fn test_tensor_parallel_config() {
@@ -932,8 +932,13 @@ mod tests {
         let process_group =
             Arc::new(init_process_group(BackendType::Gloo, 0, 2, "127.0.0.1", 12345).await?);
 
+        let config = TensorParallelConfig {
+            tp_size: 2,
+            ..Default::default()
+        };
+
         let tp_layer =
-            utils::create_row_parallel_linear(128, 256, true, false, process_group, None)?;
+            utils::create_row_parallel_linear(128, 256, true, false, process_group, Some(config))?;
 
         assert_eq!(tp_layer.tp_rank(), 0);
         assert_eq!(tp_layer.tp_world_size(), 2);
@@ -946,8 +951,19 @@ mod tests {
         let process_group =
             Arc::new(init_process_group(BackendType::Gloo, 0, 2, "127.0.0.1", 12346).await?);
 
-        let tp_layer =
-            utils::create_column_parallel_linear(128, 256, true, true, process_group, None)?;
+        let config = TensorParallelConfig {
+            tp_size: 2,
+            ..Default::default()
+        };
+
+        let tp_layer = utils::create_column_parallel_linear(
+            128,
+            256,
+            true,
+            true,
+            process_group,
+            Some(config),
+        )?;
 
         assert_eq!(tp_layer.tp_rank(), 0);
         assert_eq!(tp_layer.tp_world_size(), 2);

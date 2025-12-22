@@ -1,6 +1,5 @@
 use approx::assert_relative_eq;
 use torsh_tensor::creation::*;
-use torsh_tensor::prelude::*;
 use torsh_tensor::tensor;
 
 #[test]

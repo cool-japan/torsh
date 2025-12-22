@@ -6,6 +6,29 @@
 use torsh_core::{dtype::FloatElement, Result as TorshResult};
 use torsh_tensor::Tensor;
 
+/// Helper function to apply element-wise transformation in-place
+///
+/// This generic helper reduces code duplication across in-place activation functions
+/// by providing a common pattern for element-wise transformations.
+///
+/// # Parameters
+/// - `input`: Mutable reference to input tensor (will be modified)
+/// - `operation`: Closure that transforms each element
+///
+/// # Returns
+/// Ok(()) on success, error otherwise
+#[inline]
+fn apply_inplace_elementwise<T, F>(input: &mut Tensor<T>, operation: F) -> TorshResult<()>
+where
+    T: FloatElement + Copy,
+    F: Fn(T) -> T,
+{
+    let data = input.data()?;
+    let result_data: Vec<T> = data.iter().map(|&x| operation(x)).collect();
+    *input = Tensor::from_data(result_data, input.shape().dims().to_vec(), input.device())?;
+    Ok(())
+}
+
 /// In-place ReLU activation function
 ///
 /// **Mathematical Definition:**
@@ -38,17 +61,8 @@ pub fn relu_<T: FloatElement>(input: &mut Tensor<T>) -> TorshResult<()>
 where
     T: Copy + PartialOrd + torsh_core::dtype::TensorElement + Default,
 {
-    // Element-wise computation with optimized memory access
     let zero = <T as torsh_core::dtype::TensorElement>::zero();
-    let data = input.data()?;
-    let result_data: Vec<T> = data
-        .iter()
-        .map(|&x| if x < zero { zero } else { x })
-        .collect();
-
-    // Replace tensor data
-    *input = Tensor::from_data(result_data, input.shape().dims().to_vec(), input.device())?;
-    Ok(())
+    apply_inplace_elementwise(input, |x| if x < zero { zero } else { x })
 }
 
 /// In-place Sigmoid activation function
@@ -82,28 +96,20 @@ pub fn sigmoid_<T: FloatElement>(input: &mut Tensor<T>) -> TorshResult<()>
 where
     T: Copy + PartialOrd + torsh_core::dtype::TensorElement + Default,
 {
-    // Enhanced fallback with numerical stability improvements
     let one = <T as torsh_core::dtype::TensorElement>::one();
     let zero = <T as torsh_core::dtype::TensorElement>::zero();
-    let data = input.data()?;
-    let result_data: Vec<T> = data
-        .iter()
-        .map(|&x| {
-            // Use numerically stable sigmoid implementation
-            // For x >= 0: sigmoid(x) = 1 / (1 + exp(-x))
-            // For x < 0: sigmoid(x) = exp(x) / (1 + exp(x))
-            if x >= zero {
-                one / (one + (-x).exp())
-            } else {
-                let exp_x = x.exp();
-                exp_x / (one + exp_x)
-            }
-        })
-        .collect();
 
-    // Replace tensor data with computed sigmoid values
-    *input = Tensor::from_data(result_data, input.shape().dims().to_vec(), input.device())?;
-    Ok(())
+    apply_inplace_elementwise(input, |x| {
+        // Use numerically stable sigmoid implementation
+        // For x >= 0: sigmoid(x) = 1 / (1 + exp(-x))
+        // For x < 0: sigmoid(x) = exp(x) / (1 + exp(x))
+        if x >= zero {
+            one / (one + (-x).exp())
+        } else {
+            let exp_x = x.exp();
+            exp_x / (one + exp_x)
+        }
+    })
 }
 
 /// In-place Tanh activation function
@@ -137,30 +143,22 @@ pub fn tanh_<T: FloatElement>(input: &mut Tensor<T>) -> TorshResult<()>
 where
     T: Copy + PartialOrd + torsh_core::dtype::TensorElement + Default,
 {
-    // Enhanced fallback with numerical stability improvements
     let one = <T as torsh_core::dtype::TensorElement>::one();
     let two = one + one;
     let zero = <T as torsh_core::dtype::TensorElement>::zero();
-    let data = input.data()?;
-    let result_data: Vec<T> = data
-        .iter()
-        .map(|&x| {
-            // Use numerically stable tanh implementation
-            // tanh(x) = (exp(2x) - 1) / (exp(2x) + 1) for x >= 0
-            // tanh(x) = (1 - exp(-2x)) / (1 + exp(-2x)) for x < 0
-            if x >= zero {
-                let exp_2x = (two * x).exp();
-                (exp_2x - one) / (exp_2x + one)
-            } else {
-                let exp_neg_2x = (-two * x).exp();
-                (one - exp_neg_2x) / (one + exp_neg_2x)
-            }
-        })
-        .collect();
 
-    // Replace tensor data with computed tanh values
-    *input = Tensor::from_data(result_data, input.shape().dims().to_vec(), input.device())?;
-    Ok(())
+    apply_inplace_elementwise(input, |x| {
+        // Use numerically stable tanh implementation
+        // tanh(x) = (exp(2x) - 1) / (exp(2x) + 1) for x >= 0
+        // tanh(x) = (1 - exp(-2x)) / (1 + exp(-2x)) for x < 0
+        if x >= zero {
+            let exp_2x = (two * x).exp();
+            (exp_2x - one) / (exp_2x + one)
+        } else {
+            let exp_neg_2x = (-two * x).exp();
+            (one - exp_neg_2x) / (one + exp_neg_2x)
+        }
+    })
 }
 
 /// In-place Leaky ReLU activation function
@@ -192,17 +190,10 @@ pub fn leaky_relu_<T: FloatElement>(input: &mut Tensor<T>, negative_slope: f64) 
 where
     T: Copy + PartialOrd + From<f32> + torsh_core::dtype::TensorElement,
 {
-    // Enhanced fallback implementation
     let slope = <T as From<f32>>::from(negative_slope as f32);
     let zero = <T as torsh_core::dtype::TensorElement>::zero();
-    let data = input.data()?;
-    let result_data: Vec<T> = data
-        .iter()
-        .map(|&x| if x >= zero { x } else { x * slope })
-        .collect();
 
-    *input = Tensor::from_data(result_data, input.shape().dims().to_vec(), input.device())?;
-    Ok(())
+    apply_inplace_elementwise(input, |x| if x >= zero { x } else { x * slope })
 }
 
 /// In-place GELU activation function
@@ -241,19 +232,12 @@ where
     let sqrt_2_over_pi = <T as From<f32>>::from(0.797884561); // √(2/π)
     let coeff = <T as From<f32>>::from(0.044715);
 
-    let data = input.data()?;
-    let result_data: Vec<T> = data
-        .iter()
-        .map(|&x| {
-            let x_cubed = x * x * x;
-            let inner = sqrt_2_over_pi * (x + coeff * x_cubed);
-            let tanh_val = inner.tanh();
-            half * x * (one + tanh_val)
-        })
-        .collect();
-
-    *input = Tensor::from_data(result_data, input.shape().dims().to_vec(), input.device())?;
-    Ok(())
+    apply_inplace_elementwise(input, |x| {
+        let x_cubed = x * x * x;
+        let inner = sqrt_2_over_pi * (x + coeff * x_cubed);
+        let tanh_val = inner.tanh();
+        half * x * (one + tanh_val)
+    })
 }
 
 /// In-place SiLU/Swish activation function
@@ -286,26 +270,19 @@ pub fn silu_<T: FloatElement>(input: &mut Tensor<T>) -> TorshResult<()>
 where
     T: Copy + PartialOrd + torsh_core::dtype::TensorElement,
 {
-    // Fallback implementation: x * sigmoid(x)
     let one = <T as torsh_core::dtype::TensorElement>::one();
     let zero = <T as torsh_core::dtype::TensorElement>::zero();
-    let data = input.data()?;
-    let result_data: Vec<T> = data
-        .iter()
-        .map(|&x| {
-            // Compute sigmoid(x) with numerical stability
-            let sigmoid_x = if x >= zero {
-                one / (one + (-x).exp())
-            } else {
-                let exp_x = x.exp();
-                exp_x / (one + exp_x)
-            };
-            x * sigmoid_x
-        })
-        .collect();
 
-    *input = Tensor::from_data(result_data, input.shape().dims().to_vec(), input.device())?;
-    Ok(())
+    apply_inplace_elementwise(input, |x| {
+        // Compute sigmoid(x) with numerical stability
+        let sigmoid_x = if x >= zero {
+            one / (one + (-x).exp())
+        } else {
+            let exp_x = x.exp();
+            exp_x / (one + exp_x)
+        };
+        x * sigmoid_x
+    })
 }
 
 #[cfg(test)]

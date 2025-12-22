@@ -10,13 +10,13 @@
 
 **Deep Learning in Pure Rust with PyTorch Compatibility**
 
-**🎉 First Alpha Release - September 30, 2025 🎉**
+**🎉 Alpha 2 Release - December 22, 2025 🎉**
 
 [Documentation](https://docs.rs/torsh) | [Examples](./examples) | [Benchmarks](./benches) | [SciRS2 Showcase](./crates/torsh-benches/examples/scirs2_showcase.rs) | [Roadmap](./TODO.md)
 
 </div>
 
-> **⚠️ Alpha Release Notice**: This is our first public alpha release (v0.1.0-alpha.1). APIs may change, and you might encounter rough edges. We're actively working towards production stability. Your feedback is invaluable!
+> **⚠️ Alpha Release Notice**: This is our second alpha release (v0.1.0-alpha.2) with SciRS2 RC.3 integration, dependency upgrades, and 100% test pass rate. APIs may change as we move towards beta. Your feedback is invaluable!
 
 ## 🚀 What is ToRSh?
 
@@ -26,7 +26,7 @@ ToRSh (Tensor Operations in Rust with Sharding) is a **PyTorch-compatible deep l
 - **Scientifically complete** - Built on the comprehensive SciRS2 ecosystem
 - **Deployment-ready** - Single binary, no Python runtime needed
 
-## ✨ What You Can Do Today (Alpha 1)
+## ✨ What You Can Do Today (Alpha 2)
 
 ### Build PyTorch-Compatible Models
 ```rust
@@ -79,7 +79,7 @@ let matcher = FeatureMatcher::new(MatchingAlgorithm::NCC)?;
 - ⚡ **Superior Performance**: 2-3x faster inference, 50% less memory usage
 - 🛡️ **Memory Safety**: Compile-time guarantees eliminate segfaults and memory leaks
 - 🦀 **Pure Rust**: Leverage Rust's ecosystem and deployment advantages
-- 🔧 **Multiple Backends**: CPU (SIMD), CUDA (cuDNN), Metal, and more
+- 🔧 **Multiple Backends**: CPU (SIMD), Metal, and more (CUDA support in progress)
 
 ### 🔬 SciRS2 Scientific Computing Integration
 - 📊 **Complete Ecosystem**: 18/18 SciRS2 crates integrated (100% coverage)
@@ -103,12 +103,12 @@ Add ToRSh to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-torsh = "0.1.0-alpha.1"
-torsh-nn = "0.1.0-alpha.1"      # Neural networks
-torsh-graph = "0.1.0-alpha.1"   # Graph neural networks
-torsh-series = "0.1.0-alpha.1"  # Time series analysis
-torsh-vision = "0.1.0-alpha.1"  # Computer vision
-torsh-metrics = "0.1.0-alpha.1" # Evaluation metrics
+torsh = "0.1.0-alpha.2"
+torsh-nn = "0.1.0-alpha.2"      # Neural networks
+torsh-graph = "0.1.0-alpha.2"   # Graph neural networks
+torsh-series = "0.1.0-alpha.2"  # Time series analysis
+torsh-vision = "0.1.0-alpha.2"  # Computer vision
+torsh-metrics = "0.1.0-alpha.2" # Evaluation metrics
 ```
 
 ## 🚀 Quick Start

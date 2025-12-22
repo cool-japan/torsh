@@ -30,7 +30,7 @@ use crate::error::FfiResult;
 use pyo3::prelude::*;
 
 /// Initialize the tensor module for Python
-pub fn init_tensor_module(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
+pub fn init_tensor_module(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyTensor>()?;
     Ok(())
 }

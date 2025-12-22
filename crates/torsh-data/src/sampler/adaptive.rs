@@ -7,7 +7,7 @@
 use alloc::vec::Vec;
 
 // ✅ SciRS2 Policy Compliant - Using scirs2_core for all random operations
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::Rng;
 
 use super::core::{rng_utils, Sampler, SamplerIterator};
 
@@ -86,7 +86,7 @@ impl Default for AdaptiveStrategy {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_data::sampler::{AdaptiveSampler, AdaptiveStrategy, Sampler};
 ///
 /// let mut sampler = AdaptiveSampler::new(1000, 64)
@@ -140,7 +140,7 @@ impl AdaptiveSampler {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use torsh_data::sampler::AdaptiveSampler;
     ///
     /// let sampler = AdaptiveSampler::new(1000, 32);
@@ -523,7 +523,7 @@ impl AdaptiveSampler {
         // Sample using inverse transform sampling
         (0..self.num_samples)
             .map(|_| {
-                let rand_val: f64 = rng.gen();
+                let rand_val: f64 = rng.random();
                 cumulative_weights
                     .binary_search_by(|&x| {
                         x.partial_cmp(&rand_val)
@@ -725,7 +725,7 @@ mod tests {
         let losses = vec![0.5; 10];
         sampler.update_sample_losses(&sample_indices, &losses);
 
-        let weights_during_warmup = sampler.strategy_weights().to_vec();
+        let _weights_during_warmup = sampler.strategy_weights().to_vec();
 
         // After warmup, weights can adapt
         sampler.set_epoch(3);

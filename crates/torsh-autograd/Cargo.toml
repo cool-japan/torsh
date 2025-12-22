@@ -15,7 +15,6 @@ workspace = true
 # Core dependencies - Full SciRS2 Integration
 torsh-core = { workspace = true, features = ["serialize"] }
 torsh-tensor = { workspace = true }
-scirs2 = { workspace = true, features = ["autograd", "ai"] }
 scirs2-core = { workspace = true }
 scirs2-autograd = { workspace = true, optional = true }
 num-complex = { workspace = true }
@@ -42,6 +41,10 @@ tracing = { workspace = true }
 
 # Date/time handling
 chrono = { workspace = true, features = ["serde"] }
+uuid = { workspace = true }
+
+# Version management
+semver = "1.0"
 
 # Serialization (for distributed features and metrics)
 serde = { workspace = true, features = ["derive"] }
@@ -56,12 +59,14 @@ proptest = { workspace = true }
 default = ["autograd", "simd", "parallel"]
 debug = []
 # SciRS2 Feature Integration
-autograd = ["scirs2-autograd", "scirs2/autograd"]
-ai = ["scirs2/ai", "autograd"]
+autograd = ["scirs2-autograd"]
+# ai feature removed - was only enabling scirs2/ai which is no longer needed
 # High-performance features
 simd = ["scirs2-core/simd"]
 parallel = ["scirs2-core/parallel"]
 gpu = ["scirs2-core/gpu"]
 profiling = ["scirs2-core/profiling"]
+# WebGPU support for browser deployment
+webgpu = []
 # Comprehensive SciRS2 integration
-scirs2-full = ["ai", "autograd", "simd", "parallel", "gpu", "profiling"]
+scirs2-full = ["autograd", "simd", "parallel", "gpu", "profiling"]

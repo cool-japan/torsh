@@ -79,11 +79,11 @@ cargo build --release --features="cuda,nccl,mpi,gpu"
 ```bash
 # Add to your Cargo.toml
 [dependencies]
-torsh-distributed = "0.1.0-alpha.1"
+torsh-distributed = "0.1.0-alpha.2"
 
 # With features
 [dependencies]
-torsh-distributed = { version = "0.1.0-alpha.1", features = ["cuda", "nccl"] }
+torsh-distributed = { version = "0.1.0-alpha.2", features = ["cuda", "nccl"] }
 ```
 
 ### Verify Installation

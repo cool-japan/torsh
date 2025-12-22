@@ -3,11 +3,10 @@
 //! Main ALIGN model combining vision and text encoders for large-scale
 //! vision-language learning with contrastive learning.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use std::collections::HashMap;
-use torsh_core::{
-    error::{Result, TorshError},
-    DeviceType,
-};
+use torsh_core::{error::Result, DeviceType};
 use torsh_nn::prelude::Linear;
 use torsh_nn::{Module, Parameter};
 use torsh_tensor::{creation, Tensor};
@@ -101,7 +100,7 @@ impl ALIGNModel {
 
         // Labels for contrastive learning (diagonal is positive)
         let batch_size = vision_embeds.size(0)?;
-        let labels = creation::arange(0i64, batch_size as i64, 1i64)?;
+        let _labels = creation::arange(0i64, batch_size as i64, 1i64)?;
 
         // Cross entropy loss for both directions
         let loss_i2t = logits.mean(None, false)?; // Placeholder for cross_entropy

@@ -499,7 +499,7 @@ mod tests {
 
     #[test]
     fn test_scatter_1d() {
-        let mut tensor = Tensor::<f32>::zeros(&[5], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::<f32>::zeros(&[5], DeviceType::Cpu).unwrap();
         let indices = Tensor::from_data(vec![1i64, 3], vec![2], DeviceType::Cpu).unwrap();
         let src = Tensor::from_data(vec![100.0f32, 200.0], vec![2], DeviceType::Cpu).unwrap();
 

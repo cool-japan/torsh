@@ -1,6 +1,6 @@
 //! Simple compilation test to verify basic functionality
 
-use crate::{graph::Operation, ComputationGraph, Edge, JitCompiler, JitConfig, Node};
+use crate::{graph::Operation, ComputationGraph, JitCompiler, JitConfig, Node};
 use torsh_core::{DType, DeviceType, Shape};
 
 #[cfg(test)]

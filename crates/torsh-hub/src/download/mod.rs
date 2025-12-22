@@ -23,22 +23,33 @@
 //!
 //! # Quick Start Examples
 //!
+//! ## Synchronous Download
+//!
 //! ```rust,no_run
 //! use torsh_hub::download::{download_file, validate_url};
 //! use std::path::Path;
 //!
-//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! # fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! // Simple download with validation
 //! validate_url("https://example.com/file.zip")?;
 //! download_file("https://example.com/file.zip", Path::new("file.zip"), true)?;
+//! # Ok(())
+//! # }
+//! ```
 //!
+//! ## Asynchronous Download with CDN
+//!
+//! ```rust,no_run
+//! use torsh_hub::download::download_with_advanced_cdn;
+//! use std::path::Path;
+//!
+//! # #[tokio::main]
+//! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Advanced parallel download with CDN
-//! use torsh_hub::download::{download_with_advanced_cdn, AdvancedCdnManager, CdnConfig};
-//! let cdn_manager = AdvancedCdnManager::new(CdnConfig::default()).await?;
 //! let result = download_with_advanced_cdn(
 //!     "https://example.com/large-file.zip",
 //!     Path::new("large-file.zip"),
-//!     &cdn_manager
+//!     true  // progress
 //! ).await?;
 //! # Ok(())
 //! # }

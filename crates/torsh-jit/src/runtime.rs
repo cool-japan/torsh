@@ -371,7 +371,6 @@ impl Default for MemoryPool {
 mod tests {
     use super::*;
     use crate::graph::{ComputationGraph, Node};
-    use std::collections::HashMap;
 
     #[test]
     fn test_kernel_cache() {

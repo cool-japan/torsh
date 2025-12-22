@@ -1,12 +1,20 @@
 //! Multi-threaded execution for large tensor operations
 //!
 //! This module provides parallel implementations of tensor operations
-//! for improved performance on large tensors using rayon.
+//! for improved performance on large tensors.
+//!
+//! **SciRS2 POLICY COMPLIANCE**: Uses `scirs2_core::parallel_ops` for all
+//! parallel operations instead of direct rayon imports.
 
-use rayon::prelude::*;
+// ✅ SciRS2 POLICY: Use scirs2_core::parallel_ops instead of direct rayon
+use scirs2_core::parallel_ops::*;
 use torsh_core::Result as TorshResult;
 use torsh_tensor::Tensor;
 // use std::sync::Arc;
+
+// Import error type that's not re-exported by scirs2_core::parallel_ops
+// This is a necessary exception for the init_thread_pool function
+use rayon::ThreadPoolBuildError;
 
 /// Configuration for parallel execution
 #[derive(Clone, Debug)]
@@ -33,9 +41,11 @@ impl Default for ParallelConfig {
 }
 
 /// Initialize the thread pool with custom configuration
+///
+/// **SciRS2 POLICY**: Uses re-exported types from scirs2_core::parallel_ops
 #[allow(dead_code)]
-pub fn init_thread_pool(config: &ParallelConfig) -> Result<(), rayon::ThreadPoolBuildError> {
-    let mut builder = rayon::ThreadPoolBuilder::new();
+pub fn init_thread_pool(config: &ParallelConfig) -> Result<(), ThreadPoolBuildError> {
+    let mut builder = ThreadPoolBuilder::new();
 
     if let Some(max_threads) = config.max_threads {
         builder = builder.num_threads(max_threads);
@@ -46,12 +56,14 @@ pub fn init_thread_pool(config: &ParallelConfig) -> Result<(), rayon::ThreadPool
 }
 
 /// Determine optimal chunk size based on data size and thread count
+///
+/// **SciRS2 POLICY**: Uses re-exported functions from scirs2_core::parallel_ops
 fn optimal_chunk_size(data_size: usize, config: &ParallelConfig) -> usize {
     if !config.adaptive_chunking {
         return config.chunk_size;
     }
 
-    let num_threads = rayon::current_num_threads();
+    let num_threads = current_num_threads();
     let chunks_per_thread = 4; // Aim for 4 chunks per thread for good load balancing
     let optimal_chunks = num_threads * chunks_per_thread;
     let optimal_size = (data_size / optimal_chunks).max(config.chunk_size);

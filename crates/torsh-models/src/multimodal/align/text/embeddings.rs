@@ -6,7 +6,6 @@ use std::collections::HashMap;
 use torsh_core::{error::Result, DeviceType};
 use torsh_nn::prelude::{Dropout, Embedding, LayerNorm};
 use torsh_nn::{Module, Parameter};
-use torsh_tensor::type_conversions::*;
 use torsh_tensor::{creation, Tensor};
 
 use crate::multimodal::align::config::ALIGNTextConfig;

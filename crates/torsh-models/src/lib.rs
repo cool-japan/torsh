@@ -3,7 +3,8 @@
 //! This crate provides a comprehensive collection of pre-trained models and utilities
 //! for loading, using, and managing deep learning models in ToRSh.
 
-#![cfg_attr(docsrs, feature(doc_cfg))]
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 
 pub mod architectures;
 pub mod audio;
@@ -20,6 +21,9 @@ pub mod few_shot;
 pub mod fine_tuning;
 pub mod generative;
 pub mod gnn;
+pub mod lazy_loading;
+pub mod model_merging;
+pub mod model_sharding;
 pub mod multimodal;
 pub mod nlp;
 pub mod optimization;
@@ -37,6 +41,9 @@ pub mod vision_3d;
 
 // Re-exports
 pub use downloader::{DownloadProgress, ModelDownloader};
+pub use lazy_loading::{CacheStats, LazyModelLoader, LazyTensor, StreamingModelLoader};
+pub use model_merging::{LoRAMerger, MergeStrategy, ModelMerger, ModelSoup};
+pub use model_sharding::{DevicePlacement, ModelSharder, ShardingStats, ShardingStrategy};
 pub use registry::{ModelHandle, ModelInfo, ModelRegistry};
 pub use utils::{
     convert_model_format, convert_pytorch_state_dict, convert_to_pytorch_state_dict,
@@ -172,65 +179,19 @@ macro_rules! define_model_type {
 define_model_type! {
     #[cfg(feature = "vision")]
     ResNet(crate::vision::ResNet),
-    // #[cfg(feature = "vision")]
-    // EfficientNet(crate::vision::EfficientNet), // TODO: Enable when implemented
     #[cfg(feature = "vision")]
     VisionTransformer(crate::vision::VisionTransformer),
-    // #[cfg(feature = "vision")]
-    // SwinTransformer(crate::vision::SwinTransformer), // TODO: Enable when implemented
-    // #[cfg(feature = "vision")]
-    // ConvNeXt(crate::vision::ConvNeXt), // TODO: Enable when implemented
-    // #[cfg(feature = "vision")]
-    // DETR(crate::vision::DETR), // TODO: Enable when implemented
-    // #[cfg(feature = "vision")]
-    // MaskRCNN(crate::vision::MaskRCNN), // TODO: Enable when implemented
-    // #[cfg(feature = "vision")]
-    // YOLO(crate::vision::YOLO), // TODO: Enable when implemented
-    // #[cfg(feature = "nlp")]
-    // RoBERTa(crate::nlp::RobertaForSequenceClassification), // TODO: Enable when roberta module is complete
-    // #[cfg(feature = "nlp")]
-    // BART(crate::nlp::BartForConditionalGeneration), // TODO: Enable when implemented
-    // #[cfg(feature = "nlp")]
-    // XLNet(crate::nlp::XLNetForSequenceClassification), // TODO: Enable when xlnet module is complete
-    // #[cfg(feature = "nlp")]
-    // ELECTRA(crate::nlp::ElectraForSequenceClassification), // TODO: Enable when implemented
-    // #[cfg(feature = "nlp")]
-    // DeBERTa(crate::nlp::DebertaForSequenceClassification), // TODO: Enable when implemented
-    // #[cfg(feature = "nlp")]
-    // Longformer(crate::nlp::LongformerForSequenceClassification), // TODO: Enable when longformer module is complete
-    // #[cfg(feature = "nlp")]
-    // BigBird(crate::nlp::BigBirdForSequenceClassification), // TODO: Enable when bigbird module is complete
-    // TODO: Enable these model types as their implementations become ready
-    // #[cfg(feature = "audio")]
-    // Wav2Vec2(crate::audio::Wav2Vec2ForCTC),
-    // #[cfg(feature = "audio")]
-    // Whisper(crate::audio::WhisperForConditionalGeneration),
-    // #[cfg(feature = "audio")]
-    // HuBERT(crate::audio::HuBERTForSequenceClassification),
-    // #[cfg(feature = "audio")]
-    // WavLM(crate::audio::WavLMForSequenceClassification),
-    // #[cfg(feature = "multimodal")]
-    // CLIP(crate::multimodal::CLIPModel),
-    // #[cfg(feature = "multimodal")]
-    // ALIGN(crate::multimodal::ALIGNModel),
-    // #[cfg(feature = "multimodal")]
-    // Flamingo(crate::multimodal::FlamingoModel),
-    // #[cfg(feature = "multimodal")]
-    // DallE(crate::multimodal::DallEModel),
-    // #[cfg(feature = "multimodal")]
-    // BLIP(crate::multimodal::BLIPModel),
-    // #[cfg(feature = "multimodal")]
-    // LLaVA(crate::multimodal::LLaVAModel),
-    // #[cfg(feature = "multimodal")]
-    // InstructBLIP(crate::multimodal::InstructBLIPModel),
-    // #[cfg(feature = "gnn")]
-    // GCN(crate::gnn::GCN),
-    // #[cfg(feature = "gnn")]
-    // GraphSAGE(crate::gnn::GraphSAGE),
-    // #[cfg(feature = "gnn")]
-    // GAT(crate::gnn::GAT),
-    // #[cfg(feature = "gnn")]
-    // GIN(crate::gnn::GIN),
+    // NOTE: Additional vision models exist but require API updates for torsh-nn compatibility:
+    // - EfficientNet, SwinTransformer, ConvNeXt (implemented, needs torsh-nn v0.2 API)
+    // - DETR, MaskRCNN, YOLO (implemented, needs torsh-nn v0.2 API)
+    // - MobileNetV2, DenseNet (implemented, needs torsh-nn v0.2 API)
+    // These will be enabled in a future release once API compatibility is resolved
+    // NOTE: Additional model types planned for v0.2.0:
+    // - NLP: RoBERTa, BART, T5, GPT-2, XLNet, ELECTRA, DeBERTa, Longformer, BigBird
+    // - Audio: Wav2Vec2, Whisper, HuBERT, WavLM (base implementations exist)
+    // - Multimodal: CLIP, ALIGN (base implementations exist), Flamingo, DALL-E, BLIP, LLaVA, InstructBLIP
+    // - GNN: GCN, GraphSAGE, GAT, GIN
+    // These require module completion and/or API compatibility updates
     // #[cfg(feature = "vision_3d")]
     // CNN3D(crate::vision_3d::CNN3D),
     // #[cfg(feature = "vision_3d")]

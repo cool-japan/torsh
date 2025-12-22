@@ -19,11 +19,9 @@ use crate::profiler::{EventId, EventType, ProfilerEvent, ProfilerStats};
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 use crate::{
     Backend, BackendCore, BackendDeviceManager, BackendExecutor, BackendLifecycle,
-    BackendOperations, BackendOps, BackendResourceManager, Buffer, BufferDescriptor, Device, DeviceInfo,
-    Kernel, KernelDescriptor, MemoryManager, Profiler,
+    BackendOperations, BackendOps, BackendResourceManager, Buffer, BufferDescriptor, Device,
+    DeviceInfo, Kernel, KernelDescriptor, MemoryManager, Profiler,
 };
-#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-use async_trait::async_trait;
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 use metal::foreign_types::ForeignType;
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
@@ -148,11 +146,10 @@ impl MetalBackend {
                     BackendError::UnsupportedOperation { op, dtype } => {
                         TorshError::UnsupportedOperation {
                             op: format!("Neural Engine operation: {}", op),
-                            dtype
+                            dtype,
                         }
                     }
                     BackendError::InvalidArgument(msg) => TorshError::InvalidArgument(msg),
-                    BackendError::InvalidArgument(message) => TorshError::InvalidArgument(message),
                     _ => TorshError::BackendError(e.to_string()),
                 })
         } else {
@@ -178,11 +175,10 @@ impl MetalBackend {
                     BackendError::UnsupportedOperation { op, dtype } => {
                         TorshError::UnsupportedOperation {
                             op: format!("Neural Engine operation: {}", op),
-                            dtype
+                            dtype,
                         }
                     }
                     BackendError::InvalidArgument(msg) => TorshError::InvalidArgument(msg),
-                    BackendError::InvalidArgument(message) => TorshError::InvalidArgument(message),
                     _ => TorshError::BackendError(e.to_string()),
                 })
         } else {
@@ -207,11 +203,10 @@ impl MetalBackend {
                     BackendError::UnsupportedOperation { op, dtype } => {
                         TorshError::UnsupportedOperation {
                             op: format!("Neural Engine operation: {}", op),
-                            dtype
+                            dtype,
                         }
                     }
                     BackendError::InvalidArgument(msg) => TorshError::InvalidArgument(msg),
-                    BackendError::InvalidArgument(message) => TorshError::InvalidArgument(message),
                     _ => TorshError::BackendError(e.to_string()),
                 })
         } else {
@@ -242,10 +237,12 @@ impl MetalBackend {
     ) -> BackendResult<u64> {
         if let Some(ref manager) = self.indirect_command_manager {
             manager.create_command_buffer(config).map_err(|e| match e {
-                BackendError::UnsupportedOperation { op, dtype } => TorshError::UnsupportedOperation {
-                    op: format!("Indirect Command: {}", op),
-                    dtype
-                },
+                BackendError::UnsupportedOperation { op, dtype } => {
+                    TorshError::UnsupportedOperation {
+                        op: format!("Indirect Command: {}", op),
+                        dtype,
+                    }
+                }
                 BackendError::InvalidArgument(msg) => TorshError::InvalidArgument(msg),
                 BackendError::InvalidState(msg) => TorshError::InvalidState(msg),
                 _ => TorshError::BackendError(e.to_string()),
@@ -272,7 +269,7 @@ impl MetalBackend {
                     BackendError::UnsupportedOperation { op, dtype } => {
                         TorshError::UnsupportedOperation {
                             op: format!("Neural Engine operation: {}", op),
-                            dtype
+                            dtype,
                         }
                     }
                     BackendError::InvalidArgument(msg) => TorshError::InvalidArgument(msg),
@@ -301,7 +298,7 @@ impl MetalBackend {
                     BackendError::UnsupportedOperation { op, dtype } => {
                         TorshError::UnsupportedOperation {
                             op: format!("Neural Engine operation: {}", op),
-                            dtype
+                            dtype,
                         }
                     }
                     BackendError::InvalidArgument(msg) => TorshError::InvalidArgument(msg),
@@ -465,20 +462,21 @@ impl BackendResourceManager for MetalBackend {
     ) -> BackendResult<Buffer> {
         // Validate device
         if device.device_type != DeviceType::Metal(0) {
-            return Err(BackendError::InvalidArgument(
-                format!("Device {:?} not supported", device.device_type),
-            )
+            return Err(BackendError::InvalidArgument(format!(
+                "Device {:?} not supported",
+                device.device_type
+            ))
             .into());
         }
 
         // Get next buffer ID
-        let buffer_id = {
-            let mut id_counter =
-                self.next_buffer_id
-                    .lock()
-                    .map_err(|e| BackendError::SynchronizationError(
-                        format!("Failed to lock buffer ID counter: {}", e)
-                    ))?;
+        let _buffer_id = {
+            let mut id_counter = self.next_buffer_id.lock().map_err(|e| {
+                BackendError::SynchronizationError(format!(
+                    "Failed to lock buffer ID counter: {}",
+                    e
+                ))
+            })?;
             let id = *id_counter;
             *id_counter += 1;
             id
@@ -488,34 +486,39 @@ impl BackendResourceManager for MetalBackend {
         let metal_buffer = if let Some(data) = &descriptor.initial_data {
             // Create from initial data
             MetalBuffer::from_data(data, &self.device).map_err(|_| {
-                BackendError::AllocationError(
-                    format!("Failed to allocate buffer of size {}", descriptor.size)
-                )
+                BackendError::AllocationError(format!(
+                    "Failed to allocate buffer of size {}",
+                    descriptor.size
+                ))
             })?
         } else if descriptor.zero_init {
             // Create zero-initialized buffer
             let shape = descriptor
                 .shape
                 .as_ref()
-                .ok_or(BackendError::AllocationError(
-                    format!("Failed to allocate buffer of size {}", descriptor.size)
-                ))?;
+                .ok_or(BackendError::AllocationError(format!(
+                    "Failed to allocate buffer of size {}",
+                    descriptor.size
+                )))?;
             let dtype = descriptor
                 .dtype
-                .ok_or(BackendError::AllocationError(
-                    format!("Failed to allocate buffer of size {}", descriptor.size)
-                ))?;
+                .ok_or(BackendError::AllocationError(format!(
+                    "Failed to allocate buffer of size {}",
+                    descriptor.size
+                )))?;
             MetalBuffer::zeros(shape, &dtype, &self.device).map_err(|_| {
-                BackendError::AllocationError(
-                    format!("Failed to allocate buffer of size {}", descriptor.size)
-                )
+                BackendError::AllocationError(format!(
+                    "Failed to allocate buffer of size {}",
+                    descriptor.size
+                ))
             })?
         } else {
             // Create uninitialized buffer
             MetalBuffer::new(descriptor.size, &self.device).map_err(|_| {
-                BackendError::AllocationError(
-                    format!("Failed to allocate buffer of size {}", descriptor.size)
-                )
+                BackendError::AllocationError(format!(
+                    "Failed to allocate buffer of size {}",
+                    descriptor.size
+                ))
             })?
         };
 
@@ -548,9 +551,10 @@ impl BackendResourceManager for MetalBackend {
     ) -> BackendResult<Kernel> {
         // Validate device
         if device.device_type != DeviceType::Metal(0) {
-            return Err(BackendError::InvalidArgument(
-                format!("Device {:?} not supported", device.device_type),
-            )
+            return Err(BackendError::InvalidArgument(format!(
+                "Device {:?} not supported",
+                device.device_type
+            ))
             .into());
         }
 
@@ -573,12 +577,16 @@ impl BackendResourceManager for MetalBackend {
         ))
     }
 
-    fn memory_manager(&self, device: &Device) -> BackendResult<Box<dyn MemoryManager + Send + Sync>> {
+    fn memory_manager(
+        &self,
+        device: &Device,
+    ) -> BackendResult<Box<dyn MemoryManager + Send + Sync>> {
         // Validate device
         if device.device_type != DeviceType::Metal(0) {
-            return Err(BackendError::InvalidArgument(
-                format!("Device {:?} not supported", device.device_type),
-            )
+            return Err(BackendError::InvalidArgument(format!(
+                "Device {:?} not supported",
+                device.device_type
+            ))
             .into());
         }
 
@@ -627,12 +635,9 @@ impl BackendExecutor for MetalBackend {
         }
 
         // Create a command buffer for the copy operation
-        let command_buffer =
-            self.device
-                .new_command_buffer()
-                .map_err(|e| BackendError::ComputeError(
-                    format!("Failed to create command buffer: {:?}", e)
-                ))?;
+        let command_buffer = self.device.new_command_buffer().map_err(|e| {
+            BackendError::ComputeError(format!("Failed to create command buffer: {:?}", e))
+        })?;
 
         let blit_encoder = command_buffer.new_blit_command_encoder();
 
@@ -656,14 +661,12 @@ impl BackendExecutor for MetalBackend {
         // Validate buffer is a Metal buffer
         if let BufferHandle::Metal { buffer_id: _, size } = &dst.handle {
             if dst_offset + src.len() > *size {
-                return Err(BackendError::AllocationError(
-                    format!(
-                        "Copy would exceed buffer bounds: {} + {} > {}",
-                        dst_offset,
-                        src.len(),
-                        size
-                    )
-                ));
+                return Err(BackendError::AllocationError(format!(
+                    "Copy would exceed buffer bounds: {} + {} > {}",
+                    dst_offset,
+                    src.len(),
+                    size
+                )));
             }
 
             // In a real implementation, we'd look up the actual Metal buffer
@@ -689,14 +692,12 @@ impl BackendExecutor for MetalBackend {
         // Validate buffer is a Metal buffer
         if let BufferHandle::Metal { buffer_id: _, size } = &src.handle {
             if src_offset + dst.len() > *size {
-                return Err(BackendError::AllocationError(
-                    format!(
-                        "Copy would exceed buffer bounds: {} + {} > {}",
-                        src_offset,
-                        dst.len(),
-                        size
-                    )
-                ));
+                return Err(BackendError::AllocationError(format!(
+                    "Copy would exceed buffer bounds: {} + {} > {}",
+                    src_offset,
+                    dst.len(),
+                    size
+                )));
             }
 
             // In a real implementation, we'd look up the actual Metal buffer
@@ -733,12 +734,9 @@ impl BackendExecutor for MetalBackend {
         }
 
         // Create command buffer and encoder
-        let command_buffer =
-            self.device
-                .new_command_buffer()
-                .map_err(|e| BackendError::ComputeError(
-                    format!("Failed to create command buffer: {:?}", e)
-                ))?;
+        let command_buffer = self.device.new_command_buffer().map_err(|e| {
+            BackendError::ComputeError(format!("Failed to create command buffer: {:?}", e))
+        })?;
 
         let compute_encoder = command_buffer.new_compute_command_encoder();
 
@@ -808,8 +806,14 @@ impl BackendOps for MetalBackend {
             "matmul" => {
                 caps.insert("max_size".to_string(), CapabilityValue::Int(16384));
                 caps.insert("supports_batched".to_string(), CapabilityValue::Bool(true));
-                caps.insert("supports_mixed_precision".to_string(), CapabilityValue::Bool(true));
-                caps.insert("neural_engine_accelerated".to_string(), CapabilityValue::Bool(self.is_neural_engine_available()));
+                caps.insert(
+                    "supports_mixed_precision".to_string(),
+                    CapabilityValue::Bool(true),
+                );
+                caps.insert(
+                    "neural_engine_accelerated".to_string(),
+                    CapabilityValue::Bool(self.is_neural_engine_available()),
+                );
             }
             "conv2d" => {
                 caps.insert("max_kernel_size".to_string(), CapabilityValue::Int(11));
@@ -823,25 +827,47 @@ impl BackendOps for MetalBackend {
                 caps.insert("supports_batched".to_string(), CapabilityValue::Bool(true));
             }
             "neural_engine_matmul" => {
-                caps.insert("available".to_string(), CapabilityValue::Bool(self.is_neural_engine_available()));
+                caps.insert(
+                    "available".to_string(),
+                    CapabilityValue::Bool(self.is_neural_engine_available()),
+                );
                 if let Some(ne_caps) = self.neural_engine_capabilities() {
-                    caps.insert("max_batch_size".to_string(), CapabilityValue::Int(ne_caps.max_batch_size as i64));
-                    caps.insert("supported_dtypes".to_string(), CapabilityValue::List(
-                        ne_caps.supported_dtypes.iter()
-                            .map(|dt| CapabilityValue::String(format!("{:?}", dt)))
-                            .collect()
-                    ));
+                    caps.insert(
+                        "max_batch_size".to_string(),
+                        CapabilityValue::Int(ne_caps.max_batch_size as i64),
+                    );
+                    caps.insert(
+                        "supported_dtypes".to_string(),
+                        CapabilityValue::List(
+                            ne_caps
+                                .supported_dtypes
+                                .iter()
+                                .map(|dt| CapabilityValue::String(format!("{:?}", dt)))
+                                .collect(),
+                        ),
+                    );
                 }
             }
             "neural_engine_attention" => {
-                caps.insert("available".to_string(), CapabilityValue::Bool(self.is_neural_engine_available()));
+                caps.insert(
+                    "available".to_string(),
+                    CapabilityValue::Bool(self.is_neural_engine_available()),
+                );
                 if let Some(ne_caps) = self.neural_engine_capabilities() {
-                    caps.insert("max_input_dims".to_string(), CapabilityValue::List(
-                        ne_caps.max_input_dims.iter()
-                            .map(|dim| CapabilityValue::Int(*dim as i64))
-                            .collect()
-                    ));
-                    caps.insert("processing_units".to_string(), CapabilityValue::Int(ne_caps.processing_units as i64));
+                    caps.insert(
+                        "max_input_dims".to_string(),
+                        CapabilityValue::List(
+                            ne_caps
+                                .max_input_dims
+                                .iter()
+                                .map(|dim| CapabilityValue::Int(*dim as i64))
+                                .collect(),
+                        ),
+                    );
+                    caps.insert(
+                        "processing_units".to_string(),
+                        CapabilityValue::Int(ne_caps.processing_units as i64),
+                    );
                 }
             }
             _ => return None,
@@ -866,9 +892,12 @@ impl BackendOperations for MetalBackend {
 
     fn sparse_ops(&self) -> Box<dyn crate::sparse_ops::SparseOps<f32>> {
         // Use CPU implementation for now since Metal sparse ops are not implemented
-        Box::new(crate::sparse_ops::DefaultSparseOps::new(
-            Device::new(0, DeviceType::Metal(0), "Metal Device".to_string(), DeviceInfo::default())
-        ))
+        Box::new(crate::sparse_ops::DefaultSparseOps::new(Device::new(
+            0,
+            DeviceType::Metal(0),
+            "Metal Device".to_string(),
+            DeviceInfo::default(),
+        )))
     }
 
     fn quantization_ops(&self) -> Box<dyn crate::quantization::QuantizationOps> {
@@ -1059,7 +1088,11 @@ impl MemoryManager for MetalMemoryManager {
         &self.device_info
     }
 
-    fn allocate_raw(&mut self, size: usize, alignment: usize) -> torsh_core::error::Result<*mut u8> {
+    fn allocate_raw(
+        &mut self,
+        size: usize,
+        _alignment: usize,
+    ) -> torsh_core::error::Result<*mut u8> {
         // Create Metal buffer
         let buffer = self
             .device
@@ -1105,9 +1138,10 @@ impl MemoryManager for MetalMemoryManager {
             buffers.remove(pos);
 
             // Update stats
-            let mut stats = self.stats.lock().map_err(|e| {
-                TorshError::BackendError(format!("Failed to lock stats: {}", e))
-            })?;
+            let mut stats = self
+                .stats
+                .lock()
+                .map_err(|e| TorshError::BackendError(format!("Failed to lock stats: {}", e)))?;
             stats.allocated_memory = stats.allocated_memory.saturating_sub(size);
             stats.available_memory = stats.total_memory.saturating_sub(stats.allocated_memory);
             stats.active_allocations = stats.active_allocations.saturating_sub(1);
@@ -1125,10 +1159,10 @@ impl MemoryManager for MetalMemoryManager {
 
     fn allocate_unified(&mut self, size: usize) -> torsh_core::error::Result<*mut u8> {
         // Use shared storage mode for unified memory
-        let buffer = self.device.device().new_buffer(
-            size as u64,
-            metal::MTLResourceOptions::StorageModeShared,
-        );
+        let buffer = self
+            .device
+            .device()
+            .new_buffer(size as u64, metal::MTLResourceOptions::StorageModeShared);
 
         let ptr = buffer.contents() as *mut u8;
 
@@ -1167,16 +1201,18 @@ impl MemoryManager for MetalMemoryManager {
     }
 
     fn available_memory(&self) -> torsh_core::error::Result<usize> {
-        let stats = self.stats.lock().map_err(|e| {
-            TorshError::BackendError(format!("Failed to lock stats: {}", e))
-        })?;
+        let stats = self
+            .stats
+            .lock()
+            .map_err(|e| TorshError::BackendError(format!("Failed to lock stats: {}", e)))?;
         Ok(stats.available_memory)
     }
 
     fn total_memory(&self) -> torsh_core::error::Result<usize> {
-        let stats = self.stats.lock().map_err(|e| {
-            TorshError::BackendError(format!("Failed to lock stats: {}", e))
-        })?;
+        let stats = self
+            .stats
+            .lock()
+            .map_err(|e| TorshError::BackendError(format!("Failed to lock stats: {}", e)))?;
         Ok(stats.total_memory)
     }
 

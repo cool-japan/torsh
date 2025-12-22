@@ -10,7 +10,6 @@ use petgraph::algo::toposort;
 use petgraph::graph::NodeIndex;
 use std::collections::HashMap;
 use torsh_core::{dtype::DType, error::TorshError};
-use torsh_tensor::Tensor;
 
 /// Type checking context
 ///

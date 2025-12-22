@@ -5,8 +5,10 @@
 //! of partitioning gradients across distributed workers and efficiently handling
 //! gradient synchronization and communication.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{TorshDistributedError, TorshResult};
-use log::{debug, info, warn};
+use log::info;
 use std::collections::HashMap;
 use std::sync::{Mutex, RwLock};
 use torsh_tensor::Tensor;
@@ -54,12 +56,11 @@ impl GradientPartitioner {
         let weight_grad = &grads.weight_grad;
         let grad_data = weight_grad.to_vec()?;
         let grad_shape_binding = weight_grad.shape();
-        let grad_shape = grad_shape_binding.dims();
+        let _grad_shape = grad_shape_binding.dims();
 
         // Calculate elements per partition
         let total_elements = grad_data.len();
-        let elements_per_partition =
-            (total_elements + self.rank_mapping.world_size() - 1) / self.rank_mapping.world_size();
+        let elements_per_partition = total_elements.div_ceil(self.rank_mapping.world_size());
 
         info!(
             "    Partitioning gradients for '{}': {} elements across {} ranks",
@@ -114,8 +115,8 @@ impl GradientPartitioner {
         if let Some(ref bias_grad) = grads.bias_grad {
             let bias_data = bias_grad.to_vec()?;
             let bias_elements = bias_data.len();
-            let bias_elements_per_partition = (bias_elements + self.rank_mapping.world_size() - 1)
-                / self.rank_mapping.world_size();
+            let bias_elements_per_partition =
+                bias_elements.div_ceil(self.rank_mapping.world_size());
 
             for (rank, partition) in partitions.iter_mut().enumerate() {
                 let bias_start = rank * bias_elements_per_partition;
@@ -345,8 +346,7 @@ impl CpuGradientStore {
             return Err(TorshDistributedError::memory_allocation_failed(
                 new_memory_usage,
                 "CPU memory budget exceeded for gradient storage",
-            )
-            .into());
+            ));
         }
 
         {
@@ -589,8 +589,7 @@ impl GpuGradientBuffer {
             return Err(TorshDistributedError::memory_allocation_failed(
                 new_memory_usage,
                 "GPU memory budget exceeded for gradient buffer",
-            )
-            .into());
+            ));
         }
 
         {

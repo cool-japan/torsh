@@ -12,6 +12,7 @@
 //! # Example Usage
 //!
 //! ```rust,no_run
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! use torsh_models::multimodal::{CLIPModel, MultimodalArchitecture};
 //! use torsh_tensor::creation;
 //!
@@ -20,9 +21,11 @@
 //!
 //! // Process vision and language inputs
 //! let images = creation::randn(&[4, 3, 224, 224])?;
-//! let texts = creation::randint(0, 49408, &[4, 77])?;
+//! let texts = creation::randn(&[4, 77])?;
 //!
 //! let similarity = model.compute_similarity(&images, &texts)?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! # Architecture Overview
@@ -39,7 +42,7 @@
 //! - `instructblip/` - InstructBLIP model family (placeholder)
 
 // Common components
-pub mod common;
+pub mod multimodal_common;
 
 // Model families
 pub mod clip;
@@ -83,9 +86,11 @@ pub mod instructblip {
 }
 
 // Re-export common types for backward compatibility
-pub use common::activations::{QuickGELU, SiLU};
-pub use common::types::{MultimodalArchitecture, MultimodalTask};
-pub use common::utils::{CrossModalProjection, GlobalAveragePooling2d, SqueezeExcitation};
+pub use multimodal_common::activations::{QuickGELU, SiLU};
+pub use multimodal_common::types::{MultimodalArchitecture, MultimodalTask};
+pub use multimodal_common::utils::{
+    CrossModalProjection, GlobalAveragePooling2d, SqueezeExcitation,
+};
 
 // Re-export CLIP models for easy access
 pub use clip::{
@@ -172,7 +177,7 @@ mod tests {
 }
 
 /// Utility function to create a multimodal model by architecture name
-pub fn create_model_by_architecture(
+pub fn multimodal_create_model_by_architecture(
     architecture: MultimodalArchitecture,
 ) -> Result<Box<dyn torsh_nn::Module>, torsh_core::error::TorshError> {
     match architecture {
@@ -192,7 +197,7 @@ pub fn create_model_by_architecture(
 }
 
 /// Utility function to list supported architectures
-pub fn supported_architectures() -> Vec<MultimodalArchitecture> {
+pub fn multimodal_supported_architectures() -> Vec<MultimodalArchitecture> {
     vec![
         MultimodalArchitecture::CLIP,
         MultimodalArchitecture::ALIGN,
@@ -201,7 +206,7 @@ pub fn supported_architectures() -> Vec<MultimodalArchitecture> {
 }
 
 /// Utility function to check if an architecture is supported
-pub fn is_architecture_supported(architecture: &MultimodalArchitecture) -> bool {
+pub fn multimodal_is_architecture_supported(architecture: &MultimodalArchitecture) -> bool {
     matches!(
         architecture,
         MultimodalArchitecture::CLIP | MultimodalArchitecture::ALIGN

@@ -18,7 +18,7 @@ use num_complex::Complex;
 use num_traits::Float;
 use std::collections::{HashMap, VecDeque};
 use std::time::{Duration, Instant};
-use torsh_core::error::{Result, TorshError};
+use torsh_core::error::Result;
 use tracing::{debug, error, info, warn};
 
 /// Complex anomaly detection
@@ -499,7 +499,7 @@ pub mod recovery {
 mod tests {
     use super::*;
     use crate::autograd_traits::AutogradTensor;
-    use num_complex::Complex64;
+
     use torsh_core::shape::Shape;
 
     // Mock implementation for testing

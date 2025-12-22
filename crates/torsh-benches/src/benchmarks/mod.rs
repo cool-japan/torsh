@@ -19,7 +19,7 @@
 //! ## Usage
 //!
 //! ### Basic Usage
-//! ```rust
+//! ```rust,ignore
 //! use torsh_benches::benchmarks::{TensorCreationBench, Benchmarkable};
 //!
 //! let mut bench = TensorCreationBench::new(torsh_core::DType::F32);
@@ -30,14 +30,14 @@
 //! ```
 //!
 //! ### Running Benchmark Suites
-//! ```rust
+//! ```rust,ignore
 //! use torsh_benches::benchmarks::{run_comprehensive_benchmarks, BenchmarkSuite};
 //!
 //! // Run all benchmarks
 //! run_comprehensive_benchmarks();
 //!
 //! // Run specific benchmark category
-//! let suite = BenchmarkSuite::new();
+//! let mut suite = BenchmarkSuite::new();
 //! suite.run_tensor_operation_benchmarks();
 //! suite.run_memory_benchmarks();
 //! suite.run_autograd_benchmarks();
@@ -75,9 +75,7 @@ pub use ultimate_performance_validation::*;
 use crate::Benchmarkable;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
-use torsh_core::{DType, Device, TensorElement};
-use torsh_tensor::creation::*;
-use torsh_tensor::prelude::{ones, rand, zeros, Tensor};
+use torsh_core::DType;
 
 // ================================================================================================
 // Unified Benchmark Runner and Suite

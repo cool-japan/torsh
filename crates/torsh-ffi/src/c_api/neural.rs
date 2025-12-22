@@ -4,7 +4,6 @@
 //! including layer creation, forward passes, and module management.
 
 use std::collections::HashMap;
-use std::os::raw::{c_char, c_float, c_int, c_void};
 use std::ptr;
 use std::sync::{Mutex, OnceLock};
 
@@ -16,9 +15,11 @@ static MODULE_STORE: OnceLock<Mutex<HashMap<usize, Box<ModuleImpl>>>> = OnceLock
 
 /// Internal module implementation
 pub(crate) struct ModuleImpl {
+    #[allow(dead_code)]
     pub module_type: String,
     pub in_features: usize,
     pub out_features: usize,
+    #[allow(dead_code)]
     pub bias: bool,
     pub weight: Vec<f32>,
     pub bias_data: Option<Vec<f32>>,

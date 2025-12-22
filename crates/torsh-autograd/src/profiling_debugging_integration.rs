@@ -4,15 +4,14 @@
 //! for analyzing autograd operations, memory usage, and performance characteristics.
 //! It supports various profilers, debuggers, and analysis tools.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::error_handling::{AutogradError, AutogradResult};
-use scirs2_core::error::CoreError;
-use scirs2_core::ndarray::{Array, ArrayView};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
-use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
 /// External profiling tool types
@@ -656,7 +655,7 @@ impl ExternalProfiler for PerfProfiler {
         &self,
         session: &ProfilingSession,
         operation: &str,
-        metadata: &HashMap<String, String>,
+        _metadata: &HashMap<String, String>,
     ) -> AutogradResult<()> {
         tracing::debug!(
             "Annotating operation '{}' in session {}",
@@ -1139,23 +1138,22 @@ impl IntegrationReport {
 }
 
 /// Global profiling and debugging integration manager
-static mut GLOBAL_PROFILING_DEBUGGING_MANAGER: Option<ProfilingDebuggingManager> = None;
-static PROFILING_DEBUGGING_INIT: std::sync::Once = std::sync::Once::new();
+static GLOBAL_PROFILING_DEBUGGING_MANAGER: std::sync::OnceLock<
+    std::sync::Mutex<ProfilingDebuggingManager>,
+> = std::sync::OnceLock::new();
 
-pub fn get_global_profiling_debugging_manager() -> &'static mut ProfilingDebuggingManager {
-    unsafe {
-        PROFILING_DEBUGGING_INIT.call_once(|| {
-            let mut manager = ProfilingDebuggingManager::with_default_config();
-            if let Err(e) = manager.initialize() {
-                tracing::error!(
-                    "Failed to initialize profiling and debugging manager: {}",
-                    e
-                );
-            }
-            GLOBAL_PROFILING_DEBUGGING_MANAGER = Some(manager);
-        });
-        GLOBAL_PROFILING_DEBUGGING_MANAGER.as_mut().unwrap()
-    }
+pub fn get_global_profiling_debugging_manager(
+) -> &'static std::sync::Mutex<ProfilingDebuggingManager> {
+    GLOBAL_PROFILING_DEBUGGING_MANAGER.get_or_init(|| {
+        let mut manager = ProfilingDebuggingManager::with_default_config();
+        if let Err(e) = manager.initialize() {
+            tracing::error!(
+                "Failed to initialize profiling and debugging manager: {}",
+                e
+            );
+        }
+        std::sync::Mutex::new(manager)
+    })
 }
 
 #[cfg(test)]

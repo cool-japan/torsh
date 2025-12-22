@@ -11,17 +11,14 @@
 //! - Prefetching and caching strategies
 //! - Distributed data loading scenarios
 
-use super::common::*;
 use crate::Benchmarkable;
 use std::time::{Duration, Instant};
-use torsh_core::{DType, Device, TensorElement};
-use torsh_data::collate::DefaultCollate;
+use torsh_core::TensorElement;
 use torsh_data::{
     BatchingSampler, DataLoader, Dataset, DistributedSampler, RandomSampler, Sampler,
     SequentialSampler, TensorDataset,
 };
-use torsh_tensor::creation::*;
-use torsh_tensor::prelude::{ones, rand, zeros, Tensor};
+use torsh_tensor::prelude::{rand, Tensor};
 
 // Helper functions for data loading benchmarks
 
@@ -29,7 +26,7 @@ use torsh_tensor::prelude::{ones, rand, zeros, Tensor};
 pub fn simple_dataloader<T: TensorElement>(
     dataset: TensorDataset<T>,
     batch_size: usize,
-    shuffle: bool,
+    _shuffle: bool,
 ) -> torsh_core::error::Result<
     DataLoader<
         TensorDataset<T>,
@@ -47,7 +44,7 @@ pub fn simple_dataloader<T: TensorElement>(
 pub fn simple_random_dataloader<T: TensorElement>(
     dataset: TensorDataset<T>,
     batch_size: usize,
-    seed: Option<u64>,
+    _seed: Option<u64>,
 ) -> torsh_core::error::Result<
     DataLoader<
         TensorDataset<T>,
@@ -219,7 +216,7 @@ impl Benchmarkable for BatchSizeScalingBench {
             .collect() // Take first 5 batches
     }
 
-    fn bytes_accessed(&self, size: usize) -> usize {
+    fn bytes_accessed(&self, _size: usize) -> usize {
         5 * self.batch_size * 32 * 32 * std::mem::size_of::<f32>()
     }
 }

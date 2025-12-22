@@ -13,6 +13,10 @@ fn main() {
     println!("cargo:rerun-if-env-changed=CUDA_PATH");
     println!("cargo:rerun-if-env-changed=CUDATOOLKIT_HOME");
 
+    // Declare custom cfg values for Rust 1.80+
+    println!("cargo::rustc-check-cfg=cfg(cuda_available)");
+    println!("cargo::rustc-check-cfg=cfg(cuda_runtime_available)");
+
     // Only check for CUDA if the cuda feature is enabled
     if cfg!(feature = "cuda") {
         detect_cuda_availability();

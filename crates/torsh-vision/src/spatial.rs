@@ -3,6 +3,8 @@
 //! This module integrates scirs2-spatial capabilities to enhance computer vision workflows
 //! with advanced geometric algorithms, spatial data structures, and efficient distance computations.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 pub mod distance;
 pub mod interpolation;
 pub mod matching;
@@ -227,7 +229,7 @@ impl SpatialProcessor {
     pub fn estimate_transform(
         &self,
         source: &Array2<f64>,
-        target: &Array2<f64>,
+        _target: &Array2<f64>,
     ) -> Result<TransformResult> {
         // For now, return a placeholder transformation
         // Real implementation would use scirs2_spatial::procrustes

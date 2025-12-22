@@ -52,6 +52,8 @@
 //! - Performance characteristics
 //! - Geographic or demographic factors
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use std::collections::HashMap;
 
 use crate::federated_learning::aggregation::FederatedError;
@@ -601,7 +603,7 @@ impl PersonalizationManager {
     /// Performs meta-learning update (MAML-style)
     fn perform_meta_update(
         &mut self,
-        client_id: &str,
+        _client_id: &str,
         gradients: &HashMap<String, Vec<f32>>,
     ) -> Result<(), FederatedError> {
         for (param_name, gradient) in gradients {

@@ -13,7 +13,6 @@
 use futures::stream::{self, StreamExt};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -24,12 +23,9 @@ use tokio::sync::Semaphore;
 use torsh_core::error::{Result, TorshError};
 
 // Import from our other modules
-use super::config::{
-    CdnConfig, CdnEndpoint, FailoverStrategy, MirrorConfig, MirrorSelectionStrategy, MirrorServer,
-    MirrorWeights, ParallelDownloadConfig,
-};
+use super::config::{CdnConfig, CdnEndpoint, FailoverStrategy, ParallelDownloadConfig};
 use super::core::{download_file_parallel, print_progress};
-use super::validation::{validate_url, verify_file_integrity, HashAlgorithm};
+use super::validation::validate_url;
 
 /// Download multiple files in parallel with coordination
 ///
@@ -47,19 +43,21 @@ use super::validation::{validate_url, verify_file_integrity, HashAlgorithm};
 /// * `Err(TorshError)` - If there's a configuration or setup error
 ///
 /// # Examples
-/// ```rust
+/// ```rust,no_run
 /// use torsh_hub::download::parallel::download_files_parallel;
 /// use torsh_hub::download::config::ParallelDownloadConfig;
 /// use std::path::PathBuf;
 ///
-/// # tokio_test::block_on(async {
+/// # #[tokio::main]
+/// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let downloads = vec![
 ///     ("https://example.com/file1.txt".to_string(), PathBuf::from("/tmp/file1.txt")),
 ///     ("https://example.com/file2.txt".to_string(), PathBuf::from("/tmp/file2.txt")),
 /// ];
 /// let config = ParallelDownloadConfig::default();
-/// let results = download_files_parallel(downloads, config, true).await.unwrap();
-/// # });
+/// let results = download_files_parallel(downloads, config, true).await?;
+/// # Ok(())
+/// # }
 /// ```
 pub async fn download_files_parallel(
     downloads: Vec<(String, PathBuf)>, // (url, dest_path) pairs
@@ -156,12 +154,13 @@ pub async fn download_files_parallel(
 /// * `Err(TorshError)` if the download failed
 ///
 /// # Examples
-/// ```rust
+/// ```rust,no_run
 /// use torsh_hub::download::parallel::download_file_streaming;
 /// use torsh_hub::download::config::ParallelDownloadConfig;
 /// use std::path::Path;
 ///
-/// # tokio_test::block_on(async {
+/// # #[tokio::main]
+/// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let config = ParallelDownloadConfig::default();
 /// let result = download_file_streaming(
 ///     "https://example.com/huge_file.bin",
@@ -169,15 +168,20 @@ pub async fn download_files_parallel(
 ///     config,
 ///     true,
 ///     None // No chunk processing
-/// ).await;
-/// # });
+/// ).await?;
+/// # Ok(())
+/// # }
 /// ```
+///
+/// Type alias for chunk processing function
+type ChunkProcessor = Box<dyn Fn(&[u8]) -> Result<Vec<u8>> + Send + Sync>;
+
 pub async fn download_file_streaming(
     url: &str,
     dest_path: &Path,
     config: ParallelDownloadConfig,
     progress: bool,
-    chunk_processor: Option<Box<dyn Fn(&[u8]) -> Result<Vec<u8>> + Send + Sync>>,
+    chunk_processor: Option<ChunkProcessor>,
 ) -> Result<()> {
     // Validate URL before attempting download
     validate_url(url)?;
@@ -189,7 +193,7 @@ pub async fn download_file_streaming(
 
     // Create HTTP client
     let client = Client::builder()
-        .user_agent("torsh-hub/0.1.0-alpha.1")
+        .user_agent("torsh-hub/0.1.0-alpha.2")
         .timeout(Duration::from_secs(config.timeout_seconds))
         .build()
         .map_err(|e| TorshError::IoError(e.to_string()))?;
@@ -290,7 +294,7 @@ impl CdnManager {
     /// * `Err(TorshError)` - If HTTP client creation fails
     pub fn new(config: CdnConfig) -> Result<Self> {
         let client = Client::builder()
-            .user_agent("torsh-hub/0.1.0-alpha.1")
+            .user_agent("torsh-hub/0.1.0-alpha.2")
             .timeout(config.endpoint_timeout)
             .build()
             .map_err(|e| TorshError::IoError(e.to_string()))?;
@@ -539,11 +543,10 @@ pub struct CdnStatistics {
 /// * `Err(TorshError)` if the download or extraction failed
 ///
 /// # Examples
-/// ```rust
+/// ```rust,no_run
 /// use torsh_hub::download::parallel::download_github_repo;
 /// use std::path::Path;
 ///
-/// # tokio_test::block_on(async {
 /// let result = download_github_repo(
 ///     "torsh-ai",
 ///     "examples",
@@ -551,7 +554,6 @@ pub struct CdnStatistics {
 ///     Path::new("/tmp/torsh-examples"),
 ///     true
 /// );
-/// # });
 /// ```
 pub fn download_github_repo(
     owner: &str,

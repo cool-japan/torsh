@@ -12,6 +12,8 @@
 //! - **Predictive Allocation**: ML-based memory usage prediction and pre-allocation
 //! - **Memory Compression**: Transparent memory compression for large tensors
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::mem::{align_of, size_of};
@@ -20,15 +22,10 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
 // SciRS2 Parallel Operations for memory-optimized processing
-use scirs2_core::parallel_ops::*;
 use torsh_core::{
     dtype::TensorElement,
     error::{Result, TorshError},
 };
-
-// Standard Rust memory management and profiling
-#[cfg(feature = "profiling")]
-use std::time::Instant;
 
 /// Advanced memory optimization configuration
 #[derive(Debug, Clone)]
@@ -118,8 +115,9 @@ impl<T: TensorElement> AdvancedMemoryPool<T> {
     /// Allocate memory with optimization
     pub fn allocate(&self, size: usize) -> Result<NonNull<T>> {
         #[cfg(feature = "profiling")]
-        let _profile = profile_section!("memory_pool_allocate");
-
+        {
+            // let _profile = profile_section!("memory_pool_allocate");
+        }
         let aligned_size = self.align_size(size);
 
         // Check if we should use compression for large allocations
@@ -148,8 +146,9 @@ impl<T: TensorElement> AdvancedMemoryPool<T> {
     /// Deallocate memory back to pool
     pub fn deallocate(&self, ptr: NonNull<T>, size: usize) -> Result<()> {
         #[cfg(feature = "profiling")]
-        let _profile = profile_section!("memory_pool_deallocate");
-
+        {
+            // let _profile = profile_section!("memory_pool_deallocate");
+        }
         let aligned_size = self.align_size(size);
 
         // Check if this was a compressed allocation
@@ -377,8 +376,9 @@ impl<T: TensorElement> AdvancedMemoryPool<T> {
     /// Trigger garbage collection and defragmentation
     pub fn defragment(&self) -> Result<DefragmentationReport> {
         #[cfg(feature = "profiling")]
-        let _profile = profile_section!("memory_defragmentation");
-
+        {
+            // let _profile = profile_section!("memory_defragmentation");
+        }
         let start_time = Instant::now();
         let mut report = DefragmentationReport::default();
 
@@ -772,7 +772,7 @@ mod tests {
 
         // Allocate memory
         let ptr = pool.allocate(1024).unwrap();
-        assert!(!ptr.as_ptr().is_null());
+        // Allocation succeeded (ptr is NonNull, so it's guaranteed to be non-null)
 
         // Deallocate memory
         pool.deallocate(ptr, 1024).unwrap();

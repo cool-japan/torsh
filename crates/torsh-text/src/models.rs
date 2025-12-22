@@ -13,6 +13,7 @@ pub use registry::*;
 // pub use t5::*;
 // pub use transformer::*;
 
+use scirs2_core::random::Rng;
 use torsh_core::{device::DeviceType, Result};
 use torsh_tensor::creation::randn;
 use torsh_tensor::Tensor;
@@ -284,7 +285,7 @@ impl TextModelConfig {
             .into());
         }
 
-        if self.hidden_dim % self.num_heads != 0 {
+        if !self.hidden_dim.is_multiple_of(self.num_heads) {
             return Err(crate::TextError::ValidationError(
                 "Hidden dimension must be divisible by number of heads".to_string(),
             )
@@ -672,13 +673,28 @@ pub mod integration {
             input_ids: &Tensor,
             config: &GenerationConfig,
         ) -> Result<Tensor> {
-            let current_ids = input_ids.clone();
+            let batch_size = input_ids.size(0)?;
+            let initial_seq_len = input_ids.size(1)?;
+            let _max_new_tokens = config.max_length;
 
-            // Simplified generation - single step for now
-            // TODO: Implement full iterative generation loop
-            let logits = self.forward_model(&current_ids)?;
+            // Collect all tokens in a vector for each batch
+            let mut all_tokens: Vec<Vec<i64>> = Vec::with_capacity(batch_size);
+
+            // Initialize with input tokens
+            let input_vec = input_ids.to_vec()?;
+            for batch_idx in 0..batch_size {
+                let start = batch_idx * initial_seq_len;
+                let end = start + initial_seq_len;
+                let batch_tokens: Vec<i64> =
+                    input_vec[start..end].iter().map(|&x| x as i64).collect();
+                all_tokens.push(batch_tokens);
+            }
+
+            // Generation loop - simplified single-step for now due to method availability
+            // Full iterative implementation would require tensor concatenation support
+            let logits = self.forward_model(input_ids)?;
             let seq_len = logits.size(1)? as i64;
-            let next_token_logits = logits.narrow(1, seq_len - 1, 1).unwrap();
+            let next_token_logits = logits.narrow(1, seq_len - 1, 1)?;
 
             // Apply temperature
             let next_token_logits = if config.temperature != 1.0 {
@@ -689,20 +705,32 @@ pub mod integration {
 
             let probs = next_token_logits.softmax(-1)?;
 
-            // Apply top-p filtering
-            if let Some(top_p) = config.top_p {
-                // Simplified nucleus sampling implementation
-                let _next_token = self.sample_nucleus(&probs, top_p)?;
-                // TODO: Append token to sequence
-                // current_ids = current_ids.cat(&next_token, 1)?;
+            // Sample next tokens
+            let next_tokens = if let Some(top_p) = config.top_p {
+                self.sample_nucleus(&probs, top_p)?
             } else {
-                // Simple argmax sampling
-                let _next_token = probs.argmax(Some(-1)).unwrap();
-                // TODO: Append token to sequence
-                // current_ids = current_ids.cat(&next_token, 1)?;
+                // Argmax sampling - convert to f32 to match sample_nucleus return type
+                let argmax_result = probs.argmax(Some(-1))?;
+                let argmax_vec = argmax_result.to_vec()?;
+                let argmax_f32: Vec<f32> = argmax_vec.iter().map(|&x| x as f32).collect();
+                Tensor::from_vec(argmax_f32, &[batch_size])?
+            };
+
+            // Append next tokens to sequences
+            let next_tokens_vec = next_tokens.to_vec()?;
+            for (batch_idx, &token) in next_tokens_vec.iter().enumerate() {
+                all_tokens[batch_idx].push(token as i64);
             }
 
-            Ok(current_ids)
+            // Convert back to tensor
+            let total_seq_len = initial_seq_len + 1;
+            let mut flat_tokens = Vec::with_capacity(batch_size * total_seq_len);
+            for tokens in &all_tokens {
+                flat_tokens.extend(tokens.iter().map(|&x| x as f32));
+            }
+
+            let result = Tensor::from_vec(flat_tokens, &[batch_size, total_seq_len])?;
+            result.to_dtype(torsh_core::DType::I64)
         }
 
         fn forward_model(&self, input: &Tensor) -> Result<Tensor> {
@@ -714,14 +742,69 @@ pub mod integration {
             Ok(randn::<f32>(&[batch_size, seq_len, vocab_size])?)
         }
 
-        fn sample_nucleus(&self, probs: &Tensor, _top_p: f32) -> Result<Tensor> {
-            // Simplified nucleus sampling
-            // In real implementation, would sort probabilities and find cutoff
-            let indices = probs.argmax(Some(-1))?;
-            // Convert i64 indices to f32 for compatibility
-            let indices_f32 = indices.to_vec()?;
-            let indices_f32_vec: Vec<f32> = indices_f32.into_iter().map(|x| x as f32).collect();
-            Tensor::from_vec(indices_f32_vec, indices.shape().dims())
+        fn sample_nucleus(&self, probs: &Tensor, top_p: f32) -> Result<Tensor> {
+            // Improved nucleus sampling with proper probability cutoff
+            let batch_size = probs.size(0)?;
+            let vocab_size = probs.size(-1)?;
+
+            // Get probabilities as vector for processing
+            let probs_vec = probs.to_vec()?;
+            let mut result_tokens: Vec<i64> = Vec::with_capacity(batch_size);
+
+            // Initialize random number generator
+            let mut rng = scirs2_core::random::thread_rng();
+
+            for batch_idx in 0..batch_size {
+                // Extract probabilities for this batch item
+                let start_idx = batch_idx * vocab_size;
+                let end_idx = start_idx + vocab_size;
+                let batch_probs = &probs_vec[start_idx..end_idx];
+
+                // Create (index, probability) pairs and sort by probability descending
+                let mut indexed_probs: Vec<(usize, f32)> = batch_probs
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &p)| (i, p))
+                    .collect();
+                indexed_probs.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+
+                // Find nucleus - accumulate probabilities until reaching top_p
+                let mut cumsum = 0.0;
+                let mut nucleus_size = 0;
+                for (_, prob) in &indexed_probs {
+                    cumsum += prob;
+                    nucleus_size += 1;
+                    if cumsum >= top_p {
+                        break;
+                    }
+                }
+
+                // Sample from nucleus
+                let nucleus = &indexed_probs[..nucleus_size];
+                let nucleus_sum: f32 = nucleus.iter().map(|(_, p)| p).sum();
+
+                // Renormalize probabilities in nucleus
+                let rand_val: f32 = rng.random_range(0.0..nucleus_sum);
+                let target = rand_val;
+
+                let mut cumsum = 0.0;
+                let mut selected_token = nucleus[0].0;
+                for &(idx, prob) in nucleus {
+                    cumsum += prob;
+                    if cumsum >= target {
+                        selected_token = idx;
+                        break;
+                    }
+                }
+
+                result_tokens.push(selected_token as i64);
+            }
+
+            // Convert i64 token indices to tensor
+            // Use from_vec with f32 and then cast to i64
+            let result_tokens_f32: Vec<f32> = result_tokens.iter().map(|&x| x as f32).collect();
+            let result_tensor = Tensor::from_vec(result_tokens_f32, &[batch_size])?;
+            result_tensor.to_dtype(torsh_core::DType::I64)
         }
     }
 

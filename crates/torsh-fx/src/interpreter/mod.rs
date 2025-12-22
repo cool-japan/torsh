@@ -182,7 +182,6 @@ pub use debug::{utils, DebugExecutionEnvironment};
 use crate::{FxGraph, TorshResult};
 use std::collections::HashMap;
 use torsh_core::dtype::DType;
-use torsh_tensor::Tensor;
 
 /// Perform shape inference on a graph
 ///

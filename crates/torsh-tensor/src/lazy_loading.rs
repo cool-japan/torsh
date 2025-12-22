@@ -82,6 +82,7 @@ pub struct LazyTensor<T: TensorElement> {
     /// File backing the data
     file: Arc<Mutex<File>>,
     /// Path to the backing file
+    #[allow(dead_code)]
     file_path: PathBuf,
     /// Cache of loaded chunks
     chunk_cache: Arc<RwLock<HashMap<usize, CachedChunk<T>>>>,
@@ -423,13 +424,14 @@ pub mod utils {
 
         // Parse header (placeholder implementation)
         // In practice, you'd deserialize JSON, protobuf, or other format
-        let header_str = String::from_utf8(header_data)
+        let _header_str = String::from_utf8(header_data)
             .map_err(|e| TorshError::SerializationError(format!("Invalid header: {}", e)))?;
 
         // For this example, assume a simple JSON-like format
-        // Real implementation would use proper parsing
+        // Real implementation would parse _header_str to extract metadata
+        // TODO: Deserialize _header_str into actual metadata
         let metadata = LazyTensorMetadata {
-            shape: Shape::new(vec![100, 100]), // Placeholder
+            shape: Shape::new(vec![100, 100]), // Placeholder - should parse from header_str
             dtype: "f32".to_string(),
             total_elements: 10000,
             element_size: 4,

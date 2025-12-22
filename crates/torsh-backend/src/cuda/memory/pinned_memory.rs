@@ -5,10 +5,10 @@
 //! page faults and providing direct memory access.
 
 use super::allocation::{
-    pinned_size_class, AllocationMetadata, AllocationRequest, AllocationStats, AllocationType,
-    PinnedAllocation, PinnedMemoryFlags,
+    pinned_size_class, AllocationStats, PinnedAllocation, PinnedMemoryFlags,
 };
-use crate::error::{CudaError, CudaResult};
+use crate::cuda::error::{CudaError, CudaResult};
+use cust::prelude::DevicePointer;
 use std::collections::HashMap;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
@@ -670,7 +670,7 @@ impl PinnedMemoryManager {
         &self,
         host_ptr: *mut u8,
         size: usize,
-    ) -> CudaResult<Option<cust::DevicePointer<u8>>> {
+    ) -> CudaResult<Option<DevicePointer<u8>>> {
         let mut device_ptr: *mut std::ffi::c_void = std::ptr::null_mut();
 
         unsafe {
@@ -690,11 +690,9 @@ impl PinnedMemoryManager {
         if device_ptr.is_null() {
             Ok(None)
         } else {
-            // Convert to cust::DevicePointer
+            // Convert to DevicePointer
             // This is a simplified conversion - in practice, we'd need proper handling
-            Ok(Some(unsafe {
-                cust::DevicePointer::wrap(device_ptr as *mut u8)
-            }))
+            Ok(Some(unsafe { DevicePointer::wrap(device_ptr as *mut u8) }))
         }
     }
 
@@ -1094,5 +1092,32 @@ mod tests {
         assert!(request.enable_mapping);
         assert_eq!(request.usage_pattern, UsagePattern::HostToDevice);
         assert_eq!(request.priority, AllocationPriority::High);
+    }
+}
+
+// Type aliases and missing types for compatibility
+
+/// Memory transfer metrics
+pub type MemoryTransferMetrics = TransferMetrics;
+
+/// Pinned memory metrics
+pub type PinnedMemoryMetrics = PinnedAllocationStats;
+
+/// Transfer optimization strategy
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransferOptimizationStrategy {
+    /// Maximize bandwidth utilization
+    MaxBandwidth,
+    /// Minimize latency
+    MinLatency,
+    /// Balance between bandwidth and latency
+    Balanced,
+    /// Adaptive based on transfer size
+    Adaptive,
+}
+
+impl Default for TransferOptimizationStrategy {
+    fn default() -> Self {
+        Self::Balanced
     }
 }

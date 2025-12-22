@@ -9,6 +9,7 @@ pub mod gaussian_mixture;
 pub mod hierarchical;
 pub mod incremental;
 pub mod kmeans;
+pub mod optics;
 pub mod spectral;
 
 // Re-export main algorithm types
@@ -19,4 +20,5 @@ pub use incremental::{
     IncrementalClustering, OnlineKMeans, OnlineKMeansConfig, OnlineKMeansResult,
 };
 pub use kmeans::{InitMethod, KMeans, KMeansConfig, KMeansResult};
+pub use optics::{OPTICSConfig, OPTICSResult, OPTICS};
 pub use spectral::{SpectralClustering, SpectralConfig, SpectralResult};

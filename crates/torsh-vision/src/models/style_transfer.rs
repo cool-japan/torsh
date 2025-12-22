@@ -5,6 +5,8 @@
 //! - Fast neural style transfer networks
 //! - Perceptual loss functions
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{Result, VisionError};
 use torsh_nn::functional::pooling::max_pool2d;
 use torsh_nn::prelude::*;
@@ -51,30 +53,30 @@ impl VGGPerceptualLoss {
     pub fn extract_features(&self, x: &Tensor<f32>) -> Result<Vec<Tensor<f32>>> {
         let mut features = Vec::new();
 
-        let mut x = self.conv1_1.forward(x)?.relu()?;
-        let mut x = self.conv1_2.forward(&x)?.relu()?;
+        let x = self.conv1_1.forward(x)?.relu()?;
+        let x = self.conv1_2.forward(&x)?.relu()?;
         features.push(x.clone()); // relu1_2
 
-        let mut x = max_pool2d(&x, (2, 2), Some((2, 2)), Some((0, 0)), None)?;
-        let mut x = self.conv2_1.forward(&x)?.relu()?;
-        let mut x = self.conv2_2.forward(&x)?.relu()?;
+        let x = max_pool2d(&x, (2, 2), Some((2, 2)), Some((0, 0)), None)?;
+        let x = self.conv2_1.forward(&x)?.relu()?;
+        let x = self.conv2_2.forward(&x)?.relu()?;
         features.push(x.clone()); // relu2_2
 
-        let mut x = max_pool2d(&x, (2, 2), Some((2, 2)), Some((0, 0)), None)?;
-        let mut x = self.conv3_1.forward(&x)?.relu()?;
-        let mut x = self.conv3_2.forward(&x)?.relu()?;
-        let mut x = self.conv3_3.forward(&x)?.relu()?;
-        let mut x = self.conv3_4.forward(&x)?.relu()?;
+        let x = max_pool2d(&x, (2, 2), Some((2, 2)), Some((0, 0)), None)?;
+        let x = self.conv3_1.forward(&x)?.relu()?;
+        let x = self.conv3_2.forward(&x)?.relu()?;
+        let x = self.conv3_3.forward(&x)?.relu()?;
+        let x = self.conv3_4.forward(&x)?.relu()?;
         features.push(x.clone()); // relu3_4
 
-        let mut x = max_pool2d(&x, (2, 2), Some((2, 2)), Some((0, 0)), None)?;
-        let mut x = self.conv4_1.forward(&x)?.relu()?;
-        let mut x = self.conv4_2.forward(&x)?.relu()?;
-        let mut x = self.conv4_3.forward(&x)?.relu()?;
-        let mut x = self.conv4_4.forward(&x)?.relu()?;
+        let x = max_pool2d(&x, (2, 2), Some((2, 2)), Some((0, 0)), None)?;
+        let x = self.conv4_1.forward(&x)?.relu()?;
+        let x = self.conv4_2.forward(&x)?.relu()?;
+        let x = self.conv4_3.forward(&x)?.relu()?;
+        let x = self.conv4_4.forward(&x)?.relu()?;
         features.push(x.clone()); // relu4_4
 
-        let mut x = max_pool2d(&x, (2, 2), Some((2, 2)), Some((0, 0)), None)?;
+        let x = max_pool2d(&x, (2, 2), Some((2, 2)), Some((0, 0)), None)?;
         let x = self.conv5_1.forward(&x)?.relu()?;
         features.push(x); // relu5_1
 
@@ -133,7 +135,7 @@ impl VGGPerceptualLoss {
 
         // Stack results back into batch: [batch_size, channels, channels]
         let mut gram_data = Vec::new();
-        let gram_size = channels * channels;
+        let _gram_size = channels * channels;
         for gram_tensor in &batch_grams {
             let data = gram_tensor.to_vec()?;
             gram_data.extend(data);

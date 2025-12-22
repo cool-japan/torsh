@@ -12,7 +12,8 @@ use ort::{
     session::Session,
     value::Value,
 };
-use scirs2_autograd::ndarray::{ArrayD, IxDyn};
+// SciRS2 POLICY: Use UNIFIED ndarray access (v0.1.0-RC.1+)
+// Note: For ONNX interop, we use (Vec<usize>, Vec<T>) tuple format instead of ndarray types
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
@@ -318,15 +319,12 @@ impl OnnxModel {
     fn tensor_to_onnx_value(&self, tensor: &Tensor<f32>) -> Result<Value> {
         // Get tensor shape and convert to Vec<f32>
         let binding = tensor.shape();
-        let shape = binding.dims();
+        let shape: Vec<usize> = binding.dims().to_vec();
         let data: Vec<f32> = tensor.to_vec()?;
 
-        // Create ndarray from data
-        let array = ArrayD::from_shape_vec(IxDyn(&shape), data)
-            .map_err(|e| TorshError::Other(format!("Failed to create ndarray: {}", e)))?;
-
-        // Convert to ONNX value
-        Ok(Value::from_array(array)
+        // Convert to ONNX value using (shape, data) tuple format
+        // This avoids ndarray version conflicts with ort crate
+        Ok(Value::from_array((shape, data))
             .map_err(|e| TorshError::Other(format!("Failed to create ONNX value: {}", e)))?
             .into())
     }

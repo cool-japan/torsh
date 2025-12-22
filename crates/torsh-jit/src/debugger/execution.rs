@@ -4,12 +4,12 @@
 //! with instrumentation and step-by-step execution capabilities.
 
 use super::core::{
-    DebugStatistics, DebugValue, DebuggerConfig, ExecutionLocation, ExecutionState,
-    InstructionExecutionResult, NodeExecutionResult,
+    DebugStatistics, DebugValue, DebuggerConfig, ExecutionState, InstructionExecutionResult,
+    NodeExecutionResult,
 };
 use crate::{
     graph::Node,
-    ir::{Instruction, IrModule, IrOpcode, IrValue},
+    ir::{Instruction, IrModule, IrOpcode},
     ComputationGraph, JitError, JitResult, NodeId,
 };
 use std::collections::HashMap;

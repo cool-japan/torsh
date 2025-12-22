@@ -113,7 +113,7 @@ pub fn rgb_to_grayscale(rgb_tensor: &Tensor<f32>) -> Result<Tensor<f32>> {
 
     let height = shape.dims()[1];
     let width = shape.dims()[2];
-    let mut grayscale = creation::zeros(&[1, height, width]).unwrap();
+    let grayscale = creation::zeros(&[1, height, width]).unwrap();
 
     // ITU-R BT.709 luma coefficients
     let r_weight = 0.2126;

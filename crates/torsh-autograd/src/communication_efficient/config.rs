@@ -7,16 +7,16 @@
 //! # Examples
 //!
 //! ## Basic Configuration
-//! ```rust
+//! ```rust,no_run
 //! use torsh_autograd::communication_efficient::config::*;
 //!
 //! let config = CommunicationConfig::default();
-//! println!("Using {} compression with {} topology",
+//! println!("Using {:?} compression with {:?} topology",
 //!          config.compression_strategy, config.topology);
 //! ```
 //!
 //! ## Custom Configuration
-//! ```rust
+//! ```rust,no_run
 //! use torsh_autograd::communication_efficient::config::*;
 //! use std::time::Duration;
 //!

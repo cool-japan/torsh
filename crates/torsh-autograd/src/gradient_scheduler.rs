@@ -5,11 +5,12 @@
 //! dependency analysis, critical path optimization, memory-aware scheduling, and
 //! adaptive scheduling strategies.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::error_handling::{AutogradError, AutogradResult};
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap, VecDeque};
-use std::sync::{Arc, Mutex, RwLock};
-use std::thread::{self, ThreadId};
+use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
 /// Priority levels for gradient computation tasks
@@ -506,7 +507,7 @@ impl GradientScheduler {
         }
 
         // Adjust parallelization based on historical performance
-        let (memory_util, thread_util) = self.get_resource_utilization();
+        let (_memory_util, thread_util) = self.get_resource_utilization();
         if thread_util < 0.7 && !task.memory_intensive {
             task.set_parallelizable(true);
         }

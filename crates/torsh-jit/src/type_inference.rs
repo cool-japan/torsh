@@ -817,7 +817,6 @@ impl Default for ShapeInference {
 mod tests {
     use super::*;
     use crate::graph::{ComputationGraph, Edge, Node};
-    use std::collections::HashMap;
     use torsh_core::DeviceType;
 
     #[test]

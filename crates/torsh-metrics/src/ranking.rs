@@ -3,8 +3,9 @@
 //! This module provides robust ranking evaluation metrics for information retrieval,
 //! recommender systems, and search applications.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::Metric;
-use scirs2_core::ndarray::{Array1, Array2};
 use std::collections::{HashMap, HashSet};
 use torsh_tensor::Tensor;
 
@@ -932,14 +933,14 @@ impl LearningToRankMetrics {
             self.mrr.compute_score(true_relevance, predicted_scores),
         );
 
-        for (i, metric) in self.precision_at_k.iter().enumerate() {
+        for (_i, metric) in self.precision_at_k.iter().enumerate() {
             results.insert(
                 format!("precision@{}", metric.k),
                 metric.compute_score(true_relevance, predicted_scores),
             );
         }
 
-        for (i, metric) in self.recall_at_k.iter().enumerate() {
+        for (_i, metric) in self.recall_at_k.iter().enumerate() {
             results.insert(
                 format!("recall@{}", metric.k),
                 metric.compute_score(true_relevance, predicted_scores),
@@ -947,5 +948,142 @@ impl LearningToRankMetrics {
         }
 
         results
+    }
+}
+
+/// Information Retrieval Metrics Collection
+/// Comprehensive IR evaluation metrics for search and recommendation systems
+#[derive(Debug, Clone)]
+pub struct IRMetrics {
+    /// Precision at different k values
+    pub precision_at_k: Vec<f64>,
+    /// Recall at different k values
+    pub recall_at_k: Vec<f64>,
+    /// Average Precision
+    pub average_precision: f64,
+    /// Reciprocal Rank
+    pub reciprocal_rank: f64,
+    /// NDCG score
+    pub ndcg: f64,
+    /// F1 scores at different k values
+    pub f1_at_k: Vec<f64>,
+    /// K values used for metrics
+    pub k_values: Vec<usize>,
+}
+
+impl IRMetrics {
+    /// Compute comprehensive IR metrics
+    pub fn compute(true_relevance: &Tensor, predicted_scores: &Tensor, k_values: &[usize]) -> Self {
+        let mut precision_at_k = Vec::new();
+        let mut recall_at_k = Vec::new();
+        let mut f1_at_k = Vec::new();
+
+        // Compute precision and recall at each k
+        for &k in k_values {
+            let p_metric = PrecisionAtK::new(k);
+            let r_metric = RecallAtK::new(k);
+
+            let precision = p_metric.compute_score(true_relevance, predicted_scores);
+            let recall = r_metric.compute_score(true_relevance, predicted_scores);
+
+            let f1 = if precision + recall > 0.0 {
+                2.0 * precision * recall / (precision + recall)
+            } else {
+                0.0
+            };
+
+            precision_at_k.push(precision);
+            recall_at_k.push(recall);
+            f1_at_k.push(f1);
+        }
+
+        // Compute AP and RR
+        let map_metric = MeanAveragePrecision::new();
+        let mrr_metric = MeanReciprocalRank::new();
+
+        let average_precision = map_metric.compute_score(true_relevance, predicted_scores);
+        let reciprocal_rank = mrr_metric.compute_score(true_relevance, predicted_scores);
+
+        // Compute NDCG
+        let ndcg_metric = NDCG::new();
+        let ndcg = ndcg_metric.compute_score(true_relevance, predicted_scores);
+
+        IRMetrics {
+            precision_at_k,
+            recall_at_k,
+            average_precision,
+            reciprocal_rank,
+            ndcg,
+            f1_at_k,
+            k_values: k_values.to_vec(),
+        }
+    }
+
+    /// Get precision at specific k
+    pub fn precision_at(&self, k: usize) -> Option<f64> {
+        self.k_values
+            .iter()
+            .position(|&x| x == k)
+            .map(|idx| self.precision_at_k[idx])
+    }
+
+    /// Get recall at specific k
+    pub fn recall_at(&self, k: usize) -> Option<f64> {
+        self.k_values
+            .iter()
+            .position(|&x| x == k)
+            .map(|idx| self.recall_at_k[idx])
+    }
+
+    /// Get F1 at specific k
+    pub fn f1_at(&self, k: usize) -> Option<f64> {
+        self.k_values
+            .iter()
+            .position(|&x| x == k)
+            .map(|idx| self.f1_at_k[idx])
+    }
+
+    /// Format metrics as a string
+    pub fn format(&self) -> String {
+        let mut result = String::new();
+        result.push_str("Information Retrieval Metrics:\n");
+        result.push_str("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+
+        result.push_str(&format!(
+            "Average Precision (AP): {:.4}\n",
+            self.average_precision
+        ));
+        result.push_str(&format!(
+            "Reciprocal Rank (RR): {:.4}\n",
+            self.reciprocal_rank
+        ));
+        result.push_str(&format!("NDCG: {:.4}\n", self.ndcg));
+
+        result.push_str("\nMetrics at different k values:\n");
+        for (i, &k) in self.k_values.iter().enumerate() {
+            result.push_str(&format!(
+                "  k={}: P={:.4}, R={:.4}, F1={:.4}\n",
+                k, self.precision_at_k[i], self.recall_at_k[i], self.f1_at_k[i]
+            ));
+        }
+
+        result
+    }
+
+    /// Get all metrics as a HashMap
+    pub fn as_map(&self) -> HashMap<String, f64> {
+        let mut map = HashMap::new();
+
+        map.insert("average_precision".to_string(), self.average_precision);
+        map.insert("reciprocal_rank".to_string(), self.reciprocal_rank);
+        map.insert("ndcg".to_string(), self.ndcg);
+
+        for (i, &k) in self.k_values.iter().enumerate() {
+            map.insert(format!("precision@{}", k), self.precision_at_k[i]);
+            map.insert(format!("recall@{}", k), self.recall_at_k[i]);
+            map.insert(format!("f1@{}", k), self.f1_at_k[i]);
+        }
+
+        map
     }
 }

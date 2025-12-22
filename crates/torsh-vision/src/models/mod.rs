@@ -3,6 +3,8 @@
 //! This module contains implementations of popular computer vision models
 //! including ResNet, VGG, EfficientNet, Vision Transformer, and object detection models.
 
+#![allow(ambiguous_glob_reexports)]
+
 /// Configuration for vision models
 #[derive(Debug, Clone)]
 pub struct ModelConfig {

@@ -5,7 +5,6 @@
 //! and probability distributions.
 
 use crate::{FloatElement, Tensor, TensorElement};
-use num_traits::{FromPrimitive, One, Zero};
 use torsh_core::error::{Result, TorshError};
 
 /// Statistical computation modes

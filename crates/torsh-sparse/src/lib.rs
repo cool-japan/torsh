@@ -985,6 +985,28 @@ fn has_consecutive_patterns(coo: &CooTensor) -> bool {
     }
 }
 
+/// Prelude module for convenient imports
+pub mod prelude {
+    pub use crate::autograd::{
+        SparseAutogradTensor, SparseData, SparseGradFn, SparseGradientAccumulator,
+    };
+    pub use crate::bsr::BsrTensor;
+    pub use crate::coo::CooTensor;
+    pub use crate::csc::CscTensor;
+    pub use crate::csr::CsrTensor;
+    pub use crate::dia::DiaTensor;
+    pub use crate::dsr::DsrTensor;
+    pub use crate::ell::EllTensor;
+    pub use crate::gpu::{CudaSparseOps, CudaSparseTensor, CudaSparseTensorFactory};
+    pub use crate::rle::RleTensor;
+    pub use crate::symmetric::{SymmetricMode, SymmetricTensor};
+    // Re-export from lib.rs instead of unified_interface
+    pub use crate::{
+        analyze_sparse_tensor, compare_format_performance, sparse_from_dense, SparseFormat,
+        SparseTensor,
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

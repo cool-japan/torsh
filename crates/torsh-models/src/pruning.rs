@@ -4,6 +4,8 @@
 //! while maintaining performance. Supports magnitude-based pruning, structured
 //! pruning, and advanced pruning strategies.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use torsh_core::error::{Result, TorshError};
@@ -89,12 +91,12 @@ pub enum LayerFilter {
     /// Prune all except specified layers
     Exclude(Vec<String>),
     /// Prune only certain layer types
-    LayerTypes(Vec<LayerType>),
+    LayerTypes(Vec<PruningLayerType>),
 }
 
-/// Layer types for filtering
+/// Layer types for pruning filtering
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum LayerType {
+pub enum PruningLayerType {
     Linear,
     Convolution,
     Embedding,
@@ -298,20 +300,84 @@ impl ModelPruner {
         self.stats.as_ref()
     }
 
-    /// Save pruning masks for later use
-    /// TODO: Implement proper Tensor serialization
-    pub fn save_masks(&self, _path: &str) -> Result<()> {
-        // let masks_data = serde_json::to_string_pretty(&self.pruning_masks)?;
-        // std::fs::write(path, masks_data)?;
-        unimplemented!("Tensor serialization not yet implemented")
+    /// Save pruning masks to JSON file
+    ///
+    /// This saves masks in a structured format with tensor metadata
+    pub fn save_masks(&self, path: &str) -> Result<()> {
+        use serde_json::json;
+
+        let mut masks_json = serde_json::Map::new();
+
+        for (name, mask) in &self.pruning_masks {
+            let shape = mask.shape();
+            let data = mask.to_vec().map_err(|e| {
+                TorshError::InvalidOperation(format!("Failed to convert mask to vec: {}", e))
+            })?;
+
+            let mask_info = json!({
+                "shape": shape.dims(),
+                "data": data,
+                "dtype": "f32"  // Assuming f32 masks
+            });
+
+            masks_json.insert(name.clone(), mask_info);
+        }
+
+        let json_data = serde_json::to_string_pretty(&masks_json).map_err(|e| {
+            TorshError::InvalidOperation(format!("Failed to serialize masks: {}", e))
+        })?;
+
+        std::fs::write(path, json_data)
+            .map_err(|e| TorshError::InvalidOperation(format!("Failed to write masks: {}", e)))?;
+
+        Ok(())
     }
 
-    /// Load pruning masks from file
-    /// TODO: Implement proper Tensor deserialization
-    pub fn load_masks(&mut self, _path: &str) -> Result<()> {
-        // let masks_data = std::fs::read_to_string(path)?;
-        // self.pruning_masks = serde_json::from_str(&masks_data)?;
-        unimplemented!("Tensor deserialization not yet implemented")
+    /// Load pruning masks from JSON file
+    ///
+    /// This loads masks from a structured format with tensor metadata
+    pub fn load_masks(&mut self, path: &str) -> Result<()> {
+        let json_data = std::fs::read_to_string(path)
+            .map_err(|e| TorshError::InvalidOperation(format!("Failed to read masks: {}", e)))?;
+
+        let masks_json: serde_json::Map<String, serde_json::Value> =
+            serde_json::from_str(&json_data).map_err(|e| {
+                TorshError::InvalidOperation(format!("Failed to deserialize masks: {}", e))
+            })?;
+
+        let mut loaded_masks = HashMap::new();
+
+        for (name, mask_info) in masks_json {
+            let shape = mask_info["shape"]
+                .as_array()
+                .ok_or_else(|| {
+                    TorshError::InvalidOperation("Missing shape in mask data".to_string())
+                })?
+                .iter()
+                .map(|v| v.as_u64().unwrap_or(0) as usize)
+                .collect::<Vec<_>>();
+
+            let data = mask_info["data"]
+                .as_array()
+                .ok_or_else(|| {
+                    TorshError::InvalidOperation("Missing data in mask data".to_string())
+                })?
+                .iter()
+                .map(|v| v.as_f64().unwrap_or(0.0) as f32)
+                .collect::<Vec<_>>();
+
+            let tensor = Tensor::from_vec(data, &shape).map_err(|e| {
+                TorshError::InvalidOperation(format!(
+                    "Failed to create tensor from mask data: {}",
+                    e
+                ))
+            })?;
+
+            loaded_masks.insert(name, tensor);
+        }
+
+        self.pruning_masks = loaded_masks;
+        Ok(())
     }
 
     // Helper methods
@@ -339,13 +405,17 @@ impl ModelPruner {
         }
     }
 
-    fn matches_layer_type(&self, layer_name: &str, layer_type: &LayerType) -> bool {
+    fn matches_layer_type(&self, layer_name: &str, layer_type: &PruningLayerType) -> bool {
         match layer_type {
-            LayerType::Linear => layer_name.contains("linear") || layer_name.contains("fc"),
-            LayerType::Convolution => layer_name.contains("conv"),
-            LayerType::Embedding => layer_name.contains("embed"),
-            LayerType::BatchNorm => layer_name.contains("bn") || layer_name.contains("batch_norm"),
-            LayerType::LayerNorm => layer_name.contains("ln") || layer_name.contains("layer_norm"),
+            PruningLayerType::Linear => layer_name.contains("linear") || layer_name.contains("fc"),
+            PruningLayerType::Convolution => layer_name.contains("conv"),
+            PruningLayerType::Embedding => layer_name.contains("embed"),
+            PruningLayerType::BatchNorm => {
+                layer_name.contains("bn") || layer_name.contains("batch_norm")
+            }
+            PruningLayerType::LayerNorm => {
+                layer_name.contains("ln") || layer_name.contains("layer_norm")
+            }
         }
     }
 
@@ -424,7 +494,7 @@ impl ModelPruner {
         let mut mask = vec![1.0; flat_data.len()];
         let num_to_prune = (flat_data.len() as f64 * sparsity) as usize;
 
-        use scirs2_core::random::{Random, Rng};
+        use scirs2_core::random::Random;
 
         let mut indices: Vec<usize> = (0..flat_data.len()).collect();
         let mut rng = Random::seed(42);
@@ -501,7 +571,7 @@ impl ModelPruner {
 }
 
 /// Utility functions for pruning
-pub mod utils {
+pub mod pruning_utils {
     use super::*;
 
     /// Calculate the effective sparsity of a tensor
@@ -549,7 +619,7 @@ mod tests {
         let pruner = ModelPruner::new(config);
         let pruned = pruner.magnitude_prune(&tensor, 0.5).unwrap();
 
-        let sparsity = utils::calculate_sparsity(&pruned).unwrap();
+        let sparsity = pruning_utils::calculate_sparsity(&pruned).unwrap();
         assert!(
             sparsity >= 0.4 && sparsity <= 0.6,
             "Sparsity should be around 0.5"

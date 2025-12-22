@@ -6,16 +6,16 @@
 //! performance optimization across multiple GPUs and compute resources.
 
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
-use std::sync::{
-    atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
-    Arc, Mutex, RwLock,
-};
-use std::time::{Duration, Instant, SystemTime};
+use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, Mutex, RwLock};
+use std::time::{Duration, SystemTime};
 
 use super::config::{LoadBalancingConfig, SchedulingConfig};
-use super::resource_management::{ResourceId, ResourceType};
-use super::task_management::{TaskId, TaskPriority, TaskStatus};
+use super::task_management::{ResourceType, TaskId};
+
+/// Unique identifier for a resource
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct ResourceId(pub u64);
 
 /// Comprehensive load balancing manager for CUDA execution
 ///

@@ -2,9 +2,31 @@
 //!
 //! This module provides a high-performance K-Means implementation built on SciRS2,
 //! offering multiple initialization strategies and convergence criteria.
+//!
+//! # Mathematical Formulation
+//!
+//! K-Means clustering minimizes within-cluster sum of squares (WCSS):
+//!
+//! ```text
+//! argmin_S ∑_{i=1}^{k} ∑_{x ∈ S_i} ||x - μ_i||²
+//! ```
+//!
+//! ## Algorithms
+//!
+//! - **Lloyd**: Standard algorithm, O(nkdi) complexity
+//! - **Elkan**: Triangle inequality optimization for large k
+//! - **Mini-Batch**: Stochastic updates, O(bkd) where b << n
+//!
+//! ## Optimizations
+//!
+//! - Automatic parallel processing for n ≥ 1000
+//! - SIMD-accelerated distance computations
+//! - K-means++ initialization
 
 use crate::error::{ClusterError, ClusterResult};
 use crate::traits::{ClusteringAlgorithm, ClusteringResult, Fit, FitPredict};
+use crate::utils::parallel;
+use scirs2_core::ndarray::Array2;
 use scirs2_core::random::{seeded_rng, CoreRandom, Rng};
 // Using SciRS2 re-exported StdRng to avoid direct rand dependency (SciRS2 POLICY)
 use scirs2_core::random::rngs::StdRng;
@@ -371,9 +393,16 @@ impl KMeans {
     }
 
     /// K-means run with Lloyd's algorithm (standard implementation)
+    /// Enhanced with parallel distance computations when beneficial
     fn fit_lloyd(&self, data: &Tensor, mut rng: CoreRandom<StdRng>) -> ClusterResult<KMeansResult> {
         let n_samples = data.shape().dims()[0];
         let n_features = data.shape().dims()[1];
+
+        // Use parallel implementation for larger datasets
+        if n_samples >= 1000 && parallel::parallel_enabled() {
+            return self.fit_lloyd_parallel(data, rng);
+        }
+
         let data_vec = data.to_vec().map_err(ClusterError::TensorError)?;
 
         // Initialize centroids
@@ -455,6 +484,70 @@ impl KMeans {
             labels,
             centroids,
             inertia,
+            n_iter,
+            converged,
+            final_change,
+        })
+    }
+
+    /// Parallel Lloyd's algorithm using SciRS2 parallel utilities
+    fn fit_lloyd_parallel(
+        &self,
+        data: &Tensor,
+        mut rng: CoreRandom<StdRng>,
+    ) -> ClusterResult<KMeansResult> {
+        let n_samples = data.shape().dims()[0];
+
+        // Convert to Array2 for parallel operations
+        let data_array = tensor_to_array2(data)?;
+
+        // Initialize centroids
+        let mut centroids = self.initialize_centroids(data, &mut rng)?;
+        let mut converged = false;
+        let mut n_iter = 0;
+        let mut final_change = f64::INFINITY;
+
+        for iter in 0..self.config.max_iters {
+            n_iter = iter + 1;
+
+            // Convert centroids to Array2
+            let centroids_array = tensor_to_array2(&centroids)?;
+
+            // Parallel K-means iteration using optimized parallel utilities
+            let (new_centroids_array, _labels_array, _inertia_f32) =
+                parallel::parallel_kmeans_iteration_f32(&data_array, &centroids_array)?;
+
+            // Convert back to tensors
+            let new_centroids = array2_to_tensor(&new_centroids_array)?;
+
+            // Check convergence
+            let change = self.compute_centroid_change(&centroids, &new_centroids)?;
+            final_change = change;
+
+            centroids = new_centroids;
+
+            if change < self.config.tolerance {
+                converged = true;
+                break;
+            }
+        }
+
+        // Final assignment and inertia computation
+        let centroids_array = tensor_to_array2(&centroids)?;
+        let (_, labels_array, inertia_f32) =
+            parallel::parallel_kmeans_iteration_f32(&data_array, &centroids_array)?;
+
+        let labels_usize = labels_array.to_vec();
+        let labels = Tensor::from_vec(
+            labels_usize.into_iter().map(|x| x as f32).collect(),
+            &[n_samples],
+        )
+        .map_err(ClusterError::TensorError)?;
+
+        Ok(KMeansResult {
+            labels,
+            centroids,
+            inertia: inertia_f32 as f64,
             n_iter,
             converged,
             final_change,
@@ -880,4 +973,23 @@ impl FitPredict for KMeans {
     fn fit_predict(&self, data: &Tensor) -> ClusterResult<Self::Result> {
         self.fit(data)
     }
+}
+
+// Utility functions for tensor/array conversions
+fn tensor_to_array2(tensor: &Tensor) -> ClusterResult<Array2<f32>> {
+    let tensor_shape = tensor.shape();
+    let shape = tensor_shape.dims();
+    if shape.len() != 2 {
+        return Err(ClusterError::InvalidInput("Expected 2D tensor".to_string()));
+    }
+
+    let data_f32: Vec<f32> = tensor.to_vec().map_err(ClusterError::TensorError)?;
+    Array2::from_shape_vec((shape[0], shape[1]), data_f32)
+        .map_err(|_| ClusterError::InvalidInput("Failed to convert tensor to array".to_string()))
+}
+
+fn array2_to_tensor(array: &Array2<f32>) -> ClusterResult<Tensor> {
+    let (rows, cols) = array.dim();
+    let data_f32: Vec<f32> = array.iter().copied().collect();
+    Tensor::from_vec(data_f32, &[rows, cols]).map_err(ClusterError::TensorError)
 }

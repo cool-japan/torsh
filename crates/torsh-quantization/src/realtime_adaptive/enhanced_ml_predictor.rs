@@ -4,11 +4,9 @@
 //! quantization parameters, including attention mechanisms, ensemble methods,
 //! and adaptive learning techniques.
 
-use super::config::QuantizationParameters;
 use crate::TorshError;
 use crate::TorshResult;
-use rayon::prelude::*;
-use scirs2_core::random::DistributionExt;
+use scirs2_core::parallel_ops::*;
 use std::time::Instant;
 
 /// Enhanced ML predictor with advanced neural architectures
@@ -461,10 +459,12 @@ impl EnhancedMLPredictor {
         let uncertainty =
             self.estimate_uncertainty(features, &main_prediction, &ensemble_predictions)?;
 
+        let confidence = self.calculate_confidence(&uncertainty);
+
         Ok(EnhancedPredictionResult {
             parameters: combined_prediction,
             uncertainty,
-            confidence: self.calculate_confidence(&uncertainty),
+            confidence,
             selected_predictor: selected_predictor.specialization.clone(),
         })
     }
@@ -505,7 +505,7 @@ impl EnhancedMLPredictor {
     fn estimate_uncertainty(
         &self,
         features: &[f32],
-        main_pred: &PredictionResult,
+        _main_pred: &PredictionResult,
         ensemble_preds: &[PredictionResult],
     ) -> TorshResult<UncertaintyEstimate> {
         // Calculate variance across ensemble predictions

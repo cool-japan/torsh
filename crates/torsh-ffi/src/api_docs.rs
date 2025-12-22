@@ -769,7 +769,7 @@ pub fn generate_api_docs(target_language: TargetLanguage, format: DocFormat) -> 
     let mut generator = ApiDocGenerator::new(target_language).with_format(format);
 
     // Add metadata
-    generator.add_metadata("version".to_string(), "0.1.0-alpha.1".to_string());
+    generator.add_metadata("version".to_string(), "0.1.0-alpha.2".to_string());
     generator.add_metadata("generated_at".to_string(), chrono::Utc::now().to_rfc3339());
 
     // Load standard functions

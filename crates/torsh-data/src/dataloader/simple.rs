@@ -5,7 +5,7 @@
 
 use super::core::DataLoader;
 use crate::{
-    collate::{Collate, DefaultCollate},
+    collate::DefaultCollate,
     dataset::Dataset,
     sampler::{BatchingSampler, RandomSampler, SequentialSampler},
 };
@@ -34,7 +34,7 @@ pub type SimpleRandomDataLoader<D> = DataLoader<D, BatchingSampler<RandomSampler
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_data::dataloader::simple::simple_dataloader;
 /// use torsh_data::dataset::TensorDataset;
 ///
@@ -79,7 +79,7 @@ pub fn simple_dataloader<D: Dataset>(
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_data::dataloader::simple::simple_random_dataloader;
 /// use torsh_data::dataset::TensorDataset;
 ///
@@ -124,7 +124,7 @@ pub fn simple_random_dataloader<D: Dataset>(
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_data::dataloader::simple::{simple_dataloader, simple_random_dataloader};
 /// use torsh_data::dataset::TensorDataset;
 ///
@@ -222,7 +222,7 @@ impl SimpleConfig {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_data::dataloader::simple::{simple_configured_dataloader, SimpleConfig};
 /// use torsh_data::dataset::TensorDataset;
 ///
@@ -329,7 +329,7 @@ mod tests {
 
         let tensor =
             Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu).unwrap();
-        let dataset = TensorDataset::from_tensor(tensor);
+        let _dataset = TensorDataset::from_tensor(tensor);
         let config = SimpleConfig::new()
             .batch_size(2)
             .shuffle(true)

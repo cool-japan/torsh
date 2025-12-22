@@ -3,7 +3,7 @@
 use super::config::RobertaConfig;
 use torsh_core::error::Result;
 use torsh_nn::prelude::*;
-use torsh_nn::{Module, Parameter};
+use torsh_nn::Module;
 use torsh_tensor::{creation, Tensor};
 
 /// RoBERTa Embeddings

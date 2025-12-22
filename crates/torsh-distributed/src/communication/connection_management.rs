@@ -151,8 +151,7 @@ impl ManagedConnection {
             return Err(TorshDistributedError::CommunicationError {
                 operation: "receive_message".to_string(),
                 cause: format!("Message too large: {} bytes", message_len),
-            }
-            .into());
+            });
         }
 
         // Read message data
@@ -421,7 +420,7 @@ mod tests {
         let pool = ConnectionPool::new(config);
 
         // Add a connection that will expire immediately
-        let fake_addr: std::net::SocketAddr = "127.0.0.1:9999".parse().unwrap();
+        let _fake_addr: std::net::SocketAddr = "127.0.0.1:9999".parse().unwrap();
         let initial_stats = pool.get_stats().await;
 
         // Wait for expiration

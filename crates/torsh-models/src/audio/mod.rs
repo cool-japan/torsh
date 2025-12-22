@@ -11,19 +11,20 @@
 //!
 //! The audio module is organized into specialized sub-modules:
 //!
-//! ```
+//! ```text
 //! audio/
-//! ├── common/         # Common types, utilities, and enums
-//! ├── wav2vec2/       # Wav2Vec2 model family
-//! ├── whisper/        # Whisper model family
-//! ├── hubert/         # HuBERT model family
-//! ├── wavlm/          # WavLM model family
-//! └── classification/ # Audio classification models
+//!  - common/         : Common types, utilities, and enums
+//!  - wav2vec2/       : Wav2Vec2 model family
+//!  - whisper/        : Whisper model family
+//!  - hubert/         : HuBERT model family
+//!  - wavlm/          : WavLM model family
+//!  - classification/ : Audio classification models
 //! ```
 //!
 //! ## Quick Start
 //!
 //! ```rust
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! use torsh_models::audio::{AudioArchitecture, wav2vec2::Wav2Vec2Config};
 //!
 //! // Check architecture capabilities
@@ -33,18 +34,20 @@
 //!
 //! // Create model configuration
 //! let config = Wav2Vec2Config::large();
+//! # Ok(())
+//! # }
 //! ```
 
 // Sub-modules
+pub mod audio_common;
 pub mod classification;
-pub mod common;
 pub mod hubert;
 pub mod wav2vec2;
 pub mod wavlm;
 pub mod whisper;
 
 // Re-export common types for convenience
-pub use common::{
+pub use audio_common::{
     preprocessing::{apply_window, normalize_audio, pre_emphasis, WindowType},
     utils::{
         calculate_optimal_batch_size, duration_to_frames, frames_to_duration,

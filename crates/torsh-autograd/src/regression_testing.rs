@@ -7,8 +7,7 @@
 
 use crate::error_handling::{AutogradError, AutogradResult};
 use std::collections::HashMap;
-use std::fs::{self, File};
-use std::io::{BufReader, BufWriter, Read, Write};
+use std::fs::{self};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -835,7 +834,6 @@ macro_rules! gradient_test_case {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
 
     #[test]
     fn test_regression_tester_creation() {

@@ -513,7 +513,7 @@ impl fmt::Display for ComparisonResults {
 }
 
 /// Utility functions for benchmarking
-pub mod utils {
+pub mod benchmark_utils {
     use super::*;
 
     /// Create a quick benchmark config for common use cases
@@ -705,10 +705,11 @@ mod tests {
         let num_parameters = 1_000_000; // 1M parameters
         let memory_bytes = 100 * 1024 * 1024; // 100MB
 
-        let efficiency = utils::calculate_efficiency_score(throughput, num_parameters);
+        let efficiency = benchmark_utils::calculate_efficiency_score(throughput, num_parameters);
         assert_eq!(efficiency, 100.0); // 100 samples/sec per 1M parameters
 
-        let memory_efficiency = utils::calculate_memory_efficiency(throughput, memory_bytes);
+        let memory_efficiency =
+            benchmark_utils::calculate_memory_efficiency(throughput, memory_bytes);
         assert_eq!(memory_efficiency, 1.0); // 1 sample/sec per MB
     }
 

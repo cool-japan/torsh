@@ -39,7 +39,11 @@ fn test_activation_performance() {
     // Just verify all operations complete in reasonable time.
     let max_time = std::time::Duration::from_millis(100);
     assert!(relu_time < max_time, "ReLU took too long: {:?}", relu_time);
-    assert!(sigmoid_time < max_time, "Sigmoid took too long: {:?}", sigmoid_time);
+    assert!(
+        sigmoid_time < max_time,
+        "Sigmoid took too long: {:?}",
+        sigmoid_time
+    );
     assert!(tanh_time < max_time, "Tanh took too long: {:?}", tanh_time);
 }
 

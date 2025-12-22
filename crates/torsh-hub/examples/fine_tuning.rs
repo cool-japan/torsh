@@ -3,11 +3,12 @@
 //! This example demonstrates how to use ToRSh Hub's fine-tuning capabilities
 //! to adapt pre-trained models for specific tasks.
 
-use std::collections::HashMap;
+#![allow(dead_code)]
+#![allow(unused_variables)]
+
 use torsh_core::error::Result;
 use torsh_hub::fine_tuning::*;
 use torsh_hub::{fine_tuning::StoppingMode, *};
-use torsh_tensor::Tensor;
 
 fn main() -> Result<()> {
     println!("=== ToRSh Hub Fine-tuning Example ===\n");
@@ -800,6 +801,7 @@ fn evaluation_monitoring_example() -> Result<()> {
             std::time::Duration::from_secs(112),
             std::time::Duration::from_secs(110),
         ],
+        gradient_norms: vec![12.5, 8.3, 5.1, 3.8, 2.9],
     };
 
     println!("  ✓ Training progress:");

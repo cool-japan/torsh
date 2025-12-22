@@ -22,9 +22,10 @@
 //!
 //! ## Usage Example
 //!
-//! ```rust
+//! ```rust,no_run
 //! use torsh_autograd::visualization::visualizer::GradientVisualizer;
 //! use torsh_autograd::context::AutogradContext;
+//! # fn example() -> torsh_core::error::Result<()> {
 //!
 //! let visualizer = GradientVisualizer::new();
 //! let ctx = AutogradContext::new();
@@ -39,16 +40,17 @@
 //! // Generate HTML visualization
 //! let html_output = visualizer.generate_html_visualization(&analysis)?;
 //! std::fs::write("gradient_flow.html", html_output)?;
+//! # Ok(())
+//! # }
 //! ```
 
 use super::core::{
-    BottleneckType, GradientBottleneck, GradientFlowAnalysis, GradientMagnitudeCategory,
-    GradientStatistics, MemoryBreakdown, OperationInfo,
+    GradientBottleneck, GradientFlowAnalysis, GradientStatistics, MemoryBreakdown, OperationInfo,
 };
 use crate::context::AutogradContext;
 use std::fmt::Write;
 use torsh_core::error::{Result, TorshError};
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 /// Main gradient flow visualizer with comprehensive analysis and output capabilities
 ///
@@ -176,7 +178,7 @@ impl GradientVisualizer {
         // Compute memory breakdown
         let memory_breakdown = self.compute_memory_breakdown(ctx)?;
 
-        let mut analysis = GradientFlowAnalysis {
+        let analysis = GradientFlowAnalysis {
             timestamp: std::time::Instant::now(),
             total_operations: stats.node_count,
             operations_with_gradients: self.count_operations_with_gradients(ctx)?,
@@ -1201,7 +1203,7 @@ impl GradientVisualizer {
     // Helper methods for analysis computation
 
     /// Compute gradient statistics from autograd context
-    fn compute_gradient_statistics(&self, ctx: &AutogradContext) -> Result<GradientStatistics> {
+    fn compute_gradient_statistics(&self, _ctx: &AutogradContext) -> Result<GradientStatistics> {
         debug!("Computing gradient statistics");
 
         // This is a simplified implementation - in practice would analyze actual gradients
@@ -1216,7 +1218,7 @@ impl GradientVisualizer {
     }
 
     /// Identify gradient bottlenecks in the computation graph
-    fn identify_bottlenecks(&self, ctx: &AutogradContext) -> Result<Vec<GradientBottleneck>> {
+    fn identify_bottlenecks(&self, _ctx: &AutogradContext) -> Result<Vec<GradientBottleneck>> {
         debug!("Identifying gradient bottlenecks");
 
         // This is a simplified implementation - would analyze actual graph structure
@@ -1224,7 +1226,7 @@ impl GradientVisualizer {
     }
 
     /// Analyze critical path through the computation graph
-    fn analyze_critical_path(&self, ctx: &AutogradContext) -> Result<Vec<OperationInfo>> {
+    fn analyze_critical_path(&self, _ctx: &AutogradContext) -> Result<Vec<OperationInfo>> {
         debug!("Analyzing critical path");
 
         // This is a simplified implementation - would analyze actual critical path
@@ -1232,7 +1234,7 @@ impl GradientVisualizer {
     }
 
     /// Compute memory breakdown for gradient computations
-    fn compute_memory_breakdown(&self, ctx: &AutogradContext) -> Result<MemoryBreakdown> {
+    fn compute_memory_breakdown(&self, _ctx: &AutogradContext) -> Result<MemoryBreakdown> {
         debug!("Computing memory breakdown");
 
         // This is a simplified implementation - would analyze actual memory usage
@@ -1252,10 +1254,12 @@ struct DotColors {
     healthy: String,
     warning: String,
     critical: String,
+    #[allow(dead_code)]
     background: String,
 }
 
 /// Helper function to write Result for writeln operations
+#[allow(dead_code)]
 trait WriteResult {
     fn map_err_write(self, msg: &str) -> Result<()>;
 }

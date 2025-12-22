@@ -174,7 +174,7 @@ impl ParameterUpdater {
                         )?;
 
                     let binding = param.tensor();
-                    let mut param_tensor = binding.write();
+                    let param_tensor = binding.write();
                     param_tensor.sub(&new_velocity)?;
                     *velocity = new_velocity;
                 }
@@ -223,7 +223,7 @@ impl ParameterUpdater {
                     .mul_op(&torsh_tensor::creation::tensor_scalar(learning_rate)?)?;
 
                 let binding = param.tensor();
-                let mut param_tensor = binding.write();
+                let param_tensor = binding.write();
                 param_tensor.sub(&update)?;
             }
         }
@@ -350,7 +350,7 @@ impl ParameterUpdater {
             if let Some(grad) = gradients.get(name) {
                 let update = grad.mul_op(&torsh_tensor::creation::tensor_scalar(learning_rate)?)?;
                 let binding = param.tensor();
-                let mut param_tensor = binding.write();
+                let param_tensor = binding.write();
                 param_tensor.sub(&update)?;
             }
         }
@@ -369,7 +369,7 @@ impl ParameterUpdater {
         for (name, param) in parameters {
             if let Some(grad) = gradients.get(name) {
                 let binding = param.tensor();
-                let mut param_tensor = binding.write();
+                let param_tensor = binding.write();
 
                 // Fused operation: param = param - lr * grad
                 param_tensor.sub(&grad.mul_op(&lr_tensor)?)?;
@@ -429,7 +429,7 @@ impl ParameterUpdater {
                 let update = m.div(&&denominator)?.mul_op(&corrected_lr_tensor)?;
 
                 let binding = param.tensor();
-                let mut param_tensor = binding.write();
+                let param_tensor = binding.write();
                 param_tensor.sub(&update)?;
             }
         }
@@ -543,14 +543,14 @@ impl LayerSpecificOptimizers {
         let lr_tensor = torsh_tensor::creation::tensor_scalar(learning_rate)?;
         let weight_update = weight_grad.mul_op(&lr_tensor)?;
         let binding = weight.tensor();
-        let mut weight_tensor = binding.write();
+        let weight_tensor = binding.write();
         weight_tensor.sub(&weight_update)?;
 
         // Update bias if present
         if let (Some(bias), Some(bias_grad)) = (bias, bias_grad) {
             let bias_update = bias_grad.mul_op(&lr_tensor)?;
             let binding = bias.tensor();
-            let mut bias_tensor = binding.write();
+            let bias_tensor = binding.write();
             bias_tensor.sub(&bias_update)?;
         }
 
@@ -583,13 +583,13 @@ impl LayerSpecificOptimizers {
         // Update weight (scale parameter)
         let weight_update = weight_grad.mul_op(&lr_tensor)?;
         let binding = weight.tensor();
-        let mut weight_tensor = binding.write();
+        let weight_tensor = binding.write();
         weight_tensor.sub(&weight_update)?;
 
         // Update bias (shift parameter)
         let bias_update = bias_grad.mul_op(&lr_tensor)?;
         let binding = bias.tensor();
-        let mut bias_tensor = binding.write();
+        let bias_tensor = binding.write();
         bias_tensor.sub(&bias_update)?;
 
         Ok(())

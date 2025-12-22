@@ -1,6 +1,8 @@
 //! Graph Isomorphism Network (GIN) layer implementation
 //! Based on the paper "How Powerful are Graph Neural Networks?"
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::parameter::Parameter;
 use crate::{GraphData, GraphLayer};
 use torsh_tensor::{
@@ -9,6 +11,7 @@ use torsh_tensor::{
 };
 
 /// Graph Isomorphism Network (GIN) layer
+#[derive(Debug)]
 pub struct GINConv {
     in_features: usize,
     out_features: usize,
@@ -81,7 +84,7 @@ impl GINConv {
         }
 
         // Aggregate neighbor features (sum aggregation for GIN)
-        let mut neighbor_features = zeros(&[num_nodes, self.in_features]).unwrap();
+        let neighbor_features = zeros(&[num_nodes, self.in_features]).unwrap();
 
         for node in 0..num_nodes {
             let mut aggregated = zeros(&[self.in_features]).unwrap();
@@ -98,7 +101,7 @@ impl GINConv {
             }
 
             let mut node_slice = neighbor_features.slice_tensor(0, node, node + 1).unwrap();
-            node_slice.copy_(&aggregated.unsqueeze_tensor(0).unwrap());
+            let _ = node_slice.copy_(&aggregated.unsqueeze_tensor(0).unwrap());
         }
 
         // Get epsilon value

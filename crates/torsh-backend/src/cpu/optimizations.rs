@@ -9,7 +9,11 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::cpu::error::CpuResult;
-use rayon::prelude::*;
+
+// SciRS2 POLICY: Use scirs2_parallel for parallel operations (wraps rayon for now)
+// This provides a unified API that will be migrated to scirs2-core in the future
+#[cfg(feature = "cpu")]
+use crate::cpu::scirs2_parallel::prelude::*;
 
 /// Kernel fusion optimizer for combining multiple operations
 pub struct KernelFusionOptimizer {

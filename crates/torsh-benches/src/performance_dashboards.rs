@@ -4,11 +4,11 @@
 //! for tracking ToRSh benchmark performance over time, detecting regressions,
 //! and providing real-time insights into performance metrics.
 
-use crate::{BenchConfig, BenchResult};
+use crate::BenchResult;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 /// Performance metric point for time-series data
 #[derive(Debug, Clone, Serialize, Deserialize)]

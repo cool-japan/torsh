@@ -59,6 +59,7 @@ pub fn create_store(config: &StoreConfig) -> TorshResult<Box<dyn Store>> {
                 master_addr,
                 master_port,
                 config.timeout,
+                config.is_server,
             )?))
         }
 
@@ -82,8 +83,7 @@ pub fn create_store(config: &StoreConfig) -> TorshResult<Box<dyn Store>> {
                 Err(TorshDistributedError::backend_error(
                     "RedisStore",
                     "Redis support not compiled in. Enable 'redis' feature to use Redis store.",
-                )
-                .into())
+                ))
             }
         }
     }

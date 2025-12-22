@@ -299,7 +299,7 @@ pub enum BufferHandle {
     Cuda { device_ptr: u64, size: usize },
 
     /// Metal buffer
-    #[cfg(feature = "metal")]
+    #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
     Metal { buffer_id: u64, size: usize },
 
     /// WebGPU buffer
@@ -316,23 +316,26 @@ pub enum BufferHandle {
 impl Clone for BufferHandle {
     fn clone(&self) -> Self {
         match self {
-            BufferHandle::Cpu { ptr, size } => BufferHandle::Cpu { ptr: *ptr, size: *size },
+            BufferHandle::Cpu { ptr, size } => BufferHandle::Cpu {
+                ptr: *ptr,
+                size: *size,
+            },
             #[cfg(feature = "cuda")]
             BufferHandle::Cuda { device_ptr, size } => BufferHandle::Cuda {
                 device_ptr: *device_ptr,
-                size: *size
+                size: *size,
             },
-            #[cfg(feature = "metal")]
+            #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
             BufferHandle::Metal { buffer_id, size } => BufferHandle::Metal {
                 buffer_id: *buffer_id,
-                size: *size
+                size: *size,
             },
             #[cfg(feature = "webgpu")]
             BufferHandle::WebGpu { buffer_ptr, size } => BufferHandle::WebGpu {
                 buffer_ptr: *buffer_ptr,
-                size: *size
+                size: *size,
             },
-            BufferHandle::Generic { size, .. } => {
+            BufferHandle::Generic { .. } => {
                 // For Generic handles, we can't actually clone the Box<dyn Any>
                 // This is a limitation - in practice, backends should avoid using Generic handles
                 // for buffers that need to be cloned
@@ -349,7 +352,7 @@ impl BufferHandle {
             BufferHandle::Cpu { size, .. } => *size,
             #[cfg(feature = "cuda")]
             BufferHandle::Cuda { size, .. } => *size,
-            #[cfg(feature = "metal")]
+            #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
             BufferHandle::Metal { size, .. } => *size,
             #[cfg(feature = "webgpu")]
             BufferHandle::WebGpu { size, .. } => *size,
@@ -363,7 +366,7 @@ impl BufferHandle {
             BufferHandle::Cpu { ptr, .. } => *ptr as usize,
             #[cfg(feature = "cuda")]
             BufferHandle::Cuda { device_ptr, .. } => *device_ptr as usize,
-            #[cfg(feature = "metal")]
+            #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
             BufferHandle::Metal { buffer_id, .. } => *buffer_id as usize,
             #[cfg(feature = "webgpu")]
             BufferHandle::WebGpu { buffer_ptr, .. } => *buffer_ptr as usize,
@@ -377,7 +380,7 @@ impl BufferHandle {
             BufferHandle::Cpu { ptr, size } => !ptr.is_null() && *size > 0,
             #[cfg(feature = "cuda")]
             BufferHandle::Cuda { device_ptr, size } => *device_ptr != 0 && *size > 0,
-            #[cfg(feature = "metal")]
+            #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
             BufferHandle::Metal { buffer_id, size } => *buffer_id != 0 && *size > 0,
             #[cfg(feature = "webgpu")]
             BufferHandle::WebGpu { buffer_ptr, size } => *buffer_ptr != 0 && *size > 0,
@@ -394,25 +397,56 @@ unsafe impl Sync for BufferHandle {}
 impl PartialEq for BufferHandle {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (BufferHandle::Cpu { ptr: ptr1, size: size1 }, BufferHandle::Cpu { ptr: ptr2, size: size2 }) => {
-                ptr1 == ptr2 && size1 == size2
-            },
+            (
+                BufferHandle::Cpu {
+                    ptr: ptr1,
+                    size: size1,
+                },
+                BufferHandle::Cpu {
+                    ptr: ptr2,
+                    size: size2,
+                },
+            ) => ptr1 == ptr2 && size1 == size2,
             #[cfg(feature = "cuda")]
-            (BufferHandle::Cuda { device_ptr: ptr1, size: size1 }, BufferHandle::Cuda { device_ptr: ptr2, size: size2 }) => {
-                ptr1 == ptr2 && size1 == size2
-            },
-            #[cfg(feature = "metal")]
-            (BufferHandle::Metal { buffer_id: id1, size: size1 }, BufferHandle::Metal { buffer_id: id2, size: size2 }) => {
-                id1 == id2 && size1 == size2
-            },
+            (
+                BufferHandle::Cuda {
+                    device_ptr: ptr1,
+                    size: size1,
+                },
+                BufferHandle::Cuda {
+                    device_ptr: ptr2,
+                    size: size2,
+                },
+            ) => ptr1 == ptr2 && size1 == size2,
+            #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
+            (
+                BufferHandle::Metal {
+                    buffer_id: id1,
+                    size: size1,
+                },
+                BufferHandle::Metal {
+                    buffer_id: id2,
+                    size: size2,
+                },
+            ) => id1 == id2 && size1 == size2,
             #[cfg(feature = "webgpu")]
-            (BufferHandle::WebGpu { buffer_ptr: ptr1, size: size1 }, BufferHandle::WebGpu { buffer_ptr: ptr2, size: size2 }) => {
-                ptr1 == ptr2 && size1 == size2
-            },
-            (BufferHandle::Generic { size: size1, .. }, BufferHandle::Generic { size: size2, .. }) => {
+            (
+                BufferHandle::WebGpu {
+                    buffer_ptr: ptr1,
+                    size: size1,
+                },
+                BufferHandle::WebGpu {
+                    buffer_ptr: ptr2,
+                    size: size2,
+                },
+            ) => ptr1 == ptr2 && size1 == size2,
+            (
+                BufferHandle::Generic { size: size1, .. },
+                BufferHandle::Generic { size: size2, .. },
+            ) => {
                 // For Generic handles, we can only compare sizes
                 size1 == size2
-            },
+            }
             _ => false,
         }
     }
@@ -427,29 +461,29 @@ impl std::hash::Hash for BufferHandle {
                 0u8.hash(state); // discriminant
                 (*ptr as usize).hash(state);
                 size.hash(state);
-            },
+            }
             #[cfg(feature = "cuda")]
             BufferHandle::Cuda { device_ptr, size } => {
                 1u8.hash(state); // discriminant
                 device_ptr.hash(state);
                 size.hash(state);
-            },
-            #[cfg(feature = "metal")]
+            }
+            #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
             BufferHandle::Metal { buffer_id, size } => {
                 2u8.hash(state); // discriminant
                 buffer_id.hash(state);
                 size.hash(state);
-            },
+            }
             #[cfg(feature = "webgpu")]
             BufferHandle::WebGpu { buffer_ptr, size } => {
                 3u8.hash(state); // discriminant
                 buffer_ptr.hash(state);
                 size.hash(state);
-            },
+            }
             BufferHandle::Generic { size, .. } => {
                 4u8.hash(state); // discriminant
                 size.hash(state);
-            },
+            }
         }
     }
 }

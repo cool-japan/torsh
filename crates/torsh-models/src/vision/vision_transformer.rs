@@ -20,18 +20,23 @@
 //! ## Example Usage
 //!
 //! ```rust
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! use torsh_models::vision::vision_transformer::*;
+//! use torsh_nn::Module;
 //!
 //! // Create a ViT-Base model for ImageNet classification
-//! let model = VisionTransformer::vit_base_patch16_224(1000);
+//! let model = VisionTransformer::vit_base_patch16_224(1000)?;
 //!
 //! // Forward pass
 //! let input = torsh_tensor::creation::randn(&[1, 3, 224, 224])?;
 //! let output = model.forward(&input)?;
+//! # Ok(())
+//! # }
 //! ```
 
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::Random;
 use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 use torsh_core::error::{Result, TorshError};
 use torsh_core::DeviceType;
 use torsh_nn::{
@@ -43,7 +48,7 @@ use torsh_nn::{
 use torsh_tensor::Tensor;
 
 // Import ViT configuration from the vit module
-use crate::vision::vit::{PatchEmbedStrategy, ViTConfig, ViTVariant};
+use crate::vision::vit::{ViTConfig, ViTVariant};
 
 /// Patch Embedding for Vision Transformer
 ///
@@ -148,6 +153,7 @@ pub struct TransformerEncoderBlock {
     norm2: LayerNorm,
     mlp: Sequential,
     dropout: Dropout,
+    training: Arc<RwLock<bool>>,
 }
 
 impl TransformerEncoderBlock {
@@ -195,6 +201,7 @@ impl TransformerEncoderBlock {
             norm2,
             mlp,
             dropout,
+            training: Arc::new(RwLock::new(true)), // Default to training mode
         })
     }
 }
@@ -207,6 +214,7 @@ impl Module for TransformerEncoderBlock {
     }
 
     fn train(&mut self) {
+        *self.training.write().unwrap() = true;
         self.norm1.train();
         self.attn.train();
         self.norm2.train();
@@ -215,6 +223,7 @@ impl Module for TransformerEncoderBlock {
     }
 
     fn eval(&mut self) {
+        *self.training.write().unwrap() = false;
         self.norm1.eval();
         self.attn.eval();
         self.norm2.eval();
@@ -236,7 +245,7 @@ impl Module for TransformerEncoderBlock {
     }
 
     fn training(&self) -> bool {
-        self.norm1.training()
+        *self.training.read().unwrap()
     }
 
     fn to_device(&mut self, device: DeviceType) -> Result<()> {
@@ -613,7 +622,6 @@ impl ViTFactory {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use torsh_tensor::Tensor;
 
     #[test]
     fn test_patch_embedding() {

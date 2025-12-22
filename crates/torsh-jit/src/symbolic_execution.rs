@@ -7,10 +7,10 @@
 //! - Bug detection and verification
 
 use crate::{
-    ir::{BasicBlock, BlockId, Instruction, IrModule, IrOpcode, IrValue, Terminator},
+    ir::{BasicBlock, Instruction, IrModule, IrOpcode, IrValue, Terminator},
     ComputationGraph, JitError, JitResult, NodeId,
 };
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 use torsh_core::{DType, Shape};
 
 /// Symbolic execution engine for path analysis
@@ -102,7 +102,7 @@ impl SymbolicExecutionEngine {
     /// Execute symbolic analysis on an IR module
     pub fn execute_ir(&mut self, ir_module: &IrModule) -> JitResult<SymbolicIrResult> {
         let mut function_results = HashMap::new();
-        let mut global_constraints = ConstraintSet::new();
+        let global_constraints = ConstraintSet::new();
 
         // Analyze the IR module as a whole since it contains basic blocks, not separate functions
         let ir_result = self.execute_symbolic_ir_module(ir_module)?;
@@ -670,7 +670,7 @@ impl SymbolicExecutionEngine {
 
         // Build basic blocks
         let mut current_block = Vec::new();
-        let mut block_id = 0;
+        let block_id = 0;
 
         for (&block_id, block) in &ir_module.blocks {
             for (inst_id, instruction) in block.instructions.iter().enumerate() {

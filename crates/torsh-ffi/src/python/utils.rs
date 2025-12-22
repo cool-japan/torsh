@@ -1,10 +1,13 @@
 //! Utility functions for Python bindings
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::error::FfiError;
 use crate::python::tensor::PyTensor;
 use numpy::{PyReadonlyArrayDyn, PyUntypedArrayMethods};
 use pyo3::prelude::*;
-use pyo3::types::PyList;
+use pyo3::types::{PyAny, PyList};
+use pyo3::Py;
 
 /// Create tensor from data
 #[pyfunction]
@@ -24,7 +27,7 @@ pub fn zeros(shape: Vec<usize>, dtype: Option<&str>, requires_grad: bool) -> PyR
     let total_elements: usize = shape.iter().product();
     let data = vec![0.0; total_elements];
 
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let py_data = PyList::new(py, &data)?;
         PyTensor::new(py_data.as_ref(), Some(shape), dtype, requires_grad)
     })
@@ -37,7 +40,7 @@ pub fn ones(shape: Vec<usize>, dtype: Option<&str>, requires_grad: bool) -> PyRe
     let total_elements: usize = shape.iter().product();
     let data = vec![1.0; total_elements];
 
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let py_data = PyList::new(py, &data)?;
         PyTensor::new(py_data.as_ref(), Some(shape), dtype, requires_grad)
     })
@@ -78,7 +81,7 @@ pub fn randn(
     // Ensure we have the exact number of elements
     data.truncate(total_elements);
 
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let py_data = PyList::new(py, &data)?;
         PyTensor::new(py_data.as_ref(), Some(shape), dtype, requires_grad)
     })
@@ -103,7 +106,7 @@ pub fn rand(
         data.push(low + (high - low) * random_val);
     }
 
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let py_data = PyList::new(py, &data)?;
         PyTensor::new(py_data.as_ref(), Some(shape), dtype, requires_grad)
     })
@@ -119,7 +122,7 @@ pub fn eye(n: usize, dtype: Option<&str>, requires_grad: bool) -> PyResult<PyTen
         data[i * n + i] = 1.0;
     }
 
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let py_data = PyList::new(py, &data)?;
         PyTensor::new(py_data.as_ref(), Some(vec![n, n]), dtype, requires_grad)
     })
@@ -137,7 +140,7 @@ pub fn full(
     let total_elements: usize = shape.iter().product();
     let data = vec![fill_value; total_elements];
 
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let py_data = PyList::new(py, &data)?;
         PyTensor::new(py_data.as_ref(), Some(shape), dtype, requires_grad)
     })
@@ -149,7 +152,7 @@ pub fn from_numpy(array: PyReadonlyArrayDyn<f32>) -> PyResult<PyTensor> {
     let data: Vec<f32> = array.as_array().iter().cloned().collect();
     let shape: Vec<usize> = array.shape().to_vec();
 
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let py_data = PyList::new(py, &data)?;
         PyTensor::new(py_data.as_ref(), Some(shape), Some("f32"), false)
     })
@@ -157,7 +160,7 @@ pub fn from_numpy(array: PyReadonlyArrayDyn<f32>) -> PyResult<PyTensor> {
 
 /// Convert tensor to NumPy array
 #[pyfunction]
-pub fn to_numpy(tensor: &PyTensor, py: Python) -> PyResult<PyObject> {
+pub fn to_numpy(tensor: &PyTensor, py: Python) -> PyResult<Py<PyAny>> {
     tensor.to_numpy_internal(py)
 }
 
@@ -190,7 +193,7 @@ pub fn linspace(
         }
     }
 
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let py_data = PyList::new(py, &data)?;
         PyTensor::new(py_data.as_ref(), Some(vec![steps]), dtype, requires_grad)
     })
@@ -229,7 +232,7 @@ pub fn arange(
         }
     }
 
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let py_data = PyList::new(py, &data)?;
         PyTensor::new(
             py_data.as_ref(),
@@ -280,7 +283,7 @@ pub fn stack(tensors: Vec<PyTensor>, dim: i32) -> PyResult<PyTensor> {
     let mut new_shape = vec![tensors.len()];
     new_shape.extend_from_slice(first_shape);
 
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let py_data = PyList::new(py, &stacked_data)?;
         PyTensor::new(py_data.as_ref(), Some(new_shape), Some("f32"), false)
     })
@@ -314,7 +317,7 @@ pub fn cat(tensors: Vec<PyTensor>, dim: i32) -> PyResult<PyTensor> {
         total_size += tensor.data.len();
     }
 
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let py_data = PyList::new(py, &concatenated_data)?;
         PyTensor::new(py_data.as_ref(), Some(vec![total_size]), Some("f32"), false)
     })
@@ -354,9 +357,11 @@ fn lcg_random(state: &mut u64) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pyo3::Python;
 
     #[test]
     fn test_zeros() {
+        Python::initialize();
         let result = zeros(vec![2, 3], None, false).unwrap();
         assert_eq!(result.shape(), vec![2, 3]);
         assert_eq!(result.data, vec![0.0; 6]);
@@ -364,6 +369,7 @@ mod tests {
 
     #[test]
     fn test_ones() {
+        Python::initialize();
         let result = ones(vec![2, 2], None, false).unwrap();
         assert_eq!(result.shape(), vec![2, 2]);
         assert_eq!(result.data, vec![1.0; 4]);
@@ -371,6 +377,7 @@ mod tests {
 
     #[test]
     fn test_eye() {
+        Python::initialize();
         let result = eye(3, None, false).unwrap();
         assert_eq!(result.shape(), vec![3, 3]);
 
@@ -380,6 +387,7 @@ mod tests {
 
     #[test]
     fn test_linspace() {
+        Python::initialize();
         let result = linspace(0.0, 1.0, 5, None, false).unwrap();
         assert_eq!(result.shape(), vec![5]);
 
@@ -391,6 +399,7 @@ mod tests {
 
     #[test]
     fn test_arange() {
+        Python::initialize();
         let result = arange(0.0, 5.0, 1.0, None, false).unwrap();
         assert_eq!(result.shape(), vec![5]);
         assert_eq!(result.data, vec![0.0, 1.0, 2.0, 3.0, 4.0]);
@@ -398,6 +407,7 @@ mod tests {
 
     #[test]
     fn test_randn() {
+        Python::initialize();
         let result = randn(vec![100], 0.0, 1.0, None, false).unwrap();
         assert_eq!(result.shape(), vec![100]);
 

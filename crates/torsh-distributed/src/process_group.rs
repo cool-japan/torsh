@@ -103,7 +103,7 @@ fn create_backend(
             Ok(Box::new(MockBackend::new(rank, world_size)))
         }
         BackendType::Custom(name) => Err(TorshDistributedError::feature_not_available(
-            &format!("Custom backend: {}", name),
+            format!("Custom backend: {}", name),
             "custom backend implementation",
         )),
     }

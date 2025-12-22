@@ -11,7 +11,7 @@
 use crate::scirs2_integration::{SciRS2VisionProcessor, VisionConfig};
 use crate::{ModelConfig, Result, VisionError, VisionModel};
 use scirs2_core::ndarray::{s, Array2, Array3, Array4};
-use scirs2_core::random::{Random, Rng}; // SciRS2 Policy compliance
+use scirs2_core::random::Random; // SciRS2 Policy compliance
 use std::collections::HashMap;
 use std::sync::Arc;
 use torsh_core::device::DeviceType;

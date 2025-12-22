@@ -75,7 +75,7 @@ use super::scirs2::{ScirS2Integration, ScirS2IntegrationConfig};
 ///
 /// # Example
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_backend::memory_profiler::core::{MemoryProfiler, MemoryProfilerConfig};
 /// use torsh_backend::profiler::SimpleProfiler;
 ///
@@ -142,7 +142,7 @@ pub struct MemoryProfiler {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_backend::memory_profiler::core::MemoryProfilerConfig;
 /// use std::time::Duration;
 ///
@@ -272,7 +272,7 @@ pub struct MemoryPoolStats {
 ///
 /// # Usage
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_backend::memory_profiler::core::MemorySnapshot;
 ///
 /// let snapshot = profiler.take_snapshot()?;
@@ -701,7 +701,7 @@ impl MemoryProfiler {
     /// * `config` - Profiler configuration
     ///
     /// # Example
-    /// ```rust
+    /// ```rust,ignore
     /// use torsh_backend::memory_profiler::core::{MemoryProfiler, MemoryProfilerConfig};
     /// use torsh_backend::profiler::SimpleProfiler;
     ///

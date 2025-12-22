@@ -1073,7 +1073,7 @@ impl AccessPatternAnalyzer {
 
         match pattern_type {
             PatternType::Sequential { stride, direction } => {
-                if let (Some(&last_size), Some(&last_time)) =
+                if let (Some(&last_size), Some(&_last_time)) =
                     (pattern.access_sizes.back(), pattern.access_times.back())
                 {
                     let next_size = match direction {
@@ -1287,7 +1287,7 @@ impl AccessPatternAnalyzer {
 
         // Remove old suggestions
         let mut suggestions = self.optimization_suggestions.lock();
-        suggestions.retain(|suggestion| {
+        suggestions.retain(|_suggestion| {
             // For simplicity, remove suggestions older than max_age
             // In practice, you'd track suggestion timestamps
             true
@@ -1450,7 +1450,7 @@ mod tests {
 
         let mut pattern = AccessPattern::new();
         // Simulate streaming pattern with large block sizes
-        for i in 0..10 {
+        for _i in 0..10 {
             pattern.record_access(AccessType::Read, 64 * 1024); // 64KB blocks
         }
         pattern.sequential_score = 0.6;

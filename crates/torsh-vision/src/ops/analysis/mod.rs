@@ -8,6 +8,8 @@
 //! - Segmentation metrics (IoU, Dice coefficient, pixel accuracy)
 //! - Statistical analysis and visualization utilities
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::ops::common::utils;
 use crate::ops::detection::{calculate_iou, BoundingBox, Detection};
 use crate::{Result, VisionError};
@@ -231,7 +233,7 @@ pub fn cross_entropy_loss(
     let log_probs = log_softmax(predictions)?;
 
     // Compute per-sample losses
-    let mut losses = zeros(&[batch_size])?;
+    let losses = zeros(&[batch_size])?;
 
     for i in 0..batch_size {
         let target_class: f32 = targets.get(&[i])?.clone().into();
@@ -287,13 +289,13 @@ pub fn focal_loss(
 ) -> Result<Tensor<f32>> {
     let pred_shape = predictions.shape();
     let pred_dims = pred_shape.dims();
-    let (batch_size, num_classes) = (pred_dims[0], pred_dims[1]);
+    let (batch_size, _num_classes) = (pred_dims[0], pred_dims[1]);
 
     // Apply softmax to get probabilities
     let probs = softmax(predictions)?;
     let log_probs = log_softmax(predictions)?;
 
-    let mut losses = zeros(&[batch_size])?;
+    let losses = zeros(&[batch_size])?;
 
     for i in 0..batch_size {
         let target_class: f32 = targets.get(&[i])?.clone().into();
@@ -636,7 +638,7 @@ fn softmax(predictions: &Tensor<f32>) -> Result<Tensor<f32>> {
     let pred_dims = pred_shape.dims();
     let (batch_size, num_classes) = (pred_dims[0], pred_dims[1]);
 
-    let mut result = zeros(&pred_dims)?;
+    let result = zeros(&pred_dims)?;
 
     for i in 0..batch_size {
         // Find max for numerical stability
@@ -668,7 +670,7 @@ fn softmax(predictions: &Tensor<f32>) -> Result<Tensor<f32>> {
 fn sigmoid(tensor: &Tensor<f32>) -> Result<Tensor<f32>> {
     let shape = tensor.shape();
     let dims = shape.dims();
-    let mut result = zeros(&dims)?;
+    let result = zeros(&dims)?;
 
     let total_elements = dims.iter().product::<usize>();
 
@@ -685,7 +687,7 @@ fn sigmoid(tensor: &Tensor<f32>) -> Result<Tensor<f32>> {
 fn apply_log(tensor: &Tensor<f32>) -> Result<Tensor<f32>> {
     let shape = tensor.shape();
     let dims = shape.dims();
-    let mut result = zeros(&dims)?;
+    let result = zeros(&dims)?;
 
     let total_elements = dims.iter().product::<usize>();
 
@@ -702,9 +704,9 @@ fn apply_log(tensor: &Tensor<f32>) -> Result<Tensor<f32>> {
 fn apply_label_smoothing(
     log_probs: &Tensor<f32>,
     sample_idx: usize,
-    target_class: usize,
+    _target_class: usize,
     num_classes: usize,
-    smoothing: f32,
+    _smoothing: f32,
 ) -> Result<f32> {
     let mut smooth_loss = 0.0;
     for j in 0..num_classes {
@@ -736,7 +738,7 @@ fn get_predicted_classes(predictions: &Tensor<f32>) -> Result<Tensor<f32>> {
     if pred_dims.len() == 2 {
         // Classification case: (N, C)
         let (batch_size, num_classes) = (pred_dims[0], pred_dims[1]);
-        let mut result = zeros(&[batch_size])?;
+        let result = zeros(&[batch_size])?;
 
         for i in 0..batch_size {
             let mut max_val = f32::NEG_INFINITY;
@@ -887,7 +889,6 @@ fn compute_precision_recall_at_iou(
 ) -> Result<(f32, f32, f32)> {
     let mut tp = 0;
     let mut fp = 0;
-    let mut fn_count = 0;
 
     let mut gt_matched = vec![false; ground_truth.len()];
 
@@ -913,7 +914,7 @@ fn compute_precision_recall_at_iou(
         }
     }
 
-    fn_count = gt_matched.iter().filter(|&&matched| !matched).count();
+    let fn_count = gt_matched.iter().filter(|&&matched| !matched).count();
 
     let precision = if tp + fp > 0 {
         tp as f32 / (tp + fp) as f32

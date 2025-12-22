@@ -4,7 +4,7 @@ use metal::{ComputeCommandEncoderRef, ComputePipelineState, Device, Library, MTL
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use crate::metal::error::{metal_errors, MetalError, Result};
+use crate::metal::error::{metal_errors, Result};
 
 pub mod shaders;
 
@@ -35,10 +35,9 @@ impl KernelManager {
 
     /// Get or create a compute pipeline for a kernel
     pub fn get_pipeline(&self, kernel_name: &str) -> Result<ComputePipelineState> {
-        let mut pipelines = self
-            .pipelines
-            .lock()
-            .map_err(|e| metal_errors::metal_api_error(format!("Failed to lock pipelines: {}", e), None))?;
+        let mut pipelines = self.pipelines.lock().map_err(|e| {
+            metal_errors::metal_api_error(format!("Failed to lock pipelines: {}", e), None)
+        })?;
 
         if let Some(pipeline) = pipelines.get(kernel_name) {
             return Ok(pipeline.clone());
@@ -46,17 +45,20 @@ impl KernelManager {
 
         // Create new pipeline
         let function = self.library.get_function(kernel_name, None).map_err(|_| {
-            metal_errors::kernel_execution_error(format!("Kernel '{}' not found in library", kernel_name), None)
+            metal_errors::kernel_execution_error(
+                format!("Kernel '{}' not found in library", kernel_name),
+                None,
+            )
         })?;
 
         let pipeline = self
             .device
             .new_compute_pipeline_state_with_function(&function)
             .map_err(|e| {
-                metal_errors::shader_compilation_error(format!(
-                    "Failed to create pipeline for '{}': {}",
-                    kernel_name, e
-                ), None)
+                metal_errors::shader_compilation_error(
+                    format!("Failed to create pipeline for '{}': {}", kernel_name, e),
+                    None,
+                )
             })?;
 
         pipelines.insert(kernel_name.to_string(), pipeline.clone());
@@ -172,6 +174,9 @@ pub mod kernel_names {
     pub const REDUCE_MEAN_F32: &str = "reduce_mean_f32";
     pub const REDUCE_MAX_F32: &str = "reduce_max_f32";
     pub const REDUCE_MIN_F32: &str = "reduce_min_f32";
+
+    // Softmax
+    pub const SOFTMAX_F32: &str = "softmax_f32";
 
     // Matrix operations
     pub const MATMUL_F32: &str = "matmul_f32";

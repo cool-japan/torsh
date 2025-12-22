@@ -9,9 +9,8 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
-use std::thread;
-use std::time::{Duration, Instant};
-use torsh_core::{device::DeviceType, error::Result};
+
+use torsh_core::error::Result;
 
 /// Async operation handle that can be awaited
 pub struct AsyncTensorOp<T: TensorElement> {

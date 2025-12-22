@@ -18,8 +18,8 @@
 
 // Internal module structure - properly organized implementation
 mod internal {
-    use crate::{FxGraph, Node};
-    use std::collections::HashMap;
+    use crate::FxGraph;
+
     use torsh_core::Result;
 
     /// Core backend trait for code generation
@@ -93,7 +93,7 @@ pub use internal::{
 
 // Enhanced implementations that properly integrate with existing codegen files
 mod enhanced_backends {
-    use super::internal::{CodeGenBackend, TargetSpecification};
+    use super::internal::CodeGenBackend;
     use crate::FxGraph;
     use torsh_core::Result;
 
@@ -138,7 +138,7 @@ mod enhanced_backends {
             }
 
             code.push_str("\ndef generated_function(");
-            for (i, input) in graph.inputs().iter().enumerate() {
+            for (i, _input) in graph.inputs().iter().enumerate() {
                 if i > 0 {
                     code.push_str(", ");
                 }
@@ -266,8 +266,8 @@ mod enhanced_backends {
 
 pub use enhanced_backends::{CppCodeGen, PythonCodeGen};
 
-use crate::{FxGraph, Node};
-use std::collections::{HashMap, HashSet};
+use crate::FxGraph;
+use std::collections::HashMap;
 use torsh_core::error::Result;
 
 /// Enhanced code generator that orchestrates multiple backends

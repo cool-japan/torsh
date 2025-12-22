@@ -6,8 +6,6 @@
 //! learning algorithms, intelligent rule-based systems, and comprehensive
 //! state monitoring with automated decision making.
 
-use scirs2_core::ndarray::{array, Array1, Array2, ArrayView1};
-use scirs2_core::random::Random;
 use std::collections::{HashMap, VecDeque};
 use std::time::{Duration, Instant};
 
@@ -1651,7 +1649,7 @@ pub enum ParameterUpdate {
 }
 
 /// Strategy activation modes
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ActivationMode {
     Immediate,
     Gradual { transition_duration: Duration },

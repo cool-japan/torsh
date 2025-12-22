@@ -166,7 +166,7 @@ fn simulate_segment_intensity(segment_id: i32) -> f32 {
 }
 
 /// Simulate compactness measure for a segment
-fn simulate_segment_compactness(segment_id: i32, info: &ImageInfo) -> f32 {
+fn simulate_segment_compactness(segment_id: i32, _info: &ImageInfo) -> f32 {
     // Simulate different compactness values
     let base_compactness = 0.7;
     let variation = (segment_id as f32 * 0.1) % 0.3;

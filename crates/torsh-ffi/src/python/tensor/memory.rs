@@ -1,18 +1,19 @@
-use crate::error::{FfiError, FfiResult};
+use crate::error::FfiResult;
 use once_cell::sync::Lazy;
+use parking_lot::Mutex;
 use std::collections::VecDeque;
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Memory pool for efficient tensor allocation
 #[derive(Debug)]
 pub struct MemoryPool {
     /// Available memory blocks organized by size
     free_blocks: Mutex<std::collections::HashMap<usize, VecDeque<Vec<f32>>>>,
-    /// Statistics for monitoring
-    allocations: Mutex<usize>,
-    deallocations: Mutex<usize>,
-    pool_hits: Mutex<usize>,
-    pool_misses: Mutex<usize>,
+    /// Statistics for monitoring (using atomics for lock-free counter updates)
+    allocations: AtomicUsize,
+    deallocations: AtomicUsize,
+    pool_hits: AtomicUsize,
+    pool_misses: AtomicUsize,
     max_pool_size: usize,
 }
 
@@ -21,34 +22,32 @@ impl MemoryPool {
     pub fn new(max_pool_size: usize) -> Self {
         Self {
             free_blocks: Mutex::new(std::collections::HashMap::new()),
-            allocations: Mutex::new(0),
-            deallocations: Mutex::new(0),
-            pool_hits: Mutex::new(0),
-            pool_misses: Mutex::new(0),
+            allocations: AtomicUsize::new(0),
+            deallocations: AtomicUsize::new(0),
+            pool_hits: AtomicUsize::new(0),
+            pool_misses: AtomicUsize::new(0),
             max_pool_size,
         }
     }
 
     /// Allocate a vector from the pool or create new
     pub fn allocate(&self, size: usize) -> FfiResult<Vec<f32>> {
-        let mut free_blocks = self.free_blocks.lock().map_err(|_| FfiError::MemoryPool {
-            message: "Failed to acquire pool lock".to_string(),
-        })?;
+        let mut free_blocks = self.free_blocks.lock();
 
         if let Some(blocks) = free_blocks.get_mut(&size) {
             if let Some(mut block) = blocks.pop_front() {
                 // Reuse existing block
                 block.clear();
                 block.resize(size, 0.0);
-                *self.pool_hits.lock().unwrap() += 1;
-                *self.allocations.lock().unwrap() += 1;
+                self.pool_hits.fetch_add(1, Ordering::Relaxed);
+                self.allocations.fetch_add(1, Ordering::Relaxed);
                 return Ok(block);
             }
         }
 
         // Create new block
-        *self.pool_misses.lock().unwrap() += 1;
-        *self.allocations.lock().unwrap() += 1;
+        self.pool_misses.fetch_add(1, Ordering::Relaxed);
+        self.allocations.fetch_add(1, Ordering::Relaxed);
         Ok(vec![0.0; size])
     }
 
@@ -58,9 +57,7 @@ impl MemoryPool {
 
         // Only pool blocks that are reasonably sized and within our limits
         if size > 0 && size <= self.max_pool_size {
-            let mut free_blocks = self.free_blocks.lock().map_err(|_| FfiError::MemoryPool {
-                message: "Failed to acquire pool lock".to_string(),
-            })?;
+            let mut free_blocks = self.free_blocks.lock();
 
             let blocks = free_blocks.entry(size).or_insert_with(VecDeque::new);
 
@@ -71,33 +68,24 @@ impl MemoryPool {
             }
         }
 
-        *self.deallocations.lock().unwrap() += 1;
+        self.deallocations.fetch_add(1, Ordering::Relaxed);
         Ok(())
     }
 
     /// Get memory pool statistics
     pub fn stats(&self) -> FfiResult<MemoryPoolStats> {
         Ok(MemoryPoolStats {
-            allocations: *self.allocations.lock().unwrap(),
-            deallocations: *self.deallocations.lock().unwrap(),
-            pool_hits: *self.pool_hits.lock().unwrap(),
-            pool_misses: *self.pool_misses.lock().unwrap(),
-            active_blocks: self
-                .free_blocks
-                .lock()
-                .unwrap()
-                .values()
-                .map(|v| v.len())
-                .sum(),
+            allocations: self.allocations.load(Ordering::Relaxed),
+            deallocations: self.deallocations.load(Ordering::Relaxed),
+            pool_hits: self.pool_hits.load(Ordering::Relaxed),
+            pool_misses: self.pool_misses.load(Ordering::Relaxed),
+            active_blocks: self.free_blocks.lock().values().map(|v| v.len()).sum(),
         })
     }
 
     /// Clear all pooled memory
     pub fn clear(&self) -> FfiResult<()> {
-        let mut free_blocks = self.free_blocks.lock().map_err(|_| FfiError::MemoryPool {
-            message: "Failed to acquire pool lock".to_string(),
-        })?;
-        free_blocks.clear();
+        self.free_blocks.lock().clear();
         Ok(())
     }
 }

@@ -9,8 +9,9 @@ use torsh_tensor::Tensor;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
+// ✅ SciRS2 POLICY: Use scirs2_core::parallel_ops instead of rayon::prelude
 #[cfg(feature = "std")]
-use rayon::prelude::*;
+use scirs2_core::parallel_ops::*;
 
 /// Consolidated tensor stacking utility that reduces code duplication
 pub struct TensorStacker {
@@ -129,7 +130,10 @@ impl TensorStacker {
         let new_dims = self.create_new_shape(tensors[0].shape().dims(), tensors.len(), dim);
         let tensor_size = tensors[0].numel();
         let total_elements = new_dims.iter().product::<usize>();
-        let mut new_data = vec![T::from_f64(0.0).unwrap(); total_elements];
+        // Optimize: pre-allocate without unnecessary zero-initialization
+        let mut new_data = Vec::with_capacity(total_elements);
+        // SAFETY: We immediately fill all elements in the loop below
+        unsafe { new_data.set_len(total_elements) };
 
         // Copy data sequentially
         for (i, tensor) in tensors.iter().enumerate() {
@@ -152,7 +156,10 @@ impl TensorStacker {
         let new_dims = self.create_new_shape(tensors[0].shape().dims(), tensors.len(), dim);
         let tensor_size = tensors[0].numel();
         let total_elements = new_dims.iter().product::<usize>();
-        let mut new_data = vec![T::from_f64(0.0).unwrap(); total_elements];
+        // Optimize: pre-allocate without unnecessary zero-initialization
+        let mut new_data = Vec::with_capacity(total_elements);
+        // SAFETY: We immediately fill all elements after parallel collection
+        unsafe { new_data.set_len(total_elements) };
 
         // Parallel data collection
         let parallel_data: std::result::Result<Vec<Vec<T>>, TorshError> =

@@ -492,7 +492,7 @@ impl ModelSandbox {
     }
 
     /// Enter the sandbox environment
-    pub fn enter(&self) -> Result<SandboxGuard> {
+    pub fn enter(&self) -> Result<SandboxGuard<'_>> {
         let mut is_active = self.is_active.lock().unwrap();
         if *is_active {
             return Err(TorshError::General(GeneralError::RuntimeError(
@@ -709,7 +709,7 @@ impl SandboxedModel {
         input: &torsh_tensor::Tensor<f32>,
     ) -> Result<torsh_tensor::Tensor<f32>> {
         {
-            let mut sandbox = self.sandbox.write().unwrap();
+            let sandbox = self.sandbox.read().unwrap();
             let _guard = sandbox.enter()?;
 
             // Record memory usage for input tensor
@@ -726,7 +726,7 @@ impl SandboxedModel {
 
         // Record memory usage for output tensor
         {
-            let mut sandbox = self.sandbox.write().unwrap();
+            let sandbox = self.sandbox.read().unwrap();
             let output_elements = result.shape().dims().iter().product::<usize>();
             let output_memory = output_elements * std::mem::size_of::<f32>();
             sandbox.record_memory_usage(output_memory);
@@ -932,11 +932,14 @@ impl VulnerabilityScanner {
         deep_scan: bool,
         custom_patterns: Vec<String>,
     ) -> Self {
-        let mut scanner = Self::default();
-        scanner.max_scan_size = max_scan_size;
-        scanner.deep_scan = deep_scan;
-        scanner.malicious_patterns.extend(custom_patterns);
-        scanner
+        let mut malicious_patterns = Self::default().malicious_patterns;
+        malicious_patterns.extend(custom_patterns);
+        Self {
+            max_scan_size,
+            deep_scan,
+            malicious_patterns,
+            ..Default::default()
+        }
     }
 
     /// Scan a model file for vulnerabilities
@@ -1046,20 +1049,14 @@ impl VulnerabilityScanner {
 
         // Check file extension
         if let Some(extension) = file_path.extension() {
-            if let Some(ext_str) = extension.to_str() {
-                match ext_str {
-                    "exe" | "bat" | "sh" | "ps1" => {
-                        vulnerabilities.push(Vulnerability {
-                            vuln_type: VulnerabilityType::CodeExecution,
-                            severity: Severity::High,
-                            description: "Model file has executable extension".to_string(),
-                            location: file_path.to_string_lossy().to_string(),
-                            remediation: "Verify this is actually a model file and not malware"
-                                .to_string(),
-                        });
-                    }
-                    _ => {}
-                }
+            if let Some("exe" | "bat" | "sh" | "ps1") = extension.to_str() {
+                vulnerabilities.push(Vulnerability {
+                    vuln_type: VulnerabilityType::CodeExecution,
+                    severity: Severity::High,
+                    description: "Model file has executable extension".to_string(),
+                    location: file_path.to_string_lossy().to_string(),
+                    remediation: "Verify this is actually a model file and not malware".to_string(),
+                });
             }
         }
 

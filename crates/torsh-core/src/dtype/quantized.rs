@@ -517,6 +517,192 @@ impl QuantizationObserver {
             Some((self.min_val, self.max_val))
         }
     }
+
+    /// Calculate quantization parameters for QInt32
+    pub fn calculate_qint32_params(&self) -> Option<(f32, i32)> {
+        if self.count == 0 {
+            return None;
+        }
+        Some(calculate_qint32_params(self.min_val, self.max_val))
+    }
+}
+
+/// Quantized 32-bit signed integer with scale and zero-point parameters
+///
+/// QInt32 provides higher precision quantization compared to QInt8, offering
+/// a wider dynamic range while still using less memory than f32/f64.
+/// This is useful for intermediate computations in neural networks where
+/// higher precision is needed but full floating point is not required.
+///
+/// Formula: `real_value = scale * (quantized_value - zero_point)`
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct QInt32 {
+    /// The quantized integer value
+    pub value: i32,
+    /// Scale factor for dequantization
+    pub scale: f32,
+    /// Zero point offset for asymmetric quantization
+    pub zero_point: i32,
+}
+
+impl Eq for QInt32 {}
+
+impl Hash for QInt32 {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.value.hash(state);
+        self.scale.to_bits().hash(state);
+        self.zero_point.hash(state);
+    }
+}
+
+impl fmt::Display for QInt32 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "QInt32(value={}, scale={:.6}, zero_point={})",
+            self.value, self.scale, self.zero_point
+        )
+    }
+}
+
+impl QInt32 {
+    /// Create a new quantized int32 value
+    ///
+    /// # Arguments
+    /// * `value` - The quantized integer value
+    /// * `scale` - Scale factor for dequantization (must be positive)
+    /// * `zero_point` - Zero point offset for asymmetric quantization
+    pub fn new(value: i32, scale: f32, zero_point: i32) -> Self {
+        debug_assert!(scale > 0.0, "Scale must be positive");
+        QInt32 {
+            value,
+            scale,
+            zero_point,
+        }
+    }
+
+    /// Create a QInt32 with symmetric quantization (zero_point = 0)
+    pub fn symmetric(value: i32, scale: f32) -> Self {
+        Self::new(value, scale, 0)
+    }
+
+    /// Dequantize to f32 using the stored scale and zero-point
+    ///
+    /// Formula: `real_value = scale * (value - zero_point)`
+    pub fn dequantize(&self) -> f32 {
+        self.scale * (self.value as f64 - self.zero_point as f64) as f32
+    }
+
+    /// Dequantize to f64 with higher precision
+    pub fn dequantize_f64(&self) -> f64 {
+        self.scale as f64 * (self.value as f64 - self.zero_point as f64)
+    }
+
+    /// Quantize a floating point value to QInt32
+    ///
+    /// Formula: `quantized_value = round(value / scale + zero_point)`
+    /// The result is clamped to the valid i32 range.
+    pub fn quantize(value: f32, scale: f32, zero_point: i32) -> Self {
+        debug_assert!(scale > 0.0, "Scale must be positive");
+        let quantized = (value as f64 / scale as f64 + zero_point as f64).round();
+        let clamped = quantized.clamp(i32::MIN as f64, i32::MAX as f64) as i32;
+        QInt32::new(clamped, scale, zero_point)
+    }
+
+    /// Quantize with automatic scale and zero-point calculation
+    pub fn quantize_range(value: f32, min_value: f32, max_value: f32) -> Self {
+        let (scale, zero_point) = calculate_qint32_params(min_value, max_value);
+        Self::quantize(value, scale, zero_point)
+    }
+
+    /// Check if this is a symmetric quantization (zero_point == 0)
+    pub fn is_symmetric(&self) -> bool {
+        self.zero_point == 0
+    }
+
+    /// Get the effective range this quantization can represent
+    pub fn representable_range(&self) -> (f32, f32) {
+        let min_q = i32::MIN as f64;
+        let max_q = i32::MAX as f64;
+        let min_val = (self.scale as f64 * (min_q - self.zero_point as f64)) as f32;
+        let max_val = (self.scale as f64 * (max_q - self.zero_point as f64)) as f32;
+        (min_val, max_val)
+    }
+
+    /// Calculate the quantization error for a given float value
+    pub fn quantization_error(&self, original: f32) -> f32 {
+        let quantized = Self::quantize(original, self.scale, self.zero_point);
+        let restored = quantized.dequantize();
+        (restored - original).abs()
+    }
+
+    /// Create a zero value with the same quantization parameters
+    pub fn zero_like(&self) -> Self {
+        QInt32::new(self.zero_point, self.scale, self.zero_point)
+    }
+
+    /// Create a one value with the same quantization parameters
+    pub fn one_like(&self) -> Self {
+        let one_quantized = (1.0 / self.scale as f64 + self.zero_point as f64).round();
+        let clamped = one_quantized.clamp(i32::MIN as f64, i32::MAX as f64) as i32;
+        QInt32::new(clamped, self.scale, self.zero_point)
+    }
+}
+
+impl TensorElement for QInt32 {
+    fn dtype() -> DType {
+        DType::QInt32
+    }
+
+    fn from_f64(v: f64) -> Option<Self> {
+        // Default scale and zero-point for conversion
+        Some(QInt32::quantize(v as f32, 1.0, 0))
+    }
+
+    fn to_f64(&self) -> Option<f64> {
+        Some(self.dequantize_f64())
+    }
+
+    fn zero() -> Self {
+        QInt32::new(0, 1.0, 0)
+    }
+
+    fn one() -> Self {
+        QInt32::new(1, 1.0, 0)
+    }
+
+    fn is_zero(&self) -> bool {
+        self.value == 0 || self.dequantize() == 0.0
+    }
+
+    fn is_one(&self) -> bool {
+        (self.dequantize() - 1.0).abs() < 1e-6
+    }
+}
+
+/// Calculate optimal quantization parameters for QInt32
+///
+/// Returns (scale, zero_point) that maps [min_value, max_value] to the full i32 range.
+pub fn calculate_qint32_params(min_value: f32, max_value: f32) -> (f32, i32) {
+    assert!(max_value >= min_value, "max_value must be >= min_value");
+
+    if max_value == min_value {
+        // Degenerate case - all values are the same
+        return (1.0, 0);
+    }
+
+    let qmin = i32::MIN as f64;
+    let qmax = i32::MAX as f64;
+
+    // Calculate scale to map the range to quantized range
+    let scale = ((max_value - min_value) as f64 / (qmax - qmin)) as f32;
+
+    // Calculate zero point
+    let zero_point_real = qmin - (min_value as f64 / scale as f64);
+    let zero_point = zero_point_real.round().clamp(qmin, qmax) as i32;
+
+    (scale, zero_point)
 }
 
 #[cfg(test)]

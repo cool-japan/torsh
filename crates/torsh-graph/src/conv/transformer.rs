@@ -8,6 +8,7 @@ use torsh_tensor::{
 };
 
 /// Graph Transformer Networks layer
+#[derive(Debug)]
 pub struct GraphTransformer {
     in_features: usize,
     out_features: usize,
@@ -57,6 +58,31 @@ impl GraphTransformer {
             bias,
             dropout,
         }
+    }
+
+    /// Get input feature dimension
+    pub fn in_features(&self) -> usize {
+        self.in_features
+    }
+
+    /// Get output feature dimension
+    pub fn out_features(&self) -> usize {
+        self.out_features
+    }
+
+    /// Get number of attention heads
+    pub fn heads(&self) -> usize {
+        self.heads
+    }
+
+    /// Get edge feature dimension
+    pub fn edge_dim(&self) -> usize {
+        self.edge_dim
+    }
+
+    /// Get dropout rate
+    pub fn dropout(&self) -> f32 {
+        self.dropout
     }
 
     /// Apply graph transformer convolution

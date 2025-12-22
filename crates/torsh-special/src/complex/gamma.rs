@@ -3,7 +3,7 @@
 //! This module provides implementations of complex gamma, beta, polygamma,
 //! and incomplete gamma functions with proper branch cut handling.
 
-use num_traits::Zero;
+use scirs2_core::numeric::Zero; // SciRS2 POLICY compliant
 use std::f64::consts::PI;
 use torsh_core::dtype::{Complex32, Complex64};
 use torsh_core::error::TorshError;

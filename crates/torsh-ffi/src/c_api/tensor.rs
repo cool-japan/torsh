@@ -3,12 +3,10 @@
 //! This module provides all tensor-related functionality for the ToRSh C API,
 //! including tensor creation, manipulation, mathematical operations, and activations.
 
-use crate::error::{FfiError, FfiResult};
 use scirs2_core::legacy::rng;
 use scirs2_core::random::prelude::*;
-use scirs2_core::random::Random;
 use std::collections::HashMap;
-use std::os::raw::{c_char, c_float, c_int, c_void};
+use std::os::raw::{c_float, c_int, c_void};
 use std::ptr;
 use std::slice;
 use std::sync::{Mutex, OnceLock};

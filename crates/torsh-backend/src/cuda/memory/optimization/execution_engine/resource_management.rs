@@ -6,17 +6,17 @@
 //! of resource utilization across the entire CUDA execution environment.
 
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 use std::sync::{
-    atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
-    Arc, Mutex, RwLock,
+    atomic::{AtomicU64, Ordering},
+    Arc, Mutex,
 };
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, Instant};
 
 use super::config::{
     CpuAllocationConfig, GpuAllocationConfig, MemoryAllocationConfig, ResourceAllocationStrategy,
 };
-use super::task_management::{HardwareRequirement, ResourceRequirements, TaskId};
+use super::task_management::{HardwareRequirement, ResourceRequirements};
 
 /// Comprehensive resource manager for CUDA optimization execution
 ///
@@ -1785,11 +1785,3 @@ pub enum MemoryPoolType {
     Shared,
     Pinned,
 }
-
-impl PartialEq for MemoryPoolType {
-    fn eq(&self, other: &Self) -> bool {
-        std::mem::discriminant(self) == std::mem::discriminant(other)
-    }
-}
-
-impl Eq for MemoryPoolType {}

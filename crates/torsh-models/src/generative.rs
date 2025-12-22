@@ -4,9 +4,11 @@
 //! Variational Autoencoders (VAE), Generative Adversarial Networks (GAN),
 //! and Diffusion Models for generating new data samples.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use torsh_core::{error::TorshError, DType, DeviceType};
+use torsh_core::{error::TorshError, DeviceType};
 use torsh_nn::prelude::{BatchNorm2d, Conv2d, ConvTranspose2d, Dropout, Linear};
 use torsh_nn::{Module, Parameter};
 use torsh_tensor::Tensor;
@@ -435,7 +437,7 @@ impl VAE {
     pub fn sample(
         &self,
         num_samples: usize,
-        device: DeviceType,
+        _device: DeviceType,
     ) -> torsh_core::error::Result<Tensor> {
         let z = torsh_tensor::creation::randn(&[num_samples, self.config.latent_dim])?;
         self.decoder.decode(&z)
@@ -858,7 +860,7 @@ impl GAN {
 
     pub fn generator_loss(&self, fake_logits: &Tensor) -> torsh_core::error::Result<Tensor> {
         // Generator wants discriminator to output 1 for fake images
-        let ones = Tensor::ones_like(fake_logits)?;
+        let _ones = Tensor::ones_like(fake_logits)?;
         // Implement binary cross entropy with logits manually: -log(sigmoid(logits))
         let sigmoid_logits = fake_logits.sigmoid()?;
         let loss = sigmoid_logits.ln()?.mul_scalar(-1.0)?;
@@ -889,7 +891,7 @@ impl GAN {
     pub fn sample(
         &self,
         num_samples: usize,
-        device: DeviceType,
+        _device: DeviceType,
     ) -> torsh_core::error::Result<Tensor> {
         let z = torsh_tensor::creation::randn(&[num_samples, self.config.latent_dim])?;
         self.generator.generate(&z)
@@ -1073,7 +1075,7 @@ impl DiffusionUNet {
 
     pub fn forward(&self, x: &Tensor, timestep: &Tensor) -> torsh_core::error::Result<Tensor> {
         // Time embedding (simplified)
-        let t_emb = self.time_embedding.forward(timestep)?;
+        let _t_emb = self.time_embedding.forward(timestep)?;
 
         // Input processing
         let mut h = self.input_conv.forward(x)?;
@@ -1096,7 +1098,7 @@ impl DiffusionUNet {
         h = h.relu()?;
 
         // Upsampling with skip connections
-        for (i, up_block) in self.up_blocks.iter().enumerate() {
+        for (_i, up_block) in self.up_blocks.iter().enumerate() {
             let skip = skip_connections.pop().unwrap();
             h = Tensor::cat(&[&h, &skip], 1)?; // Concatenate along channel dimension
             h = up_block.forward(&h)?;

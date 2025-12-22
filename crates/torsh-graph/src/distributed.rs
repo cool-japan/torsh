@@ -4,10 +4,9 @@
 //! for graph neural networks across multiple devices and machines.
 
 use crate::{GraphData, GraphLayer};
-use torsh_tensor::Tensor;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::thread;
+use torsh_tensor::Tensor;
 
 /// Distributed training configuration
 #[derive(Debug, Clone)]
@@ -42,7 +41,6 @@ pub enum CommunicationBackend {
 }
 
 /// Graph partitioning strategies
-#[derive(Debug, Clone)]
 pub enum GraphPartitioning {
     /// Random vertex partitioning
     Random,
@@ -54,6 +52,35 @@ pub enum GraphPartitioning {
     Community,
     /// Custom partitioning function
     Custom(Box<dyn Fn(&GraphData, usize) -> Vec<PartitionInfo> + Send + Sync>),
+}
+
+// Manual Debug implementation for GraphPartitioning
+impl std::fmt::Debug for GraphPartitioning {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GraphPartitioning::Random => write!(f, "GraphPartitioning::Random"),
+            GraphPartitioning::METIS => write!(f, "GraphPartitioning::METIS"),
+            GraphPartitioning::Hash => write!(f, "GraphPartitioning::Hash"),
+            GraphPartitioning::Community => write!(f, "GraphPartitioning::Community"),
+            GraphPartitioning::Custom(_) => write!(f, "GraphPartitioning::Custom(<function>)"),
+        }
+    }
+}
+
+// Manual Clone implementation for GraphPartitioning (Clone not available for Custom)
+impl Clone for GraphPartitioning {
+    fn clone(&self) -> Self {
+        match self {
+            GraphPartitioning::Random => GraphPartitioning::Random,
+            GraphPartitioning::METIS => GraphPartitioning::METIS,
+            GraphPartitioning::Hash => GraphPartitioning::Hash,
+            GraphPartitioning::Community => GraphPartitioning::Community,
+            GraphPartitioning::Custom(_) => {
+                // Cannot clone function pointer - fallback to Random
+                GraphPartitioning::Random
+            }
+        }
+    }
 }
 
 /// Aggregation methods for distributed updates
@@ -102,6 +129,7 @@ pub struct PartitionMetrics {
 }
 
 /// Distributed graph neural network coordinator
+#[derive(Debug)]
 pub struct DistributedGNN {
     /// Configuration
     pub config: DistributedConfig,
@@ -190,7 +218,10 @@ impl DistributedGNN {
         for param in parameters {
             // Serialize parameter
             let param_data = param.to_vec().map_err(|e| {
-                DistributedError::CommunicationError(format!("Failed to serialize parameter: {:?}", e))
+                DistributedError::CommunicationError(format!(
+                    "Failed to serialize parameter: {:?}",
+                    e
+                ))
             })?;
 
             // Perform all-reduce operation
@@ -219,15 +250,15 @@ impl DistributedGNN {
     }
 
     /// Sum parameters across workers
-    fn sum_parameters(
-        &mut self,
-        parameters: &[Tensor],
-    ) -> Result<Vec<Tensor>, DistributedError> {
+    fn sum_parameters(&mut self, parameters: &[Tensor]) -> Result<Vec<Tensor>, DistributedError> {
         let mut summed_params = Vec::new();
 
         for param in parameters {
             let param_data = param.to_vec().map_err(|e| {
-                DistributedError::CommunicationError(format!("Failed to serialize parameter: {:?}", e))
+                DistributedError::CommunicationError(format!(
+                    "Failed to serialize parameter: {:?}",
+                    e
+                ))
             })?;
 
             let summed_data = self.comm_manager.all_reduce_sum(&param_data)?;
@@ -335,7 +366,7 @@ impl DistributedGNN {
     /// Augment local graph with boundary features
     fn augment_local_graph(
         &self,
-        boundary_features: &HashMap<usize, Tensor>,
+        _boundary_features: &HashMap<usize, Tensor>,
     ) -> Result<GraphData, DistributedError> {
         // For now, return the local partition
         // In practice, would merge boundary features
@@ -448,10 +479,7 @@ impl DistributedGNN {
         Ok(partitions)
     }
 
-    fn extract_subgraph(
-        graph: &GraphData,
-        nodes: &[usize],
-    ) -> Result<GraphData, DistributedError> {
+    fn extract_subgraph(graph: &GraphData, nodes: &[usize]) -> Result<GraphData, DistributedError> {
         // Simplified subgraph extraction
         // In practice, would properly extract edges and reindex nodes
 
@@ -469,7 +497,7 @@ impl DistributedGNN {
         for &node in nodes {
             if node < graph.num_nodes {
                 // Extract features for this node (simplified)
-                for f in 0..feature_dim {
+                for _f in 0..feature_dim {
                     subgraph_features.push(1.0); // Placeholder
                 }
             }
@@ -480,7 +508,9 @@ impl DistributedGNN {
             &[nodes.len(), feature_dim],
             graph.x.device(),
         )
-        .map_err(|e| DistributedError::TensorError(format!("Failed to create features tensor: {:?}", e)))?;
+        .map_err(|e| {
+            DistributedError::TensorError(format!("Failed to create features tensor: {:?}", e))
+        })?;
 
         // Create minimal edge index (simplified)
         let edge_index = torsh_tensor::creation::zeros(&[2, 0]).unwrap();
@@ -511,6 +541,7 @@ impl DistributedGNN {
 }
 
 /// Communication manager for distributed operations
+#[derive(Debug)]
 pub struct CommunicationManager {
     backend: CommunicationBackend,
     rank: usize,
@@ -525,6 +556,16 @@ impl CommunicationManager {
             rank: config.rank,
             num_workers: config.num_workers,
         })
+    }
+
+    /// Get the rank of this worker
+    pub fn rank(&self) -> usize {
+        self.rank
+    }
+
+    /// Get the number of workers
+    pub fn num_workers(&self) -> usize {
+        self.num_workers
     }
 
     pub fn all_reduce(&mut self, data: &[f32]) -> Result<Vec<f32>, DistributedError> {
@@ -544,7 +585,11 @@ impl CommunicationManager {
         Ok(data.to_vec())
     }
 
-    pub fn send_to(&mut self, _target_rank: usize, _data: &[Tensor]) -> Result<(), DistributedError> {
+    pub fn send_to(
+        &mut self,
+        _target_rank: usize,
+        _data: &[Tensor],
+    ) -> Result<(), DistributedError> {
         // Simplified implementation
         Ok(())
     }
@@ -554,7 +599,10 @@ impl CommunicationManager {
         Ok(Vec::new())
     }
 
-    pub fn request_boundary_features(&mut self, _target_worker: usize) -> Result<Tensor, DistributedError> {
+    pub fn request_boundary_features(
+        &mut self,
+        _target_worker: usize,
+    ) -> Result<Tensor, DistributedError> {
         // Simplified implementation
         torsh_tensor::creation::zeros(&[1, 1])
             .map_err(|e| DistributedError::TensorError(format!("Failed to create tensor: {:?}", e)))
@@ -641,7 +689,9 @@ impl std::fmt::Display for DistributedError {
             DistributedError::PartitioningError(msg) => write!(f, "Partitioning error: {}", msg),
             DistributedError::TensorError(msg) => write!(f, "Tensor error: {}", msg),
             DistributedError::ConfigError(msg) => write!(f, "Configuration error: {}", msg),
-            DistributedError::SynchronizationError(msg) => write!(f, "Synchronization error: {}", msg),
+            DistributedError::SynchronizationError(msg) => {
+                write!(f, "Synchronization error: {}", msg)
+            }
         }
     }
 }
@@ -649,6 +699,7 @@ impl std::fmt::Display for DistributedError {
 impl std::error::Error for DistributedError {}
 
 /// Distributed graph layer wrapper
+#[derive(Debug)]
 pub struct DistributedGraphLayer {
     /// Base layer
     pub base_layer: Box<dyn GraphLayer>,
@@ -697,7 +748,8 @@ pub mod utils {
         let variance: f32 = partition_sizes
             .iter()
             .map(|&size| (size as f32 - mean_size).powi(2))
-            .sum::<f32>() / partition_sizes.len() as f32;
+            .sum::<f32>()
+            / partition_sizes.len() as f32;
 
         variance / mean_size.max(1.0)
     }
@@ -741,8 +793,8 @@ pub mod utils {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use torsh_tensor::creation::randn;
-    use torsh_core::device::DeviceType;
 
     #[test]
     fn test_distributed_config_creation() {

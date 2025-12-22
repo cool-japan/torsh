@@ -5,7 +5,7 @@
 //! significantly reduce computation when dealing with sparse data.
 
 use crate::{CooTensor, CsrTensor, SparseTensor, TorshResult};
-use scirs2_core::random::{Random, rng, Rng};
+use scirs2_core::random::{Random, rng};
 use std::collections::HashMap;
 use torsh_core::{Shape, TorshError};
 use torsh_tensor::{
@@ -384,8 +384,8 @@ impl SparseLinear {
         let mut positions = std::collections::HashSet::new();
         while positions.len() < nnz {
             let mut rng = scirs2_core::random::thread_rng();
-            let row = rng.gen_range(0..out_features);
-            let col = rng.gen_range(0..in_features);
+            let row = rng.gen_range(0.. out_features);
+            let col = rng.gen_range(0.. in_features);
             positions.insert((row, col));
         }
 
@@ -396,7 +396,7 @@ impl SparseLinear {
             // Xavier/Glorot initialization
             let std_dev = (2.0 / (in_features + out_features) as f32).sqrt();
             let mut rng = scirs2_core::random::thread_rng();
-            values.push(rng.gen::<f32>() * 2.0 * std_dev - std_dev);
+            values.push(rng.random::<f32>() * 2.0 * std_dev - std_dev);
         }
 
         let shape = Shape::new(vec![out_features, in_features]);
@@ -543,8 +543,8 @@ impl SparseEmbedding {
         let mut positions = std::collections::HashSet::new();
         while positions.len() < nnz {
             let mut rng = scirs2_core::random::thread_rng();
-            let row = rng.gen_range(0..vocab_size);
-            let col = rng.gen_range(0..embedding_dim);
+            let row = rng.gen_range(0.. vocab_size);
+            let col = rng.gen_range(0.. embedding_dim);
             positions.insert((row, col));
         }
 
@@ -554,7 +554,7 @@ impl SparseEmbedding {
             col_indices.push(col);
             // Normal initialization with std=1.0
             let mut rng = scirs2_core::random::thread_rng();
-            values.push(rng.gen::<f32>() * 2.0 - 1.0);
+            values.push(rng.random::<f32>() * 2.0 - 1.0);
         }
 
         let shape = Shape::new(vec![vocab_size, embedding_dim]);

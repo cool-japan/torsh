@@ -18,8 +18,10 @@
 //! Additional specialized benchmarks include model-specific tests, hardware
 //! optimization benchmarks, edge deployment tests, and SciRS2 integration.
 
-// Remove allow directives to enable proper warning detection
-// These should be fixed rather than suppressed
+#![cfg_attr(
+    not(any(feature = "tensorflow", feature = "pytorch", feature = "jax")),
+    allow(unexpected_cfgs)
+)]
 
 // Core comparison infrastructure
 pub mod core;
@@ -74,8 +76,11 @@ pub mod comparisons {
 // Specialized benchmark modules
 pub mod advanced_analysis;
 pub mod benchmark_analysis;
+pub mod benchmark_cache;
+pub mod benchmark_comparison;
 pub mod benchmark_validation;
 pub mod benchmarks;
+pub mod cached_runner;
 pub mod ci_integration;
 pub mod custom_ops_benchmarks;
 pub mod distributed_training;

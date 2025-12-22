@@ -114,7 +114,7 @@ impl AugMix {
     fn auto_contrast(&self, input: &Tensor<f32>) -> Result<Tensor<f32>> {
         let shape = input.shape();
         let (channels, height, width) = (shape.dims()[0], shape.dims()[1], shape.dims()[2]);
-        let mut output = input.clone();
+        let output = input.clone();
 
         for c in 0..channels {
             let mut min_val = f32::INFINITY;
@@ -170,7 +170,7 @@ impl AugMix {
         let shift = 8 - bits;
         let shape = input.shape();
         let (channels, height, width) = (shape.dims()[0], shape.dims()[1], shape.dims()[2]);
-        let mut output = input.clone();
+        let output = input.clone();
 
         for c in 0..channels {
             for y in 0..height {
@@ -191,7 +191,7 @@ impl Transform for AugMix {
         //  SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
         let mut rng = Random::seed(42);
 
-        let mut weights: Vec<f32> = (0..self.width).map(|_| rng.gen::<f32>()).collect();
+        let mut weights: Vec<f32> = (0..self.width).map(|_| rng.random::<f32>()).collect();
         let sum: f32 = weights.iter().sum();
         if sum > 0.0 {
             for w in &mut weights {
@@ -205,7 +205,7 @@ impl Transform for AugMix {
             let chain_length = rng.gen_range(1..=self.depth);
             for _ in 0..chain_length {
                 let op_idx = rng.gen_range(0..self.augmentations.len());
-                let magnitude = rng.gen::<f32>();
+                let magnitude = rng.random::<f32>();
                 current = self.apply_operation(&current, &self.augmentations[op_idx], magnitude)?;
             }
             augmented_images.push(current);
@@ -309,7 +309,7 @@ impl GridMask {
         let r = rng.gen_range(self.r_min..=self.r_max);
         let l = ((d as f32 * r) as usize).max(1);
 
-        let mut mask = creation::ones(&[height, width]).unwrap();
+        let mask = creation::ones(&[height, width]).unwrap();
         let mut y_start = rng.gen_range(0..d);
         while y_start < height {
             let y_end = (y_start + l).min(height);
@@ -333,7 +333,7 @@ impl Transform for GridMask {
     fn forward(&self, input: &Tensor<f32>) -> Result<Tensor<f32>> {
         //  SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
         let mut rng = Random::seed(42);
-        if rng.gen::<f32>() > self.prob {
+        if rng.random::<f32>() > self.prob {
             return Ok(input.clone());
         }
 
@@ -347,7 +347,7 @@ impl Transform for GridMask {
 
         let (channels, height, width) = (shape.dims()[0], shape.dims()[1], shape.dims()[2]);
         let mask = self.generate_grid_mask(height, width)?;
-        let mut output = input.clone();
+        let output = input.clone();
 
         for c in 0..channels {
             for y in 0..height {
@@ -417,7 +417,7 @@ impl Mosaic {
         let center_y = rng.gen_range(target_height / 4..target_height * 3 / 4);
 
         let channels = images[0].shape().dims()[0];
-        let mut mosaic = creation::zeros(&[channels, target_height, target_width]).unwrap();
+        let mosaic = creation::zeros(&[channels, target_height, target_width]).unwrap();
 
         let regions = [
             (0, 0, center_x, center_y),

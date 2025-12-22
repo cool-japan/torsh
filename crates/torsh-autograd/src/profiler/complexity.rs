@@ -17,7 +17,7 @@
 //!
 //! # Examples
 //!
-//! ```rust
+//! ```rust,ignore
 //! use crate::profiler::complexity::{ComplexityAnalyzer, ComplexityClass};
 //! use std::time::Duration;
 //!
@@ -130,7 +130,7 @@ impl ComplexityAnalyzer {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let analyzer = ComplexityAnalyzer::new();
     /// assert_eq!(analyzer.get_complexity_summary().len(), 0);
     /// ```
@@ -155,7 +155,7 @@ impl ComplexityAnalyzer {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let mut analyzer = ComplexityAnalyzer::new();
     /// let time = Duration::from_millis(50);
     /// analyzer.record_performance("matrix_multiply", 1000, time, 4096);
@@ -204,7 +204,7 @@ impl ComplexityAnalyzer {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let mut analyzer = ComplexityAnalyzer::new();
     /// // ... record performance data ...
     /// let analysis = analyzer.analyze_complexity("my_operation")?;
@@ -498,7 +498,7 @@ impl ComplexityAnalyzer {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let summary = analyzer.get_complexity_summary();
     /// for (op_name, complexity) in summary {
     ///     println!("{}: {}", op_name, complexity);

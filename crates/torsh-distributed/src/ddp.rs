@@ -1,9 +1,12 @@
 //! Distributed Data Parallel (DDP) implementation
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
+#![allow(clippy::await_holding_lock)]
 use crate::backend::ReduceOp;
 use crate::collectives::all_reduce;
 use crate::{process_group::ProcessGroup, TorshResult};
-use log::{debug, info, warn};
+use log::info;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -457,7 +460,7 @@ impl<M: Module> DistributedDataParallel<M> {
             // Single gradient - direct synchronization
             Self::sync_single_gradient(gradients, process_group).await
         }
-        .map(|result| {
+        .inspect(|_result| {
             let elapsed = start_time.elapsed();
             if elapsed > Duration::from_millis(100) {
                 info!(
@@ -465,7 +468,6 @@ impl<M: Module> DistributedDataParallel<M> {
                     elapsed.as_secs_f32() * 1000.0
                 );
             }
-            result
         })
     }
 
@@ -559,6 +561,7 @@ impl<M: Module> DistributedDataParallel<M> {
 
     /// Synchronize gradients using naive approach (one parameter at a time)
     async fn sync_gradients_naive(&mut self) -> TorshResult<()> {
+        #[allow(clippy::await_holding_lock)]
         let parameters = self.module.parameters();
 
         for (_name, param) in parameters {
@@ -641,6 +644,7 @@ impl<M: Module> DistributedDataParallel<M> {
                     Err(e) => {
                         info!("  Failed to sync bucket gradients efficiently, falling back to individual sync: {}", e);
 
+                        #[allow(clippy::await_holding_lock)]
                         // Fallback to individual gradient synchronization
                         for param_name in &bucket_params {
                             if let Some(param) = parameters.get(param_name) {

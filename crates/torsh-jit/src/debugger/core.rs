@@ -3,7 +3,7 @@
 //! This module provides fundamental types, enums, and configurations
 //! used throughout the JIT debugging system.
 
-use crate::{ir::Instruction, NodeId};
+use crate::NodeId;
 use std::collections::HashMap;
 use torsh_core::{DType, Shape};
 

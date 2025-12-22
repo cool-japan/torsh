@@ -4,6 +4,8 @@
 //! for distributed training operations, including retry logic, circuit
 //! breakers, and failure detection.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{TorshDistributedError, TorshResult};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -241,8 +243,7 @@ impl RetryExecutor {
                     return Err(TorshDistributedError::communication_error(
                         "error_recovery",
                         "Circuit breaker is open",
-                    )
-                    .into());
+                    ));
                 }
             }
 
@@ -297,7 +298,7 @@ impl RetryExecutor {
                         // Add jitter
                         if self.retry_config.jitter_factor > 0.0 {
                             // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
-                            use scirs2_core::random::{Random, Rng};
+                            use scirs2_core::random::Random;
                             let mut rng = Random::seed(42);
                             let jitter = rng.gen_range(0.0..=self.retry_config.jitter_factor);
                             let jitter_ms = (delay.as_millis() as f64 * jitter) as u64;

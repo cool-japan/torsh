@@ -349,7 +349,6 @@ impl SparseSGD {
 
 #[cfg(test)]
 mod tests {
-    use super::super::super::common::utils::SparseWeightGenerator;
     use super::*;
 
     #[test]

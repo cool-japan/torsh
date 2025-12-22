@@ -11,19 +11,20 @@
 //! The CDN system is designed for production environments requiring high availability,
 //! optimal performance, and intelligent content delivery across multiple regions.
 
-use futures::stream::{self, StreamExt};
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
+use futures::stream::StreamExt;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::fs::File as AsyncFile;
 use tokio::io::AsyncWriteExt;
 use torsh_core::error::{Result, TorshError};
 
 // Import from our other modules
-use super::config::{CdnConfig, CdnEndpoint, FailoverStrategy};
+use super::config::{CdnConfig, CdnEndpoint};
 use super::core::print_progress;
 use super::validation::validate_url;
 
@@ -41,16 +42,18 @@ use super::validation::validate_url;
 /// - Endpoint capacity management and load monitoring
 ///
 /// # Examples
-/// ```rust
+/// ```rust,no_run
 /// use torsh_hub::download::cdn::AdvancedCdnManager;
 /// use torsh_hub::download::config::CdnConfig;
+/// use std::path::Path;
 ///
-/// # tokio_test::block_on(async {
+/// # #[tokio::main]
+/// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let config = CdnConfig::default();
-/// let mut manager = AdvancedCdnManager::new(config).unwrap();
+/// let mut manager = AdvancedCdnManager::new(config)?;
 ///
 /// // Perform health check on all endpoints
-/// let health_result = manager.comprehensive_health_check().await.unwrap();
+/// let health_result = manager.comprehensive_health_check().await?;
 /// println!("Healthy endpoints: {}/{}",
 ///     health_result.healthy_endpoints,
 ///     health_result.total_endpoints);
@@ -60,8 +63,9 @@ use super::validation::validate_url;
 ///     "models/llama-7b.torsh",
 ///     Path::new("/tmp/model.torsh"),
 ///     true
-/// ).await.unwrap();
-/// # });
+/// ).await?;
+/// # Ok(())
+/// # }
 /// ```
 pub struct AdvancedCdnManager {
     config: CdnConfig,
@@ -72,7 +76,7 @@ pub struct AdvancedCdnManager {
 }
 
 /// Comprehensive performance metrics for CDN endpoints
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct PerformanceMetrics {
     /// Response time history for each endpoint (circular buffer)
     pub response_times: HashMap<String, Vec<u64>>,
@@ -113,7 +117,7 @@ pub struct GeographicPerformance {
 }
 
 /// Advanced health monitoring system
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct HealthMonitoring {
     /// Health check intervals for different endpoint types
     pub check_intervals: HashMap<String, Duration>,
@@ -173,7 +177,7 @@ pub enum TrendDirection {
 }
 
 /// Failure detection and prediction system
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct FailureDetector {
     /// Failure patterns detected
     pub failure_patterns: HashMap<String, FailurePattern>,
@@ -271,39 +275,6 @@ pub enum LoadBalancingAlgorithm {
     ConsistentHashing,
 }
 
-impl Default for PerformanceMetrics {
-    fn default() -> Self {
-        Self {
-            response_times: HashMap::new(),
-            success_rates: HashMap::new(),
-            bandwidth_stats: HashMap::new(),
-            geographic_performance: HashMap::new(),
-            last_update: 0,
-        }
-    }
-}
-
-impl Default for HealthMonitoring {
-    fn default() -> Self {
-        Self {
-            check_intervals: HashMap::new(),
-            last_results: HashMap::new(),
-            health_trends: HashMap::new(),
-            failure_detector: FailureDetector::default(),
-        }
-    }
-}
-
-impl Default for FailureDetector {
-    fn default() -> Self {
-        Self {
-            failure_patterns: HashMap::new(),
-            failure_predictors: HashMap::new(),
-            incident_history: Vec::new(),
-        }
-    }
-}
-
 impl Default for LoadBalancer {
     fn default() -> Self {
         Self {
@@ -330,7 +301,7 @@ impl AdvancedCdnManager {
     /// * `Err(TorshError)` - If initialization fails
     pub fn new(config: CdnConfig) -> Result<Self> {
         let client = Client::builder()
-            .user_agent("torsh-hub/0.1.0-alpha.1")
+            .user_agent("torsh-hub/0.1.0-alpha.2")
             .timeout(config.endpoint_timeout)
             .build()
             .map_err(|e| TorshError::IoError(e.to_string()))?;
@@ -668,7 +639,7 @@ impl AdvancedCdnManager {
         }
 
         let mut attempts = Vec::new();
-        let mut last_error = None;
+        let mut _last_error = None;
 
         for (index, endpoint) in selected_endpoints.iter().enumerate() {
             let attempt_start = Instant::now();
@@ -751,7 +722,7 @@ impl AdvancedCdnManager {
                         );
                     }
 
-                    last_error = Some(e);
+                    _last_error = Some(e);
                 }
             }
         }
@@ -963,7 +934,7 @@ impl AdvancedCdnManager {
             .success_rates
             .get_mut(endpoint_name)
         {
-            *success_rate = 0.9 * (*success_rate); // Exponential decay
+            *success_rate *= 0.9; // Exponential decay
         }
     }
 
@@ -1152,7 +1123,6 @@ pub async fn download_with_advanced_cdn(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
 
     #[tokio::test]
     async fn test_advanced_cdn_manager_creation() {

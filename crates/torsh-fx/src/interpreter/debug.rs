@@ -8,7 +8,6 @@ use crate::interpreter::execution::ExecutionEnvironment;
 use crate::interpreter::metrics::ExecutionMetrics;
 use crate::{FxGraph, Node, TorshResult};
 use petgraph::graph::NodeIndex;
-use std::collections::HashMap;
 use torsh_core::{device::DeviceType, error::TorshError};
 use torsh_tensor::Tensor;
 

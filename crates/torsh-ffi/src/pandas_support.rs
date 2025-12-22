@@ -4,11 +4,13 @@
 //! between ToRSh tensors and Pandas DataFrames/Series, as well as access to Pandas'
 //! data manipulation and analysis functionality.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::error::FfiError;
 use crate::numpy_compatibility::NumpyCompat;
 use crate::python::tensor::PyTensor;
 use pyo3::prelude::*;
-use pyo3::types::{IntoPyDict, PyAny, PyDict, PyModule, PyTuple};
+use pyo3::types::{IntoPyDict, PyAny, PyDict, PyModule};
 use pyo3::Bound;
 use std::collections::HashMap;
 
@@ -23,6 +25,7 @@ pub struct PandasSupport {
     /// Configuration for Pandas operations
     config: PandasConfig,
     /// Type mappings between ToRSh and Pandas
+    #[allow(dead_code)]
     type_mappings: HashMap<String, String>,
 }
 
@@ -182,7 +185,7 @@ impl PandasSupport {
             .map_err(|e| FfiError::InvalidConversion { message: e })?;
 
         // Create DataFrame constructor arguments
-        let mut kwargs = PyDict::new(py);
+        let kwargs = PyDict::new(py);
         kwargs.set_item("data", numpy_array)?;
 
         if let Some(cols) = columns {
@@ -200,11 +203,11 @@ impl PandasSupport {
     /// Convert Pandas DataFrame to ToRSh tensor
     pub fn from_dataframe(
         &self,
-        py: Python,
+        _py: Python,
         dataframe: Bound<'_, PyAny>,
     ) -> PyResult<TorshDataFrame> {
         // Get the underlying numpy array
-        let values = dataframe.getattr("values")?;
+        let _values = dataframe.getattr("_values")?;
         // TODO: Implement proper NumPy array conversion
         return Err(FfiError::UnsupportedOperation {
             operation: "DataFrame to Tensor conversion not implemented".to_string(),
@@ -258,7 +261,7 @@ impl PandasSupport {
             .to_numpy_array(&tensor.data, &tensor.shape)
             .map_err(|e| FfiError::InvalidConversion { message: e })?;
 
-        let mut kwargs = PyDict::new(py);
+        let kwargs = PyDict::new(py);
         kwargs.set_item("data", numpy_array)?;
 
         if let Some(name_str) = name {
@@ -274,7 +277,7 @@ impl PandasSupport {
     }
 
     /// Convert Pandas Series to ToRSh tensor
-    pub fn from_series(&self, py: Python, series: Bound<'_, PyAny>) -> PyResult<TorshSeries> {
+    pub fn from_series(&self, _py: Python, series: Bound<'_, PyAny>) -> PyResult<TorshSeries> {
         // Get the underlying numpy array
         let _values = series.getattr("values")?;
         // TODO: Implement proper NumPy array conversion
@@ -372,7 +375,7 @@ impl PandasSupport {
 
         // Extract statistical summaries
         let mut statistics = HashMap::new();
-        let describe_df = self.from_dataframe(py, describe_result)?;
+        let _describe_df = self.from_dataframe(py, describe_result)?;
 
         // Get basic stats
         let mean_values = dataframe.call_method("mean", (), None)?;
@@ -445,7 +448,7 @@ impl PandasSupport {
     /// Perform data filtering and selection
     pub fn filter_data(
         &self,
-        py: Python,
+        _py: Python,
         dataframe: Bound<'_, PyAny>,
         query: &str,
     ) -> PyResult<Py<PyAny>> {
@@ -456,13 +459,13 @@ impl PandasSupport {
     pub fn merge_dataframes(
         &self,
         py: Python,
-        left: Bound<'_, PyAny>,
-        right: Bound<'_, PyAny>,
-        on: Vec<String>,
+        _left: Bound<'_, PyAny>,
+        _right: Bound<'_, PyAny>,
+        _on: Vec<String>,
         how: Option<&str>,
     ) -> PyResult<Py<PyAny>> {
-        let pandas = self.get_pandas_module(py)?;
-        let how_str = how.unwrap_or("inner");
+        let _pandas = self.get_pandas_module(py)?;
+        let _how_str = how.unwrap_or("inner");
 
         // TODO: Implement proper DataFrame merging
         Err(FfiError::UnsupportedOperation {
@@ -474,12 +477,12 @@ impl PandasSupport {
     /// Pivot table operations
     pub fn pivot_table(
         &self,
-        py: Python,
-        dataframe: Bound<'_, PyAny>,
-        values: Vec<String>,
-        index: Vec<String>,
-        columns: Vec<String>,
-        aggfunc: Option<&str>,
+        _py: Python,
+        _dataframe: Bound<'_, PyAny>,
+        _values: Vec<String>,
+        _index: Vec<String>,
+        _columns: Vec<String>,
+        _aggfunc: Option<&str>,
     ) -> PyResult<Py<PyAny>> {
         // TODO: Implement proper pivot table operations
         Err(FfiError::UnsupportedOperation {
@@ -491,10 +494,10 @@ impl PandasSupport {
     /// Time series operations
     pub fn time_series_analysis(
         &self,
-        py: Python,
-        series: Bound<'_, PyAny>,
-        freq: Option<&str>,
-        window: Option<usize>,
+        _py: Python,
+        _series: Bound<'_, PyAny>,
+        _freq: Option<&str>,
+        _window: Option<usize>,
     ) -> PyResult<DataAnalysisResult> {
         // TODO: Implement proper time series analysis
         Err(FfiError::UnsupportedOperation {

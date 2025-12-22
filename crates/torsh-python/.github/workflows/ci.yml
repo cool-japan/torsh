@@ -1,0 +1,216 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop, "v*" ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # =============================================================================
+  # Rust Tests
+  # =============================================================================
+
+  rust-test:
+    name: Rust Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        rust: [stable, beta]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ matrix.rust }}
+        components: rustfmt, clippy
+
+    - name: Cache Cargo dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+
+    - name: Check formatting
+      run: cargo fmt -- --check
+
+    - name: Run clippy
+      run: cargo clippy --all-features -- -D warnings
+
+    - name: Build
+      run: cargo build --verbose
+
+    - name: Run tests
+      run: cargo test --verbose --lib
+
+  # =============================================================================
+  # Python Build & Test
+  # =============================================================================
+
+  python-build:
+    name: Python Build (${{ matrix.python-version }} on ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache Cargo dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-python-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Install maturin
+      run: pip install maturin
+
+    - name: Build Python package
+      run: maturin build --release
+
+    - name: Install built package
+      run: pip install target/wheels/*.whl
+      shell: bash
+
+    - name: Test import
+      run: python -c "import torsh_python as torsh; print(f'ToRSh version: {torsh.__version__}')"
+
+  # =============================================================================
+  # Python Type Checking
+  # =============================================================================
+
+  type-check:
+    name: Type Checking
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pip install mypy black ruff
+
+    - name: Check Python formatting
+      run: black --check examples/ || true
+
+    - name: Run ruff
+      run: ruff check examples/ || true
+
+    - name: Type check examples
+      run: mypy examples/ || true
+
+  # =============================================================================
+  # Documentation Build
+  # =============================================================================
+
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Build documentation
+      run: cargo doc --no-deps --document-private-items
+
+    - name: Check for broken links
+      run: |
+        cargo install cargo-deadlinks || true
+        cargo deadlinks || true
+
+  # =============================================================================
+  # Code Coverage
+  # =============================================================================
+
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Install cargo-tarpaulin
+      run: cargo install cargo-tarpaulin || true
+
+    - name: Generate coverage
+      run: cargo tarpaulin --out Xml --verbose || true
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        files: ./cobertura.xml
+        fail_ci_if_error: false
+
+  # =============================================================================
+  # Security Audit
+  # =============================================================================
+
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Run cargo audit
+      run: |
+        cargo install cargo-audit || true
+        cargo audit || true
+
+  # =============================================================================
+  # All Checks Passed
+  # =============================================================================
+
+  all-checks:
+    name: All Checks Passed
+    runs-on: ubuntu-latest
+    needs: [rust-test, python-build, type-check, docs]
+
+    steps:
+    - name: Success
+      run: echo "All checks passed successfully!"

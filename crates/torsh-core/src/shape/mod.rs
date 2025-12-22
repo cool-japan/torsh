@@ -5,6 +5,7 @@
 //! for better maintainability and performance.
 
 // Core shape types and fundamental operations
+pub mod const_generic;
 pub mod core;
 
 // Shape construction and builder patterns (to be implemented)
@@ -24,6 +25,13 @@ pub mod core;
 
 // Re-export core types for backward compatibility
 pub use core::Shape;
+
+// Re-export const generic types for compile-time shape checking
+pub use const_generic::{
+    common, utils as const_utils, BroadcastCompatible, ConstShape, ConstShapeOps, MatMulCompatible,
+    Rank0, Rank1, Rank2, Rank3, Rank4, Rank5, ReshapeInto, ShapeRank, SqueezeOps, TransposeOps,
+    UnsqueezeOps,
+};
 
 // Type aliases for convenience and backward compatibility
 pub type ShapeRef<'a> = &'a Shape;

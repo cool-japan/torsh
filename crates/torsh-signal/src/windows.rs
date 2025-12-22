@@ -27,6 +27,9 @@ pub enum Window {
     Tukey(f32),
     Cosine,
     Exponential(f32),
+    Bohman,
+    Nuttall,
+    FlatTop,
 }
 
 /// Create a window function of the given type and length
@@ -43,6 +46,9 @@ pub fn window(window_type: Window, n: usize, periodic: bool) -> Result<Tensor> {
         Window::Tukey(alpha) => tukey_window(n, alpha, periodic),
         Window::Cosine => cosine_window(n, periodic),
         Window::Exponential(tau) => exponential_window(n, tau),
+        Window::Bohman => bohman_window(n, periodic),
+        Window::Nuttall => nuttall_window(n, periodic),
+        Window::FlatTop => flat_top_window(n, periodic),
     }
 }
 
@@ -288,6 +294,97 @@ pub fn exponential_window(n: usize, tau: f32) -> Result<Tensor> {
     Ok(window)
 }
 
+/// Bohman window
+/// Reference: Fredric J. Harris, "On the use of windows for harmonic analysis with the
+/// discrete Fourier transform", Proceedings of the IEEE, 1978
+pub fn bohman_window(n: usize, periodic: bool) -> Result<Tensor> {
+    if n == 0 {
+        return Ok(zeros(&[0])?);
+    }
+    if n == 1 {
+        return Ok(ones(&[1])?);
+    }
+
+    let n_adj = if periodic { n } else { n - 1 };
+    let mut window = zeros(&[n])?;
+
+    for i in 0..n {
+        let x = (i as f64 / n_adj as f64 - 0.5).abs() * 2.0;
+        let value = if x < 1.0 {
+            (1.0 - x) * (PI * x).cos() + (1.0 / PI) * (PI * x).sin()
+        } else {
+            0.0
+        };
+        window.set_1d(i, value as f32)?;
+    }
+
+    Ok(window)
+}
+
+/// Nuttall window (continuous first derivative)
+/// Also known as Blackman-Nuttall window
+/// Reference: Albert H. Nuttall, "Some windows with very good sidelobe behavior",
+/// IEEE Transactions on Acoustics, Speech, and Signal Processing, 1981
+pub fn nuttall_window(n: usize, periodic: bool) -> Result<Tensor> {
+    if n == 0 {
+        return Ok(zeros(&[0])?);
+    }
+    if n == 1 {
+        return Ok(ones(&[1])?);
+    }
+
+    let n_adj = if periodic { n } else { n - 1 };
+    let mut window = zeros(&[n])?;
+
+    // Nuttall window coefficients
+    let a0 = 0.3635819;
+    let a1 = 0.4891775;
+    let a2 = 0.1365995;
+    let a3 = 0.0106411;
+
+    for i in 0..n {
+        let value = a0 - a1 * ((2.0 * PI * i as f64) / n_adj as f64).cos()
+            + a2 * ((4.0 * PI * i as f64) / n_adj as f64).cos()
+            - a3 * ((6.0 * PI * i as f64) / n_adj as f64).cos();
+        window.set_1d(i, value as f32)?;
+    }
+
+    Ok(window)
+}
+
+/// Flat-top window for accurate amplitude measurements
+/// Reference: Heinzel et al., "Spectrum and spectral density estimation by the Discrete Fourier
+/// transform (DFT), including a comprehensive list of window functions and some new
+/// flat-top windows", 2002
+pub fn flat_top_window(n: usize, periodic: bool) -> Result<Tensor> {
+    if n == 0 {
+        return Ok(zeros(&[0])?);
+    }
+    if n == 1 {
+        return Ok(ones(&[1])?);
+    }
+
+    let n_adj = if periodic { n } else { n - 1 };
+    let mut window = zeros(&[n])?;
+
+    // SRS flat-top window coefficients (Heinzel et al., 2002)
+    let a0 = 1.0;
+    let a1 = 1.93;
+    let a2 = 1.29;
+    let a3 = 0.388;
+    let a4 = 0.028;
+
+    for i in 0..n {
+        let value = a0 - a1 * ((2.0 * PI * i as f64) / n_adj as f64).cos()
+            + a2 * ((4.0 * PI * i as f64) / n_adj as f64).cos()
+            - a3 * ((6.0 * PI * i as f64) / n_adj as f64).cos()
+            + a4 * ((8.0 * PI * i as f64) / n_adj as f64).cos();
+        window.set_1d(i, value as f32)?;
+    }
+
+    Ok(window)
+}
+
 /// Modified Bessel function of the first kind, order 0
 fn modified_bessel_i0(x: f64) -> f64 {
     let mut sum = 1.0;
@@ -513,6 +610,9 @@ mod tests {
             Window::Tukey(0.5),
             Window::Cosine,
             Window::Exponential(2.0),
+            Window::Bohman,
+            Window::Nuttall,
+            Window::FlatTop,
         ];
 
         for window_type in windows {
@@ -532,6 +632,15 @@ mod tests {
                         assert!(
                             val >= -1.0 && val <= 1.0,
                             "Cosine window value {} out of range",
+                            val
+                        );
+                    }
+                    Window::FlatTop => {
+                        // Flat-top window can have negative sidelobes and values > 1 (normal behavior)
+                        // The sum of coefficients (1.0 + 1.93 + 1.29 + 0.388 + 0.028 = 4.636) determines max
+                        assert!(
+                            val >= -1.0 && val <= 5.0,
+                            "Flat-top window value {} out of range",
                             val
                         );
                     }
@@ -620,5 +729,131 @@ mod tests {
         let window = hamming_window(10, false).unwrap();
         let result = normalize_window(&window, "invalid");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_bohman_window() -> Result<()> {
+        let window = bohman_window(16, false)?;
+        assert_eq!(window.shape().dims(), &[16]);
+
+        // Check symmetry
+        for i in 0..8 {
+            assert_relative_eq!(window.get_1d(i)?, window.get_1d(15 - i)?, epsilon = 1e-6);
+        }
+
+        // Check endpoints should be zero
+        assert_relative_eq!(window.get_1d(0)?, 0.0, epsilon = 1e-6);
+        assert_relative_eq!(window.get_1d(15)?, 0.0, epsilon = 1e-6);
+
+        // Maximum should be at center
+        let center_value = (window.get_1d(7)? + window.get_1d(8)?) / 2.0;
+        for i in 0..16 {
+            assert!(window.get_1d(i)? <= center_value + 1e-6);
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_nuttall_window() -> Result<()> {
+        let window = nuttall_window(16, false)?;
+        assert_eq!(window.shape().dims(), &[16]);
+
+        // Check symmetry
+        for i in 0..8 {
+            assert_relative_eq!(window.get_1d(i)?, window.get_1d(15 - i)?, epsilon = 1e-6);
+        }
+
+        // Nuttall window should have very low sidelobes
+        // Check that endpoints are near zero
+        assert!(window.get_1d(0)? < 0.01);
+        assert!(window.get_1d(15)? < 0.01);
+
+        // Maximum should be near the center
+        let center_value = (window.get_1d(7)? + window.get_1d(8)?) / 2.0;
+        assert!(center_value > 0.9); // Should be close to 1
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_flat_top_window() -> Result<()> {
+        let window = flat_top_window(32, false)?; // Use larger window for better flatness
+        assert_eq!(window.shape().dims(), &[32]);
+
+        // Check symmetry
+        for i in 0..16 {
+            assert_relative_eq!(window.get_1d(i)?, window.get_1d(31 - i)?, epsilon = 1e-6);
+        }
+
+        // Flat-top windows have a relatively flat passband in the center
+        // Check that center values are similar
+        let center_vals = vec![
+            window.get_1d(14)?,
+            window.get_1d(15)?,
+            window.get_1d(16)?,
+            window.get_1d(17)?,
+        ];
+
+        // All center values should be positive and reasonably large (main lobe)
+        for &val in &center_vals {
+            assert!(
+                val > 0.5,
+                "Center values should be in the main lobe, got {}",
+                val
+            );
+        }
+
+        // Flat-top window can have negative sidelobes (this is normal and expected)
+        // Note: Whether there are negative values depends on window length,
+        // so we just check that values are finite
+        for i in 0..32 {
+            assert!(window.get_1d(i)?.is_finite());
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_bohman_periodic_vs_symmetric() -> Result<()> {
+        let n = 16;
+        let periodic = bohman_window(n, true)?;
+        let symmetric = bohman_window(n, false)?;
+
+        // Periodic and symmetric should be different
+        let diff = periodic.sub(&symmetric)?.abs()?.sum()?;
+        assert!(diff.item().unwrap() > 0.01);
+        Ok(())
+    }
+
+    #[test]
+    fn test_nuttall_edge_cases() -> Result<()> {
+        // Test zero-length windows
+        let empty = nuttall_window(0, false)?;
+        assert_eq!(empty.shape().dims(), &[0]);
+
+        // Test single-point windows
+        let single = nuttall_window(1, false)?;
+        assert_eq!(single.shape().dims(), &[1]);
+        assert_relative_eq!(single.get_1d(0)?, 1.0, epsilon = 1e-6);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_flat_top_normalization() -> Result<()> {
+        let window = flat_top_window(32, false)?;
+
+        // Test magnitude normalization
+        let normalized = normalize_window(&window, "magnitude")?;
+        let sum = normalized.sum()?;
+        assert_relative_eq!(sum.item().unwrap(), 1.0, epsilon = 1e-5);
+
+        // Test power normalization
+        let power_normalized = normalize_window(&window, "power")?;
+        let power_sum = power_normalized.pow_scalar(2.0)?.sum()?;
+        assert_relative_eq!(power_sum.item().unwrap(), 1.0, epsilon = 1e-5);
+
+        Ok(())
     }
 }

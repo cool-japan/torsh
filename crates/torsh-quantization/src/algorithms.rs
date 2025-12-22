@@ -24,7 +24,7 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
-use rayon::prelude::*;
+use scirs2_core::parallel_ops::*;
 
 /// Quantize a tensor using specified configuration
 pub fn quantize_with_config(
@@ -734,8 +734,8 @@ pub fn quantize_with_cache_optimization(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{ObserverType, QScheme, QuantConfig};
-    use torsh_core::device::DeviceType;
+    use crate::config::{QScheme, QuantConfig};
+
     use torsh_tensor::creation::tensor_1d;
 
     #[test]
@@ -867,7 +867,7 @@ mod tests {
         let result = quantize_auto(&tensor, &config);
         assert!(result.is_ok());
 
-        let (quantized, scale, zero_point) = result.unwrap();
+        let (quantized, scale, _zero_point) = result.unwrap();
         assert!(scale > 0.0);
         assert_eq!(quantized.shape().dims(), tensor.shape().dims());
     }

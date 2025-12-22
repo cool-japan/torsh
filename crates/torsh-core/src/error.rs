@@ -141,6 +141,11 @@ pub enum TorshError {
     #[error("Index out of bounds: index {index} is out of bounds for dimension with size {size}")]
     IndexError { index: usize, size: usize },
 
+    #[error(
+        "Invalid dimension: dimension {dim} is out of bounds for tensor with {ndim} dimensions"
+    )]
+    InvalidDimension { dim: usize, ndim: usize },
+
     #[error("Iteration error: {0}")]
     IterationError(String),
 
@@ -263,6 +268,7 @@ impl TorshError {
             Self::ComputeError(_) => ErrorCategory::Internal,
             Self::SerializationError(_) => ErrorCategory::Io,
             Self::IndexError { .. } => ErrorCategory::UserInput,
+            Self::InvalidDimension { .. } => ErrorCategory::UserInput,
             Self::IterationError(_) => ErrorCategory::Internal,
             Self::Other(_) => ErrorCategory::Internal,
         }
@@ -277,6 +283,7 @@ impl TorshError {
             Self::WithContext { severity, .. } => severity.clone(),
             Self::ShapeMismatch { .. } | Self::BroadcastError { .. } => ErrorSeverity::High,
             Self::IndexOutOfBounds { .. } => ErrorSeverity::Medium,
+            Self::InvalidDimension { .. } => ErrorSeverity::Medium,
             Self::DeviceMismatch => ErrorSeverity::High,
             Self::SynchronizationError(_) => ErrorSeverity::Medium,
             Self::AllocationError(_) => ErrorSeverity::High,
@@ -294,7 +301,21 @@ impl TorshError {
         }
     }
 
-    /// Add context to an error
+    /// Add minimal context to an error (lightweight, no backtrace)
+    ///
+    /// Use this for performance-critical paths where error context
+    /// is helpful but backtrace overhead is not justified.
+    ///
+    /// # Example
+    /// ```
+    /// use torsh_core::error::{TorshError, Result};
+    ///
+    /// fn tensor_operation() -> Result<()> {
+    ///     let error = TorshError::InvalidShape("invalid dimensions".to_string())
+    ///         .with_context("during tensor reshape");
+    ///     Err(error)
+    /// }
+    /// ```
     pub fn with_context(self, message: &str) -> Self {
         let category = self.category();
         let severity = self.severity();
@@ -306,6 +327,239 @@ impl TorshError {
             debug_context: Box::new(ErrorDebugContext::minimal()),
             source: Some(Box::new(self)),
         }
+    }
+
+    /// Add rich context to an error (includes full backtrace)
+    ///
+    /// Use this for debugging and development environments where
+    /// detailed error information is valuable. Captures full backtrace
+    /// and thread information.
+    ///
+    /// # Example
+    /// ```
+    /// use torsh_core::error::{TorshError, Result};
+    ///
+    /// fn critical_operation() -> Result<()> {
+    ///     let error = TorshError::InvalidShape("invalid dimensions".to_string())
+    ///         .with_rich_context("during critical tensor operation");
+    ///     Err(error)
+    /// }
+    /// ```
+    pub fn with_rich_context(self, message: &str) -> Self {
+        let category = self.category();
+        let severity = self.severity();
+
+        Self::WithContext {
+            message: message.to_string(),
+            error_category: category,
+            severity,
+            debug_context: Box::new(ErrorDebugContext::new()),
+            source: Some(Box::new(self)),
+        }
+    }
+
+    /// Add context with custom metadata (minimal backtrace)
+    ///
+    /// Use this to add structured metadata without the overhead
+    /// of a full backtrace. Ideal for operation tracking and debugging.
+    ///
+    /// # Example
+    /// ```
+    /// use torsh_core::error::{TorshError, Result};
+    ///
+    /// fn tensor_add(shape1: &[usize], shape2: &[usize]) -> Result<()> {
+    ///     let error = TorshError::InvalidShape("incompatible shapes".to_string())
+    ///         .with_metadata("during tensor addition")
+    ///         .add_metadata("shape1", &format!("{:?}", shape1))
+    ///         .add_metadata("shape2", &format!("{:?}", shape2));
+    ///     Err(error)
+    /// }
+    /// ```
+    pub fn with_metadata(self, message: &str) -> Self {
+        let category = self.category();
+        let severity = self.severity();
+
+        Self::WithContext {
+            message: message.to_string(),
+            error_category: category,
+            severity,
+            debug_context: Box::new(ErrorDebugContext::minimal()),
+            source: Some(Box::new(self)),
+        }
+    }
+
+    /// Add metadata to an existing error
+    ///
+    /// This method allows adding key-value metadata to enrich error context
+    /// without creating a new error wrapper. If the error is not already
+    /// a `WithContext` variant, it will be converted to one.
+    ///
+    /// # Example
+    /// ```
+    /// use torsh_core::error::{TorshError, Result};
+    ///
+    /// fn process_tensor(name: &str, size: usize) -> Result<()> {
+    ///     let error = TorshError::AllocationError("out of memory".to_string())
+    ///         .add_metadata("tensor_name", name)
+    ///         .add_metadata("requested_size", &size.to_string());
+    ///     Err(error)
+    /// }
+    /// ```
+    pub fn add_metadata(self, key: &str, value: &str) -> Self {
+        match self {
+            Self::WithContext {
+                message,
+                error_category,
+                severity,
+                mut debug_context,
+                source,
+            } => {
+                debug_context
+                    .metadata
+                    .insert(key.to_string(), value.to_string());
+                Self::WithContext {
+                    message,
+                    error_category,
+                    severity,
+                    debug_context,
+                    source,
+                }
+            }
+            other => {
+                let category = other.category();
+                let severity = other.severity();
+                let mut context = ErrorDebugContext::minimal();
+                context.metadata.insert(key.to_string(), value.to_string());
+
+                Self::WithContext {
+                    message: format!("{other}"),
+                    error_category: category,
+                    severity,
+                    debug_context: Box::new(context),
+                    source: Some(Box::new(other)),
+                }
+            }
+        }
+    }
+
+    /// Add shape information as metadata
+    ///
+    /// Convenience method for adding tensor shape information to errors.
+    ///
+    /// # Example
+    /// ```
+    /// use torsh_core::error::{TorshError, Result};
+    ///
+    /// fn validate_shape(actual: &[usize], expected: &[usize]) -> Result<()> {
+    ///     let error = TorshError::shape_mismatch(expected, actual)
+    ///         .add_shape_metadata("actual_shape", actual)
+    ///         .add_shape_metadata("expected_shape", expected);
+    ///     Err(error)
+    /// }
+    /// ```
+    pub fn add_shape_metadata(self, key: &str, shape: &[usize]) -> Self {
+        self.add_metadata(key, &format!("{:?}", shape))
+    }
+
+    /// Add operation name as metadata
+    ///
+    /// Convenience method for tracking which operation caused the error.
+    ///
+    /// # Example
+    /// ```
+    /// use torsh_core::error::{TorshError, Result};
+    ///
+    /// fn matmul(a_shape: &[usize], b_shape: &[usize]) -> Result<()> {
+    ///     let error = TorshError::shape_mismatch(a_shape, b_shape)
+    ///         .with_operation("matmul")
+    ///         .add_shape_metadata("lhs_shape", a_shape)
+    ///         .add_shape_metadata("rhs_shape", b_shape);
+    ///     Err(error)
+    /// }
+    /// ```
+    pub fn with_operation(self, operation: &str) -> Self {
+        self.add_metadata("operation", operation)
+    }
+
+    /// Add device information as metadata
+    ///
+    /// Convenience method for tracking device-related errors.
+    ///
+    /// # Example
+    /// ```
+    /// use torsh_core::error::{TorshError, Result};
+    ///
+    /// fn allocate_on_device(device_id: usize) -> Result<()> {
+    ///     let error = TorshError::DeviceError("allocation failed".to_string())
+    ///         .with_device(device_id)
+    ///         .add_metadata("allocation_type", "tensor");
+    ///     Err(error)
+    /// }
+    /// ```
+    pub fn with_device(self, device_id: usize) -> Self {
+        self.add_metadata("device_id", &device_id.to_string())
+    }
+
+    /// Add dtype information as metadata
+    ///
+    /// Convenience method for tracking data type-related errors.
+    ///
+    /// # Example
+    /// ```
+    /// use torsh_core::error::{TorshError, Result};
+    ///
+    /// fn convert_dtype(from: &str, to: &str) -> Result<()> {
+    ///     let error = TorshError::ConversionError("unsupported conversion".to_string())
+    ///         .add_metadata("from_dtype", from)
+    ///         .add_metadata("to_dtype", to);
+    ///     Err(error)
+    /// }
+    /// ```
+    pub fn with_dtype(self, dtype: &str) -> Self {
+        self.add_metadata("dtype", dtype)
+    }
+
+    /// Get all metadata from the error
+    ///
+    /// Returns an empty map if the error doesn't have metadata.
+    pub fn metadata(&self) -> std::collections::HashMap<String, String> {
+        match self {
+            Self::WithContext { debug_context, .. } => debug_context.metadata.clone(),
+            _ => std::collections::HashMap::new(),
+        }
+    }
+
+    /// Get the error's debug context if available
+    ///
+    /// Returns None if the error is not a `WithContext` variant.
+    pub fn debug_context(&self) -> Option<&ErrorDebugContext> {
+        match self {
+            Self::WithContext { debug_context, .. } => Some(debug_context),
+            _ => None,
+        }
+    }
+
+    /// Format the error with full debug information
+    ///
+    /// This includes metadata, backtrace, and thread information when available.
+    pub fn format_debug(&self) -> String {
+        let mut output = format!("Error: {self}\n");
+
+        if let Some(context) = self.debug_context() {
+            output.push_str("\n");
+            output.push_str(&context.format_debug_info());
+        }
+
+        if let Self::WithContext {
+            source: Some(source),
+            ..
+        } = self
+        {
+            output.push_str("\nCaused by:\n");
+            output.push_str(&format!("  {source}"));
+        }
+
+        output
     }
 }
 
@@ -465,5 +719,130 @@ mod tests {
         let high_error = TorshError::shape_mismatch(&[2, 3], &[3, 2]);
 
         assert!(low_error.severity() < high_error.severity());
+    }
+
+    #[test]
+    fn test_rich_context() {
+        let error = TorshError::InvalidShape("test error".to_string())
+            .with_rich_context("during tensor operation");
+
+        match error {
+            TorshError::WithContext {
+                message,
+                debug_context,
+                ..
+            } => {
+                assert_eq!(message, "during tensor operation");
+                // Rich context should have backtrace (or a message about it)
+                assert!(debug_context.backtrace.is_some());
+            }
+            _ => panic!("Expected WithContext error"),
+        }
+    }
+
+    #[test]
+    fn test_add_metadata() {
+        let error = TorshError::InvalidShape("test".to_string())
+            .add_metadata("key1", "value1")
+            .add_metadata("key2", "value2");
+
+        let metadata = error.metadata();
+        assert_eq!(metadata.get("key1"), Some(&"value1".to_string()));
+        assert_eq!(metadata.get("key2"), Some(&"value2".to_string()));
+    }
+
+    #[test]
+    fn test_add_shape_metadata() {
+        let shape1 = vec![2, 3, 4];
+        let shape2 = vec![4, 5];
+
+        let error = TorshError::shape_mismatch(&shape1, &shape2)
+            .add_shape_metadata("tensor_a", &shape1)
+            .add_shape_metadata("tensor_b", &shape2);
+
+        let metadata = error.metadata();
+        assert!(metadata.contains_key("tensor_a"));
+        assert!(metadata.contains_key("tensor_b"));
+        assert!(metadata["tensor_a"].contains("2"));
+        assert!(metadata["tensor_b"].contains("4"));
+    }
+
+    #[test]
+    fn test_with_operation() {
+        let error = TorshError::InvalidShape("test".to_string()).with_operation("matmul");
+
+        let metadata = error.metadata();
+        assert_eq!(metadata.get("operation"), Some(&"matmul".to_string()));
+    }
+
+    #[test]
+    fn test_with_device() {
+        let error = TorshError::DeviceError("allocation failed".to_string()).with_device(42);
+
+        let metadata = error.metadata();
+        assert_eq!(metadata.get("device_id"), Some(&"42".to_string()));
+    }
+
+    #[test]
+    fn test_with_dtype() {
+        let error = TorshError::ConversionError("unsupported".to_string()).with_dtype("f32");
+
+        let metadata = error.metadata();
+        assert_eq!(metadata.get("dtype"), Some(&"f32".to_string()));
+    }
+
+    #[test]
+    fn test_chained_metadata() {
+        let error = TorshError::InvalidShape("test".to_string())
+            .with_operation("conv2d")
+            .add_metadata("batch_size", "32")
+            .add_shape_metadata("input_shape", &[32, 3, 224, 224])
+            .with_device(0)
+            .with_dtype("f32");
+
+        let metadata = error.metadata();
+        assert_eq!(metadata.get("operation"), Some(&"conv2d".to_string()));
+        assert_eq!(metadata.get("batch_size"), Some(&"32".to_string()));
+        assert_eq!(metadata.get("device_id"), Some(&"0".to_string()));
+        assert_eq!(metadata.get("dtype"), Some(&"f32".to_string()));
+        assert!(metadata.contains_key("input_shape"));
+    }
+
+    #[test]
+    fn test_format_debug() {
+        let error = TorshError::InvalidShape("test error".to_string())
+            .with_operation("test_op")
+            .add_metadata("key", "value");
+
+        let debug_output = error.format_debug();
+        assert!(debug_output.contains("Error:"));
+        assert!(debug_output.contains("test error"));
+        assert!(debug_output.contains("operation: test_op"));
+        assert!(debug_output.contains("key: value"));
+    }
+
+    #[test]
+    fn test_metadata_on_non_context_error() {
+        // Test that adding metadata to a non-WithContext error converts it
+        let error = TorshError::InvalidArgument("test".to_string());
+        let metadata_before = error.metadata();
+        assert!(metadata_before.is_empty());
+
+        let error_with_metadata = error.add_metadata("new_key", "new_value");
+        let metadata_after = error_with_metadata.metadata();
+        assert_eq!(
+            metadata_after.get("new_key"),
+            Some(&"new_value".to_string())
+        );
+    }
+
+    #[test]
+    fn test_debug_context_availability() {
+        let error_without_context = TorshError::InvalidShape("test".to_string());
+        assert!(error_without_context.debug_context().is_none());
+
+        let error_with_context =
+            TorshError::InvalidShape("test".to_string()).with_context("during operation");
+        assert!(error_with_context.debug_context().is_some());
     }
 }

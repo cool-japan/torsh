@@ -1,5 +1,8 @@
 //! GPU profiling platform integrations
 
+#![allow(ambiguous_glob_reexports)]
+#![allow(unexpected_cfgs)]
+
 // Re-export from existing modules for backward compatibility
 pub use crate::amd::*;
 pub use crate::cuda::*;

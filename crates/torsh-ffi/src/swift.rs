@@ -7,7 +7,6 @@
 
 use crate::c_api::*;
 use std::os::raw::{c_char, c_float, c_long, c_void};
-use std::ptr;
 
 // Swift-specific types (matching Swift C interop conventions)
 pub type SwiftInt = c_long;
@@ -583,6 +582,7 @@ pub unsafe extern "C" fn swift_tensor_same_shape(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::ptr;
 
     #[test]
     fn test_swift_tensor_creation() {

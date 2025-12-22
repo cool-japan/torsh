@@ -1,13 +1,14 @@
 //! Sparse linear layer implementation
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use super::super::common::{
-    traits::{SparseConverter, SparseLayer},
+    traits::SparseLayer,
     types::{SparseLayerConfig, SparseStats},
     utils::SparseWeightGenerator,
 };
 use crate::{CsrTensor, SparseTensor, TorshResult};
-use std::collections::HashMap;
-use torsh_core::{Shape, TorshError};
+use torsh_core::TorshError;
 use torsh_tensor::{creation::randn, Tensor};
 
 /// Sparse linear layer (also known as sparse fully connected layer)
@@ -127,7 +128,7 @@ impl SparseLinear {
     pub fn forward(&self, input: &Tensor) -> TorshResult<Tensor> {
         // Validate input shape
         let input_shape = input.shape();
-        let batch_size = if input_shape.ndim() == 1 {
+        let _batch_size = if input_shape.ndim() == 1 {
             1
         } else if input_shape.ndim() == 2 {
             input_shape.dims()[0]

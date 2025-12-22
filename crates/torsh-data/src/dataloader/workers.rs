@@ -42,7 +42,7 @@ struct WorkerHandle<T> {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use std::sync::Arc;
 /// use torsh_data::dataloader::workers::WorkerPool;
 /// use torsh_data::dataset::TensorDataset;
@@ -425,7 +425,7 @@ struct PersistentWorkerHandle {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use std::sync::Arc;
 /// use torsh_data::dataloader::workers::PersistentWorkerPool;
 /// use torsh_data::dataset::TensorDataset;

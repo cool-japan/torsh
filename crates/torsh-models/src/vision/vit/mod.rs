@@ -11,7 +11,9 @@
 //!
 //! # Example Usage
 //! ```rust,no_run
-//! use torsh_models::vision::vit::{ViTConfig, VisionTransformer, ViTVariant};
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! use torsh_models::vision::vit::{ViTConfig, ViTVariant};
+//! use torsh_models::vision::VisionTransformer;
 //!
 //! // Create ViT-Base/16 for ImageNet
 //! let config = ViTConfig::vit_base_patch16_224();
@@ -20,6 +22,8 @@
 //! // Create ViT-Small/16 for CIFAR-100
 //! let config = ViTConfig::vit_small_patch16_224().with_num_classes(100);
 //! let model = VisionTransformer::new(config)?;
+//! # Ok(())
+//! # }
 //! ```
 
 pub mod config;

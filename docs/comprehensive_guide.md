@@ -201,10 +201,10 @@ Add ToRSh to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-torsh = "0.1.0-alpha.1"
+torsh = "0.1.0-alpha.2"
 
 # Or with specific features
-torsh = { version = "0.1.0-alpha.1", features = ["full"] }
+torsh = { version = "0.1.0-alpha.2", features = ["full"] }
 ```
 
 ### Feature Flags
@@ -214,7 +214,7 @@ ToRSh offers fine-grained control through feature flags:
 ```toml
 [dependencies]
 torsh = { 
-    version = "0.1.0-alpha.1", 
+    version = "0.1.0-alpha.2", 
     features = [
         "nn",           # Neural networks
         "optim",        # Optimizers
@@ -687,13 +687,13 @@ impl TrainingState {
 1. **Enable SIMD**:
 ```toml
 [dependencies]
-torsh = { version = "0.1.0-alpha.1", features = ["simd"] }
+torsh = { version = "0.1.0-alpha.2", features = ["simd"] }
 ```
 
 2. **Use parallel execution**:
 ```toml
 [dependencies]
-torsh = { version = "0.1.0-alpha.1", features = ["parallel"] }
+torsh = { version = "0.1.0-alpha.2", features = ["parallel"] }
 ```
 
 3. **Optimize thread pool**:
@@ -853,7 +853,7 @@ error: no method named `relu` found for type `Tensor`
 ```
 Solution: Enable the `functional` feature:
 ```toml
-torsh = { version = "0.1.0-alpha.1", features = ["functional"] }
+torsh = { version = "0.1.0-alpha.2", features = ["functional"] }
 ```
 
 2. **Type inference issues**:

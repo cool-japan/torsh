@@ -4,11 +4,8 @@
 //! for CUDA memory optimization, including multi-objective optimization, Pareto front analysis,
 //! and sophisticated constraint satisfaction systems.
 
-use scirs2_core::ndarray::{Array1, Array2, ArrayView1};
-use scirs2_core::random::Random;
-use std::cmp::Ordering;
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
-use std::sync::{Arc, Mutex, RwLock};
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
 /// Comprehensive objective and constraint management system
@@ -111,7 +108,7 @@ pub struct OptimizationObjective {
 }
 
 /// Types of optimization objectives
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ObjectiveType {
     /// Performance maximization objective
     Performance,
@@ -158,7 +155,7 @@ pub enum ObjectiveType {
 }
 
 /// Objective categories for organization
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ObjectiveCategory {
     /// System performance objectives
     SystemPerformance,
@@ -183,7 +180,7 @@ pub enum ObjectiveCategory {
 }
 
 /// Optimization direction specification
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OptimizationDirection {
     /// Minimize the objective value
     Minimize,
@@ -239,7 +236,7 @@ pub struct ObjectiveConstraint {
 }
 
 /// Types of constraints in optimization
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ConstraintType {
     /// Hard constraint that must be satisfied
     Hard,
@@ -451,7 +448,7 @@ pub struct ObjectiveFunction {
 }
 
 /// Types of objective functions
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ObjectiveFunctionType {
     /// Linear function
     Linear,
@@ -940,7 +937,7 @@ impl OptimizationObjectiveManager {
         }
 
         Ok(if count > 0 {
-            (quality_sum / count as f32)
+            quality_sum / count as f32
         } else {
             0.0
         })
@@ -1398,10 +1395,6 @@ pub struct ObjectiveManagerConfig;
 #[derive(Debug, Default)]
 pub struct ObjectiveRegistryConfig;
 #[derive(Debug, Default)]
-pub struct ConstraintManager;
-#[derive(Debug, Default)]
-pub struct MultiObjectiveEngine;
-#[derive(Debug, Default)]
 pub struct ParetoFrontAnalyzer;
 #[derive(Debug, Default)]
 pub struct ObjectiveFunctionEvaluator;
@@ -1674,7 +1667,7 @@ pub struct SolutionArchiveConfig;
 pub struct EvaluationContext;
 #[derive(Debug, Default)]
 pub struct ObjectiveEvaluationResult;
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct ConstraintSatisfactionResult {
     pub total_penalty: f64,
     pub satisfaction_rate: f32,

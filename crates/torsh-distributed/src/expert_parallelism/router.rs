@@ -3,6 +3,8 @@
 //! This module implements the core routing logic for Mixture of Experts (MoE) models,
 //! including hierarchical gating networks, capacity constraints, and load balancing.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use super::config::ExpertParallelismConfig;
 use super::load_balancer::LoadBalancer;
 use super::stats::RoutingStats;
@@ -309,9 +311,9 @@ impl ExpertRouter {
             prob_indices.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(Ordering::Equal));
 
             // Take top-k experts
-            for i in 0..k.min(prob_indices.len()) {
-                top_indices_data.push(prob_indices[i].1);
-                top_probs_data.push(prob_indices[i].0);
+            for &(prob, index) in prob_indices.iter().take(k) {
+                top_indices_data.push(index);
+                top_probs_data.push(prob);
             }
 
             // Fill remaining slots if k > num_experts
@@ -508,7 +510,7 @@ impl GateNetwork {
     pub fn new(input_dim: usize, num_experts: usize, device_id: i32) -> TorshResult<Self> {
         // Organize experts into groups for hierarchical routing
         let num_groups = (num_experts as f32).sqrt().ceil() as usize;
-        let experts_per_group = (num_experts + num_groups - 1) / num_groups;
+        let experts_per_group = num_experts.div_ceil(num_groups);
 
         let group_router = randn(&[input_dim, num_groups])?;
         let expert_routers: Vec<_> = (0..num_groups)
@@ -562,23 +564,21 @@ impl GateNetwork {
                 let token_group_probs = &group_probs_data[group_probs_start..group_probs_end];
 
                 // For each expert group, compute expert probabilities within that group
-                for group_idx in 0..self.num_groups {
-                    let group_prob = token_group_probs[group_idx];
-
+                for (group_idx, &group_prob) in token_group_probs.iter().enumerate() {
                     // Route within this group using the group-specific expert router
                     let expert_router_data = self.expert_routers[group_idx].to_vec()?;
 
                     // Compute expert logits within this group
                     let mut expert_logits = vec![0.0f32; self.experts_per_group];
-                    for expert_idx in 0..self.experts_per_group {
+                    for (expert_idx, logit_slot) in expert_logits.iter_mut().enumerate() {
                         let mut logit = 0.0f32;
-                        for input_idx in 0..self.input_dim {
+                        for (input_idx, &input_val) in token_input.iter().enumerate() {
                             let weight_idx = input_idx * self.experts_per_group + expert_idx;
                             if weight_idx < expert_router_data.len() {
-                                logit += token_input[input_idx] * expert_router_data[weight_idx];
+                                logit += input_val * expert_router_data[weight_idx];
                             }
                         }
-                        expert_logits[expert_idx] = logit;
+                        *logit_slot = logit;
                     }
 
                     // Apply softmax to get expert probabilities within the group
@@ -588,11 +588,11 @@ impl GateNetwork {
                     let exp_sum: f32 = expert_logits.iter().map(|&x| (x - max_logit).exp()).sum();
 
                     // Combine group probability with within-group expert probabilities
-                    for expert_idx in 0..self.experts_per_group {
+                    for (expert_idx, &expert_logit) in expert_logits.iter().enumerate() {
                         let global_expert_idx = group_idx * self.experts_per_group + expert_idx;
                         if global_expert_idx < self.num_experts {
                             let expert_prob_within_group = if exp_sum > 0.0 {
-                                (expert_logits[expert_idx] - max_logit).exp() / exp_sum
+                                (expert_logit - max_logit).exp() / exp_sum
                             } else {
                                 0.0
                             };
@@ -636,7 +636,7 @@ impl GateNetwork {
         let expert_router_params: usize = self
             .expert_routers
             .iter()
-            .map(|router| self.input_dim * self.experts_per_group)
+            .map(|_router| self.input_dim * self.experts_per_group)
             .sum();
         stats.insert("expert_router_params".to_string(), expert_router_params);
 

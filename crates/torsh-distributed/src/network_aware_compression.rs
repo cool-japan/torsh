@@ -5,15 +5,17 @@
 //! optimal compression ratios based on network performance metrics and training
 //! convergence requirements.
 
-use crate::gradient_compression::{CompressionConfig, CompressionMethod, GradientCompressor};
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
+use crate::gradient_compression::{CompressionConfig, CompressionMethod};
 use crate::gradient_compression_enhanced::{CompressionMetrics, EnhancedGradientCompressor};
 use crate::{TorshDistributedError, TorshResult};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use torsh_tensor::Tensor;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 /// Network performance metrics for adaptive compression
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -390,7 +392,7 @@ impl ConvergenceTracker {
         // Convergence rate based on loss improvement
         if old_avg > recent_avg && old_avg > 0.0 {
             let improvement_rate = (old_avg - recent_avg) / old_avg;
-            self.convergence_rate = improvement_rate.min(1.0).max(0.0);
+            self.convergence_rate = improvement_rate.clamp(0.0, 1.0);
         } else {
             self.convergence_rate = 0.1; // Slow convergence if loss not improving
         }
@@ -484,10 +486,10 @@ impl NetworkAwareCompressor {
 
         // Perform compression
         let start_time = Instant::now();
-        let (compressed_gradient, mut metrics) = self
+        let (compressed_gradient, metrics) = self
             .enhanced_compressor
             .compress_gradient_enhanced(gradient, "adaptive_gradient")?;
-        let compression_time = start_time.elapsed();
+        let _compression_time = start_time.elapsed();
 
         // Create enhanced metrics with network awareness
         // Since the original metrics struct doesn't have network fields, we keep the existing metrics

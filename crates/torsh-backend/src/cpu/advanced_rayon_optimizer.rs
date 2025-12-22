@@ -5,6 +5,8 @@
 //! NUMA-aware scheduling, cache-conscious task distribution, and adaptive parallel strategies
 //! to maximize CPU utilization and minimize synchronization overhead.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::error::{BackendError, BackendResult};
 use rayon::prelude::*;
 use rayon::{ThreadPool, ThreadPoolBuilder};
@@ -635,7 +637,7 @@ impl AdvancedRayonOptimizer {
         &self,
         a: &ArrayView2<T>,
         b: &ArrayView2<T>,
-        c: &mut ArrayViewMut2<T>,
+        _c: &mut ArrayViewMut2<T>,
     ) -> BackendResult<()>
     where
         T: TensorElement + Send + Sync + std::ops::AddAssign + Copy + std::ops::Mul<Output = T>,
@@ -663,7 +665,7 @@ impl AdvancedRayonOptimizer {
         &self,
         a: &ArrayView2<T>,
         b: &ArrayView2<T>,
-        c: &mut ArrayViewMut2<T>,
+        _c: &mut ArrayViewMut2<T>,
     ) -> BackendResult<()>
     where
         T: TensorElement + Send + Sync + std::ops::AddAssign + Copy + std::ops::Mul<Output = T>,
@@ -741,7 +743,7 @@ impl AdvancedRayonOptimizer {
         &self,
         a: &ArrayView2<T>,
         b: &ArrayView2<T>,
-        c: &mut ArrayViewMut2<T>,
+        _c: &mut ArrayViewMut2<T>,
     ) -> BackendResult<()>
     where
         T: TensorElement + Send + Sync + std::ops::AddAssign + Copy + std::ops::Mul<Output = T>,
@@ -771,7 +773,7 @@ impl AdvancedRayonOptimizer {
     fn analyze_elementwise_characteristics<T>(
         &self,
         input: &ArrayView1<T>,
-        output: &ArrayViewMut1<T>,
+        _output: &ArrayViewMut1<T>,
     ) -> BackendResult<OperationSignature>
     where
         T: TensorElement,
@@ -861,9 +863,9 @@ impl AdvancedRayonOptimizer {
     // Placeholder implementations for other methods
     fn analyze_memory_access_patterns<T>(
         &self,
-        a: &ArrayView2<T>,
-        b: &ArrayView2<T>,
-        c: &ArrayViewMut2<T>,
+        _a: &ArrayView2<T>,
+        _b: &ArrayView2<T>,
+        _c: &ArrayViewMut2<T>,
     ) -> BackendResult<MemoryAccessPattern> {
         Ok(MemoryAccessPattern::Sequential)
     }
@@ -932,7 +934,12 @@ impl AdvancedRayonOptimizer {
             .map_err(|e| BackendError::BackendError(format!("Thread pool creation failed: {}", e)))
     }
 
-    fn calculate_optimal_block_size(&self, m: usize, n: usize, k: usize) -> BackendResult<usize> {
+    fn calculate_optimal_block_size(
+        &self,
+        _m: usize,
+        _n: usize,
+        _k: usize,
+    ) -> BackendResult<usize> {
         // Calculate block size based on L2 cache size
         let cache_size = 256 * 1024; // 256KB
         let element_size = 4; // Assuming f32
@@ -946,36 +953,36 @@ impl AdvancedRayonOptimizer {
     // Placeholder implementations for recording metrics
     fn record_performance_metrics(
         &self,
-        signature: &OperationSignature,
-        execution_time: Duration,
-        result: &BackendResult<()>,
+        _signature: &OperationSignature,
+        _execution_time: Duration,
+        _result: &BackendResult<()>,
     ) -> BackendResult<()> {
         Ok(())
     }
 
     fn record_elementwise_performance(
         &self,
-        signature: &OperationSignature,
-        execution_time: Duration,
-        result: &BackendResult<()>,
+        _signature: &OperationSignature,
+        _execution_time: Duration,
+        _result: &BackendResult<()>,
     ) -> BackendResult<()> {
         Ok(())
     }
 
     fn record_reduction_performance<T>(
         &self,
-        signature: &OperationSignature,
-        execution_time: Duration,
-        result: &BackendResult<T>,
+        _signature: &OperationSignature,
+        _execution_time: Duration,
+        _result: &BackendResult<T>,
     ) -> BackendResult<()> {
         Ok(())
     }
 
     fn record_convolution_performance(
         &self,
-        signature: &OperationSignature,
-        execution_time: Duration,
-        result: &BackendResult<()>,
+        _signature: &OperationSignature,
+        _execution_time: Duration,
+        _result: &BackendResult<()>,
     ) -> BackendResult<()> {
         Ok(())
     }
@@ -1000,7 +1007,7 @@ impl AdvancedRayonOptimizer {
 
     fn select_reduction_strategy(
         &self,
-        signature: &OperationSignature,
+        _signature: &OperationSignature,
     ) -> BackendResult<ReductionStrategy> {
         Ok(ReductionStrategy::Simple)
     }
@@ -1048,7 +1055,7 @@ impl AdvancedRayonOptimizer {
         &self,
         input: &ArrayView2<T>,
         kernel: &ArrayView2<T>,
-        config: &ConvolutionConfig,
+        _config: &ConvolutionConfig,
     ) -> BackendResult<OperationSignature>
     where
         T: TensorElement,
@@ -1074,17 +1081,17 @@ impl AdvancedRayonOptimizer {
 
     fn select_convolution_strategy(
         &self,
-        signature: &OperationSignature,
+        _signature: &OperationSignature,
     ) -> BackendResult<ConvolutionStrategy> {
         Ok(ConvolutionStrategy::OutputParallel)
     }
 
     fn execute_output_parallel_convolution<T>(
         &self,
-        input: &ArrayView2<T>,
-        kernel: &ArrayView2<T>,
-        output: &mut ArrayViewMut2<T>,
-        config: &ConvolutionConfig,
+        _input: &ArrayView2<T>,
+        _kernel: &ArrayView2<T>,
+        _output: &mut ArrayViewMut2<T>,
+        _config: &ConvolutionConfig,
     ) -> BackendResult<()>
     where
         T: TensorElement + Send + Sync + Copy + std::ops::AddAssign,
@@ -1095,10 +1102,10 @@ impl AdvancedRayonOptimizer {
 
     fn execute_input_parallel_convolution<T>(
         &self,
-        input: &ArrayView2<T>,
-        kernel: &ArrayView2<T>,
-        output: &mut ArrayViewMut2<T>,
-        config: &ConvolutionConfig,
+        _input: &ArrayView2<T>,
+        _kernel: &ArrayView2<T>,
+        _output: &mut ArrayViewMut2<T>,
+        _config: &ConvolutionConfig,
     ) -> BackendResult<()>
     where
         T: TensorElement + Send + Sync + Copy + std::ops::AddAssign,
@@ -1109,10 +1116,10 @@ impl AdvancedRayonOptimizer {
 
     fn execute_tiled_parallel_convolution<T>(
         &self,
-        input: &ArrayView2<T>,
-        kernel: &ArrayView2<T>,
-        output: &mut ArrayViewMut2<T>,
-        config: &ConvolutionConfig,
+        _input: &ArrayView2<T>,
+        _kernel: &ArrayView2<T>,
+        _output: &mut ArrayViewMut2<T>,
+        _config: &ConvolutionConfig,
     ) -> BackendResult<()>
     where
         T: TensorElement + Send + Sync + Copy + std::ops::AddAssign,
@@ -1123,10 +1130,10 @@ impl AdvancedRayonOptimizer {
 
     fn execute_simd_parallel_convolution<T>(
         &self,
-        input: &ArrayView2<T>,
-        kernel: &ArrayView2<T>,
-        output: &mut ArrayViewMut2<T>,
-        config: &ConvolutionConfig,
+        _input: &ArrayView2<T>,
+        _kernel: &ArrayView2<T>,
+        _output: &mut ArrayViewMut2<T>,
+        _config: &ConvolutionConfig,
     ) -> BackendResult<()>
     where
         T: TensorElement + Send + Sync + Copy + std::ops::AddAssign,
@@ -1346,7 +1353,7 @@ impl IntelligentThreadPoolManager {
         })
     }
 
-    pub fn optimize_for_workload(&mut self, workload_type: WorkloadType) -> BackendResult<()> {
+    pub fn optimize_for_workload(&mut self, _workload_type: WorkloadType) -> BackendResult<()> {
         // Placeholder implementation
         Ok(())
     }
@@ -1367,7 +1374,7 @@ impl WorkStealingOptimizer {
 
     pub fn auto_tune_parameters(
         &mut self,
-        duration: Duration,
+        _duration: Duration,
     ) -> BackendResult<OptimizationResults> {
         Ok(OptimizationResults::default())
     }
@@ -1448,7 +1455,7 @@ impl ParallelStrategySelector {
 }
 
 impl ParallelPerformanceMonitor {
-    pub fn new(config: &MonitoringConfig) -> BackendResult<Self> {
+    pub fn new(_config: &MonitoringConfig) -> BackendResult<Self> {
         Ok(Self)
     }
 }

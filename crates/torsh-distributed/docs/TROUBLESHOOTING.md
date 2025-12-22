@@ -143,7 +143,7 @@ cargo build --release --features="cuda,nccl,mpi,gpu"
 3. **Update Cargo.toml:**
 ```toml
 [dependencies]
-torsh-distributed = { version = "0.1.0-alpha.1", features = ["cuda", "nccl"] }
+torsh-distributed = { version = "0.1.0-alpha.2", features = ["cuda", "nccl"] }
 ```
 
 ### Issue: Linker Errors on Different Platforms

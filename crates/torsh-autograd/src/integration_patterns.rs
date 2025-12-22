@@ -5,7 +5,6 @@
 //! performance optimization guidelines, and best practices for robust autograd usage.
 
 use crate::error_handling::{AutogradError, AutogradResult};
-use std::collections::HashMap;
 use std::fmt;
 
 /// Documentation for integration patterns and best practices

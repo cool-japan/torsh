@@ -14,8 +14,6 @@
 use crate::cuda::device::CudaDevice;
 use crate::cuda::error::CudaResult;
 use std::collections::HashMap;
-use std::ffi::CString;
-use torsh_core::error::TorshError;
 
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, format, string::String, vec::Vec};

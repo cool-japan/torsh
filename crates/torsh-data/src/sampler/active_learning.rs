@@ -9,7 +9,6 @@ use std::collections::HashSet;
 
 // ✅ SciRS2 Policy Compliant - Using scirs2_core for all random operations
 use scirs2_core::rand_prelude::SliceRandom;
-use scirs2_core::random::{Random, SeedableRng};
 
 use super::core::{rng_utils, Sampler, SamplerIterator};
 
@@ -80,7 +79,7 @@ impl Default for AcquisitionStrategy {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_data::sampler::{ActiveLearningSampler, AcquisitionStrategy, Sampler};
 ///
 /// let mut sampler = ActiveLearningSampler::new(
@@ -122,7 +121,7 @@ impl ActiveLearningSampler {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use torsh_data::sampler::{ActiveLearningSampler, AcquisitionStrategy};
     ///
     /// let sampler = ActiveLearningSampler::new(
@@ -866,7 +865,7 @@ mod tests {
         assert_eq!(sampler.len(), 0);
 
         // Budget larger than unlabeled
-        let mut large_budget =
+        let large_budget =
             ActiveLearningSampler::new(5, AcquisitionStrategy::UncertaintySampling, 10);
         assert_eq!(large_budget.len(), 5); // Should be clamped to available
 

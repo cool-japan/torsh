@@ -120,7 +120,7 @@ impl FftPlan {
         Self::new(
             FftType::C2C,
             vec![size],
-            1, // Single batch
+            1,          // Single batch
             DType::C64, // Complex64 input
             DType::C64, // Complex64 output
             direction,

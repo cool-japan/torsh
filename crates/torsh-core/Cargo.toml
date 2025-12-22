@@ -12,8 +12,8 @@ description = "Core types and traits for ToRSh deep learning framework"
 workspace = true
 
 [dependencies]
-# Core scientific computing dependencies
-scirs2 = { workspace = true }
+# Core scientific computing dependencies - SciRS2 POLICY COMPLIANCE
+scirs2-core = { workspace = true }
 numrs2 = { workspace = true }
 
 # Error handling
@@ -21,9 +21,11 @@ thiserror = { workspace = true }
 anyhow = { workspace = true }
 
 # Utilities
-num-traits = { workspace = true }
-num-derive = { workspace = true }
-num-complex = { workspace = true }
+# ⚠️ INTERNAL USE ONLY: These are used for internal dtype implementation
+# NEW CODE should use torsh_core::numeric, torsh_core::Complex instead
+num-traits = { workspace = true }  # INTERNAL dtype implementation only
+num-derive = { workspace = true }  # INTERNAL dtype implementation only
+num-complex = { workspace = true } # INTERNAL dtype implementation only
 num_cpus = ">=1.15.0, <2.0.0"  # Constrained version for stability
 once_cell = { workspace = true }
 parking_lot = { workspace = true }
@@ -38,7 +40,9 @@ serde_json = { version = ">=1.0.100, <2.0.0", optional = true }  # Better versio
 tracing = { workspace = true }
 
 # Optional dependencies for advanced features
-rayon = { version = ">=1.7.0, <2.0.0", optional = true }  # For parallel processing
+# ⚠️ INTERNAL USE ONLY: rayon used for internal device thread pool implementation
+# NEW CODE should use torsh_core::parallel instead
+rayon = { version = ">=1.7.0, <2.0.0", optional = true }  # INTERNAL device implementation only
 crossbeam = { version = ">=0.8.0, <0.9.0", optional = true }  # For lock-free data structures
 libc = { version = ">=0.2.140, <0.3.0", optional = true }  # For system-level operations
 zstd = { version = ">=0.12.0, <0.14.0", optional = true }  # For tensor compression
@@ -49,7 +53,7 @@ proptest = { workspace = true }
 criterion = { workspace = true }
 libfuzzer-sys = "0.4"
 tempfile = "3.23"
-tokio = { version = "1.47", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.48", features = ["macros", "rt-multi-thread"] }
 
 [features]
 default = ["std", "half", "parallel"]
@@ -68,8 +72,10 @@ fp16 = []
 avx512 = []
 simd = []
 
-# Parallel processing features
-parallel = ["rayon", "crossbeam"]
+# Parallel processing features - SciRS2 POLICY COMPLIANCE
+# ⚠️ INTERNAL: rayon used for device thread pools (legacy)
+# ✅ NEW CODE: Use torsh_core::parallel (scirs2-core::parallel_ops)
+parallel = ["rayon", "crossbeam"]  # Internal device thread pools + lock-free structures
 fast-math = []
 
 # Development and debugging features

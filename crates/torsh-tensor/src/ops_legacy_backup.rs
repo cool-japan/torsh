@@ -6741,7 +6741,7 @@ impl Tensor<f32> {
 
         for item in data.iter_mut() {
             // Generate geometric random variable using inverse transform
-            let u: f32 = rng.gen();
+            let u: f32 = rng.random();
             *item = ((1.0 - u).ln() / (1.0 - p).ln()).floor();
         }
 

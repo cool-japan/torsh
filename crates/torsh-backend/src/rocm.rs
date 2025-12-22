@@ -4,11 +4,7 @@
 //! and HIP API. It follows the same architectural patterns as the CUDA backend but
 //! targets AMD GPUs for high-performance computing workloads.
 
-use crate::error::BackendError;
-use crate::{Backend, Device};
-use std::ffi::CString;
 use std::sync::Arc;
-use torsh_core::DType;
 
 /// ROCm-specific error types
 #[derive(Debug, thiserror::Error)]

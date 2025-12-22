@@ -4,6 +4,8 @@
 //! 3D Convolutional Neural Networks, PointNet, and PointNet++ for
 //! processing 3D data such as point clouds and volumetric data.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use torsh_core::DeviceType;
@@ -494,8 +496,8 @@ impl PointNet {
     }
 
     pub fn forward(&self, points: &Tensor) -> torsh_core::error::Result<Tensor> {
-        let batch_size = points.size(0);
-        let num_points = points.size(1);
+        let _batch_size = points.size(0);
+        let _num_points = points.size(1);
 
         let mut x = points.clone();
 
@@ -733,7 +735,7 @@ impl SetAbstractionLayer {
         features: Option<&Tensor>,
     ) -> torsh_core::error::Result<(Tensor, Tensor)> {
         // Simplified implementation - in practice, would need proper sampling and grouping
-        let batch_size = xyz.size(0);
+        let _batch_size = xyz.size(0);
         let current_points = xyz.size(1);
 
         // Sample points (simplified as taking first num_points)

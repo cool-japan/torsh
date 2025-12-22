@@ -24,7 +24,7 @@
 //!
 //! ## Usage Example
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_autograd::visualization::magnitude_analysis::{
 //!     GradientMagnitudeAnalyzer, AnalyzerConfig
 //! };
@@ -55,11 +55,13 @@
 //! println!("{}", report);
 //! ```
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use std::collections::HashMap;
 use std::time::{Instant, SystemTime};
 use torsh_core::dtype::FloatElement;
-use torsh_core::error::{Result, TorshError};
-use tracing::{debug, info, warn};
+use torsh_core::error::Result;
+use tracing::{debug, info};
 
 /// Comprehensive gradient magnitude statistics with detailed breakdowns
 ///

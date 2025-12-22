@@ -5,13 +5,13 @@
 //! TensorFlow, and others. It enables seamless interoperability and migration
 //! between different AD systems.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::error_handling::{AutogradError, AutogradResult};
-use scirs2_core::error::CoreError;
-use scirs2_core::ndarray::{Array, ArrayView};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Mutex, RwLock};
 
 /// Supported automatic differentiation frameworks
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -625,7 +625,7 @@ impl FrameworkAdapter for PyTorchAdapter {
         Ok(Box::new(grad_tensor))
     }
 
-    fn zero_grad(&self, tensor: &mut dyn FrameworkTensor) -> AutogradResult<()> {
+    fn zero_grad(&self, _tensor: &mut dyn FrameworkTensor) -> AutogradResult<()> {
         // Simulate zeroing gradients
         tracing::debug!("Zeroing gradients for PyTorch tensor");
         Ok(())
@@ -635,7 +635,7 @@ impl FrameworkAdapter for PyTorchAdapter {
         &self,
         op: &UniversalOperation,
         inputs: &[&dyn FrameworkTensor],
-        params: &HashMap<String, String>,
+        _params: &HashMap<String, String>,
     ) -> AutogradResult<Box<dyn FrameworkTensor>> {
         if inputs.is_empty() {
             return Err(AutogradError::gradient_computation(
@@ -1119,23 +1119,22 @@ impl CompatibilityReport {
 }
 
 /// Global compatibility manager
-static mut GLOBAL_COMPATIBILITY_MANAGER: Option<ADFrameworkCompatibilityManager> = None;
-static COMPATIBILITY_INIT: std::sync::Once = std::sync::Once::new();
+static GLOBAL_COMPATIBILITY_MANAGER: std::sync::OnceLock<
+    std::sync::Mutex<ADFrameworkCompatibilityManager>,
+> = std::sync::OnceLock::new();
 
-pub fn get_global_compatibility_manager() -> &'static mut ADFrameworkCompatibilityManager {
-    unsafe {
-        COMPATIBILITY_INIT.call_once(|| {
-            let mut manager = ADFrameworkCompatibilityManager::new();
+pub fn get_global_compatibility_manager(
+) -> &'static std::sync::Mutex<ADFrameworkCompatibilityManager> {
+    GLOBAL_COMPATIBILITY_MANAGER.get_or_init(|| {
+        let mut manager = ADFrameworkCompatibilityManager::new();
 
-            // Register default adapters
-            if let Err(e) = manager.register_adapter(Box::new(PyTorchAdapter::new())) {
-                tracing::error!("Failed to register PyTorch adapter: {}", e);
-            }
+        // Register default adapters
+        if let Err(e) = manager.register_adapter(Box::new(PyTorchAdapter::new())) {
+            tracing::error!("Failed to register PyTorch adapter: {}", e);
+        }
 
-            GLOBAL_COMPATIBILITY_MANAGER = Some(manager);
-        });
-        GLOBAL_COMPATIBILITY_MANAGER.as_mut().unwrap()
-    }
+        std::sync::Mutex::new(manager)
+    })
 }
 
 /// Convenience functions for common operations
@@ -1144,7 +1143,8 @@ pub fn convert_tensor(
     target_framework: ADFramework,
 ) -> AutogradResult<Box<dyn FrameworkTensor>> {
     let manager = get_global_compatibility_manager();
-    let adapter = manager.get_adapter(&target_framework).ok_or_else(|| {
+    let manager_lock = manager.lock().unwrap();
+    let adapter = manager_lock.get_adapter(&target_framework).ok_or_else(|| {
         AutogradError::gradient_computation(
             "adapter_lookup",
             format!("Adapter for {} not available", target_framework),
@@ -1159,7 +1159,8 @@ pub fn migrate_model(
     data: &MigrationData,
 ) -> AutogradResult<MigrationResult> {
     let manager = get_global_compatibility_manager();
-    manager.execute_migration(source, target, data)
+    let manager_lock = manager.lock().unwrap();
+    manager_lock.execute_migration(source, target, data)
 }
 
 pub fn check_framework_compatibility(
@@ -1167,7 +1168,8 @@ pub fn check_framework_compatibility(
     target: ADFramework,
 ) -> AutogradResult<CompatibilityLevel> {
     let manager = get_global_compatibility_manager();
-    manager.check_compatibility(&source, &target)
+    let manager_lock = manager.lock().unwrap();
+    manager_lock.check_compatibility(&source, &target)
 }
 
 #[cfg(test)]

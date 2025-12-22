@@ -108,7 +108,7 @@ mod tests {
     use super::*;
     use crate::random_ops::randn;
     use torsh_core::DeviceType;
-    use torsh_tensor::creation::{ones, zeros};
+    use torsh_tensor::creation::ones;
 
     #[test]
     fn test_module_integration_shape_construction() -> torsh_core::Result<()> {

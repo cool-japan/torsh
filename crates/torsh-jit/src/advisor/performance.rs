@@ -1,7 +1,7 @@
 //! Performance analyzer for identifying bottlenecks and hotspots
 
 use crate::advisor::config::*;
-use crate::advisor::config::{BenchmarkResults, MemoryStatistics, OperationTiming, ResourceStats};
+use crate::advisor::config::{BenchmarkResults, OperationTiming};
 use crate::{profiler::ProfilingSession, ComputationGraph, JitResult};
 use std::collections::HashMap;
 
@@ -153,7 +153,7 @@ impl PerformanceAnalyzer {
         let mut cpu_usage = 0.5; // Default estimate
         let mut memory_usage = 0.3;
         let mut io_bandwidth_usage = 0.1;
-        let mut network_usage = 0.0;
+        let network_usage = 0.0;
         let gpu_usage = None;
 
         // Analyze based on available data

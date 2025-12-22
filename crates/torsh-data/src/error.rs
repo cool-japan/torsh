@@ -839,7 +839,8 @@ pub mod recovery {
             let delay = Duration::from_millis(delay.min(self.max_delay.as_millis() as u64));
 
             if self.jitter && attempt > 0 {
-                let jitter_ms = (delay.as_millis() as f64 * 0.1 * thread_rng().gen::<f64>()) as u64;
+                let jitter_ms =
+                    (delay.as_millis() as f64 * 0.1 * thread_rng().random::<f64>()) as u64;
                 delay + Duration::from_millis(jitter_ms)
             } else {
                 delay

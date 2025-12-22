@@ -1,5 +1,9 @@
 //! CPU feature detection and dynamic kernel dispatch
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
+// Allow unexpected_cfgs for SVE feature which may be added in the future
+#![allow(unexpected_cfgs)]
 use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
@@ -547,7 +551,6 @@ impl CpuFeatureDetector {
         );
 
         // SVE detection might require additional checks
-        #[allow(unexpected_cfgs)]
         #[cfg(feature = "sve")]
         {
             features.insert(

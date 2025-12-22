@@ -11,6 +11,8 @@
 //! - Memory efficiency analysis
 //! - SciRS2 optimization effectiveness measurement
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::advanced_transforms::{AdvancedTransforms, AugmentationConfig};
 use crate::models::{AdvancedViT, ConvNeXt, EfficientNetV2, VisionModel};
 use crate::scirs2_integration::{
@@ -461,7 +463,7 @@ impl VisionBenchmarkSuite {
 
     fn benchmark_model_inference_boxed(
         &self,
-        model: &dyn VisionModel,
+        _model: &dyn VisionModel,
         batch_size: usize,
         height: usize,
         width: usize,

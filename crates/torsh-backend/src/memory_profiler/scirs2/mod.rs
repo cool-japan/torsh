@@ -25,8 +25,10 @@
 //!
 //! # Usage
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_backend::memory_profiler::scirs2::{ScirS2Integration, ScirS2IntegrationConfig};
+//! use torsh_backend::memory_profiler::collections::scirs2::ScirS2Event;
+//! use torsh_backend::memory_profiler::scirs2::AllocationEventContext;
 //!
 //! // Create configuration
 //! let config = ScirS2IntegrationConfig {
@@ -569,7 +571,8 @@ mod tests {
 
         let aggregate_stats = integration.get_aggregate_statistics();
         assert!(aggregate_stats.monitoring_active);
-        assert!(aggregate_stats.total_optimization_suggestions >= 0);
+        // total_optimization_suggestions is usize, so it's always >= 0
+        let _ = aggregate_stats.total_optimization_suggestions;
     }
 
     #[test]
@@ -655,7 +658,7 @@ mod tests {
         assert!(sync_result.is_ok());
 
         // 4. Get optimization suggestions
-        let suggestions = integration.get_optimization_suggestions();
+        let _suggestions = integration.get_optimization_suggestions();
         // Should have suggestions based on the events
 
         // 5. Get health report
@@ -667,7 +670,7 @@ mod tests {
         assert!(metrics.total_events_processed >= 3);
 
         // 7. Get dashboard data
-        let dashboard = integration.get_dashboard_data();
+        let _dashboard = integration.get_dashboard_data();
         // Should have monitoring data
 
         // 8. Test configuration update

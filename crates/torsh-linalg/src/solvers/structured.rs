@@ -45,7 +45,7 @@ use torsh_tensor::Tensor;
 ///
 /// # Band Storage Format
 ///
-/// The band matrix A[i,j] is stored at AB[ku + 1 + i - j - 1, j] for max(0, j-ku) <= i <= min(n-1, j+kl)
+/// The band matrix A\[i,j\] is stored at AB\[ku + 1 + i - j - 1, j\] for max(0, j-ku) <= i <= min(n-1, j+kl)
 ///
 /// # Returns
 ///
@@ -513,7 +513,7 @@ fn solve_pentadiagonal_specialized(
 /// Solve Toeplitz linear system using Levinson algorithm
 ///
 /// Solves Tx = b where T is a Toeplitz matrix. A Toeplitz matrix has the form:
-/// T[i,j] = t[i-j] where t is a vector defining the matrix.
+/// T\[i,j\] = t\[i-j\] where t is a vector defining the matrix.
 ///
 /// This uses the Levinson algorithm which is O(n^2) instead of O(n^3) for general matrices.
 ///
@@ -668,7 +668,7 @@ fn solve_toeplitz_levinson(toeplitz_vec: &Tensor, b: &Tensor, n: usize) -> Torsh
 /// Solve Hankel linear system
 ///
 /// Solves Hx = b where H is a Hankel matrix. A Hankel matrix has the form:
-/// H[i,j] = h[i+j] where h is a vector defining the matrix.
+/// H\[i,j\] = h\[i+j\] where h is a vector defining the matrix.
 ///
 /// # Arguments
 ///
@@ -738,7 +738,7 @@ pub fn solve_hankel(hankel_vec: &Tensor, b: &Tensor) -> TorshResult<Tensor> {
 /// Solve circulant linear system using FFT-based method
 ///
 /// Solves Cx = b where C is a circulant matrix. A circulant matrix has the form:
-/// C[i,j] = c[(i-j) mod n] where c is the first row of the matrix.
+/// C\[i,j\] = c\[(i-j) mod n\] where c is the first row of the matrix.
 ///
 /// Circulant systems can be solved efficiently using FFT in O(n log n) time.
 /// For now, this is a simplified implementation without FFT.
@@ -878,7 +878,7 @@ fn solve_circulant_eigenvalue(first_row: &Tensor, b: &Tensor, n: usize) -> Torsh
 
 /// Solve Vandermonde linear system using specialized algorithm
 ///
-/// Solves Vx = b where V is a Vandermonde matrix with V[i,j] = a[i]^j.
+/// Solves Vx = b where V is a Vandermonde matrix with V\[i,j\] = a\[i\]^j.
 /// Vandermonde systems can be solved efficiently in O(n^2) time.
 ///
 /// # Arguments

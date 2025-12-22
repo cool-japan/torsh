@@ -612,7 +612,23 @@ impl ModelBenchmarkResult {
 // In a real implementation, these would use proper neural network operations
 
 fn mock_conv2d(input: &Tensor<f32>, weight: &Tensor<f32>) -> Tensor<f32> {
-    // Simplified convolution with stride=2 downsampling (typical for discriminator)
+    // Simplified convolution with same spatial dimensions (stride=1, padding=1 for 3x3)
+    let input_binding = input.shape();
+    let input_shape = input_binding.dims();
+    let weight_binding = weight.shape();
+    let weight_shape = weight_binding.dims();
+    let batch = input_shape[0];
+    let out_channels = weight_shape[0];
+
+    // Keep same spatial dimensions for stride=1 conv with padding
+    let height = input_shape[2];
+    let width = input_shape[3];
+
+    rand::<f32>(&[batch, out_channels, height, width]).unwrap()
+}
+
+fn mock_conv2d_downsample(input: &Tensor<f32>, weight: &Tensor<f32>) -> Tensor<f32> {
+    // Simplified convolution with stride=2 downsampling
     let input_binding = input.shape();
     let input_shape = input_binding.dims();
     let weight_binding = weight.shape();
@@ -826,17 +842,17 @@ impl Benchmarkable for GANDiscriminatorBench {
     fn run(&mut self, input: &Self::Input) -> Self::Output {
         let (x, weights) = input;
 
-        // Convolution layer 1
-        let conv1_out = mock_conv2d(x, &weights.conv1_weight);
+        // Convolution layer 1 with stride=2 downsampling
+        let conv1_out = mock_conv2d_downsample(x, &weights.conv1_weight);
         let leaky1_out = mock_leaky_relu(&conv1_out, 0.2);
 
-        // Convolution layer 2
-        let conv2_out = mock_conv2d(&leaky1_out, &weights.conv2_weight);
+        // Convolution layer 2 with stride=2 downsampling
+        let conv2_out = mock_conv2d_downsample(&leaky1_out, &weights.conv2_weight);
         let bn2_out = mock_batch_norm(&conv2_out, &weights.bn2_weight, &weights.bn2_bias);
         let leaky2_out = mock_leaky_relu(&bn2_out, 0.2);
 
-        // Convolution layer 3
-        let conv3_out = mock_conv2d(&leaky2_out, &weights.conv3_weight);
+        // Convolution layer 3 with stride=2 downsampling
+        let conv3_out = mock_conv2d_downsample(&leaky2_out, &weights.conv3_weight);
         let bn3_out = mock_batch_norm(&conv3_out, &weights.bn3_weight, &weights.bn3_bias);
         let leaky3_out = mock_leaky_relu(&bn3_out, 0.2);
 
@@ -1372,7 +1388,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "Model benchmark tests need layer implementation fixes"]
     fn test_resnet_block_bench() {
         let mut bench = ResNetBlockBench::new(64, 64, 224, 1);
         let input = bench.setup(224);
@@ -1400,7 +1415,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Model benchmark tests need layer implementation fixes"]
     fn test_model_benchmark_suite() {
         let suite = ModelBenchmarkSuite::new();
         assert!(!suite.configs.is_empty());

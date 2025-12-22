@@ -429,7 +429,6 @@ pub mod examples {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
 
     #[test]
     fn test_public_api_completeness() {
@@ -471,10 +470,13 @@ mod tests {
     #[test]
     fn test_manager_configuration_validation() {
         let speed_manager = create_speed_optimized_manager().unwrap();
-        match speed_manager.get_selection_strategy() {
-            MirrorSelectionStrategy::Weighted(_) => {} // Expected
-            _ => panic!("Speed optimized manager should use weighted strategy"),
-        }
+        assert!(
+            matches!(
+                speed_manager.get_selection_strategy(),
+                MirrorSelectionStrategy::Weighted(_)
+            ),
+            "Speed optimized manager should use weighted strategy"
+        );
 
         let reliability_manager = create_reliability_optimized_manager().unwrap();
         assert_eq!(reliability_manager.get_config().min_reliability_score, 0.9);
@@ -532,7 +534,7 @@ mod tests {
         let manager = MirrorManager::new(config);
         assert!(manager.is_ok());
 
-        let mut manager = manager.unwrap();
+        let manager = manager.unwrap();
 
         // Test that geographic calculator is properly integrated
         let geo_calc = manager.get_geographic_calculator();

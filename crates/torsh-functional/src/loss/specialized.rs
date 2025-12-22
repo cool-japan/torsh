@@ -4,7 +4,7 @@
 //! such as sequence-to-sequence learning, time series, and other advanced applications.
 
 use crate::loss::common::ReductionType;
-use crate::utils::{function_context, validate_positive, validate_range};
+use crate::utils::{function_context, validate_positive};
 use torsh_core::{Result as TorshResult, TorshError};
 use torsh_tensor::Tensor;
 
@@ -33,7 +33,7 @@ pub fn ctc_loss(
     targets: &Tensor,
     input_lengths: &Tensor,
     target_lengths: &Tensor,
-    blank: i64,
+    _blank: i64,
     reduction: ReductionType,
     zero_infinity: bool,
 ) -> TorshResult<Tensor> {

@@ -1,15 +1,13 @@
-use crate::error::{FfiError, FfiResult};
-use crate::python::tensor::{
-    device::{DeviceProperties, DeviceType},
-    storage::TensorStorage,
-    types::TYPE_MAPPER,
-};
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
+use crate::error::FfiError;
+use crate::python::tensor::{device::DeviceType, storage::TensorStorage, types::TYPE_MAPPER};
 use numpy::{IntoPyArray, PyArrayDyn, PyArrayMethods, PyUntypedArrayMethods};
 use pyo3::prelude::*;
-use pyo3::types::{PyList, PyType};
+use pyo3::types::{PyAny, PyList, PyType};
+use pyo3::Py;
 use scirs2_core::legacy::rng;
 use scirs2_core::random::prelude::*;
-use scirs2_core::random::Random;
 use torsh_core::DType;
 
 /// Python wrapper for ToRSh Tensor
@@ -36,7 +34,7 @@ impl PyTensor {
         requires_grad: bool,
     ) -> PyResult<Self> {
         let (tensor_data, tensor_shape, is_external) =
-            if let Ok(array) = data.downcast::<PyArrayDyn<f32>>() {
+            if let Ok(array) = data.cast::<PyArrayDyn<f32>>() {
                 // From NumPy array - try zero-copy first
                 let readonly = array.readonly();
                 let data_vec = if readonly.is_c_contiguous() {
@@ -48,7 +46,7 @@ impl PyTensor {
                 };
                 let shape_vec = array.shape().to_vec();
                 (data_vec, shape_vec, true)
-            } else if let Ok(list) = data.downcast::<PyList>() {
+            } else if let Ok(list) = data.cast::<PyList>() {
                 // From Python list
                 let flat_data = Self::flatten_list(&list)?;
                 let inferred_shape = shape.unwrap_or_else(|| vec![flat_data.len()]);
@@ -120,7 +118,7 @@ impl PyTensor {
     }
 
     /// Convert tensor to NumPy array
-    fn to_numpy(&self, py: Python) -> PyResult<PyObject> {
+    fn to_numpy(&self, py: Python) -> PyResult<Py<PyAny>> {
         // Create numpy array with correct shape
         use scirs2_core::ndarray_ext::Array;
         let array_nd = Array::from_shape_vec(
@@ -134,7 +132,7 @@ impl PyTensor {
     }
 
     /// Convert tensor to PyTorch tensor (if available)
-    fn to_torch(&self, py: Python) -> PyResult<PyObject> {
+    fn to_torch(&self, py: Python) -> PyResult<Py<PyAny>> {
         // Try to import torch
         let torch = py.import("torch").map_err(|_| FfiError::Module {
             message: "PyTorch not available".to_string(),
@@ -398,7 +396,7 @@ impl PyTensor {
     /// Autograd functionality
 
     /// Get gradient tensor
-    fn grad(&self, py: Python) -> PyResult<Option<PyObject>> {
+    fn grad(&self, py: Python) -> PyResult<Option<Py<PyAny>>> {
         let grad_data = self.storage.grad();
         if let Some(ref grad) = *grad_data {
             let grad_tensor = PyTensor {
@@ -526,7 +524,7 @@ impl PyTensor {
     fn flatten_list(list: &Bound<'_, PyList>) -> PyResult<Vec<f32>> {
         let mut result = Vec::new();
         for item in list.iter() {
-            if let Ok(nested_list) = item.downcast::<PyList>() {
+            if let Ok(nested_list) = item.cast::<PyList>() {
                 result.extend(Self::flatten_list(&nested_list)?);
             } else if let Ok(value) = item.extract::<f32>() {
                 result.push(value);
@@ -541,7 +539,7 @@ impl PyTensor {
     }
 
     /// Helper function for binary operations
-    fn binary_op<F>(&self, other: &PyTensor, op: F, op_name: &str) -> PyResult<PyTensor>
+    fn binary_op<F>(&self, other: &PyTensor, op: F, _op_name: &str) -> PyResult<PyTensor>
     where
         F: Fn(f32, f32) -> f32,
     {
@@ -571,12 +569,14 @@ impl PyTensor {
     }
 
     /// Get number of elements
+    #[allow(dead_code)]
     fn numel(&self) -> usize {
         self.data.len()
     }
 
     /// Convert to numpy array (alias for to_numpy)
-    fn numpy(&self, py: Python) -> PyResult<PyObject> {
+    #[allow(dead_code)]
+    fn numpy(&self, py: Python) -> PyResult<Py<PyAny>> {
         self.to_numpy(py)
     }
 }
@@ -623,7 +623,7 @@ impl PyTensor {
     }
 
     /// Convert to numpy array (internal Rust access)
-    pub fn to_numpy_internal(&self, py: Python) -> PyResult<PyObject> {
+    pub fn to_numpy_internal(&self, py: Python) -> PyResult<Py<PyAny>> {
         // Create numpy array with correct shape
         use scirs2_core::ndarray_ext::Array;
         let array_nd = Array::from_shape_vec(

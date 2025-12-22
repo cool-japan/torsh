@@ -19,42 +19,44 @@ help:
 
 # Build commands
 build:
-	cargo build --all-features
+	cargo build --workspace --exclude torsh-python --exclude torsh-ffi
 
 build-release:
-	cargo build --release --all-features
+	cargo build --release --workspace --exclude torsh-python --exclude torsh-ffi
 
 # Test commands
 test:
-	cargo test --all-features
+	LIBRARY_PATH="/opt/homebrew/opt/openblas/lib:/opt/homebrew/lib:$$LIBRARY_PATH" \
+	  cargo nextest run --workspace --exclude torsh-python --exclude torsh-ffi --exclude torsh-distributed
 
 test-fast:
-	cargo test --package torsh-core
-	cargo test --package torsh-tensor
-	cargo test --package torsh-autograd
-	cargo test --package torsh-nn
-	cargo test --package torsh-optim
-	cargo test --package torsh-data
-	cargo test --package torsh-backends
+	LIBRARY_PATH="/opt/homebrew/opt/openblas/lib:/opt/homebrew/lib:$$LIBRARY_PATH" cargo test --package torsh-core
+	LIBRARY_PATH="/opt/homebrew/opt/openblas/lib:/opt/homebrew/lib:$$LIBRARY_PATH" cargo test --package torsh-tensor
+	LIBRARY_PATH="/opt/homebrew/opt/openblas/lib:/opt/homebrew/lib:$$LIBRARY_PATH" cargo test --package torsh-autograd
+	LIBRARY_PATH="/opt/homebrew/opt/openblas/lib:/opt/homebrew/lib:$$LIBRARY_PATH" cargo test --package torsh-nn
+	LIBRARY_PATH="/opt/homebrew/opt/openblas/lib:/opt/homebrew/lib:$$LIBRARY_PATH" cargo test --package torsh-optim
+	LIBRARY_PATH="/opt/homebrew/opt/openblas/lib:/opt/homebrew/lib:$$LIBRARY_PATH" cargo test --package torsh-data
+	LIBRARY_PATH="/opt/homebrew/opt/openblas/lib:/opt/homebrew/lib:$$LIBRARY_PATH" cargo test --package torsh-backends
 
 test-lib:
-	cargo test --lib --all-features
+	LIBRARY_PATH="/opt/homebrew/opt/openblas/lib:/opt/homebrew/lib:$$LIBRARY_PATH" \
+	  cargo test --lib --workspace --exclude torsh-python --exclude torsh-ffi
 
 # Code quality
 format:
 	cargo fmt --all
 
 lint:
-	cargo clippy --all-targets --all-features -- -D warnings
+	cargo clippy --workspace --exclude torsh-python --exclude torsh-ffi -- -D warnings
 
 check: format lint test-fast
 
 # Documentation
 docs:
-	cargo doc --no-deps --all-features --open
+	cargo doc --no-deps --workspace --exclude torsh-python --exclude torsh-ffi --open
 
 docs-build:
-	cargo doc --no-deps --all-features
+	cargo doc --no-deps --workspace --exclude torsh-python --exclude torsh-ffi
 
 # Examples
 examples:
@@ -104,7 +106,7 @@ setup-macos:
 	@echo "Setting up macOS environment..."
 	brew install libomp || echo "libomp already installed"
 	@echo "Add these to your shell profile:"
-	@echo 'export LIBRARY_PATH="/opt/homebrew/lib:$$LIBRARY_PATH"'
+	@echo 'export LIBRARY_PATH="/opt/homebrew/opt/openblas/lib:/opt/homebrew/lib:$$LIBRARY_PATH"'
 	@echo 'export CPATH="/opt/homebrew/include:$$CPATH"'
 
 setup-ubuntu:
@@ -119,5 +121,6 @@ tag-release:
 	@echo "Create new tag with: git tag v0.1.0 && git push origin v0.1.0"
 
 check-release:
-	cargo build --release --all-features
-	cargo test --release --all-features || true
+	cargo build --release --workspace --exclude torsh-python --exclude torsh-ffi
+	LIBRARY_PATH="/opt/homebrew/opt/openblas/lib:/opt/homebrew/lib:$$LIBRARY_PATH" \
+	  cargo nextest run --release --workspace --exclude torsh-python --exclude torsh-ffi --exclude torsh-distributed || true

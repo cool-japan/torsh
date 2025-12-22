@@ -3,14 +3,9 @@
 //! This module provides pooling operations optimized for sparse tensors,
 //! including max pooling, average pooling, and adaptive pooling variants.
 
-use crate::{CooTensor, CscTensor, CsrTensor, SparseTensor, TorshResult};
-use scirs2_core::random::{Random, Rng};
-use std::collections::HashMap;
-use torsh_core::{Shape, TorshError};
-use torsh_tensor::{
-    creation::{randn, zeros},
-    Tensor,
-};
+use crate::TorshResult;
+use torsh_core::TorshError;
+use torsh_tensor::{creation::zeros, Tensor};
 
 /// Sparse 2D Max Pooling layer
 ///

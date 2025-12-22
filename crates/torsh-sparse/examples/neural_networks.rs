@@ -5,7 +5,7 @@
  * architectures, including sparse linear layers, convolution, and attention.
  */
 
-use scirs2_core::random::{thread_rng, Random, Rng};
+use scirs2_core::random::thread_rng;
 use torsh_core::TorshError;
 use torsh_sparse::optimizers::SparseOptimizer;
 use torsh_sparse::*;

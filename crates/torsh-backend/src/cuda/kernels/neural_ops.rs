@@ -1,6 +1,7 @@
 //! Rust bindings for neural network operation kernels
 
-use crate::error::{CudaError, CudaResult};
+#[allow(unused_imports)]
+use crate::cuda::error::{CudaError, CudaResult};
 
 /// Launch 2D convolution kernel
 pub fn launch_conv2d_f32(

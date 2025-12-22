@@ -16,7 +16,7 @@
 use super::core::{Transform, TransformRequirements};
 use crate::{Result, VisionError};
 // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::{Random};
 use torsh_tensor::{creation, Tensor};
 
 // ================================================================================================
@@ -188,7 +188,7 @@ impl ColorJitter {
         };
 
         let hue_shift = if let Some(hue) = self.hue {
-            rng.gen_range((-hue)..=hue)
+            rng.gen_range((-hue), =hue)
         } else {
             0.0
         };

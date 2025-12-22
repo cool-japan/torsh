@@ -1,7 +1,7 @@
 //! Quantization operations
 
 use crate::{QScheme, TorshResult};
-use rayon::prelude::*;
+use scirs2_core::parallel_ops::*;
 use torsh_core::{DType, TorshError};
 use torsh_tensor::Tensor;
 
@@ -509,7 +509,7 @@ pub fn quantize_auto(
 /// Dynamic quantization for modules
 // Temporarily disabled: pub fn quantize_dynamic(_module: &mut dyn torsh_nn::Module) -> TorshResult<()> {
 #[allow(dead_code)]
-pub fn quantize_dynamic(module: &mut dyn crate::TemporaryModule) -> TorshResult<()> {
+pub fn quantize_dynamic(module: &mut dyn crate::qat::Module) -> TorshResult<()> {
     // Iterate through module parameters and quantize them dynamically
     let mut quantized_params = Vec::new();
 
@@ -534,7 +534,7 @@ pub fn quantize_dynamic(module: &mut dyn crate::TemporaryModule) -> TorshResult<
 /// Static quantization preparation
 // Temporarily disabled: pub fn prepare_qat(_module: &mut dyn torsh_nn::Module) -> TorshResult<()> {
 #[allow(dead_code)]
-pub fn prepare_qat(module: &mut dyn crate::TemporaryModule) -> TorshResult<()> {
+pub fn prepare_qat(module: &mut dyn crate::qat::Module) -> TorshResult<()> {
     // Insert fake quantization operations into the module for QAT
     // This is a simplified implementation that sets up the module for QAT
 

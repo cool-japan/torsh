@@ -1,6 +1,6 @@
 //! ResNet model configuration
 
-use super::super::common::types::ModelInitConfig;
+use super::super::vision_common::types::ModelInitConfig;
 
 /// ResNet architecture variants
 #[derive(Debug, Clone, PartialEq, Eq)]

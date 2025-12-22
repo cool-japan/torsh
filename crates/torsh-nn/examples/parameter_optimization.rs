@@ -155,7 +155,7 @@ fn gradient_clipping_example() -> Result<()> {
     println!("3. Gradient Clipping");
     println!("====================");
 
-    let mut updater = ParameterUpdater::new();
+    let updater = ParameterUpdater::new();
 
     // Create gradients with large values
     let mut gradients: HashMap<String, Tensor> = HashMap::new();
@@ -240,7 +240,7 @@ fn batch_update_example() -> Result<()> {
             if let Some(grad) = gradients.get(name) {
                 let update = grad.mul_op(&torsh_tensor::creation::tensor_scalar(learning_rate)?)?;
                 let tensor = param.tensor();
-                let mut param_tensor = tensor.write();
+                let param_tensor = tensor.write();
                 param_tensor.sub(&update)?;
             }
         }

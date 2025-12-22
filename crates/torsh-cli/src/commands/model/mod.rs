@@ -26,12 +26,19 @@ pub mod analysis;
 pub mod args;
 pub mod benchmarking;
 pub mod conversion;
+pub mod enhanced_profiling;
+pub mod enhanced_serialization;
 pub mod optimization;
+pub mod profiling;
+pub mod pytorch_parser;
+pub mod real_benchmarking;
+pub mod serialization;
+pub mod tensor_integration;
 pub mod types;
+pub mod validation;
 
 // Re-export commonly used types for convenience
 pub use args::*;
-pub use types::{ModelInfo, ModelResult};
 
 /// Model operation subcommands
 #[derive(Subcommand)]

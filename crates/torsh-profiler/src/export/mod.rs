@@ -1,5 +1,7 @@
 //! Export and reporting functionality
 
+#![allow(ambiguous_glob_reexports)]
+
 pub mod dashboard;
 pub mod formats;
 pub mod reporting;

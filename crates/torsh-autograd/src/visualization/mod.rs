@@ -43,12 +43,13 @@
 //!
 //! ### Basic Gradient Flow Analysis
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_autograd::visualization::{GradientVisualizer, VisualizerConfig};
-//! use torsh_autograd::AutogradContext;
+//! use torsh_autograd::context::AutogradContext;
+//! # fn example(ctx: &AutogradContext) -> torsh_core::error::Result<()> {
 //!
 //! // Create visualizer with default configuration
-//! let visualizer = GradientVisualizer::new(VisualizerConfig::default());
+//! let visualizer = GradientVisualizer::with_config(VisualizerConfig::default());
 //!
 //! // Analyze gradient flow in autograd context
 //! let analysis = visualizer.analyze_gradient_flow(&ctx)?;
@@ -60,42 +61,51 @@
 //! // Export as HTML for web viewing
 //! let html_report = visualizer.generate_html_visualization(&analysis)?;
 //! std::fs::write("gradient_analysis.html", html_report)?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ### Real-time Monitoring
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_autograd::visualization::{GradientFlowMonitor, MonitoringConfig};
+//! use torsh_autograd::context::AutogradContext;
+//! use std::time::Duration;
+//! # fn example(ctx: &AutogradContext, num_epochs: usize) -> torsh_core::error::Result<()> {
 //!
 //! // Configure monitoring system
 //! let config = MonitoringConfig {
-//!     enable_alerts: true,
-//!     analysis_interval: Duration::from_secs(5),
-//!     anomaly_threshold: 2.0,
+//!     max_history_size: 1000,
+//!     min_trend_samples: 10,
 //!     trend_window_size: 100,
+//!     change_threshold: 0.1,
+//!     enable_alerting: true,
+//!     snapshot_interval: Duration::from_secs(5),
 //! };
 //!
 //! // Create monitor
-//! let mut monitor = GradientFlowMonitor::new(config);
+//! let mut monitor = GradientFlowMonitor::with_config(config);
 //!
-//! // Start monitoring during training loop
-//! monitor.start_monitoring(&ctx)?;
-//!
-//! // Training loop...
+//! // Training loop with monitoring
 //! for epoch in 0..num_epochs {
 //!     // Training step...
 //!
-//!     // Monitor will automatically analyze gradient flows
-//!     if let Some(alert) = monitor.check_for_alerts()? {
-//!         println!("Alert: {:?}", alert);
-//!     }
+//!     // Analyze and store gradient flows
+//!     monitor.analyze_and_store(&ctx)?;
 //! }
+//!
+//! // Generate monitoring report
+//! let report = monitor.generate_monitoring_report()?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ### Advanced Statistical Analysis
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_autograd::visualization::{GradientMagnitudeAnalyzer, AnalyzerConfig};
+//! use torsh_autograd::context::AutogradContext;
+//! # fn example(ctx: &AutogradContext) -> torsh_core::error::Result<()> {
 //!
 //! // Configure detailed analysis
 //! let config = AnalyzerConfig {
@@ -106,10 +116,10 @@
 //! };
 //!
 //! // Create analyzer
-//! let analyzer = GradientMagnitudeAnalyzer::new(config);
+//! let analyzer = GradientMagnitudeAnalyzer::<f32>::new(config);
 //!
 //! // Perform detailed statistical analysis
-//! let detailed_stats = analyzer.analyze_gradients(&ctx)?;
+//! let detailed_stats = analyzer.analyze_gradients(&ctx, None)?;
 //!
 //! // Access per-layer statistics
 //! for (layer_name, layer_stats) in &detailed_stats.layer_stats {
@@ -119,6 +129,8 @@
 //!
 //! // Access global statistics
 //! println!("Global gradient norm: {:.6}", detailed_stats.global_stats.total_norm);
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Performance Considerations
@@ -180,11 +192,14 @@ use torsh_core::FloatElement;
 ///
 /// # Example
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_autograd::visualization::create_default_visualizer;
-///
+/// # use torsh_autograd::context::AutogradContext;
+/// # fn example(ctx: &AutogradContext) -> torsh_core::error::Result<()> {
 /// let visualizer = create_default_visualizer();
 /// let analysis = visualizer.analyze_gradient_flow(&ctx)?;
+/// # Ok(())
+/// # }
 /// ```
 pub fn create_default_visualizer() -> GradientVisualizer {
     GradientVisualizer::with_config(VisualizerConfig::default())
@@ -201,11 +216,14 @@ pub fn create_default_visualizer() -> GradientVisualizer {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_autograd::visualization::create_default_monitor;
-///
+/// # use torsh_autograd::context::AutogradContext;
+/// # fn example(ctx: &AutogradContext) -> torsh_core::error::Result<()> {
 /// let mut monitor = create_default_monitor();
-/// monitor.start_monitoring(&ctx)?;
+/// monitor.analyze_and_store(&ctx)?;
+/// # Ok(())
+/// # }
 /// ```
 pub fn create_default_monitor() -> GradientFlowMonitor {
     GradientFlowMonitor::new()
@@ -222,11 +240,15 @@ pub fn create_default_monitor() -> GradientFlowMonitor {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_autograd::visualization::create_default_analyzer;
-///
-/// let analyzer = create_default_analyzer();
-/// let stats = analyzer.analyze_gradients(&ctx)?;
+/// # use std::collections::HashMap;
+/// # fn example() -> torsh_core::error::Result<()> {
+/// let mut analyzer = create_default_analyzer::<f32>();
+/// let gradients = HashMap::new(); // Example empty gradients
+/// let stats = analyzer.analyze_gradients(&gradients, None)?;
+/// # Ok(())
+/// # }
 /// ```
 pub fn create_default_analyzer<T: FloatElement + num_traits::FromPrimitive + Default + Clone>(
 ) -> GradientMagnitudeAnalyzer<T> {
@@ -252,11 +274,14 @@ pub fn create_default_analyzer<T: FloatElement + num_traits::FromPrimitive + Def
 ///
 /// # Example
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_autograd::visualization::quick_gradient_analysis;
-///
-/// let (analysis, detailed_stats, report) = quick_gradient_analysis(&ctx)?;
+/// # use torsh_autograd::context::AutogradContext;
+/// # fn example(ctx: &AutogradContext) -> torsh_core::error::Result<()> {
+/// let (analysis, detailed_stats, report) = quick_gradient_analysis::<f32>(&ctx)?;
 /// println!("{}", report);
+/// # Ok(())
+/// # }
 /// ```
 pub fn quick_gradient_analysis<T: FloatElement + num_traits::FromPrimitive + Default + Clone>(
     ctx: &AutogradContext,

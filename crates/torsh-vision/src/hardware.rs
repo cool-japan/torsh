@@ -1,3 +1,5 @@
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{Result, VisionError};
 use std::sync::Arc;
 use torsh_core::device::{CpuDevice, Device, DeviceType};
@@ -147,8 +149,8 @@ impl GpuResize {
         &self,
         input: &Tensor<f32>,
         output: &mut Tensor<f32>,
-        src_width: usize,
-        src_height: usize,
+        _src_width: usize,
+        _src_height: usize,
         dst_width: usize,
         dst_height: usize,
     ) -> Result<()> {
@@ -163,8 +165,8 @@ impl GpuResize {
         &self,
         input: &Tensor<f32>,
         output: &mut Tensor<f32>,
-        src_width: usize,
-        src_height: usize,
+        _src_width: usize,
+        _src_height: usize,
         dst_width: usize,
         dst_height: usize,
     ) -> Result<()> {
@@ -210,8 +212,8 @@ impl GpuConvolution {
     }
 
     fn create_gaussian_kernel(sigma: f32, size: usize) -> Result<Tensor<f32>> {
-        let cpu_device = CpuDevice::new();
-        let mut kernel = Tensor::zeros(&[size, size], torsh_core::DeviceType::Cpu)?;
+        let _cpu_device = CpuDevice::new();
+        let kernel = Tensor::zeros(&[size, size], torsh_core::DeviceType::Cpu)?;
         let center = size as f32 / 2.0;
         let two_sigma_sq = 2.0 * sigma * sigma;
 
@@ -300,7 +302,7 @@ impl GpuConvolution {
         let output_h = (height + 2 * pad_h - kernel_h) / stride_h + 1;
         let output_w = (width + 2 * pad_w - kernel_w) / stride_w + 1;
 
-        let mut output = Tensor::zeros(&[channels, output_h, output_w], input.device())?;
+        let output = Tensor::zeros(&[channels, output_h, output_w], input.device())?;
 
         for c in 0..channels {
             for y in 0..output_h {
@@ -464,7 +466,7 @@ mod tests {
     fn test_gpu_resize() {
         let device = Arc::new(CpuDevice::new()) as Arc<dyn Device>;
         let resize = GpuResize::new((224, 224), device);
-        let cpu_device = CpuDevice::new();
+        let _cpu_device = CpuDevice::new();
         let input = zeros(&[3, 128, 128]).unwrap();
         let output = resize.forward_gpu(&input).unwrap();
         assert_eq!(output.shape().dims(), &[3, 224, 224]);
@@ -473,7 +475,7 @@ mod tests {
     #[test]
     fn test_gpu_convolution() {
         let device = Arc::new(CpuDevice::new()) as Arc<dyn Device>;
-        let cpu_device = CpuDevice::new();
+        let _cpu_device = CpuDevice::new();
         let kernel = zeros(&[3, 3]).unwrap();
         let conv = GpuConvolution::new(kernel, (1, 1), (1, 1), device);
         let input = zeros(&[3, 32, 32]).unwrap();
@@ -486,7 +488,7 @@ mod tests {
         let device = Arc::new(CpuDevice::new()) as Arc<dyn Device>;
         let resize = GpuResize::new((224, 224), device.clone());
         let mixed_transform = MixedPrecisionTransform::new(resize, device, false);
-        let cpu_device = CpuDevice::new();
+        let _cpu_device = CpuDevice::new();
         let input = zeros(&[3, 128, 128]).unwrap();
         let output = mixed_transform.forward(&input).unwrap();
         assert_eq!(output.shape().dims(), &[3, 224, 224]);

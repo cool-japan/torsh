@@ -61,10 +61,12 @@ pub mod advanced_simd_ops;
 pub mod algorithmic_optimizations;
 pub mod complex_ops;
 pub mod comprehensive_integration_tests;
+pub mod computation_graph;
 pub mod core_ops;
 pub mod cross_platform_validator;
 pub mod data_ops;
 pub mod expression_optimizer;
+pub mod expression_templates;
 pub mod hardware_accelerators;
 pub mod math_ops;
 pub mod memory_optimization;
@@ -77,6 +79,7 @@ pub mod ultra_performance_profiler;
 // Utility and integration modules
 #[cfg(feature = "async")]
 pub mod async_ops;
+pub mod auto_batching;
 pub mod backend_integration;
 pub mod bfloat16_ops;
 pub mod broadcast;
@@ -84,18 +87,28 @@ pub mod cache_optimization;
 pub mod conv;
 pub mod convenience;
 pub mod creation;
+pub mod custom_dtype;
 pub mod custom_ops;
 pub mod indexing;
 pub mod lazy_loading;
 // pub mod lazy_ops; // Temporarily disabled due to complex trait bounds - using fluent API instead
+pub mod lockfree_cache;
 pub mod memory_pool;
+#[cfg(feature = "memory-profiling")]
+pub mod memory_profiler;
 pub mod nan_inf_detection;
+#[cfg(feature = "operation-logging")]
+pub mod operation_logging;
 // pub mod ops; // Functionality extracted to specialized modules
 pub mod fft;
 pub mod scirs2_backend;
 pub mod scirs2_stats_integration;
+pub mod shape_inference_debugger;
 pub mod sparse;
 pub mod stats;
+pub mod tensor_comprehension;
+pub mod tensor_tracker;
+pub mod tensor_utils;
 pub mod tensor_views;
 pub mod type_conversions;
 
@@ -109,9 +122,8 @@ pub mod serialize;
 // Re-export core types and traits
 use torsh_core::{
     device::DeviceType,
-    dtype::{DType, FloatElement, TensorElement},
-    error::{Result, TorshError},
-    shape::Shape,
+    dtype::{FloatElement, TensorElement},
+    error::Result,
 };
 
 // Re-export the main tensor type
@@ -123,8 +135,8 @@ pub use convenience::{FluentTensor, TensorConvenience, TensorFluentExt};
 // Re-export lazy evaluation functionality (temporarily disabled)
 // pub use lazy_ops::{LazyTensor, TensorLazyExt};
 
-// Re-export sparse tensor functionality
-pub use sparse::SparseTensor;
+// Re-export sparse tensor functionality (COO, CSR, CSC formats)
+pub use sparse::{SparseCSC, SparseCSR, SparseTensor};
 
 // Re-export custom operation functionality
 pub use custom_ops::{
@@ -206,67 +218,67 @@ impl<T: TensorElement> Tensor<T> {
     }
 }
 
-// Conditional AutogradTensor trait implementation for integration with torsh-autograd
-#[cfg(feature = "autograd")]
-impl<T: TensorElement> torsh_autograd::AutogradTensor<T> for Tensor<T> {
-    fn shape(&self) -> Shape {
-        self.shape()
-    }
-
-    fn requires_grad(&self) -> bool {
-        self.requires_grad()
-    }
-
-    fn data(&self) -> Box<dyn std::ops::Deref<Target = [T]> + '_> {
-        // Return a boxed vector that can be dereferenced as a slice
-        Box::new(self.to_vec().unwrap_or_default())
-    }
-
-    fn clone_tensor(&self) -> Box<dyn torsh_autograd::AutogradTensor<T>> {
-        Box::new(self.clone())
-    }
-
-    fn to_vec(&self) -> Vec<T>
-    where
-        T: Copy,
-    {
-        self.to_vec().unwrap_or_default()
-    }
-
-    fn device(&self) -> &dyn torsh_core::Device {
-        match &self.device {
-            DeviceType::Cpu => {
-                static CPU_DEVICE: torsh_core::device::CpuDevice =
-                    torsh_core::device::CpuDevice::new();
-                &CPU_DEVICE
-            }
-            DeviceType::Cuda(_) => {
-                static CPU_DEVICE: torsh_core::device::CpuDevice =
-                    torsh_core::device::CpuDevice::new();
-                &CPU_DEVICE // TODO: Return proper CUDA device
-            }
-            _ => {
-                static CPU_DEVICE: torsh_core::device::CpuDevice =
-                    torsh_core::device::CpuDevice::new();
-                &CPU_DEVICE
-            }
-        }
-    }
-
-    fn ones_like(&self) -> Box<dyn torsh_autograd::AutogradTensor<T>>
-    where
-        T: Copy,
-    {
-        Box::new(self.ones_like().unwrap_or_else(|_| self.clone()))
-    }
-
-    fn zeros_like(&self) -> Box<dyn torsh_autograd::AutogradTensor<T>>
-    where
-        T: Copy,
-    {
-        Box::new(self.zeros_like().unwrap_or_else(|_| self.clone()))
-    }
-}
+// TODO: Conditional AutogradTensor trait implementation - torsh-autograd not yet available
+// #[cfg(feature = "autograd")]
+// impl<T: TensorElement> torsh_autograd::AutogradTensor<T> for Tensor<T> {
+//     fn shape(&self) -> Shape {
+//         self.shape()
+//     }
+//
+//     fn requires_grad(&self) -> bool {
+//         self.requires_grad()
+//     }
+//
+//     fn data(&self) -> Box<dyn std::ops::Deref<Target = [T]> + '_> {
+//         // Return a boxed vector that can be dereferenced as a slice
+//         Box::new(self.to_vec().unwrap_or_default())
+//     }
+//
+//     fn clone_tensor(&self) -> Box<dyn torsh_autograd::AutogradTensor<T>> {
+//         Box::new(self.clone())
+//     }
+//
+//     fn to_vec(&self) -> Vec<T>
+//     where
+//         T: Copy,
+//     {
+//         self.to_vec().unwrap_or_default()
+//     }
+//
+//     fn device(&self) -> &dyn torsh_core::Device {
+//         match &self.device {
+//             DeviceType::Cpu => {
+//                 static CPU_DEVICE: torsh_core::device::CpuDevice =
+//                     torsh_core::device::CpuDevice::new();
+//                 &CPU_DEVICE
+//             }
+//             DeviceType::Cuda(_) => {
+//                 static CPU_DEVICE: torsh_core::device::CpuDevice =
+//                     torsh_core::device::CpuDevice::new();
+//                 &CPU_DEVICE // TODO: Return proper CUDA device
+//             }
+//             _ => {
+//                 static CPU_DEVICE: torsh_core::device::CpuDevice =
+//                     torsh_core::device::CpuDevice::new();
+//                 &CPU_DEVICE
+//             }
+//         }
+//     }
+//
+//     fn ones_like(&self) -> Box<dyn torsh_autograd::AutogradTensor<T>>
+//     where
+//         T: Copy,
+//     {
+//         Box::new(self.ones_like().unwrap_or_else(|_| self.clone()))
+//     }
+//
+//     fn zeros_like(&self) -> Box<dyn torsh_autograd::AutogradTensor<T>>
+//     where
+//         T: Copy,
+//     {
+//         Box::new(self.zeros_like().unwrap_or_else(|_| self.clone()))
+//     }
+// }
 
 // Re-export commonly used functions and types for convenience
 pub mod prelude {
@@ -326,6 +338,7 @@ pub mod prelude {
 mod integration_tests {
     use super::*;
     use torsh_core::device::DeviceType;
+    use torsh_core::dtype::DType;
 
     #[test]
     fn test_tensor_creation_and_basic_ops() {
@@ -381,7 +394,7 @@ mod integration_tests {
         assert_eq!(tensor.get_item(&[0, 0]).unwrap(), 5.0);
 
         let indices = Tensor::from_data(vec![0i64, 2], vec![2], DeviceType::Cpu).unwrap();
-        let src = Tensor::from_data(vec![10.0f32, 20.0], vec![2], DeviceType::Cpu).unwrap();
+        let _src = Tensor::from_data(vec![10.0f32, 20.0], vec![2], DeviceType::Cpu).unwrap();
 
         let data_1d = vec![1.0f32, 2.0, 3.0, 4.0, 5.0];
         let tensor_1d = Tensor::from_data(data_1d, vec![5], DeviceType::Cpu).unwrap();

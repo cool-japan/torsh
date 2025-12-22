@@ -8,6 +8,8 @@
 //! - Performance benchmarking and optimization
 //! - Modern deep learning workflows
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::advanced_transforms::{AdvancedTransforms, AugmentationConfig, NoiseType};
 use crate::benchmarks::{run_quick_benchmark, BenchmarkConfig, VisionBenchmarkSuite};
 use crate::models::{AdvancedViT, ConvNeXt, EfficientNetV2, VisionModel};
@@ -16,7 +18,7 @@ use crate::scirs2_integration::{
 };
 use crate::{Result, VisionError};
 use scirs2_core::ndarray::{s, Array2, Array3};
-use scirs2_core::random::{Random, Rng}; // SciRS2 Policy compliance
+use scirs2_core::random::Random; // SciRS2 Policy compliance
 use std::time::Instant;
 use torsh_nn::Module;
 use torsh_tensor::{creation, Tensor};
@@ -71,14 +73,14 @@ fn demonstrate_computer_vision_operations() -> Result<()> {
 
         // Edge detection comparison
         let start = Instant::now();
-        let sobel_edges = processor.multi_edge_detection(&image, EdgeDetectionMethod::Sobel)?;
+        let _sobel_edges = processor.multi_edge_detection(&image, EdgeDetectionMethod::Sobel)?;
         println!(
             "  ✓ Sobel edge detection: {:.2}ms",
             start.elapsed().as_secs_f64() * 1000.0
         );
 
         let start = Instant::now();
-        let canny_edges = processor.multi_edge_detection(&image, EdgeDetectionMethod::Canny)?;
+        let _canny_edges = processor.multi_edge_detection(&image, EdgeDetectionMethod::Canny)?;
         println!(
             "  ✓ Canny edge detection: {:.2}ms",
             start.elapsed().as_secs_f64() * 1000.0
@@ -113,28 +115,28 @@ fn demonstrate_computer_vision_operations() -> Result<()> {
         let color_image = creation::randn::<f32>(&[height, width, 3])?;
 
         let start = Instant::now();
-        let blurred = processor.gaussian_blur(&color_image, 5, 1.0)?;
+        let _blurred = processor.gaussian_blur(&color_image, 5, 1.0)?;
         println!(
             "  ✓ Gaussian blur: {:.2}ms",
             start.elapsed().as_secs_f64() * 1000.0
         );
 
         let start = Instant::now();
-        let denoised = processor.denoise_image(&color_image, DenoiseMethod::Bilateral)?;
+        let _denoised = processor.denoise_image(&color_image, DenoiseMethod::Bilateral)?;
         println!(
             "  ✓ Bilateral denoising: {:.2}ms",
             start.elapsed().as_secs_f64() * 1000.0
         );
 
         let start = Instant::now();
-        let enhanced = processor.enhance_contrast(&color_image, ContrastMethod::Clahe)?;
+        let _enhanced = processor.enhance_contrast(&color_image, ContrastMethod::Clahe)?;
         println!(
             "  ✓ CLAHE enhancement: {:.2}ms",
             start.elapsed().as_secs_f64() * 1000.0
         );
 
         let start = Instant::now();
-        let upscaled = processor.super_resolution(&color_image, 2.0)?;
+        let _upscaled = processor.super_resolution(&color_image, 2.0)?;
         println!(
             "  ✓ Super-resolution (2x): {:.2}ms",
             start.elapsed().as_secs_f64() * 1000.0
@@ -355,7 +357,7 @@ fn demonstrate_end_to_end_workflow() -> Result<()> {
     let config = AugmentationConfig::default();
 
     let start = Instant::now();
-    let augmented = transforms.augment_image(&enhanced, &config)?;
+    let _augmented = transforms.augment_image(&enhanced, &config)?;
     println!(
         "  ✓ Augmentation pipeline: {:.2}ms",
         start.elapsed().as_secs_f64() * 1000.0

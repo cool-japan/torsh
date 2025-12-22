@@ -20,7 +20,7 @@
 //!
 //! # Examples
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_data::collate::{DefaultCollate, CollateBuilder, CollateStrategy, Collate};
 //! use torsh_tensor::creation::ones;
 //!

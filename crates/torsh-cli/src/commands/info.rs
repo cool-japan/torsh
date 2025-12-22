@@ -287,7 +287,9 @@ fn get_torsh_info() -> TorshInfo {
 
 fn get_feature_info() -> FeatureInfo {
     let mut enabled_features = Vec::new();
+    #[allow(unused_mut)]
     let mut disabled_features = Vec::new();
+    #[allow(unused_mut)]
     let mut experimental_features = Vec::new();
 
     // Check compiled features

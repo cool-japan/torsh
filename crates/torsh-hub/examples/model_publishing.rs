@@ -3,12 +3,14 @@
 //! This example demonstrates how to publish models to ToRSh Hub,
 //! including validation, versioning, and metadata management.
 
+#![allow(dead_code)]
+#![allow(unused_variables)]
+
 use std::collections::HashMap;
 use std::path::PathBuf;
 use torsh_core::error::Result;
 use torsh_hub::metadata::{EnvironmentInfo, FileType, ProvenanceInfo, SystemInfo};
 use torsh_hub::model_info::*;
-use torsh_hub::registry::*;
 use torsh_hub::security::*;
 use torsh_hub::upload::*;
 use torsh_hub::*;
@@ -79,7 +81,6 @@ fn main() -> Result<()> {
 
 fn prepare_example_model() -> Result<PathBuf> {
     use torsh_nn::prelude::{Linear, Module};
-    use torsh_tensor::Tensor;
 
     let model_dir = std::env::temp_dir().join("example_model_publish");
     std::fs::create_dir_all(&model_dir)?;
@@ -601,12 +602,14 @@ struct BatchPublishConfig {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 enum ModelVisibility {
     Public,
     Private,
     Unlisted,
 }
 
+#[allow(dead_code)]
 struct AccessControl {
     allowed_users: Vec<String>,
     allowed_organizations: Vec<String>,
@@ -614,6 +617,7 @@ struct AccessControl {
     ip_whitelist: Vec<String>,
 }
 
+#[allow(dead_code)]
 struct EncryptionConfig {
     encrypt_model_weights: bool,
     encrypt_metadata: bool,
@@ -621,11 +625,13 @@ struct EncryptionConfig {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 enum EncryptionAlgorithm {
     AES256,
     ChaCha20,
 }
 
+#[allow(dead_code)]
 struct PrivateModelConfig {
     visibility: ModelVisibility,
     access_control: AccessControl,
@@ -633,12 +639,14 @@ struct PrivateModelConfig {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 enum UpdateType {
     Major,
     Minor,
     Patch,
 }
 
+#[allow(dead_code)]
 struct ModelUpdateInfo {
     current_version: Version,
     new_version: Version,

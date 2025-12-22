@@ -23,6 +23,8 @@
 //! let measurements = profiler.benchmark_format_conversion(&dense_matrix)?;
 //! ```
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{CooTensor, CsrTensor, SparseFormat, SparseTensor, TorshResult};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
@@ -500,7 +502,7 @@ impl SparseProfiler {
 
         for _ in 0..self.config.measured_iterations {
             let start = Instant::now();
-            let start_memory = self.get_current_memory_usage();
+            let _start_memory = self.get_current_memory_usage();
 
             operation_fn()?;
 
@@ -585,7 +587,6 @@ impl SparseProfiler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use torsh_core::Device;
 
     #[test]
     fn test_performance_measurement_creation() {

@@ -23,21 +23,21 @@ torsh-backend = { workspace = true }
 thiserror = "2.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-bincode = "2.0"
+bincode = { workspace = true }
 lazy_static = "1.5"
 log = "0.4"
 
 # Graph and IR representation
 petgraph = "0.8"
-indexmap = "2.11"
+indexmap = "2.12"
 
 # Code generation backends
-cranelift = { version = "0.124", optional = true }
-cranelift-module = { version = "0.124", optional = true }
-cranelift-codegen = { version = "0.124", optional = true }
-cranelift-frontend = { version = "0.124", optional = true }
-cranelift-native = { version = "0.124", optional = true }
-cranelift-object = { version = "0.124", optional = true }
+cranelift = { version = "0.126", optional = true }
+cranelift-module = { version = "0.126", optional = true }
+cranelift-codegen = { version = "0.126", optional = true }
+cranelift-frontend = { version = "0.126", optional = true }
+cranelift-native = { version = "0.126", optional = true }
+cranelift-object = { version = "0.126", optional = true }
 
 # MLIR integration (future)
 # mlir = { version = "0.1", optional = true }
@@ -48,10 +48,10 @@ tracing-subscriber = { version = "0.3", optional = true }
 num_cpus = "1.17"
 
 [dev-dependencies]
-# torsh-nn = { path = "../torsh-nn", version = "0.1.0-alpha.1" }
+# torsh-nn = { path = "../torsh-nn", version = "0.1.0-alpha.2" }
 approx = "0.5"
-criterion = { version = "0.7", features = ["html_reports"] }
-proptest = "1.8"
+criterion = { version = "0.8", features = ["html_reports"] }
+proptest = "1.9"
 
 [features]
 default = ["cranelift-backend"]

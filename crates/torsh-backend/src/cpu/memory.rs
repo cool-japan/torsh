@@ -1,5 +1,7 @@
 //! CPU Memory Management with NUMA awareness
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::buffer::{generate_buffer_id, BufferHandle};
 use crate::memory::{MemoryManager, MemoryPool, MemoryStats, PoolStats};
 use crate::{Buffer, BufferDescriptor, Device};
@@ -510,12 +512,12 @@ impl CpuMemoryManager {
     }
 
     /// Prefetch a single page
-    fn prefetch_page(&self, ptr: *mut u8) {
+    fn prefetch_page(&self, _ptr: *mut u8) {
         #[cfg(target_arch = "x86_64")]
         {
             unsafe {
                 // Use Intel prefetch instructions
-                std::arch::x86_64::_mm_prefetch(ptr as *const i8, std::arch::x86_64::_MM_HINT_T0);
+                std::arch::x86_64::_mm_prefetch(_ptr as *const i8, std::arch::x86_64::_MM_HINT_T0);
             }
         }
 
@@ -570,7 +572,7 @@ impl CpuMemoryManager {
         })?;
 
         // Analyze access patterns and suggest NUMA node migrations
-        for (ptr, pattern) in patterns.iter() {
+        for (_ptr_val, pattern) in patterns.iter() {
             let access_count = pattern.access_count.load(Ordering::Relaxed);
             let current_node = Self::get_current_numa_node();
 
@@ -581,7 +583,7 @@ impl CpuMemoryManager {
                 tracing::info!(
                     "High access count {} for allocation {:?}, consider migrating to node {}",
                     access_count,
-                    ptr,
+                    _ptr_val,
                     pattern.preferred_node
                 );
             }

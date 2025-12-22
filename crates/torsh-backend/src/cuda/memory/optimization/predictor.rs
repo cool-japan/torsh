@@ -3,8 +3,7 @@
 //! This module provides comprehensive performance prediction capabilities for CUDA memory optimization,
 //! including time series forecasting, trend analysis, feature extraction, and accuracy tracking.
 
-use scirs2_core::ndarray::{Array1, Array2, ArrayView1};
-use scirs2_core::random::Random;
+use scirs2_core::ndarray::{Array1, Array2};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};

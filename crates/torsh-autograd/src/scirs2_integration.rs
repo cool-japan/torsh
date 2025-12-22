@@ -9,6 +9,8 @@
 //! - GPU-accelerated autograd operations
 //! - Memory-efficient gradient storage and computation
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::Result;
 use std::sync::Arc;
 use torsh_core::{Device, Shape};
@@ -16,15 +18,13 @@ use torsh_tensor::Tensor;
 
 // ✅ SciRS2 Core Integration - RESOLVED: Using new thread-safe APIs
 #[cfg(feature = "autograd")]
-use scirs2_autograd::{AutogradTensor, SafeVariable, SafeVariableEnvironment};
+use scirs2_autograd::{SafeVariable, SafeVariableEnvironment};
 
 #[cfg(feature = "autograd")]
-use scirs2_autograd::high_performance::{
-    parallel_gradient_computation, simd_backward_pass, ultra_backward_pass,
-};
+use scirs2_autograd::high_performance::{simd_backward_pass, ultra_backward_pass};
 
 // High-performance features through scirs2-core
-use scirs2_core::random; // SciRS2 POLICY compliant random generation
+// SciRS2 POLICY compliant random generation
 
 /// Abstraction layer for SciRS2 autograd integration with performance optimizations
 pub struct SciRS2AutogradAdapter {
@@ -136,7 +136,7 @@ impl SciRS2AutogradAdapter {
         &self,
         data: &[f32],
         shape: &Shape,
-        device: &dyn Device,
+        _device: &dyn Device,
         requires_grad: bool,
     ) -> Result<GradientTensor> {
         // TODO: Re-enable when SciRS2 API is stabilized
@@ -198,7 +198,7 @@ impl SciRS2AutogradAdapter {
         &self,
         operation: &str,
         input_data: &[f64],
-        input_shape: &[usize],
+        _input_shape: &[usize],
     ) -> Result<Vec<f64>> {
         // This is a placeholder implementation for testing
         // In practice, this would perform actual gradient computation

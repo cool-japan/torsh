@@ -1,9 +1,7 @@
 //! Regression metrics
 
 use crate::Metric;
-use scirs2_core::ndarray_ext::{manipulation, stats};
-use torsh_core::{device::DeviceType, error::TorshError};
-use torsh_tensor::{creation::from_vec, Tensor};
+use torsh_tensor::Tensor;
 
 /// Mean Squared Error
 pub struct MSE;

@@ -5,7 +5,7 @@
  * and libraries including SciPy, MATLAB, HDF5, and Matrix Market.
  */
 
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::Rng;
 use std::fs;
 use torsh_core::TorshError;
 use torsh_sparse::*;
@@ -225,7 +225,7 @@ fn create_test_matrix(size: usize, density: f64) -> Result<CsrTensor, TorshError
     for _ in 0..nnz as usize {
         let i = rng.gen_range(0..size);
         let j = rng.gen_range(0..size);
-        let value = rng.gen::<f32>() * 10.0 - 5.0; // Values between -5 and 5
+        let value = rng.random::<f32>() * 10.0 - 5.0; // Values between -5 and 5
         triplets.push((i, j, value));
     }
 

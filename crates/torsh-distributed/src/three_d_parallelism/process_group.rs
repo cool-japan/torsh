@@ -3,6 +3,8 @@
 //! This module manages process groups for data, tensor, and pipeline
 //! parallelism dimensions and handles inter-rank communication.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{ProcessGroup, TorshDistributedError, TorshResult};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -210,10 +212,10 @@ impl ProcessGroupManager {
     pub async fn receive_from_prev_stage(
         &self,
         shape: &[usize],
-        prev_rank: usize,
-        micro_batch_id: usize,
+        _prev_rank: usize,
+        _micro_batch_id: usize,
     ) -> TorshResult<Tensor<f32>> {
-        if let Some(pp_pg) = self.get_pp_process_group() {
+        if let Some(_pp_pg) = self.get_pp_process_group() {
             // For now, create a zero tensor (would implement actual receive)
             let tensor = Tensor::zeros(shape, torsh_core::DeviceType::Cpu)?;
             Ok(tensor)
@@ -228,10 +230,10 @@ impl ProcessGroupManager {
     pub async fn receive_from_next_stage(
         &self,
         shape: &[usize],
-        next_rank: usize,
-        micro_batch_id: usize,
+        _next_rank: usize,
+        _micro_batch_id: usize,
     ) -> TorshResult<Tensor<f32>> {
-        if let Some(pp_pg) = self.get_pp_process_group() {
+        if let Some(_pp_pg) = self.get_pp_process_group() {
             let tensor = Tensor::zeros(shape, torsh_core::DeviceType::Cpu)?;
             Ok(tensor)
         } else {
@@ -281,7 +283,7 @@ impl ProcessGroupManager {
     async fn execute_communication(
         &self,
         request: &CommunicationRequest,
-        process_group: &Arc<ProcessGroup>,
+        _process_group: &Arc<ProcessGroup>,
     ) -> TorshResult<()> {
         match request.comm_type {
             CommunicationType::PipelineForward | CommunicationType::PipelineBackward => {
@@ -334,8 +336,8 @@ impl ProcessGroupManager {
     /// Standard all-reduce implementation
     async fn standard_all_reduce(
         &self,
-        tensor: &mut Tensor<f32>,
-        process_group: &Arc<ProcessGroup>,
+        _tensor: &mut Tensor<f32>,
+        _process_group: &Arc<ProcessGroup>,
     ) -> TorshResult<()> {
         // Simplified implementation
         tokio::time::sleep(tokio::time::Duration::from_micros(100)).await;
@@ -345,8 +347,8 @@ impl ProcessGroupManager {
     /// Hierarchical all-reduce implementation
     async fn hierarchical_all_reduce(
         &self,
-        tensor: &mut Tensor<f32>,
-        process_group: &Arc<ProcessGroup>,
+        _tensor: &mut Tensor<f32>,
+        _process_group: &Arc<ProcessGroup>,
     ) -> TorshResult<()> {
         // First reduce locally, then across nodes
         tokio::time::sleep(tokio::time::Duration::from_micros(80)).await;
@@ -356,8 +358,8 @@ impl ProcessGroupManager {
     /// Ring all-reduce implementation
     async fn ring_all_reduce(
         &self,
-        tensor: &mut Tensor<f32>,
-        process_group: &Arc<ProcessGroup>,
+        _tensor: &mut Tensor<f32>,
+        _process_group: &Arc<ProcessGroup>,
     ) -> TorshResult<()> {
         // Ring-based communication pattern
         tokio::time::sleep(tokio::time::Duration::from_micros(120)).await;
@@ -367,8 +369,8 @@ impl ProcessGroupManager {
     /// Tree all-reduce implementation
     async fn tree_all_reduce(
         &self,
-        tensor: &mut Tensor<f32>,
-        process_group: &Arc<ProcessGroup>,
+        _tensor: &mut Tensor<f32>,
+        _process_group: &Arc<ProcessGroup>,
     ) -> TorshResult<()> {
         // Binary tree communication pattern
         tokio::time::sleep(tokio::time::Duration::from_micros(60)).await;

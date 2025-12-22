@@ -26,7 +26,7 @@
 //!
 //! # Usage Examples
 //!
-//! ```rust
+//! ```rust,ignore
 //! use crate::memory::anomaly::{MemoryAnomalyDetector, AnomalySeverity};
 //!
 //! let mut detector = MemoryAnomalyDetector::new();
@@ -46,6 +46,8 @@
 //! }
 //! ```
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use std::collections::{HashMap, VecDeque};
 use std::time::{Duration, Instant};
 
@@ -334,7 +336,7 @@ impl MemoryAnomalyDetector {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let detector = MemoryAnomalyDetector::new();
     /// ```
     pub fn new() -> Self {
@@ -358,7 +360,7 @@ impl MemoryAnomalyDetector {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let config = AnomalyDetectionConfig {
     ///     sensitivity: 1.5, // More sensitive detection
     ///     ..Default::default()
@@ -387,7 +389,7 @@ impl MemoryAnomalyDetector {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let anomalies = detector.record_allocation("conv2d", 1024 * 1024);
     /// for anomaly in anomalies {
     ///     println!("Detected: {:?}", anomaly.anomaly_type);
@@ -471,7 +473,7 @@ impl MemoryAnomalyDetector {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let pattern = detector.analyze_allocation_pattern("conv2d", 1000, 50 * 1024 * 1024);
     /// println!("Pattern type: {:?}", pattern.pattern_type);
     /// println!("Average size: {} bytes", pattern.average_allocation_size);

@@ -4,6 +4,8 @@
 //! specific hardware acceleration features like Intel VNNI, NVIDIA DP4A,
 //! and modern GPU tensor cores for maximum performance.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::quantization::QuantizedTensor;
 use crate::{BackendResult, Device};
 use torsh_core::error::TorshError;
@@ -332,7 +334,7 @@ impl Dp4aQuantizationOps {
 
         // In production, would use optimized CUDA kernels with DP4A
         let output_size = batch_size * out_channels * out_height * out_width;
-        let mut result_data = vec![0u8; output_size];
+        let result_data = vec![0u8; output_size];
 
         // Apply bias if provided
         if let Some(_bias_tensor) = bias {
@@ -607,10 +609,10 @@ impl TensorCoreQuantizationOps {
     /// Tensor Core matrix multiplication kernel for INT4
     fn tensor_core_matmul_int4_kernel(
         &self,
-        a_data: &[u8],
-        b_data: &[u8],
+        _a_data: &[u8],
+        _b_data: &[u8],
         m: usize,
-        k: usize,
+        _k: usize,
         n: usize,
     ) -> BackendResult<Vec<u8>> {
         // Placeholder for INT4 Tensor Core implementation

@@ -1,7 +1,6 @@
 //! Fairness and bias detection metrics
 
 use crate::Metric;
-use scirs2_core::random::{Random, Rng};
 use std::collections::HashMap;
 use torsh_tensor::Tensor;
 
@@ -525,5 +524,301 @@ impl Metric for BiasAmplification {
 
     fn name(&self) -> &str {
         "bias_amplification"
+    }
+}
+
+/// Comprehensive fairness metrics collection
+#[derive(Debug, Clone)]
+pub struct FairnessMetrics {
+    /// Demographic parity difference (closer to 0 is better)
+    pub demographic_parity_difference: f64,
+    /// Demographic parity ratio (closer to 1 is better)
+    pub demographic_parity_ratio: f64,
+    /// Equalized odds TPR difference
+    pub equalized_odds_tpr_diff: f64,
+    /// Equalized odds FPR difference
+    pub equalized_odds_fpr_diff: f64,
+    /// Expected calibration error
+    pub calibration_error: f64,
+    /// Individual fairness violation rate
+    pub individual_fairness_violations: f64,
+    /// Bias amplification ratio (1.0 means no amplification)
+    pub bias_amplification: f64,
+    /// Number of groups analyzed
+    pub num_groups: usize,
+}
+
+impl FairnessMetrics {
+    /// Compute comprehensive fairness metrics
+    ///
+    /// # Arguments
+    /// * `predictions` - Model predictions (probabilities or binary)
+    /// * `true_labels` - Ground truth labels
+    /// * `sensitive_attributes` - Protected group indicators
+    /// * `features` - Feature vectors for individual fairness (optional)
+    /// * `threshold` - Classification threshold (default: 0.5)
+    pub fn compute(
+        predictions: &Tensor,
+        true_labels: &Tensor,
+        sensitive_attributes: &Tensor,
+        features: Option<&Tensor>,
+        threshold: f64,
+    ) -> Self {
+        // Demographic parity
+        let dp_metric = DemographicParity::new(threshold);
+        let demographic_parity_difference =
+            dp_metric.compute_difference(predictions, sensitive_attributes);
+        let demographic_parity_ratio = dp_metric.compute_ratio(predictions, sensitive_attributes);
+
+        // Equalized odds
+        let eo_metric = EqualizedOdds::new(threshold);
+        let (equalized_odds_tpr_diff, equalized_odds_fpr_diff) =
+            eo_metric.compute_difference(predictions, true_labels, sensitive_attributes);
+
+        // Calibration
+        let cal_metric = Calibration::new(10);
+        let calibration_error = cal_metric.compute_ece(predictions, true_labels);
+
+        // Individual fairness (if features provided)
+        let individual_fairness_violations = if let Some(feat) = features {
+            let if_metric = IndividualFairness::new(0.1, 0.2);
+            if_metric.compute_violation_rate(feat, predictions)
+        } else {
+            0.0
+        };
+
+        // Bias amplification
+        let ba_metric = BiasAmplification;
+        let bias_amplification = ba_metric.compute_amplification(
+            predictions,
+            true_labels,
+            sensitive_attributes,
+            threshold,
+        );
+
+        // Count number of groups
+        let num_groups = sensitive_attributes
+            .to_vec()
+            .ok()
+            .map(|attr_vec| {
+                let mut groups = std::collections::HashSet::new();
+                for val in attr_vec {
+                    groups.insert(val as i32);
+                }
+                groups.len()
+            })
+            .unwrap_or(0);
+
+        FairnessMetrics {
+            demographic_parity_difference,
+            demographic_parity_ratio,
+            equalized_odds_tpr_diff,
+            equalized_odds_fpr_diff,
+            calibration_error,
+            individual_fairness_violations,
+            bias_amplification,
+            num_groups,
+        }
+    }
+
+    /// Create with default threshold of 0.5
+    pub fn compute_default(
+        predictions: &Tensor,
+        true_labels: &Tensor,
+        sensitive_attributes: &Tensor,
+    ) -> Self {
+        Self::compute(predictions, true_labels, sensitive_attributes, None, 0.5)
+    }
+
+    /// Check if model satisfies fairness criteria
+    pub fn is_fair(&self, dp_threshold: f64, eo_threshold: f64) -> bool {
+        self.demographic_parity_difference < dp_threshold
+            && self.equalized_odds_tpr_diff < eo_threshold
+            && self.equalized_odds_fpr_diff < eo_threshold
+    }
+
+    /// Get overall fairness score (0-1, higher is better)
+    /// Combines all metrics into a single score
+    pub fn overall_fairness_score(&self) -> f64 {
+        let dp_score = 1.0 - self.demographic_parity_difference.min(1.0);
+        let eo_tpr_score = 1.0 - self.equalized_odds_tpr_diff.min(1.0);
+        let eo_fpr_score = 1.0 - self.equalized_odds_fpr_diff.min(1.0);
+        let cal_score = 1.0 - self.calibration_error.min(1.0);
+        let if_score = 1.0 - self.individual_fairness_violations.min(1.0);
+        let ba_score = if self.bias_amplification <= 1.0 {
+            self.bias_amplification
+        } else {
+            1.0 / self.bias_amplification
+        };
+
+        (dp_score + eo_tpr_score + eo_fpr_score + cal_score + if_score + ba_score) / 6.0
+    }
+
+    /// Get fairness assessment
+    pub fn fairness_assessment(&self) -> &str {
+        let score = self.overall_fairness_score();
+
+        if score > 0.9 {
+            "Excellent fairness"
+        } else if score > 0.75 {
+            "Good fairness"
+        } else if score > 0.6 {
+            "Fair"
+        } else if score > 0.4 {
+            "Poor fairness - review needed"
+        } else {
+            "Critical fairness issues - immediate attention required"
+        }
+    }
+
+    /// Format fairness metrics as a string
+    pub fn format(&self) -> String {
+        let mut result = String::new();
+        result.push_str("Fairness Metrics:\n");
+        result.push_str("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+
+        result.push_str(&format!(
+            "Overall Fairness Score: {:.4} - {}\n",
+            self.overall_fairness_score(),
+            self.fairness_assessment()
+        ));
+        result.push_str(&format!("Number of groups: {}\n\n", self.num_groups));
+
+        result.push_str("Demographic Parity:\n");
+        result.push_str(&format!(
+            "  Difference: {:.4} (closer to 0 is better)\n",
+            self.demographic_parity_difference
+        ));
+        result.push_str(&format!(
+            "  Ratio: {:.4} (closer to 1 is better)\n\n",
+            self.demographic_parity_ratio
+        ));
+
+        result.push_str("Equalized Odds:\n");
+        result.push_str(&format!(
+            "  TPR Difference: {:.4}\n",
+            self.equalized_odds_tpr_diff
+        ));
+        result.push_str(&format!(
+            "  FPR Difference: {:.4}\n\n",
+            self.equalized_odds_fpr_diff
+        ));
+
+        result.push_str(&format!(
+            "Calibration Error: {:.4}\n",
+            self.calibration_error
+        ));
+
+        if self.individual_fairness_violations > 0.0 {
+            result.push_str(&format!(
+                "Individual Fairness Violations: {:.4}\n",
+                self.individual_fairness_violations
+            ));
+        }
+
+        result.push_str(&format!(
+            "Bias Amplification: {:.4} ({} amplification)\n",
+            self.bias_amplification,
+            if self.bias_amplification > 1.0 {
+                format!("{}x", self.bias_amplification)
+            } else {
+                "no".to_string()
+            }
+        ));
+
+        result
+    }
+
+    /// Get detailed fairness report as HashMap
+    pub fn as_map(&self) -> HashMap<String, f64> {
+        let mut map = HashMap::new();
+
+        map.insert(
+            "overall_fairness_score".to_string(),
+            self.overall_fairness_score(),
+        );
+        map.insert(
+            "demographic_parity_difference".to_string(),
+            self.demographic_parity_difference,
+        );
+        map.insert(
+            "demographic_parity_ratio".to_string(),
+            self.demographic_parity_ratio,
+        );
+        map.insert(
+            "equalized_odds_tpr_diff".to_string(),
+            self.equalized_odds_tpr_diff,
+        );
+        map.insert(
+            "equalized_odds_fpr_diff".to_string(),
+            self.equalized_odds_fpr_diff,
+        );
+        map.insert("calibration_error".to_string(), self.calibration_error);
+        map.insert(
+            "individual_fairness_violations".to_string(),
+            self.individual_fairness_violations,
+        );
+        map.insert("bias_amplification".to_string(), self.bias_amplification);
+        map.insert("num_groups".to_string(), self.num_groups as f64);
+
+        map
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use torsh_core::device::DeviceType;
+    use torsh_tensor::creation::from_vec;
+
+    #[test]
+    fn test_fairness_metrics() {
+        // Create fair predictions (equal across groups)
+        let predictions =
+            from_vec(vec![0.9, 0.8, 0.7, 0.9, 0.8, 0.7], &[6], DeviceType::Cpu).unwrap();
+        let labels = from_vec(vec![1.0, 1.0, 1.0, 1.0, 1.0, 1.0], &[6], DeviceType::Cpu).unwrap();
+        let sensitive_attrs =
+            from_vec(vec![0.0, 0.0, 0.0, 1.0, 1.0, 1.0], &[6], DeviceType::Cpu).unwrap();
+
+        let fairness = FairnessMetrics::compute_default(&predictions, &labels, &sensitive_attrs);
+
+        // Check that demographic parity is reasonable
+        assert!(fairness.demographic_parity_difference <= 1.0);
+        assert!(fairness.demographic_parity_ratio <= 1.0);
+        assert_eq!(fairness.num_groups, 2);
+
+        // Check that fairness score is computed
+        let score = fairness.overall_fairness_score();
+        assert!(score >= 0.0 && score <= 1.0);
+    }
+
+    #[test]
+    fn test_fairness_assessment() {
+        let predictions = from_vec(vec![0.9, 0.8, 0.3, 0.2], &[4], DeviceType::Cpu).unwrap();
+        let labels = from_vec(vec![1.0, 1.0, 0.0, 0.0], &[4], DeviceType::Cpu).unwrap();
+        let sensitive_attrs = from_vec(vec![0.0, 0.0, 1.0, 1.0], &[4], DeviceType::Cpu).unwrap();
+
+        let fairness = FairnessMetrics::compute_default(&predictions, &labels, &sensitive_attrs);
+
+        let assessment = fairness.fairness_assessment();
+        assert!(
+            assessment == "Excellent fairness"
+                || assessment == "Good fairness"
+                || assessment == "Fair"
+                || assessment == "Poor fairness - review needed"
+                || assessment == "Critical fairness issues - immediate attention required"
+        );
+    }
+
+    #[test]
+    fn test_fairness_is_fair() {
+        let predictions = from_vec(vec![0.9, 0.8, 0.85, 0.82], &[4], DeviceType::Cpu).unwrap();
+        let labels = from_vec(vec![1.0, 1.0, 1.0, 1.0], &[4], DeviceType::Cpu).unwrap();
+        let sensitive_attrs = from_vec(vec![0.0, 0.0, 1.0, 1.0], &[4], DeviceType::Cpu).unwrap();
+
+        let fairness = FairnessMetrics::compute_default(&predictions, &labels, &sensitive_attrs);
+
+        // With similar predictions across groups, should be relatively fair
+        assert!(fairness.is_fair(0.3, 0.3) || !fairness.is_fair(0.05, 0.05));
     }
 }

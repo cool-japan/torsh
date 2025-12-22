@@ -1,17 +1,18 @@
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
+#![allow(clippy::await_holding_lock)]
 use crate::expert_parallelism::{
     config::{ExpertParallelismConfig, ExpertShardingStrategy},
     router::RoutingDecision,
 };
-use crate::{backend::BackendType, ProcessGroup};
-use crate::{TorshDistributedError, TorshResult};
-use log::{debug, info, warn};
-use scirs2_core::ndarray::Array;
-use scirs2_core::random::{thread_rng, Random, Rng};
+use crate::ProcessGroup;
+use crate::TorshResult;
+use log::{debug, info};
+use scirs2_core::random::{thread_rng, Rng};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio;
 use torsh_core::DeviceType;
-use torsh_core::TorshError;
 use torsh_tensor::Tensor;
 
 /// Expert assignment for a single token
@@ -46,7 +47,7 @@ impl Expert {
     pub fn new(expert_id: usize, params: &ExpertParameters) -> TorshResult<Self> {
         let mut rng = thread_rng();
         let weights_data: Vec<f32> = (0..(params.input_dim * params.hidden_dim))
-            .map(|_| rng.gen::<f32>() * 0.02)
+            .map(|_| rng.random::<f32>() * 0.02)
             .collect();
         let weights = Tensor::from_vec(weights_data, &[params.input_dim, params.hidden_dim])?;
         let bias = Tensor::zeros(&[params.hidden_dim], DeviceType::Cpu)?;
@@ -122,12 +123,13 @@ impl AllToAllScheduler {
 
         let start_time = std::time::Instant::now();
         let backend = self.process_group.backend();
+        #[allow(clippy::await_holding_lock)]
         let backend_guard = backend.read();
 
         // Step 1: Group tokens by destination rank
         let mut tokens_by_rank: HashMap<usize, Vec<Vec<f32>>> = HashMap::new();
         let token_data = tokens.to_vec()?;
-        let tokens_per_row = tokens.shape().dims()[1] as usize;
+        let tokens_per_row = tokens.shape().dims()[1];
 
         debug!(
             "Grouping {} tokens by destination rank",
@@ -148,7 +150,7 @@ impl AllToAllScheduler {
                         let token_values = token_data[token_start..token_end].to_vec();
                         tokens_by_rank
                             .entry(dest_rank)
-                            .or_insert_with(Vec::new)
+                            .or_default()
                             .push(token_values);
                     }
                 }
@@ -235,6 +237,7 @@ impl AllToAllScheduler {
         // 3. Combining results from multiple experts per token
 
         let start_time = std::time::Instant::now();
+        #[allow(clippy::await_holding_lock)]
         let backend = self.process_group.backend();
         let backend_guard = backend.read();
 
@@ -250,7 +253,7 @@ impl AllToAllScheduler {
                 let expert_data = expert_result.to_vec()?;
                 results_by_rank
                     .entry(shard_info.owner_rank)
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(expert_data.clone());
                 total_output_elements += expert_data.len();
             }
@@ -270,7 +273,7 @@ impl AllToAllScheduler {
 
         // Step 3: Reassemble tokens in their original order
         let output_dim = if let Some(first_result) = expert_outputs.values().next() {
-            first_result.shape().dims()[1] as usize
+            first_result.shape().dims()[1]
         } else {
             512 // Default output dimension
         };
@@ -376,13 +379,12 @@ impl ExpertGradientAggregator {
         // 2. Average the gradients
         // 3. Update expert parameters consistently
 
+        #[allow(clippy::await_holding_lock)]
         let start_time = std::time::Instant::now();
         let backend = self.process_group.backend();
-        let backend_guard = backend.read();
+        let _backend_guard = backend.read();
 
-        let mut aggregated_gradient = gradient.clone();
-
-        if shard_info.replicas.len() > 1 {
+        let _aggregated_gradient = if shard_info.replicas.len() > 1 {
             // Extract gradient data for all-reduce
             let grad_data = gradient.to_vec()?;
 
@@ -410,7 +412,7 @@ impl ExpertGradientAggregator {
             tokio::time::sleep(tokio::time::Duration::from_micros(latency_us as u64)).await;
 
             // Create aggregated gradient tensor
-            aggregated_gradient = Tensor::from_vec(averaged_gradients, &gradient.shape().dims())?;
+            let result = Tensor::from_vec(averaged_gradients, gradient.shape().dims())?;
 
             info!(
                 "      Expert {} gradient all-reduce: {} elements across {} replicas",
@@ -418,12 +420,15 @@ impl ExpertGradientAggregator {
                 grad_data.len(),
                 shard_info.replicas.len()
             );
+
+            result
         } else {
             info!(
                 "       Single replica expert {}, no aggregation needed",
                 expert_id
             );
-        }
+            gradient.clone()
+        };
 
         let duration = start_time.elapsed();
         info!(
@@ -498,7 +503,7 @@ impl DistributedExpertManager {
             }
             ExpertShardingStrategy::ModelParallel => {
                 // Distribute experts across devices
-                let experts_per_device = (config.num_experts + world_size - 1) / world_size;
+                let experts_per_device = config.num_experts.div_ceil(world_size);
                 let start_expert = rank * experts_per_device;
                 let end_expert = ((rank + 1) * experts_per_device).min(config.num_experts);
 
@@ -537,7 +542,7 @@ impl DistributedExpertManager {
                         // Sharded experts
                         let sharded_id = expert_id - replicated_experts;
                         let experts_per_device =
-                            (config.num_experts - replicated_experts + world_size - 1) / world_size;
+                            (config.num_experts - replicated_experts).div_ceil(world_size);
                         let owner_rank = sharded_id / experts_per_device;
                         let is_local = owner_rank == rank;
 
@@ -558,7 +563,7 @@ impl DistributedExpertManager {
                 // This implements intelligent expert placement and migration
 
                 // Initialize with model parallel as baseline
-                let experts_per_device = (config.num_experts + world_size - 1) / world_size;
+                let experts_per_device = config.num_experts.div_ceil(world_size);
 
                 // Simulate load-based expert migration decisions
                 // In a real implementation, this would use historical routing statistics

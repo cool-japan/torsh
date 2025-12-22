@@ -143,19 +143,28 @@ pub enum GpuOperation {
 /// GPU acceleration manager
 pub struct GpuAccelerationManager {
     config: GpuAccelerationConfig,
+    // Placeholder fields for future GPU implementation
+    #[allow(dead_code)]
     device: Box<dyn std::fmt::Debug>, // Simplified for now since Device trait usage is complex
+    #[allow(dead_code)]
     memory_pool: Option<GpuMemoryPool>,
+    #[allow(dead_code)]
     backend_handle: Option<BackendHandle>,
 }
 
 /// GPU memory pool for efficient memory management
 struct GpuMemoryPool {
+    // Placeholder fields for future implementation
+    #[allow(dead_code)]
     allocated_blocks: HashMap<usize, Vec<*mut u8>>,
+    #[allow(dead_code)]
     total_allocated: usize,
+    #[allow(dead_code)]
     max_size: usize,
 }
 
 /// Backend-specific handle for GPU operations
+#[allow(dead_code)]
 enum BackendHandle {
     #[cfg(feature = "cuda")]
     Cuda(CudaHandle),
@@ -177,12 +186,16 @@ struct MockHandle;
 #[cfg(feature = "cuda")]
 #[derive(Debug)]
 struct CudaHandle {
+    // Placeholder fields for future CUDA implementation
+    #[allow(dead_code)]
     context: *mut std::ffi::c_void,
+    #[allow(dead_code)]
     streams: Vec<*mut std::ffi::c_void>,
 }
 
 #[cfg(feature = "opencl")]
 #[derive(Debug)]
+#[allow(dead_code)] // Placeholder for future OpenCL backend implementation
 struct OpenCLHandle {
     context: *mut std::ffi::c_void,
     queue: *mut std::ffi::c_void,
@@ -190,6 +203,7 @@ struct OpenCLHandle {
 
 #[cfg(feature = "vulkan")]
 #[derive(Debug)]
+#[allow(dead_code)] // Placeholder for future Vulkan backend implementation
 struct VulkanHandle {
     device: *mut std::ffi::c_void,
     queue: *mut std::ffi::c_void,
@@ -197,6 +211,7 @@ struct VulkanHandle {
 
 #[cfg(feature = "metal")]
 #[derive(Debug)]
+#[allow(dead_code)] // Placeholder for future Metal backend implementation
 struct MetalHandle {
     device: *mut std::ffi::c_void,
     command_queue: *mut std::ffi::c_void,
@@ -204,6 +219,7 @@ struct MetalHandle {
 
 #[cfg(feature = "webgpu")]
 #[derive(Debug)]
+#[allow(dead_code)] // Placeholder for future WebGPU backend implementation
 struct WebGpuHandle {
     device: *mut std::ffi::c_void,
     queue: *mut std::ffi::c_void,

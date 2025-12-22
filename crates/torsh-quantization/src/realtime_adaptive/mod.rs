@@ -29,7 +29,7 @@
 //!
 //! ```rust,no_run
 //! use torsh_quantization::realtime_adaptive::*;
-//! use torsh_tensor::tensor_1d;
+//! use torsh_tensor::creation::tensor_1d;
 //!
 //! // Create adaptive quantization engine
 //! let mut engine = AdaptiveQuantizationEngine::new(AdaptiveQuantConfig::default());
@@ -64,11 +64,14 @@ pub mod results;
 // Re-export all types for backward compatibility
 pub use config::*;
 pub use engine::*;
-pub use enhanced_ml_predictor::*;
+pub use enhanced_ml_predictor::{EnhancedMLPredictor, UncertaintyEstimate};
 pub use ml_predictor::*;
 pub use optimization::*;
 pub use pattern_analysis::*;
-pub use quality_assessment::*;
+pub use quality_assessment::{
+    DegradationDetector, QualityAssessor, QualityMeasurement,
+    QualityMetrics as QualityAssessmentMetrics, QualityStatistics,
+};
 pub use results::*;
 
 #[cfg(test)]
@@ -76,7 +79,7 @@ mod tests {
     use super::*;
     use crate::TorshResult;
     use std::time::Instant;
-    use torsh_tensor::tensor_1d;
+    use torsh_tensor::creation::tensor_1d;
 
     #[test]
     fn test_adaptive_config_default() {
@@ -385,21 +388,21 @@ mod tests {
         assert!(config.enable_ml_prediction);
 
         // ML predictor
-        let predictor = MLParameterPredictor::new();
+        let _predictor = MLParameterPredictor::new();
 
         // Feature extractor
         let extractor = FeatureExtractor::new();
         assert_eq!(extractor.get_feature_dimension(), 16);
 
         // Quality assessor
-        let assessor = QualityAssessor::new();
+        let _assessor = QualityAssessor::new();
 
         // Pattern analyzer
         let analyzer = WorkloadPatternAnalyzer::new();
         assert!(analyzer.get_all_patterns().len() > 0);
 
         // Optimizer
-        let optimizer = MultiObjectiveOptimizer::new();
+        let _optimizer = MultiObjectiveOptimizer::new();
 
         // Main engine
         let engine = AdaptiveQuantizationEngine::new(config);

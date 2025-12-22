@@ -25,6 +25,7 @@ pub struct SwitchableNorm2d {
     base: ModuleBase,
     num_features: usize,
     config: NormalizationConfig,
+    #[allow(dead_code)]
     using_movavg: bool,
 }
 

@@ -4,10 +4,6 @@
 //! using NVIDIA CUDA and cuDNN. It integrates with the scirs2 ecosystem for
 //! optimal performance and compatibility.
 
-use crate::error::BackendError;
-use crate::{Backend, Device};
-use torsh_core::DType;
-
 // Only compile CUDA modules when CUDA is available
 #[cfg(cuda_available)]
 pub mod backend;
@@ -19,9 +15,16 @@ pub mod device;
 pub mod error;
 #[cfg(cuda_available)]
 pub mod event_coordination;
-// CUDA graph API not available in current cuda-sys version
-// #[cfg(cuda_available)]
-// pub mod graph;
+#[cfg(cuda_available)]
+pub mod types_compat;
+// CUDA graph API not available in current cuda-sys version - using stub
+#[cfg(cuda_available)]
+pub mod graph {
+    //! Stub module for CUDA graph (not available in current cuda-sys)
+    pub use super::graph_stub::*;
+}
+#[cfg(cuda_available)]
+mod graph_stub;
 #[cfg(cuda_available)]
 pub mod kernels;
 #[cfg(cuda_available)]
@@ -33,6 +36,7 @@ pub mod stream_advanced;
 #[cfg(cuda_available)]
 pub mod unified_buffer;
 
+#[cfg_attr(not(feature = "cudnn"), allow(unexpected_cfgs))]
 #[cfg(all(feature = "cudnn", cuda_available))]
 pub mod cudnn;
 
@@ -50,9 +54,8 @@ pub mod tensor_cores;
 pub mod cooperative_groups;
 
 // Advanced multi-stream execution support
-// CUDA graph API not available in current cuda-sys version
-// #[cfg(cuda_available)]
-// pub mod graph_execution;
+#[cfg(cuda_available)]
+pub mod graph_execution;
 #[cfg(cuda_available)]
 pub mod intelligent_scheduler;
 #[cfg(cuda_available)]
@@ -86,7 +89,7 @@ pub use buffer::CudaBuffer;
 #[cfg(cuda_available)]
 pub use device::CudaDevice;
 #[cfg(cuda_available)]
-pub use error::CudaError;
+pub use error::{CudaError, CudaResult};
 #[cfg(cuda_available)]
 pub use event_coordination::{
     AsyncEventWaiter, CoordinationMetrics, CrossStreamBarrier, EventMetadata, EventPool,
@@ -100,6 +103,10 @@ pub use stream::{CudaEvent, CudaStream, StreamMetrics, StreamPool, StreamPriorit
 pub use stream_advanced::{
     AdvancedStreamPool, AllocationStrategy, MultiStreamCoordinator, PoolMetrics, ProfilingReport,
     StreamOrderedAllocator, StreamProfiler, StreamReport, WorkloadType,
+};
+#[cfg(cuda_available)]
+pub use types_compat::{
+    cudaStream_t, CUstream, DevicePointer, Event, EventFlags, Stream, StreamFlags,
 };
 #[cfg(cuda_available)]
 pub use unified_buffer::UnifiedBuffer;
@@ -130,12 +137,13 @@ pub use tensor_cores::{
 };
 
 // Advanced multi-stream execution exports
-#[cfg(cuda_available)]
-pub use graph_execution::{
-    CudaGraph, CudaGraphExec, CudaKernelNodeParams, CudaMemcpyNodeParams, CudaMemsetNodeParams,
-    GraphCaptureSession, GraphExecutionManager, GraphExecutionStats, GraphMemoryPool,
-    GraphPerformanceSummary, MemoryPoolStats, PerformanceTrend,
-};
+// CUDA graph API not available in current cuda-sys version
+// #[cfg(cuda_available)]
+// pub use graph_execution::{
+//     CudaGraph, CudaGraphExec, CudaKernelNodeParams, CudaMemcpyNodeParams, CudaMemsetNodeParams,
+//     GraphCaptureSession, GraphExecutionManager, GraphExecutionStats, GraphMemoryPool,
+//     GraphPerformanceSummary, MemoryPoolStats, PerformanceTrend,
+// };
 #[cfg(cuda_available)]
 pub use intelligent_scheduler::{
     IntelligentStreamScheduler, MemoryAccessPattern, MultiOperationCoordinator, SchedulerMetrics,
@@ -168,12 +176,13 @@ pub use intelligent_task_scheduler::{
 pub use kernel_fusion_optimizer::{
     AdvancedKernelFusionOptimizer, ExecutionStrategyType as FusionStrategyType, FusionKernel,
     FusionOperation, FusionOptimizationResult, FusionPatternType, KernelFusionStatus,
-    OperationType,
+    OperationType as FusionOperationType,
 };
 #[cfg(cuda_available)]
 pub use performance_optimization_coordinator::{
     ComprehensivePerformanceStatus, CoordinationError, CudaOperationRequest, CudaOperationResult,
-    CudaPerformanceOptimizationCoordinator, PerformanceCoordinatorConfig, PerformanceMetrics,
+    CudaPerformanceOptimizationCoordinator, PerformanceCoordinatorConfig,
+    PerformanceMetrics as CoordinatorPerformanceMetrics,
 };
 
 // Fallback exports when CUDA is not available
@@ -205,8 +214,8 @@ pub mod prelude {
         CudaBuffer,
         CudaDevice,
         CudaError,
-        CudaGraph,
-        CudaGraphExec,
+        // CudaGraph,  // CUDA graph API not available
+        // CudaGraphExec,  // CUDA graph API not available
         CudaMemoryManager,
         // Occupancy optimization types
         CudaOccupancyAnalyzer,
@@ -225,8 +234,8 @@ pub mod prelude {
         FusionStrategyType,
 
         GradientScaler,
-        GraphCaptureSession,
-        GraphExecutionManager,
+        // GraphCaptureSession,  // CUDA graph API not available
+        // GraphExecutionManager,  // CUDA graph API not available
         HighPerformanceKernelManager,
         IntelligentStreamScheduler,
         IntelligentTaskScheduler,
@@ -292,14 +301,14 @@ mod cuda_impl {
 
     /// Initialize CUDA backend
     pub fn init() -> Result<(), CudaError> {
-        cust::init(cust::CudaFlags::empty())?;
+        cust::init(cust::context::ContextFlags::empty())?;
         Ok(())
     }
 
     /// Check if CUDA is available
     pub fn is_available() -> bool {
-        match cust::init(cust::CudaFlags::empty()) {
-            Ok(_) => match cust::Device::get_count() {
+        match cust::init(cust::context::ContextFlags::empty()) {
+            Ok(_) => match cust::device::Device::get_count() {
                 Ok(count) => count > 0,
                 Err(_) => false,
             },
@@ -309,25 +318,25 @@ mod cuda_impl {
 
     /// Get number of CUDA devices
     pub fn device_count() -> Result<u32, CudaError> {
-        Ok(cust::Device::get_count()?)
+        Ok(cust::device::Device::get_count()?)
     }
 
     /// Get current CUDA device
     pub fn current_device() -> Result<CudaDevice, CudaError> {
-        let device = cust::Device::get_current()?;
+        let device = cust::device::Device::get_current()?;
         Ok(CudaDevice::new(device.as_device_ptr().0 as usize))
     }
 
     /// Set current CUDA device
     pub fn set_device(device_id: usize) -> Result<(), CudaError> {
-        let device = cust::Device::get_device(device_id as u32)?;
+        let device = cust::device::Device::get_device(device_id as u32)?;
         device.set_current()?;
         Ok(())
     }
 
     /// Synchronize current device
     pub fn synchronize() -> Result<(), CudaError> {
-        cust::Context::synchronize()?;
+        cust::context::Context::synchronize()?;
         Ok(())
     }
 }

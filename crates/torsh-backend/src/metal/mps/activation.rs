@@ -2,8 +2,8 @@
 
 use metal::foreign_types::ForeignType;
 use metal::{CommandBuffer, Device};
-use objc2::runtime::Object;
-use objc2::{msg_send, sel, ClassType};
+use objc2::msg_send;
+use objc2::runtime::AnyObject;
 
 use crate::metal::{buffer::MetalBuffer, error::Result};
 
@@ -21,7 +21,7 @@ pub enum ActivationType {
 /// MPS activation function
 #[allow(dead_code)]
 pub struct MPSActivation {
-    activation: *mut Object,
+    activation: *mut AnyObject,
     activation_type: ActivationType,
 }
 
@@ -29,36 +29,36 @@ impl MPSActivation {
     /// Create a new activation function
     pub fn new(device: &Device, activation_type: ActivationType) -> Result<Self> {
         unsafe {
-            let activation: *mut Object = match activation_type {
+            let activation: *mut AnyObject = match activation_type {
                 ActivationType::ReLU => {
                     let class = objc2::class!(MPSCNNNeuronReLU);
-                    let act: *mut Object = msg_send![class, alloc];
-                    msg_send![act, initWithDevice: device.as_ptr() as *mut Object]
+                    let act: *mut AnyObject = msg_send![class, alloc];
+                    msg_send![act, initWithDevice: device.as_ptr() as *mut AnyObject]
                 }
                 ActivationType::Sigmoid => {
                     let class = objc2::class!(MPSCNNNeuronSigmoid);
-                    let act: *mut Object = msg_send![class, alloc];
-                    msg_send![act, initWithDevice: device.as_ptr() as *mut Object]
+                    let act: *mut AnyObject = msg_send![class, alloc];
+                    msg_send![act, initWithDevice: device.as_ptr() as *mut AnyObject]
                 }
                 ActivationType::Tanh => {
                     let class = objc2::class!(MPSCNNNeuronTanH);
-                    let act: *mut Object = msg_send![class, alloc];
-                    msg_send![act, initWithDevice: device.as_ptr() as *mut Object]
+                    let act: *mut AnyObject = msg_send![class, alloc];
+                    msg_send![act, initWithDevice: device.as_ptr() as *mut AnyObject]
                 }
                 ActivationType::Softmax => {
                     let class = objc2::class!(MPSCNNSoftMax);
-                    let act: *mut Object = msg_send![class, alloc];
-                    msg_send![act, initWithDevice: device.as_ptr() as *mut Object]
+                    let act: *mut AnyObject = msg_send![class, alloc];
+                    msg_send![act, initWithDevice: device.as_ptr() as *mut AnyObject]
                 }
                 ActivationType::LeakyReLU(alpha) => {
                     let class = objc2::class!(MPSCNNNeuronLinear);
-                    let act: *mut Object = msg_send![class, alloc];
-                    msg_send![act, initWithDevice: device.as_ptr() as *mut Object a: alpha b: 0.0f32]
+                    let act: *mut AnyObject = msg_send![class, alloc];
+                    msg_send![act, initWithDevice: device.as_ptr() as *mut AnyObject, a: alpha, b: 0.0f32]
                 }
                 ActivationType::ELU(alpha) => {
                     let class = objc2::class!(MPSCNNNeuronELU);
-                    let act: *mut Object = msg_send![class, alloc];
-                    msg_send![act, initWithDevice: device.as_ptr() as *mut Object a: alpha]
+                    let act: *mut AnyObject = msg_send![class, alloc];
+                    msg_send![act, initWithDevice: device.as_ptr() as *mut AnyObject, a: alpha]
                 }
             };
 

@@ -291,8 +291,8 @@ impl ExpertParallelismConfig {
         match self.sharding_strategy {
             ExpertShardingStrategy::DataParallel => 1,
             ExpertShardingStrategy::ModelParallel => self.num_experts.min(64),
-            ExpertShardingStrategy::Hybrid => (self.num_experts / 4).max(2).min(16),
-            ExpertShardingStrategy::Dynamic => (self.num_experts / 2).max(4).min(32),
+            ExpertShardingStrategy::Hybrid => (self.num_experts / 4).clamp(2, 16),
+            ExpertShardingStrategy::Dynamic => (self.num_experts / 2).clamp(4, 32),
         }
     }
 }

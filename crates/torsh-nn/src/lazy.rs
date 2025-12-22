@@ -390,7 +390,7 @@ impl LazyModule for LazyLinear {
         // Create random data using SciRS2
         let mut rng = Random::seed(0);
         let weight_data: Vec<f32> = (0..self.out_features * in_features)
-            .map(|_| rng.gen::<f32>() * 2.0 * bound - bound)
+            .map(|_| rng.random::<f32>() * 2.0 * bound - bound)
             .collect();
 
         let weight_tensor = Tensor::from_data(

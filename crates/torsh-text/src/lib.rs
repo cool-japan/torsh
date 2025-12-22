@@ -1,19 +1,20 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::module_inception)]
 #![allow(clippy::large_enum_variant)]
+// Allow dead_code for intentional placeholders and future implementations
 #![allow(dead_code)]
-#![allow(unused_imports)]
+// Note: Some unused imports remain from auto-generated code - will clean up in future refactoring
 
 pub mod analysis;
 pub mod convenience;
 pub mod datasets;
 pub mod embeddings;
 pub mod generation;
-// pub mod metrics;  // Has complex import issues
+// pub mod metrics;  // Has complex import issues - needs significant refactoring (deferred)
 pub mod models;
 pub mod prelude;
 pub mod scirs2_ops;
-// pub mod scirs2_text_integration;  // Needs careful checking
+pub mod scirs2_text_integration; // Re-enabled for checking
 pub mod tokenization;
 pub mod utils;
 pub mod vocab;
@@ -29,7 +30,7 @@ pub use generation::{
     BeamHypothesis, BeamSearchDecoder, GenerationConfig as TextGenerationConfig,
     NGramRepetitionFilter, RepetitionPenalty, TextGenerator, TextSampler,
 };
-// pub use metrics::*;  // Disabled due to import issues
+// pub use metrics::*;  // Disabled - needs significant refactoring (deferred)
 pub use models::*;
 pub use scirs2_ops::advanced_analytics::{
     compute_advanced_stats, AdvancedTextSampler, AdvancedTextStats, ComplexityAnalyzer,
@@ -37,12 +38,12 @@ pub use scirs2_ops::advanced_analytics::{
 };
 pub use scirs2_ops::performance::{PerformanceMetrics, PerformanceMonitor};
 pub use scirs2_ops::*;
-// pub use scirs2_text_integration::{
-//     advanced_ops::{cluster_documents, extract_topics, paraphrase_text},
-//     ClassificationResult, ClusterResult, DeviceType as TextDeviceType, EntityType,
-//     LanguageDetection, LanguageModel, NamedEntity, PrecisionLevel, SciRS2TextProcessor,
-//     SentimentLabel, SentimentResult, TextConfig, TextEmbeddings, Topic,
-// };
+pub use scirs2_text_integration::{
+    advanced_ops::{cluster_documents, extract_topics, paraphrase_text},
+    ClassificationResult, ClusterResult, DeviceType as TextDeviceType, EntityType,
+    LanguageDetection, LanguageModel, NamedEntity, PrecisionLevel, SciRS2TextProcessor,
+    SentimentLabel, SentimentResult, TextConfig, TextEmbeddings, Topic,
+};
 pub use tokenization::*;
 pub use utils::*;
 pub use vocab::*;

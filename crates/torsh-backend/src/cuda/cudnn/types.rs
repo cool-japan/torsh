@@ -486,84 +486,21 @@ pub enum ConvolutionMathType {
     TensorOp,
 }
 
-/// Convolution forward algorithm
-#[derive(Debug, Clone, Copy)]
-pub enum ConvolutionForwardAlgorithm {
-    ImplicitGemm,
-    ImplicitPrecompGemm,
-    Gemm,
-    Direct,
-    Fft,
-    FftTiling,
-    Winograd,
-    WinogradNonfused,
+/// Tensor format for cuDNN operations
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TensorFormat {
+    /// NCHW format (batch, channels, height, width)
+    NCHW,
+    /// NHWC format (batch, height, width, channels)
+    NHWC,
+    /// NCHWVectC format (vectorized channels)
+    NCHWVectC,
 }
 
-impl ConvolutionForwardAlgorithm {
-    #[cfg(feature = "cudnn")]
-    pub(crate) fn to_cudnn(self) -> cudnnConvolutionFwdAlgo_t {
-        match self {
-            ConvolutionForwardAlgorithm::ImplicitGemm => {
-                cudnnConvolutionFwdAlgo_t::CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM
-            }
-            ConvolutionForwardAlgorithm::ImplicitPrecompGemm => {
-                cudnnConvolutionFwdAlgo_t::CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_PRECOMP_GEMM
-            }
-            ConvolutionForwardAlgorithm::Gemm => {
-                cudnnConvolutionFwdAlgo_t::CUDNN_CONVOLUTION_FWD_ALGO_GEMM
-            }
-            ConvolutionForwardAlgorithm::Direct => {
-                cudnnConvolutionFwdAlgo_t::CUDNN_CONVOLUTION_FWD_ALGO_DIRECT
-            }
-            ConvolutionForwardAlgorithm::Fft => {
-                cudnnConvolutionFwdAlgo_t::CUDNN_CONVOLUTION_FWD_ALGO_FFT
-            }
-            ConvolutionForwardAlgorithm::FftTiling => {
-                cudnnConvolutionFwdAlgo_t::CUDNN_CONVOLUTION_FWD_ALGO_FFT_TILING
-            }
-            ConvolutionForwardAlgorithm::Winograd => {
-                cudnnConvolutionFwdAlgo_t::CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD
-            }
-            ConvolutionForwardAlgorithm::WinogradNonfused => {
-                cudnnConvolutionFwdAlgo_t::CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD_NONFUSED
-            }
-        }
-    }
-}
-
-impl Default for ConvolutionForwardAlgorithm {
+impl Default for TensorFormat {
     fn default() -> Self {
-        ConvolutionForwardAlgorithm::ImplicitGemm
+        Self::NCHW
     }
-}
-
-/// Convolution forward algorithm performance results
-#[derive(Debug, Clone, Default)]
-pub struct ConvolutionForwardAlgorithmPerformance {
-    pub algorithm: ConvolutionForwardAlgorithm,
-    pub status: ConvolutionStatus,
-    pub time: f32,
-    pub memory: usize,
-    pub determinism: ConvolutionDeterminism,
-    pub math_type: ConvolutionMathType,
-}
-
-/// Convolution status
-#[derive(Debug, Clone, Copy, Default)]
-pub enum ConvolutionStatus {
-    #[default]
-    Success,
-    NotSupported,
-    MappingError,
-    ExecutionFailed,
-}
-
-/// Convolution determinism
-#[derive(Debug, Clone, Copy, Default)]
-pub enum ConvolutionDeterminism {
-    #[default]
-    NonDeterministic,
-    Deterministic,
 }
 
 /// Check if cuDNN is available

@@ -66,6 +66,16 @@ impl ElasticAveragingSGD {
     /// # Example
     ///
     /// ```rust
+    /// # use torsh_tensor::creation::randn;
+    /// # use torsh_core::error::Result;
+    /// # use parking_lot::RwLock;
+    /// # use std::sync::Arc;
+    /// # use torsh_optim::distributed::ElasticAveragingSGD;
+    /// # fn main() -> Result<()> {
+    /// // Create some parameters
+    /// let param1 = Arc::new(RwLock::new(randn::<f32>(&[10, 20])?));
+    /// let params = vec![param1];
+    ///
     /// let optimizer = ElasticAveragingSGD::new(
     ///     params,
     ///     0.1,        // learning rate
@@ -76,6 +86,8 @@ impl ElasticAveragingSGD {
     ///     0,          // worker rank
     ///     4           // total workers
     /// )?;
+    /// # Ok(())
+    /// # }
     /// ```
     #[allow(clippy::too_many_arguments)]
     pub fn new(

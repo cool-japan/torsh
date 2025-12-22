@@ -13,9 +13,10 @@
 //!
 //! ## Usage Example
 //!
-//! ```rust
+//! ```rust,no_run
 //! use torsh_autograd::visualization::monitoring::GradientFlowMonitor;
 //! use torsh_autograd::context::AutogradContext;
+//! # fn example() -> torsh_core::error::Result<()> {
 //!
 //! let mut monitor = GradientFlowMonitor::new();
 //! let ctx = AutogradContext::new();
@@ -35,16 +36,19 @@
 //!
 //! // Generate monitoring report
 //! let report = monitor.generate_monitoring_report()?;
+//! # Ok(())
+//! # }
 //! ```
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use super::core::GradientFlowAnalysis;
 use super::visualizer::GradientVisualizer;
 use crate::context::AutogradContext;
 use std::collections::VecDeque;
-use std::fmt::Write;
 use std::time::{Duration, SystemTime};
-use torsh_core::error::{Result, TorshError};
-use tracing::{debug, info, warn};
+use torsh_core::error::Result;
+use tracing::{debug, info};
 
 /// Real-time gradient flow monitor with historical analysis and trend detection
 ///
@@ -99,15 +103,15 @@ struct TimestampedAnalysis {
 
 /// Additional metadata for analysis tracking
 #[derive(Debug, Clone, Default)]
-struct AnalysisMetadata {
+pub struct AnalysisMetadata {
     /// Learning rate at time of analysis
-    learning_rate: Option<f32>,
+    pub learning_rate: Option<f32>,
     /// Batch size used
-    batch_size: Option<usize>,
+    pub batch_size: Option<usize>,
     /// Current loss value
-    loss_value: Option<f32>,
+    pub loss_value: Option<f32>,
     /// Custom tags for categorization
-    tags: Vec<String>,
+    pub tags: Vec<String>,
 }
 
 /// Comprehensive trend analysis of gradient flows over time

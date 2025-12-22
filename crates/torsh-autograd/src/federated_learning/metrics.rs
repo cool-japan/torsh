@@ -56,6 +56,8 @@
 //! - Resource utilization optimization
 //! - Cost-benefit analysis
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use std::collections::{HashMap, VecDeque};
 use std::time::{Duration, Instant};
 
@@ -594,7 +596,7 @@ impl MetricsCollector {
     }
 
     /// Updates metrics for a specific client
-    fn update_client_metrics(&mut self, client_id: &str, round: &AggregationRound) {
+    fn update_client_metrics(&mut self, client_id: &str, _round: &AggregationRound) {
         let client_summary = self
             .client_metrics
             .entry(client_id.to_string())

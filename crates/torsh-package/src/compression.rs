@@ -403,30 +403,36 @@ impl AdvancedCompressor {
 
     /// Compress with Zstandard
     fn compress_zstd(&self, data: &[u8], level: u32) -> Result<Vec<u8>> {
-        // For now, fall back to gzip since zstd might not be available
-        // In a real implementation, you would add zstd dependency and use it
-        self.compress_gzip(data, level.min(9))
+        zstd::encode_all(data, level as i32).map_err(|e| {
+            TorshError::SerializationError(format!("Zstandard compression failed: {}", e))
+        })
     }
 
     /// Decompress Zstandard
     fn decompress_zstd(&self, data: &[u8]) -> Result<Vec<u8>> {
-        // For now, fall back to gzip since zstd might not be available
-        // In a real implementation, you would add zstd dependency and use it
-        self.decompress_gzip(data)
+        zstd::decode_all(data).map_err(|e| {
+            TorshError::SerializationError(format!("Zstandard decompression failed: {}", e))
+        })
     }
 
     /// Compress with LZMA
-    fn compress_lzma(&self, data: &[u8], level: u32) -> Result<Vec<u8>> {
-        // For now, fall back to gzip since lzma might not be available
-        // In a real implementation, you would add lzma dependency and use it
-        self.compress_gzip(data, level.min(9))
+    fn compress_lzma(&self, data: &[u8], _level: u32) -> Result<Vec<u8>> {
+        let mut output = Vec::new();
+        lzma_rs::lzma_compress(&mut std::io::Cursor::new(data), &mut output).map_err(|e| {
+            TorshError::SerializationError(format!("LZMA compression failed: {}", e))
+        })?;
+
+        Ok(output)
     }
 
     /// Decompress LZMA
     fn decompress_lzma(&self, data: &[u8]) -> Result<Vec<u8>> {
-        // For now, fall back to gzip since lzma might not be available
-        // In a real implementation, you would add lzma dependency and use it
-        self.decompress_gzip(data)
+        let mut output = Vec::new();
+        lzma_rs::lzma_decompress(&mut std::io::Cursor::new(data), &mut output).map_err(|e| {
+            TorshError::SerializationError(format!("LZMA decompression failed: {}", e))
+        })?;
+
+        Ok(output)
     }
 
     /// Compress with Brotli
@@ -468,6 +474,7 @@ impl Default for AdvancedCompressor {
 pub struct ParallelCompressor {
     compressor: AdvancedCompressor,
     chunk_size: usize,
+    num_threads: usize,
 }
 
 impl ParallelCompressor {
@@ -476,12 +483,19 @@ impl ParallelCompressor {
         Self {
             compressor,
             chunk_size: 1024 * 1024, // 1MB chunks
+            num_threads: scirs2_core::parallel_ops::num_threads(),
         }
     }
 
     /// Set chunk size for parallel compression
     pub fn with_chunk_size(mut self, chunk_size: usize) -> Self {
         self.chunk_size = chunk_size;
+        self
+    }
+
+    /// Set number of threads for parallel compression
+    pub fn with_num_threads(mut self, num_threads: usize) -> Self {
+        self.num_threads = num_threads;
         self
     }
 
@@ -497,9 +511,121 @@ impl ParallelCompressor {
             return self.compressor.compress_data(data, algorithm, level);
         }
 
-        // For now, just use regular compression
-        // In a real implementation, you would split data into chunks and compress in parallel
-        self.compressor.compress_data(data, algorithm, level)
+        let start_time = std::time::Instant::now();
+
+        // Split data into chunks
+        let num_chunks = (data.len() + self.chunk_size - 1) / self.chunk_size;
+        let chunks: Vec<&[u8]> = (0..num_chunks)
+            .map(|i| {
+                let start = i * self.chunk_size;
+                let end = (start + self.chunk_size).min(data.len());
+                &data[start..end]
+            })
+            .collect();
+
+        // Compress chunks in parallel using scirs2-core's parallel operations
+        use scirs2_core::parallel_ops::{IntoParallelIterator, ParallelIterator};
+
+        let compressed_chunks: Vec<_> = chunks
+            .into_par_iter()
+            .map(|chunk| {
+                self.compressor
+                    .compress_data(chunk, algorithm, level)
+                    .map(|result| result.data)
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        // Combine compressed chunks
+        let mut combined_data = Vec::new();
+        combined_data.extend_from_slice(&(compressed_chunks.len() as u64).to_le_bytes());
+
+        for chunk in &compressed_chunks {
+            combined_data.extend_from_slice(&(chunk.len() as u64).to_le_bytes());
+            combined_data.extend_from_slice(chunk);
+        }
+
+        let compression_time_ms = start_time.elapsed().as_millis() as u64;
+        let compressed_size = combined_data.len();
+        let ratio = if data.is_empty() {
+            1.0
+        } else {
+            compressed_size as f32 / data.len() as f32
+        };
+
+        Ok(CompressionResult {
+            data: combined_data,
+            algorithm,
+            level,
+            original_size: data.len(),
+            compressed_size,
+            ratio,
+            compression_time_ms,
+        })
+    }
+
+    /// Decompress parallel-compressed data
+    pub fn decompress_parallel(
+        &self,
+        compressed_data: &[u8],
+        algorithm: CompressionAlgorithm,
+    ) -> Result<DecompressionResult> {
+        if compressed_data.len() < 8 {
+            // Not parallel-compressed, use regular decompression
+            return self.compressor.decompress_data(compressed_data, algorithm);
+        }
+
+        let start_time = std::time::Instant::now();
+
+        // Read number of chunks
+        let num_chunks = u64::from_le_bytes(compressed_data[0..8].try_into().unwrap()) as usize;
+        let mut offset = 8;
+
+        // Read chunk sizes and data
+        let mut chunks = Vec::with_capacity(num_chunks);
+        for _ in 0..num_chunks {
+            if offset + 8 > compressed_data.len() {
+                return Err(TorshError::InvalidArgument(
+                    "Invalid parallel-compressed data format".to_string(),
+                ));
+            }
+
+            let chunk_size =
+                u64::from_le_bytes(compressed_data[offset..offset + 8].try_into().unwrap())
+                    as usize;
+            offset += 8;
+
+            if offset + chunk_size > compressed_data.len() {
+                return Err(TorshError::InvalidArgument(
+                    "Invalid chunk size in parallel-compressed data".to_string(),
+                ));
+            }
+
+            chunks.push(&compressed_data[offset..offset + chunk_size]);
+            offset += chunk_size;
+        }
+
+        // Decompress chunks in parallel
+        use scirs2_core::parallel_ops::{IntoParallelIterator, ParallelIterator};
+
+        let decompressed_chunks: Vec<_> = chunks
+            .into_par_iter()
+            .map(|chunk| {
+                self.compressor
+                    .decompress_data(chunk, algorithm)
+                    .map(|result| result.data)
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        // Combine decompressed chunks
+        let combined_data = decompressed_chunks.into_iter().flatten().collect();
+
+        let decompression_time_ms = start_time.elapsed().as_millis() as u64;
+
+        Ok(DecompressionResult {
+            data: combined_data,
+            algorithm,
+            decompression_time_ms,
+        })
     }
 }
 

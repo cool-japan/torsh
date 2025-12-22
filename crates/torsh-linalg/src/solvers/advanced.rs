@@ -746,7 +746,8 @@ mod tests {
         for i in 0..n {
             data[[i, i]] = 1.0;
         }
-        Tensor::from_data(data.into_raw_vec(), vec![n, n], torsh_core::DeviceType::Cpu)
+        let (vec_data, _offset) = data.into_raw_vec_and_offset();
+        Tensor::from_data(vec_data, vec![n, n], torsh_core::DeviceType::Cpu)
     }
 
     #[cfg(not(feature = "scirs2-integration"))]
@@ -763,11 +764,8 @@ mod tests {
             }
             2 => {
                 let data = Array2::<f32>::zeros((shape[0], shape[1]));
-                Tensor::from_data(
-                    data.into_raw_vec(),
-                    shape.to_vec(),
-                    torsh_core::DeviceType::Cpu,
-                )
+                let (vec_data, _offset) = data.into_raw_vec_and_offset();
+                Tensor::from_data(vec_data, shape.to_vec(), torsh_core::DeviceType::Cpu)
             }
             _ => Err(TorshError::InvalidArgument(
                 "Unsupported shape for test".to_string(),

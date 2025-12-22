@@ -10,26 +10,35 @@
 //! - Batch processing capabilities
 
 pub mod classification;
+// pub mod continuous_time; // Continuous-time graph networks (TGN, Neural ODE) - TODO: Fix API compatibility
 pub mod conv;
 pub mod data;
 pub mod datasets;
-// pub mod distributed; // Temporarily disabled - trait bound compilation issues
+// pub mod diffusion; // Graph diffusion models (DDPM, DDIM, discrete diffusion) - TODO: Fix API compatibility
+pub mod distributed; // Distributed graph neural networks
+pub mod enhanced_scirs2_integration; // Full SciRS2 algorithm suite
+                                     // pub mod equivariant; // Equivariant graph neural networks (EGNN, SchNet) - TODO: Fix API compatibility
 pub mod explainability;
-// pub mod foundation; // Temporarily disabled - module file missing
+pub mod foundation; // Graph foundation models and self-supervised learning
 pub mod functional;
+pub mod generative; // Graph generation models (VAE, GAN)
+pub mod geometric; // Geometric graph neural networks
 pub mod hypergraph;
 pub mod jit;
+pub mod lottery_ticket; // Graph lottery ticket hypothesis and pruning
+pub mod matching; // Graph matching and similarity learning
 pub mod multimodal;
 pub mod neural_operators;
-pub mod temporal;
-// pub mod neuromorphic; // Temporarily disabled - compilation issues with tensor types
+pub mod neuromorphic;
+pub mod optimal_transport; // Graph optimal transport (Gromov-Wasserstein, Sinkhorn)
 pub mod parameter;
 pub mod pool;
 pub mod quantum;
 pub mod scirs2_integration;
+pub mod spectral; // Spectral graph methods
+pub mod temporal;
 pub mod utils;
 
-use torsh_core::{DType, Device};
 use torsh_tensor::Tensor;
 // Enhanced SciRS2 integration for performance optimization
 // use scirs2_core::gpu::{GpuContext, GpuBuffer}; // Will be used when available
@@ -54,6 +63,32 @@ pub struct GraphData {
 
 impl GraphData {
     /// Create a new graph data structure
+    ///
+    /// # Arguments
+    /// * `x` - Node feature matrix with shape `[num_nodes, num_features]`
+    /// * `edge_index` - Edge connectivity with shape `[2, num_edges]`
+    ///
+    /// # Returns
+    /// A new `GraphData` instance
+    ///
+    /// # Example
+    /// ```
+    /// use torsh_graph::GraphData;
+    /// use torsh_tensor::creation::from_vec;
+    /// use torsh_core::device::DeviceType;
+    ///
+    /// // Create a simple triangle graph
+    /// let x = from_vec(vec![1.0, 2.0, 3.0], &[3, 1], DeviceType::Cpu).unwrap();
+    /// let edge_index = from_vec(
+    ///     vec![0.0, 1.0, 2.0, 1.0, 2.0, 0.0], // src, dst
+    ///     &[2, 3],
+    ///     DeviceType::Cpu
+    /// ).unwrap();
+    ///
+    /// let graph = GraphData::new(x, edge_index);
+    /// assert_eq!(graph.num_nodes, 3);
+    /// assert_eq!(graph.num_edges, 3);
+    /// ```
     pub fn new(x: Tensor, edge_index: Tensor) -> Self {
         let num_nodes = x.shape().dims()[0];
         let num_edges = edge_index.shape().dims()[1];
@@ -111,6 +146,27 @@ impl GraphData {
     }
 
     /// Validate graph structure
+    ///
+    /// Checks that:
+    /// - All edge indices refer to valid nodes
+    /// - Edge attributes (if present) match the number of edges
+    ///
+    /// # Returns
+    /// * `Ok(())` - Graph structure is valid
+    /// * `Err(GraphValidationError)` - Validation failed
+    ///
+    /// # Example
+    /// ```
+    /// use torsh_graph::GraphData;
+    /// use torsh_tensor::creation::from_vec;
+    /// use torsh_core::device::DeviceType;
+    ///
+    /// let x = from_vec(vec![1.0, 2.0], &[2, 1], DeviceType::Cpu).unwrap();
+    /// let edge_index = from_vec(vec![0.0, 1.0], &[2, 1], DeviceType::Cpu).unwrap();
+    /// let graph = GraphData::new(x, edge_index);
+    ///
+    /// assert!(graph.validate().is_ok());
+    /// ```
     pub fn validate(&self) -> Result<(), GraphValidationError> {
         // Check edge indices are within node range
         if let Ok(edge_data) = self.edge_index.to_vec() {
@@ -161,7 +217,7 @@ pub enum GraphValidationError {
 }
 
 /// Trait for graph neural network layers
-pub trait GraphLayer {
+pub trait GraphLayer: std::fmt::Debug {
     /// Forward pass through the layer
     fn forward(&self, graph: &GraphData) -> GraphData;
 
@@ -171,8 +227,8 @@ pub trait GraphLayer {
 
 /// Graph attention visualization utilities
 pub mod attention_viz {
-    use super::*;
-    use torsh_tensor::{creation::zeros, Tensor};
+
+    use torsh_tensor::Tensor;
 
     /// Attention weights for visualization
     #[derive(Debug, Clone)]
@@ -218,7 +274,7 @@ pub mod attention_viz {
 
 /// Node importance analysis utilities
 pub mod importance_analysis {
-    use super::*;
+
     use torsh_tensor::Tensor;
 
     /// Node importance metrics

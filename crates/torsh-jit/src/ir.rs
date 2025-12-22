@@ -720,8 +720,9 @@ pub fn dtype_to_ir_type(dtype: DType) -> TypeKind {
         DType::F64 => TypeKind::F64,
         DType::C64 => TypeKind::C64,
         DType::C128 => TypeKind::C128,
-        DType::QInt8 => TypeKind::I8,  // Quantized as regular int8
-        DType::QUInt8 => TypeKind::U8, // Quantized as regular uint8
+        DType::QInt8 => TypeKind::I8,   // Quantized as regular int8
+        DType::QUInt8 => TypeKind::U8,  // Quantized as regular uint8
+        DType::QInt32 => TypeKind::I32, // Quantized as regular int32
     }
 }
 

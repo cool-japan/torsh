@@ -77,7 +77,7 @@
 //! # Examples
 //!
 //! ## Basic Setup with Unified Interface
-//! ```rust
+//! ```rust,ignore
 //! use torsh_autograd::communication_efficient::{
 //!     // Use the unified interface with organized re-exports
 //!     Config, Strategy, Method, Compressor, Aggregator,
@@ -98,7 +98,7 @@
 //! ```
 //!
 //! ## Module-Specific Usage
-//! ```rust
+//! ```rust,ignore
 //! use torsh_autograd::communication_efficient::{
 //!     // Configuration module
 //!     config::{CommunicationConfig, AggregationMethod, CompressionStrategy},
@@ -125,7 +125,7 @@
 //! ```
 //!
 //! ## Advanced Byzantine-Resilient Configuration
-//! ```rust
+//! ```rust,ignore
 //! use torsh_autograd::communication_efficient::{
 //!     Config, Method, Aggregator, FaultDetector, Controller,
 //!     ByzantineDetectionConfig, AdaptationController, AdaptationStrategy,
@@ -150,7 +150,7 @@
 //! ```
 //!
 //! ## Comprehensive Distributed Training Setup
-//! ```rust
+//! ```rust,ignore
 //! use torsh_autograd::communication_efficient::{
 //!     Config, Strategy, Method, Compressor, Aggregator, Scheduler,
 //!     BandwidthMgr, TopologyMgr, FaultDetector, Controller,

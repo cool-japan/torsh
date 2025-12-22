@@ -13,6 +13,12 @@
 //! ## Usage Example
 //!
 //! ```rust
+//! # use torsh_tensor::creation::{randn, tensor_1d};
+//! # use torsh_core::error::Result;
+//! # fn main() -> Result<()> {
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # fn main() -> Result<()> {
 //! use torsh_nn::layers::activation::smooth::{Softplus, Softsign, Hardsigmoid};
 //! use torsh_nn::Module;
 //! use torsh_tensor::Tensor;
@@ -23,10 +29,14 @@
 //! let hardsigmoid = Hardsigmoid::new();
 //!
 //! // Apply to tensors
-//! let input = Tensor::randn(&[2, 3]);
+//! let input = randn(&[2, 3])?;
 //! let softplus_output = softplus.forward(&input)?;
 //! let softsign_output = softsign.forward(&input)?;
 //! let hardsigmoid_output = hardsigmoid.forward(&input)?;
+//! # Ok(())
+//! # }
+//! # Ok(())
+//! # }
 //! ```
 
 use crate::{Module, ModuleBase, Parameter};
@@ -69,14 +79,24 @@ use hashbrown::HashMap;
 ///
 /// # Example
 /// ```rust
+/// # use torsh_tensor::creation::{randn, tensor_1d};
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// use torsh_nn::layers::activation::smooth::Softplus;
 /// use torsh_nn::Module;
 /// use torsh_tensor::Tensor;
 ///
 /// let softplus = Softplus::new(1.0, 20.0); // Standard softplus
 /// let sharp_softplus = Softplus::new(5.0, 20.0); // Sharper approximation to ReLU
-/// let input = Tensor::from(vec![-2.0, -1.0, 0.0, 1.0, 2.0]);
+/// let input = tensor_1d(&[-2.0, -1.0, 0.0, 1.0, 2.0])?;
 /// let output = softplus.forward(&input)?;
+/// # Ok(())
+/// # }
+/// # Ok(())
+/// # }
 /// ```
 pub struct Softplus {
     base: ModuleBase,
@@ -198,13 +218,23 @@ impl Module for Softplus {
 ///
 /// # Example
 /// ```rust
+/// # use torsh_tensor::creation::{randn, tensor_1d};
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// use torsh_nn::layers::activation::smooth::Softsign;
 /// use torsh_nn::Module;
 /// use torsh_tensor::Tensor;
 ///
 /// let softsign = Softsign::new();
-/// let input = Tensor::from(vec![-5.0, -1.0, 0.0, 1.0, 5.0]);
+/// let input = tensor_1d(&[-5.0, -1.0, 0.0, 1.0, 5.0])?;
 /// let output = softsign.forward(&input)?; // [-0.833, -0.5, 0.0, 0.5, 0.833]
+/// # Ok(())
+/// # }
+/// # Ok(())
+/// # }
 /// ```
 pub struct Softsign {
     base: ModuleBase,
@@ -289,13 +319,23 @@ impl Module for Softsign {
 ///
 /// # Example
 /// ```rust
+/// # use torsh_tensor::creation::{randn, tensor_1d};
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// use torsh_nn::layers::activation::smooth::Hardsigmoid;
 /// use torsh_nn::Module;
 /// use torsh_tensor::Tensor;
 ///
 /// let hardsigmoid = Hardsigmoid::new();
-/// let input = Tensor::from(vec![-3.0, -1.0, 0.0, 1.0, 3.0]);
+/// let input = tensor_1d(&[-3.0, -1.0, 0.0, 1.0, 3.0])?;
 /// let output = hardsigmoid.forward(&input)?; // [0.0, 0.3, 0.5, 0.7, 1.0]
+/// # Ok(())
+/// # }
+/// # Ok(())
+/// # }
 /// ```
 pub struct Hardsigmoid {
     base: ModuleBase,
@@ -389,7 +429,6 @@ impl Module for Hardsigmoid {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use torsh_tensor::creation::*;
 
     #[test]
     fn test_softplus_parameters() {

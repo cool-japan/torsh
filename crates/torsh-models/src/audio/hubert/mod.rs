@@ -1,18 +1,8 @@
 //! HuBERT models for self-supervised speech representation learning
 //!
 //! Implementation of HuBERT architecture for speech representation learning.
-//! Reference: https://arxiv.org/abs/2106.07447
-
-use std::collections::HashMap;
-use torsh_core::{
-    error::{Result, TorshError},
-    DeviceType,
-};
-use torsh_nn::prelude::{
-    Conv1d, Dropout, Embedding, GroupNorm, LayerNorm, Linear, MultiheadAttention, GELU,
-};
-use torsh_nn::{Module, Parameter};
-use torsh_tensor::{creation, Tensor};
+//!
+//! Reference: [HuBERT: Self-Supervised Speech Representation Learning by Masked Prediction of Hidden Units](https://arxiv.org/abs/2106.07447)
 
 /// HuBERT Configuration
 #[derive(Debug, Clone)]

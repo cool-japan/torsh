@@ -19,12 +19,11 @@ torsh-autograd = { workspace = true }
 torsh-linalg = { workspace = true }
 
 # Leverage scirs2's optimizers and optirs
-scirs2 = { workspace = true }
 scirs2-core = { workspace = true }
 scirs2-optimize = { workspace = true }
-# TEMPORARILY DISABLED DUE TO SCIRS2 API COMPATIBILITY ISSUES
-# optirs = { workspace = true }
-# optirs-core = { workspace = true }
+# OptiRS - Advanced ML optimization (re-enabled with crates.io beta.3)
+optirs = { workspace = true }
+optirs-core = { workspace = true }
 
 # Utilities
 parking_lot = { workspace = true }

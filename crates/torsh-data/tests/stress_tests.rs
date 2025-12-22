@@ -181,7 +181,7 @@ pub fn stress_test_high_load_dataloader() -> StressTestResult {
                 match simple_random_dataloader(
                     (*dataset_clone).clone(),
                     config_clone.batch_size,
-                    Some(thread_id as u64 + thread_rng().gen::<u64>()), // SciRS2 POLICY compliant
+                    Some(thread_id as u64 + thread_rng().random::<u64>()), // SciRS2 POLICY compliant
                 ) {
                     Ok(dataloader) => {
                         // Process a few batches
@@ -370,7 +370,7 @@ pub fn stress_test_transform_pipeline() -> StressTestResult {
                         let cache_key = format!(
                             "thread_{}_tensor_{}",
                             thread_id,
-                            thread_rng().gen::<u32>() % 50
+                            thread_rng().random::<u32>() % 50
                         ); // SciRS2 POLICY compliant
 
                         match engine_clone.apply(tensor, Some(&cache_key)) {

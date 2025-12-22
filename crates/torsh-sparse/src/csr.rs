@@ -376,7 +376,7 @@ impl CsrTensor {
 
         // Create result tensor with zeros
         let result_shape = vec![m, n];
-        let mut result = zeros::<f32>(&result_shape)?;
+        let result = zeros::<f32>(&result_shape)?;
 
         // Get data access for efficient computation
         let other_data = other

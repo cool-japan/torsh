@@ -17,21 +17,17 @@ torsh-core = { workspace = true }
 torsh-tensor = { workspace = true }
 
 # SciRS2 ecosystem for linear algebra
-scirs2-core = { version = "0.1.0-beta.2", optional = true }
-scirs2-autograd = { version = "0.1.0-beta.2", optional = true }
-scirs2-linalg = { version = "0.1.0-beta.2", optional = true }
+scirs2-core = { workspace = true, optional = true }
+scirs2-autograd = { workspace = true, optional = true }
+scirs2-linalg = { workspace = true, optional = true }
 
 # Optional high-performance backends
-ndarray-linalg = { version = "0.17", optional = true }
+ndarray-linalg = { version = "0.18", optional = true }
 lapack = { version = "0.20", optional = true }
 blas = { version = "0.23", optional = true }
 
 # Error handling
 thiserror = { workspace = true }
-
-# Utilities
-num-traits = { workspace = true }
-num-complex = "0.4"
 
 [features]
 default = ["scirs2-integration"]

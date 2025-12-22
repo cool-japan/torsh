@@ -8,7 +8,7 @@ use crate::numpy_compatibility::NumpyCompat;
 use crate::python::tensor::PyTensor;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
-use pyo3::types::{IntoPyDict, PyAny, PyDict, PyModule, PyTuple};
+use pyo3::types::{PyAny, PyDict, PyModule};
 use pyo3::Bound;
 use std::collections::HashMap;
 
@@ -21,6 +21,7 @@ pub struct SciPyIntegration {
     /// Cached SciPy module references
     scipy_modules: HashMap<String, Py<PyModule>>,
     /// Default tolerances for numerical operations
+    #[allow(dead_code)]
     default_tolerances: ScipyTolerances,
     /// Integration configuration
     config: ScipyConfig,
@@ -193,8 +194,8 @@ impl SciPyIntegration {
     /// Convert SciPy sparse matrix to ToRSh tensor
     pub fn from_sparse_matrix(
         &self,
-        py: Python,
-        sparse_matrix: Bound<'_, PyAny>,
+        _py: Python,
+        _sparse_matrix: Bound<'_, PyAny>,
     ) -> PyResult<PyTensor> {
         // TODO: Fix PyO3 and NumPy compatibility issues
         Err(PyErr::new::<PyRuntimeError, _>(
@@ -209,10 +210,10 @@ impl SciPyIntegration {
     /// Solve linear system using SciPy
     pub fn solve_linear_system(
         &self,
-        py: Python,
-        a: &PyTensor,
-        b: &PyTensor,
-        method: Option<&str>,
+        _py: Python,
+        _a: &PyTensor,
+        _b: &PyTensor,
+        _method: Option<&str>,
     ) -> PyResult<LinalgResult> {
         // TODO: Fix SciPy and NumPy compatibility issues
         Err(PyErr::new::<PyRuntimeError, _>(
@@ -260,9 +261,9 @@ impl SciPyIntegration {
     /// Compute eigenvalues and eigenvectors
     pub fn eigendecomposition(
         &self,
-        py: Python,
-        tensor: &PyTensor,
-        compute_eigenvectors: bool,
+        _py: Python,
+        _tensor: &PyTensor,
+        _compute_eigenvectors: bool,
     ) -> PyResult<LinalgResult> {
         // TODO: Fix SciPy and NumPy compatibility issues
         Err(PyErr::new::<PyRuntimeError, _>(
@@ -300,9 +301,9 @@ impl SciPyIntegration {
     /// Singular Value Decomposition
     pub fn svd(
         &self,
-        py: Python,
-        tensor: &PyTensor,
-        full_matrices: bool,
+        _py: Python,
+        _tensor: &PyTensor,
+        _full_matrices: bool,
     ) -> PyResult<(PyTensor, PyTensor, PyTensor)> {
         // TODO: Fix SciPy and NumPy compatibility issues
         Err(PyErr::new::<PyRuntimeError, _>("SciPy SVD not implemented"))
@@ -337,12 +338,12 @@ impl SciPyIntegration {
     /// Optimize function using SciPy optimizers
     pub fn minimize(
         &self,
-        py: Python,
-        objective: Bound<'_, PyAny>,
-        initial_guess: &PyTensor,
-        method: Option<&str>,
-        bounds: Option<Bound<'_, PyAny>>,
-        constraints: Option<Bound<'_, PyAny>>,
+        _py: Python,
+        _objective: Bound<'_, PyAny>,
+        _initial_guess: &PyTensor,
+        _method: Option<&str>,
+        _bounds: Option<Bound<'_, PyAny>>,
+        _constraints: Option<Bound<'_, PyAny>>,
     ) -> PyResult<OptimizationResult> {
         // TODO: Fix SciPy compatibility issues
         Err(PyErr::new::<PyRuntimeError, _>(
@@ -398,12 +399,12 @@ impl SciPyIntegration {
     /// Apply digital filter to signal
     pub fn filter_signal(
         &self,
-        py: Python,
-        signal: &PyTensor,
-        filter_type: &str,
-        cutoff: f64,
-        sample_rate: f64,
-        order: Option<usize>,
+        _py: Python,
+        _signal: &PyTensor,
+        _filter_type: &str,
+        _cutoff: f64,
+        _sample_rate: f64,
+        _order: Option<usize>,
     ) -> PyResult<SignalResult> {
         // TODO: Fix SciPy compatibility issues
         Err(PyErr::new::<PyRuntimeError, _>(
@@ -457,7 +458,7 @@ impl SciPyIntegration {
     }
 
     /// Compute Fast Fourier Transform
-    pub fn fft(&self, py: Python, signal: &PyTensor, axis: Option<i32>) -> PyResult<PyTensor> {
+    pub fn fft(&self, _py: Python, _signal: &PyTensor, _axis: Option<i32>) -> PyResult<PyTensor> {
         // TODO: Fix SciPy compatibility issues
         Err(PyErr::new::<PyRuntimeError, _>("SciPy FFT not implemented"))
 
@@ -484,10 +485,10 @@ impl SciPyIntegration {
     /// Compute statistical tests
     pub fn statistical_test(
         &self,
-        py: Python,
-        data1: &PyTensor,
-        data2: Option<&PyTensor>,
-        test_type: &str,
+        _py: Python,
+        _data1: &PyTensor,
+        _data2: Option<&PyTensor>,
+        _test_type: &str,
     ) -> PyResult<(f64, f64)> {
         // TODO: Fix SciPy compatibility issues
         Err(PyErr::new::<PyRuntimeError, _>(
@@ -547,11 +548,11 @@ impl SciPyIntegration {
     /// Interpolate data points
     pub fn interpolate(
         &self,
-        py: Python,
-        x: &PyTensor,
-        y: &PyTensor,
-        x_new: &PyTensor,
-        method: Option<&str>,
+        _py: Python,
+        _x: &PyTensor,
+        _y: &PyTensor,
+        _x_new: &PyTensor,
+        _method: Option<&str>,
     ) -> PyResult<PyTensor> {
         // TODO: Fix SciPy compatibility issues
         Err(PyErr::new::<PyRuntimeError, _>(
@@ -618,9 +619,9 @@ impl SciPyIntegration {
     /// Benchmark SciPy operations performance
     pub fn benchmark_operations(
         &self,
-        py: Python,
-        tensor_size: Vec<usize>,
-        num_iterations: usize,
+        _py: Python,
+        _tensor_size: Vec<usize>,
+        _num_iterations: usize,
     ) -> PyResult<HashMap<String, f64>> {
         // TODO: Fix SciPy compatibility issues
         Err(PyErr::new::<PyRuntimeError, _>(

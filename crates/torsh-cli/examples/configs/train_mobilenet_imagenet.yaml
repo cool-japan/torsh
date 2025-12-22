@@ -1,0 +1,95 @@
+# Training configuration for MobileNetV2 on ImageNet
+# Usage: torsh train start --config examples/configs/train_mobilenet_imagenet.yaml
+# Note: Requires ImageNet dataset (not included)
+
+model:
+  name: mobilenetv2
+  num_classes: 1000
+  pretrained: false
+  width_multiplier: 1.0
+
+data:
+  path: /data/imagenet  # Update this path
+  batch_size: 256
+  num_workers: 16
+  shuffle: true
+  pin_memory: true
+
+  # ImageNet normalization
+  normalization:
+    mean: [0.485, 0.456, 0.406]
+    std: [0.229, 0.224, 0.225]
+
+  # Production-grade augmentation
+  augmentation:
+    random_resized_crop: true
+    crop_size: 224
+    scale: [0.08, 1.0]
+    ratio: [0.75, 1.33]
+    random_flip: true
+    flip_probability: 0.5
+    color_jitter:
+      brightness: 0.4
+      contrast: 0.4
+      saturation: 0.4
+      hue: 0.1
+    auto_augment: imagenet  # AutoAugment policy
+
+training:
+  epochs: 300
+  learning_rate: 0.05
+  device: cuda
+  mixed_precision: true
+  gradient_clipping: 5.0
+  gradient_accumulation_steps: 1
+
+  # Distributed training (multi-GPU)
+  distributed:
+    enabled: true
+    backend: nccl
+    world_size: 4  # Number of GPUs
+
+optimizer:
+  type: sgd
+  momentum: 0.9
+  weight_decay: 0.00004
+  nesterov: true
+
+scheduler:
+  type: cosine
+  warmup_epochs: 5
+  min_lr: 0.00001
+  warmup_start_lr: 0.0001
+
+checkpoints:
+  save_every: 10
+  save_best: true
+  max_to_keep: 3
+  checkpoint_dir: ./runs/mobilenetv2_imagenet
+
+early_stopping:
+  enabled: false  # Typically disabled for ImageNet
+
+logging:
+  tensorboard: true
+  wandb: true  # Weights & Biases integration
+  log_dir: ./runs/mobilenetv2_imagenet/logs
+  log_every: 100
+  save_gradients: false
+  save_weights: false
+
+validation:
+  enabled: true
+  frequency: 1
+  metrics:
+    - accuracy
+    - top5_accuracy
+    - loss
+
+# Label smoothing
+label_smoothing: 0.1
+
+# EMA (Exponential Moving Average) of model weights
+ema:
+  enabled: true
+  decay: 0.9999

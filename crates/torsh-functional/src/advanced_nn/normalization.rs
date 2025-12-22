@@ -17,7 +17,7 @@ use torsh_tensor::Tensor;
 /// ## Mathematical Definition
 ///
 /// For a weight matrix W, spectral normalization computes:
-/// ```
+/// ```text
 /// W_sn = W / σ(W)
 /// ```
 /// where σ(W) is the spectral norm (largest singular value) of W.

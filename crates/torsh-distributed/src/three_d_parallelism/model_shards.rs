@@ -3,6 +3,8 @@
 //! This module manages model sharding across pipeline, tensor, and data
 //! parallelism dimensions, including parameter distribution and gradient handling.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::TorshResult;
 use std::collections::HashMap;
 use torsh_tensor::Tensor;
@@ -193,7 +195,7 @@ impl ModelShards {
     }
 
     /// Create tensor parallel plan for a single layer
-    fn create_layer_tp_plan(&self, layer: &LayerShard, tp_size: usize) -> LayerTensorParallelPlan {
+    fn create_layer_tp_plan(&self, layer: &LayerShard, _tp_size: usize) -> LayerTensorParallelPlan {
         let binding = layer.weight.shape();
         let weight_dims = binding.dims();
         let shard_strategies = match layer.layer_type {
@@ -371,17 +373,17 @@ impl LayerShard {
 
     /// Zero gradients for this layer
     pub fn zero_gradients(&mut self) -> TorshResult<()> {
-        if let Some(ref mut grad_weight) = self.grad_weight {
+        if let Some(ref mut _grad_weight) = self.grad_weight {
             // Would zero the gradient tensor
             // grad_weight.zero_()?;
         }
 
-        if let Some(ref mut grad_bias) = self.grad_bias {
+        if let Some(ref mut _grad_bias) = self.grad_bias {
             // Would zero the gradient tensor
             // grad_bias.zero_()?;
         }
 
-        if let Some(ref mut grad_down_proj) = self.grad_down_projection {
+        if let Some(ref mut _grad_down_proj) = self.grad_down_projection {
             // Would zero the gradient tensor
             // grad_down_proj.zero_()?;
         }

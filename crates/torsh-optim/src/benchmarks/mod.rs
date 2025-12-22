@@ -26,42 +26,101 @@
 //!
 //! ## Quick Start
 //!
-//! ```rust
+//! ```rust,no_run
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # use parking_lot::RwLock;
+//! # use std::sync::Arc;
+//! # fn main() -> Result<()> {
 //! use torsh_optim::benchmarks::*;
-//! use torsh_optim::{Adam, SGD, AdamW};
+//! use torsh_optim::Adam;
+//!
+//! // Create some parameters
+//! let param1 = Arc::new(RwLock::new(randn::<f32>(&[10, 20])?));
+//! let params = vec![param1];
+//! let params_clone1 = params.clone();
+//! let params_clone2 = params.clone();
+//! let params_clone3 = params.clone();
 //!
 //! // Create benchmark suite
 //! let benchmarks = OptimizerBenchmarks::new();
 //!
-//! // Compare optimizers side-by-side
+//! // Compare different configurations of the same optimizer
 //! let comparison = OptimizerComparison::new()
-//!     .add_optimizer("Adam", || Adam::new(params.clone(), None, None, None, None, false))
-//!     .add_optimizer("AdamW", || AdamW::new(params.clone(), None, None, None, Some(0.01), false))
-//!     .add_optimizer("SGD", || SGD::new(params.clone(), 0.01, Some(0.9), None, None, false));
+//!     .add_optimizer("Adam-1e-3", move || Ok(Adam::new(params_clone1.clone(), Some(0.001), None, None, None, false)))
+//!     .add_optimizer("Adam-1e-4", move || Ok(Adam::new(params_clone2.clone(), Some(0.0001), None, None, None, false)))
+//!     .add_optimizer("Adam-AMSGrad", move || Ok(Adam::new(params_clone3.clone(), Some(0.001), None, None, None, true)));
 //!
 //! // Run comprehensive benchmarks
 //! let results = comparison.run_comparison_suite()?;
 //! comparison.print_comparison_table(&results);
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Domain-Specific Benchmarks
 //!
 //! ### Computer Vision
-//! ```rust
+//! ```rust,no_run
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # use parking_lot::RwLock;
+//! # use std::sync::Arc;
+//! # fn main() -> Result<()> {
+//! use torsh_optim::benchmarks::domain_specific::CVBenchmarks;
+//! use torsh_optim::Adam;
+//!
+//! // Create some parameters and optimizer
+//! let param1 = Arc::new(RwLock::new(randn::<f32>(&[10, 20])?));
+//! let params = vec![param1];
+//! let optimizer = Adam::new(params, None, None, None, None, false);
+//!
 //! let cv_bench = CVBenchmarks::new();
 //! let results = cv_bench.benchmark_resnet_training(optimizer)?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ### Natural Language Processing
-//! ```rust
+//! ```rust,no_run
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # use parking_lot::RwLock;
+//! # use std::sync::Arc;
+//! # fn main() -> Result<()> {
+//! use torsh_optim::benchmarks::domain_specific::NLPBenchmarks;
+//! use torsh_optim::AdamW;
+//!
+//! // Create some parameters and optimizer
+//! let param1 = Arc::new(RwLock::new(randn::<f32>(&[10, 20])?));
+//! let params = vec![param1];
+//! let optimizer = AdamW::new(params, Some(5e-5), None, None, Some(0.01), false);
+//!
 //! let nlp_bench = NLPBenchmarks::new();
 //! let results = nlp_bench.benchmark_transformer_training(optimizer)?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ### Reinforcement Learning
-//! ```rust
+//! ```rust,no_run
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # use parking_lot::RwLock;
+//! # use std::sync::Arc;
+//! # fn main() -> Result<()> {
+//! use torsh_optim::benchmarks::domain_specific::RLBenchmarks;
+//! use torsh_optim::Adam;
+//!
+//! // Create some parameters and optimizer
+//! let param1 = Arc::new(RwLock::new(randn::<f32>(&[10, 20])?));
+//! let params = vec![param1];
+//! let optimizer = Adam::new(params, Some(3e-4), None, None, None, false);
+//!
 //! let rl_bench = RLBenchmarks::new();
 //! let results = rl_bench.benchmark_policy_gradient(optimizer)?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Performance Analysis
@@ -75,15 +134,29 @@
 //!
 //! ## Exporting Results
 //!
-//! ```rust
-//! // Export to JSON for analysis
-//! results.export_json("benchmark_results.json")?;
+//! ```rust,no_run
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # use parking_lot::RwLock;
+//! # use std::sync::Arc;
+//! # fn main() -> Result<()> {
+//! use torsh_optim::benchmarks::*;
+//! use torsh_optim::Adam;
 //!
-//! // Export to CSV for spreadsheet analysis
-//! results.export_csv("benchmark_results.csv")?;
+//! // Create some parameters and run benchmarks
+//! let param1 = Arc::new(RwLock::new(randn::<f32>(&[10, 20])?));
+//! let params = vec![param1];
+//! let params_clone = params.clone();
+//! let comparison = OptimizerComparison::new()
+//!     .add_optimizer("Adam", move || Ok(Adam::new(params_clone.clone(), None, None, None, None, false)));
+//! let results = comparison.run_comparison_suite()?;
 //!
-//! // Generate comprehensive HTML report
-//! results.generate_html_report("benchmark_report.html")?;
+//! // Export results (examples - actual paths may vary)
+//! // results.export_json("benchmark_results.json")?;
+//! // results.export_csv("benchmark_results.csv")?;
+//! // results.generate_html_report("benchmark_report.html")?;
+//! # Ok(())
+//! # }
 //! ```
 
 pub mod comparison;

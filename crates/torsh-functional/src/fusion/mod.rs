@@ -48,16 +48,11 @@ pub use operations::{
 };
 
 // Re-export for backwards compatibility
-pub use self::adaptive::*;
-pub use self::analysis::*;
-pub use self::core::*;
-pub use self::engine::*;
-pub use self::operations::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::random_ops::randn;
+
     use torsh_tensor::creation::{ones, zeros};
 
     #[test]

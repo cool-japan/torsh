@@ -5,7 +5,7 @@
 //! and verify invariants, identities, and mathematical relationships.
 
 use torsh_core::Result as TorshResult;
-use torsh_tensor::creation::{ones, rand, randn, zeros};
+use torsh_tensor::creation::{ones, zeros};
 use torsh_tensor::Tensor;
 
 /// Generate random tensor with specified shape and reasonable value range
@@ -59,7 +59,7 @@ pub mod activation_properties {
             }
 
             // Property 3: ReLU(x) = max(0, x)
-            for (i, (&x_val, &relu_val)) in x_data.iter().zip(result_data.iter()).enumerate() {
+            for (_i, (&x_val, &relu_val)) in x_data.iter().zip(result_data.iter()).enumerate() {
                 let expected = x_val.max(0.0);
                 assert!(
                     (relu_val - expected).abs() < 1e-6,
@@ -533,7 +533,6 @@ mod integration_tests {
 pub mod advanced_mathematical_properties {
     use super::*;
     use crate::activations::*;
-    use crate::linalg::*;
 
     /// Test distributive property for tensor operations: a * (b + c) = a * b + a * c
     #[test]

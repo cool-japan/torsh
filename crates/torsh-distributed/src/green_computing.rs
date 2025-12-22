@@ -6,15 +6,18 @@
 //! - Carbon footprint tracking and reduction strategies
 //! - Adaptive scheduling based on renewable energy availability
 //! - Dynamic power management and GPU throttling
+#![allow(clippy::await_holding_lock)]
 //! - Green training algorithms and efficiency metrics
 //! - Sustainable distributed training policies
 
-use crate::{ProcessGroup, TorshDistributedError, TorshResult};
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
+use crate::{TorshDistributedError, TorshResult};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, RwLock};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use tokio::time::{interval, sleep};
+use std::time::{Duration, SystemTime};
+use tokio::time::interval;
 
 /// Green computing configuration for sustainable distributed training
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -464,16 +467,13 @@ impl GreenComputingManager {
             total_energy_kwh: total_energy,
             total_carbon_kg: carbon.total_co2_kg,
             renewable_energy_percentage: renewable.availability_percentage,
-            average_efficiency: average_efficiency,
+            average_efficiency,
             peak_power_kw: peak_power / 1000.0,
             device_count: devices.len(),
             carbon_intensity: renewable.current_carbon_intensity,
             net_carbon_footprint: carbon.net_carbon_footprint,
-            sustainability_score: self.calculate_sustainability_score(
-                &*devices,
-                &*carbon,
-                &*renewable,
-            )?,
+            sustainability_score: self
+                .calculate_sustainability_score(&devices, &carbon, &renewable)?,
         };
 
         // Export to file if configured
@@ -508,7 +508,7 @@ impl GreenComputingManager {
         let overall_score =
             0.4 * energy_efficiency_score + 0.3 * renewable_score + 0.3 * carbon_score;
 
-        Ok(overall_score.min(100.0).max(0.0))
+        Ok(overall_score.clamp(0.0, 100.0))
     }
 
     /// Export sustainability report to file
@@ -571,6 +571,12 @@ pub struct SustainabilityMetrics {
     pub renewable_utilization_trend: VecDeque<(SystemTime, f64)>,
     /// Power consumption trend (watts over time)
     pub power_consumption_trend: VecDeque<(SystemTime, f64)>,
+}
+
+impl Default for SustainabilityMetrics {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SustainabilityMetrics {

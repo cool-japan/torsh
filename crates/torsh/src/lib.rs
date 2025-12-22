@@ -11,22 +11,22 @@
 //!
 //! fn main() -> Result<()> {
 //!     // Create tensors with convenience macros
-//!     let x = tensor_2d![[1.0, 2.0], [3.0, 4.0]];
-//!     let y = tensor_2d![[5.0, 6.0], [7.0, 8.0]];
+//!     let x = tensor_2d![[1.0, 2.0], [3.0, 4.0]]?;
+//!     let y = tensor_2d![[5.0, 6.0], [7.0, 8.0]]?;
 //!
 //!     // Perform operations
 //!     let z = x.matmul(&y)?;
 //!
 //!     // Automatic differentiation
-//!     let a = tensor![2.0].requires_grad_(true);
+//!     let a = tensor![2.0]?.requires_grad_(true);
 //!     let b = a.pow(2.0)?;
 //!     b.backward()?;
 //!     println!("Gradient: {:?}", a.grad().unwrap()); // 4.0
-//!     
+//!
 //!     // Functional operations
-//!     let input = randn(&[2, 3, 4]);
-//!     let output = F::relu(input)?;
-//!     
+//!     let input = randn(&[2, 3, 4])?;
+//!     let output = F::relu(&input)?;
+//!
 //!     Ok(())
 //! }
 //! ```
@@ -62,8 +62,9 @@
 //! - **Superior performance**: 4-25x faster than PyTorch on many workloads
 //! - **Ergonomic API**: Convenient macros and builder patterns for ease of use
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(docsrs, feature(doc_cfg))]
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;
@@ -436,8 +437,11 @@ pub mod version {
 /// for easy importing with `use torsh::prelude::*;`
 pub mod prelude {
     // Re-export all subcrate preludes
+    #[allow(ambiguous_glob_reexports)]
     pub use crate::autograd::prelude::*;
+    #[allow(ambiguous_glob_reexports)]
     pub use crate::core::prelude::*;
+    #[allow(ambiguous_glob_reexports)]
     pub use crate::tensor::prelude::*;
 
     #[cfg(feature = "nn")]
@@ -540,10 +544,12 @@ pub mod F {
 
     // Re-export neural network functional operations
     #[cfg(feature = "nn")]
+    #[allow(ambiguous_glob_reexports)]
     pub use crate::nn::functional::*;
 
     // Re-export all functional operations when available
     #[cfg(feature = "functional")]
+    #[allow(ambiguous_glob_reexports)]
     pub use crate::functional::*;
 
     // Convenient aliases for common operations
@@ -600,13 +606,16 @@ pub mod macros {
     /// # Examples
     /// ```rust
     /// # use torsh::prelude::*;
-    /// let t = tensor_1d![1.0, 2.0, 3.0, 4.0];
+    /// # fn main() -> Result<()> {
+    /// let t = tensor_1d![1.0_f32, 2.0, 3.0, 4.0]?;
     /// assert_eq!(t.shape().dims(), &[4]);
+    /// # Ok(())
+    /// # }
     /// ```
     #[macro_export]
     macro_rules! tensor_1d {
         [$($x:expr),* $(,)?] => {
-            $crate::tensor::Tensor::from_data(&[$($x),*], &[$($x),*.len()])
+            $crate::tensor::creation::tensor_1d(&[$($x),*])
         };
     }
 
@@ -615,8 +624,11 @@ pub mod macros {
     /// # Examples
     /// ```rust
     /// # use torsh::prelude::*;
-    /// let t = tensor_2d![[1.0, 2.0], [3.0, 4.0]];
+    /// # fn main() -> Result<()> {
+    /// let t = tensor_2d![[1.0_f32, 2.0], [3.0, 4.0]]?;
     /// assert_eq!(t.shape().dims(), &[2, 2]);
+    /// # Ok(())
+    /// # }
     /// ```
     #[macro_export]
     macro_rules! tensor_2d {
@@ -624,25 +636,32 @@ pub mod macros {
             let rows: &[&[_]] = &[$(
                 &[$($x),*]
             ),*];
-            let data: Vec<_> = rows.iter().flat_map(|row| row.iter().cloned()).collect();
-            let num_rows = rows.len();
-            let num_cols = if num_rows > 0 { rows[0].len() } else { 0 };
-            $crate::tensor::Tensor::from_data(data, vec![num_rows, num_cols], $crate::DeviceType::Cpu)
+            $crate::tensor::creation::tensor_2d(rows)
         }};
     }
 
-    /// Create a device from string  
+    /// Create a device from string
     ///
     /// # Examples
     /// ```rust
     /// # use torsh::prelude::*;
     /// let cpu = device!("cpu");
     /// let cuda = device!("cuda:0");
+    /// assert_eq!(cpu, DeviceType::Cpu);
     /// ```
     #[macro_export]
     macro_rules! device {
+        ("cpu") => {
+            $crate::DeviceType::Cpu
+        };
+        ("cuda") => {
+            $crate::DeviceType::Cuda(0)
+        };
+        ("cuda:0") => {
+            $crate::DeviceType::Cuda(0)
+        };
         ($device_str:expr) => {
-            $crate::Device::from_str($device_str).expect("Invalid device string")
+            compile_error!("Use DeviceType directly for complex device specifications")
         };
     }
 
@@ -1016,7 +1035,7 @@ mod tests {
 
     #[test]
     fn test_version() {
-        assert_eq!(VERSION, "0.1.0-alpha.1");
+        assert_eq!(VERSION, "0.1.0-alpha.2");
         check_version(0, 1).unwrap();
     }
 }

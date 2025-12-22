@@ -5,8 +5,10 @@
 //! automatic memory optimization, garbage collection, and dynamic allocation
 //! strategies to maximize performance while staying within memory budgets.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::TorshResult;
-use log::{debug, info, warn};
+use log::info;
 use std::sync::{Arc, Mutex};
 
 use super::config::{AutoMemoryStrategy, CpuCompressionMethod, Zero3CpuOffloadConfig};
@@ -214,8 +216,8 @@ impl Zero3MemoryManager {
     /// Calculate memory pressure based on current memory usage
     pub fn calculate_memory_pressure(&self, stats: &Zero3MemoryStats) -> f32 {
         // Use configuration limits or reasonable defaults for total memory
-        let gpu_memory_total = self.config.max_gpu_memory_mb as usize * 1024 * 1024;
-        let cpu_memory_total = self.config.max_cpu_memory_mb as usize * 1024 * 1024;
+        let gpu_memory_total = self.config.max_gpu_memory_mb * 1024 * 1024;
+        let cpu_memory_total = self.config.max_cpu_memory_mb * 1024 * 1024;
 
         let gpu_pressure = if gpu_memory_total > 0 {
             stats.gpu_memory_used as f32 / gpu_memory_total as f32
@@ -251,7 +253,7 @@ impl Zero3MemoryManager {
         let trend = (recent[0] - recent[4]) / 4.0; // Average change per measurement
 
         // Convert trend to pressure contribution (positive trend adds pressure)
-        (trend * 5.0).max(0.0).min(1.0)
+        (trend * 5.0).clamp(0.0, 1.0)
     }
 
     /// Update memory statistics from system and component usage
@@ -276,6 +278,7 @@ impl Zero3MemoryManager {
     }
 
     /// Garbage collect unused tensors to free memory
+    #[allow(unused_assignments)]
     async fn garbage_collect_unused_tensors(&self) -> TorshResult<()> {
         let start_time = std::time::Instant::now();
         let mut freed_bytes = 0;

@@ -51,7 +51,7 @@ impl Transform for RandomHorizontalFlip {
     fn forward(&self, input: &Tensor<f32>) -> Result<Tensor<f32>> {
         // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
         let mut rng = Random::seed(42);
-        if rng.gen::<f32>() < self.p {
+        if rng.random::<f32>() < self.p {
             crate::ops::horizontal_flip(input)
         } else {
             Ok(input.clone())
@@ -118,7 +118,7 @@ impl Transform for RandomVerticalFlip {
     fn forward(&self, input: &Tensor<f32>) -> Result<Tensor<f32>> {
         // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
         let mut rng = Random::seed(42);
-        if rng.gen::<f32>() < self.p {
+        if rng.random::<f32>() < self.p {
             crate::ops::vertical_flip(input)
         } else {
             Ok(input.clone())

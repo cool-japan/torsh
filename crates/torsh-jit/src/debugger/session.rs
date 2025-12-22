@@ -11,12 +11,9 @@ use super::core::{
 };
 use super::execution::DebugExecutionEngine;
 use super::state::{CallStack, MemoryState};
-use crate::{
-    ir::{IrModule, IrOpcode},
-    ComputationGraph, JitError, JitResult, NodeId,
-};
+use crate::{ir::IrModule, ComputationGraph, JitError, JitResult, NodeId};
 use std::collections::HashMap;
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 use torsh_core::{DType, Shape};
 
 /// Debug session managing the state of debugging

@@ -13,13 +13,19 @@
 //! ## Usage Example
 //!
 //! ```rust
+//! # use torsh_tensor::creation::{randn, tensor_1d};
+//! # use torsh_core::error::Result;
+//! # fn main() -> Result<()> {
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # fn main() -> Result<()> {
 //! use torsh_nn::layers::activation::softmax::{Softmax, LogSoftmax, LogSigmoid};
 //! use torsh_nn::Module;
 //! use torsh_tensor::Tensor;
 //!
 //! // Multi-class classification
 //! let softmax = Softmax::new(Some(1)); // Apply along dimension 1
-//! let logits = Tensor::randn(&[4, 10]); // 4 samples, 10 classes
+//! let logits = randn(&[4, 10])?; // 4 samples, 10 classes
 //! let probabilities = softmax.forward(&logits)?;
 //!
 //! // Log probabilities for numerical stability
@@ -28,8 +34,12 @@
 //!
 //! // Binary classification
 //! let log_sigmoid = LogSigmoid::new();
-//! let binary_logits = Tensor::randn(&[4, 1]);
+//! let binary_logits = randn(&[4, 1])?;
 //! let log_probs = log_sigmoid.forward(&binary_logits)?;
+//! # Ok(())
+//! # }
+//! # Ok(())
+//! # }
 //! ```
 
 use crate::{Module, ModuleBase, Parameter};
@@ -71,15 +81,18 @@ use hashbrown::HashMap;
 ///
 /// # Example
 /// ```rust
-/// use torsh_nn::layers::activation::softmax::Softmax;
-/// use torsh_nn::Module;
-/// use torsh_tensor::Tensor;
-///
+/// # use torsh_nn::layers::activation::softmax::Softmax;
+/// # use torsh_nn::Module;
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// // Apply softmax along the last dimension (typical for classification)
 /// let softmax = Softmax::new(Some(1));
-/// let logits = Tensor::from(vec![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
+/// let logits = randn(&[2, 3])?; // [batch_size, num_classes]
 /// let probabilities = softmax.forward(&logits)?;
 /// // Each row will sum to 1.0
+/// # Ok(())
+/// # }
 /// ```
 pub struct Softmax {
     base: ModuleBase,
@@ -194,15 +207,25 @@ impl Module for Softmax {
 ///
 /// # Example
 /// ```rust
+/// # use torsh_tensor::creation::{randn, tensor_1d};
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// use torsh_nn::layers::activation::softmax::LogSoftmax;
 /// use torsh_nn::Module;
 /// use torsh_tensor::Tensor;
 ///
 /// // Apply log-softmax for classification with NLL loss
 /// let log_softmax = LogSoftmax::new(Some(1));
-/// let logits = Tensor::randn(&[32, 10]); // 32 samples, 10 classes
+/// let logits = randn(&[32, 10])?; // 32 samples, 10 classes
 /// let log_probabilities = log_softmax.forward(&logits)?;
 /// // Each row contains log probabilities that can be used with NLL loss
+/// # Ok(())
+/// # }
+/// # Ok(())
+/// # }
 /// ```
 pub struct LogSoftmax {
     base: ModuleBase,
@@ -324,15 +347,25 @@ impl Module for LogSoftmax {
 ///
 /// # Example
 /// ```rust
+/// # use torsh_tensor::creation::{randn, tensor_1d};
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// use torsh_nn::layers::activation::softmax::LogSigmoid;
 /// use torsh_nn::Module;
 /// use torsh_tensor::Tensor;
 ///
 /// // Apply log-sigmoid for binary classification
 /// let log_sigmoid = LogSigmoid::new();
-/// let logits = Tensor::randn(&[32, 1]); // 32 samples, binary classification
+/// let logits = randn(&[32, 1])?; // 32 samples, binary classification
 /// let log_probabilities = log_sigmoid.forward(&logits)?;
 /// // Output contains log probabilities for positive class
+/// # Ok(())
+/// # }
+/// # Ok(())
+/// # }
 /// ```
 pub struct LogSigmoid {
     base: ModuleBase,
@@ -420,7 +453,6 @@ impl Module for LogSigmoid {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use torsh_tensor::creation::*;
 
     #[test]
     fn test_softmax_creation() {

@@ -1,7 +1,86 @@
-//! ToRSh Hub - Model sharing and loading
+//! # ToRSh Hub - Enterprise Model Hub and Management Platform
 //!
-//! This module provides functionality similar to torch.hub for loading
-//! pre-trained models from GitHub repositories and the ToRSh model hub.
+//! `torsh-hub` provides a comprehensive model hub and management platform for ToRSh,
+//! similar to PyTorch Hub and Hugging Face Hub, with enterprise-grade features.
+
+#![cfg_attr(not(feature = "tensorflow"), allow(unexpected_cfgs))]
+//!
+//! ## Features
+//!
+//! ### Core Functionality
+//! - **Model Registry**: Centralized model discovery and version management
+//! - **Model Download**: Advanced parallel downloading with mirrors and CDN support
+//! - **Model Loading**: Support for ONNX, TensorFlow, and native ToRSh models
+//! - **Model Hub Integration**: Seamless integration with Hugging Face Hub
+//!
+//! ### Enterprise Features
+//! - **Access Control**: Fine-grained RBAC and permission management
+//! - **Private Repositories**: Secure private model storage for organizations
+//! - **Audit Logging**: Comprehensive audit trails for compliance
+//! - **SLA Management**: Service level agreements and performance monitoring
+//!
+//! ### Community Platform
+//! - **Model Ratings**: Community-driven model quality assessment
+//! - **Discussions**: Collaborative discussions on models and techniques
+//! - **Challenges**: ML challenges and competitions
+//! - **Contributions**: Track and recognize community contributions
+//!
+//! ### Advanced Capabilities
+//! - **Fine-tuning**: Built-in fine-tuning with early stopping and checkpointing
+//! - **Profiling**: Comprehensive model performance profiling
+//! - **Debugging**: Advanced debugging tools with interactive sessions
+//! - **Analytics**: Real-time analytics and usage tracking
+//! - **Visualization**: Performance visualization and dashboard generation
+//! - **Security**: Model sandboxing and security scanning
+//!
+//! ## SciRS2 POLICY Compliance
+//!
+//! This crate strictly follows the [SciRS2 POLICY](https://github.com/cool-japan/scirs/blob/master/SCIRS2_POLICY.md):
+//! - All array operations use `scirs2_core::ndarray::*`
+//! - All random operations use `scirs2_core::random::*`
+//! - NO direct external dependencies (ndarray, rand, etc.)
+//!
+//! ## Quick Start
+//!
+//! ```no_run
+//! use torsh_hub::registry::{ModelRegistry, SearchQuery, ModelCategory};
+//!
+//! # fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! // Initialize the registry
+//! let mut registry = ModelRegistry::new("./models")?;
+//!
+//! // Search for models
+//! let mut query = SearchQuery::default();
+//! query.category = Some(ModelCategory::Vision);
+//! let results = registry.search(&query);
+//!
+//! // Load a model with load_onnx_model function
+//! // let model = torsh_hub::load_onnx_model("model.onnx", None)?;
+//!
+//! // Use pre-built architecture components from models module
+//! // use torsh_hub::models::vision::ResNet;
+//! // let resnet = ResNet::resnet18(1000)?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Module Organization
+//!
+//! - [`models`]: Pre-built model architectures (BERT, GPT, ResNet, ViT, CLIP, etc.)
+//! - [`registry`]: Model registry and discovery
+//! - [`download`]: Advanced download management with mirrors and CDN
+//! - [`onnx`]: ONNX model loading and conversion
+//! - [`huggingface`]: Hugging Face Hub integration
+//! - [`fine_tuning`]: Model fine-tuning utilities
+//! - [`profiling`]: Performance profiling and analysis
+//! - [`debugging`]: Interactive debugging tools
+//! - [`security`]: Model security and sandboxing
+//! - [`enterprise`]: Enterprise features (RBAC, audit, SLA)
+//! - [`community`]: Community platform (ratings, discussions, challenges)
+//! - [`analytics`]: Analytics and recommendation engine
+//! - [`visualization`]: Performance visualization
+//! - [`utils`]: Utility functions for common tasks
+//! - [`cli`]: Command-line interface
 
 use serde::Deserialize;
 use std::fs::File;
@@ -18,18 +97,23 @@ pub mod community;
 pub mod debugging;
 pub mod download;
 pub mod enterprise;
+pub mod export;
 pub mod fine_tuning;
 pub mod huggingface;
 pub mod metadata;
 pub mod model_info;
+pub mod model_ops;
 pub mod models;
 pub mod onnx;
 pub mod profiling;
+pub mod quantization;
 pub mod registry;
+pub mod retry;
 pub mod security;
 #[cfg(feature = "tensorflow")]
 pub mod tensorflow;
 pub mod upload;
+pub mod utils;
 pub mod visualization;
 
 // Re-exports
@@ -92,7 +176,15 @@ pub use model_info::{
     ModelCard, ModelCardBuilder, ModelCardManager, ModelCardRenderer, ModelInfo, Version,
     VersionHistory,
 };
-pub use models::{nlp, vision};
+pub use model_ops::{
+    compare_models, create_model_ensemble, load_model_auto, ComparisonOptions, ConversionMetadata,
+    EnsembleConfig, ModelDiff, QuantizationStats, ShapeDifference, ValueDifference, VotingStrategy,
+};
+pub use models::{
+    audio, multimodal, nlp, nlp_pretrained, rl, vision, vision_pretrained, ActorCritic, BasicBlock,
+    BertEmbeddings, BertEncoder, EfficientNet, GPTDecoder, GPTEmbeddings, MultiHeadAttention,
+    PPOAgent, ResNet, TransformerBlock, VisionTransformer, DQN,
+};
 pub use onnx::{
     InputShape, OnnxConfig, OnnxLoader, OnnxModel, OnnxModelMetadata, OnnxToTorshWrapper,
     OutputShape,
@@ -106,6 +198,10 @@ pub use profiling::{
 pub use registry::{
     HardwareFilter, ModelCategory, ModelRegistry, ModelStatus, RegistryAPI, RegistryEntry,
     SearchQuery,
+};
+pub use retry::{
+    retry_with_backoff, retry_with_backoff_async, retry_with_policy, CircuitBreaker, CircuitState,
+    DefaultRetryPolicy, RetryConfig, RetryPolicy, RetryStats,
 };
 pub use security::{
     calculate_file_hash, sandbox_model, scan_model_vulnerabilities, validate_model_source,
@@ -121,6 +217,11 @@ pub use tensorflow::{
 pub use upload::{
     batch_publish_models, upload_model, upload_model_with_versioning, validate_version_change,
     PublishResult, PublishStrategy, UploadConfig, VersionChangeInfo, VersionValidationRules,
+};
+pub use utils::{
+    cleanup_old_cache, compare_versions, estimate_parameters_from_size, extract_extension,
+    format_parameter_count, format_size, get_model_cache_dir, get_temp_dir, is_safe_path,
+    is_supported_model_format, parse_repo_string, sanitize_model_name, validate_semver,
 };
 pub use visualization::{
     ChartData, ChartType, DashboardTemplate, PerformanceVisualization, TrainingVisualization,
@@ -162,7 +263,7 @@ impl Default for HubConfig {
             max_retries: 3,
             user_agent: format!(
                 "torsh-hub/{}",
-                option_env!("CARGO_PKG_VERSION").unwrap_or("0.1.0-alpha.1")
+                option_env!("CARGO_PKG_VERSION").unwrap_or("0.1.0-alpha.2")
             ),
         }
     }
@@ -256,9 +357,12 @@ pub fn auth_status() -> String {
 ///
 /// # Example
 /// ```no_run
-/// use torsh_hub::{load_onnx_model, onnx::OnnxConfig};
+/// use torsh_hub::load_onnx_model;
 ///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let model = load_onnx_model("model.onnx", None)?;
+/// # Ok(())
+/// # }
 /// ```
 pub fn load_onnx_model<P: AsRef<Path>>(
     path: P,
@@ -279,10 +383,13 @@ pub fn load_onnx_model<P: AsRef<Path>>(
 ///
 /// # Example
 /// ```no_run
-/// use torsh_hub::{load_onnx_model_from_bytes, onnx::OnnxConfig};
+/// use torsh_hub::load_onnx_model_from_bytes;
 ///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let model_bytes = std::fs::read("model.onnx")?;
 /// let model = load_onnx_model_from_bytes(&model_bytes, None)?;
+/// # Ok(())
+/// # }
 /// ```
 pub fn load_onnx_model_from_bytes(
     model_bytes: &[u8],
@@ -303,11 +410,13 @@ pub fn load_onnx_model_from_bytes(
 ///
 /// # Example
 /// ```no_run
-/// use torsh_hub::{load_onnx_model_from_url, onnx::OnnxConfig};
+/// use torsh_hub::load_onnx_model_from_url;
 ///
-/// let model = tokio::runtime::Runtime::new().unwrap().block_on(async {
-///     load_onnx_model_from_url("https://example.com/model.onnx", None).await
-/// })?;
+/// # #[tokio::main]
+/// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let model = load_onnx_model_from_url("https://example.com/model.onnx", None).await?;
+/// # Ok(())
+/// # }
 /// ```
 pub async fn load_onnx_model_from_url(
     url: &str,
@@ -329,9 +438,12 @@ pub async fn load_onnx_model_from_url(
 ///
 /// # Example
 /// ```no_run
-/// use torsh_hub::{load_onnx_model_from_hub, onnx::OnnxConfig};
+/// use torsh_hub::load_onnx_model_from_hub;
 ///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let model = load_onnx_model_from_hub("owner/repo", "resnet50", None)?;
+/// # Ok(())
+/// # }
 /// ```
 pub fn load_onnx_model_from_hub(
     repo: &str,
@@ -384,8 +496,11 @@ pub fn validate_auth_token(token: &str) -> Result<bool> {
 /// ```no_run
 /// use torsh_hub::load;
 ///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// // Load a model from GitHub
 /// let model = load("pytorch/vision", "resnet18", true, None)?;
+/// # Ok(())
+/// # }
 /// ```
 pub fn load(
     repo: &str,
@@ -548,11 +663,11 @@ pub fn download_repo(owner: &str, repo: &str, branch: &str, config: &HubConfig) 
     Ok(repo_dir)
 }
 
+/// Type alias for model factory function
+type ModelFactoryFn = Box<dyn Fn(bool) -> Result<Box<dyn torsh_nn::Module>>>;
+
 /// Load model function from repository
-fn load_model_fn(
-    repo_dir: &Path,
-    model: &str,
-) -> Result<Box<dyn Fn(bool) -> Result<Box<dyn torsh_nn::Module>>>> {
+fn load_model_fn(repo_dir: &Path, model: &str) -> Result<ModelFactoryFn> {
     // Look for model configuration files
     let models_toml = repo_dir.join("models.toml");
     let hubconf_toml = repo_dir.join("hubconf.toml");
@@ -876,11 +991,11 @@ fn create_onnx_config_from_params(
     }
 
     // Set threading options
-    if let Some(inter_threads) = extract_param_i64(params, "inter_op_threads").ok() {
+    if let Ok(inter_threads) = extract_param_i64(params, "inter_op_threads") {
         config.inter_op_num_threads = Some(inter_threads as usize);
     }
 
-    if let Some(intra_threads) = extract_param_i64(params, "intra_op_threads").ok() {
+    if let Ok(intra_threads) = extract_param_i64(params, "intra_op_threads") {
         config.intra_op_num_threads = Some(intra_threads as usize);
     }
 
@@ -1008,7 +1123,10 @@ fn load_pretrained_weights(
         let cache_dir = repo_dir.join(".weights_cache");
         std::fs::create_dir_all(&cache_dir)?;
 
-        let weights_filename = weights_url.split('/').last().unwrap_or("weights.torsh");
+        let weights_filename = weights_url
+            .split('/')
+            .next_back()
+            .unwrap_or("weights.torsh");
         let weights_path = cache_dir.join(weights_filename);
 
         if !weights_path.exists() {
@@ -1181,7 +1299,7 @@ fn get_model_doc(repo_dir: &Path, model: &str) -> Result<String> {
 fn download_url_to_file(url: &str, dst_dir: &Path, progress: bool) -> Result<PathBuf> {
     let filename = url
         .split('/')
-        .last()
+        .next_back()
         .ok_or_else(|| TorshError::InvalidArgument("Invalid URL".to_string()))?;
 
     let dst_path = dst_dir.join(filename);
@@ -1522,4 +1640,14 @@ mod tests {
         std::env::remove_var("TORSH_HUB_DIR");
         assert_eq!(get_dir(), original);
     }
+}
+
+/// Prelude module for convenient imports
+#[allow(ambiguous_glob_reexports)]
+pub mod prelude {
+    pub use crate::{
+        analytics::*, cache::*, community::*, debugging::*, download::*, enterprise::*,
+        fine_tuning::*, huggingface::*, onnx::*, profiling::*, registry::*, security::*, utils::*,
+        visualization::*,
+    };
 }

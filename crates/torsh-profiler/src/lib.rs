@@ -68,6 +68,7 @@
 //! }
 //! ```
 
+// Allow attributes for library code that may have unused items in public API
 #![allow(dead_code)]
 #![allow(unused_imports)]
 #![allow(unused_variables)]
@@ -107,27 +108,37 @@ pub mod distributed;
 // EXISTING MODULES (maintained for compatibility)
 // ========================================
 
+pub mod advanced_visualization;
 pub mod alerts;
 pub mod amd;
 pub mod attributes;
 pub mod chrome_trace;
 pub mod ci_cd;
+pub mod cloud_providers;
+pub mod cloudwatch;
 pub mod cpu;
+pub mod cross_platform;
 pub mod cuda;
 pub mod custom_export;
 pub mod custom_tools;
 pub mod dashboard;
+pub mod grafana;
 pub mod instruments;
+pub mod integrated_profiler;
+pub mod kubernetes;
 pub mod macros;
 pub mod memory;
 pub mod memory_optimization;
 pub mod ml_analysis;
 pub mod nsight;
+pub mod online_learning;
 pub mod optimization;
 pub mod power;
+pub mod prometheus;
 pub mod regression;
 pub mod reporting;
 pub mod scirs2_integration;
+pub mod streaming;
 pub mod tensorboard;
 pub mod thermal;
 pub mod vtune;
@@ -176,6 +187,21 @@ pub use export::{
     ExportFormat,
 };
 
+// Prometheus metrics export
+pub use prometheus::{PrometheusExporter, PrometheusExporterBuilder};
+
+// Grafana dashboard integration
+pub use grafana::{
+    Dashboard as GrafanaDashboard, DashboardTemplates, GrafanaDashboardGenerator, GridPos, Panel,
+    Target,
+};
+
+// AWS CloudWatch metrics integration
+pub use cloudwatch::{
+    CloudWatchConfig, CloudWatchPublisher, CloudWatchPublisherBuilder, Dimension, MetricDatum,
+    StatisticSet, Unit as CloudWatchUnit,
+};
+
 // Platform profiling interfaces
 pub use platforms::{cpu::*, gpu::*, system::*};
 
@@ -184,6 +210,17 @@ pub use analysis::{ml_analysis::*, optimization::*, regression::*};
 
 // Distributed profiling
 pub use distributed::profiling::*;
+
+// Real-time streaming capabilities
+pub use streaming::{
+    create_high_performance_streaming_engine, create_low_latency_streaming_engine,
+    create_streaming_engine, AdaptiveBitrateConfig, AdaptiveRateController, AdjustmentReason,
+    AdvancedFeatures, BitrateAdjustment, BufferedEvent, CompressionAlgorithm, CompressionConfig,
+    CompressionManager, ConnectionManager, ControlMessage, EnhancedStreamingEngine, EventBuffer,
+    EventPriority, ProtocolConfig, QualityConfig, QualityLevel, QualityMetricsThreshold,
+    SSEConnection, StreamConnection, StreamingConfig, StreamingProtocol, StreamingStats,
+    StreamingStatsSnapshot, TcpConnection, UdpConnection, WebSocketConnection, WebSocketMessage,
+};
 
 // ========================================
 // ESSENTIAL BACKWARD COMPATIBILITY RE-EXPORTS
@@ -1084,4 +1121,14 @@ mod tests {
         reset_global_overhead_stats();
         set_global_overhead_tracking_enabled(false);
     }
+}
+
+/// Prelude module for convenient imports
+#[allow(ambiguous_glob_reexports)]
+pub mod prelude {
+    pub use crate::analysis::*;
+    pub use crate::core::*;
+    pub use crate::distributed::*;
+    pub use crate::export::*;
+    pub use crate::platforms::*;
 }

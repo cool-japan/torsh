@@ -4,13 +4,10 @@
 //! memory usage across all memory types with advanced analytics, trend analysis,
 //! and predictive capabilities for optimization and monitoring.
 
-use super::allocation::{AllocationStats, AllocationType};
+use super::allocation::AllocationStats;
 use std::collections::{BTreeMap, HashMap, VecDeque};
-use std::sync::{
-    atomic::{AtomicU64, AtomicUsize, Ordering},
-    Arc, Mutex, RwLock,
-};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::sync::{Arc, Mutex, RwLock};
+use std::time::{Duration, Instant, SystemTime};
 
 /// Comprehensive CUDA memory statistics manager
 ///
@@ -3112,4 +3109,57 @@ mod tests {
         let device_stats = manager.device_stats.read().unwrap();
         assert!(device_stats.contains_key(&0));
     }
+}
+
+// Type aliases and missing types for compatibility
+
+/// Anomaly detection result
+#[derive(Debug, Clone)]
+pub struct AnomalyDetectionResult {
+    /// Whether an anomaly was detected
+    pub anomaly_detected: bool,
+    /// Confidence score of the detection
+    pub confidence: f64,
+    /// Type of anomaly if detected
+    pub anomaly_type: Option<String>,
+    /// Suggested action
+    pub suggested_action: Option<String>,
+}
+
+impl Default for AnomalyDetectionResult {
+    fn default() -> Self {
+        Self {
+            anomaly_detected: false,
+            confidence: 0.0,
+            anomaly_type: None,
+            suggested_action: None,
+        }
+    }
+}
+
+/// Memory usage statistics (alias to GlobalMemoryStatistics)
+pub type MemoryUsageStatistics = GlobalMemoryStatistics;
+
+/// System health metrics
+#[derive(Debug, Clone, Default)]
+pub struct SystemHealthMetrics {
+    /// Overall system health score (0.0 - 1.0)
+    pub health_score: f64,
+    /// Memory pressure level
+    pub pressure_level: MemoryPressureLevel,
+    /// Fragmentation level
+    pub fragmentation_level: f64,
+    /// Error rate
+    pub error_rate: f64,
+}
+
+/// Trend analysis result
+#[derive(Debug, Clone)]
+pub struct TrendAnalysis {
+    /// Current trend direction
+    pub trend: EfficiencyTrend,
+    /// Trend strength (0.0 - 1.0)
+    pub strength: f64,
+    /// Prediction for next period
+    pub prediction: Option<f64>,
 }

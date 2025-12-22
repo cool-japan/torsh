@@ -6,6 +6,8 @@
 //! - Dynamic quantization
 //! - Mixed-precision quantization
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use torsh_core::error::{Result, TorshError};
@@ -179,7 +181,7 @@ pub enum ObserverType {
 }
 
 /// Quantization parameters
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QuantizationParams {
     /// Scale factor
     pub scale: f32,
@@ -574,19 +576,28 @@ impl ModelQuantizer {
         self.stats.as_ref()
     }
 
-    /// Save quantization parameters
-    /// TODO: Implement proper QuantizationParams serialization
-    pub fn save_quantization_params(&self, _path: &str) -> Result<()> {
-        // let params_data = serde_json::to_string_pretty(&self.quantization_params)?;
-        // std::fs::write(path, params_data)?;
-        unimplemented!("QuantizationParams serialization not yet implemented")
+    /// Save quantization parameters to JSON file
+    pub fn save_quantization_params(&self, path: &str) -> Result<()> {
+        let params_data = serde_json::to_string_pretty(&self.quantization_params).map_err(|e| {
+            TorshError::InvalidOperation(format!("Failed to serialize quantization params: {}", e))
+        })?;
+        std::fs::write(path, params_data).map_err(|e| {
+            TorshError::InvalidOperation(format!("Failed to write quantization params: {}", e))
+        })?;
+        Ok(())
     }
 
-    /// Load quantization parameters
+    /// Load quantization parameters from JSON file
     pub fn load_quantization_params(&mut self, path: &str) -> Result<()> {
-        let params_data = std::fs::read_to_string(path)?;
-        // Note: This would need proper deserialization for QuantizationParams
-        // For now, we'll just acknowledge the load attempt
+        let params_data = std::fs::read_to_string(path).map_err(|e| {
+            TorshError::InvalidOperation(format!("Failed to read quantization params: {}", e))
+        })?;
+        self.quantization_params = serde_json::from_str(&params_data).map_err(|e| {
+            TorshError::InvalidOperation(format!(
+                "Failed to deserialize quantization params: {}",
+                e
+            ))
+        })?;
         Ok(())
     }
 }
@@ -641,7 +652,7 @@ impl ActivationObserver for MinMaxObserver {
 }
 
 /// Utility functions for quantization
-pub mod utils {
+pub mod quantization_utils {
     use super::*;
 
     /// Create a standard post-training quantization config
@@ -771,17 +782,18 @@ mod tests {
 
     #[test]
     fn test_utility_functions() {
-        let config = utils::post_training_quantization_config(QuantizationDType::Int8);
+        let config = quantization_utils::post_training_quantization_config(QuantizationDType::Int8);
         assert!(matches!(
             config.strategy,
             QuantizationStrategy::PostTraining { .. }
         ));
 
-        let (compression, savings) = utils::calculate_memory_savings(1000, 250);
+        let (compression, savings) = quantization_utils::calculate_memory_savings(1000, 250);
         assert_eq!(compression, 4.0);
         assert_eq!(savings, 75.0);
 
-        let speedup = utils::estimate_inference_speedup(QuantizationDType::Int8, "cpu");
+        let speedup =
+            quantization_utils::estimate_inference_speedup(QuantizationDType::Int8, "cpu");
         assert!(speedup > 1.0);
     }
 

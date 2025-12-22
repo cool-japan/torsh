@@ -4,13 +4,7 @@
 //! which is optimized for analytical workloads and provides excellent compression ratios.
 
 #[cfg(feature = "parquet-support")]
-use parquet::{
-    column::reader::ColumnReaderImpl,
-    data_type::DataType as ParquetDataType,
-    file::reader::{FileReader, SerializedFileReader},
-    record::{Row, RowAccessor},
-    schema::types::Type,
-};
+use parquet::file::reader::{FileReader, SerializedFileReader};
 
 use std::path::Path;
 use std::sync::Arc;

@@ -6,7 +6,7 @@
 
 use crate::collectives::{recv, send};
 use crate::{process_group::ProcessGroup, TorshDistributedError, TorshResult};
-use log::{debug, info, warn};
+use log::info;
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use torsh_core::{error::Result, DeviceType};
@@ -262,8 +262,8 @@ impl PipelineParallel {
         // Warmup phase: fill the pipeline
         let warmup_steps = std::cmp::min(self.stage.stage_id + 1, self.config.num_micro_batches);
 
-        for step in 0..warmup_steps {
-            let mut current_input = micro_batches[step].clone();
+        for (step, micro_batch) in micro_batches.iter().enumerate().take(warmup_steps) {
+            let mut current_input = micro_batch.clone();
 
             // Receive input from previous stage if not first stage
             if let Some(prev_rank) = self.stage.prev_rank() {
@@ -362,11 +362,7 @@ impl PipelineParallel {
             };
 
             // Backward pass through this stage (mock implementation)
-            let grad_input = if let Some(ref grad_out) = grad_output {
-                Some(grad_out.clone()) // Simplified: just pass gradient through
-            } else {
-                None
-            };
+            let grad_input = grad_output.clone();
 
             // Send gradient to previous stage if not first stage
             if let Some(prev_rank) = self.stage.prev_rank() {
@@ -410,8 +406,7 @@ impl PipelineParallel {
     /// Split mini-batch into micro-batches
     fn split_mini_batch(&self, input: &Tensor) -> TorshResult<Vec<Tensor>> {
         let batch_size = input.shape().dims()[0];
-        let micro_batch_size =
-            (batch_size + self.config.num_micro_batches - 1) / self.config.num_micro_batches;
+        let micro_batch_size = batch_size.div_ceil(self.config.num_micro_batches);
 
         let mut micro_batches = Vec::new();
 
@@ -567,8 +562,7 @@ pub fn create_pipeline_stages(
                 num_stages, world_size
             ),
             format!("num_stages = world_size = {}", world_size),
-        )
-        .into());
+        ));
     }
 
     if devices.len() != num_stages {
@@ -580,8 +574,7 @@ pub fn create_pipeline_stages(
                 num_stages
             ),
             format!("devices.len() = num_stages = {}", num_stages),
-        )
-        .into());
+        ));
     }
 
     let mut stages = Vec::new();
@@ -598,7 +591,7 @@ pub fn create_pipeline_stages(
 mod tests {
     use super::*;
     use crate::backend::MockBackend;
-    use torsh_core::Shape;
+
     use torsh_nn::layers::Linear;
 
     async fn create_mock_process_group(rank: u32, world_size: u32) -> TorshResult<ProcessGroup> {

@@ -258,22 +258,31 @@ pub fn collect_system_metrics() -> TorshResult<SystemMetrics> {
     // In a real system, you would read from /proc, use system APIs, or system crates
 
     #[cfg(target_os = "linux")]
-    return collect_linux_system_metrics();
+    {
+        return collect_linux_system_metrics();
+    }
 
     #[cfg(target_os = "macos")]
-    return collect_macos_system_metrics();
+    {
+        return collect_macos_system_metrics();
+    }
 
     #[cfg(target_os = "windows")]
-    return collect_windows_system_metrics();
+    {
+        return collect_windows_system_metrics();
+    }
 
-    // Default fallback
-    Ok(SystemMetrics {
-        uptime_seconds: 0,
-        load_average: 0.0,
-        available_memory_mb: get_available_memory_mb(),
-        disk_usage_percent: get_disk_usage_percent(),
-        network_io_mbps: 0.0,
-    })
+    // Default fallback for other platforms
+    #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+    {
+        Ok(SystemMetrics {
+            uptime_seconds: 0,
+            load_average: 0.0,
+            available_memory_mb: get_available_memory_mb(),
+            disk_usage_percent: get_disk_usage_percent(),
+            network_io_mbps: 0.0,
+        })
+    }
 }
 
 #[cfg(target_os = "linux")]

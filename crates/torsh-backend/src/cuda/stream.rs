@@ -1,12 +1,9 @@
 //! Advanced CUDA stream management with async operations and performance optimization
 
-use crate::cuda::memory::{CudaAllocation, MemoryAdvice, UnifiedAllocation};
-use crate::error::{CudaError, CudaResult};
+use crate::cuda::error::{CudaError, CudaResult};
 use cuda_sys::cudart::cudaStream_t;
-use std::collections::HashMap;
 use std::ffi::c_void;
-use std::sync::{mpsc, Arc, Mutex};
-use std::thread;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 /// Stream priority levels for scheduling optimization
@@ -388,14 +385,11 @@ impl Clone for CudaStream {
 }
 
 // Add Arc wrapper for easier sharing
-type SharedCudaStream = Arc<CudaStream>;
+pub type SharedCudaStream = Arc<CudaStream>;
 
-/// Implement shared functionality for Arc<CudaStream>
-impl From<CudaStream> for SharedCudaStream {
-    fn from(stream: CudaStream) -> Self {
-        Arc::new(stream)
-    }
-}
+// Note: We don't implement From<CudaStream> for Arc<CudaStream> because
+// it conflicts with the blanket impl `impl<T> From<T> for Arc<T>` in alloc.
+// Use Arc::new(stream) directly instead.
 
 /// CUDA event for synchronization with enhanced timing capabilities
 #[derive(Debug, Clone)]

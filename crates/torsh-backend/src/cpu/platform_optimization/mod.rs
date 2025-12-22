@@ -92,7 +92,6 @@ pub use optimization::MicroarchOptimization;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Duration;
 
     #[test]
     fn test_cpu_info_detection() {
@@ -316,14 +315,14 @@ mod tests {
     #[test]
     fn test_helper_structs() {
         // Test that helper structs can be created
-        let cpu_optimizer = CpuOptimizer::new();
-        let cpu_optimizer_default = CpuOptimizer::default();
+        let _cpu_optimizer = CpuOptimizer::new();
+        let _cpu_optimizer_default = CpuOptimizer::default();
 
-        let optimized_ops = OptimizedOperations::new();
-        let optimized_ops_default = OptimizedOperations::default();
+        let _optimized_ops = OptimizedOperations::new();
+        let _optimized_ops_default = OptimizedOperations::default();
 
-        let optimization_cache = OptimizationCache::new();
-        let optimization_cache_default = OptimizationCache::default();
+        let _optimization_cache = OptimizationCache::new();
+        let _optimization_cache_default = OptimizationCache::default();
 
         // These are mostly placeholder structs, so we just verify they can be created
         // In a real implementation, they would have more functionality
@@ -352,7 +351,7 @@ mod tests {
         assert!(!info.is_empty());
 
         // Test feature detection
-        let features = detect_cpu_features().unwrap();
+        let _features = detect_cpu_features().unwrap();
         // Features struct should be valid (features may or may not be present)
 
         println!("Phase 82 modular structure integrity verified");

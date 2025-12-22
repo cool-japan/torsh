@@ -240,22 +240,21 @@ impl HorovodIntegration {
 
         // Validate compression configuration
         if let Some(ref compression) = self.config.gradient_compression {
-            if matches!(compression.compression_type, HorovodCompressionType::TopK) {
-                if !compression.compression_params.contains_key("k") {
-                    return Err(TorshDistributedError::configuration_error(
-                        "TopK compression requires 'k' parameter",
-                    ));
-                }
+            if matches!(compression.compression_type, HorovodCompressionType::TopK)
+                && !compression.compression_params.contains_key("k")
+            {
+                return Err(TorshDistributedError::configuration_error(
+                    "TopK compression requires 'k' parameter",
+                ));
             }
             if matches!(
                 compression.compression_type,
                 HorovodCompressionType::Threshold
-            ) {
-                if !compression.compression_params.contains_key("threshold") {
-                    return Err(TorshDistributedError::configuration_error(
-                        "Threshold compression requires 'threshold' parameter",
-                    ));
-                }
+            ) && !compression.compression_params.contains_key("threshold")
+            {
+                return Err(TorshDistributedError::configuration_error(
+                    "Threshold compression requires 'threshold' parameter",
+                ));
             }
         }
 

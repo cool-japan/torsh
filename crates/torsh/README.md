@@ -12,7 +12,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-torsh = "0.1.0-alpha.1"
+torsh = "0.1.0-alpha.2"
 ```
 
 ## Quick Start

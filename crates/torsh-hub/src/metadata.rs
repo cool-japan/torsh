@@ -3,6 +3,8 @@
 //! This module provides a comprehensive system for managing model metadata,
 //! including automatic metadata extraction, validation, and synchronization.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -117,7 +119,7 @@ pub struct SystemInfo {
 }
 
 /// Performance metrics
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PerformanceMetrics {
     pub inference_latency_ms: HashMap<String, f32>, // e.g., "batch_1": 50.0
     pub throughput_samples_per_second: HashMap<String, f32>,
@@ -129,7 +131,7 @@ pub struct PerformanceMetrics {
 }
 
 /// Usage statistics
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct UsageStatistics {
     pub total_downloads: u64,
     pub monthly_downloads: HashMap<String, u64>, // "2024-01": 150
@@ -176,7 +178,7 @@ impl MetadataManager {
     }
 
     /// Extract metadata from a model directory
-    pub fn extract_metadata(&self, model_dir: &Path, model_id: &str) -> Result<ExtendedMetadata> {
+    pub fn extract_metadata(&self, model_dir: &Path, _model_id: &str) -> Result<ExtendedMetadata> {
         // Load or create model info
         let model_info = self.load_or_create_model_info(model_dir)?;
 
@@ -336,7 +338,7 @@ impl MetadataManager {
             "- Description: {}\n",
             metadata.model_info.description
         ));
-        report.push_str("\n");
+        report.push('\n');
 
         // File information
         report.push_str("## Files\n");
@@ -348,7 +350,7 @@ impl MetadataManager {
                 file.file_type
             ));
         }
-        report.push_str("\n");
+        report.push('\n');
 
         // Quality scores
         report.push_str("## Quality Scores\n");
@@ -360,7 +362,7 @@ impl MetadataManager {
         ));
         report.push_str(&format!("- Performance: {:.2}\n", scores.performance_score));
         report.push_str(&format!("- Safety: {:.2}\n", scores.safety_score));
-        report.push_str("\n");
+        report.push('\n');
 
         // Issues
         if !issues.is_empty() {
@@ -368,7 +370,7 @@ impl MetadataManager {
             for issue in issues {
                 report.push_str(&format!("- {}\n", issue));
             }
-            report.push_str("\n");
+            report.push('\n');
         }
 
         // Last updated
@@ -548,32 +550,6 @@ pub struct MetadataSearchCriteria {
     pub file_type: Option<FileType>,
     pub has_model_card: Option<bool>,
     pub version_constraint: Option<String>,
-}
-
-impl Default for PerformanceMetrics {
-    fn default() -> Self {
-        Self {
-            inference_latency_ms: HashMap::new(),
-            throughput_samples_per_second: HashMap::new(),
-            memory_usage_mb: HashMap::new(),
-            energy_consumption_j: None,
-            co2_emissions_g: None,
-            benchmark_scores: HashMap::new(),
-            accuracy_metrics: HashMap::new(),
-        }
-    }
-}
-
-impl Default for UsageStatistics {
-    fn default() -> Self {
-        Self {
-            total_downloads: 0,
-            monthly_downloads: HashMap::new(),
-            user_ratings: Vec::new(),
-            usage_contexts: HashMap::new(),
-            geographic_distribution: HashMap::new(),
-        }
-    }
 }
 
 #[cfg(test)]

@@ -319,7 +319,8 @@ pub fn parallel_activation<F>(
 where
     F: Fn(f32) -> f32 + Send + Sync,
 {
-    use rayon::prelude::*;
+    // ✅ SciRS2 POLICY: Use scirs2_core::parallel_ops instead of direct rayon
+    use scirs2_core::parallel_ops::*;
 
     let data = input.data()?;
     let chunk_size = chunk_size.unwrap_or(1000);

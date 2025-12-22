@@ -14,11 +14,10 @@ workspace = true
 
 [dependencies]
 torsh-core = { workspace = true, features = ["serialize"] }
-torsh-tensor = { workspace = true, default-features = false, features = ["std"] }
+torsh-tensor = { workspace = true, features = ["std"] }
 # torsh-nn = { path = "../torsh-nn" } # Temporarily disabled due to autograd issues
 thiserror = { workspace = true }
-scirs2-core = { workspace = true, features = ["random", "simd", "benchmarking"] }
-rayon = "1.10" # For parallel processing optimizations
+scirs2-core = { workspace = true, features = ["random", "simd", "benchmarking", "parallel"] }
 serde_json = "1.0" # For JSON serialization
 serde = { version = "1.0", features = ["derive"] } # For serialization
 num_cpus = "1.17" # For hardware info collection
@@ -26,7 +25,27 @@ num_cpus = "1.17" # For hardware info collection
 [features]
 default = ["std"]
 std = []
+experimental = []
 
 [dev-dependencies]
 approx = { workspace = true }
 tempfile = "3.23"
+proptest = "1.8"  # Property-based testing framework
+quickcheck = "1.0"  # Alternative property-based testing
+
+# Examples demonstrating quantization techniques
+[[example]]
+name = "basic_quantization"
+path = "examples/basic_quantization.rs"
+
+[[example]]
+name = "advanced_schemes"
+path = "examples/advanced_schemes.rs"
+
+[[example]]
+name = "batch_processing"
+path = "examples/batch_processing.rs"
+
+[[example]]
+name = "auto_config_demo"
+path = "examples/auto_config_demo.rs"

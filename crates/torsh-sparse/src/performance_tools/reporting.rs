@@ -832,7 +832,7 @@ mod tests {
 
     #[test]
     fn test_metric_statistics() {
-        let mut metric_stats = MetricStatistics {
+        let metric_stats = MetricStatistics {
             name: "test_metric".to_string(),
             count: 3,
             sum: 15.0,

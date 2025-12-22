@@ -4,6 +4,8 @@
 //! reliability-based, geographic, weighted, adaptive, and machine learning approaches.
 //! It manages selection state and provides intelligent mirror ranking for optimal downloads.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use super::types::*;
 use super::types::{GeographicCalculator, PerformanceAnalyzer};
 use std::collections::HashMap;
@@ -337,7 +339,6 @@ impl<'a> MirrorSelector<'a> {
                 self.select_by_highest_reliability(active_mirrors)
             }
             MirrorSelectionStrategy::Geographic => self.select_by_geographic(active_mirrors),
-            MirrorSelectionStrategy::LowestLatency => self.select_by_lowest_latency(active_mirrors),
             MirrorSelectionStrategy::Weighted(weights) => {
                 self.select_by_weighted_score(active_mirrors, weights)
             }
@@ -552,7 +553,7 @@ impl<'a> MirrorSelector<'a> {
     }
 
     /// Calculate machine learning-based score for a mirror
-    fn calculate_ml_score(&self, mirror: &MirrorServer, ml_config: &MLConfig) -> f64 {
+    fn calculate_ml_score(&self, mirror: &MirrorServer, _ml_config: &MLConfig) -> f64 {
         let ml_state = match &self.selection_state.ml_model_state {
             Some(state) => state,
             None => return 0.5, // Fallback score
@@ -852,7 +853,7 @@ mod tests {
         let geo_calc = GeographicCalculator::new();
         let perf_analyzer = PerformanceAnalyzer::new();
 
-        let mut selector = MirrorSelector::new(&config, &mut state, &geo_calc, &perf_analyzer);
+        let selector = MirrorSelector::new(&config, &mut state, &geo_calc, &perf_analyzer);
         let mirrors = selector.get_qualified_mirrors().unwrap();
         let sorted = selector.select_by_lowest_latency(mirrors);
 
@@ -869,7 +870,7 @@ mod tests {
         let geo_calc = GeographicCalculator::new();
         let perf_analyzer = PerformanceAnalyzer::new();
 
-        let mut selector = MirrorSelector::new(&config, &mut state, &geo_calc, &perf_analyzer);
+        let selector = MirrorSelector::new(&config, &mut state, &geo_calc, &perf_analyzer);
         let mirrors = selector.get_qualified_mirrors().unwrap();
         let sorted = selector.select_by_highest_reliability(mirrors);
 

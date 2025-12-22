@@ -22,6 +22,9 @@
 //! ## Usage Example
 //!
 //! ```rust
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # fn main() -> Result<()> {
 //! use torsh_nn::layers::activation::gated::{GLU, GEGLU, ReGLU, SwiGLU};
 //! use torsh_nn::Module;
 //! use torsh_tensor::Tensor;
@@ -33,8 +36,10 @@
 //! let swiglu = SwiGLU::new(-1);
 //!
 //! // Input must have even size in the split dimension
-//! let input = Tensor::randn(&[2, 8]); // 8 is even, will be split into 2x4
+//! let input = randn(&[2, 8])?; // 8 is even, will be split into 2x4
 //! let glu_output = glu.forward(&input)?; // Output shape: [2, 4]
+//! # Ok(())
+//! # }
 //! ```
 
 use crate::{Module, ModuleBase, Parameter};
@@ -81,13 +86,18 @@ use hashbrown::HashMap;
 ///
 /// # Example
 /// ```rust
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// use torsh_nn::layers::activation::gated::GLU;
 /// use torsh_nn::Module;
 /// use torsh_tensor::Tensor;
 ///
 /// let glu = GLU::new(-1); // Split along last dimension
-/// let input = Tensor::randn(&[2, 8]); // Last dim (8) must be even
+/// let input = randn(&[2, 8])?; // Last dim (8)? must be even
 /// let output = glu.forward(&input)?; // Output shape: [2, 4]
+/// # Ok(())
+/// # }
 /// ```
 pub struct GLU {
     base: ModuleBase,
@@ -220,13 +230,18 @@ impl Module for GLU {
 ///
 /// # Example
 /// ```rust
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// use torsh_nn::layers::activation::gated::GEGLU;
 /// use torsh_nn::Module;
 /// use torsh_tensor::Tensor;
 ///
 /// let geglu = GEGLU::new(-1);
-/// let input = Tensor::randn(&[2, 8]);
+/// let input = randn(&[2, 8])?;
 /// let output = geglu.forward(&input)?; // Output shape: [2, 4]
+/// # Ok(())
+/// # }
 /// ```
 pub struct GEGLU {
     base: ModuleBase,
@@ -369,13 +384,18 @@ impl GEGLU {
 ///
 /// # Example
 /// ```rust
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// use torsh_nn::layers::activation::gated::ReGLU;
 /// use torsh_nn::Module;
 /// use torsh_tensor::Tensor;
 ///
 /// let reglu = ReGLU::new(-1);
-/// let input = Tensor::randn(&[2, 8]);
+/// let input = randn(&[2, 8])?;
 /// let output = reglu.forward(&input)?; // Output shape: [2, 4]
+/// # Ok(())
+/// # }
 /// ```
 pub struct ReGLU {
     base: ModuleBase,
@@ -500,13 +520,18 @@ impl Module for ReGLU {
 ///
 /// # Example
 /// ```rust
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// use torsh_nn::layers::activation::gated::SwiGLU;
 /// use torsh_nn::Module;
 /// use torsh_tensor::Tensor;
 ///
 /// let swiglu = SwiGLU::new(-1);
-/// let input = Tensor::randn(&[2, 8]);
+/// let input = randn(&[2, 8])?;
 /// let output = swiglu.forward(&input)?; // Output shape: [2, 4]
+/// # Ok(())
+/// # }
 /// ```
 pub struct SwiGLU {
     base: ModuleBase,
@@ -614,7 +639,6 @@ impl Module for SwiGLU {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use torsh_tensor::creation::*;
 
     #[test]
     fn test_glu_dimension_parameter() {

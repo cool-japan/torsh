@@ -1,6 +1,6 @@
 use crate::error::{FfiError, FfiResult};
 use once_cell::sync::Lazy;
-use torsh_core::{dtype::TypePromotion, DType};
+use torsh_core::DType;
 
 /// Comprehensive type mapping system for cross-framework compatibility
 #[derive(Debug, Clone)]

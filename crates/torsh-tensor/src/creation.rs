@@ -6,7 +6,7 @@ use scirs2_core::random::{Random, Rng};
 use torsh_core::{
     device::DeviceType,
     dtype::{Complex32, Complex64, ComplexElement},
-    error::Result,
+    error::{Result, TorshError},
 };
 
 /// Create a tensor from a scalar value
@@ -144,7 +144,7 @@ where
     let size = shape.iter().product();
     let mut rng = Random::seed(42); // Deterministic seed for reproducibility
     let values: Vec<T> = (0..size)
-        .map(|_| <T as From<f32>>::from(rng.gen::<f32>()))
+        .map(|_| <T as From<f32>>::from(rng.random::<f32>()))
         .collect();
 
     Tensor::from_data(values, shape.to_vec(), DeviceType::Cpu)
@@ -186,7 +186,10 @@ pub fn randn<T: FloatElement>(shape: &[usize]) -> Result<Tensor<T>> {
 pub fn randint(low: i32, high: i32, shape: &[usize]) -> Result<Tensor<i32>> {
     let size = shape.iter().product();
     let mut rng = Random::seed(42); // Deterministic seed for reproducibility
-    let values: Vec<i32> = (0..size).map(|_| rng.gen_range(low..high)).collect();
+    use scirs2_core::random::Uniform;
+    let dist = Uniform::new(low, high)
+        .map_err(|e| TorshError::InvalidArgument(format!("Invalid range for randint: {}", e)))?;
+    let values: Vec<i32> = (0..size).map(|_| rng.sample(&dist)).collect();
 
     Tensor::from_data(values, shape.to_vec(), DeviceType::Cpu)
 }
@@ -289,8 +292,8 @@ where
     let values: Vec<C> = (0..size)
         .map(|_| {
             C::new(
-                <T as From<f32>>::from(rng.gen::<f32>()),
-                <T as From<f32>>::from(rng.gen::<f32>()),
+                <T as From<f32>>::from(rng.random::<f32>()),
+                <T as From<f32>>::from(rng.random::<f32>()),
             )
         })
         .collect();

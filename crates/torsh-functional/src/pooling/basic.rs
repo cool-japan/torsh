@@ -1,7 +1,7 @@
 //! Basic pooling operations: max and average pooling in 1D, 2D, and 3D
 
 use crate::utils::{calculate_pooling_output_size, function_context, validate_tensor_dims};
-use torsh_core::{Result as TorshResult, TorshError};
+use torsh_core::Result as TorshResult;
 use torsh_tensor::Tensor;
 
 /// 1D max pooling
@@ -412,9 +412,9 @@ pub fn max_pool3d(
             for od in 0..out_depth {
                 for oh in 0..out_height {
                     for ow in 0..out_width {
-                        let out_idx = ((((b * channels + c) * out_depth + od) * out_height + oh)
+                        let out_idx = (((b * channels + c) * out_depth + od) * out_height + oh)
                             * out_width
-                            + ow);
+                            + ow;
 
                         for kd in 0..kernel_size.0 {
                             for kh in 0..kernel_size.1 {
@@ -435,11 +435,11 @@ pub fn max_pool3d(
                                         let real_iw = iw - padding.2;
 
                                         if real_id < depth && real_ih < height && real_iw < width {
-                                            let in_idx = ((((b * channels + c) * depth + real_id)
+                                            let in_idx = (((b * channels + c) * depth + real_id)
                                                 * height
                                                 + real_ih)
                                                 * width
-                                                + real_iw);
+                                                + real_iw;
                                             let val = input_data[in_idx];
                                             if val > output_data[out_idx] {
                                                 output_data[out_idx] = val;
@@ -516,9 +516,9 @@ pub fn avg_pool3d(
             for od in 0..out_depth {
                 for oh in 0..out_height {
                     for ow in 0..out_width {
-                        let out_idx = ((((b * channels + c) * out_depth + od) * out_height + oh)
+                        let out_idx = (((b * channels + c) * out_depth + od) * out_height + oh)
                             * out_width
-                            + ow);
+                            + ow;
 
                         let mut sum = 0.0f32;
                         let mut count = 0;
@@ -553,12 +553,12 @@ pub fn avg_pool3d(
                                                 && real_ih < height
                                                 && real_iw < width
                                             {
-                                                let in_idx = ((((b * channels + c) * depth
+                                                let in_idx = (((b * channels + c) * depth
                                                     + real_id)
                                                     * height
                                                     + real_ih)
                                                     * width
-                                                    + real_iw);
+                                                    + real_iw;
                                                 sum += input_data[in_idx];
                                             }
                                         }

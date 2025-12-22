@@ -136,6 +136,9 @@ pub use loss::kl_div;
 // Ranking and similarity losses
 pub use loss::{contrastive_loss, cosine_embedding_loss, triplet_margin_loss};
 
+// Modern loss functions
+pub use loss::{center_loss, dice_loss, infonce_loss, tversky_loss, wing_loss};
+
 // =============================================================================
 // ADVANCED LOSS FRAMEWORK - COMPLETE BACKWARD COMPATIBILITY
 // =============================================================================
@@ -275,14 +278,16 @@ pub mod prelude {
 // =============================================================================
 
 // Import types needed for compatibility
-use torsh_core::error::{Result, TorshError};
+use torsh_core::error::Result;
 use torsh_tensor::Tensor;
 
 /// Extension trait to add tensor casting for compatibility
+#[allow(dead_code)]
 trait TensorCast {
     fn cast_i64(&self) -> Result<Tensor<i64>>;
 }
 
+#[allow(dead_code)]
 impl TensorCast for Tensor {
     fn cast_i64(&self) -> Result<Tensor<i64>> {
         // Simplified casting - in practice would need proper tensor type conversion
@@ -328,7 +333,6 @@ impl Default for SparseMatrix {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
 
     #[test]
     fn test_modular_functional_system() {
@@ -355,22 +359,21 @@ mod tests {
         // All original function names and APIs should work exactly as before
 
         let input = torsh_tensor::creation::randn::<f32>(&[4, 3, 32, 32]).unwrap();
-        let weight = torsh_tensor::creation::randn::<f32>(&[3]).unwrap();
-        let bias = torsh_tensor::creation::randn::<f32>(&[3]).unwrap();
+        let weight = torsh_tensor::creation::ones(&[3]).unwrap();
+        let bias = torsh_tensor::creation::zeros(&[3]).unwrap();
 
-        // Skip batch normalization due to tensor shape issues
-        // TODO: Fix batch normalization tensor shape handling
-        // let _batch_norm_result = batch_norm_2d(
-        //     &input,
-        //     Some(&weight),
-        //     Some(&bias),
-        //     None,
-        //     None,
-        //     true,
-        //     0.1,
-        //     1e-5,
-        // )
-        // .unwrap();
+        // Test batch normalization
+        let _batch_norm_result = batch_norm_2d(
+            &input,
+            Some(&weight),
+            Some(&bias),
+            None,
+            None,
+            true,
+            0.1,
+            1e-5,
+        )
+        .unwrap();
 
         // Test original activation functions still work
         let activation_input = torsh_tensor::creation::randn::<f32>(&[2, 4]).unwrap();
@@ -429,21 +432,20 @@ mod examples {
         let activated = relu(&input).unwrap();
         let _softmax_result = softmax(&activated, Some(-1)).unwrap();
 
-        // Skip batch normalization due to tensor shape issues
-        // TODO: Fix batch normalization tensor shape handling
-        // let weight = torsh_tensor::creation::ones(&[3]).unwrap();
-        // let bias = torsh_tensor::creation::zeros(&[3]).unwrap();
-        // let _normalized = batch_norm_2d(
-        //     &input,
-        //     Some(&weight),
-        //     Some(&bias),
-        //     None,
-        //     None,
-        //     true,
-        //     0.1,
-        //     1e-5,
-        // )
-        // .unwrap();
+        // Test batch normalization
+        let weight = torsh_tensor::creation::ones(&[3]).unwrap();
+        let bias = torsh_tensor::creation::zeros(&[3]).unwrap();
+        let _normalized = batch_norm_2d(
+            &input,
+            Some(&weight),
+            Some(&bias),
+            None,
+            None,
+            true,
+            0.1,
+            1e-5,
+        )
+        .unwrap();
 
         // Use loss functions
         let predictions = torsh_tensor::creation::randn::<f32>(&[4, 10]).unwrap();

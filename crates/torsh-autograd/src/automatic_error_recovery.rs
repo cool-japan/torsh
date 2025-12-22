@@ -5,6 +5,8 @@
 //! numerical instabilities, temporary memory pressure, hardware issues,
 //! and network failures in distributed settings.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::error_handling::{AutogradError, AutogradResult};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, RwLock};
@@ -501,10 +503,10 @@ impl AutomaticErrorRecovery {
     /// Determine the recovery action based on the failure type and context
     fn determine_recovery_action(
         &self,
-        operation_name: &str,
+        _operation_name: &str,
         failure_type: &TransientFailureType,
         attempt_number: usize,
-        elapsed_time: Duration,
+        _elapsed_time: Duration,
         error: &AutogradError,
     ) -> RecoveryAction {
         // Get the strategy for this failure type
@@ -621,7 +623,7 @@ impl AutomaticErrorRecovery {
     }
 
     /// Record a successful recovery
-    fn record_successful_recovery(&self, recovery_id: &str, attempts: usize, duration: Duration) {
+    fn record_successful_recovery(&self, recovery_id: &str, _attempts: usize, duration: Duration) {
         if let Ok(mut stats) = self.statistics.write() {
             stats.total_failures += 1;
             stats.successful_recoveries += 1;
@@ -647,7 +649,7 @@ impl AutomaticErrorRecovery {
         &self,
         recovery_id: &str,
         failure_type: &TransientFailureType,
-        duration: Duration,
+        _duration: Duration,
     ) {
         if let Ok(mut stats) = self.statistics.write() {
             stats.total_failures += 1;

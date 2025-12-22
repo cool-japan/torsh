@@ -41,8 +41,8 @@ torsh-linalg = { workspace = true }
 torsh-sparse = { workspace = true }
 torsh-signal = { workspace = true }
 
-# SciRS2 dependencies
-scirs2-core = { workspace = true }
+# SciRS2 dependencies - using parallel feature for POLICY compliance
+scirs2-core = { workspace = true, features = ["parallel"] }
 scirs2-autograd = { workspace = true }
 
 # Benchmarking
@@ -55,7 +55,7 @@ itertools = "0.14"
 
 # Async and concurrency
 tokio = { workspace = true, features = ["full"] }
-rayon = { workspace = true }
+# rayon = { workspace = true }  # REMOVED: Use scirs2_core::parallel_ops instead (SciRS2 POLICY)
 
 # External comparisons - SciRS2 POLICY COMPLIANCE
 # ndarray = { workspace = true }  # REMOVED: Use scirs2_core::ndarray instead (SciRS2 POLICY)
@@ -89,3 +89,7 @@ pytorch = ["pyo3", "numpy"] # Enable PyTorch comparisons via Python
 tensorflow = ["pyo3", "numpy"] # Enable TensorFlow comparisons via Python
 jax = ["pyo3", "numpy"] # Enable JAX comparisons via Python
 numpy_baseline = ["pyo3", "numpy"] # Enable NumPy baseline comparisons via Python
+# Additional features for conditional compilation
+profiling = [] # Enable profiling features
+gpu = [] # Enable GPU benchmarking features
+autograd = [] # Enable autograd-specific benchmarks

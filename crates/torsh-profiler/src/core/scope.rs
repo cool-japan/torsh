@@ -81,10 +81,9 @@ impl Drop for ScopeGuard {
         {
             let mut profiler = profiler_arc.lock();
             if profiler.is_overhead_tracking_enabled() && stack_trace_overhead_ns > 0 {
-                let mut stats = profiler.get_overhead_stats().clone();
-                stats.stack_trace_time_ns += stack_trace_overhead_ns;
-                stats.stack_trace_count += 1;
-                stats.total_overhead_ns += stack_trace_overhead_ns;
+                profiler.overhead_stats.stack_trace_time_ns += stack_trace_overhead_ns;
+                profiler.overhead_stats.stack_trace_count += 1;
+                profiler.overhead_stats.total_overhead_ns += stack_trace_overhead_ns;
             }
             profiler.add_event(event);
         }
@@ -241,10 +240,9 @@ impl Drop for MetricsScope {
         {
             let mut profiler = profiler_arc.lock();
             if profiler.is_overhead_tracking_enabled() && stack_trace_overhead_ns > 0 {
-                let mut stats = profiler.get_overhead_stats().clone();
-                stats.stack_trace_time_ns += stack_trace_overhead_ns;
-                stats.stack_trace_count += 1;
-                stats.total_overhead_ns += stack_trace_overhead_ns;
+                profiler.overhead_stats.stack_trace_time_ns += stack_trace_overhead_ns;
+                profiler.overhead_stats.stack_trace_count += 1;
+                profiler.overhead_stats.total_overhead_ns += stack_trace_overhead_ns;
             }
             profiler.add_event(event);
         }

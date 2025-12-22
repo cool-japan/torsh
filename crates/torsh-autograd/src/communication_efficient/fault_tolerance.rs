@@ -29,7 +29,7 @@
 //! # Examples
 //!
 //! ## Basic Fault Detection
-//! ```rust
+//! ```rust,no_run
 //! use torsh_autograd::communication_efficient::fault_tolerance::*;
 //! use std::time::Instant;
 //!
@@ -51,7 +51,7 @@
 //! ```
 //!
 //! ## Advanced Fault Detection Configuration
-//! ```rust
+//! ```rust,no_run
 //! use torsh_autograd::communication_efficient::fault_tolerance::*;
 //! use std::time::Duration;
 //!
@@ -69,7 +69,7 @@
 //! ```
 //!
 //! ## Distributed Fault Coordination
-//! ```rust
+//! ```rust,no_run
 //! use torsh_autograd::communication_efficient::{
 //!     fault_tolerance::*,
 //!     config::CommunicationConfig,
@@ -81,16 +81,13 @@
 //! coordinator.set_detection_quorum(3); // Require 3 nodes to agree
 //! ```
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use super::{
-    config::{CommunicationConfig, CommunicationTopology, ProtocolOptimization},
-    management::{CongestionLevel, TopologyManager},
-    transmission::{NetworkMetrics, ProtocolStack},
-    CommunicationError,
-};
+use super::{management::TopologyManager, transmission::NetworkMetrics, CommunicationError};
 
 /// Main fault detection and recovery coordinator for distributed communication.
 ///

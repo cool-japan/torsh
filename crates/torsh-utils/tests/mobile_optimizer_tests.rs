@@ -1,6 +1,5 @@
 //! Comprehensive tests for mobile optimization functionality
 
-use std::collections::HashMap;
 use tempfile::TempDir;
 use torsh_tensor::Tensor;
 use torsh_utils::mobile_optimizer::*;

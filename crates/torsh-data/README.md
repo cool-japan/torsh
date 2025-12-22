@@ -16,10 +16,38 @@ Note: This crate can leverage scirs2-datasets for additional dataset utilities a
 
 ## Features
 
+### Core Features
 - `std` (default): Standard library support
-- `image-support`: Enable image loading and vision datasets
+- `image-support` (default): Enable image loading and vision datasets
+- `mmap-support` (default): Enable memory-mapped file support for large datasets
+
+### Data Format Support
 - `audio-support`: Enable audio processing capabilities
 - `dataframe`: Enable tabular data support with Polars integration
+- `arrow-support`: Apache Arrow integration for efficient data interchange
+- `hdf5-support`: HDF5 file format support for scientific datasets
+- `parquet-support`: Apache Parquet columnar storage format
+
+### Advanced Features
+- `sparse`: Sparse tensor support for efficient handling of sparse data
+- `serialize`: Serialization support with serde
+- `async-support`: Asynchronous data loading with tokio
+- `privacy`: Privacy-preserving data loading with differential privacy
+- `federated`: Federated learning support for distributed datasets
+
+### GPU Acceleration (Experimental)
+- `gpu-acceleration`: Enable GPU-accelerated data preprocessing
+- `cuda`: CUDA backend support (implemented)
+- `opencl`: OpenCL backend support (placeholder for future)
+- `vulkan`: Vulkan backend support (placeholder for future)
+- `metal`: Metal backend support for Apple Silicon (placeholder for future)
+- `webgpu`: WebGPU backend support for web and cross-platform (placeholder for future)
+
+### WebAssembly
+- `wasm`: WebAssembly support for browser-based data loading
+
+### Convenience
+- `full`: Enable all optional features
 
 ## Usage
 

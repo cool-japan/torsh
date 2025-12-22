@@ -4,6 +4,8 @@
 //! the performance of quantization operations. It includes utilities for measuring
 //! throughput, latency, memory usage, and comparing different quantization configurations.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::quantization::{
     hardware::QuantizationHardwareFeatures, QuantizationOps, QuantizationParams, QuantizedDType,
     QuantizedTensor,
@@ -438,7 +440,7 @@ impl QuantizationBenchmarkSuite {
     }
 
     /// Save benchmark results to storage
-    pub fn save_results(&self, path: &str) -> BackendResult<()> {
+    pub fn save_results(&self, _path: &str) -> BackendResult<()> {
         // In a real implementation, this would serialize results to a file
         // For now, just return Ok
         Ok(())

@@ -75,10 +75,12 @@ fn reduce_op(
         full_reduce(input, output.clone(), kernel_name)?;
     } else {
         // Partial reduction - would need more sophisticated kernel
-        return Err(crate::metal::error::metal_errors::unsupported_operation_error(
-            "Partial reductions not yet implemented",
-            None,
-        ));
+        return Err(
+            crate::metal::error::metal_errors::unsupported_operation_error(
+                "Partial reductions not yet implemented",
+                None,
+            ),
+        );
     }
 
     Ok(output)
@@ -118,11 +120,38 @@ pub fn softmax(input: &MetalBuffer, dim: i32) -> Result<MetalBuffer> {
         )));
     }
 
-    // Softmax = exp(x - max) / sum(exp(x - max))
-    // TODO: This is a simplified implementation - replace with proper Metal compute shader
-    // For now, return an error indicating this operation is not yet implemented
-    Err(crate::metal::error::metal_errors::unsupported_operation_error(
-        "Softmax not yet implemented for Metal backend",
-        None,
-    ))
+    let input_shape = input.shape().dims();
+    let device = input.device();
+
+    // Calculate dimensions for softmax computation
+    // outer_size = product of dimensions before dim
+    // dim_size = size of the softmax dimension
+    // inner_size = product of dimensions after dim
+    let outer_size: usize = input_shape[..dim as usize].iter().product();
+    let dim_size = input_shape[dim as usize];
+    let inner_size: usize = input_shape[(dim as usize + 1)..].iter().product();
+
+    // Create output buffer with same shape as input
+    let output = MetalBuffer::zeros(input.shape(), &input.dtype(), device)?;
+
+    // Setup kernel parameters
+    let kernel_manager = KernelManager::new(device.device_ref())?;
+    let params = [outer_size as u32, dim_size as u32, inner_size as u32];
+    let params_buffer = device.device().new_buffer_with_data(
+        params.as_ptr() as *const _,
+        (params.len() * std::mem::size_of::<u32>()) as u64,
+        device.resource_options(),
+    );
+
+    // Execute softmax kernel
+    let total_work = outer_size * inner_size;
+    execute_and_wait(device, |encoder| {
+        encoder.set_buffer(0, Some(input.buffer()), 0);
+        encoder.set_buffer(1, Some(output.buffer()), 0);
+        encoder.set_buffer(2, Some(&params_buffer), 0);
+
+        kernel_manager.dispatch_1d(encoder, kernel_names::SOFTMAX_F32, total_work)
+    })?;
+
+    Ok(output)
 }

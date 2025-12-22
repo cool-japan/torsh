@@ -65,7 +65,97 @@ impl ClusteringResult for DBSCANResult {
     }
 }
 
-/// DBSCAN clustering algorithm
+/// DBSCAN (Density-Based Spatial Clustering of Applications with Noise)
+///
+/// A density-based clustering algorithm that groups together points that are
+/// closely packed together (high density regions) and marks points in
+/// low-density regions as outliers.
+///
+/// # Mathematical Formulation
+///
+/// ## Core Definitions
+///
+/// **ε-neighborhood:**
+/// ```text
+/// N_ε(p) = {q ∈ D | dist(p, q) ≤ ε}
+/// ```
+/// The set of all points within distance ε of point p.
+///
+/// **Core Point:**
+/// A point p is a core point if:
+/// ```text
+/// |N_ε(p)| ≥ MinPts
+/// ```
+/// where MinPts is the minimum number of points required to form a dense region.
+///
+/// **Directly Density-Reachable:**
+/// Point q is directly density-reachable from p if:
+/// ```text
+/// q ∈ N_ε(p)  AND  p is a core point
+/// ```
+///
+/// **Density-Reachable:**
+/// Point q is density-reachable from p if there exists a chain:
+/// ```text
+/// p = p₁, p₂, ..., pₙ = q
+/// ```
+/// where each p_{i+1} is directly density-reachable from p_i.
+///
+/// **Density-Connected:**
+/// Points p and q are density-connected if there exists a point o such that
+/// both p and q are density-reachable from o.
+///
+/// ## Clustering Definition
+///
+/// A cluster C is a maximal set of density-connected points:
+/// ```text
+/// ∀ p, q: if p ∈ C and q is density-reachable from p,
+///         then q ∈ C
+/// ```
+///
+/// Points not belonging to any cluster are classified as noise.
+///
+/// ## Algorithm Steps
+///
+/// 1. **Mark core points:** Find all points p where |N_ε(p)| ≥ MinPts
+/// 2. **Form clusters:** For each unmarked core point:
+///    - Create a new cluster
+///    - Add all density-reachable points to the cluster
+/// 3. **Assign border points:** Non-core points in ε-neighborhood of a cluster
+///    are assigned to that cluster
+/// 4. **Mark noise:** Remaining points are labeled as noise (-1)
+///
+/// ## Complexity
+///
+/// - **Time:** O(n log n) with spatial index (e.g., KD-tree, R*-tree)
+///           O(n²) without spatial index
+/// - **Space:** O(n)
+///
+/// ## Parameters
+///
+/// - **ε (eps):** Maximum distance between two samples for one to be
+///               considered as in the neighborhood of the other
+/// - **MinPts (min_samples):** Minimum number of samples in a neighborhood
+///                            for a point to be considered a core point
+///
+/// ## Advantages
+///
+/// - Does not require specifying the number of clusters a priori
+/// - Can find arbitrarily shaped clusters
+/// - Robust to outliers (identifies them explicitly)
+/// - Only two parameters to tune
+///
+/// ## Disadvantages
+///
+/// - Struggles with clusters of varying densities
+/// - Sensitive to parameter choices
+/// - Not suitable for high-dimensional data (curse of dimensionality)
+///
+/// # References
+///
+/// - Ester, M., Kriegel, H. P., Sander, J., & Xu, X. (1996).
+///   A density-based algorithm for discovering clusters in large spatial
+///   databases with noise. In KDD (Vol. 96, No. 34, pp. 226-231).
 #[derive(Debug, Clone)]
 pub struct DBSCAN {
     config: DBSCANConfig,
@@ -469,18 +559,143 @@ impl ClusteringResult for HDBSCANResult {
 /// This allows it to find clusters of varying densities and provides a more robust
 /// clustering solution.
 ///
+/// # Mathematical Formulation
+///
+/// ## Core Distance
+///
+/// The core distance of a point p is the distance to its k-th nearest neighbor:
+///
+/// ```text
+/// core_k(p) = dist(p, NN_k(p))
+/// ```
+///
+/// where NN_k(p) is the k-th nearest neighbor of p, and k = min_samples.
+///
+/// ## Mutual Reachability Distance
+///
+/// The mutual reachability distance between points p and q:
+///
+/// ```text
+/// d_mreach-k(p, q) = max{core_k(p), core_k(q), dist(p, q)}
+/// ```
+///
+/// This ensures that points in sparse regions have larger distances.
+///
+/// ## Minimum Spanning Tree (MST)
+///
+/// Construct the MST of the data using mutual reachability distances.
+/// The MST connects all points with minimum total edge weight.
+///
+/// ## Cluster Hierarchy
+///
+/// Build a dendrogram by:
+/// 1. Start with each point as its own cluster
+/// 2. Sort MST edges by weight (ascending)
+/// 3. Merge clusters connected by each edge in order
+/// 4. Track the density level λ at which each merge occurs:
+///    ```text
+///    λ = 1 / d_mreach
+///    ```
+///
+/// ## Cluster Stability
+///
+/// For each cluster C, compute its stability:
+///
+/// ```text
+/// S(C) = Σ_{p ∈ C} (λ_death(C) - λ_birth(p))
+/// ```
+///
+/// where:
+/// - λ_birth(p): density level at which point p joins the cluster
+/// - λ_death(C): density level at which cluster C splits or disappears
+///
+/// ## Cluster Selection
+///
+/// Extract the final clustering by:
+/// 1. For each branch in the hierarchy, compute total stability
+/// 2. Select leaves (clusters) that maximize total stability
+/// 3. Use dynamic programming to find optimal selection:
+///    ```text
+///    Stability(subtree) = max{
+///        Stability(C),           // Keep this cluster
+///        Σ Stability(children)   // Keep children instead
+///    }
+///    ```
+///
+/// ## Condensed Tree
+///
+/// Build a condensed cluster tree by:
+/// 1. Remove clusters smaller than min_cluster_size
+/// 2. Propagate points to first valid parent cluster
+/// 3. This simplifies the hierarchy to significant clusters only
+///
+/// ## Cluster Persistence
+///
+/// Persistence measures how long a cluster exists across density levels:
+///
+/// ```text
+/// Persistence(C) = λ_death(C) - λ_birth(C)
+/// ```
+///
+/// Higher persistence indicates a more stable, well-defined cluster.
+///
+/// ## Outlier Detection
+///
+/// For each point p, compute the Outlier Score:
+///
+/// ```text
+/// GLOSH(p) = 1 - (λ_max(C_p) / λ_p)
+/// ```
+///
+/// where:
+/// - C_p is the cluster containing p
+/// - λ_p is the density level at which p joins C_p
+/// - λ_max(C_p) is the maximum density level of C_p
+///
+/// Scores close to 1 indicate outliers.
+///
+/// ## Advantages over DBSCAN
+///
+/// - **Varying Densities:** Can find clusters with different densities
+/// - **No ε Parameter:** Automatically determines appropriate density thresholds
+/// - **Hierarchical View:** Provides cluster hierarchy for exploration
+/// - **Stability-Based:** More robust cluster selection via stability metric
+/// - **Outlier Scores:** Provides soft outlier detection (GLOSH scores)
+///
+/// ## Parameters
+///
+/// - **min_cluster_size:** Minimum number of points to form a cluster
+/// - **min_samples:** Number of neighbors to consider (affects core distances)
+/// - **metric:** Distance metric (default: euclidean)
+///
+/// ## Complexity
+///
+/// - **Time:** O(n² log n) - dominated by MST construction
+/// - **Space:** O(n²) - for distance matrix and MST
+///
+/// # When to Use
+///
+/// - Clusters have varying densities
+/// - Number of clusters unknown
+/// - Need hierarchical cluster view
+/// - Want soft outlier scores
+/// - Data has noise and outliers
+///
 /// # References
 /// - Campello, R. J., Moulavi, D., & Sander, J. (2013). Density-based clustering based on
 ///   hierarchical density estimates. In Pacific-Asia conference on knowledge discovery and
 ///   data mining (pp. 160-172). Springer.
+/// - McInnes, L., Healy, J., & Astels, S. (2017). hdbscan: Hierarchical density based clustering.
+///   Journal of Open Source Software, 2(11), 205.
 ///
 /// # Example
 ///
 /// ```rust
 /// use torsh_cluster::algorithms::dbscan::{HDBSCAN, HDBSCANConfig};
-/// use torsh_tensor::Tensor;
+/// use torsh_cluster::traits::{Fit, ClusteringResult};
+/// use torsh_tensor::creation::randn;
 ///
-/// let data = Tensor::randn(&[100, 2])?;
+/// let data = randn::<f32>(&[100, 2])?;
 /// let config = HDBSCANConfig {
 ///     min_cluster_size: 5,
 ///     ..Default::default()
@@ -491,6 +706,7 @@ impl ClusteringResult for HDBSCANResult {
 ///
 /// println!("Found {} clusters", result.n_clusters());
 /// println!("Cluster persistence: {:?}", result.cluster_persistence);
+/// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 #[derive(Debug, Clone)]
 pub struct HDBSCAN {
@@ -910,7 +1126,6 @@ impl DensityBasedClustering for HDBSCAN {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
 
     #[test]
     fn test_dbscan_basic() -> ClusterResult<()> {
@@ -1111,7 +1326,7 @@ mod tests {
 
     #[test]
     fn test_hdbscan_parameters() -> ClusterResult<()> {
-        let data = Tensor::from_vec(vec![0.0, 0.0, 1.0, 1.0], &[2, 2])?;
+        let _data = Tensor::from_vec(vec![0.0, 0.0, 1.0, 1.0], &[2, 2])?;
 
         let config = HDBSCANConfig {
             min_cluster_size: 2,
@@ -1179,14 +1394,15 @@ mod tests {
             .allow_single_cluster(true);
 
         let result = hdbscan.fit(&data)?;
-        assert!(result.n_clusters() >= 0);
+        // n_clusters is usize, always >= 0
+        assert!(result.n_clusters() < usize::MAX);
 
         Ok(())
     }
 
     #[test]
     fn test_dbscan_algorithm_interface() -> ClusterResult<()> {
-        let data = Tensor::from_vec(vec![0.0, 0.0, 1.0, 1.0], &[2, 2])?;
+        let _data = Tensor::from_vec(vec![0.0, 0.0, 1.0, 1.0], &[2, 2])?;
         let dbscan = DBSCAN::new(1.0, 1);
 
         // Test ClusteringAlgorithm interface

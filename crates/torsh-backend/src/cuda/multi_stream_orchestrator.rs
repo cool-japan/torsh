@@ -7,18 +7,16 @@
 //! - Performance monitoring and adaptation
 //! - Integration with memory management and tensor operations
 
+use crate::cuda::error::CudaResult;
 use crate::cuda::{
-    graph_execution::{
-        CudaGraph, GraphCaptureSession, GraphExecutionManager, GraphPerformanceSummary,
-    },
+    graph_execution::{GraphExecutionManager, GraphPerformanceSummary},
     intelligent_scheduler::{
         IntelligentStreamScheduler, MultiOperationCoordinator, SchedulerMetrics,
-        SchedulingDecision, SchedulingStrategy, WorkloadCharacteristics,
+        SchedulingStrategy, WorkloadCharacteristics,
     },
-    stream_advanced::{AdvancedStreamPool, ProfilingReport, StreamProfiler, WorkloadType},
-    CudaEvent, CudaStream,
+    stream_advanced::{ProfilingReport, StreamProfiler, WorkloadType},
+    CudaStream,
 };
-use crate::error::{CudaError, CudaResult};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};

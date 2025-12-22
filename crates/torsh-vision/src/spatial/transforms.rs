@@ -1,5 +1,7 @@
 //! Geometric transformations for computer vision using scirs2-spatial
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{Result, VisionError};
 use scirs2_core::ndarray::{arr2, Array1, Array2, ArrayView2};
 use scirs2_spatial::procrustes::{procrustes, procrustes_extended};
@@ -76,7 +78,7 @@ impl ImageRegistrar {
     pub fn apply_transformation(
         &self,
         points: &Array2<f64>,
-        rotation: &Rotation,
+        _rotation: &Rotation,
         translation: &Array1<f64>,
         scale: f64,
     ) -> Result<Array2<f64>> {
@@ -245,7 +247,7 @@ impl PoseEstimator {
     fn compute_reprojection_error(
         &self,
         points_2d: &Array2<f64>,
-        points_3d: &Array2<f64>,
+        _points_3d: &Array2<f64>,
         _rotation: &Rotation,
         _translation: &Array1<f64>,
     ) -> Result<f64> {
@@ -289,7 +291,7 @@ impl GeometricProcessor {
     pub fn apply_affine_transform(
         &self,
         image: &Tensor,
-        transform_matrix: &Array2<f64>,
+        _transform_matrix: &Array2<f64>,
     ) -> Result<Tensor> {
         // Placeholder for affine transformation
         // Real implementation would apply the transformation matrix to image coordinates
@@ -297,7 +299,7 @@ impl GeometricProcessor {
     }
 
     /// Rectify image using homography
-    pub fn rectify_image(&self, image: &Tensor, homography: &Array2<f64>) -> Result<Tensor> {
+    pub fn rectify_image(&self, image: &Tensor, _homography: &Array2<f64>) -> Result<Tensor> {
         // Placeholder for image rectification
         Ok(image.clone())
     }
@@ -324,8 +326,8 @@ impl GeometricProcessor {
 
     fn compute_homography(
         &self,
-        source: &Array2<f64>,
-        target: &Array2<f64>,
+        _source: &Array2<f64>,
+        _target: &Array2<f64>,
     ) -> Result<Array2<f64>> {
         // Placeholder for homography computation
         Ok(Array2::eye(3))

@@ -47,6 +47,7 @@ impl PyOptimizer {
 #[pyclass(name = "SGD")]
 pub struct PySGD {
     momentum: f32,
+    #[allow(dead_code)]
     dampening: f32,
     weight_decay: f32,
     nesterov: bool,
@@ -214,6 +215,7 @@ pub struct PyAdamW {
     betas: (f32, f32),
     eps: f32,
     weight_decay: f32,
+    #[allow(dead_code)]
     amsgrad: bool,
     learning_rate: f32,
 }
@@ -259,10 +261,12 @@ impl PyAdamW {
 mod tests {
     use super::*;
     use pyo3::types::PyList;
+    use pyo3::Python;
 
     #[test]
     fn test_sgd_creation() {
-        Python::with_gil(|py| {
+        Python::initialize();
+        Python::attach(|py| {
             let data = PyList::new(py, vec![1.0, 2.0, 3.0]).unwrap();
             let tensor = PyTensor::new(data.as_ref(), None, None, true).unwrap();
             let params = vec![tensor];
@@ -275,7 +279,8 @@ mod tests {
 
     #[test]
     fn test_adam_creation() {
-        Python::with_gil(|py| {
+        Python::initialize();
+        Python::attach(|py| {
             let data = PyList::new(py, vec![1.0, 2.0, 3.0]).unwrap();
             let tensor = PyTensor::new(data.as_ref(), None, None, true).unwrap();
             let params = vec![tensor];
@@ -289,7 +294,8 @@ mod tests {
 
     #[test]
     fn test_optimizer_step() {
-        Python::with_gil(|py| {
+        Python::initialize();
+        Python::attach(|py| {
             let data = PyList::new(py, vec![1.0, 2.0, 3.0]).unwrap();
             let tensor = PyTensor::new(data.as_ref(), None, None, true).unwrap();
             let params = vec![tensor];

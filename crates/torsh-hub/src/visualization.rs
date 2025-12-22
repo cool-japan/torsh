@@ -7,6 +7,8 @@
 //! - System resource utilization
 //! - Model architecture diagrams
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::analytics::{ModelPerformanceData, ModelUsageStats, RealTimeMetrics};
 use crate::fine_tuning::TrainingHistory;
 use serde::{Deserialize, Serialize};
@@ -21,6 +23,18 @@ pub struct VisualizationEngine {
     chart_renderer: ChartRenderer,
     dashboard_generator: DashboardGenerator,
     export_manager: ExportManager,
+}
+
+impl VisualizationEngine {
+    /// Get chart renderer
+    pub fn chart_renderer(&self) -> &ChartRenderer {
+        &self.chart_renderer
+    }
+
+    /// Get dashboard generator
+    pub fn dashboard_generator(&self) -> &DashboardGenerator {
+        &self.dashboard_generator
+    }
 }
 
 /// Configuration for visualization settings
@@ -93,9 +107,23 @@ pub struct ChartRenderer {
     config: VisualizationConfig,
 }
 
+impl ChartRenderer {
+    /// Get visualization configuration
+    pub fn config(&self) -> &VisualizationConfig {
+        &self.config
+    }
+}
+
 /// Dashboard generator for creating comprehensive dashboards
 pub struct DashboardGenerator {
     templates: HashMap<String, DashboardTemplate>,
+}
+
+impl DashboardGenerator {
+    /// Get dashboard templates
+    pub fn templates(&self) -> &HashMap<String, DashboardTemplate> {
+        &self.templates
+    }
 }
 
 /// Export manager for saving visualizations
@@ -354,89 +382,92 @@ impl VisualizationConfig {
     /// Create a dark theme configuration preset optimized for dark backgrounds
     /// with carefully selected colors for good contrast and readability
     pub fn dark_theme() -> Self {
-        let mut config = Self::default();
-        config.theme = VisualizationTheme::Dark;
-        config.color_palette = ColorPalette {
-            primary_colors: vec![
-                "#FF7979".to_string(),
-                "#74B9FF".to_string(),
-                "#00B894".to_string(),
-                "#FDCB6E".to_string(),
-                "#E17055".to_string(),
-                "#A29BFE".to_string(),
-                "#FD79A8".to_string(),
-                "#81ECEC".to_string(),
-            ],
-            gradient_colors: vec![
-                "#2C3E50".to_string(),
-                "#34495E".to_string(),
-                "#7F8C8D".to_string(),
-                "#95A5A6".to_string(),
-            ],
-            status_colors: StatusColors {
-                success: "#00B894".to_string(),
-                warning: "#FDCB6E".to_string(),
-                error: "#E74C3C".to_string(),
-                info: "#74B9FF".to_string(),
+        Self {
+            theme: VisualizationTheme::Dark,
+            color_palette: ColorPalette {
+                primary_colors: vec![
+                    "#FF7979".to_string(),
+                    "#74B9FF".to_string(),
+                    "#00B894".to_string(),
+                    "#FDCB6E".to_string(),
+                    "#E17055".to_string(),
+                    "#A29BFE".to_string(),
+                    "#FD79A8".to_string(),
+                    "#81ECEC".to_string(),
+                ],
+                gradient_colors: vec![
+                    "#2C3E50".to_string(),
+                    "#34495E".to_string(),
+                    "#7F8C8D".to_string(),
+                    "#95A5A6".to_string(),
+                ],
+                status_colors: StatusColors {
+                    success: "#00B894".to_string(),
+                    warning: "#FDCB6E".to_string(),
+                    error: "#E74C3C".to_string(),
+                    info: "#74B9FF".to_string(),
+                },
             },
-        };
-        config
+            ..Default::default()
+        }
     }
 
     /// Create a high contrast configuration preset for accessibility compliance
     /// using maximum contrast colors suitable for users with visual impairments
     pub fn high_contrast() -> Self {
-        let mut config = Self::default();
-        config.theme = VisualizationTheme::HighContrast;
-        config.color_palette = ColorPalette {
-            primary_colors: vec![
-                "#000000".to_string(),
-                "#FFFFFF".to_string(),
-                "#FF0000".to_string(),
-                "#00FF00".to_string(),
-                "#0000FF".to_string(),
-                "#FFFF00".to_string(),
-                "#FF00FF".to_string(),
-                "#00FFFF".to_string(),
-            ],
-            gradient_colors: vec!["#000000".to_string(), "#FFFFFF".to_string()],
-            status_colors: StatusColors {
-                success: "#00FF00".to_string(),
-                warning: "#FFFF00".to_string(),
-                error: "#FF0000".to_string(),
-                info: "#0000FF".to_string(),
+        Self {
+            theme: VisualizationTheme::HighContrast,
+            color_palette: ColorPalette {
+                primary_colors: vec![
+                    "#000000".to_string(),
+                    "#FFFFFF".to_string(),
+                    "#FF0000".to_string(),
+                    "#00FF00".to_string(),
+                    "#0000FF".to_string(),
+                    "#FFFF00".to_string(),
+                    "#FF00FF".to_string(),
+                    "#00FFFF".to_string(),
+                ],
+                gradient_colors: vec!["#000000".to_string(), "#FFFFFF".to_string()],
+                status_colors: StatusColors {
+                    success: "#00FF00".to_string(),
+                    warning: "#FFFF00".to_string(),
+                    error: "#FF0000".to_string(),
+                    info: "#0000FF".to_string(),
+                },
             },
-        };
-        config
+            ..Default::default()
+        }
     }
 
     /// Create a configuration optimized for print/publication output
     /// with high DPI settings, static output, and print-friendly colors
     pub fn print_optimized() -> Self {
-        let mut config = Self::default();
-        config.animation_enabled = false;
-        config.high_dpi_enabled = true;
-        config.export_formats = vec![ExportFormat::PDF, ExportFormat::SVG, ExportFormat::PNG];
-        config.color_palette = ColorPalette {
-            primary_colors: vec![
-                "#2C3E50".to_string(),
-                "#E74C3C".to_string(),
-                "#3498DB".to_string(),
-                "#2ECC71".to_string(),
-                "#F39C12".to_string(),
-                "#9B59B6".to_string(),
-                "#1ABC9C".to_string(),
-                "#E67E22".to_string(),
-            ],
-            gradient_colors: vec!["#BDC3C7".to_string(), "#95A5A6".to_string()],
-            status_colors: StatusColors {
-                success: "#27AE60".to_string(),
-                warning: "#F39C12".to_string(),
-                error: "#E74C3C".to_string(),
-                info: "#3498DB".to_string(),
+        Self {
+            animation_enabled: false,
+            high_dpi_enabled: true,
+            export_formats: vec![ExportFormat::PDF, ExportFormat::SVG, ExportFormat::PNG],
+            color_palette: ColorPalette {
+                primary_colors: vec![
+                    "#2C3E50".to_string(),
+                    "#E74C3C".to_string(),
+                    "#3498DB".to_string(),
+                    "#2ECC71".to_string(),
+                    "#F39C12".to_string(),
+                    "#9B59B6".to_string(),
+                    "#1ABC9C".to_string(),
+                    "#E67E22".to_string(),
+                ],
+                gradient_colors: vec!["#BDC3C7".to_string(), "#95A5A6".to_string()],
+                status_colors: StatusColors {
+                    success: "#27AE60".to_string(),
+                    warning: "#F39C12".to_string(),
+                    error: "#E74C3C".to_string(),
+                    info: "#3498DB".to_string(),
+                },
             },
-        };
-        config
+            ..Default::default()
+        }
     }
 }
 
@@ -543,7 +574,7 @@ impl VisualizationEngine {
     /// Create real-time dashboard
     pub fn create_realtime_dashboard(
         &self,
-        metrics: &RealTimeMetrics,
+        _metrics: &RealTimeMetrics,
     ) -> Result<DashboardTemplate> {
         let dashboard = DashboardTemplate {
             name: "Real-time Model Hub Dashboard".to_string(),
@@ -852,49 +883,535 @@ impl VisualizationEngine {
     }
 
     // Additional chart creation methods would be implemented here...
-    fn create_usage_trends_chart(&self, _stats: &[ModelUsageStats]) -> Result<ChartData> {
-        // Implementation would create usage trends visualization
-        Ok(self.create_placeholder_chart("Usage Trends"))
+    fn create_usage_trends_chart(&self, stats: &[ModelUsageStats]) -> Result<ChartData> {
+        // Aggregate daily usage across all models
+        let mut daily_totals: HashMap<String, u64> = HashMap::new();
+
+        for stat in stats {
+            for (date, count) in &stat.daily_usage {
+                *daily_totals.entry(date.clone()).or_insert(0) += count;
+            }
+        }
+
+        // Sort dates chronologically
+        let mut sorted_dates: Vec<_> = daily_totals.keys().cloned().collect();
+        sorted_dates.sort();
+
+        // Create dataset
+        let dataset = Dataset {
+            label: "Daily Usage".to_string(),
+            data: sorted_dates
+                .iter()
+                .enumerate()
+                .map(|(i, date)| {
+                    let count = daily_totals.get(date).copied().unwrap_or(0);
+                    DataPoint {
+                        x: i as f64,
+                        y: count as f64,
+                        label: Some(date.clone()),
+                        metadata: HashMap::new(),
+                    }
+                })
+                .collect(),
+            color: Some("#3b82f6".to_string()), // Blue
+            style: Some(LineStyle::Solid),
+            fill: true,
+        };
+
+        Ok(ChartData {
+            title: "Usage Trends Over Time".to_string(),
+            chart_type: ChartType::Line,
+            datasets: vec![dataset],
+            x_axis: Axis {
+                title: "Date".to_string(),
+                min: None,
+                max: None,
+                scale: AxisScale::Category,
+                format: None,
+            },
+            y_axis: Axis {
+                title: "Usage Count".to_string(),
+                min: Some(0.0),
+                max: None,
+                scale: AxisScale::Linear,
+                format: Some("d".to_string()),
+            },
+            legend: None,
+            annotations: vec![],
+        })
     }
 
-    fn create_popular_models_chart(&self, _stats: &[ModelUsageStats]) -> Result<ChartData> {
-        // Implementation would create popular models visualization
-        Ok(self.create_placeholder_chart("Popular Models"))
+    fn create_popular_models_chart(&self, stats: &[ModelUsageStats]) -> Result<ChartData> {
+        // Sort models by popularity score (descending) and take top 10
+        let mut sorted_stats: Vec<_> = stats.iter().collect();
+        sorted_stats.sort_by(|a, b| b.popularity_score.partial_cmp(&a.popularity_score).unwrap());
+        let top_models = sorted_stats.iter().take(10);
+
+        let dataset = Dataset {
+            label: "Popularity Score".to_string(),
+            data: top_models
+                .enumerate()
+                .map(|(i, stat)| DataPoint {
+                    x: i as f64,
+                    y: stat.popularity_score as f64,
+                    label: Some(stat.model_id.clone()),
+                    metadata: HashMap::new(),
+                })
+                .collect(),
+            color: Some("#8b5cf6".to_string()), // Purple
+            style: Some(LineStyle::Solid),
+            fill: false,
+        };
+
+        Ok(ChartData {
+            title: "Popular Models".to_string(),
+            chart_type: ChartType::Bar,
+            datasets: vec![dataset],
+            x_axis: Axis {
+                title: "Model".to_string(),
+                min: None,
+                max: None,
+                scale: AxisScale::Linear,
+                format: None,
+            },
+            y_axis: Axis {
+                title: "Popularity Score".to_string(),
+                min: Some(0.0),
+                max: None,
+                scale: AxisScale::Linear,
+                format: Some(".2f".to_string()),
+            },
+            legend: None,
+            annotations: vec![],
+        })
     }
 
-    fn create_user_patterns_chart(&self, _stats: &[ModelUsageStats]) -> Result<ChartData> {
-        // Implementation would create user patterns visualization
-        Ok(self.create_placeholder_chart("User Patterns"))
+    fn create_user_patterns_chart(&self, stats: &[ModelUsageStats]) -> Result<ChartData> {
+        // Aggregate usage patterns across all models by hour
+        let mut hourly_totals = [0u64; 24];
+        for stat in stats {
+            for (hour, &count) in stat.hourly_patterns.iter().enumerate() {
+                hourly_totals[hour] += count;
+            }
+        }
+
+        let dataset = Dataset {
+            label: "Usage Count".to_string(),
+            data: hourly_totals
+                .iter()
+                .enumerate()
+                .map(|(hour, &count)| DataPoint {
+                    x: hour as f64,
+                    y: count as f64,
+                    label: Some(format!("{:02}:00", hour)),
+                    metadata: HashMap::new(),
+                })
+                .collect(),
+            color: Some("#f59e0b".to_string()), // Orange
+            style: Some(LineStyle::Solid),
+            fill: false,
+        };
+
+        Ok(ChartData {
+            title: "User Patterns (Hourly Usage)".to_string(),
+            chart_type: ChartType::Bar,
+            datasets: vec![dataset],
+            x_axis: Axis {
+                title: "Hour of Day".to_string(),
+                min: Some(0.0),
+                max: Some(23.0),
+                scale: AxisScale::Linear,
+                format: Some("d".to_string()),
+            },
+            y_axis: Axis {
+                title: "Usage Count".to_string(),
+                min: Some(0.0),
+                max: None,
+                scale: AxisScale::Linear,
+                format: Some("d".to_string()),
+            },
+            legend: None,
+            annotations: vec![],
+        })
     }
 
-    fn create_time_series_usage_chart(&self, _stats: &[ModelUsageStats]) -> Result<ChartData> {
-        // Implementation would create time series usage visualization
-        Ok(self.create_placeholder_chart("Time Series Usage"))
+    fn create_time_series_usage_chart(&self, stats: &[ModelUsageStats]) -> Result<ChartData> {
+        // Create a multi-line chart showing usage trends for top 5 models
+        let mut sorted_stats: Vec<_> = stats.iter().collect();
+        sorted_stats.sort_by(|a, b| b.total_inferences.cmp(&a.total_inferences));
+        let top_models = sorted_stats.iter().take(5);
+
+        let colors = [
+            "#3b82f6", // Blue
+            "#ef4444", // Red
+            "#10b981", // Green
+            "#f59e0b", // Orange
+            "#8b5cf6", // Purple
+        ];
+
+        let mut datasets = vec![];
+
+        for (idx, stat) in top_models.enumerate() {
+            // Sort dates for this model
+            let mut dates: Vec<_> = stat.daily_usage.keys().cloned().collect();
+            dates.sort();
+
+            let data: Vec<DataPoint> = dates
+                .iter()
+                .enumerate()
+                .map(|(i, date)| {
+                    let count = stat.daily_usage.get(date).copied().unwrap_or(0);
+                    DataPoint {
+                        x: i as f64,
+                        y: count as f64,
+                        label: Some(date.clone()),
+                        metadata: HashMap::new(),
+                    }
+                })
+                .collect();
+
+            if !data.is_empty() {
+                datasets.push(Dataset {
+                    label: stat.model_id.clone(),
+                    data,
+                    color: Some(colors[idx % colors.len()].to_string()),
+                    style: Some(LineStyle::Solid),
+                    fill: false,
+                });
+            }
+        }
+
+        Ok(ChartData {
+            title: "Time Series Usage by Model".to_string(),
+            chart_type: ChartType::Line,
+            datasets,
+            x_axis: Axis {
+                title: "Date".to_string(),
+                min: None,
+                max: None,
+                scale: AxisScale::Category,
+                format: None,
+            },
+            y_axis: Axis {
+                title: "Usage Count".to_string(),
+                min: Some(0.0),
+                max: None,
+                scale: AxisScale::Linear,
+                format: Some("d".to_string()),
+            },
+            legend: Some(Legend {
+                position: LegendPosition::TopRight,
+                font_size: 12,
+                columns: 1,
+            }),
+            annotations: vec![],
+        })
     }
 
-    fn create_loss_curve_chart(&self, _history: &TrainingHistory) -> Result<ChartData> {
-        // Implementation would create loss curve visualization
-        Ok(self.create_placeholder_chart("Training Loss"))
+    fn create_loss_curve_chart(&self, history: &TrainingHistory) -> Result<ChartData> {
+        let epochs: Vec<f64> = (1..=history.loss.len()).map(|e| e as f64).collect();
+
+        let mut datasets = vec![Dataset {
+            label: "Training Loss".to_string(),
+            data: history
+                .loss
+                .iter()
+                .enumerate()
+                .map(|(i, &loss)| DataPoint {
+                    x: epochs[i],
+                    y: loss,
+                    label: None,
+                    metadata: HashMap::new(),
+                })
+                .collect(),
+            color: Some("#3b82f6".to_string()), // Blue
+            style: Some(LineStyle::Solid),
+            fill: false,
+        }];
+
+        // Add validation loss if available
+        if !history.val_loss.is_empty() {
+            datasets.push(Dataset {
+                label: "Validation Loss".to_string(),
+                data: history
+                    .val_loss
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &loss)| DataPoint {
+                        x: (i + 1) as f64,
+                        y: loss,
+                        label: None,
+                        metadata: HashMap::new(),
+                    })
+                    .collect(),
+                color: Some("#ef4444".to_string()), // Red
+                style: Some(LineStyle::Dashed),
+                fill: false,
+            });
+        }
+
+        Ok(ChartData {
+            title: "Training Loss".to_string(),
+            chart_type: ChartType::Line,
+            datasets,
+            x_axis: Axis {
+                title: "Epoch".to_string(),
+                min: Some(1.0),
+                max: Some(history.loss.len() as f64),
+                scale: AxisScale::Linear,
+                format: Some("d".to_string()),
+            },
+            y_axis: Axis {
+                title: "Loss".to_string(),
+                min: None,
+                max: None,
+                scale: AxisScale::Linear,
+                format: Some(".4f".to_string()),
+            },
+            legend: Some(Legend {
+                position: LegendPosition::TopRight,
+                font_size: 12,
+                columns: 1,
+            }),
+            annotations: vec![],
+        })
     }
 
-    fn create_accuracy_curve_chart(&self, _history: &TrainingHistory) -> Result<ChartData> {
-        // Implementation would create accuracy curve visualization
-        Ok(self.create_placeholder_chart("Training Accuracy"))
+    fn create_accuracy_curve_chart(&self, history: &TrainingHistory) -> Result<ChartData> {
+        // Look for accuracy metrics in the history
+        let mut datasets = vec![];
+
+        if let Some(train_accuracy) = history.metrics.get("accuracy") {
+            let epochs: Vec<f64> = (1..=train_accuracy.len()).map(|e| e as f64).collect();
+            datasets.push(Dataset {
+                label: "Training Accuracy".to_string(),
+                data: train_accuracy
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &acc)| DataPoint {
+                        x: epochs[i],
+                        y: acc,
+                        label: None,
+                        metadata: HashMap::new(),
+                    })
+                    .collect(),
+                color: Some("#3b82f6".to_string()), // Blue
+                style: Some(LineStyle::Solid),
+                fill: false,
+            });
+        }
+
+        if let Some(val_accuracy) = history.metrics.get("val_accuracy") {
+            let epochs: Vec<f64> = (1..=val_accuracy.len()).map(|e| e as f64).collect();
+            datasets.push(Dataset {
+                label: "Validation Accuracy".to_string(),
+                data: val_accuracy
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &acc)| DataPoint {
+                        x: epochs[i],
+                        y: acc,
+                        label: None,
+                        metadata: HashMap::new(),
+                    })
+                    .collect(),
+                color: Some("#10b981".to_string()), // Green
+                style: Some(LineStyle::Dashed),
+                fill: false,
+            });
+        }
+
+        let num_epochs = datasets.first().map(|d| d.data.len()).unwrap_or(0);
+
+        Ok(ChartData {
+            title: "Training Accuracy".to_string(),
+            chart_type: ChartType::Line,
+            datasets,
+            x_axis: Axis {
+                title: "Epoch".to_string(),
+                min: Some(1.0),
+                max: Some(num_epochs as f64),
+                scale: AxisScale::Linear,
+                format: Some("d".to_string()),
+            },
+            y_axis: Axis {
+                title: "Accuracy".to_string(),
+                min: Some(0.0),
+                max: Some(1.0),
+                scale: AxisScale::Linear,
+                format: Some(".2%".to_string()),
+            },
+            legend: Some(Legend {
+                position: LegendPosition::BottomRight,
+                font_size: 12,
+                columns: 1,
+            }),
+            annotations: vec![],
+        })
     }
 
-    fn create_lr_schedule_chart(&self, _history: &TrainingHistory) -> Result<ChartData> {
-        // Implementation would create learning rate schedule visualization
-        Ok(self.create_placeholder_chart("Learning Rate Schedule"))
+    fn create_lr_schedule_chart(&self, history: &TrainingHistory) -> Result<ChartData> {
+        let epochs: Vec<f64> = (1..=history.learning_rates.len())
+            .map(|e| e as f64)
+            .collect();
+
+        let dataset = Dataset {
+            label: "Learning Rate".to_string(),
+            data: history
+                .learning_rates
+                .iter()
+                .enumerate()
+                .map(|(i, &lr)| DataPoint {
+                    x: epochs[i],
+                    y: lr,
+                    label: None,
+                    metadata: HashMap::new(),
+                })
+                .collect(),
+            color: Some("#10b981".to_string()), // Green
+            style: Some(LineStyle::Solid),
+            fill: false,
+        };
+
+        Ok(ChartData {
+            title: "Learning Rate Schedule".to_string(),
+            chart_type: ChartType::Line,
+            datasets: vec![dataset],
+            x_axis: Axis {
+                title: "Epoch".to_string(),
+                min: Some(1.0),
+                max: Some(history.learning_rates.len() as f64),
+                scale: AxisScale::Linear,
+                format: Some("d".to_string()),
+            },
+            y_axis: Axis {
+                title: "Learning Rate".to_string(),
+                min: None,
+                max: None,
+                scale: AxisScale::Logarithmic,
+                format: Some(".2e".to_string()),
+            },
+            legend: Some(Legend {
+                position: LegendPosition::TopRight,
+                font_size: 12,
+                columns: 1,
+            }),
+            annotations: vec![],
+        })
     }
 
-    fn create_gradient_norms_chart(&self, _history: &TrainingHistory) -> Result<ChartData> {
-        // Implementation would create gradient norms visualization
-        Ok(self.create_placeholder_chart("Gradient Norms"))
+    fn create_gradient_norms_chart(&self, history: &TrainingHistory) -> Result<ChartData> {
+        let mut datasets = vec![];
+
+        // Look for gradient norm metrics (grad_norm, gradient_norm, etc.)
+        for (metric_name, values) in &history.metrics {
+            if metric_name.to_lowercase().contains("grad")
+                && (metric_name.to_lowercase().contains("norm")
+                    || metric_name.to_lowercase().contains("magnitude"))
+            {
+                let epochs: Vec<f64> = (1..=values.len()).map(|e| e as f64).collect();
+                datasets.push(Dataset {
+                    label: metric_name.clone(),
+                    data: values
+                        .iter()
+                        .enumerate()
+                        .map(|(i, &val)| DataPoint {
+                            x: epochs[i],
+                            y: val,
+                            label: None,
+                            metadata: HashMap::new(),
+                        })
+                        .collect(),
+                    color: None, // Auto-assign colors
+                    style: Some(LineStyle::Solid),
+                    fill: false,
+                });
+            }
+        }
+
+        // If no gradient norms found, create empty chart with message
+        let num_epochs = datasets.first().map(|d| d.data.len()).unwrap_or(1);
+
+        Ok(ChartData {
+            title: "Gradient Norms".to_string(),
+            chart_type: ChartType::Line,
+            datasets,
+            x_axis: Axis {
+                title: "Epoch".to_string(),
+                min: Some(1.0),
+                max: Some(num_epochs as f64),
+                scale: AxisScale::Linear,
+                format: Some("d".to_string()),
+            },
+            y_axis: Axis {
+                title: "Gradient Norm".to_string(),
+                min: None,
+                max: None,
+                scale: AxisScale::Logarithmic,
+                format: Some(".2e".to_string()),
+            },
+            legend: Some(Legend {
+                position: LegendPosition::TopRight,
+                font_size: 12,
+                columns: 1,
+            }),
+            annotations: vec![],
+        })
     }
 
-    fn create_validation_metrics_chart(&self, _history: &TrainingHistory) -> Result<ChartData> {
-        // Implementation would create validation metrics visualization
-        Ok(self.create_placeholder_chart("Validation Metrics"))
+    fn create_validation_metrics_chart(&self, history: &TrainingHistory) -> Result<ChartData> {
+        let mut datasets = vec![];
+
+        // Collect all validation metrics (those starting with "val_")
+        for (metric_name, values) in &history.metrics {
+            if metric_name.starts_with("val_") {
+                let epochs: Vec<f64> = (1..=values.len()).map(|e| e as f64).collect();
+                datasets.push(Dataset {
+                    label: metric_name.clone(),
+                    data: values
+                        .iter()
+                        .enumerate()
+                        .map(|(i, &val)| DataPoint {
+                            x: epochs[i],
+                            y: val,
+                            label: None,
+                            metadata: HashMap::new(),
+                        })
+                        .collect(),
+                    color: None, // Auto-assign colors
+                    style: Some(LineStyle::Solid),
+                    fill: false,
+                });
+            }
+        }
+
+        let num_epochs = datasets.first().map(|d| d.data.len()).unwrap_or(0);
+
+        Ok(ChartData {
+            title: "Validation Metrics".to_string(),
+            chart_type: ChartType::Line,
+            datasets,
+            x_axis: Axis {
+                title: "Epoch".to_string(),
+                min: Some(1.0),
+                max: Some(num_epochs as f64),
+                scale: AxisScale::Linear,
+                format: Some("d".to_string()),
+            },
+            y_axis: Axis {
+                title: "Metric Value".to_string(),
+                min: None,
+                max: None,
+                scale: AxisScale::Linear,
+                format: Some(".4f".to_string()),
+            },
+            legend: Some(Legend {
+                position: LegendPosition::TopRight,
+                font_size: 12,
+                columns: 1,
+            }),
+            annotations: vec![],
+        })
     }
 
     fn create_placeholder_chart(&self, title: &str) -> ChartData {

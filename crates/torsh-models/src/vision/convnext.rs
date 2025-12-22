@@ -55,17 +55,12 @@
 //! let output = model.forward(&input)?;
 //! ```
 
-use crate::error::{Result, TorshError};
+use torsh_core::error::{Result, TorshError};
+use torsh_core::{DeviceType, DType};
 use std::collections::HashMap;
-use torsh_core::{DeviceType, Tensor, DType};
-use torsh_nn::{
-    activations::GELU,
-    dropout::Dropout,
-    layers::{Conv2d, Linear},
-    normalization::LayerNorm,
-    module::{Module, Parameter},
-    Sequential,
-};
+use torsh_tensor::Tensor;
+use torsh_nn::prelude::*;
+use torsh_nn::{Module, Parameter};
 
 /// ConvNeXt Block - Modernized Convolutional Block
 ///
@@ -982,11 +977,4 @@ mod tests {
     }
 }
 
-/// Re-export commonly used types
-pub use self::{
-    ConvNeXtBlock,
-    ConvNeXtStage,
-    ConvNeXt,
-    ConvNeXtConfig,
-    ConvNeXtFactory,
-};
+// Types are already public, no need for re-export

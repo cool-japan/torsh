@@ -507,7 +507,6 @@ use crate::ir::Instruction;
 mod tests {
     use super::*;
     use crate::graph::Edge;
-    use std::collections::HashMap;
     use torsh_core::{DType, DeviceType};
 
     #[test]

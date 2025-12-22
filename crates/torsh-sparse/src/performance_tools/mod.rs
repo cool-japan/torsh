@@ -27,7 +27,8 @@
 //! let measurements = profiler.benchmark_format_conversion(&dense_matrix)?;
 //!
 //! // Generate comprehensive report
-//! let report = PerformanceReport::default() // TODO: Replace with actual report generation;
+//! let mut report = PerformanceReport::new();
+//! report.add_measurements(&measurements);
 //! println!("{}", report);
 //! ```
 //!
@@ -67,6 +68,8 @@
 //! - **Minimal overhead**: Optimized measurement infrastructure with configurable precision
 //! - **Scalable analysis**: Supports both single-threaded and distributed profiling scenarios
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 // Re-export all modules for internal organization
 pub mod core;
 pub mod export;
@@ -103,7 +106,6 @@ pub use export::{
 };
 
 use crate::{SparseTensor, TorshError, TorshResult};
-use std::collections::HashMap;
 
 /// Convenience function to create a default profiler with balanced configuration
 ///
@@ -205,7 +207,7 @@ pub fn comprehensive_analysis(
     let mut profiler = default_profiler();
     let mut auto_tuner = AutoTuner::new();
     let mut hardware_benchmark = HardwareBenchmark::new();
-    let mut trend_analyzer = TrendAnalyzer::new();
+    let _trend_analyzer = TrendAnalyzer::new();
     let mut exporter = TensorBoardExporter::new();
 
     // 1. Hardware capability analysis
@@ -223,7 +225,7 @@ pub fn comprehensive_analysis(
     for tensor in sparse_tensors {
         // Auto-tune format selection
         let characteristics = infer_characteristics(*tensor);
-        let tuning_result = auto_tuner.find_optimal_format(&characteristics)?;
+        let _tuning_result = auto_tuner.find_optimal_format(&characteristics)?;
 
         // Profile operations based on auto-tuning results
         for &operation in operations {
@@ -384,7 +386,7 @@ impl ComprehensiveAnalysisReport {
     ///
     /// Returns up to 5 most important recommendations based on potential impact
     pub fn top_recommendations(&self) -> Vec<String> {
-        let mut all_recs = self.all_recommendations();
+        let _all_recs = self.all_recommendations();
 
         // Prioritize hardware and auto-tuning recommendations as they typically have higher impact
         let mut prioritized = Vec::new();
@@ -507,8 +509,10 @@ pub fn quick_performance_check(
     let dummy_dense = create_dummy_dense_matrix(shape.dims()[0], shape.dims()[1])?;
     let format_measurements = profiler.benchmark_format_conversion(&dummy_dense)?;
 
-    // Generate basic report
-    let report = PerformanceReport::default(); // TODO: Replace with actual report generation
+    // Generate actual performance report from measurements
+    let mut report = PerformanceReport::new();
+    report.add_measurements(&format_measurements);
+    report.add_memory_analysis(memory_analysis.clone());
     let summary = report.performance_summary();
 
     // Generate recommendations before moving memory_analysis
@@ -612,12 +616,12 @@ fn infer_characteristics(sparse_tensor: &dyn SparseTensor) -> InputCharacteristi
 
 /// Create a dummy dense matrix for benchmarking
 fn create_dummy_dense_matrix(rows: usize, cols: usize) -> TorshResult<crate::Tensor> {
-    use torsh_core::{DType, Device, Shape};
+    use torsh_core::{DType, Shape};
 
     // Create a simple dense matrix filled with ones
     let shape = Shape::new(vec![rows.min(100), cols.min(100)]); // Limit size for performance
     let device = torsh_core::DeviceType::Cpu;
-    let dtype = DType::F32;
+    let _dtype = DType::F32;
 
     // This is a simplified implementation - in practice, you'd use the actual
     // tensor creation APIs from torsh-tensor
@@ -668,7 +672,7 @@ fn generate_quick_recommendations(
 mod tests {
     use super::*;
     use crate::{CooTensor, SparseFormat};
-    use torsh_core::{DType, Device, Shape};
+    use torsh_core::Shape;
 
     fn create_test_sparse_tensor() -> CooTensor {
         let row_indices = vec![0, 1, 2];
@@ -763,9 +767,15 @@ mod tests {
 
     #[test]
     fn test_comprehensive_analysis_report() {
+        use std::collections::HashMap;
+
         let report = ComprehensiveAnalysisReport {
             performance_report: PerformanceReport::new(),
-            memory_analyses: vec![MemoryAnalysis::new(SparseFormat::Coo, 100, (1000, 1000))],
+            memory_analyses: vec![MemoryAnalysis::new(
+                crate::SparseFormat::Coo,
+                100,
+                (1000, 1000),
+            )],
             system_capabilities: SystemCapabilityReport {
                 system_info: SystemInfo::detect(),
                 capability_scores: HashMap::new(),

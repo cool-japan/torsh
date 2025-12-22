@@ -6,6 +6,12 @@
 //! - Parameter analysis and diagnostics
 //! - Parameter collections and batch operations
 
+pub mod parameter_ext;
+
+pub use parameter_ext::{
+    ParameterAnalysis, ParameterCollectionExt, ParameterConstraint, ParameterExt, ParameterGroup,
+};
+
 use crate::init::Initializer;
 use parking_lot::RwLock;
 use std::sync::Arc;
@@ -465,13 +471,13 @@ impl Parameter {
 
     /// Add noise to parameter
     pub fn add_noise(&mut self, std: f32) -> Result<()> {
-        use scirs2_core::random::{Random, Rng, thread_rng};
+        use scirs2_core::random::{thread_rng, Rng};
         let mut rng = thread_rng();
         let mut tensor = self.data.write();
         let data = tensor.to_vec()?;
         let noisy_data: Vec<f32> = data
             .iter()
-            .map(|&x| x + rng.gen::<f32>() * std)
+            .map(|&x| x + rng.random::<f32>() * std)
             .collect();
         let shape = tensor.shape().dims().to_vec();
         *tensor = torsh_tensor::Tensor::from_vec(noisy_data, &shape)?;
@@ -924,5 +930,731 @@ impl From<HashMap<String, Parameter>> for ParameterCollection {
 impl From<ParameterCollection> for HashMap<String, Parameter> {
     fn from(val: ParameterCollection) -> Self {
         val.parameters
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+    use torsh_core::device::DeviceType;
+    use torsh_tensor::creation::zeros;
+
+    // ========================================================================
+    // Parameter Creation Tests
+    // ========================================================================
+
+    #[test]
+    fn test_parameter_new() -> Result<()> {
+        let tensor = zeros(&[3, 4])?;
+        let param = Parameter::new(tensor);
+
+        assert!(param.requires_grad());
+        assert_eq!(param.shape()?, vec![3, 4]);
+        assert_eq!(param.numel()?, 12);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_new_no_grad() -> Result<()> {
+        let tensor = zeros(&[2, 3])?;
+        let param = Parameter::new_no_grad(tensor);
+
+        assert!(!param.requires_grad());
+        assert_eq!(param.shape()?, vec![2, 3]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_from_tensor() -> Result<()> {
+        let tensor = zeros(&[5])?;
+        let arc_tensor = Arc::new(RwLock::new(tensor));
+        let param = Parameter::from_tensor(arc_tensor);
+
+        assert!(param.requires_grad());
+        assert_eq!(param.shape()?, vec![5]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_requires_grad_setter() -> Result<()> {
+        let tensor = zeros(&[2, 2])?;
+        let param = Parameter::new(tensor).requires_grad_(false);
+
+        assert!(!param.requires_grad());
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_from_data() -> Result<()> {
+        let data = vec![1.0, 2.0, 3.0, 4.0];
+        let param = Parameter::from_data(data.clone(), vec![2, 2])?;
+
+        assert_eq!(param.shape()?, vec![2, 2]);
+        assert_eq!(param.numel()?, 4);
+
+        let tensor_data = param.clone_data().to_vec()?;
+        assert_eq!(tensor_data, data);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_from_data_auto_shape() -> Result<()> {
+        let data = vec![1.0, 2.0, 3.0];
+        let param = Parameter::from_data_auto_shape(data.clone())?;
+
+        assert_eq!(param.shape()?, vec![3]);
+        assert_eq!(param.numel()?, 3);
+        Ok(())
+    }
+
+    // ========================================================================
+    // Parameter Initialization Tests
+    // ========================================================================
+
+    #[test]
+    fn test_parameter_zeros() -> Result<()> {
+        let param = Parameter::zeros(vec![2, 3], DeviceType::Cpu)?;
+        let data = param.clone_data().to_vec()?;
+
+        assert_eq!(param.numel()?, 6);
+        assert!(data.iter().all(|&x| x == 0.0));
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_ones() -> Result<()> {
+        let param = Parameter::ones(vec![3, 2], DeviceType::Cpu)?;
+        let data = param.clone_data().to_vec()?;
+
+        assert_eq!(param.numel()?, 6);
+        assert!(data.iter().all(|&x| x == 1.0));
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_constant() -> Result<()> {
+        let param = Parameter::constant(vec![2, 2], DeviceType::Cpu, 5.0)?;
+        let data = param.clone_data().to_vec()?;
+
+        assert!(data.iter().all(|&x| (x - 5.0).abs() < 1e-6));
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_uniform() -> Result<()> {
+        let param = Parameter::uniform(vec![100], DeviceType::Cpu, -1.0, 1.0)?;
+        let data = param.clone_data().to_vec()?;
+
+        // Check all values are in range
+        assert!(data.iter().all(|&x| x >= -1.0 && x <= 1.0));
+
+        // Check distribution statistics
+        let mean = data.iter().sum::<f32>() / data.len() as f32;
+        assert!(mean.abs() < 0.2); // Should be close to 0
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_normal() -> Result<()> {
+        let param = Parameter::normal(vec![1000], DeviceType::Cpu, 0.0, 1.0)?;
+        let data = param.clone_data().to_vec()?;
+
+        let mean = data.iter().sum::<f32>() / data.len() as f32;
+        let variance = data.iter().map(|x| (x - mean).powi(2)).sum::<f32>() / data.len() as f32;
+
+        // Normal distribution should have mean ≈ 0 and variance ≈ 1
+        assert!(mean.abs() < 0.1);
+        assert!((variance - 1.0).abs() < 0.2);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_xavier_uniform() -> Result<()> {
+        let shape = vec![100, 50];
+        let param = Parameter::xavier_uniform(shape.clone(), DeviceType::Cpu, 1.0)?;
+
+        assert_eq!(param.shape()?, shape);
+        assert!(param.is_finite()?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_xavier_normal() -> Result<()> {
+        let shape = vec![50, 100];
+        let param = Parameter::xavier_normal(shape.clone(), DeviceType::Cpu, 1.0)?;
+
+        assert_eq!(param.shape()?, shape);
+        assert!(param.is_finite()?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_kaiming_uniform() -> Result<()> {
+        let shape = vec![64, 32];
+        let param = Parameter::kaiming_uniform(shape.clone(), DeviceType::Cpu, "relu")?;
+
+        assert_eq!(param.shape()?, shape);
+        assert!(param.is_finite()?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_kaiming_normal() -> Result<()> {
+        let shape = vec![32, 64];
+        let param = Parameter::kaiming_normal(shape.clone(), DeviceType::Cpu, "relu")?;
+
+        assert_eq!(param.shape()?, shape);
+        assert!(param.is_finite()?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_lecun_uniform() -> Result<()> {
+        let shape = vec![50, 50];
+        let param = Parameter::lecun_uniform(shape.clone(), DeviceType::Cpu)?;
+
+        assert_eq!(param.shape()?, shape);
+        assert!(param.is_finite()?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_lecun_normal() -> Result<()> {
+        let shape = vec![50, 50];
+        let param = Parameter::lecun_normal(shape.clone(), DeviceType::Cpu)?;
+
+        assert_eq!(param.shape()?, shape);
+        assert!(param.is_finite()?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_truncated_normal() -> Result<()> {
+        let param = Parameter::truncated_normal(vec![100], DeviceType::Cpu, 0.0, 1.0, -2.0, 2.0)?;
+
+        let data = param.clone_data().to_vec()?;
+        // All values should be within truncation bounds
+        assert!(data.iter().all(|&x| x >= -2.0 && x <= 2.0));
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_eye() -> Result<()> {
+        let param = Parameter::eye(vec![3, 3], DeviceType::Cpu)?;
+        let data = param.clone_data().to_vec()?;
+
+        // Check diagonal elements are 1
+        assert_relative_eq!(data[0], 1.0, epsilon = 1e-6); // [0,0]
+        assert_relative_eq!(data[4], 1.0, epsilon = 1e-6); // [1,1]
+        assert_relative_eq!(data[8], 1.0, epsilon = 1e-6); // [2,2]
+
+        // Check off-diagonal elements are 0
+        assert_relative_eq!(data[1], 0.0, epsilon = 1e-6);
+        assert_relative_eq!(data[2], 0.0, epsilon = 1e-6);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_auto_init_linear() -> Result<()> {
+        let param = Parameter::auto_init(vec![10, 5], DeviceType::Cpu, LayerType::Linear)?;
+
+        assert_eq!(param.shape()?, vec![10, 5]);
+        assert!(param.is_finite()?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_auto_init_conv() -> Result<()> {
+        let param = Parameter::auto_init(vec![3, 3, 32, 64], DeviceType::Cpu, LayerType::Conv)?;
+
+        assert_eq!(param.shape()?, vec![3, 3, 32, 64]);
+        assert!(param.is_finite()?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_auto_init_embedding() -> Result<()> {
+        let param = Parameter::auto_init(vec![1000, 128], DeviceType::Cpu, LayerType::Embedding)?;
+
+        assert_eq!(param.shape()?, vec![1000, 128]);
+        assert!(param.is_finite()?);
+        Ok(())
+    }
+
+    // ========================================================================
+    // Parameter Statistics Tests
+    // ========================================================================
+
+    #[test]
+    fn test_parameter_stats() -> Result<()> {
+        let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let param = Parameter::from_data(data, vec![5])?;
+        let stats = param.stats()?;
+
+        assert_relative_eq!(stats.mean, 3.0, epsilon = 1e-5);
+        assert_relative_eq!(stats.min, 1.0, epsilon = 1e-5);
+        assert_relative_eq!(stats.max, 5.0, epsilon = 1e-5);
+        assert_eq!(stats.numel, 5);
+        assert_relative_eq!(stats.median, 3.0, epsilon = 1e-5);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_stats_empty() -> Result<()> {
+        let param: Parameter = Parameter::from_data(vec![], vec![0])?;
+        let stats = param.stats()?;
+
+        assert_eq!(stats.numel, 0);
+        assert_eq!(stats.mean, 0.0);
+        assert_eq!(stats.std, 0.0);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_norm_l2() -> Result<()> {
+        let data = vec![3.0, 4.0]; // 3^2 + 4^2 = 25, sqrt = 5
+        let param = Parameter::from_data(data, vec![2])?;
+        let norm = param.norm()?;
+
+        assert_relative_eq!(norm, 5.0, epsilon = 1e-5);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_norm_l1() -> Result<()> {
+        let data = vec![3.0, -4.0, 5.0]; // |3| + |-4| + |5| = 12
+        let param = Parameter::from_data(data, vec![3])?;
+        let norm = param.l1_norm()?;
+
+        assert_relative_eq!(norm, 12.0, epsilon = 1e-5);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_norm_linf() -> Result<()> {
+        let data = vec![1.0, -5.0, 3.0]; // max(|1|, |-5|, |3|) = 5
+        let param = Parameter::from_data(data, vec![3])?;
+        let norm = param.linf_norm()?;
+
+        assert_relative_eq!(norm, 5.0, epsilon = 1e-5);
+        Ok(())
+    }
+
+    // ========================================================================
+    // Parameter Operations Tests
+    // ========================================================================
+
+    #[test]
+    fn test_parameter_clamp() -> Result<()> {
+        let data = vec![-5.0, 0.0, 5.0, 10.0];
+        let mut param = Parameter::from_data(data, vec![4])?;
+
+        param.clamp(0.0, 5.0)?;
+
+        let clamped = param.clone_data().to_vec()?;
+        assert_relative_eq!(clamped[0], 0.0, epsilon = 1e-5); // -5 clamped to 0
+        assert_relative_eq!(clamped[1], 0.0, epsilon = 1e-5);
+        assert_relative_eq!(clamped[2], 5.0, epsilon = 1e-5);
+        assert_relative_eq!(clamped[3], 5.0, epsilon = 1e-5); // 10 clamped to 5
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_scale() -> Result<()> {
+        let data = vec![1.0, 2.0, 3.0];
+        let mut param = Parameter::from_data(data, vec![3])?;
+
+        param.scale(2.0)?;
+
+        let scaled = param.clone_data().to_vec()?;
+        assert_relative_eq!(scaled[0], 2.0, epsilon = 1e-5);
+        assert_relative_eq!(scaled[1], 4.0, epsilon = 1e-5);
+        assert_relative_eq!(scaled[2], 6.0, epsilon = 1e-5);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_apply_fn() -> Result<()> {
+        let data = vec![1.0, 2.0, 3.0];
+        let mut param = Parameter::from_data(data, vec![3])?;
+
+        param.apply_fn(|x| x * x)?; // Square each element
+
+        let result = param.clone_data().to_vec()?;
+        assert_relative_eq!(result[0], 1.0, epsilon = 1e-5);
+        assert_relative_eq!(result[1], 4.0, epsilon = 1e-5);
+        assert_relative_eq!(result[2], 9.0, epsilon = 1e-5);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_add_noise() -> Result<()> {
+        let data = vec![0.0; 100];
+        let mut param = Parameter::from_data(data, vec![100])?;
+
+        param.add_noise(0.1)?;
+
+        let noisy = param.clone_data().to_vec()?;
+        // After adding noise, values should no longer all be 0
+        let all_zero = noisy.iter().all(|&x| x == 0.0);
+        assert!(!all_zero);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_is_finite() -> Result<()> {
+        let data = vec![1.0, 2.0, 3.0];
+        let param = Parameter::from_data(data, vec![3])?;
+
+        assert!(param.is_finite()?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_reinitialize() -> Result<()> {
+        let mut param = Parameter::zeros(vec![5], DeviceType::Cpu)?;
+
+        use crate::init::InitMethod;
+        param.reinitialize(InitMethod::Constant { value: 7.0 })?;
+
+        let data = param.clone_data().to_vec()?;
+        assert!(data.iter().all(|&x| (x - 7.0).abs() < 1e-6));
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_histogram() -> Result<()> {
+        let data: Vec<f32> = (0..100).map(|i| i as f32).collect();
+        let param = Parameter::from_data(data, vec![100])?;
+
+        let histogram = param.histogram(10)?;
+
+        assert_eq!(histogram.len(), 10);
+        // Each bin should have roughly 10 elements
+        for (_, count) in histogram {
+            assert!(count >= 9 && count <= 11);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_histogram_constant() -> Result<()> {
+        let data = vec![5.0; 10];
+        let param = Parameter::from_data(data, vec![10])?;
+
+        let histogram = param.histogram(5)?;
+
+        // All values are the same, should return single bin
+        assert_eq!(histogram.len(), 1);
+        assert_eq!(histogram[0].1, 10);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_diagnose_normal() -> Result<()> {
+        let data = vec![1.0, 2.0, 3.0, 4.0];
+        let param = Parameter::from_data(data, vec![4])?;
+
+        let diagnostics = param.diagnose()?;
+
+        assert!(diagnostics.is_finite);
+        assert!(diagnostics.issues.is_empty());
+        assert_eq!(diagnostics.stats.numel, 4);
+        Ok(())
+    }
+
+    // ========================================================================
+    // ParameterStats Tests
+    // ========================================================================
+
+    #[test]
+    fn test_parameter_stats_from_data() {
+        let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let stats = ParameterStats::from_data(&data);
+
+        assert_relative_eq!(stats.mean, 3.0, epsilon = 1e-5);
+        assert_relative_eq!(stats.median, 3.0, epsilon = 1e-5);
+        assert_relative_eq!(stats.min, 1.0, epsilon = 1e-5);
+        assert_relative_eq!(stats.max, 5.0, epsilon = 1e-5);
+        assert_eq!(stats.numel, 5);
+    }
+
+    #[test]
+    fn test_parameter_stats_empty_constructor() {
+        let stats = ParameterStats::empty();
+
+        assert_eq!(stats.mean, 0.0);
+        assert_eq!(stats.std, 0.0);
+        assert_eq!(stats.numel, 0);
+    }
+
+    #[test]
+    fn test_parameter_stats_iqr() {
+        let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let stats = ParameterStats::from_data(&data);
+
+        let iqr = stats.iqr();
+        assert!(iqr > 0.0);
+    }
+
+    #[test]
+    fn test_parameter_stats_is_approximately_normal() {
+        // Create approximately normal data
+        let data: Vec<f32> = vec![-1.0, -0.5, 0.0, 0.5, 1.0, -0.3, 0.3, -0.8, 0.8, -0.2, 0.2];
+        let stats = ParameterStats::from_data(&data);
+
+        // This is a simple heuristic check
+        assert!(stats.skewness.abs() < 2.0); // Not too skewed
+    }
+
+    // ========================================================================
+    // ParameterCollection Tests
+    // ========================================================================
+
+    #[test]
+    fn test_parameter_collection_new() {
+        let collection = ParameterCollection::new();
+
+        assert_eq!(collection.len(), 0);
+        assert!(collection.is_empty());
+    }
+
+    #[test]
+    fn test_parameter_collection_add_get() -> Result<()> {
+        let mut collection = ParameterCollection::new();
+
+        let param = Parameter::zeros(vec![3, 4], DeviceType::Cpu)?;
+        collection.add("weight".to_string(), param);
+
+        assert_eq!(collection.len(), 1);
+        assert!(collection.get("weight").is_some());
+        assert!(collection.get("bias").is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_collection_names() -> Result<()> {
+        let mut collection = ParameterCollection::new();
+
+        collection.add(
+            "weight".to_string(),
+            Parameter::zeros(vec![2, 2], DeviceType::Cpu)?,
+        );
+        collection.add(
+            "bias".to_string(),
+            Parameter::zeros(vec![2], DeviceType::Cpu)?,
+        );
+
+        let names = collection.names();
+        assert_eq!(names.len(), 2);
+        assert!(names.contains(&&"weight".to_string()));
+        assert!(names.contains(&&"bias".to_string()));
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_collection_total_parameters() -> Result<()> {
+        let mut collection = ParameterCollection::new();
+
+        collection.add(
+            "weight".to_string(),
+            Parameter::zeros(vec![2, 3], DeviceType::Cpu)?,
+        ); // 6 params
+        collection.add(
+            "bias".to_string(),
+            Parameter::zeros(vec![3], DeviceType::Cpu)?,
+        ); // 3 params
+
+        assert_eq!(collection.total_parameters(), 9);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_collection_total_memory_usage() -> Result<()> {
+        let mut collection = ParameterCollection::new();
+
+        collection.add(
+            "weight".to_string(),
+            Parameter::zeros(vec![10], DeviceType::Cpu)?,
+        );
+
+        let memory = collection.total_memory_usage();
+        assert_eq!(memory, 10 * 4); // 10 f32 elements * 4 bytes
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_collection_freeze_unfreeze() -> Result<()> {
+        let mut collection = ParameterCollection::new();
+
+        let param = Parameter::zeros(vec![2], DeviceType::Cpu)?;
+        collection.add("weight".to_string(), param);
+
+        collection.freeze_all();
+        assert!(!collection.get("weight").unwrap().requires_grad());
+
+        collection.unfreeze_all();
+        assert!(collection.get("weight").unwrap().requires_grad());
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_collection_scale_all() -> Result<()> {
+        let mut collection = ParameterCollection::new();
+
+        let param = Parameter::ones(vec![3], DeviceType::Cpu)?;
+        collection.add("weight".to_string(), param);
+
+        collection.scale_all(2.0)?;
+
+        let weight = collection.get("weight").unwrap();
+        let data = weight.clone_data().to_vec()?;
+        assert!(data.iter().all(|&x| (x - 2.0).abs() < 1e-5));
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_collection_clamp_all() -> Result<()> {
+        let mut collection = ParameterCollection::new();
+
+        let data = vec![-5.0, 0.0, 5.0];
+        let param = Parameter::from_data(data, vec![3])?;
+        collection.add("weight".to_string(), param);
+
+        collection.clamp_all(-1.0, 1.0)?;
+
+        let weight = collection.get("weight").unwrap();
+        let clamped = weight.clone_data().to_vec()?;
+        assert!(clamped.iter().all(|&x| x >= -1.0 && x <= 1.0));
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_collection_filter_by_name() -> Result<()> {
+        let mut collection = ParameterCollection::new();
+
+        collection.add(
+            "layer1.weight".to_string(),
+            Parameter::zeros(vec![2], DeviceType::Cpu)?,
+        );
+        collection.add(
+            "layer1.bias".to_string(),
+            Parameter::zeros(vec![2], DeviceType::Cpu)?,
+        );
+        collection.add(
+            "layer2.weight".to_string(),
+            Parameter::zeros(vec![2], DeviceType::Cpu)?,
+        );
+
+        let filtered = collection.filter_by_name("layer1");
+        assert_eq!(filtered.len(), 2);
+
+        let filtered_weight = collection.filter_by_name("weight");
+        assert_eq!(filtered_weight.len(), 2);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_collection_filter_by_predicate() -> Result<()> {
+        let mut collection = ParameterCollection::new();
+
+        collection.add(
+            "weight".to_string(),
+            Parameter::zeros(vec![10], DeviceType::Cpu)?,
+        );
+        collection.add(
+            "bias".to_string(),
+            Parameter::zeros(vec![5], DeviceType::Cpu)?,
+        );
+
+        // Filter parameters with > 5 elements
+        let filtered = collection.filter_by(|_, param| param.numel().unwrap_or(0) > 5);
+        assert_eq!(filtered.len(), 1);
+        assert!(filtered.get("weight").is_some());
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_collection_stats() -> Result<()> {
+        let mut collection = ParameterCollection::new();
+
+        collection.add(
+            "weight".to_string(),
+            Parameter::ones(vec![5], DeviceType::Cpu)?,
+        );
+
+        let stats = collection.stats()?;
+        assert_eq!(stats.len(), 1);
+
+        let weight_stats = stats.get("weight").unwrap();
+        assert_relative_eq!(weight_stats.mean, 1.0, epsilon = 1e-5);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_collection_diagnose() -> Result<()> {
+        let mut collection = ParameterCollection::new();
+
+        collection.add(
+            "weight".to_string(),
+            Parameter::ones(vec![3], DeviceType::Cpu)?,
+        );
+
+        let diagnostics = collection.diagnose()?;
+        assert_eq!(diagnostics.len(), 1);
+
+        let weight_diag = diagnostics.get("weight").unwrap();
+        assert!(weight_diag.is_finite);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_collection_summary_report() -> Result<()> {
+        let mut collection = ParameterCollection::new();
+
+        collection.add(
+            "weight".to_string(),
+            Parameter::ones(vec![10], DeviceType::Cpu)?,
+        );
+        collection.add(
+            "bias".to_string(),
+            Parameter::zeros(vec![5], DeviceType::Cpu)?,
+        );
+
+        let report = collection.summary_report()?;
+
+        assert!(report.contains("Total parameters: 2"));
+        assert!(report.contains("Total elements: 15"));
+        assert!(report.contains("weight"));
+        assert!(report.contains("bias"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_collection_from_hashmap() -> Result<()> {
+        let mut map = HashMap::new();
+        map.insert(
+            "weight".to_string(),
+            Parameter::zeros(vec![3], DeviceType::Cpu)?,
+        );
+
+        let collection = ParameterCollection::from_map(map);
+        assert_eq!(collection.len(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parameter_collection_into_hashmap() -> Result<()> {
+        let mut collection = ParameterCollection::new();
+        collection.add(
+            "weight".to_string(),
+            Parameter::zeros(vec![3], DeviceType::Cpu)?,
+        );
+
+        let map: HashMap<String, Parameter> = collection.into();
+        assert_eq!(map.len(), 1);
+        assert!(map.contains_key("weight"));
+        Ok(())
     }
 }

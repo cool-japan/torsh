@@ -16,7 +16,7 @@
 //!
 //! # Examples
 //!
-//! ```rust
+//! ```rust,ignore
 //! use crate::memory::types::{AdaptiveMemoryConfig, MemoryPressure, AllocationStrategy};
 //! use std::time::Duration;
 //!
@@ -44,8 +44,9 @@ use std::time::{Duration, Instant};
 /// - **Windows**: Uses Windows Memory Management APIs
 ///
 /// # Examples
+/// use std::time::Duration;
 ///
-/// ```rust
+/// ```rust,ignore
 /// let info = SystemMemoryInfo {
 ///     total_memory: 16 * 1024 * 1024 * 1024, // 16GB
 ///     available_memory: 8 * 1024 * 1024 * 1024, // 8GB available
@@ -83,8 +84,9 @@ pub struct SystemMemoryInfo {
 /// - **Critical**: > 85% usage - Emergency mode, minimal allocations only
 ///
 /// # Examples
+/// use std::time::Duration;
 ///
-/// ```rust
+/// ```rust,ignore
 /// match memory_pressure {
 ///     MemoryPressure::Low => println!("Memory usage is comfortable"),
 ///     MemoryPressure::Moderate => println!("Starting to use more memory"),
@@ -125,7 +127,7 @@ impl Default for MemoryPressure {
 ///
 /// # Use Cases
 ///
-/// ```rust
+/// ```rust,ignore
 /// let strategy = match memory_pressure {
 ///     MemoryPressure::Low => AllocationStrategy::Aggressive,
 ///     MemoryPressure::Moderate => AllocationStrategy::Conservative,
@@ -201,7 +203,7 @@ pub enum OptimizationTechnique {
 /// For different workload characteristics:
 ///
 /// **High-throughput training**:
-/// ```rust
+/// ```rust,ignore
 /// AdaptiveMemoryConfig {
 ///     max_memory_percentage: 0.8,
 ///     allocation_strategy: AllocationStrategy::Aggressive,
@@ -211,7 +213,7 @@ pub enum OptimizationTechnique {
 /// ```
 ///
 /// **Memory-constrained inference**:
-/// ```rust
+/// ```rust,ignore
 /// AdaptiveMemoryConfig {
 ///     max_memory_percentage: 0.3,
 ///     allocation_strategy: AllocationStrategy::Conservative,

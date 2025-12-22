@@ -626,7 +626,7 @@ pub fn batch_publish_models(
     registry_path: Option<&Path>,
 ) -> Result<Vec<PublishResult>> {
     let mut results = Vec::new();
-    let mut registry = if let Some(registry_path) = registry_path {
+    let registry = if let Some(registry_path) = registry_path {
         ModelRegistry::new(registry_path)?
     } else {
         ModelRegistry::new(std::env::temp_dir().join("torsh_registry"))?

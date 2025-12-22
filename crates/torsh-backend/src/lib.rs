@@ -96,6 +96,8 @@ pub mod device;
 pub mod error;
 pub mod fft;
 pub mod hardware_optimization_tests;
+pub mod introspection;
+pub mod jit_compiler;
 pub mod kernel;
 pub mod kernel_generation;
 pub mod memory;
@@ -104,6 +106,7 @@ pub mod memory_profiler;
 pub mod performance_modeling;
 pub mod performance_tuning;
 pub mod profiler;
+pub mod property_tests;
 pub mod quantization;
 pub mod rnn;
 pub mod sparse_ops;
@@ -146,6 +149,9 @@ pub use backend::{
     PrecisionMode, ResourceLimits, ResourceStatistics, ResourceUsage, ScopedResource,
 };
 pub use buffer::{Buffer, BufferDescriptor, BufferHandle, BufferUsage, BufferView, MemoryLocation};
+
+/// Buffer error type (alias to BackendError)
+pub type BufferError = BackendError;
 pub use convolution::{
     algorithms as conv_algorithms, ConvolutionAlgorithm, ConvolutionConfig, ConvolutionOps,
     ConvolutionPerformanceHints, ConvolutionType, DefaultConvolutionOps, PaddingMode,
@@ -156,7 +162,7 @@ pub use cross_backend_validation::{
 };
 pub use device::{
     Device, DeviceConfiguration, DeviceDiscovery, DeviceFeature, DeviceInfo, DeviceManager,
-    DevicePerformanceInfo, DeviceRequirements, DeviceUtils,
+    DevicePerformanceInfo, DeviceRequirements, DeviceType, DeviceUtils,
 };
 pub use error::{BackendResult, ErrorCategory, ErrorContext, ErrorSeverity};
 pub use fft::{
@@ -430,7 +436,7 @@ impl BackendBuilder {
     }
 
     #[cfg(feature = "rocm")]
-    fn build_rocm(builder: Self) -> BackendResult<Box<dyn Backend>> {
+    fn build_rocm(_builder: Self) -> BackendResult<Box<dyn Backend>> {
         // TODO: Implement when scirs2 supports ROCm
         Err(TorshError::BackendError(
             "ROCm backend not yet implemented".into(),
@@ -446,7 +452,8 @@ impl BackendBuilder {
     fn build_webgpu(builder: Self) -> BackendResult<Box<dyn Backend>> {
         let mut webgpu_builder = webgpu::WebGpuBackendBuilder::new();
 
-        // webgpu_builder = webgpu_builder.device_id(builder.device_id); // TODO: Implement device_id method
+        // Set device ID
+        webgpu_builder = webgpu_builder.device_id(builder.device_id);
 
         if let Some(pool_config) = builder.memory_pool_config {
             if let Some(max_size) = pool_config.max_size {

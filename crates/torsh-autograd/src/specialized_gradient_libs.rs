@@ -4,14 +4,14 @@
 //! libraries and frameworks, enabling torsh-autograd to leverage external AD systems
 //! for specific use cases or performance optimization.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::error_handling::{AutogradError, AutogradResult};
-use scirs2_core::error::CoreError;
-use scirs2_core::ndarray::{Array, ArrayView, Ix2, IxDyn};
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::ndarray::{Array, Ix2, IxDyn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Mutex, RwLock};
 
 /// Supported specialized gradient computation libraries
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -388,7 +388,7 @@ impl SpecializedGradientLibrary for CasADiLibrary {
     fn compute_jacobian(
         &self,
         function: &dyn Function,
-        inputs: &[f64],
+        _inputs: &[f64],
     ) -> AutogradResult<Array<f64, Ix2>> {
         if !self.initialized {
             return Err(AutogradError::gradient_computation(
@@ -418,7 +418,7 @@ impl SpecializedGradientLibrary for CasADiLibrary {
     fn compute_hessian(
         &self,
         function: &dyn Function,
-        inputs: &[f64],
+        _inputs: &[f64],
     ) -> AutogradResult<Array<f64, Ix2>> {
         if !self.initialized {
             return Err(AutogradError::gradient_computation(
@@ -444,7 +444,7 @@ impl SpecializedGradientLibrary for CasADiLibrary {
     fn compute_higher_order(
         &self,
         function: &dyn Function,
-        inputs: &[f64],
+        _inputs: &[f64],
         order: usize,
     ) -> AutogradResult<Vec<Array<f64, IxDyn>>> {
         if !self.initialized {
@@ -473,7 +473,7 @@ impl SpecializedGradientLibrary for CasADiLibrary {
     fn compute_sparse_gradient(
         &self,
         function: &dyn Function,
-        inputs: &[f64],
+        _inputs: &[f64],
         sparsity_pattern: &[usize],
     ) -> AutogradResult<SparseGradient> {
         if !self.initialized {
@@ -650,12 +650,12 @@ pub struct SpecializedLibraryManager {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-struct LibraryUsageStats {
-    total_calls: usize,
-    total_time: f64,
-    success_count: usize,
-    error_count: usize,
-    average_time: f64,
+pub struct LibraryUsageStats {
+    pub total_calls: usize,
+    pub total_time: f64,
+    pub success_count: usize,
+    pub error_count: usize,
+    pub average_time: f64,
 }
 
 impl SpecializedLibraryManager {
@@ -933,30 +933,27 @@ impl LibraryUsageReport {
 }
 
 /// Global specialized library manager
-static mut GLOBAL_SPECIALIZED_MANAGER: Option<SpecializedLibraryManager> = None;
-static SPECIALIZED_INIT: std::sync::Once = std::sync::Once::new();
+static GLOBAL_SPECIALIZED_MANAGER: std::sync::OnceLock<SpecializedLibraryManager> =
+    std::sync::OnceLock::new();
 
 pub fn get_global_specialized_manager() -> &'static SpecializedLibraryManager {
-    unsafe {
-        SPECIALIZED_INIT.call_once(|| {
-            let mut manager = SpecializedLibraryManager::new();
+    GLOBAL_SPECIALIZED_MANAGER.get_or_init(|| {
+        let mut manager = SpecializedLibraryManager::new();
 
-            // Register CasADi if available
-            let casadi_lib = Box::new(CasADiLibrary::new());
-            let casadi_config = SpecializedLibConfig {
-                library: SpecializedLibrary::CasADi,
-                priority: 5,
-                ..Default::default()
-            };
+        // Register CasADi if available
+        let casadi_lib = Box::new(CasADiLibrary::new());
+        let casadi_config = SpecializedLibConfig {
+            library: SpecializedLibrary::CasADi,
+            priority: 5,
+            ..Default::default()
+        };
 
-            if let Err(e) = manager.register_library(casadi_lib, casadi_config) {
-                tracing::info!("CasADi library not available: {}", e);
-            }
+        if let Err(e) = manager.register_library(casadi_lib, casadi_config) {
+            tracing::info!("CasADi library not available: {}", e);
+        }
 
-            GLOBAL_SPECIALIZED_MANAGER = Some(manager);
-        });
-        GLOBAL_SPECIALIZED_MANAGER.as_ref().unwrap()
-    }
+        manager
+    })
 }
 
 #[cfg(test)]
@@ -1020,7 +1017,7 @@ mod tests {
 
     #[test]
     fn test_casadi_library() {
-        let mut casadi = CasADiLibrary::new();
+        let casadi = CasADiLibrary::new();
 
         // Should not be available without proper setup
         assert!(!casadi.is_available());

@@ -4,16 +4,14 @@
 //! Google's popular machine learning framework. These comparisons cover tensor operations,
 //! neural network layers, and include both CPU and GPU performance measurements.
 
-use crate::{
-    core::ComparisonResult,
-    ndarray_comparisons::{TorshElementwiseBench, TorshMatmulBench},
-    Benchmarkable,
-};
+#![allow(deprecated)]
+
+use crate::{core::ComparisonResult, Benchmarkable};
 use torsh_nn::layers::Conv2d;
 use torsh_nn::Module;
 
 #[cfg(feature = "tensorflow")]
-use pyo3::prelude::*;
+use pyo3::{prelude::*, PyResult, Python};
 #[cfg(feature = "tensorflow")]
 use std::ffi::CString;
 
@@ -46,10 +44,6 @@ impl TensorFlowBenchRunner {
 
     /// Initialize Python interpreter and check TensorFlow availability
     fn initialize_python(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        use pyo3::prelude::*;
-
-        pyo3::prepare_freethreaded_python();
-
         Python::with_gil(|py| -> PyResult<()> {
             // Try to import TensorFlow
             match py.import("tensorflow") {

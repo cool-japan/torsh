@@ -6,15 +6,15 @@
 //! to ensure robust execution in the presence of hardware and software failures.
 
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{HashMap, VecDeque};
 use std::sync::{
-    atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
-    Arc, Mutex, RwLock,
+    atomic::{AtomicUsize, Ordering},
+    Arc, Mutex,
 };
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, Instant};
 use uuid;
 
-use super::config::{CheckpointConfig, FaultToleranceConfig, HealthCheckingConfig, RetryConfig};
+use super::config::{CheckpointConfig, FaultToleranceConfig, RetryConfig};
 use super::task_management::{TaskError, TaskId};
 
 /// Comprehensive fault tolerance manager for CUDA execution
@@ -1334,7 +1334,6 @@ default_placeholder_type!(AdaptationEngine);
 default_placeholder_type!(LoadSheddingController);
 default_placeholder_type!(GracefulDegradationManager);
 default_placeholder_type!(ResilienceMetrics);
-default_placeholder_type!(ResilienceEngine);
 default_placeholder_type!(FaultToleranceMetricsCollector);
 default_placeholder_type!(SystemState);
 
@@ -1358,19 +1357,6 @@ pub struct FaultToleranceStatistics {
     pub retries_attempted: u64,
     pub recoveries_successful: u64,
     pub circuit_breakers_tripped: u64,
-}
-
-impl Default for FaultToleranceConfig {
-    fn default() -> Self {
-        FaultToleranceConfig {
-            enabled: true,
-            retry: RetryConfig::default(),
-            checkpointing: CheckpointConfig::default(),
-            recovery: RecoveryConfig::default(),
-            health_checking: HealthCheckingConfig::default(),
-            circuit_breaker: CircuitBreakerConfig::default(),
-        }
-    }
 }
 
 impl CheckpointStorageBackend {

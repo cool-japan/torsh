@@ -3,10 +3,8 @@
 //! This module provides comprehensive strategy management capabilities for CUDA memory optimization,
 //! including strategy registry, selection algorithms, parameter management, and adaptive strategy evolution.
 
-use scirs2_core::ndarray::{Array1, Array2};
-use scirs2_core::random::Random;
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
-use std::sync::{Arc, Mutex, RwLock};
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
 /// Comprehensive optimization strategy registry and management system
@@ -1410,12 +1408,6 @@ pub struct StrategyManagerConfig;
 #[derive(Debug, Default)]
 pub struct StrategyRegistryConfig;
 #[derive(Debug, Default)]
-pub struct StrategySelector;
-#[derive(Debug, Default)]
-pub struct StrategyPerformanceTracker;
-#[derive(Debug, Default)]
-pub struct AdaptiveStrategySystem;
-#[derive(Debug, Default)]
 pub struct StrategyConfigManager;
 #[derive(Debug, Default)]
 pub struct StrategyValidationFramework;
@@ -1531,8 +1523,6 @@ pub struct RiskAdjustedBenefits;
 pub struct QuantitativeBenefits;
 #[derive(Debug, Default, Clone)]
 pub struct BenefitCategory;
-#[derive(Debug, Default, Clone)]
-pub struct StrategyRiskAssessment;
 #[derive(Debug, Default, Clone)]
 pub struct RiskLevel;
 #[derive(Debug, Default, Clone)]

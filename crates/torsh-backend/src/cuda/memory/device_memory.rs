@@ -5,21 +5,19 @@
 //! It manages GPU memory directly using CUDA runtime APIs.
 
 use super::allocation::{
-    size_class, AllocationMetadata, AllocationPriority, AllocationRequest, AllocationStats,
-    AllocationType, CudaAllocation,
+    size_class, AllocationMetadata, AllocationRequest, AllocationStats, AllocationType,
+    CudaAllocation,
 };
-use crate::error::{CudaError, CudaResult};
+use crate::cuda::error::{CudaError, CudaResult};
+use cust::device::Device as CustDevice;
 use std::collections::HashMap;
-use std::sync::{
-    atomic::{AtomicUsize, Ordering},
-    Arc, Mutex,
-};
+use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 #[cfg(debug_assertions)]
 use std::collections::HashSet;
 #[cfg(debug_assertions)]
-static ALLOCATION_TRACKER: once_cell::sync::Lazy<Mutex<HashSet<*mut u8>>> =
+static ALLOCATION_TRACKER: once_cell::sync::Lazy<Mutex<HashSet<usize>>> =
     once_cell::sync::Lazy::new(|| Mutex::new(HashSet::new()));
 
 /// CUDA device memory manager with advanced pooling and optimization
@@ -446,7 +444,7 @@ impl CudaMemoryManager {
     // Private implementation methods
 
     fn query_device_properties(device_id: usize) -> CudaResult<DeviceProperties> {
-        if let Ok(device) = cust::Device::get_device(device_id as u32) {
+        if let Ok(device) = CustDevice::get_device(device_id as u32) {
             let total_memory = device.total_memory().unwrap_or(8 * 1024 * 1024 * 1024); // 8GB fallback
 
             // Note: In a real implementation, we would query all device properties
@@ -916,3 +914,7 @@ impl Default for DeviceProperties {
         }
     }
 }
+
+// Type aliases for compatibility
+pub type DeviceMemoryMetrics = PoolStatistics;
+pub type PoolConfiguration = PoolConfig;

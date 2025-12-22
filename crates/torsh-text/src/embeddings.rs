@@ -2,7 +2,6 @@ use crate::{Result, TextError};
 use std::collections::HashMap;
 use std::path::Path;
 use torsh_core::{device::DeviceType as Device, dtype::DType};
-use torsh_linalg::matrix_functions::matrix_norm;
 use torsh_tensor::creation::{arange, rand, randn, tensor_1d};
 use torsh_tensor::Tensor;
 
@@ -114,7 +113,7 @@ impl WordEmbedding {
                 let weight_data = weight.tensor().clone();
                 let mut padding_row =
                     weight_data.index_select(0, &tensor_1d(&[pad_idx as i64])?)?;
-                let _ = padding_row.fill_(0.0)?;
+                padding_row.fill_(0.0)?;
             }
         }
 
@@ -611,15 +610,15 @@ impl EmbeddingUtils {
         use std::fs::File;
         use std::io::{BufRead, BufReader};
 
-        let file = File::open(path).map_err(|e| TextError::IoError(e))?;
+        let file = File::open(path).map_err(TextError::IoError)?;
         let reader = BufReader::new(file);
 
         let vocab_size = vocab.len();
         let mut embedding_matrix = vec![vec![0.0f32; embedding_dim]; vocab_size];
 
         for line in reader.lines() {
-            let line = line.map_err(|e| TextError::IoError(e))?;
-            let parts: Vec<&str> = line.trim().split_whitespace().collect();
+            let line = line.map_err(TextError::IoError)?;
+            let parts: Vec<&str> = line.split_whitespace().collect();
 
             if parts.len() != embedding_dim + 1 {
                 continue;

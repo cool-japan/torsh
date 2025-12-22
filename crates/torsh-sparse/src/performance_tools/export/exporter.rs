@@ -1,8 +1,12 @@
 //! Performance data export functionality
 
 use crate::TorshResult;
+
+#[cfg(feature = "serde_json")]
 use std::collections::HashMap;
+#[cfg(feature = "serde_json")]
 use std::time::SystemTime;
+#[cfg(feature = "serde_json")]
 use torsh_core::TorshError;
 
 use super::super::core::PerformanceMeasurement;
@@ -60,7 +64,7 @@ impl PerformanceExporter {
     ///
     /// Creates a structured JSON representation with detailed performance
     /// metrics, memory analysis, and metadata.
-    #[cfg(feature = "json")]
+    #[cfg(feature = "serde_json")]
     pub fn to_json(report: &PerformanceReport) -> TorshResult<String> {
         use serde_json;
 
@@ -69,7 +73,8 @@ impl PerformanceExporter {
             total_measurements: usize,
             operation_count: usize,
             operations: Vec<JsonOperation<'a>>,
-            memory_analyses: &'a [super::super::memory::MemoryAnalysis],
+            #[serde(skip)]
+            memory_analyses_count: usize,
             generated_at: SystemTime,
             metadata: &'a HashMap<String, String>,
         }
@@ -109,7 +114,7 @@ impl PerformanceExporter {
             total_measurements: report.total_measurements,
             operation_count: report.operation_count,
             operations,
-            memory_analyses: &report.memory_analyses,
+            memory_analyses_count: report.memory_analyses.len(),
             generated_at: report.generated_at,
             metadata: &report.metadata,
         };
@@ -119,7 +124,7 @@ impl PerformanceExporter {
     }
 
     /// Export performance report to JSON format (fallback without serde)
-    #[cfg(not(feature = "json"))]
+    #[cfg(not(feature = "serde_json"))]
     pub fn to_json(report: &PerformanceReport) -> TorshResult<String> {
         let mut json = String::new();
         json.push_str("{\n");

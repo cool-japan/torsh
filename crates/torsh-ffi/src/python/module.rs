@@ -1,5 +1,7 @@
 //! Python neural network module wrappers
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::error::FfiError;
 use crate::python::tensor::PyTensor;
 use pyo3::prelude::*;
@@ -64,7 +66,7 @@ impl PyLinear {
             .map(|i| (i as f32) * 0.01 - 0.005) // Simple initialization
             .collect();
 
-        let weight = Python::with_gil(|py| {
+        let weight = Python::attach(|py| {
             let data = pyo3::types::PyList::new(py, &weight_data)?;
             PyTensor::new(
                 data.as_ref(),
@@ -76,7 +78,7 @@ impl PyLinear {
 
         let bias_tensor = if use_bias {
             let bias_data: Vec<f32> = (0..out_features).map(|_| 0.0).collect();
-            let bias_tensor = Python::with_gil(|py| {
+            let bias_tensor = Python::attach(|py| {
                 let data = pyo3::types::PyList::new(py, &bias_data)?;
                 PyTensor::new(data.as_ref(), Some(vec![out_features]), Some("f32"), true)
             })?;
@@ -237,7 +239,7 @@ impl PyReLU {
         // Apply ReLU: max(0, x)
         let result_data: Vec<f32> = input.data.iter().map(|&x| x.max(0.0)).collect();
 
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let data = pyo3::types::PyList::new(py, &result_data)?;
             PyTensor::new(
                 data.as_ref(),
@@ -261,9 +263,11 @@ impl PyReLU {
 mod tests {
     use super::*;
     use pyo3::types::PyList;
+    use pyo3::Python;
 
     #[test]
     fn test_linear_creation() {
+        Python::initialize();
         let linear = PyLinear::new(10, 5, None).unwrap();
         assert_eq!(linear.in_features(), 10);
         assert_eq!(linear.out_features(), 5);
@@ -271,7 +275,8 @@ mod tests {
 
     #[test]
     fn test_relu_forward() {
-        Python::with_gil(|py| {
+        Python::initialize();
+        Python::attach(|py| {
             let data = PyList::new(py, vec![-1.0, 0.0, 1.0, 2.0]).unwrap();
             let input = PyTensor::new(data.as_ref(), None, None, false).unwrap();
 

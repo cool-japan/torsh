@@ -1,13 +1,13 @@
 //! Deep learning specific metrics with high-performance vectorized implementations
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::Metric;
-use torsh_core::error::TorshError;
 use torsh_tensor::Tensor;
 
 // High-performance optimized operations using available SciRS2 features
 use scirs2_core::ndarray::{s, Array1, Array2, ArrayView1, ArrayView2, Axis};
 use scirs2_core::ndarray_ext::stats;
-use std::sync::Arc;
 
 /// High-Performance Vectorized Metrics for Deep Learning
 ///
@@ -78,7 +78,7 @@ impl VectorizedPerplexity {
 
     /// Core vectorized perplexity computation using SciRS2 operations
     fn compute_perplexity_vectorized(&self, logits: &Array2<f64>, targets: &Array1<usize>) -> f64 {
-        let (rows, cols) = logits.dim();
+        let (rows, _cols) = logits.dim();
         let mut total_log_likelihood = 0.0;
         let mut valid_samples = 0;
 
@@ -116,7 +116,7 @@ impl VectorizedPerplexity {
         let mut valid_samples = 0;
 
         // Vectorized softmax computation for the entire chunk
-        for (row_idx, (logit_row, &target_class)) in
+        for (_row_idx, (logit_row, &target_class)) in
             logits.outer_iter().zip(targets.iter()).enumerate()
         {
             if target_class >= logit_row.len() {
@@ -493,114 +493,6 @@ impl Metric for Perplexity {
     }
 }
 
-/// BLEU Score for machine translation
-pub struct BleuScore {
-    n_gram: usize,
-    smooth: bool,
-}
-
-impl BleuScore {
-    /// Create a new BLEU score metric
-    pub fn new(n_gram: usize) -> Self {
-        Self {
-            n_gram,
-            smooth: false,
-        }
-    }
-
-    /// Enable smoothing for short sentences
-    pub fn with_smoothing(mut self) -> Self {
-        self.smooth = true;
-        self
-    }
-
-    /// Compute BLEU score from token sequences
-    pub fn compute_from_sequences(&self, reference: &[usize], candidate: &[usize]) -> f64 {
-        if candidate.is_empty() {
-            return 0.0;
-        }
-
-        // Brevity penalty
-        let bp = if candidate.len() >= reference.len() {
-            1.0
-        } else {
-            (1.0 - reference.len() as f64 / candidate.len() as f64).exp()
-        };
-
-        // N-gram precisions
-        let mut precisions = Vec::new();
-
-        for n in 1..=self.n_gram {
-            let precision = self.compute_ngram_precision(reference, candidate, n);
-            precisions.push(precision);
-        }
-
-        // Geometric mean of precisions
-        let log_sum: f64 = precisions
-            .iter()
-            .map(|&p| if p > 0.0 { p.ln() } else { f64::NEG_INFINITY })
-            .sum();
-
-        if log_sum == f64::NEG_INFINITY {
-            0.0
-        } else {
-            bp * (log_sum / self.n_gram as f64).exp()
-        }
-    }
-
-    fn compute_ngram_precision(&self, reference: &[usize], candidate: &[usize], n: usize) -> f64 {
-        if candidate.len() < n {
-            return 0.0;
-        }
-
-        // Count n-grams in candidate and reference
-        let mut ref_ngrams = std::collections::HashMap::new();
-        let mut cand_ngrams = std::collections::HashMap::new();
-
-        // Count reference n-grams
-        for i in 0..=reference.len().saturating_sub(n) {
-            let ngram = &reference[i..i + n];
-            *ref_ngrams.entry(ngram.to_vec()).or_insert(0) += 1;
-        }
-
-        // Count candidate n-grams
-        for i in 0..=candidate.len().saturating_sub(n) {
-            let ngram = &candidate[i..i + n];
-            *cand_ngrams.entry(ngram.to_vec()).or_insert(0) += 1;
-        }
-
-        // Calculate clipped counts
-        let mut clipped_count = 0;
-        let mut total_count = 0;
-
-        for (ngram, cand_count) in &cand_ngrams {
-            let ref_count = ref_ngrams.get(ngram).copied().unwrap_or(0);
-            clipped_count += cand_count.min(&ref_count);
-            total_count += cand_count;
-        }
-
-        if total_count > 0 {
-            clipped_count as f64 / total_count as f64
-        } else if self.smooth {
-            1.0 / candidate.len() as f64 // Smoothing for zero counts
-        } else {
-            0.0
-        }
-    }
-}
-
-impl Metric for BleuScore {
-    fn compute(&self, _predictions: &Tensor, _targets: &Tensor) -> f64 {
-        // Note: BLEU score typically requires special handling for sequences
-        // This is a placeholder implementation
-        0.0
-    }
-
-    fn name(&self) -> &str {
-        "bleu_score"
-    }
-}
-
 /// Inception Score for generative models
 pub struct InceptionScore {
     splits: usize,
@@ -813,5 +705,375 @@ impl Metric for SemanticSimilarity {
 
     fn name(&self) -> &str {
         "semantic_similarity"
+    }
+}
+
+/// BLEU Score for machine translation and text generation evaluation
+#[derive(Debug, Clone)]
+pub struct BleuScore {
+    max_n: usize,
+    weights: Vec<f64>,
+    smoothing: bool,
+}
+
+impl BleuScore {
+    /// Create a new BLEU score metric (default: BLEU-4)
+    pub fn new() -> Self {
+        Self {
+            max_n: 4,
+            weights: vec![0.25, 0.25, 0.25, 0.25],
+            smoothing: true,
+        }
+    }
+
+    /// Create BLEU-n score with custom n-gram size
+    pub fn with_n(n: usize) -> Self {
+        let weight = 1.0 / n as f64;
+        Self {
+            max_n: n,
+            weights: vec![weight; n],
+            smoothing: true,
+        }
+    }
+
+    /// Compute BLEU score from candidate and reference sentences
+    pub fn compute_from_tokens(&self, candidate: &[usize], references: &[&[usize]]) -> f64 {
+        if candidate.is_empty() || references.is_empty() {
+            return 0.0;
+        }
+
+        // Compute n-gram precisions
+        let mut precisions = Vec::new();
+
+        for n in 1..=self.max_n {
+            let candidate_ngrams = self.get_ngrams(candidate, n);
+            let mut matched = 0;
+            let total = candidate_ngrams.len();
+
+            for ngram in &candidate_ngrams {
+                let mut max_count = 0;
+                for reference in references {
+                    let ref_ngrams = self.get_ngrams(reference, n);
+                    let count = ref_ngrams.iter().filter(|&x| x == ngram).count();
+                    max_count = max_count.max(count);
+                }
+                if max_count > 0 {
+                    matched += 1;
+                }
+            }
+
+            let precision = if total > 0 {
+                matched as f64 / total as f64
+            } else if self.smoothing {
+                0.0
+            } else {
+                0.0
+            };
+
+            precisions.push(precision);
+        }
+
+        // Compute brevity penalty
+        let candidate_len = candidate.len() as f64;
+        let ref_len = references.iter().map(|r| r.len()).min().unwrap_or(0) as f64;
+
+        let bp = if candidate_len > ref_len {
+            1.0
+        } else if candidate_len > 0.0 {
+            (1.0 - ref_len / candidate_len).exp()
+        } else {
+            0.0
+        };
+
+        // Compute weighted geometric mean of precisions
+        let log_precision_sum: f64 = precisions
+            .iter()
+            .zip(&self.weights)
+            .map(|(p, w)| {
+                if *p > 0.0 {
+                    w * p.ln()
+                } else if self.smoothing {
+                    w * 1e-10_f64.ln()
+                } else {
+                    0.0
+                }
+            })
+            .sum();
+
+        bp * log_precision_sum.exp()
+    }
+
+    /// Get n-grams from a sequence
+    fn get_ngrams(&self, tokens: &[usize], n: usize) -> Vec<Vec<usize>> {
+        if tokens.len() < n {
+            return vec![];
+        }
+
+        tokens.windows(n).map(|window| window.to_vec()).collect()
+    }
+}
+
+impl Default for BleuScore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// ROUGE Score for text summarization evaluation
+#[derive(Debug, Clone)]
+pub struct RougeScore {
+    rouge_type: RougeType,
+    use_stemming: bool,
+}
+
+#[derive(Debug, Clone)]
+pub enum RougeType {
+    Rouge1,        // Unigram overlap
+    Rouge2,        // Bigram overlap
+    RougeL,        // Longest Common Subsequence
+    RougeN(usize), // Custom n-gram
+}
+
+impl RougeScore {
+    /// Create ROUGE-1 metric
+    pub fn rouge_1() -> Self {
+        Self {
+            rouge_type: RougeType::Rouge1,
+            use_stemming: false,
+        }
+    }
+
+    /// Create ROUGE-2 metric
+    pub fn rouge_2() -> Self {
+        Self {
+            rouge_type: RougeType::Rouge2,
+            use_stemming: false,
+        }
+    }
+
+    /// Create ROUGE-L metric (Longest Common Subsequence)
+    pub fn rouge_l() -> Self {
+        Self {
+            rouge_type: RougeType::RougeL,
+            use_stemming: false,
+        }
+    }
+
+    /// Create ROUGE-N metric with custom n
+    pub fn rouge_n(n: usize) -> Self {
+        Self {
+            rouge_type: RougeType::RougeN(n),
+            use_stemming: false,
+        }
+    }
+
+    /// Compute ROUGE score from candidate and reference
+    pub fn compute_from_tokens(&self, candidate: &[usize], reference: &[usize]) -> RougeMetrics {
+        match &self.rouge_type {
+            RougeType::Rouge1 => self.compute_rouge_n(candidate, reference, 1),
+            RougeType::Rouge2 => self.compute_rouge_n(candidate, reference, 2),
+            RougeType::RougeN(n) => self.compute_rouge_n(candidate, reference, *n),
+            RougeType::RougeL => self.compute_rouge_l(candidate, reference),
+        }
+    }
+
+    /// Compute ROUGE-N (n-gram overlap)
+    fn compute_rouge_n(&self, candidate: &[usize], reference: &[usize], n: usize) -> RougeMetrics {
+        if candidate.is_empty() || reference.is_empty() {
+            return RougeMetrics {
+                precision: 0.0,
+                recall: 0.0,
+                f1: 0.0,
+            };
+        }
+
+        let candidate_ngrams = self.get_ngrams(candidate, n);
+        let reference_ngrams = self.get_ngrams(reference, n);
+
+        if candidate_ngrams.is_empty() || reference_ngrams.is_empty() {
+            return RougeMetrics {
+                precision: 0.0,
+                recall: 0.0,
+                f1: 0.0,
+            };
+        }
+
+        // Count overlapping n-grams
+        let mut overlap = 0;
+        for ngram in &candidate_ngrams {
+            if reference_ngrams.contains(ngram) {
+                overlap += 1;
+            }
+        }
+
+        let precision = overlap as f64 / candidate_ngrams.len() as f64;
+        let recall = overlap as f64 / reference_ngrams.len() as f64;
+        let f1 = if precision + recall > 0.0 {
+            2.0 * precision * recall / (precision + recall)
+        } else {
+            0.0
+        };
+
+        RougeMetrics {
+            precision,
+            recall,
+            f1,
+        }
+    }
+
+    /// Compute ROUGE-L (Longest Common Subsequence)
+    fn compute_rouge_l(&self, candidate: &[usize], reference: &[usize]) -> RougeMetrics {
+        if candidate.is_empty() || reference.is_empty() {
+            return RougeMetrics {
+                precision: 0.0,
+                recall: 0.0,
+                f1: 0.0,
+            };
+        }
+
+        let lcs_len = self.longest_common_subsequence(candidate, reference);
+
+        let precision = lcs_len as f64 / candidate.len() as f64;
+        let recall = lcs_len as f64 / reference.len() as f64;
+        let f1 = if precision + recall > 0.0 {
+            2.0 * precision * recall / (precision + recall)
+        } else {
+            0.0
+        };
+
+        RougeMetrics {
+            precision,
+            recall,
+            f1,
+        }
+    }
+
+    /// Get n-grams from a sequence
+    fn get_ngrams(&self, tokens: &[usize], n: usize) -> Vec<Vec<usize>> {
+        if tokens.len() < n {
+            return vec![];
+        }
+
+        tokens.windows(n).map(|window| window.to_vec()).collect()
+    }
+
+    /// Compute longest common subsequence length using dynamic programming
+    fn longest_common_subsequence(&self, seq1: &[usize], seq2: &[usize]) -> usize {
+        let m = seq1.len();
+        let n = seq2.len();
+
+        let mut dp = vec![vec![0; n + 1]; m + 1];
+
+        for i in 1..=m {
+            for j in 1..=n {
+                if seq1[i - 1] == seq2[j - 1] {
+                    dp[i][j] = dp[i - 1][j - 1] + 1;
+                } else {
+                    dp[i][j] = dp[i - 1][j].max(dp[i][j - 1]);
+                }
+            }
+        }
+
+        dp[m][n]
+    }
+}
+
+/// ROUGE metrics output
+#[derive(Debug, Clone)]
+pub struct RougeMetrics {
+    pub precision: f64,
+    pub recall: f64,
+    pub f1: f64,
+}
+
+/// Comprehensive Deep Learning Metrics Collection
+#[derive(Debug, Clone)]
+pub struct DeepLearningMetrics {
+    pub perplexity: Option<f64>,
+    pub bleu_score: Option<f64>,
+    pub rouge_1: Option<RougeMetrics>,
+    pub rouge_2: Option<RougeMetrics>,
+    pub rouge_l: Option<RougeMetrics>,
+}
+
+impl DeepLearningMetrics {
+    /// Create a new deep learning metrics collection
+    pub fn new() -> Self {
+        Self {
+            perplexity: None,
+            bleu_score: None,
+            rouge_1: None,
+            rouge_2: None,
+            rouge_l: None,
+        }
+    }
+
+    /// Add perplexity metric
+    pub fn with_perplexity(mut self, perplexity: f64) -> Self {
+        self.perplexity = Some(perplexity);
+        self
+    }
+
+    /// Add BLEU score
+    pub fn with_bleu(mut self, bleu: f64) -> Self {
+        self.bleu_score = Some(bleu);
+        self
+    }
+
+    /// Add ROUGE scores
+    pub fn with_rouge(
+        mut self,
+        rouge_1: RougeMetrics,
+        rouge_2: RougeMetrics,
+        rouge_l: RougeMetrics,
+    ) -> Self {
+        self.rouge_1 = Some(rouge_1);
+        self.rouge_2 = Some(rouge_2);
+        self.rouge_l = Some(rouge_l);
+        self
+    }
+
+    /// Format metrics as a string
+    pub fn format(&self) -> String {
+        let mut result = String::new();
+        result.push_str("Deep Learning Metrics:\n");
+        result.push_str("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+
+        if let Some(ppl) = self.perplexity {
+            result.push_str(&format!("Perplexity: {:.4}\n", ppl));
+        }
+
+        if let Some(bleu) = self.bleu_score {
+            result.push_str(&format!("BLEU Score: {:.4}\n", bleu));
+        }
+
+        if let Some(ref rouge_1) = self.rouge_1 {
+            result.push_str(&format!(
+                "ROUGE-1: P={:.4}, R={:.4}, F1={:.4}\n",
+                rouge_1.precision, rouge_1.recall, rouge_1.f1
+            ));
+        }
+
+        if let Some(ref rouge_2) = self.rouge_2 {
+            result.push_str(&format!(
+                "ROUGE-2: P={:.4}, R={:.4}, F1={:.4}\n",
+                rouge_2.precision, rouge_2.recall, rouge_2.f1
+            ));
+        }
+
+        if let Some(ref rouge_l) = self.rouge_l {
+            result.push_str(&format!(
+                "ROUGE-L: P={:.4}, R={:.4}, F1={:.4}\n",
+                rouge_l.precision, rouge_l.recall, rouge_l.f1
+            ));
+        }
+
+        result
+    }
+}
+
+impl Default for DeepLearningMetrics {
+    fn default() -> Self {
+        Self::new()
     }
 }

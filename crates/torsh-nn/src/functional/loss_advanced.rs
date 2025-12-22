@@ -1009,3 +1009,358 @@ impl TensorCast for Tensor {
         )?)
     }
 }
+
+// =============================================================================
+// TESTS
+// =============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+
+    // =========================================================================
+    // REDUCTION TESTS
+    // =========================================================================
+
+    #[test]
+    fn test_reduction_from_str() -> Result<()> {
+        assert_eq!(Reduction::from_str("none")?, Reduction::None);
+        assert_eq!(Reduction::from_str("mean")?, Reduction::Mean);
+        assert_eq!(Reduction::from_str("sum")?, Reduction::Sum);
+        assert_eq!(Reduction::from_str("MEAN")?, Reduction::Mean); // Case insensitive
+        Ok(())
+    }
+
+    #[test]
+    fn test_reduction_from_str_invalid() {
+        assert!(Reduction::from_str("invalid").is_err());
+    }
+
+    #[test]
+    fn test_reduction_none() -> Result<()> {
+        let loss = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], &[4])?;
+        let reduced = Reduction::None.apply(&loss, 4)?;
+
+        let data = reduced.to_vec()?;
+        assert_eq!(data.len(), 4);
+        assert_relative_eq!(data[0], 1.0, epsilon = 1e-6);
+        assert_relative_eq!(data[1], 2.0, epsilon = 1e-6);
+        Ok(())
+    }
+
+    #[test]
+    fn test_reduction_mean() -> Result<()> {
+        let loss = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], &[4])?;
+        let reduced = Reduction::Mean.apply(&loss, 4)?;
+
+        let data = reduced.to_vec()?;
+        assert_eq!(data.len(), 1);
+        assert_relative_eq!(data[0], 2.5, epsilon = 1e-6); // (1+2+3+4)/4 = 2.5
+        Ok(())
+    }
+
+    #[test]
+    fn test_reduction_sum() -> Result<()> {
+        let loss = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], &[4])?;
+        let reduced = Reduction::Sum.apply(&loss, 4)?;
+
+        let data = reduced.to_vec()?;
+        assert_eq!(data.len(), 1);
+        assert_relative_eq!(data[0], 10.0, epsilon = 1e-6); // 1+2+3+4 = 10
+        Ok(())
+    }
+
+    // =========================================================================
+    // SMOOTH L1 LOSS TESTS
+    // =========================================================================
+
+    #[test]
+    fn test_smooth_l1_loss_small_diff() -> Result<()> {
+        let predictions = Tensor::from_vec(vec![1.0, 2.0, 3.0], &[3])?;
+        let targets = Tensor::from_vec(vec![1.1, 2.2, 3.3], &[3])?;
+
+        let loss_fn = SmoothL1Loss::new(1.0, Reduction::None);
+        let loss = loss_fn.forward(&predictions, &targets)?;
+
+        // For small differences (< beta), should use 0.5 * diff^2 / beta
+        let loss_data = loss.to_vec()?;
+        assert_eq!(loss_data.len(), 3);
+
+        // diff[0] = -0.1, abs = 0.1 < 1.0, so loss = 0.5 * 0.01 / 1.0 = 0.005
+        assert_relative_eq!(loss_data[0], 0.005, epsilon = 1e-5);
+        Ok(())
+    }
+
+    #[test]
+    fn test_smooth_l1_loss_large_diff() -> Result<()> {
+        let predictions = Tensor::from_vec(vec![0.0, 5.0], &[2])?;
+        let targets = Tensor::from_vec(vec![2.0, 0.0], &[2])?;
+
+        let loss_fn = SmoothL1Loss::new(1.0, Reduction::None);
+        let loss = loss_fn.forward(&predictions, &targets)?;
+
+        // For large differences (>= beta), should use |diff| - 0.5 * beta
+        let loss_data = loss.to_vec()?;
+        // diff[0] = -2.0, abs = 2.0 >= 1.0, so loss = 2.0 - 0.5 = 1.5
+        assert_relative_eq!(loss_data[0], 1.5, epsilon = 1e-5);
+        // diff[1] = 5.0, abs = 5.0 >= 1.0, so loss = 5.0 - 0.5 = 4.5
+        assert_relative_eq!(loss_data[1], 4.5, epsilon = 1e-5);
+        Ok(())
+    }
+
+    // =========================================================================
+    // DICE LOSS TESTS
+    // =========================================================================
+
+    #[test]
+    fn test_dice_loss_perfect_match() -> Result<()> {
+        // Perfect match should give dice coefficient = 1, loss = 0
+        let predictions = Tensor::from_vec(vec![10.0, 10.0, 10.0, 10.0], &[4])?; // Will sigmoid to ~1
+        let targets = Tensor::from_vec(vec![1.0, 1.0, 1.0, 1.0], &[4])?;
+
+        let loss_fn = DiceLoss::new(1e-5, Reduction::None);
+        let loss = loss_fn.forward(&predictions, &targets)?;
+
+        let loss_data = loss.to_vec()?;
+        assert!(loss_data[0] < 0.1); // Should be close to 0
+        Ok(())
+    }
+
+    #[test]
+    fn test_dice_loss_no_match() -> Result<()> {
+        // No overlap should give dice coefficient close to 0, loss close to 1
+        let predictions = Tensor::from_vec(vec![-10.0, -10.0, -10.0, -10.0], &[4])?; // Will sigmoid to ~0
+        let targets = Tensor::from_vec(vec![1.0, 1.0, 1.0, 1.0], &[4])?;
+
+        let loss_fn = DiceLoss::new(1e-5, Reduction::None);
+        let loss = loss_fn.forward(&predictions, &targets)?;
+
+        let loss_data = loss.to_vec()?;
+        assert!(loss_data[0] > 0.9); // Should be close to 1
+        Ok(())
+    }
+
+    // =========================================================================
+    // IOU LOSS TESTS
+    // =========================================================================
+
+    #[test]
+    fn test_iou_loss_perfect_match() -> Result<()> {
+        let predictions = Tensor::from_vec(vec![10.0, 10.0, 10.0, 10.0], &[4])?;
+        let targets = Tensor::from_vec(vec![1.0, 1.0, 1.0, 1.0], &[4])?;
+
+        let loss_fn = IoULoss::new(1e-5, Reduction::None);
+        let loss = loss_fn.forward(&predictions, &targets)?;
+
+        let loss_data = loss.to_vec()?;
+        assert!(loss_data[0] < 0.1); // IoU close to 1, loss close to 0
+        Ok(())
+    }
+
+    #[test]
+    fn test_iou_loss_no_match() -> Result<()> {
+        let predictions = Tensor::from_vec(vec![-10.0, -10.0, -10.0, -10.0], &[4])?;
+        let targets = Tensor::from_vec(vec![1.0, 1.0, 1.0, 1.0], &[4])?;
+
+        let loss_fn = IoULoss::new(1e-5, Reduction::None);
+        let loss = loss_fn.forward(&predictions, &targets)?;
+
+        let loss_data = loss.to_vec()?;
+        assert!(loss_data[0] > 0.9); // IoU close to 0, loss close to 1
+        Ok(())
+    }
+
+    // =========================================================================
+    // FOCAL LOSS TESTS
+    // =========================================================================
+
+    #[test]
+    fn test_focal_loss_basic() -> Result<()> {
+        // Focal loss expects 2D input [batch_size, num_classes]
+        let predictions = Tensor::from_vec(
+            vec![0.9, 0.1, 0.8, 0.2],
+            &[2, 2], // 2 samples, 2 classes
+        )?;
+        let targets = Tensor::from_vec(vec![1.0, 0.0], &[2])?; // Class indices
+
+        let loss_fn = FocalLoss::new(Some(0.25), 2.0, Reduction::None);
+        let loss = loss_fn.forward(&predictions, &targets)?;
+
+        let loss_data = loss.to_vec()?;
+        assert_eq!(loss_data.len(), 2); // One loss per sample
+        assert!(loss_data.iter().all(|&x| x >= 0.0)); // All losses should be non-negative
+        Ok(())
+    }
+
+    // =========================================================================
+    // BINARY CROSS ENTROPY TESTS
+    // =========================================================================
+
+    #[test]
+    fn test_binary_cross_entropy_basic() -> Result<()> {
+        let predictions = Tensor::from_vec(vec![0.9, 0.1, 0.8, 0.2], &[4])?;
+        let targets = Tensor::from_vec(vec![1.0, 0.0, 1.0, 0.0], &[4])?;
+
+        let loss_fn = BinaryCrossEntropy::new(None, Reduction::None);
+        let loss = loss_fn.forward(&predictions, &targets)?;
+
+        let loss_data = loss.to_vec()?;
+        assert_eq!(loss_data.len(), 4);
+
+        // For pred=0.9, target=1: -log(0.9) ≈ 0.105
+        assert!(loss_data[0] > 0.0 && loss_data[0] < 0.2);
+        // For pred=0.1, target=0: -log(0.9) ≈ 0.105
+        assert!(loss_data[1] > 0.0 && loss_data[1] < 0.2);
+        Ok(())
+    }
+
+    #[test]
+    fn test_binary_cross_entropy_perfect_prediction() -> Result<()> {
+        let predictions = Tensor::from_vec(vec![1.0 - 1e-7, 1e-7], &[2])?;
+        let targets = Tensor::from_vec(vec![1.0, 0.0], &[2])?;
+
+        let loss_fn = BinaryCrossEntropy::new(None, Reduction::Mean);
+        let loss = loss_fn.compute_loss(&predictions, &targets)?;
+
+        let loss_data = loss.to_vec()?;
+        assert!(loss_data[0] < 1e-5); // Should be very small
+        Ok(())
+    }
+
+    // =========================================================================
+    // MSE LOSS TESTS
+    // =========================================================================
+
+    #[test]
+    fn test_mse_loss_basic() -> Result<()> {
+        let predictions = Tensor::from_vec(vec![1.0, 2.0, 3.0], &[3])?;
+        let targets = Tensor::from_vec(vec![1.5, 2.5, 3.5], &[3])?;
+
+        let loss_fn = MSELoss::new(Reduction::None);
+        let loss = loss_fn.forward(&predictions, &targets)?;
+
+        let loss_data = loss.to_vec()?;
+        assert_eq!(loss_data.len(), 3);
+
+        // Each diff is 0.5, so (0.5)^2 = 0.25
+        assert_relative_eq!(loss_data[0], 0.25, epsilon = 1e-6);
+        assert_relative_eq!(loss_data[1], 0.25, epsilon = 1e-6);
+        assert_relative_eq!(loss_data[2], 0.25, epsilon = 1e-6);
+        Ok(())
+    }
+
+    #[test]
+    fn test_mse_loss_mean_reduction() -> Result<()> {
+        let predictions = Tensor::from_vec(vec![0.0, 2.0], &[2])?;
+        let targets = Tensor::from_vec(vec![1.0, 1.0], &[2])?;
+
+        let loss_fn = MSELoss::new(Reduction::Mean);
+        let loss = loss_fn.compute_loss(&predictions, &targets)?;
+
+        let loss_data = loss.to_vec()?;
+        // ((0-1)^2 + (2-1)^2) / 2 = (1 + 1) / 2 = 1.0
+        assert_relative_eq!(loss_data[0], 1.0, epsilon = 1e-6);
+        Ok(())
+    }
+
+    // =========================================================================
+    // L1 LOSS TESTS
+    // =========================================================================
+
+    #[test]
+    fn test_l1_loss_basic() -> Result<()> {
+        let predictions = Tensor::from_vec(vec![1.0, 2.0, 3.0], &[3])?;
+        let targets = Tensor::from_vec(vec![1.5, 2.5, 2.0], &[3])?;
+
+        let loss_fn = L1Loss::new(Reduction::None);
+        let loss = loss_fn.forward(&predictions, &targets)?;
+
+        let loss_data = loss.to_vec()?;
+        assert_relative_eq!(loss_data[0], 0.5, epsilon = 1e-6);
+        assert_relative_eq!(loss_data[1], 0.5, epsilon = 1e-6);
+        assert_relative_eq!(loss_data[2], 1.0, epsilon = 1e-6);
+        Ok(())
+    }
+
+    #[test]
+    fn test_l1_loss_sum_reduction() -> Result<()> {
+        let predictions = Tensor::from_vec(vec![0.0, 2.0, 4.0], &[3])?;
+        let targets = Tensor::from_vec(vec![1.0, 1.0, 1.0], &[3])?;
+
+        let loss_fn = L1Loss::new(Reduction::Sum);
+        let loss = loss_fn.compute_loss(&predictions, &targets)?;
+
+        let loss_data = loss.to_vec()?;
+        // |0-1| + |2-1| + |4-1| = 1 + 1 + 3 = 5
+        assert_relative_eq!(loss_data[0], 5.0, epsilon = 1e-6);
+        Ok(())
+    }
+
+    // =========================================================================
+    // HUBER LOSS TESTS
+    // =========================================================================
+
+    #[test]
+    fn test_huber_loss_small_errors() -> Result<()> {
+        let predictions = Tensor::from_vec(vec![1.0, 2.0], &[2])?;
+        let targets = Tensor::from_vec(vec![1.2, 2.3], &[2])?;
+
+        let loss_fn = HuberLoss::new(1.0, Reduction::None);
+        let loss = loss_fn.forward(&predictions, &targets)?;
+
+        // Small errors use quadratic: 0.5 * error^2
+        let loss_data = loss.to_vec()?;
+        assert_relative_eq!(loss_data[0], 0.5 * 0.2 * 0.2, epsilon = 1e-5);
+        assert_relative_eq!(loss_data[1], 0.5 * 0.3 * 0.3, epsilon = 1e-5);
+        Ok(())
+    }
+
+    #[test]
+    fn test_huber_loss_large_errors() -> Result<()> {
+        let predictions = Tensor::from_vec(vec![0.0], &[1])?;
+        let targets = Tensor::from_vec(vec![5.0], &[1])?;
+
+        let loss_fn = HuberLoss::new(1.0, Reduction::None);
+        let loss = loss_fn.forward(&predictions, &targets)?;
+
+        // Large errors use linear: delta * (|error| - 0.5 * delta)
+        let loss_data = loss.to_vec()?;
+        // delta=1.0, error=5.0: 1.0 * (5.0 - 0.5) = 4.5
+        assert_relative_eq!(loss_data[0], 4.5, epsilon = 1e-5);
+        Ok(())
+    }
+
+    // =========================================================================
+    // HINGE LOSS TESTS
+    // =========================================================================
+
+    #[test]
+    fn test_hinge_loss_correct_classification() -> Result<()> {
+        let predictions = Tensor::from_vec(vec![2.0, -2.0], &[2])?;
+        let targets = Tensor::from_vec(vec![1.0, -1.0], &[2])?;
+
+        let loss_fn = HingeLoss::new(1.0, Reduction::None);
+        let loss = loss_fn.forward(&predictions, &targets)?;
+
+        // For correct predictions with margin > 1, loss should be 0
+        let loss_data = loss.to_vec()?;
+        assert_relative_eq!(loss_data[0], 0.0, epsilon = 1e-6);
+        assert_relative_eq!(loss_data[1], 0.0, epsilon = 1e-6);
+        Ok(())
+    }
+
+    #[test]
+    fn test_hinge_loss_incorrect_classification() -> Result<()> {
+        let predictions = Tensor::from_vec(vec![-0.5], &[1])?;
+        let targets = Tensor::from_vec(vec![1.0], &[1])?;
+
+        let loss_fn = HingeLoss::new(1.0, Reduction::None);
+        let loss = loss_fn.forward(&predictions, &targets)?;
+
+        // max(0, 1 - (1.0 * -0.5)) = max(0, 1.5) = 1.5
+        let loss_data = loss.to_vec()?;
+        assert_relative_eq!(loss_data[0], 1.5, epsilon = 1e-6);
+        Ok(())
+    }
+}

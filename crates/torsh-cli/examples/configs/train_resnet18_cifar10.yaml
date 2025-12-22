@@ -1,0 +1,81 @@
+# Training configuration for ResNet18 on CIFAR-10
+# Usage: torsh train start --config examples/configs/train_resnet18_cifar10.yaml
+
+model:
+  name: resnet18
+  num_classes: 10
+  pretrained: false
+
+data:
+  path: ./data/cifar10
+  batch_size: 32
+  num_workers: 4
+  shuffle: true
+
+  # Normalization (CIFAR-10 statistics)
+  normalization:
+    mean: [0.4914, 0.4822, 0.4465]
+    std: [0.2023, 0.1994, 0.2010]
+
+  # Data augmentation
+  augmentation:
+    random_crop: true
+    crop_size: 32
+    crop_padding: 4
+    random_flip: true
+    flip_probability: 0.5
+    random_rotation: 15
+    color_jitter:
+      brightness: 0.2
+      contrast: 0.2
+      saturation: 0.2
+      hue: 0.1
+
+training:
+  epochs: 100
+  learning_rate: 0.001
+  device: cuda  # Change to 'cpu' or 'metal:0' if needed
+  mixed_precision: true
+  gradient_clipping: 1.0
+  gradient_accumulation_steps: 1
+
+optimizer:
+  type: adamw
+  weight_decay: 0.0001
+  beta1: 0.9
+  beta2: 0.999
+  eps: 1.0e-8
+
+scheduler:
+  type: cosine
+  warmup_epochs: 5
+  min_lr: 0.00001
+  warmup_start_lr: 0.0001
+
+checkpoints:
+  save_every: 10
+  save_best: true
+  max_to_keep: 5
+  checkpoint_dir: ./runs/resnet18_cifar10
+
+early_stopping:
+  enabled: true
+  patience: 15
+  metric: val_loss
+  mode: min
+  min_delta: 0.001
+
+logging:
+  tensorboard: true
+  log_dir: ./runs/resnet18_cifar10/logs
+  log_every: 100
+  save_gradients: false
+  save_weights: false
+
+validation:
+  enabled: true
+  frequency: 1  # Validate every epoch
+  metrics:
+    - accuracy
+    - loss
+    - top5_accuracy

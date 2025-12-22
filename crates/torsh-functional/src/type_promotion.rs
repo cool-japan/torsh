@@ -31,7 +31,7 @@ pub fn get_type_category(dtype: DType) -> TypeCategory {
         DType::F16 | DType::F32 | DType::F64 => TypeCategory::FloatingPoint,
         DType::C64 | DType::C128 => TypeCategory::Complex,
         DType::BF16 => TypeCategory::FloatingPoint, // Treat bfloat16 as floating point
-        DType::QInt8 | DType::QUInt8 => TypeCategory::Integer, // Treat quantized types as integer
+        DType::QInt8 | DType::QUInt8 | DType::QInt32 => TypeCategory::Integer, // Treat quantized types as integer
     }
 }
 
@@ -46,6 +46,7 @@ pub fn get_type_precision(dtype: DType) -> u8 {
         DType::I64 | DType::F64 | DType::C64 | DType::U64 => 64,
         DType::C128 => 128,
         DType::QInt8 | DType::QUInt8 => 8, // Treat quantized 8-bit types as 8-bit
+        DType::QInt32 => 32,               // Treat quantized 32-bit type as 32-bit
     }
 }
 
@@ -214,7 +215,7 @@ pub fn reduction_result_type(input_dtype: DType, operation: &str) -> Result<DTyp
                 DType::F64 => Ok(DType::F64),
                 DType::C64 => Ok(DType::C64),
                 DType::C128 => Ok(DType::C128),
-                DType::QInt8 | DType::QUInt8 => Ok(DType::I64), // Quantized types promote to I64 for sum/prod
+                DType::QInt8 | DType::QUInt8 | DType::QInt32 => Ok(DType::I64), // Quantized types promote to I64 for sum/prod
             }
         }
         "mean" => {
@@ -233,7 +234,7 @@ pub fn reduction_result_type(input_dtype: DType, operation: &str) -> Result<DTyp
                 DType::F64 => Ok(DType::F64),
                 DType::C64 => Ok(DType::C64),
                 DType::C128 => Ok(DType::C128),
-                DType::QInt8 | DType::QUInt8 => Ok(DType::F32), // Quantized types promote to F32 for mean
+                DType::QInt8 | DType::QUInt8 | DType::QInt32 => Ok(DType::F32), // Quantized types promote to F32 for mean
             }
         }
         "max" | "min" | "argmax" | "argmin" => {

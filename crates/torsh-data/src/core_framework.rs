@@ -199,7 +199,6 @@ where
 }
 
 /// Compose multiple transforms that operate on the same type
-#[derive(Debug)]
 pub struct Compose<T> {
     transforms: Vec<Box<dyn Transform<T, Output = T> + Send + Sync>>,
 }
@@ -247,7 +246,9 @@ impl<T> Transform<T> for Compose<T> {
 /// Normalize tensor values using mean and standard deviation
 #[derive(Debug, Clone)]
 pub struct Normalize<T: TensorElement> {
+    #[allow(dead_code)] // Used in future full implementation
     mean: Vec<T>,
+    #[allow(dead_code)] // Used in future full implementation
     std: Vec<T>,
 }
 
@@ -269,10 +270,11 @@ impl<T: TensorElement> Transform<Tensor<T>> for Normalize<T> {
     fn transform(&self, input: Tensor<T>) -> Result<Self::Output> {
         // Placeholder implementation - real normalization would require tensor operations
         // For now, just return the input tensor
-        tracing::debug!(
-            "Normalize transform applied with {} channels",
-            self.mean.len()
-        );
+        // NOTE: tracing disabled (not a dependency)
+        // tracing::debug!(
+        //     "Normalize transform applied with {} channels",
+        //     self.mean.len()
+        // );
         Ok(input)
     }
 }
@@ -301,14 +303,15 @@ impl<From, To> ToType<From, To> {
 impl<From: TensorElement, To: TensorElement> Transform<Tensor<From>> for ToType<From, To> {
     type Output = Tensor<To>;
 
-    fn transform(&self, input: Tensor<From>) -> Result<Self::Output> {
+    fn transform(&self, _input: Tensor<From>) -> Result<Self::Output> {
         // Placeholder implementation - real type conversion would require tensor operations
         // For now, create a new tensor with the target type (this is a simplification)
-        tracing::debug!(
-            "Type conversion from {} to {} requested",
-            core::any::type_name::<From>(),
-            core::any::type_name::<To>()
-        );
+        // NOTE: tracing disabled (not a dependency)
+        // tracing::debug!(
+        //     "Type conversion from {} to {} requested",
+        //     core::any::type_name::<From>(),
+        //     core::any::type_name::<To>()
+        // );
 
         // In a real implementation, this would convert the tensor data
         // For now, we return an error as this requires complex tensor operations
@@ -372,8 +375,14 @@ mod tests {
     use super::*;
 
     // Mock tensor for testing
+    #[allow(dead_code)]
     fn mock_tensor() -> Tensor<f32> {
-        Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], torsh_core::device::DeviceType::Cpu).unwrap()
+        Tensor::from_data(
+            vec![1.0f32, 2.0, 3.0, 4.0],
+            vec![2, 2],
+            torsh_core::device::DeviceType::Cpu,
+        )
+        .unwrap()
     }
 
     #[test]

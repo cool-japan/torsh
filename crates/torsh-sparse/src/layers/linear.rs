@@ -3,9 +3,8 @@
 //! This module provides sparse linear transformations including
 //! sparse fully connected layers and embedding layers optimized for sparse tensors.
 
-use crate::{CooTensor, CscTensor, CsrTensor, SparseTensor, TorshResult};
-use scirs2_core::random::{Random, Rng};
-use std::collections::HashMap;
+use crate::{CooTensor, CsrTensor, SparseTensor, TorshResult};
+use scirs2_core::random::Rng;
 use torsh_core::{Shape, TorshError};
 use torsh_tensor::{
     creation::{randn, zeros},
@@ -350,7 +349,7 @@ impl SparseLinear {
             // Xavier/Glorot initialization
             let std_dev = (2.0 / (in_features + out_features) as f32).sqrt();
             let mut rng = scirs2_core::random::thread_rng();
-            values.push(rng.gen::<f32>() * 2.0 * std_dev - std_dev);
+            values.push(rng.random::<f32>() * 2.0 * std_dev - std_dev);
         }
 
         let shape = Shape::new(vec![out_features, in_features]);
@@ -476,7 +475,7 @@ impl SparseEmbedding {
             col_indices.push(col);
             // Normal initialization with std=1.0
             let mut rng = scirs2_core::random::thread_rng();
-            values.push(rng.gen::<f32>() * 2.0 - 1.0);
+            values.push(rng.random::<f32>() * 2.0 - 1.0);
         }
 
         let shape = Shape::new(vec![vocab_size, embedding_dim]);

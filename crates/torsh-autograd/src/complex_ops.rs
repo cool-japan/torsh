@@ -420,7 +420,7 @@ pub mod complex {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+
     use num_complex::Complex64;
 
     #[test]

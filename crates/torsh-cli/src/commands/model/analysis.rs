@@ -1,5 +1,7 @@
 //! Model analysis and inspection operations
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use anyhow::Result;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -14,17 +16,12 @@ use super::types::{format_bytes, ModelInfo, ModelResult};
 // ToRSh Core functionality - following SciRS2 POLICY
 // ToRSh Core types (currently unused but available for future expansion)
 
-// SciRS2 ecosystem - MUST use instead of rand/ndarray (SCIRS2 POLICY COMPLIANT - legacy but allowed)
-use scirs2_autograd::ndarray::{Array1, Array2, Array3, Array4};
-use scirs2_core::random::{Random, Rng};
-
-// NumRS2 for numerical operations
-use numrs2::prelude::*;
+// ✅ UNIFIED ACCESS (v0.1.0-RC.1+): Complete ndarray/random functionality through scirs2-core
+// SciRS2 ecosystem - MUST use instead of rand/ndarray (SCIRS2 POLICY COMPLIANT)
+use scirs2_core::ndarray::{Array1, Array2, Array3};
+use scirs2_core::random::{thread_rng, Rng};
 
 // ToRSh dependencies for real model operations
-use torsh_autograd::context::AutogradContext;
-use torsh_core::{DType, Device};
-use torsh_tensor::Tensor;
 
 /// Analyze a model file and extract comprehensive information
 pub async fn analyze_model_file(input_path: &PathBuf) -> Result<ModelInfo> {
@@ -186,6 +183,16 @@ pub async fn inspect_model(args: InspectArgs, _config: &Config, output_format: &
         ));
     }
 
+    // Add visualization if requested (for ToRSh models with full layer information)
+    if model_info.format == "torsh" {
+        // Try to load as full ToRSh model for visualization
+        if let Ok(full_model) = super::serialization::load_model(&args.input).await {
+            output::print_info("\n=== Model Architecture Visualization ===");
+            let viz = super::types::visualize_model_ascii(&full_model);
+            println!("{}", viz);
+        }
+    }
+
     if let Some(export_path) = args.export {
         let export_content = output::format_output(&model_info, "json")?;
         tokio::fs::write(&export_path, export_content).await?;
@@ -263,45 +270,71 @@ async fn analyze_torsh_model(
 ) -> Result<(u64, usize, Vec<usize>, Vec<usize>, String, String)> {
     info!("Analyzing ToRSh model: {}", input_path.display());
 
-    // Try to load the model file and extract metadata
-    match tokio::fs::read(input_path).await {
-        Ok(model_data) => {
-            // In a real implementation, this would deserialize the model
-            // For now, we'll analyze the binary structure
-            let file_size = model_data.len();
+    // Use real model loading and analysis
+    use super::serialization::load_model;
+    use super::types::calculate_model_statistics;
 
-            // Estimate parameters based on file size (rough heuristic)
-            let estimated_params = (file_size / 4) as u64; // Assuming f32 weights
+    match load_model(input_path).await {
+        Ok(model) => {
+            // Calculate real statistics
+            let stats = calculate_model_statistics(&model);
 
-            // Use SciRS2 for numerical analysis
-            let mut rng = Random::seed(42);
-            let sample_data: Vec<f32> = (0..1000).map(|_| rng.gen::<f32>()).collect();
-            let sample_array = Array1::from_vec(sample_data);
-            let mean = sample_array.mean().unwrap_or(0.0);
+            // Get input/output shapes from first/last layers
+            let input_shape = model
+                .layers
+                .first()
+                .map(|l| l.input_shape.clone())
+                .unwrap_or_else(|| vec![3, 224, 224]);
+
+            let output_shape = model
+                .layers
+                .last()
+                .map(|l| l.output_shape.clone())
+                .unwrap_or_else(|| vec![1000]);
+
+            // Determine precision from weights
+            let precision = model
+                .weights
+                .values()
+                .next()
+                .map(|t| t.dtype.name())
+                .unwrap_or("f32")
+                .to_string();
+
+            // Determine device
+            let device = model
+                .weights
+                .values()
+                .next()
+                .map(|t| t.device.name())
+                .unwrap_or_else(|| "cpu".to_string());
 
             info!(
-                "Estimated {} parameters, sample mean: {:.6}",
-                estimated_params, mean
+                "ToRSh model: {} parameters, {} layers, {:.2} MB",
+                stats.total_parameters, stats.num_layers, stats.memory_footprint_mb
             );
 
             Ok((
-                estimated_params,
-                estimate_layers_from_size(file_size),
-                vec![3, 224, 224], // Common input shape for vision models
-                vec![1000],        // ImageNet classes
-                "f32".to_string(),
-                "cpu".to_string(),
+                stats.total_parameters,
+                stats.num_layers,
+                input_shape,
+                output_shape,
+                precision,
+                device,
             ))
         }
         Err(e) => {
-            warn!("Failed to read model file: {}", e);
-            // Return minimal analysis
+            warn!("Failed to load ToRSh model: {}", e);
+            // Fallback to file size estimation
+            let file_size = tokio::fs::metadata(input_path).await?.len();
+            let estimated_params = (file_size / 4) as u64;
+
             Ok((
-                0,
-                0,
-                vec![],
-                vec![],
-                "unknown".to_string(),
+                estimated_params,
+                estimate_layers_from_size(file_size as usize),
+                vec![3, 224, 224],
+                vec![1000],
+                "f32".to_string(),
                 "cpu".to_string(),
             ))
         }
@@ -314,26 +347,24 @@ async fn analyze_pytorch_model(
 ) -> Result<(u64, usize, Vec<usize>, Vec<usize>, String, String)> {
     info!("Analyzing PyTorch model: {}", input_path.display());
 
-    // Read the pickle/torch file
-    match tokio::fs::read(input_path).await {
-        Ok(model_data) => {
-            let file_size = model_data.len();
+    // Use real PyTorch parser
+    use super::pytorch_parser::parse_pytorch_model;
 
-            // PyTorch models often contain more metadata, so adjust estimation
-            let estimated_params = (file_size / 6) as u64; // Account for metadata overhead
-
-            // Estimate memory usage for PyTorch models
-            let memory_estimate = estimate_memory_usage(file_size);
-
+    match parse_pytorch_model(input_path).await {
+        Ok(pytorch_info) => {
             info!(
-                "PyTorch model analysis: {} bytes, estimated memory: {} MB",
-                file_size,
-                memory_estimate / (1024 * 1024)
+                "PyTorch model: version {}, {} parameters, {} state dict keys",
+                pytorch_info.pytorch_version,
+                pytorch_info.num_parameters,
+                pytorch_info.state_dict_keys.len()
             );
 
+            // Estimate layers from state dict keys
+            let num_layers = estimate_layers_from_keys(&pytorch_info.state_dict_keys);
+
             Ok((
-                estimated_params,
-                estimate_layers_from_size(file_size),
+                pytorch_info.num_parameters,
+                num_layers,
                 vec![3, 224, 224], // Standard ImageNet input
                 vec![1000],        // ImageNet output
                 "f32".to_string(),
@@ -341,17 +372,33 @@ async fn analyze_pytorch_model(
             ))
         }
         Err(e) => {
-            warn!("Failed to analyze PyTorch model: {}", e);
+            warn!("Failed to parse PyTorch model: {}", e);
+            // Fallback to file size estimation
+            let file_size = tokio::fs::metadata(input_path).await?.len();
+            let estimated_params = (file_size / 6) as u64;
+
             Ok((
-                0,
-                0,
-                vec![],
-                vec![],
-                "unknown".to_string(),
+                estimated_params,
+                estimate_layers_from_size(file_size as usize),
+                vec![3, 224, 224],
+                vec![1000],
+                "f32".to_string(),
                 "cpu".to_string(),
             ))
         }
     }
+}
+
+/// Estimate layer count from PyTorch state dict keys
+fn estimate_layers_from_keys(keys: &[String]) -> usize {
+    // Count unique layer prefixes (before the dot)
+    let mut layer_names = std::collections::HashSet::new();
+    for key in keys {
+        if let Some(layer_name) = key.split('.').next() {
+            layer_names.insert(layer_name);
+        }
+    }
+    layer_names.len().max(1)
 }
 
 /// Analyze ONNX model format
@@ -464,8 +511,8 @@ async fn analyze_tflite_model(
             let estimated_params = (file_size / 3) as u64;
 
             // Use SciRS2 for quantization analysis
-            let mut rng = Random::seed(123);
-            let quantization_ratio = 0.25 + rng.gen::<f64>() * 0.5; // Simulate quantization analysis
+            let mut rng = thread_rng();
+            let quantization_ratio = 0.25 + rng.random::<f64>() * 0.5; // Simulate quantization analysis
 
             info!(
                 "TFLite model size: {} KB, estimated quantization ratio: {:.2}",
@@ -608,7 +655,7 @@ async fn load_model_for_validation(model_path: &PathBuf) -> Result<ValidationMod
     let model_data = tokio::fs::read(model_path).await?;
 
     // Create model with real tensor data using SciRS2
-    let mut rng = Random::seed(42);
+    let mut rng = thread_rng();
 
     // Generate realistic model weights based on common architectures
     let conv1_weights: Vec<f32> = (0..64 * 3 * 7 * 7)
@@ -649,7 +696,7 @@ async fn load_validation_dataset(
     );
 
     // Use SciRS2 for data loading and preprocessing
-    let mut rng = Random::seed(42);
+    let mut rng = thread_rng();
 
     // Generate realistic validation data using SciRS2
     let mut samples = Vec::new();
@@ -755,10 +802,10 @@ async fn perform_model_validation(
 async fn perform_inference(
     model: &ValidationModel,
     input: &Array3<f32>,
-    device: &str,
+    _device: &str,
 ) -> Result<Vec<usize>> {
     // Use SciRS2 for numerical operations during inference
-    let mut rng = Random::seed(42);
+    let mut rng = thread_rng();
 
     // Simulate realistic inference computation
     // In a real implementation, this would use torsh-tensor and torsh-autograd
@@ -805,7 +852,7 @@ async fn perform_inference(
         .collect();
 
     // Add some randomness to make it more realistic
-    if rng.gen::<f32>() < 0.05 {
+    if rng.random::<f32>() < 0.05 {
         // 5% chance of inference failure
         return Err(anyhow::anyhow!("Simulated inference failure"));
     }

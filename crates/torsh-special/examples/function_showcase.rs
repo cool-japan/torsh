@@ -43,6 +43,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n🔢 7. COMPLEX FUNCTIONS");
     showcase_complex_functions()?;
 
+    // 8. Spheroidal Wave Functions
+    println!("\n🌐 8. SPHEROIDAL WAVE FUNCTIONS");
+    showcase_spheroidal_functions()?;
+
     println!("\n✨ Complete! All function categories demonstrated.");
     println!("   See documentation for detailed parameter information.");
 
@@ -290,6 +294,47 @@ fn showcase_complex_functions() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+fn showcase_spheroidal_functions() -> Result<(), Box<dyn std::error::Error>> {
+    println!("  Prolate & Oblate Spheroidal Wave Functions");
+    println!("  (for electromagnetic scattering & wave propagation)\n");
+
+    let n = 2;
+    let m = 0;
+    let c = 2.0;
+
+    // Prolate functions
+    let eta = 0.5; // cos(60°)
+    let prolate_ang = prolate_angular(n, m, c, eta)?;
+    println!(
+        "  Prolate Angular:  S_2^0(c=2, η=0.5)  = {:.6}",
+        prolate_ang
+    );
+
+    let xi = 2.0;
+    let prolate_rad = prolate_radial(n, m, c, xi)?;
+    println!(
+        "  Prolate Radial:   R_2^0(c=2, ξ=2.0)  = {:.6}",
+        prolate_rad
+    );
+
+    // Oblate functions
+    let oblate_ang = oblate_angular(n, m, c, eta)?;
+    println!("  Oblate Angular:   S_2^0(c=2, η=0.5)  = {:.6}", oblate_ang);
+
+    let xi_oblate = 0.5;
+    let oblate_rad = oblate_radial(n, m, c, xi_oblate)?;
+    println!("  Oblate Radial:    R_2^0(c=2, ξ=0.5)  = {:.6}", oblate_rad);
+
+    // Eigenvalues
+    let lambda_0 = spheroidal_eigenvalue(n, m, 0.0)?;
+    let lambda = spheroidal_eigenvalue(n, m, c)?;
+    println!("\n  Eigenvalues:");
+    println!("  λ_2^0(c=0) = {:.4}  (spherical limit)", lambda_0);
+    println!("  λ_2^0(c=2) = {:.4}  (spheroidal)", lambda);
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -306,6 +351,7 @@ mod tests {
         showcase_trigonometric_functions(&x)?;
         showcase_statistical_functions(&x)?;
         showcase_complex_functions()?;
+        showcase_spheroidal_functions()?;
 
         Ok(())
     }

@@ -329,7 +329,7 @@ impl UNet {
         let mut deep_outputs = Vec::new();
 
         let mut in_channels = config.in_channels;
-        let mut features = config.base_features;
+        let features = config.base_features;
 
         // Build encoder
         for i in 0..config.num_levels {
@@ -765,7 +765,7 @@ impl UNet3D {
         let mut up_layers = Vec::new();
 
         let mut in_channels = config.in_channels;
-        let mut features = config.base_features;
+        let features = config.base_features;
 
         // Build encoder
         for i in 0..config.num_levels {
@@ -1138,7 +1138,7 @@ impl Module for PINN {
         let mut x = input.clone();
 
         // Forward through hidden layers
-        for (i, layer) in self.layers[..self.layers.len() - 1].iter().enumerate() {
+        for (_i, layer) in self.layers[..self.layers.len() - 1].iter().enumerate() {
             x = layer.forward(&x)?;
 
             // Apply activation

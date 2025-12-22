@@ -16,10 +16,9 @@
 
 use crate::{FloatElement, Tensor, TensorElement};
 use num_traits::ToPrimitive;
-use scirs2_core::ndarray::{Array1, Array2, Array3, ArrayView1, ArrayView2};
+use scirs2_core::ndarray::{Array1, Array2};
 use std::collections::HashMap;
 use torsh_core::error::{Result, TorshError};
-use torsh_core::TensorElement as CoreTensorElement;
 
 /// Advanced statistical processor using scirs2-stats
 pub struct SciRS2StatsProcessor {
@@ -535,9 +534,28 @@ impl SciRS2StatsProcessor {
         standard_error: f64,
         degrees_of_freedom: f64,
     ) -> (T, T) {
-        // Simplified confidence interval
+        // Compute confidence interval using t-distribution
         let alpha = 1.0 - self.config.confidence_level;
-        let t_critical = 2.0; // Approximation, should use proper t-value
+
+        // Use approximate t-critical value based on degrees of freedom
+        // For large df (>30), t-distribution approaches normal distribution
+        let t_critical = if degrees_of_freedom > 30.0 {
+            // Normal approximation for large df
+            // For 95% CI: z ≈ 1.96, for 99% CI: z ≈ 2.576
+            if alpha < 0.02 {
+                2.576 // 99% CI
+            } else {
+                1.96 // 95% CI
+            }
+        } else {
+            // Conservative estimate for small df
+            // t-values are larger for smaller df
+            let base_t = if alpha < 0.02 { 2.8 } else { 2.1 };
+            base_t * (1.0 + 5.0 / degrees_of_freedom).sqrt()
+        };
+
+        // Computing confidence interval with calculated t-critical value
+        let _ = (alpha, degrees_of_freedom, t_critical); // Use parameters
 
         let margin_of_error = t_critical * standard_error;
         (
@@ -547,9 +565,40 @@ impl SciRS2StatsProcessor {
     }
 
     fn kolmogorov_smirnov_test(&self, data: &[f64], mean: f64, std_dev: f64) -> f64 {
-        // Simplified KS test for normality
-        // TODO: Use actual scirs2-stats implementation
-        0.95 // Placeholder
+        // Kolmogorov-Smirnov test: maximum distance between empirical and theoretical CDF
+        if data.is_empty() || std_dev <= 0.0 {
+            return 1.0; // Reject null hypothesis
+        }
+
+        let n = data.len() as f64;
+        let mut sorted_data = data.to_vec();
+        sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+        // Calculate maximum deviation between empirical and theoretical CDF
+        let mut max_deviation = 0.0f64;
+
+        for (i, &x) in sorted_data.iter().enumerate() {
+            // Empirical CDF at this point
+            let empirical_cdf = (i + 1) as f64 / n;
+
+            // Theoretical CDF (normal distribution): Φ((x - μ) / σ)
+            let z = (x - mean) / std_dev;
+            // Approximate normal CDF using error function
+            let theoretical_cdf = 0.5 * (1.0 + libm::erf(z / std::f64::consts::SQRT_2));
+
+            // Calculate deviation
+            let deviation = (empirical_cdf - theoretical_cdf).abs();
+            max_deviation = max_deviation.max(deviation);
+        }
+
+        // Return p-value approximation (simplified)
+        // For a more accurate test, would use Kolmogorov distribution
+        let ks_statistic = max_deviation * n.sqrt();
+
+        // Approximate p-value: P(D_n > observed) ≈ exp(-2 * ks_statistic²)
+        // Return 1 - p_value to get confidence in normality
+        let p_value = (-2.0 * ks_statistic * ks_statistic).exp();
+        1.0 - p_value
     }
 }
 

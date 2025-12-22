@@ -112,15 +112,16 @@ impl GapStatisticResult {
 ///
 /// ```rust
 /// use torsh_cluster::evaluation::metrics::gap_statistic::{GapStatistic, GapStatisticConfig};
-/// use torsh_tensor::Tensor;
+/// use torsh_tensor::creation::randn;
 ///
-/// let data = Tensor::randn(&[100, 2])?;
+/// let data = randn::<f32>(&[100, 2])?;
 /// let config = GapStatisticConfig::default();
-/// let gap_stat = GapStatistic::new(config);
+/// let mut gap_stat = GapStatistic::new(config);
 ///
 /// let result = gap_stat.compute(&data)?;
 /// println!("Optimal number of clusters: {}", result.optimal_k);
 /// println!("Gap values: {:?}", result.gap_values);
+/// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 #[derive(Debug)]
 pub struct GapStatistic {
@@ -365,7 +366,6 @@ impl GapStatistic {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
 
     #[test]
     fn test_gap_statistic_basic() -> ClusterResult<()> {

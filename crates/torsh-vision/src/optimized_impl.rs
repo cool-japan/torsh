@@ -539,7 +539,7 @@ impl OptimizedCIFARDataset {
         }
 
         let label = data[start_idx] as usize;
-        let mut tensor = torsh_tensor::creation::zeros(&[3, 32, 32]).unwrap();
+        let tensor = torsh_tensor::creation::zeros(&[3, 32, 32]).unwrap();
 
         // Load RGB channels
         for channel in 0..3 {
@@ -567,7 +567,7 @@ impl OptimizedCIFARDataset {
 
         let _coarse_label = data[start_idx] as usize;
         let fine_label = data[start_idx + 1] as usize;
-        let mut tensor = torsh_tensor::creation::zeros(&[3, 32, 32]).unwrap();
+        let tensor = torsh_tensor::creation::zeros(&[3, 32, 32]).unwrap();
 
         // Load RGB channels
         for channel in 0..3 {

@@ -4,12 +4,12 @@
 //! that are used across different benchmark categories. It serves as the foundation
 //! for all benchmark implementations in the ToRSh benchmark suite.
 
-use crate::{BenchConfig, BenchRunner, Benchmarkable};
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
+use crate::BenchConfig;
 use criterion::black_box;
 use torsh_core::device::DeviceType;
 use torsh_core::dtype::DType;
-use torsh_data::prelude::DefaultCollate;
-use torsh_data::*;
 use torsh_tensor::{creation::*, Tensor};
 
 // ================================================================================================
@@ -62,7 +62,7 @@ pub trait TensorExtensions<T: torsh_core::TensorElement> {
 }
 
 impl<T: torsh_core::dtype::TensorElement + Copy> TensorExtensions<T> for Tensor<T> {
-    fn requires_grad_(mut self, _requires_grad: bool) -> Self {
+    fn requires_grad_(self, _requires_grad: bool) -> Self {
         // Mock implementation - just return self
         // In a real implementation, this would set internal autograd flags
         self
@@ -156,7 +156,7 @@ impl<T: torsh_core::dtype::TensorElement + Copy> TensorExtensions<T> for Tensor<
 /// * `Result<Tensor<T>>` - Random tensor or error
 pub fn create_random_tensor<T: torsh_core::dtype::FloatElement + Copy + From<f32>>(
     shape: &[usize],
-    device: DeviceType,
+    _device: DeviceType,
 ) -> torsh_core::error::Result<Tensor<T>> {
     rand::<T>(shape).map(|t| t)
 }
@@ -167,7 +167,7 @@ pub fn create_random_tensor<T: torsh_core::dtype::FloatElement + Copy + From<f32
 /// benchmarks that need predictable input data.
 pub fn create_ones_tensor<T: torsh_core::dtype::TensorElement + Copy>(
     shape: &[usize],
-    device: DeviceType,
+    _device: DeviceType,
 ) -> torsh_core::error::Result<Tensor<T>> {
     ones::<T>(shape).map(|t| t)
 }
@@ -178,7 +178,7 @@ pub fn create_ones_tensor<T: torsh_core::dtype::TensorElement + Copy>(
 /// initialization and memory allocation benchmarks.
 pub fn create_zeros_tensor<T: torsh_core::dtype::TensorElement + Copy>(
     shape: &[usize],
-    device: DeviceType,
+    _device: DeviceType,
 ) -> torsh_core::error::Result<Tensor<T>> {
     zeros::<T>(shape).map(|t| t)
 }
@@ -189,7 +189,7 @@ pub fn create_zeros_tensor<T: torsh_core::dtype::TensorElement + Copy>(
 pub fn create_full_tensor<T: torsh_core::dtype::TensorElement + Copy>(
     shape: &[usize],
     value: T,
-    device: DeviceType,
+    _device: DeviceType,
 ) -> torsh_core::error::Result<Tensor<T>> {
     full::<T>(shape, value).map(|t| t)
 }

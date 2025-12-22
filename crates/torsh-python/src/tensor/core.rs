@@ -2,11 +2,11 @@
 
 use crate::{device::PyDevice, dtype::PyDType, error::PyResult, py_result};
 // ✅ SCIRS2 Policy: Use scirs2_core::ndarray instead of direct ndarray
-use scirs2_core::ndarray::{self, Array, IxDyn};
 use numpy::{PyArray1, PyArray2, PyArrayDyn, PyArrayMethods, PyUntypedArrayMethods, ToPyArray};
 use pyo3::prelude::*;
-use pyo3::types::{PyList, PyTuple};
-use torsh_core::{device::DeviceType, dtype::DType};
+use pyo3::types::{PyAny, PyList};
+use scirs2_core::ndarray::{Array, IxDyn};
+use torsh_core::device::DeviceType;
 use torsh_tensor::Tensor;
 
 /// Python wrapper for ToRSh Tensor (simplified version)
@@ -21,7 +21,7 @@ impl PyTensor {
     #[new]
     pub fn new(
         data: &Bound<'_, PyAny>,
-        dtype: Option<PyDType>,
+        _dtype: Option<PyDType>,
         device: Option<PyDevice>,
         requires_grad: Option<bool>,
     ) -> PyResult<Self> {
@@ -29,24 +29,24 @@ impl PyTensor {
         let requires_grad = requires_grad.unwrap_or(false);
 
         // Convert Python data to Rust tensor
-        let tensor = if let Ok(arr) = data.downcast::<PyArray1<f32>>() {
+        let tensor = if let Ok(arr) = data.clone().cast_into::<PyArray1<f32>>() {
             // 1D NumPy array
             let data = arr.to_vec()?;
             let shape = vec![data.len()];
             py_result!(Tensor::from_data(data, shape, device))?
-        } else if let Ok(arr) = data.downcast::<PyArray2<f32>>() {
+        } else if let Ok(arr) = data.clone().cast_into::<PyArray2<f32>>() {
             // 2D NumPy array
             let data = arr.to_vec()?;
             let shape = arr.shape().to_vec();
             py_result!(Tensor::from_data(data, shape, device))?
-        } else if let Ok(arr) = data.downcast::<PyArrayDyn<f32>>() {
+        } else if let Ok(arr) = data.clone().cast_into::<PyArrayDyn<f32>>() {
             // N-D NumPy array
             let data = arr.to_vec()?;
             let shape = arr.shape().to_vec();
             py_result!(Tensor::from_data(data, shape, device))?
-        } else if let Ok(list) = data.downcast::<PyList>() {
+        } else if let Ok(list) = data.clone().cast_into::<PyList>() {
             // Python list - simplified version
-            Self::from_py_list(list, device)?
+            Self::from_py_list(&list, device)?
         } else if let Ok(scalar) = data.extract::<f32>() {
             // Scalar value
             py_result!(Tensor::from_data(vec![scalar], vec![], device))?
@@ -126,8 +126,8 @@ impl PyTensor {
     }
 
     /// Convert tensor to NumPy array with proper shape preservation
-    fn numpy(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn numpy(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             let data = py_result!(self.tensor.to_vec())?;
             let binding = self.tensor.shape();
             let shape = binding.dims();
@@ -150,13 +150,14 @@ impl PyTensor {
                     // Create ndarray and convert to PyArrayDyn
                     let ndarray = Array::from_vec(data)
                         .into_dyn()
-                        .into_shape(IxDyn(&shape_vec))
+                        .to_shape(IxDyn(&shape_vec))
                         .map_err(|e| {
                             PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
                                 "Shape error: {}",
                                 e
                             ))
-                        })?;
+                        })?
+                        .into_owned();
                     let array = ndarray.to_pyarray(py);
                     Ok(array.into_pyobject(py)?.into_any().unbind())
                 }
@@ -164,13 +165,14 @@ impl PyTensor {
                     // N-D array - properly reshape for arbitrary dimensions
                     let ndarray = Array::from_vec(data)
                         .into_dyn()
-                        .into_shape(IxDyn(&shape_vec))
+                        .to_shape(IxDyn(&shape_vec))
                         .map_err(|e| {
                             PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
                                 "Shape error: {}",
                                 e
                             ))
-                        })?;
+                        })?
+                        .into_owned();
                     let array = ndarray.to_pyarray(py);
                     Ok(array.into_pyobject(py)?.into_any().unbind())
                 }
@@ -190,8 +192,8 @@ impl PyTensor {
     }
 
     /// Convert tensor to nested Python lists
-    fn tolist(&self) -> PyResult<PyObject> {
-        Python::with_gil(|py| {
+    fn tolist(&self) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| {
             let data = py_result!(self.tensor.to_vec())?;
             let binding = self.tensor.shape();
             let shape = binding.dims();
@@ -328,7 +330,7 @@ impl PyTensor {
     }
 
     /// Flatten tensor
-    fn flatten(&self, start_dim: Option<i64>, end_dim: Option<i64>) -> PyResult<PyTensor> {
+    fn flatten(&self, _start_dim: Option<i64>, _end_dim: Option<i64>) -> PyResult<PyTensor> {
         // For now, use basic flatten - may need different implementation
         let result = py_result!(self.tensor.flatten())?;
         Ok(PyTensor { tensor: result })
@@ -339,7 +341,7 @@ impl PyTensor {
     // ===============================
 
     /// Sum along specified dimensions
-    fn sum(&self, dim: Option<Vec<i64>>, keepdim: Option<bool>) -> PyResult<PyTensor> {
+    fn sum(&self, _dim: Option<Vec<i64>>, _keepdim: Option<bool>) -> PyResult<PyTensor> {
         // For now, use basic sum - may need different implementation
         let result = py_result!(self.tensor.sum())?;
         Ok(PyTensor { tensor: result })
@@ -366,7 +368,7 @@ impl PyTensor {
     }
 
     /// Minimum along specified dimensions
-    fn min(&self, dim: Option<i64>, keepdim: Option<bool>) -> PyResult<PyTensor> {
+    fn min(&self, _dim: Option<i64>, _keepdim: Option<bool>) -> PyResult<PyTensor> {
         // For now, use basic min - may need different implementation
         let result = py_result!(self.tensor.min())?;
         Ok(PyTensor { tensor: result })
@@ -657,8 +659,30 @@ impl PyTensor {
 
     /// Apply uniform random initialization
     fn uniform_(&mut self, from: Option<f32>, to: Option<f32>) -> PyResult<PyTensor> {
-        // Simplified uniform initialization - return tensor as-is for now
-        // TODO: Implement proper uniform initialization when available
+        // ✅ SciRS2 POLICY: Use scirs2_core::random for RNG
+        use scirs2_core::random::{thread_rng, Distribution, Uniform};
+
+        let from = from.unwrap_or(0.0);
+        let to = to.unwrap_or(1.0);
+
+        let mut rng = thread_rng();
+        let dist = Uniform::new(from, to).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "Invalid uniform distribution parameters: {}",
+                e
+            ))
+        })?;
+
+        let mut data = py_result!(self.tensor.data())?;
+        for val in data.iter_mut() {
+            *val = dist.sample(&mut rng);
+        }
+
+        let shape = self.tensor.shape().dims().to_vec();
+        let device = self.tensor.device();
+        self.tensor = py_result!(torsh_tensor::Tensor::from_data(data, shape, device))?
+            .requires_grad_(self.tensor.requires_grad());
+
         Ok(PyTensor {
             tensor: self.tensor.clone(),
         })
@@ -666,8 +690,30 @@ impl PyTensor {
 
     /// Apply normal random initialization
     fn normal_(&mut self, mean: Option<f32>, std: Option<f32>) -> PyResult<PyTensor> {
-        // Simplified normal initialization - return tensor as-is for now
-        // TODO: Implement proper normal initialization when available
+        // ✅ SciRS2 POLICY: Use scirs2_core::random for RNG
+        use scirs2_core::random::{thread_rng, Distribution, Normal};
+
+        let mean = mean.unwrap_or(0.0);
+        let std = std.unwrap_or(1.0);
+
+        let normal = Normal::new(mean as f64, std as f64).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "Invalid normal distribution parameters: {}",
+                e
+            ))
+        })?;
+
+        let mut rng = thread_rng();
+        let mut data = py_result!(self.tensor.data())?;
+        for val in data.iter_mut() {
+            *val = normal.sample(&mut rng) as f32;
+        }
+
+        let shape = self.tensor.shape().dims().to_vec();
+        let device = self.tensor.device();
+        self.tensor = py_result!(torsh_tensor::Tensor::from_data(data, shape, device))?
+            .requires_grad_(self.tensor.requires_grad());
+
         Ok(PyTensor {
             tensor: self.tensor.clone(),
         })
@@ -719,11 +765,28 @@ impl PyTensor {
 
     /// Masked fill operation
     fn masked_fill(&self, mask: &PyTensor, value: f32) -> PyResult<PyTensor> {
-        // Simplified masked fill implementation - return input as-is for now
-        // TODO: Implement proper masked fill when available
-        Ok(PyTensor {
-            tensor: self.tensor.clone(),
-        })
+        // ✅ Proper masked fill implementation
+        let mut data = py_result!(self.tensor.data())?;
+        let mask_data = py_result!(mask.tensor.data())?;
+
+        if data.len() != mask_data.len() {
+            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                "Mask must have the same number of elements as tensor",
+            ));
+        }
+
+        for (val, &mask_val) in data.iter_mut().zip(mask_data.iter()) {
+            if mask_val != 0.0 {
+                *val = value;
+            }
+        }
+
+        let shape = self.tensor.shape().dims().to_vec();
+        let device = self.tensor.device();
+        let result = py_result!(torsh_tensor::Tensor::from_data(data, shape, device))?
+            .requires_grad_(self.tensor.requires_grad());
+
+        Ok(PyTensor { tensor: result })
     }
 
     /// Masked select operation
@@ -759,20 +822,69 @@ impl PyTensor {
 
     /// Split tensor into chunks
     fn chunk(&self, chunks: usize, dim: i64) -> PyResult<Vec<PyTensor>> {
-        // Simplified chunk implementation - return original tensor for now
-        // TODO: Implement proper chunking when available
-        Ok(vec![PyTensor {
-            tensor: self.tensor.clone(),
-        }])
+        // ✅ Proper chunk implementation
+        let shape = self.tensor.shape().dims().to_vec();
+        let dim_usize = dim as usize;
+
+        if dim_usize >= shape.len() {
+            return Err(PyErr::new::<pyo3::exceptions::PyIndexError, _>(format!(
+                "Dimension {} out of range for tensor with {} dimensions",
+                dim,
+                shape.len()
+            )));
+        }
+
+        let dim_size = shape[dim_usize];
+        let chunk_size = (dim_size + chunks - 1) / chunks; // Ceiling division
+
+        let mut result = Vec::new();
+        for i in 0..chunks {
+            let start = i * chunk_size;
+            if start >= dim_size {
+                break;
+            }
+            let end = std::cmp::min(start + chunk_size, dim_size);
+
+            // Use narrow to extract chunk
+            let chunk = py_result!(self.tensor.narrow(dim as i32, start as i64, end - start))?;
+            result.push(PyTensor { tensor: chunk });
+        }
+
+        Ok(result)
     }
 
     /// Split tensor at specified sizes
     fn split(&self, split_sizes: Vec<usize>, dim: i64) -> PyResult<Vec<PyTensor>> {
-        // Simplified split implementation - return original tensor for now
-        // TODO: Implement proper splitting when available
-        Ok(vec![PyTensor {
-            tensor: self.tensor.clone(),
-        }])
+        // ✅ Proper split implementation
+        let shape = self.tensor.shape().dims().to_vec();
+        let dim_usize = dim as usize;
+
+        if dim_usize >= shape.len() {
+            return Err(PyErr::new::<pyo3::exceptions::PyIndexError, _>(format!(
+                "Dimension {} out of range for tensor with {} dimensions",
+                dim,
+                shape.len()
+            )));
+        }
+
+        let total_size: usize = split_sizes.iter().sum();
+        if total_size != shape[dim_usize] {
+            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "Split sizes sum to {} but dimension {} has size {}",
+                total_size, dim, shape[dim_usize]
+            )));
+        }
+
+        let mut result = Vec::new();
+        let mut start = 0;
+
+        for &size in &split_sizes {
+            let chunk = py_result!(self.tensor.narrow(dim as i32, start as i64, size))?;
+            result.push(PyTensor { tensor: chunk });
+            start += size;
+        }
+
+        Ok(result)
     }
 
     /// Permute tensor dimensions
@@ -784,31 +896,109 @@ impl PyTensor {
 
     /// Get diagonal elements
     fn diag(&self, diagonal: Option<i64>) -> PyResult<PyTensor> {
-        // Simplified diagonal implementation - return input as-is for now
-        // TODO: Implement proper diagonal extraction when available
-        Ok(PyTensor {
-            tensor: self.tensor.clone(),
-        })
+        // ✅ Proper diagonal extraction implementation
+
+        let offset = diagonal.unwrap_or(0);
+        let shape = self.tensor.shape().dims().to_vec();
+
+        if shape.len() == 1 {
+            // 1D tensor -> create diagonal matrix
+            let n = shape[0];
+            let size = n + offset.abs() as usize;
+            let mut data = vec![0.0; size * size];
+            let input_data = py_result!(self.tensor.data())?;
+
+            for (i, &val) in input_data.iter().enumerate() {
+                if offset >= 0 {
+                    let row = i;
+                    let col = i + offset as usize;
+                    data[row * size + col] = val;
+                } else {
+                    let row = i + (-offset) as usize;
+                    let col = i;
+                    data[row * size + col] = val;
+                }
+            }
+
+            let result = py_result!(torsh_tensor::Tensor::from_data(
+                data,
+                vec![size, size],
+                self.tensor.device()
+            ))?;
+            Ok(PyTensor { tensor: result })
+        } else if shape.len() == 2 {
+            // 2D tensor -> extract diagonal
+            let rows = shape[0];
+            let cols = shape[1];
+            let data = py_result!(self.tensor.data())?;
+
+            let mut diag_data = Vec::new();
+
+            if offset >= 0 {
+                let offset_u = offset as usize;
+                for i in 0..std::cmp::min(rows, cols.saturating_sub(offset_u)) {
+                    diag_data.push(data[i * cols + i + offset_u]);
+                }
+            } else {
+                let offset_u = (-offset) as usize;
+                for i in 0..std::cmp::min(rows.saturating_sub(offset_u), cols) {
+                    diag_data.push(data[(i + offset_u) * cols + i]);
+                }
+            }
+
+            let diag_len = diag_data.len();
+            let result = py_result!(torsh_tensor::Tensor::from_data(
+                diag_data,
+                vec![diag_len],
+                self.tensor.device()
+            ))?;
+            Ok(PyTensor { tensor: result })
+        } else {
+            Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                "diag() only supports 1D or 2D tensors",
+            ))
+        }
     }
 
     /// Trace of matrix
     fn trace(&self) -> PyResult<PyTensor> {
-        // Simplified trace implementation - return input as-is for now
-        // TODO: Implement proper trace computation when available
-        Ok(PyTensor {
-            tensor: self.tensor.clone(),
-        })
+        // ✅ Proper trace computation
+        let shape = self.tensor.shape().dims().to_vec();
+
+        if shape.len() != 2 {
+            return Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                "trace() requires a 2D tensor",
+            ));
+        }
+
+        let rows = shape[0];
+        let cols = shape[1];
+        let min_dim = std::cmp::min(rows, cols);
+
+        let data = py_result!(self.tensor.data())?;
+        let mut trace_sum = 0.0;
+
+        for i in 0..min_dim {
+            trace_sum += data[i * cols + i];
+        }
+
+        let result = py_result!(torsh_tensor::Tensor::from_data(
+            vec![trace_sum],
+            vec![],
+            self.tensor.device()
+        ))?;
+
+        Ok(PyTensor { tensor: result })
     }
 
     /// Norm calculation
     fn norm(
         &self,
         p: Option<f32>,
-        dim: Option<Vec<i64>>,
-        keepdim: Option<bool>,
+        _dim: Option<Vec<i64>>,
+        _keepdim: Option<bool>,
     ) -> PyResult<PyTensor> {
-        let p = p.unwrap_or(2.0);
-        let keepdim = keepdim.unwrap_or(false);
+        let _p = p.unwrap_or(2.0);
         // For now, use simple L2 norm regardless of parameters
         // TODO: Implement full norm_lp functionality when ops module is exposed
         let result = py_result!(self.tensor.norm())?;
@@ -862,8 +1052,7 @@ impl PyTensor {
     }
 
     /// Argmax operation
-    fn argmax(&self, dim: Option<i64>, keepdim: Option<bool>) -> PyResult<PyTensor> {
-        let keepdim = keepdim.unwrap_or(false);
+    fn argmax(&self, dim: Option<i64>, _keepdim: Option<bool>) -> PyResult<PyTensor> {
         let result = if let Some(d) = dim {
             py_result!(self.tensor.argmax(Some(d as i32)))?
         } else {
@@ -874,8 +1063,7 @@ impl PyTensor {
     }
 
     /// Argmin operation
-    fn argmin(&self, dim: Option<i64>, keepdim: Option<bool>) -> PyResult<PyTensor> {
-        let keepdim = keepdim.unwrap_or(false);
+    fn argmin(&self, dim: Option<i64>, _keepdim: Option<bool>) -> PyResult<PyTensor> {
         let result = if let Some(d) = dim {
             py_result!(self.tensor.argmin(Some(d as i32)))?
         } else {
@@ -915,7 +1103,7 @@ impl PyTensor {
         shape: &[usize],
         dim: usize,
         index: &mut usize,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         if dim == shape.len() - 1 {
             // Leaf dimension: create list of values
             let mut items = Vec::new();

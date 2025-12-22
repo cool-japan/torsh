@@ -1,6 +1,8 @@
 //! Quantization-aware training
 
-use crate::{FakeQuantize, Observer, QuantConfig, TorshResult};
+#[cfg(feature = "experimental")]
+use crate::fake_quantize::FakeQuantize;
+use crate::{Observer, QuantConfig, TorshResult};
 use std::collections::HashMap;
 use torsh_core::{DType, TorshError};
 // use torsh_nn::Module; // Temporarily disabled due to autograd compilation issues

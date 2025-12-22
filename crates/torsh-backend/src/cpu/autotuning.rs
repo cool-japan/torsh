@@ -6,6 +6,7 @@
 
 use std::collections::HashMap;
 use std::fs;
+#[cfg(feature = "serialize")]
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};

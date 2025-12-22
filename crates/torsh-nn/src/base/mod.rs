@@ -241,3 +241,276 @@ impl ModuleBase {
         self.hook_registry.clear_all_hooks()
     }
 }
+
+// =============================================================================
+// TESTS
+// =============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use torsh_tensor::creation::zeros;
+
+    #[test]
+    fn test_module_base_creation() {
+        let base = ModuleBase::new();
+        assert!(base.training());
+        assert_eq!(base.device, DeviceType::Cpu);
+        assert_eq!(base.parameters.len(), 0);
+        assert_eq!(base.buffers.len(), 0);
+        assert_eq!(base.modules.len(), 0);
+    }
+
+    #[test]
+    fn test_module_base_default() {
+        let base = ModuleBase::default();
+        assert!(base.training());
+        assert_eq!(base.device, DeviceType::Cpu);
+    }
+
+    #[test]
+    fn test_training_mode() {
+        let mut base = ModuleBase::new();
+        assert!(base.training());
+
+        base.set_training(false);
+        assert!(!base.training());
+
+        base.set_training(true);
+        assert!(base.training());
+    }
+
+    #[test]
+    fn test_register_parameter() {
+        let mut base = ModuleBase::new();
+        let tensor = zeros(&[3, 4]).unwrap();
+        let param = Parameter::new(tensor);
+
+        base.register_parameter("weight".to_string(), param);
+        assert_eq!(base.parameters.len(), 1);
+        assert!(base.parameters.contains_key("weight"));
+    }
+
+    #[test]
+    fn test_register_multiple_parameters() {
+        let mut base = ModuleBase::new();
+
+        let weight = Parameter::new(zeros(&[10, 5]).unwrap());
+        let bias = Parameter::new(zeros(&[5]).unwrap());
+
+        base.register_parameter("weight".to_string(), weight);
+        base.register_parameter("bias".to_string(), bias);
+
+        assert_eq!(base.parameters.len(), 2);
+        assert!(base.parameters.contains_key("weight"));
+        assert!(base.parameters.contains_key("bias"));
+    }
+
+    #[test]
+    fn test_register_buffer() {
+        let mut base = ModuleBase::new();
+        let tensor = zeros(&[10]).unwrap();
+
+        base.register_buffer("running_mean".to_string(), tensor);
+        assert_eq!(base.buffers.len(), 1);
+        assert!(base.buffers.contains_key("running_mean"));
+    }
+
+    #[test]
+    fn test_named_parameters() {
+        let mut base = ModuleBase::new();
+        let param = Parameter::new(zeros(&[3, 4]).unwrap());
+        base.register_parameter("weight".to_string(), param);
+
+        let named_params = base.named_parameters();
+        assert_eq!(named_params.len(), 1);
+        assert!(named_params.contains_key("weight"));
+    }
+
+    #[test]
+    fn test_children_empty() {
+        let base = ModuleBase::new();
+        let children = base.children();
+        assert_eq!(children.len(), 0);
+    }
+
+    #[test]
+    fn test_named_children_empty() {
+        let base = ModuleBase::new();
+        let named_children = base.named_children();
+        assert_eq!(named_children.len(), 0);
+    }
+
+    #[test]
+    fn test_to_device_cpu() -> Result<()> {
+        let mut base = ModuleBase::new();
+        base.to_device(DeviceType::Cpu)?;
+        assert_eq!(base.device, DeviceType::Cpu);
+        Ok(())
+    }
+
+    #[test]
+    fn test_all_parameter_tensors() {
+        let mut base = ModuleBase::new();
+        let param1 = Parameter::new(zeros(&[2, 3]).unwrap());
+        let param2 = Parameter::new(zeros(&[4]).unwrap());
+
+        base.register_parameter("weight".to_string(), param1);
+        base.register_parameter("bias".to_string(), param2);
+
+        let all_params = base.all_parameter_tensors();
+        assert_eq!(all_params.len(), 2);
+    }
+
+    #[test]
+    fn test_all_named_parameters() {
+        let mut base = ModuleBase::new();
+        let param = Parameter::new(zeros(&[3, 4]).unwrap());
+        base.register_parameter("weight".to_string(), param);
+
+        let all_named = base.all_named_parameters();
+        assert_eq!(all_named.len(), 1);
+    }
+
+    #[test]
+    fn test_hook_registration() {
+        use crate::HookType;
+
+        let mut base = ModuleBase::new();
+        let callback: HookCallback = Box::new(|_module, _input, _output| Ok(()));
+
+        let handle = base.register_hook(HookType::PreForward, callback);
+        assert!(base.has_hooks(HookType::PreForward));
+        assert_eq!(base.hook_count(HookType::PreForward), 1);
+
+        let removed = base.remove_hook(HookType::PreForward, handle);
+        assert!(removed);
+        assert!(!base.has_hooks(HookType::PreForward));
+    }
+
+    #[test]
+    fn test_hook_multiple_registration() {
+        use crate::HookType;
+
+        let mut base = ModuleBase::new();
+        let callback1: HookCallback = Box::new(|_m, _i, _o| Ok(()));
+        let callback2: HookCallback = Box::new(|_m, _i, _o| Ok(()));
+
+        base.register_hook(HookType::PreForward, callback1);
+        base.register_hook(HookType::PreForward, callback2);
+
+        assert_eq!(base.hook_count(HookType::PreForward), 2);
+    }
+
+    #[test]
+    fn test_clear_hooks() {
+        use crate::HookType;
+
+        let mut base = ModuleBase::new();
+        let callback1: HookCallback = Box::new(|_m, _i, _o| Ok(()));
+        let callback2: HookCallback = Box::new(|_m, _i, _o| Ok(()));
+
+        base.register_hook(HookType::PreForward, callback1);
+        base.register_hook(HookType::PreBackward, callback2);
+
+        assert!(base.has_hooks(HookType::PreForward));
+        assert!(base.has_hooks(HookType::PreBackward));
+
+        base.clear_hooks(HookType::PreForward);
+        assert!(!base.has_hooks(HookType::PreForward));
+        assert!(base.has_hooks(HookType::PreBackward));
+    }
+
+    #[test]
+    fn test_clear_all_hooks() {
+        use crate::HookType;
+
+        let mut base = ModuleBase::new();
+        let callback1: HookCallback = Box::new(|_m, _i, _o| Ok(()));
+        let callback2: HookCallback = Box::new(|_m, _i, _o| Ok(()));
+
+        base.register_hook(HookType::PreForward, callback1);
+        base.register_hook(HookType::PreBackward, callback2);
+
+        assert!(base.has_hooks(HookType::PreForward));
+        assert!(base.has_hooks(HookType::PreBackward));
+
+        base.clear_all_hooks();
+        assert!(!base.has_hooks(HookType::PreForward));
+        assert!(!base.has_hooks(HookType::PreBackward));
+    }
+
+    #[test]
+    fn test_hook_count_zero() {
+        use crate::HookType;
+
+        let base = ModuleBase::new();
+        assert_eq!(base.hook_count(HookType::PreForward), 0);
+        assert_eq!(base.hook_count(HookType::PreBackward), 0);
+    }
+
+    #[test]
+    fn test_debug_format() {
+        let mut base = ModuleBase::new();
+        base.register_parameter(
+            "weight".to_string(),
+            Parameter::new(zeros(&[2, 3]).unwrap()),
+        );
+
+        let debug_str = format!("{:?}", base);
+        assert!(debug_str.contains("ModuleBase"));
+        assert!(debug_str.contains("training"));
+        assert!(debug_str.contains("parameters_count"));
+    }
+
+    #[test]
+    fn test_parameter_replacement() {
+        let mut base = ModuleBase::new();
+
+        // Register initial parameter
+        let param1 = Parameter::new(zeros(&[2, 3]).unwrap());
+        base.register_parameter("weight".to_string(), param1);
+        assert_eq!(base.parameters.len(), 1);
+
+        // Replace with new parameter (same name)
+        let param2 = Parameter::new(zeros(&[4, 5]).unwrap());
+        base.register_parameter("weight".to_string(), param2);
+        assert_eq!(base.parameters.len(), 1); // Still just one parameter
+
+        // Verify new shape
+        let weight_arc = base.parameters["weight"].tensor();
+        let weight = weight_arc.read();
+        assert_eq!(weight.shape().dims(), &[4, 5]);
+    }
+
+    #[test]
+    fn test_buffer_replacement() {
+        let mut base = ModuleBase::new();
+
+        // Register initial buffer
+        base.register_buffer("running_mean".to_string(), zeros(&[10]).unwrap());
+        assert_eq!(base.buffers.len(), 1);
+
+        // Replace with new buffer
+        base.register_buffer("running_mean".to_string(), zeros(&[20]).unwrap());
+        assert_eq!(base.buffers.len(), 1); // Still just one buffer
+
+        // Verify new shape
+        let buffer = base.buffers["running_mean"].read();
+        assert_eq!(buffer.shape().dims(), &[20]);
+    }
+
+    #[test]
+    fn test_empty_base_all_named_parameters() {
+        let base = ModuleBase::new();
+        let all_named = base.all_named_parameters();
+        assert_eq!(all_named.len(), 0);
+    }
+
+    #[test]
+    fn test_empty_base_get_all_named_parameters() {
+        let base = ModuleBase::new();
+        let all_named = base.get_all_named_parameters();
+        assert_eq!(all_named.len(), 0);
+    }
+}

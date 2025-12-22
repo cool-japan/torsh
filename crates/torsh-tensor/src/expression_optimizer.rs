@@ -8,8 +8,7 @@
 use crate::{Tensor, TensorElement};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt;
-use std::hash::{Hash, Hasher};
-use std::sync::{Arc, Mutex};
+use std::hash::Hash;
 use torsh_core::{
     device::DeviceType,
     error::{Result, TorshError},
@@ -406,14 +405,9 @@ impl ExpressionGraph {
         let mut result = Vec::new();
 
         // Calculate in-degrees
-        for &node_id in self.nodes.keys() {
-            in_degree.insert(node_id, 0);
-        }
-
+        // The in-degree of a node is the number of its inputs (incoming edges)
         for node in self.nodes.values() {
-            for &input_id in &node.inputs {
-                *in_degree.get_mut(&node.id).unwrap() += 1;
-            }
+            in_degree.insert(node.id, node.inputs.len());
         }
 
         // Find nodes with no incoming edges
@@ -819,8 +813,18 @@ impl ExpressionOptimizer {
                 let fused_id = graph.add_node(OperationType::Custom("fused".to_string()));
 
                 // Connect inputs and outputs properly
-                // This is a simplified version - in practice, you'd implement
-                // proper kernel fusion logic here
+                // Get the first node's inputs and last node's outputs
+                if let (Some(&first), Some(&_last)) = (chain.first(), chain.last()) {
+                    // Clone inputs before mutable borrow to avoid borrow checker error
+                    let inputs_to_clone = graph.nodes.get(&first).map(|node| node.inputs.clone());
+
+                    if let Some(inputs) = inputs_to_clone {
+                        // Now we can safely get mutable reference
+                        if let Some(fused_node) = graph.nodes.get_mut(&fused_id) {
+                            fused_node.inputs = inputs;
+                        }
+                    }
+                }
 
                 total_fused += 1;
             }
@@ -890,7 +894,6 @@ impl<T: TensorElement> TensorExpressionOps<T> for Tensor<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use torsh_core::device::DeviceType;
 
     #[test]
     fn test_operation_properties() {

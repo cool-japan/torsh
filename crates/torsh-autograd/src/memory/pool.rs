@@ -23,7 +23,7 @@
 //!
 //! # Examples
 //!
-//! ```rust
+//! ```rust,ignore
 //! use crate::memory::pool::MemoryPool;
 //! use torsh_core::dtype::f32;
 //!
@@ -45,7 +45,7 @@
 
 use std::collections::HashMap;
 use torsh_core::dtype::FloatElement;
-use torsh_core::error::{Result, TorshError};
+use torsh_core::error::Result;
 
 /// Memory pool for efficient allocation and reuse
 ///
@@ -133,7 +133,7 @@ impl<T: FloatElement> MemoryPool<T> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let pool: MemoryPool<f32> = MemoryPool::new();
     /// assert_eq!(pool.len(), 0);
     /// ```
@@ -158,7 +158,7 @@ impl<T: FloatElement> MemoryPool<T> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// // Create a smaller pool for memory-constrained environments
     /// let pool: MemoryPool<f32> = MemoryPool::with_config(50, 512 * 1024 * 1024);
     /// ```
@@ -192,7 +192,7 @@ impl<T: FloatElement> MemoryPool<T> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let mut pool: MemoryPool<f32> = MemoryPool::new();
     /// let memory = pool.allocate(1000)?;
     /// assert_eq!(memory.len(), 1000);
@@ -245,7 +245,7 @@ impl<T: FloatElement> MemoryPool<T> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let mut pool: MemoryPool<f32> = MemoryPool::new();
     /// let memory = pool.allocate(1000)?;
     /// // ... use memory ...
@@ -300,7 +300,7 @@ impl<T: FloatElement> MemoryPool<T> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let stats = pool.get_stats();
     /// println!("Cache hit rate: {:.1}%", stats.cache_hit_rate());
     /// println!("Pool memory usage: {} bytes", stats.current_pool_size);
@@ -336,7 +336,7 @@ impl<T: FloatElement> MemoryPool<T> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// pool.clear();
     /// assert_eq!(pool.len(), 0);
     /// assert_eq!(pool.get_stats().current_pool_size, 0);

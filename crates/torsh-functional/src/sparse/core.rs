@@ -79,7 +79,7 @@ impl SparseTensor {
         // Find non-zero elements
         let dense_data = dense.to_vec()?;
         let mut values_vec = Vec::new();
-        let mut indices_vec = Vec::new();
+        let mut coords_vec = Vec::new(); // Store all coordinates temporarily
 
         // Iterate through all elements
         let total_elements: usize = shape.iter().product();
@@ -98,14 +98,21 @@ impl SparseTensor {
                 }
                 coords.reverse();
 
-                // Add coordinates to indices
-                for coord in coords {
-                    indices_vec.push(coord as f32);
-                }
+                coords_vec.push(coords);
             }
         }
 
         let nnz = values_vec.len();
+
+        // Build indices in dimension-by-dimension order (not element-by-element)
+        // Indices should be [ndim, nnz] where row i contains all coords for dimension i
+        let mut indices_vec = Vec::with_capacity(ndim * nnz);
+        for dim in 0..ndim {
+            for coords in &coords_vec {
+                indices_vec.push(coords[dim] as f32);
+            }
+        }
+
         let values = Tensor::from_data(values_vec, vec![nnz], dense.device())?;
         let indices = Tensor::from_data(indices_vec, vec![ndim, nnz], dense.device())?;
 

@@ -2,7 +2,7 @@
 
 use crate::TimeSeries;
 use scirs2_series::decomposition::{stl_decomposition, STLOptions};
-use torsh_tensor::{creation::zeros, Tensor};
+use torsh_tensor::Tensor;
 
 /// STL decomposition result
 #[derive(Debug, Clone)]
@@ -19,7 +19,7 @@ pub struct STLResult {
 pub struct STLDecomposition {
     period: usize,
     seasonal_deg: usize,
-    trend_deg: usize,
+    _trend_deg: usize,
     robust: bool,
 }
 
@@ -29,7 +29,7 @@ impl STLDecomposition {
         Self {
             period,
             seasonal_deg: 1,
-            trend_deg: 1,
+            _trend_deg: 1,
             robust: false,
         }
     }
@@ -107,7 +107,6 @@ impl STLDecomposition {
 mod tests {
     use super::*;
     use crate::TimeSeries;
-    use torsh_tensor::creation::*;
 
     fn create_test_series() -> TimeSeries {
         // Create synthetic time series with trend and seasonality
@@ -127,7 +126,6 @@ mod tests {
         let stl = STLDecomposition::new(12);
         assert_eq!(stl.period, 12);
         assert_eq!(stl.seasonal_deg, 1);
-        assert_eq!(stl.trend_deg, 1);
         assert!(!stl.robust);
     }
 

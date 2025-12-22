@@ -22,7 +22,7 @@
 //! # Examples
 //!
 //! ## Basic Transmission Scheduling
-//! ```rust
+//! ```rust,ignore
 //! use torsh_autograd::communication_efficient::transmission::*;
 //! use torsh_autograd::communication_efficient::config::*;
 //!
@@ -41,7 +41,7 @@
 //! ```
 //!
 //! ## Protocol Management
-//! ```rust
+//! ```rust,ignore
 //! use torsh_autograd::communication_efficient::transmission::*;
 //! use torsh_autograd::communication_efficient::config::ProtocolOptimization;
 //!
@@ -58,7 +58,7 @@
 //! ```
 //!
 //! ## Advanced Priority Management
-//! ```rust
+//! ```rust,ignore
 //! use torsh_autograd::communication_efficient::transmission::*;
 //! use torsh_autograd::communication_efficient::config::CommunicationPriority;
 //!
@@ -74,19 +74,18 @@
 //! scheduler.enable_dynamic_priority_adjustment(true);
 //! ```
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::communication_efficient::{
-    aggregation::AggregationEngine,
-    compression::CompressionEngine,
     config::{
         CommunicationConfig, CommunicationEfficientGradient, CommunicationPriority,
-        LatencySensitivity, ProtocolOptimization, QualityOfService,
+        ProtocolOptimization, QualityOfService,
     },
     CommunicationError,
 };
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::net::SocketAddr;
-use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 /// Main transmission scheduler responsible for coordinating gradient transmission
@@ -487,7 +486,7 @@ impl TransmissionScheduler {
         };
 
         // Check if we should force batch completion due to time constraints
-        let force_batch = self.should_force_batch_completion();
+        let _force_batch = self.should_force_batch_completion();
 
         // Collect gradients according to scheduling strategy
         match self.scheduling_strategy {
@@ -1105,7 +1104,6 @@ impl ProtocolStack {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
 
     #[test]
     fn test_transmission_scheduler_creation() {

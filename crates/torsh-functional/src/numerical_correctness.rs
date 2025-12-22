@@ -114,7 +114,7 @@ pub fn assert_tensors_close(
 pub mod activation_correctness {
     use super::*;
     use crate::activations::*;
-    use torsh_tensor::creation::{linspace, ones, zeros};
+    use torsh_tensor::creation::linspace;
 
     /// Test ReLU against analytical solution: max(0, x)
     #[test]
@@ -255,7 +255,7 @@ pub mod activation_correctness {
 pub mod math_correctness {
     use super::*;
     use crate::linalg::*;
-    use crate::math::*;
+
     use torsh_tensor::creation::{eye, randn};
 
     /// Test matrix multiplication against element-wise computation
@@ -294,7 +294,7 @@ pub mod math_correctness {
     #[test]
     fn test_matrix_inverse_identity() -> TorshResult<()> {
         // Create a well-conditioned matrix
-        let mut a_data = vec![2.0, 1.0, 0.0, 1.0, 3.0, 1.0, 0.0, 1.0, 2.0];
+        let a_data = vec![2.0, 1.0, 0.0, 1.0, 3.0, 1.0, 0.0, 1.0, 2.0];
         let a = Tensor::from_data(a_data.clone(), vec![3, 3], torsh_core::DeviceType::Cpu)?;
 
         let a_inv = inv(&a)?;
@@ -362,8 +362,8 @@ pub mod math_correctness {
 /// Tests reduction operations against analytical and reference solutions
 pub mod reduction_correctness {
     use super::*;
-    use crate::reduction::*;
-    use torsh_tensor::creation::{arange, ones};
+
+    use torsh_tensor::creation::arange;
 
     /// Test sum reduction against analytical solution
     #[test]

@@ -7,15 +7,10 @@
 //! - Music genre classification
 
 use std::collections::HashMap;
-use torsh_core::{
-    error::{Result, TorshError},
-    DeviceType,
-};
-use torsh_nn::prelude::{
-    Conv1d, Dropout, Embedding, GroupNorm, LayerNorm, Linear, MultiheadAttention, GELU,
-};
+use torsh_core::{error::Result, DeviceType};
+use torsh_nn::prelude::{Dropout, Linear};
 use torsh_nn::{Module, Parameter};
-use torsh_tensor::{creation, Tensor};
+use torsh_tensor::Tensor;
 
 /// Configuration for audio classification models
 #[derive(Debug, Clone)]

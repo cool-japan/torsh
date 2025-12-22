@@ -1,6 +1,6 @@
 //! CLIP model configuration
 
-use super::super::common::types::{TextEncoderConfig, VisionEncoderConfig};
+use super::super::multimodal_common::types::{TextEncoderConfig, VisionEncoderConfig};
 
 /// CLIP Configuration
 #[derive(Debug, Clone)]

@@ -509,7 +509,7 @@ impl BayesianOptimizer {
         upper: &[f32],
     ) -> Vec<f32> {
         (0..lower.len())
-            .map(|i| rng.gen::<f32>() * (upper[i] - lower[i]) + lower[i])
+            .map(|i| rng.random::<f32>() * (upper[i] - lower[i]) + lower[i])
             .collect()
     }
 
@@ -563,7 +563,7 @@ impl BayesianOptimizer {
             // Random perturbation
             for i in 0..candidate.len() {
                 let perturbation =
-                    (rng.gen::<f32>() * 2.0 - 1.0) * step_size * (upper[i] - lower[i]);
+                    (rng.random::<f32>() * 2.0 - 1.0) * step_size * (upper[i] - lower[i]);
                 candidate[i] = (candidate[i] + perturbation).max(lower[i]).min(upper[i]);
             }
 

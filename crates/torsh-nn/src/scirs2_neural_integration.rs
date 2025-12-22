@@ -17,10 +17,11 @@ use std::collections::HashMap;
 use torsh_core::device::DeviceType;
 use torsh_core::dtype::DType;
 use torsh_core::error::{Result, TorshError};
-use torsh_tensor::{creation::*, stats::StatMode, Tensor};
+use torsh_tensor::{creation::*, Tensor};
 
 /// Advanced neural processor using scirs2-neural capabilities
 pub struct SciRS2NeuralProcessor {
+    #[allow(dead_code)]
     config: NeuralConfig,
     device: DeviceType,
 }
@@ -92,11 +93,15 @@ impl SciRS2NeuralProcessor {
 /// Multi-head self-attention mechanism
 pub struct MultiHeadAttention {
     base: ModuleBase,
+    #[allow(dead_code)]
     embed_dim: usize,
+    #[allow(dead_code)]
     num_heads: usize,
     head_dim: usize,
+    #[allow(dead_code)]
     dropout: f32,
     batch_first: bool,
+    #[allow(dead_code)]
     device: DeviceType,
 }
 
@@ -161,7 +166,7 @@ impl MultiHeadAttention {
 
         // Get sequence dimensions
         let shape = q.shape();
-        let (batch_size, seq_len) = if self.batch_first {
+        let (_batch_size, _seq_len) = if self.batch_first {
             (shape.dims()[0], shape.dims()[1])
         } else {
             (shape.dims()[1], shape.dims()[0])
@@ -217,6 +222,7 @@ pub struct TransformerEncoderLayer {
     linear2: Parameter,
     norm1: LayerNorm,
     norm2: LayerNorm,
+    #[allow(dead_code)]
     dropout: f32,
 }
 
@@ -309,6 +315,7 @@ pub struct LayerNorm {
     normalized_shape: Vec<usize>,
     eps: f64,
     elementwise_affine: bool,
+    #[allow(dead_code)]
     device: DeviceType,
 }
 

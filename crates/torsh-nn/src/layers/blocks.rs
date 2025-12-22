@@ -400,7 +400,9 @@ impl DenseBlock {
     /// Manual concatenation along channel dimension for NCHW tensors
     fn manual_concat_features(&self, features: &[Tensor]) -> Result<Tensor> {
         if features.is_empty() {
-            return Err(TorshError::InvalidArgument("No features to concatenate".to_string()));
+            return Err(TorshError::InvalidArgument(
+                "No features to concatenate".to_string(),
+            ));
         }
 
         if features.len() == 1 {
@@ -428,7 +430,10 @@ impl DenseBlock {
                 for c in 0..channels {
                     for h in 0..height {
                         for w in 0..width {
-                            let idx = b * (channels * height * width) + c * (height * width) + h * width + w;
+                            let idx = b * (channels * height * width)
+                                + c * (height * width)
+                                + h * width
+                                + w;
                             if idx < feature_data.len() {
                                 output_data.push(feature_data[idx]);
                             }

@@ -11,28 +11,18 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::cuda::memory::allocation::{
-    AllocationMetadata, AllocationPriority, AllocationResult, AllocationStrategy, AllocationType,
-    CudaMemoryAllocation, MemoryAlignment,
+    AllocationPriority, AllocationStrategy, AllocationType, CudaMemoryAllocation, MemoryAlignment,
 };
-use crate::cuda::memory::device_memory::{
-    CudaMemoryManager as DeviceMemoryManager, DeviceMemoryMetrics, DeviceMemoryPool,
-};
-use crate::cuda::memory::memory_pools::{
-    CrossPoolOptimization, ResourceSharingConfig, UnifiedMemoryPoolManager,
-};
+use crate::cuda::memory::device_memory::CudaMemoryManager as DeviceMemoryManager;
+use crate::cuda::memory::memory_pools::UnifiedMemoryPoolManager;
 use crate::cuda::memory::optimization::{
     CudaMemoryOptimizationEngine, MLOptimizationConfig, OptimizationResult, OptimizationStrategy,
-    PerformanceTarget,
 };
-use crate::cuda::memory::pinned_memory::{
-    PinnedMemoryManager, PinnedMemoryPool, TransferOptimizationStrategy,
-};
+use crate::cuda::memory::pinned_memory::PinnedMemoryManager;
 use crate::cuda::memory::statistics::{
-    CudaMemoryStatisticsManager, MemoryUsageStatistics, PerformanceMetrics, SystemHealthMetrics,
+    CudaMemoryStatisticsManager, MemoryUsageStatistics, PerformanceMetrics,
 };
-use crate::cuda::memory::unified_memory::{
-    AccessPattern, MigrationStrategy, UnifiedMemoryManager, UnifiedMemoryPool,
-};
+use crate::cuda::memory::unified_memory::UnifiedMemoryManager;
 
 /// Configuration for the CUDA Memory Manager
 #[derive(Debug, Clone)]

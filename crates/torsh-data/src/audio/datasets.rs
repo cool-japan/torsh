@@ -438,7 +438,7 @@ impl Dataset for LibriSpeech {
             });
         }
 
-        let (ref path, ref transcript) = self.samples[index];
+        let (ref _path, ref transcript) = self.samples[index];
 
         // Create dummy audio for demonstration
         let sample_rate = 16000;

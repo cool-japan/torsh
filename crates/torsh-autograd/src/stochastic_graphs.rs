@@ -5,6 +5,8 @@
 //! for sampling operations, variance reduction techniques, and tools for building
 //! differentiable probabilistic programs.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use std::collections::HashMap;
 use torsh_core::error::{Result, TorshError};
 use torsh_tensor::{creation, Tensor};
@@ -152,7 +154,7 @@ impl StochasticOperation for NormalDistribution {
         let log_2pi = creation::tensor_scalar(2.0 * std::f32::consts::PI)?.log()?;
 
         // -0.5 * (normalized^2 + log(2π) + 2*log(std))
-        let neg_half = creation::tensor_scalar(-0.5)?;
+        let _neg_half = creation::tensor_scalar(-0.5)?;
         let squared_norm = normalized.pow_scalar(2.0)?;
         let log_prob_unnorm = squared_norm.add(&log_2pi)?.add(&log_std.mul_scalar(2.0)?)?;
 
@@ -399,7 +401,7 @@ impl CategoricalDistribution {
         let cumsum = probs.cumsum(-1)?;
 
         // Find the first index where cumsum >= uniform
-        let expanded_uniform = uniform.unsqueeze(-1)?;
+        let _expanded_uniform = uniform.unsqueeze(-1)?;
 
         // Find the first index where cumsum >= uniform
         // Create boolean comparison where cumsum >= expanded_uniform

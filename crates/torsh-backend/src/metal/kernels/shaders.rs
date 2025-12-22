@@ -295,6 +295,50 @@ kernel void transpose_f32(
 }
 
 // ============================================================================
+// Softmax Operations
+// ============================================================================
+
+kernel void softmax_f32(
+    device const float* input [[buffer(0)]],
+    device float* output [[buffer(1)]],
+    device const uint* params [[buffer(2)]], // [outer_size, dim_size, inner_size]
+    uint id [[thread_position_in_grid]])
+{
+    uint outer_size = params[0];
+    uint dim_size = params[1];
+    uint inner_size = params[2];
+
+    uint outer_idx = id / inner_size;
+    uint inner_idx = id % inner_size;
+
+    if (outer_idx >= outer_size) return;
+
+    uint base_offset = outer_idx * dim_size * inner_size + inner_idx;
+
+    // Step 1: Find max value for numerical stability
+    float max_val = -INFINITY;
+    for (uint i = 0; i < dim_size; i++) {
+        uint idx = base_offset + i * inner_size;
+        max_val = max(max_val, input[idx]);
+    }
+
+    // Step 2: Compute exp(x - max) and sum
+    float sum = 0.0f;
+    for (uint i = 0; i < dim_size; i++) {
+        uint idx = base_offset + i * inner_size;
+        float exp_val = exp(input[idx] - max_val);
+        output[idx] = exp_val;
+        sum += exp_val;
+    }
+
+    // Step 3: Normalize by sum
+    for (uint i = 0; i < dim_size; i++) {
+        uint idx = base_offset + i * inner_size;
+        output[idx] /= sum;
+    }
+}
+
+// ============================================================================
 // Convolution Operations
 // ============================================================================
 

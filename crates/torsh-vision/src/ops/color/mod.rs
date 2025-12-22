@@ -217,7 +217,7 @@ pub fn rgb_to_grayscale(image: &Tensor<f32>) -> Result<Tensor<f32>> {
         ));
     }
 
-    let mut result = zeros(&[1, height, width])?;
+    let result = zeros(&[1, height, width])?;
 
     for y in 0..height {
         for x in 0..width {
@@ -246,7 +246,7 @@ pub fn rgb_to_hsv(image: &Tensor<f32>) -> Result<Tensor<f32>> {
         ));
     }
 
-    let mut result = zeros(&[3, height, width])?;
+    let result = zeros(&[3, height, width])?;
 
     for y in 0..height {
         for x in 0..width {
@@ -275,7 +275,7 @@ pub fn hsv_to_rgb(image: &Tensor<f32>) -> Result<Tensor<f32>> {
         ));
     }
 
-    let mut result = zeros(&[3, height, width])?;
+    let result = zeros(&[3, height, width])?;
 
     for y in 0..height {
         for x in 0..width {
@@ -304,7 +304,7 @@ pub fn rgb_to_yuv(image: &Tensor<f32>) -> Result<Tensor<f32>> {
         ));
     }
 
-    let mut result = zeros(&[3, height, width])?;
+    let result = zeros(&[3, height, width])?;
 
     for y in 0..height {
         for x in 0..width {
@@ -380,7 +380,7 @@ pub fn histogram_equalization_with_config(
 pub fn adjust_brightness(image: &Tensor<f32>, factor: f32) -> Result<Tensor<f32>> {
     let shape = image.shape();
     let dims = shape.dims();
-    let mut result = zeros(&dims)?;
+    let result = zeros(&dims)?;
 
     let total_elements = dims.iter().product::<usize>();
 
@@ -398,7 +398,7 @@ pub fn adjust_brightness(image: &Tensor<f32>, factor: f32) -> Result<Tensor<f32>
 pub fn adjust_contrast(image: &Tensor<f32>, factor: f32) -> Result<Tensor<f32>> {
     let shape = image.shape();
     let dims = shape.dims();
-    let mut result = zeros(&dims)?;
+    let result = zeros(&dims)?;
 
     let total_elements = dims.iter().product::<usize>();
 
@@ -424,7 +424,7 @@ pub fn adjust_saturation(image: &Tensor<f32>, factor: f32) -> Result<Tensor<f32>
 
     // Convert to HSV, adjust saturation, convert back to RGB
     let hsv = rgb_to_hsv(image)?;
-    let mut adjusted_hsv = hsv.clone();
+    let adjusted_hsv = hsv.clone();
 
     for y in 0..height {
         for x in 0..width {
@@ -449,7 +449,7 @@ pub fn adjust_hue(image: &Tensor<f32>, delta: f32) -> Result<Tensor<f32>> {
 
     // Convert to HSV, adjust hue, convert back to RGB
     let hsv = rgb_to_hsv(image)?;
-    let mut adjusted_hsv = hsv.clone();
+    let adjusted_hsv = hsv.clone();
 
     for y in 0..height {
         for x in 0..width {
@@ -471,7 +471,7 @@ pub fn adjust_hue(image: &Tensor<f32>, delta: f32) -> Result<Tensor<f32>> {
 pub fn gamma_correction(image: &Tensor<f32>, gamma: f32) -> Result<Tensor<f32>> {
     let shape = image.shape();
     let dims = shape.dims();
-    let mut result = zeros(&dims)?;
+    let result = zeros(&dims)?;
 
     let total_elements = dims.iter().product::<usize>();
 
@@ -496,7 +496,7 @@ pub fn extract_channel(image: &Tensor<f32>, channel: usize) -> Result<Tensor<f32
         )));
     }
 
-    let mut result = zeros(&[1, height, width])?;
+    let result = zeros(&[1, height, width])?;
 
     for y in 0..height {
         for x in 0..width {
@@ -585,7 +585,7 @@ fn rgb_to_yuv_pixel(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
 fn normalize_min_max(image: &Tensor<f32>, per_channel: bool) -> Result<Tensor<f32>> {
     let shape = image.shape();
     let dims = shape.dims();
-    let mut result = zeros(&dims)?;
+    let result = zeros(&dims)?;
 
     if per_channel && dims.len() == 3 {
         let (channels, height, width) = (dims[0], dims[1], dims[2]);
@@ -644,7 +644,7 @@ fn normalize_min_max(image: &Tensor<f32>, per_channel: bool) -> Result<Tensor<f3
 fn normalize_zscore(image: &Tensor<f32>, per_channel: bool, eps: f32) -> Result<Tensor<f32>> {
     let shape = image.shape();
     let dims = shape.dims();
-    let mut result = zeros(&dims)?;
+    let result = zeros(&dims)?;
 
     if per_channel && dims.len() == 3 {
         let (channels, height, width) = (dims[0], dims[1], dims[2]);
@@ -733,7 +733,7 @@ fn normalize_custom(
         ));
     }
 
-    let mut result = zeros(&[channels, height, width])?;
+    let result = zeros(&[channels, height, width])?;
 
     for c in 0..channels {
         let channel_mean = mean[c];
@@ -758,7 +758,7 @@ fn apply_global_histogram_equalization(
     width: usize,
     bins: usize,
 ) -> Result<Tensor<f32>> {
-    let mut result = zeros(&[channels, height, width])?;
+    let result = zeros(&[channels, height, width])?;
 
     for c in 0..channels {
         // Compute histogram
@@ -807,7 +807,7 @@ fn apply_adaptive_histogram_equalization(
     width: usize,
     config: &HistogramConfig,
 ) -> Result<Tensor<f32>> {
-    let mut result = image.clone();
+    let result = image.clone();
 
     let (tile_height, tile_width) = config.tile_size;
     let y_tiles = (height + tile_height - 1) / tile_height;
@@ -858,7 +858,7 @@ fn apply_local_histogram_equalization(
 ) -> Result<Tensor<f32>> {
     // Simplified local histogram equalization using sliding window
     let window_size = config.tile_size.0.min(config.tile_size.1);
-    let mut result = zeros(&[channels, height, width])?;
+    let result = zeros(&[channels, height, width])?;
 
     for c in 0..channels {
         for y in 0..height {

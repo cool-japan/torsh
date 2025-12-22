@@ -6,8 +6,8 @@
 
 use super::domains::{AbstractDomain, AbstractDomainFactory, AbstractDomainType, AbstractValue};
 use crate::{
-    ir::{BasicBlock, BlockId, Instruction, IrModule, IrOpcode, IrValue},
-    ComputationGraph, JitError, JitResult, NodeId,
+    ir::{BasicBlock, BlockId, IrModule},
+    ComputationGraph, JitResult, NodeId,
 };
 use std::collections::HashMap;
 use std::time::{Duration, Instant};

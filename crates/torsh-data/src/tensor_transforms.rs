@@ -54,7 +54,7 @@ impl<T: FloatElement> Transform<Tensor<T>> for RandomHorizontalFlip {
     fn transform(&self, input: Tensor<T>) -> Result<Self::Output> {
         let mut rng = thread_rng(); // SciRS2 POLICY compliant
 
-        let random_val = rng.gen::<f32>();
+        let random_val = rng.random::<f32>();
         if random_val < self.prob {
             self.horizontal_flip(input)
         } else {

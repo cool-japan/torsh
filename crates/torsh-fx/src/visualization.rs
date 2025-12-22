@@ -1427,7 +1427,7 @@ mod tests {
         ); // Either find bottlenecks or not
 
         // Check optimization opportunities
-        let has_fusion_opportunities = report
+        let _has_fusion_opportunities = report
             .optimization_opportunities
             .iter()
             .any(|opp| matches!(opp.opportunity_type, OptimizationType::OperatorFusion));
@@ -1436,7 +1436,7 @@ mod tests {
         // but the detection depends on exact node ordering, so we don't assert this strictly
 
         // Check that memory analysis was performed
-        assert!(report.memory_analysis.total_parameters >= 0);
+        // Note: total_parameters is u64, so always >= 0
         assert!(report.memory_analysis.estimated_peak_memory_mb >= 0.0);
         assert!(report.memory_analysis.memory_efficiency_score >= 0.0);
         assert!(report.memory_analysis.memory_efficiency_score <= 1.0);
@@ -1448,8 +1448,8 @@ mod tests {
         assert!(report.complexity_metrics.critical_path_length > 0);
         assert!(report.complexity_metrics.complexity_score >= 0.0);
 
-        // Check recommendations exist (empty is OK for simple graphs)
-        assert!(report.recommendations.len() >= 0);
+        // Check recommendations exist (length is usize, so always >= 0, just verify report was generated)
+        let _ = report.recommendations.len();
     }
 
     #[test]
@@ -1466,15 +1466,15 @@ mod tests {
         let report = analyzer.generate_comprehensive_report();
 
         // Check for element-wise fusion opportunities
-        let has_elementwise_fusion = report
+        let _has_elementwise_fusion = report
             .optimization_opportunities
             .iter()
             .any(|opp| matches!(opp.opportunity_type, OptimizationType::ElementwiseFusion));
 
         // The analyzer should detect element-wise operation chains
         // Note: depending on node ordering this might or might not be detected
-        // so we just ensure the analysis runs without error
-        assert!(report.optimization_opportunities.len() >= 0);
+        // so we just ensure the analysis runs without error (length is usize, always >= 0)
+        let _ = report.optimization_opportunities.len();
     }
 
     #[test]

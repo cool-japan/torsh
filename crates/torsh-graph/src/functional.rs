@@ -1,5 +1,7 @@
 //! Functional operations and activations for graph neural networks
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use torsh_tensor::Tensor;
 
 /// Leaky ReLU activation function
@@ -203,13 +205,13 @@ pub fn dropout(input: &Tensor, p: f64, training: bool) -> Tensor {
 
     // Normalize mask to 0 or 1 by checking if > 0, then convert to binary mask
     let zero_tensor = torsh_tensor::creation::zeros_like(input).unwrap();
-    let mask_binary = mask_raw.gt(&zero_tensor).unwrap();
+    let _mask_binary = mask_raw.gt(&zero_tensor).unwrap();
 
     // For now, let's use a simplified approach - just threshold the random tensor directly
     // This creates a binary effect where values above threshold are kept
     let inverted_prob = random_tensor.gt(&keep_prob_tensor).unwrap();
-    let ones_f32 = torsh_tensor::creation::ones_like(input).unwrap();
-    let zeros_f32 = torsh_tensor::creation::zeros_like(input).unwrap();
+    let _ones_f32 = torsh_tensor::creation::ones_like(input).unwrap();
+    let _zeros_f32 = torsh_tensor::creation::zeros_like(input).unwrap();
 
     // Manual conversion from boolean to f32: if inverted_prob is true, use 0.0 (drop), else use 1.0 (keep)
     let inverted_data = inverted_prob.to_vec().unwrap();

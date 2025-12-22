@@ -3,7 +3,9 @@
 //! Implementation of complete graph classification architectures
 //! for various graph-level prediction tasks as specified in TODO.md
 
-use crate::conv::{AggregationType, GATConv, GCNConv, GINConv, MPNNConv, SAGEConv};
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
+use crate::conv::{GATConv, GCNConv, GINConv, SAGEConv};
 use crate::parameter::Parameter;
 use crate::pool::global::{global_max_pool, global_mean_pool, GlobalAttentionPool};
 use crate::{GraphData, GraphLayer};

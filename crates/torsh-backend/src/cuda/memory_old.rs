@@ -13,7 +13,8 @@
 //!
 //! For new code, consider using the enhanced APIs in `crate::cuda::memory::`
 
-use crate::error::{CudaError, CudaResult};
+use crate::cuda::error::{CudaError, CudaResult};
+use cust::prelude::DevicePointer;
 use std::collections::HashMap;
 use std::ptr;
 use std::sync::{Arc, Mutex};
@@ -113,7 +114,7 @@ impl CudaMemoryManager {
                 let ptr = allocation.as_ptr();
                 let size = allocation.size();
                 let cuda_allocation = CudaAllocation::new(
-                    unsafe { cust::DevicePointer::wrap(ptr) },
+                    unsafe { DevicePointer::wrap(ptr) },
                     size,
                     self.size_class(size),
                 );
@@ -421,17 +422,17 @@ impl CudaMemoryManager {
 /// CUDA device memory allocation (Legacy wrapper)
 #[derive(Debug, Clone)]
 pub struct CudaAllocation {
-    ptr: cust::DevicePointer<u8>,
+    ptr: DevicePointer<u8>,
     size: usize,
     size_class: usize,
 }
 
 impl CudaAllocation {
-    fn new(ptr: cust::DevicePointer<u8>, size: usize, size_class: usize) -> Self {
+    fn new(ptr: DevicePointer<u8>, size: usize, size_class: usize) -> Self {
         Self { ptr, size, size_class }
     }
 
-    pub fn ptr(&self) -> cust::DevicePointer<u8> {
+    pub fn ptr(&self) -> DevicePointer<u8> {
         self.ptr
     }
 
@@ -439,7 +440,7 @@ impl CudaAllocation {
         self.size
     }
 
-    pub fn as_ptr<T>(&self) -> cust::DevicePointer<T> {
+    pub fn as_ptr<T>(&self) -> DevicePointer<T> {
         unsafe { std::mem::transmute(self.ptr) }
     }
 }
@@ -541,7 +542,7 @@ pub enum MemoryAdvice {
 pub struct PinnedAllocation {
     ptr: *mut u8,
     size: usize,
-    device_ptr: Option<cust::DevicePointer<u8>>,
+    device_ptr: Option<DevicePointer<u8>>,
     is_mapped: bool,
     allocation_time: Instant,
     usage_count: std::sync::atomic::AtomicUsize,
@@ -560,7 +561,7 @@ impl PinnedAllocation {
         self.ptr as *mut T
     }
 
-    pub fn device_ptr(&self) -> Option<cust::DevicePointer<u8>> {
+    pub fn device_ptr(&self) -> Option<DevicePointer<u8>> {
         self.device_ptr
     }
 

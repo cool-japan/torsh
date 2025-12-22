@@ -1,8 +1,9 @@
 //! Anomaly detection for time series
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::TimeSeries;
 use scirs2_series::anomaly::{detect_anomalies, AnomalyMethod, AnomalyOptions};
-use torsh_core::device::DeviceType;
 use torsh_tensor::{creation::zeros, Tensor};
 
 /// Anomaly detection result
@@ -40,7 +41,7 @@ impl ChangePointDetector {
     }
 
     /// Detect change points in time series
-    pub fn detect(&self, series: &TimeSeries) -> Vec<usize> {
+    pub fn detect(&self, _series: &TimeSeries) -> Vec<usize> {
         // Use scirs2-series change point detection
         Vec::new()
     }
@@ -224,7 +225,7 @@ impl LSTMAnomaly {
     }
 
     /// Train the model
-    pub fn fit(&mut self, series: &TimeSeries) {
+    pub fn fit(&mut self, _series: &TimeSeries) {
         // Train LSTM autoencoder
     }
 

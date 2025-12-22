@@ -1,6 +1,8 @@
 //! Rust bindings for tensor operation kernels
 
-use crate::error::{CudaError, CudaResult};
+#[allow(unused_imports)]
+use crate::cuda::error::{CudaError, CudaResult};
+use half::f16;
 
 // Import generated bindings
 // TODO: Uncomment when build script is implemented

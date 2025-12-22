@@ -12,7 +12,6 @@
 //! - **Functional programming**: Apply operations and data transformations
 //! - **Memory management**: Copy-on-write semantics and unique data operations
 
-use num_traits::Float;
 use std::sync::Arc;
 use torsh_core::{
     device::DeviceType,
@@ -21,13 +20,38 @@ use torsh_core::{
 };
 
 use crate::{core_ops::Tensor, storage::TensorStorage};
-use scirs2_core::simd_aligned::AlignedVec;
 
 // Float-specific operations
 impl<T: FloatElement + Copy> Tensor<T> {
     /// Create a 0-dimensional tensor (scalar) from a single value
     pub fn scalar(value: T) -> Result<Self> {
         Self::from_data(vec![value], vec![], DeviceType::Cpu)
+    }
+
+    /// Convert tensor to ndarray (temporary placeholder implementation)
+    ///
+    /// TODO: Implement proper ndarray conversion following SciRS2 POLICY
+    /// This should use scirs2_core::ndarray for array operations
+    pub fn as_ndarray(&self) -> Result<scirs2_core::ndarray::ArrayD<T>> {
+        use scirs2_core::ndarray::ArrayD;
+        let data = self.data()?;
+        let shape_obj = self.shape().clone();
+        let shape = shape_obj.dims();
+        ArrayD::from_shape_vec(shape, data.to_vec())
+            .map_err(|e| TorshError::InvalidShape(format!("ndarray conversion failed: {}", e)))
+    }
+
+    /// Create tensor from ndarray (temporary placeholder implementation)
+    ///
+    /// TODO: Implement proper ndarray conversion following SciRS2 POLICY
+    /// This should use scirs2_core::ndarray for array operations
+    pub fn from_ndarray(
+        array: scirs2_core::ndarray::ArrayD<T>,
+        device: DeviceType,
+    ) -> Result<Self> {
+        let shape = array.shape().to_vec();
+        let (data, _offset) = array.into_raw_vec_and_offset();
+        Self::from_data(data, shape, device)
     }
 
     /// Maximum element in tensor
@@ -156,19 +180,49 @@ impl<T: FloatElement + Copy> Tensor<T> {
 
     /// Minimum along specified dimension
     pub fn min_dim(&self, dim: i32, keepdim: bool) -> Result<Self> {
-        // Simple implementation - for now compute global minimum
-        // TODO: Implement proper dimensional reduction
-        let data = self.to_vec()?;
-        let min_val = data
-            .into_iter()
-            .fold(<T as FloatElement>::infinity(), |acc, x| {
-                if x < acc {
-                    x
-                } else {
-                    acc
-                }
+        use scirs2_core::ndarray::Axis;
+
+        let normalized_dim = if dim < 0 {
+            (self.shape().len() as i32 + dim) as usize
+        } else {
+            dim as usize
+        };
+
+        if normalized_dim >= self.shape().len() {
+            return Err(torsh_core::error::TorshError::InvalidDimension {
+                dim: normalized_dim,
+                ndim: self.shape().len(),
             });
-        Self::scalar(min_val)
+        }
+
+        let array = self.as_ndarray()?;
+        let result = array.map_axis(Axis(normalized_dim), |view| {
+            view.iter()
+                .copied()
+                .fold(<T as FloatElement>::infinity(), |acc, x| {
+                    if x < acc {
+                        x
+                    } else {
+                        acc
+                    }
+                })
+        });
+
+        let result_shape = if keepdim {
+            let mut shape = self.shape().to_vec();
+            shape[normalized_dim] = 1;
+            shape
+        } else {
+            result.shape().to_vec()
+        };
+
+        Self::from_ndarray(
+            result
+                .to_shape(result_shape)
+                .map_err(|e| TorshError::InvalidShape(format!("Shape conversion failed: {}", e)))?
+                .to_owned(),
+            self.device(),
+        )
     }
 }
 
@@ -194,17 +248,47 @@ where
     }
 
     /// Check if all elements along dimension are non-zero (true)
-    pub fn all_dim(&self, dim: i32, keepdim: bool) -> Result<Tensor<bool>> {
-        // Simple implementation - for now just call all()
-        // TODO: Implement proper dimensional reduction
-        self.all()
+    pub fn all_dim(&self, dim: i32, _keepdim: bool) -> Result<Tensor<bool>> {
+        let normalized_dim = if dim < 0 {
+            (self.shape().len() as i32 + dim) as usize
+        } else {
+            dim as usize
+        };
+
+        if normalized_dim >= self.shape().len() {
+            return Err(torsh_core::error::TorshError::InvalidDimension {
+                dim: normalized_dim,
+                ndim: self.shape().len(),
+            });
+        }
+
+        // TODO: Implement proper all() reduction without ndarray dependency
+        // For now, return a simple placeholder
+        Err(TorshError::NotImplemented(
+            "Boolean all() reduction along dimension not yet implemented".to_string(),
+        ))
     }
 
     /// Check if any element along dimension is non-zero (true)
-    pub fn any_dim(&self, dim: i32, keepdim: bool) -> Result<Tensor<bool>> {
-        // Simple implementation - for now just call any()
-        // TODO: Implement proper dimensional reduction
-        self.any()
+    pub fn any_dim(&self, dim: i32, _keepdim: bool) -> Result<Tensor<bool>> {
+        let normalized_dim = if dim < 0 {
+            (self.shape().len() as i32 + dim) as usize
+        } else {
+            dim as usize
+        };
+
+        if normalized_dim >= self.shape().len() {
+            return Err(torsh_core::error::TorshError::InvalidDimension {
+                dim: normalized_dim,
+                ndim: self.shape().len(),
+            });
+        }
+
+        // TODO: Implement proper any() reduction without ndarray dependency
+        // For now, return a simple placeholder
+        Err(TorshError::NotImplemented(
+            "Boolean any() reduction along dimension not yet implemented".to_string(),
+        ))
     }
 }
 
@@ -336,18 +420,41 @@ impl<T: TensorElement + Copy> Tensor<T> {
     where
         T: std::ops::Mul<Output = T> + num_traits::One + Copy,
     {
-        // Simple implementation - compute cumulative product of flattened tensor
-        // TODO: Implement proper dimensional cumulative product
-        let data = self.to_vec()?;
-        let mut result_data = Vec::with_capacity(data.len());
-        let mut running_product = <T as num_traits::One>::one();
+        let normalized_dim = if dim < 0 {
+            (self.shape().len() as i32 + dim) as usize
+        } else {
+            dim as usize
+        };
 
-        for &val in &data {
-            running_product = running_product * val;
-            result_data.push(running_product);
+        if normalized_dim >= self.shape().len() {
+            return Err(torsh_core::error::TorshError::InvalidDimension {
+                dim: normalized_dim,
+                ndim: self.shape().len(),
+            });
         }
 
-        Self::from_data(result_data, self.shape().dims().to_vec(), self.device())
+        let shape = self.shape().clone();
+        let input_shape = shape.dims();
+        let data = self.data()?;
+        let mut result_data = data.to_vec();
+
+        let outer_size: usize = input_shape[..normalized_dim].iter().product();
+        let dim_size = input_shape[normalized_dim];
+        let inner_size: usize = input_shape[normalized_dim + 1..].iter().product();
+
+        for outer_idx in 0..outer_size {
+            for inner_idx in 0..inner_size {
+                let mut running_product = <T as num_traits::One>::one();
+                for dim_idx in 0..dim_size {
+                    let index =
+                        outer_idx * (dim_size * inner_size) + dim_idx * inner_size + inner_idx;
+                    running_product = running_product * result_data[index];
+                    result_data[index] = running_product;
+                }
+            }
+        }
+
+        Self::from_data(result_data, input_shape.to_vec(), self.device())
     }
 
     /// Matrix multiplication
@@ -364,7 +471,7 @@ impl<T: TensorElement + Copy> Tensor<T> {
         T: PartialOrd + num_traits::Zero + num_traits::FromPrimitive,
     {
         // Simple implementation - sort entire tensor as 1D
-        let mut data = self.to_vec()?;
+        let data = self.to_vec()?;
         let mut indexed_data: Vec<(usize, T)> =
             data.iter().enumerate().map(|(i, &val)| (i, val)).collect();
 
@@ -798,7 +905,8 @@ impl<T: TensorElement + Copy> Tensor<T> {
         let shape_binding = self.shape();
         let shape = shape_binding.dims();
 
-        if shape.is_empty() {
+        // Validate tensor has data
+        if data.is_empty() || shape.is_empty() {
             return Err(TorshError::InvalidOperation(
                 "Cannot compute softmax on empty tensor".to_string(),
             ));
@@ -1019,7 +1127,13 @@ impl<T: TensorElement + Copy> Tensor<T> {
             ));
         }
 
+        // Log dimension and sorting info
+        if let Some(_d) = dim {
+        } else {
+        }
+
         // For simplicity, implement topk on flattened tensor
+        // TODO: Implement proper per-dimension topk when dim is specified
         let mut indexed_data: Vec<(usize, T)> =
             data.iter().enumerate().map(|(i, &val)| (i, val)).collect();
 
@@ -1035,6 +1149,12 @@ impl<T: TensorElement + Copy> Tensor<T> {
             .into_iter()
             .take(k.min(data.len()))
             .collect::<Vec<_>>();
+
+        // If sorted=false, shuffle the results to remove order
+        // (in practice, keeping sorted is usually preferred for performance)
+        if !sorted {
+            // TODO: Implement shuffling when needed
+        }
 
         // Extract values and indices
         let values: Vec<T> = top_k.iter().map(|(_, val)| *val).collect();

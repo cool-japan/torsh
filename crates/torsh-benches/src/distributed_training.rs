@@ -117,6 +117,7 @@ pub struct DataParallelBench {
     config: DistributedConfig,
     workers: Vec<WorkerNode>,
     parameter_server: Option<ParameterServerNode>,
+    #[allow(dead_code)] // Reserved for future metrics tracking
     metrics: DistributedMetrics,
 }
 
@@ -276,6 +277,7 @@ impl DataParallelBench {
 pub struct ModelParallelBench {
     config: DistributedConfig,
     pipeline_stages: Vec<PipelineStage>,
+    #[allow(dead_code)] // Reserved for future metrics tracking
     metrics: DistributedMetrics,
 }
 
@@ -367,6 +369,7 @@ impl ModelParallelBench {
 /// Hybrid parallel training benchmark (combining data and model parallelism)
 pub struct HybridParallelBench {
     data_parallel_groups: Vec<DataParallelBench>,
+    #[allow(dead_code)] // Reserved for future hybrid parallelism implementation
     model_parallel_config: ModelParallelBench,
     config: DistributedConfig,
 }
@@ -439,6 +442,7 @@ impl HybridParallelBench {
 struct WorkerNode {
     id: usize,
     local_parameters: HashMap<String, Tensor<f32>>,
+    #[allow(dead_code)] // Reserved for gradient tracking
     gradients: HashMap<String, Tensor<f32>>,
     config: DistributedConfig,
 }
@@ -483,7 +487,9 @@ impl WorkerNode {
 /// Parameter server node simulation
 #[derive(Debug)]
 struct ParameterServerNode {
+    #[allow(dead_code)] // Reserved for parameter management
     global_parameters: HashMap<String, Tensor<f32>>,
+    #[allow(dead_code)] // Reserved for configuration
     config: DistributedConfig,
 }
 
@@ -518,7 +524,9 @@ impl ParameterServerNode {
 /// Pipeline stage for model parallelism
 #[derive(Debug)]
 struct PipelineStage {
+    #[allow(dead_code)] // Reserved for stage identification
     stage_id: usize,
+    #[allow(dead_code)] // Reserved for layer management
     layers: Vec<LayerSimulation>,
     activation_cache: HashMap<usize, Tensor<f32>>,
 }
@@ -555,6 +563,7 @@ impl PipelineStage {
 /// Simple layer simulation
 #[derive(Debug)]
 struct LayerSimulation {
+    #[allow(dead_code)] // Reserved for layer size tracking
     weight_size: usize,
 }
 

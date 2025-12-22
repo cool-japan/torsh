@@ -135,6 +135,134 @@ impl<T: TensorElement> Tensor<T> {
         )
     }
 
+    /// Convert tensor to f16 (half-precision) type
+    pub fn to_f16(&self) -> Result<Tensor<torsh_core::dtype::f16>> {
+        let data = self.data()?;
+        let converted_data: std::result::Result<Vec<torsh_core::dtype::f16>, _> = data
+            .iter()
+            .map(|&x| {
+                <T as TensorElement>::to_f64(&x)
+                    .map(|f| torsh_core::dtype::f16::from_f64(f))
+                    .ok_or_else(|| TorshError::InvalidArgument(
+                        "Cannot convert value to f16".to_string()
+                    ))
+            })
+            .collect();
+
+        let converted_data = converted_data?;
+        Tensor::from_data(
+            converted_data,
+            self.shape().dims().to_vec(),
+            self.device,
+        )
+    }
+
+    /// Convert tensor to bf16 (bfloat16) type
+    pub fn to_bf16(&self) -> Result<Tensor<torsh_core::dtype::bf16>> {
+        let data = self.data()?;
+        let converted_data: std::result::Result<Vec<torsh_core::dtype::bf16>, _> = data
+            .iter()
+            .map(|&x| {
+                <T as TensorElement>::to_f64(&x)
+                    .map(|f| torsh_core::dtype::bf16::from_f64(f))
+                    .ok_or_else(|| TorshError::InvalidArgument(
+                        "Cannot convert value to bf16".to_string()
+                    ))
+            })
+            .collect();
+
+        let converted_data = converted_data?;
+        Tensor::from_data(
+            converted_data,
+            self.shape().dims().to_vec(),
+            self.device,
+        )
+    }
+
+    /// Convert tensor to u8 type
+    pub fn to_u8(&self) -> Result<Tensor<u8>> {
+        let data = self.data()?;
+        let converted_data: std::result::Result<Vec<u8>, _> = data
+            .iter()
+            .map(|&x| {
+                <T as TensorElement>::to_f64(&x)
+                    .and_then(|f| {
+                        if f.is_finite() && f >= 0.0 && f <= u8::MAX as f64 {
+                            Some(f.round() as u8)
+                        } else {
+                            None
+                        }
+                    })
+                    .ok_or_else(|| TorshError::InvalidArgument(
+                        "Cannot convert value to u8: value out of range or not finite".to_string()
+                    ))
+            })
+            .collect();
+
+        let converted_data = converted_data?;
+        Tensor::from_data(
+            converted_data,
+            self.shape().dims().to_vec(),
+            self.device,
+        )
+    }
+
+    /// Convert tensor to i8 type
+    pub fn to_i8(&self) -> Result<Tensor<i8>> {
+        let data = self.data()?;
+        let converted_data: std::result::Result<Vec<i8>, _> = data
+            .iter()
+            .map(|&x| {
+                <T as TensorElement>::to_f64(&x)
+                    .and_then(|f| {
+                        if f.is_finite() && f >= i8::MIN as f64 && f <= i8::MAX as f64 {
+                            Some(f.round() as i8)
+                        } else {
+                            None
+                        }
+                    })
+                    .ok_or_else(|| TorshError::InvalidArgument(
+                        "Cannot convert value to i8: value out of range or not finite".to_string()
+                    ))
+            })
+            .collect();
+
+        let converted_data = converted_data?;
+        Tensor::from_data(
+            converted_data,
+            self.shape().dims().to_vec(),
+            self.device,
+        )
+    }
+
+    /// Convert tensor to i16 type
+    pub fn to_i16(&self) -> Result<Tensor<i16>> {
+        let data = self.data()?;
+        let converted_data: std::result::Result<Vec<i16>, _> = data
+            .iter()
+            .map(|&x| {
+                <T as TensorElement>::to_f64(&x)
+                    .and_then(|f| {
+                        if f.is_finite() && f >= i16::MIN as f64 && f <= i16::MAX as f64 {
+                            Some(f.round() as i16)
+                        } else {
+                            None
+                        }
+                    })
+                    .ok_or_else(|| TorshError::InvalidArgument(
+                        "Cannot convert value to i16: value out of range or not finite".to_string()
+                    ))
+            })
+            .collect();
+
+        let converted_data = converted_data?;
+        Tensor::from_data(
+            converted_data,
+            self.shape().dims().to_vec(),
+            self.device,
+        )
+    }
+
 
     /// Move tensor to CPU device
     pub fn to_cpu(&self) -> Result<Self> {
@@ -491,5 +619,85 @@ mod tests {
 
         // This should fail because f64::MAX cannot be represented as f32
         assert!(large_tensor.to_f32().is_err());
+    }
+
+    #[test]
+    fn test_to_f16() {
+        let tensor = Tensor::from_data(vec![1.0f32, 2.5, -3.75, 4.0], vec![4], DeviceType::Cpu).unwrap();
+        let f16_tensor = tensor.to_f16().unwrap();
+        let data = f16_tensor.data().unwrap();
+
+        // Convert back to f32 for comparison
+        assert!((data[0].to_f32() - 1.0).abs() < 1e-3);
+        assert!((data[1].to_f32() - 2.5).abs() < 1e-3);
+        assert!((data[2].to_f32() + 3.75).abs() < 1e-3);
+        assert!((data[3].to_f32() - 4.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn test_to_bf16() {
+        let tensor = Tensor::from_data(vec![1.0f32, 2.5, -3.75, 4.0], vec![4], DeviceType::Cpu).unwrap();
+        let bf16_tensor = tensor.to_bf16().unwrap();
+        let data = bf16_tensor.data().unwrap();
+
+        // BF16 has less precision than F16, use larger epsilon
+        assert!((data[0].to_f32() - 1.0).abs() < 1e-2);
+        assert!((data[1].to_f32() - 2.5).abs() < 1e-2);
+        assert!((data[2].to_f32() + 3.75).abs() < 1e-2);
+        assert!((data[3].to_f32() - 4.0).abs() < 1e-2);
+    }
+
+    #[test]
+    fn test_to_u8() {
+        let tensor = Tensor::from_data(vec![0.0f32, 127.5, 255.0, 100.7], vec![4], DeviceType::Cpu).unwrap();
+        let u8_tensor = tensor.to_u8().unwrap();
+        let data = u8_tensor.data().unwrap();
+        assert_eq!(data.as_slice(), &[0u8, 128, 255, 101]);
+    }
+
+    #[test]
+    fn test_to_i8() {
+        let tensor = Tensor::from_data(vec![-128.0f32, -50.5, 0.0, 127.0], vec![4], DeviceType::Cpu).unwrap();
+        let i8_tensor = tensor.to_i8().unwrap();
+        let data = i8_tensor.data().unwrap();
+        assert_eq!(data.as_slice(), &[-128i8, -50, 0, 127]);
+    }
+
+    #[test]
+    fn test_to_i16() {
+        let tensor = Tensor::from_data(vec![-1000.0f32, -50.5, 0.0, 1000.7], vec![4], DeviceType::Cpu).unwrap();
+        let i16_tensor = tensor.to_i16().unwrap();
+        let data = i16_tensor.data().unwrap();
+        assert_eq!(data.as_slice(), &[-1000i16, -50, 0, 1001]);
+    }
+
+    #[test]
+    fn test_generic_to_tensor() {
+        // Test generic conversion using to_tensor<U>
+        let tensor = Tensor::from_data(vec![1.5f32, 2.5, 3.5], vec![3], DeviceType::Cpu).unwrap();
+        let f64_tensor: Tensor<f64> = tensor.to_tensor().unwrap();
+        let data = f64_tensor.data().unwrap();
+        assert!((data[0] - 1.5).abs() < 1e-6);
+        assert!((data[1] - 2.5).abs() < 1e-6);
+        assert!((data[2] - 3.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_mixed_precision_workflow() {
+        // Simulate mixed-precision training workflow
+        let f32_tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu).unwrap();
+
+        // Convert to f16 for forward pass
+        let f16_tensor = f32_tensor.to_f16().unwrap();
+
+        // Convert back to f32 for loss computation
+        let f32_result: Tensor<f32> = f16_tensor.to_tensor().unwrap();
+        let data = f32_result.data().unwrap();
+
+        // Values should be approximately equal (within f16 precision)
+        assert!((data[0] - 1.0).abs() < 1e-3);
+        assert!((data[1] - 2.0).abs() < 1e-3);
+        assert!((data[2] - 3.0).abs() < 1e-3);
+        assert!((data[3] - 4.0).abs() < 1e-3);
     }
 }

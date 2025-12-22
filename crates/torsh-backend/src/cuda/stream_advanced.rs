@@ -7,11 +7,11 @@
 //! - Smart stream allocation strategies
 //! - Workload-aware optimization
 
+use crate::cuda::error::{CudaError, CudaResult};
 use crate::cuda::memory::CudaAllocation;
 use crate::cuda::{CudaEvent, CudaStream, StreamPriority};
-use crate::error::{CudaError, CudaResult};
 use std::collections::HashMap;
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 

@@ -45,7 +45,7 @@
 //! }
 //! ```
 
-use crate::backend::{Backend, BackendType};
+use crate::backend::BackendType;
 use crate::{ProcessGroup, ReduceOp, TorshDistributedError, TorshResult};
 use log::{debug, info, warn};
 use torsh_core::dtype::FloatElement;
@@ -124,7 +124,7 @@ pub async fn nccl_reduce_scatter<T: FloatElement + Default + Copy>(
 
             // Implement proper tensor slicing for reduce-scatter
             // Each rank gets an equal chunk of the reduced tensor
-            let temp_data = temp.to_vec();
+            let temp_data = temp.to_vec()?;
             if chunk_size * world_size <= temp_data.len() {
                 let chunk_data = temp_data[_start_idx.._end_idx].to_vec();
                 *output = Tensor::from_vec(chunk_data, &[chunk_size])?;
@@ -173,7 +173,7 @@ where
     let backend = group.backend();
     let backend_guard = backend.read();
 
-    if !backend_guard.is_initialized() {
+    if !backend_guard.is_ready() {
         return Err(TorshDistributedError::BackendNotInitialized.into());
     }
 
@@ -209,18 +209,18 @@ where
             // In real NCCL, this would sum across all ranks
             // For mock: simulate the effect by scaling based on world size
             let world_size = backend_guard.world_size() as f32;
-            let current_data = tensor.to_vec();
+            let current_data = tensor.to_vec()?;
             let simulated_sum: Vec<T> = current_data
                 .iter()
                 .map(|&x| x * T::from(world_size).unwrap_or_default())
                 .collect();
-            *tensor = Tensor::from_vec(simulated_sum, tensor.shape())?;
+            *tensor = Tensor::from_vec(simulated_sum, tensor.shape().dims())?;
         }
         ReduceOp::Product => {
             // In real NCCL, this would multiply across all ranks
             // For mock: simulate by raising to power of world size
             let world_size = backend_guard.world_size();
-            let current_data = tensor.to_vec();
+            let current_data = tensor.to_vec()?;
             let simulated_product: Vec<T> = current_data
                 .iter()
                 .map(|&x| {
@@ -231,7 +231,7 @@ where
                     result
                 })
                 .collect();
-            *tensor = Tensor::from_vec(simulated_product, tensor.shape())?;
+            *tensor = Tensor::from_vec(simulated_product, tensor.shape().dims())?;
         }
         ReduceOp::Min | ReduceOp::Max => {
             // For min/max operations, values would remain unchanged
@@ -260,7 +260,7 @@ async fn nccl_broadcast_impl<T: FloatElement>(
     let backend = group.backend();
     let backend_guard = backend.read();
 
-    if !backend_guard.is_initialized() {
+    if !backend_guard.is_ready() {
         return Err(TorshDistributedError::BackendNotInitialized.into());
     }
 
@@ -299,12 +299,19 @@ async fn nccl_broadcast_impl<T: FloatElement>(
     if backend_guard.rank() != src_rank {
         // Simulate receiving broadcast data by applying a predictable transformation
         // This helps verify that broadcast operations are being called correctly
-        let current_data = tensor.to_vec();
+        let current_data = tensor.to_vec()?;
         let broadcast_data: Vec<T> = current_data
             .iter()
-            .map(|&x| x + T::from(0.1 * src_rank as f32).unwrap_or_default())
+            .map(|&x| {
+                // Apply transformation for non-root ranks
+                if let Some(offset) = T::from(0.1 * src_rank as f32) {
+                    x + offset
+                } else {
+                    x
+                }
+            })
             .collect();
-        *tensor = Tensor::from_vec(broadcast_data, tensor.shape())?;
+        *tensor = Tensor::from_vec(broadcast_data, tensor.shape().dims())?;
 
         tracing::debug!(
             "Rank {} received broadcast data from rank {}",
@@ -327,7 +334,7 @@ async fn nccl_reduce_scatter_impl<T: FloatElement>(
     let backend = group.backend();
     let backend_guard = backend.read();
 
-    if !backend_guard.is_initialized() {
+    if !backend_guard.is_ready() {
         return Err(TorshDistributedError::BackendNotInitialized.into());
     }
 
@@ -358,9 +365,10 @@ async fn nccl_reduce_scatter_impl<T: FloatElement>(
 
         // Local reduction computation simulation
         let reduction_time_us = match op {
-            ReduceOp::Sum | ReduceOp::Avg => (chunk_size_bytes as f64 * 0.001).max(10.0),
+            ReduceOp::Sum | ReduceOp::Mean => (chunk_size_bytes as f64 * 0.001).max(10.0),
             ReduceOp::Max | ReduceOp::Min => (chunk_size_bytes as f64 * 0.002).max(15.0),
             ReduceOp::Product => (chunk_size_bytes as f64 * 0.003).max(20.0),
+            _ => (chunk_size_bytes as f64 * 0.002).max(15.0), // Default for other ops
         };
         tokio::time::sleep(tokio::time::Duration::from_micros(reduction_time_us as u64)).await;
     }
@@ -383,7 +391,7 @@ async fn nccl_reduce_scatter_impl<T: FloatElement>(
 
     // Implement proper tensor slicing for reduce-scatter
     // Create output tensor with the appropriate chunk for this rank
-    let input_data = input.to_vec();
+    let input_data = input.to_vec()?;
     if chunk_size > 0 && _end_idx <= input_data.len() {
         let chunk_data = input_data[_start_idx.._end_idx].to_vec();
         *output = Tensor::from_vec(chunk_data, &[chunk_size])?;
@@ -404,7 +412,7 @@ async fn nccl_all_gather_impl<T: FloatElement>(
     let backend = group.backend();
     let backend_guard = backend.read();
 
-    if !backend_guard.is_initialized() {
+    if !backend_guard.is_ready() {
         return Err(TorshDistributedError::BackendNotInitialized.into());
     }
 
@@ -434,12 +442,19 @@ async fn nccl_all_gather_impl<T: FloatElement>(
 
     for rank in 0..world_size {
         // Simulate that each rank contributes slightly different data
-        let input_data = input.to_vec();
+        let input_data = input.to_vec()?;
         let rank_data: Vec<T> = input_data
             .iter()
-            .map(|&x| x + T::from(0.01 * rank as f32).unwrap_or_default())
+            .map(|&x| {
+                // Simulate data from each rank with slight variation
+                if let Some(offset) = T::from(0.01 * rank as f32) {
+                    x + offset
+                } else {
+                    x
+                }
+            })
             .collect();
-        let rank_tensor = Tensor::from_vec(rank_data, input.shape())?;
+        let rank_tensor = Tensor::from_vec(rank_data, input.shape().dims())?;
         output.push(rank_tensor);
     }
 
@@ -518,8 +533,9 @@ impl NcclBatch {
             BackendType::Nccl => self.execute_nccl_batch(group).await,
             _ => {
                 // Fall back to executing operations individually
-                Err(TorshDistributedError::FeatureNotAvailable(
-                    "Batch operations only supported with NCCL backend".to_string(),
+                Err(TorshDistributedError::feature_not_available(
+                    "Batch operations",
+                    "nccl feature flag",
                 )
                 .into())
             }
@@ -527,7 +543,7 @@ impl NcclBatch {
     }
 
     #[cfg(feature = "nccl")]
-    async fn execute_nccl_batch(&self, group: &ProcessGroup) -> TorshResult<()> {
+    async fn execute_nccl_batch(&self, _group: &ProcessGroup) -> TorshResult<()> {
         info!(
             " Executing NCCL batch with {} operations",
             self.operations.len()

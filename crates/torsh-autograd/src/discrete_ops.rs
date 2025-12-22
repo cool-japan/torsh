@@ -5,6 +5,8 @@
 //! and other discrete combinatorial operations. These approximations enable
 //! gradient-based optimization of neural networks containing discrete operations.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use std::collections::HashMap;
 use torsh_core::error::Result;
 use torsh_core::DeviceType;
@@ -162,9 +164,10 @@ impl DifferentiableSort {
     }
 
     fn exact_sort(&self, input: &Tensor) -> Result<Tensor> {
-        // Placeholder for exact sorting - would use actual sort implementation
-        // For now, return input as-is
-        Ok(input.clone())
+        // Implement exact sorting using standard sort algorithm
+        let mut data = input.to_vec()?;
+        data.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        Tensor::from_vec(data, input.shape().dims())
     }
 
     fn sample_gumbel(&self, shape: &torsh_core::shape::Shape) -> Result<Tensor> {
@@ -338,30 +341,63 @@ impl DifferentiableTopK {
     }
 
     fn exact_top_k(&self, input: &Tensor) -> Result<Tensor> {
-        // Placeholder for exact top-k implementation
-        // Would use actual top-k algorithm
-        Ok(input.clone())
+        // Implement exact top-k using partial sort
+        let mut data = input.to_vec()?;
+        let k = self.k.min(data.len());
+
+        // Use partial sort to get top k elements
+        data.select_nth_unstable_by(k, |a, b| {
+            b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        // Take only the first k elements (which are now the largest)
+        data.truncate(k);
+
+        // Sort the top k elements in descending order
+        data.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
+
+        Tensor::from_vec(data, &[k])
     }
 
     fn create_top_k_mask(&self, input: &Tensor) -> Result<Tensor> {
         // Create binary mask for top-k elements
-        // Placeholder implementation
         let threshold = self.find_kth_largest(input, self.k)?;
-        let _mask = input.ge_scalar(threshold)?;
-        // Placeholder: return input tensor for now
-        Ok(input.clone())
+        let mask_bool = input.ge_scalar(threshold)?;
+
+        // Convert boolean mask to f32
+        let mask_data: Vec<f32> = mask_bool
+            .to_vec()?
+            .iter()
+            .map(|&b| if b { 1.0 } else { 0.0 })
+            .collect();
+        Tensor::from_vec(mask_data, input.shape().dims())
     }
 
-    fn find_kth_largest(&self, _input: &Tensor, _k: usize) -> Result<f32> {
-        // Find the k-th largest element
-        // Placeholder implementation
-        Ok(0.0)
+    fn find_kth_largest(&self, input: &Tensor, k: usize) -> Result<f32> {
+        // Find the k-th largest element using quickselect algorithm
+        let mut data = input.to_vec()?;
+
+        if k == 0 || k > data.len() {
+            return Err(torsh_core::error::TorshError::InvalidArgument(format!(
+                "k={} is out of range for tensor of length {}",
+                k,
+                data.len()
+            )));
+        }
+
+        // Use select_nth_unstable for O(n) average case
+        let (_left, &mut kth, _right) = data.select_nth_unstable_by(k - 1, |a, b| {
+            b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        Ok(kth)
     }
 
     fn sort_descending(&self, input: &Tensor) -> Result<Tensor> {
         // Sort tensor in descending order
-        // Placeholder implementation
-        Ok(input.clone())
+        let mut data = input.to_vec()?;
+        data.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
+        Tensor::from_vec(data, input.shape().dims())
     }
 
     fn sample_gumbel(&self, shape: &torsh_core::shape::Shape) -> Result<Tensor> {
@@ -390,7 +426,7 @@ impl DifferentiableArgmax {
 
         // Get the input data and compute softmax manually to avoid broadcasting issues
         let input_data = input.data()?;
-        let n = input.shape().dims()[input.shape().dims().len() - 1];
+        let _n = input.shape().dims()[input.shape().dims().len() - 1];
 
         // Apply temperature scaling and softmax
         let mut scaled_data: Vec<f32> = input_data.iter().map(|&x| x / temperature).collect();
@@ -444,17 +480,37 @@ impl DifferentiableArgmax {
     }
 
     fn exact_argmax(&self, input: &Tensor) -> Result<Tensor> {
-        // Placeholder for exact argmax - return input for now
-        Ok(input.clone())
+        // Find the index of the maximum element
+        let data = input.to_vec()?;
+
+        if data.is_empty() {
+            return Err(torsh_core::error::TorshError::InvalidArgument(
+                "Cannot find argmax of empty tensor".to_string(),
+            ));
+        }
+
+        let (argmax_idx, _) = data
+            .iter()
+            .enumerate()
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .unwrap();
+
+        Tensor::scalar(argmax_idx as f32)
     }
 
     fn create_one_hot_at_argmax(&self, input: &Tensor) -> Result<Tensor> {
         // Create one-hot vector at argmax position
-        let _argmax_indices = self.exact_argmax(input)?;
-        let _n = input.shape().dims()[input.shape().dims().len() - 1];
+        let argmax_result = self.exact_argmax(input)?;
+        let argmax_idx = argmax_result.to_vec()?[0] as usize;
+        let n = input.shape().dims()[input.shape().dims().len() - 1];
 
-        // Placeholder for one_hot - return input for now
-        Ok(input.clone())
+        // Create one-hot vector
+        let mut one_hot = vec![0.0f32; n];
+        if argmax_idx < n {
+            one_hot[argmax_idx] = 1.0;
+        }
+
+        Tensor::from_vec(one_hot, &[n])
     }
 
     fn sample_gumbel(&self, shape: &torsh_core::shape::Shape) -> Result<Tensor> {

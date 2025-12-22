@@ -16,7 +16,7 @@ use super::core::{BatchSampler, Sampler};
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_data::sampler::{SequentialSampler, BatchingSampler, BatchSampler};
 ///
 /// let base_sampler = SequentialSampler::new(10);

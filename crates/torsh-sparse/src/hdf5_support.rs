@@ -374,11 +374,44 @@ impl Hdf5SparseIO {
         // Read custom attributes
         let mut attributes = HashMap::new();
 
-        // For simplicity, we'll skip custom attributes for now as the HDF5 API might vary
-        // In a real implementation, you would iterate through attributes looking for "custom_" prefixes
-        // and read them as byte arrays, converting back to strings
+        // Read custom attributes by iterating through all attributes
+        // The HDF5 Rust API provides attribute iteration capabilities
+        let attr_names: Vec<String> = group.attr_names().map_err(|e| {
+            torsh_core::TorshError::Other(format!("HDF5 error reading attribute names: {}", e))
+        })?;
 
-        // TODO: Implement custom attribute reading when HDF5 API is stable
+        for attr_name in attr_names {
+            // Only process attributes with "custom_" prefix
+            if let Some(custom_key) = attr_name.strip_prefix("custom_") {
+                // Try to read the custom attribute as a byte array
+                match group.attr(&attr_name) {
+                    Ok(attr) => {
+                        // Read the attribute as a raw array, then convert to bytes
+                        match attr.read_raw() {
+                            Ok(attr_data) => {
+                                match String::from_utf8(attr_data) {
+                                    Ok(attr_value) => {
+                                        attributes.insert(custom_key.to_string(), attr_value);
+                                    }
+                                    Err(_) => {
+                                        // Skip non-UTF8 custom attributes
+                                        continue;
+                                    }
+                                }
+                            }
+                            Err(_) => {
+                                // Skip attributes that can't be read
+                                continue;
+                            }
+                        }
+                    }
+                    Err(_) => {
+                        // Skip attributes that can't be opened
+                        continue;
+                    }
+                }
+            }
+        }
 
         Ok(Hdf5SparseMetadata {
             format,
@@ -868,6 +901,12 @@ mod tests {
         {
             assert!(save_sparse_matrix(&coo, &temp_path).is_err());
             assert!(load_sparse_matrix(&temp_path).is_err());
+        }
+
+        // Avoid unused variable warning when feature is enabled
+        #[cfg(feature = "hdf5_support")]
+        {
+            let _ = (coo, temp_path);
         }
     }
 }

@@ -5,7 +5,6 @@
 
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 use torsh_core::error::{Result, TorshError};
@@ -605,6 +604,398 @@ impl FormatConverter for HuggingFaceConverter {
     }
 }
 
+impl Default for OnnxConverter {
+    fn default() -> Self {
+        Self {
+            include_metadata: true,
+            optimize_for_inference: false,
+        }
+    }
+}
+
+impl OnnxConverter {
+    /// Create a new ONNX converter
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Configure whether to include model metadata
+    pub fn with_include_metadata(mut self, include: bool) -> Self {
+        self.include_metadata = include;
+        self
+    }
+
+    /// Configure optimization for inference
+    pub fn with_optimize_for_inference(mut self, optimize: bool) -> Self {
+        self.optimize_for_inference = optimize;
+        self
+    }
+
+    /// Extract ONNX model metadata
+    fn extract_onnx_metadata(&self, path: &std::path::Path) -> Result<OnnxMetadata> {
+        // For now, return a basic metadata structure
+        // In a real implementation, you would parse the ONNX protobuf format
+        Ok(OnnxMetadata {
+            ir_version: 8,
+            producer_name: "torsh-package".to_string(),
+            producer_version: "1.0.0".to_string(),
+            domain: "ai.onnx".to_string(),
+            model_version: 1,
+            doc_string: format!("ONNX model imported from {:?}", path),
+        })
+    }
+}
+
+impl FormatConverter for OnnxConverter {
+    fn import_from_format(&self, path: &std::path::Path) -> Result<Package> {
+        let model_data = fs::read(path)
+            .map_err(|e| TorshError::IoError(format!("Failed to read ONNX model: {}", e)))?;
+
+        let package_name = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("imported_onnx_model")
+            .to_string();
+
+        let mut package = Package::new(package_name, "1.0.0".to_string());
+
+        // Add ONNX model as a resource
+        let model_resource = Resource {
+            name: "model.onnx".to_string(),
+            resource_type: ResourceType::Model,
+            data: model_data,
+            metadata: {
+                let mut meta = HashMap::new();
+                meta.insert("original_format".to_string(), "onnx".to_string());
+                meta.insert("format".to_string(), "onnx".to_string());
+                meta
+            },
+        };
+        package.add_resource(model_resource);
+
+        // Add metadata if requested
+        if self.include_metadata {
+            let onnx_metadata = self.extract_onnx_metadata(path)?;
+            package.manifest_mut().metadata.insert(
+                "onnx_ir_version".to_string(),
+                onnx_metadata.ir_version.to_string(),
+            );
+            package
+                .manifest_mut()
+                .metadata
+                .insert("onnx_producer".to_string(), onnx_metadata.producer_name);
+            package.manifest_mut().metadata.insert(
+                "onnx_producer_version".to_string(),
+                onnx_metadata.producer_version,
+            );
+        }
+
+        package
+            .manifest_mut()
+            .metadata
+            .insert("original_format".to_string(), "onnx".to_string());
+
+        Ok(package)
+    }
+
+    fn export_to_format(&self, package: &Package, path: &std::path::Path) -> Result<()> {
+        // Find the ONNX model resource
+        let model_resource = package
+            .resources()
+            .iter()
+            .find(|(_, resource)| {
+                resource.resource_type == ResourceType::Model
+                    && (resource.name.ends_with(".onnx")
+                        || resource
+                            .metadata
+                            .get("format")
+                            .map_or(false, |f| f == "onnx"))
+            })
+            .map(|(_, resource)| resource)
+            .ok_or_else(|| {
+                TorshError::InvalidArgument("No ONNX model found in package".to_string())
+            })?;
+
+        // Write the ONNX model to file
+        fs::write(path, &model_resource.data)
+            .map_err(|e| TorshError::IoError(format!("Failed to write ONNX model: {}", e)))?;
+
+        Ok(())
+    }
+
+    fn format(&self) -> PackageFormat {
+        PackageFormat::Onnx
+    }
+
+    fn is_valid_format(&self, path: &std::path::Path) -> bool {
+        if let Ok(file) = fs::File::open(path) {
+            use std::io::Read;
+            let mut buffer = [0u8; 16];
+            let mut reader = std::io::BufReader::new(file);
+
+            // Check for ONNX magic bytes (protobuf)
+            if reader.read_exact(&mut buffer).is_ok() {
+                // ONNX files typically start with protobuf headers
+                // This is a simplified check; real implementation would parse protobuf
+                return path
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .map_or(false, |e| e == "onnx");
+            }
+        }
+        false
+    }
+}
+
+impl Default for MLflowConverter {
+    fn default() -> Self {
+        Self {
+            include_conda_env: true,
+            include_requirements: true,
+            flavor: None,
+        }
+    }
+}
+
+impl MLflowConverter {
+    /// Create a new MLflow converter
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Configure whether to include conda environment
+    pub fn with_include_conda_env(mut self, include: bool) -> Self {
+        self.include_conda_env = include;
+        self
+    }
+
+    /// Configure whether to include requirements.txt
+    pub fn with_include_requirements(mut self, include: bool) -> Self {
+        self.include_requirements = include;
+        self
+    }
+
+    /// Set MLflow flavor
+    pub fn with_flavor(mut self, flavor: String) -> Self {
+        self.flavor = Some(flavor);
+        self
+    }
+
+    /// Load MLflow model directory
+    fn load_mlflow_model(&self, path: &std::path::Path) -> Result<(MLflowMetadata, Vec<Resource>)> {
+        if !path.is_dir() {
+            return Err(TorshError::InvalidArgument(
+                "MLflow path must be a directory".to_string(),
+            ));
+        }
+
+        let mut metadata = None;
+        let mut resources = Vec::new();
+
+        // Read MLmodel file
+        let mlmodel_path = path.join("MLmodel");
+        if mlmodel_path.exists() {
+            let mlmodel_data = fs::read_to_string(&mlmodel_path)
+                .map_err(|e| TorshError::IoError(format!("Failed to read MLmodel: {}", e)))?;
+
+            // Parse MLmodel (YAML format)
+            // For simplicity, we'll create a basic metadata structure
+            metadata = Some(MLflowMetadata {
+                artifact_path: path.to_string_lossy().to_string(),
+                flavors: HashMap::new(),
+                model_uuid: uuid::Uuid::new_v4().to_string(),
+                run_id: "imported".to_string(),
+                utc_time_created: chrono::Utc::now().to_rfc3339(),
+                mlflow_version: "2.0.0".to_string(),
+            });
+
+            resources.push(Resource {
+                name: "MLmodel".to_string(),
+                resource_type: ResourceType::Config,
+                data: mlmodel_data.into_bytes(),
+                metadata: {
+                    let mut meta = HashMap::new();
+                    meta.insert("original_format".to_string(), "mlflow".to_string());
+                    meta
+                },
+            });
+        }
+
+        // Read model files from subdirectories
+        for entry in fs::read_dir(path)
+            .map_err(|e| TorshError::IoError(format!("Failed to read MLflow directory: {}", e)))?
+        {
+            let entry = entry.map_err(|e| {
+                TorshError::IoError(format!("Failed to read directory entry: {}", e))
+            })?;
+            let file_path = entry.path();
+
+            if file_path.is_file() {
+                let file_name = file_path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("")
+                    .to_string();
+
+                if file_name != "MLmodel" {
+                    let data = fs::read(&file_path).map_err(|e| {
+                        TorshError::IoError(format!("Failed to read {}: {}", file_name, e))
+                    })?;
+
+                    let resource_type = if file_name.ends_with(".pkl")
+                        || file_name.ends_with(".pt")
+                        || file_name.ends_with(".h5")
+                    {
+                        ResourceType::Model
+                    } else if file_name.ends_with(".json") || file_name.ends_with(".yaml") {
+                        ResourceType::Config
+                    } else if file_name == "requirements.txt" || file_name == "conda.yaml" {
+                        ResourceType::Documentation
+                    } else {
+                        ResourceType::Data
+                    };
+
+                    resources.push(Resource {
+                        name: file_name,
+                        resource_type,
+                        data,
+                        metadata: {
+                            let mut meta = HashMap::new();
+                            meta.insert("original_format".to_string(), "mlflow".to_string());
+                            meta
+                        },
+                    });
+                }
+            }
+        }
+
+        let metadata = metadata.unwrap_or_else(|| MLflowMetadata {
+            artifact_path: path.to_string_lossy().to_string(),
+            flavors: HashMap::new(),
+            model_uuid: uuid::Uuid::new_v4().to_string(),
+            run_id: "imported".to_string(),
+            utc_time_created: chrono::Utc::now().to_rfc3339(),
+            mlflow_version: "2.0.0".to_string(),
+        });
+
+        Ok((metadata, resources))
+    }
+}
+
+impl FormatConverter for MLflowConverter {
+    fn import_from_format(&self, path: &std::path::Path) -> Result<Package> {
+        let (mlflow_metadata, resources) = self.load_mlflow_model(path)?;
+
+        let package_name = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("imported_mlflow_model")
+            .to_string();
+
+        let mut package = Package::new(package_name, "1.0.0".to_string());
+
+        // Add resources
+        for resource in resources {
+            package.add_resource(resource);
+        }
+
+        // Add MLflow-specific metadata
+        package
+            .manifest_mut()
+            .metadata
+            .insert("original_format".to_string(), "mlflow".to_string());
+        package
+            .manifest_mut()
+            .metadata
+            .insert("mlflow_version".to_string(), mlflow_metadata.mlflow_version);
+        package
+            .manifest_mut()
+            .metadata
+            .insert("model_uuid".to_string(), mlflow_metadata.model_uuid);
+        package
+            .manifest_mut()
+            .metadata
+            .insert("run_id".to_string(), mlflow_metadata.run_id);
+
+        if let Some(flavor) = &self.flavor {
+            package
+                .manifest_mut()
+                .metadata
+                .insert("flavor".to_string(), flavor.clone());
+        }
+
+        Ok(package)
+    }
+
+    fn export_to_format(&self, package: &Package, path: &std::path::Path) -> Result<()> {
+        let output_dir = path;
+
+        if !output_dir.exists() {
+            fs::create_dir_all(output_dir).map_err(|e| {
+                TorshError::IoError(format!("Failed to create output directory: {}", e))
+            })?;
+        }
+
+        // Export resources to appropriate files
+        for (name, resource) in package.resources() {
+            let file_path = output_dir.join(name);
+            fs::write(&file_path, &resource.data)
+                .map_err(|e| TorshError::IoError(format!("Failed to write {}: {}", name, e)))?;
+        }
+
+        // Create MLmodel file if not present
+        let mlmodel_path = output_dir.join("MLmodel");
+        if !mlmodel_path.exists() {
+            let mlmodel_content = format!(
+                r#"artifact_path: {}
+flavors:
+  python_function:
+    env: conda.yaml
+    loader_module: mlflow.pyfunc.model
+    python_version: 3.9
+model_uuid: {}
+run_id: {}
+utc_time_created: '{}'
+mlflow_version: 2.0.0
+"#,
+                output_dir.to_string_lossy(),
+                package
+                    .metadata()
+                    .metadata
+                    .get("model_uuid")
+                    .cloned()
+                    .unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
+                package
+                    .metadata()
+                    .metadata
+                    .get("run_id")
+                    .cloned()
+                    .unwrap_or_else(|| "exported".to_string()),
+                chrono::Utc::now().to_rfc3339()
+            );
+
+            fs::write(&mlmodel_path, mlmodel_content)
+                .map_err(|e| TorshError::IoError(format!("Failed to write MLmodel: {}", e)))?;
+        }
+
+        Ok(())
+    }
+
+    fn format(&self) -> PackageFormat {
+        PackageFormat::MLflow
+    }
+
+    fn is_valid_format(&self, path: &std::path::Path) -> bool {
+        if !path.is_dir() {
+            return false;
+        }
+
+        // Check for MLmodel file
+        let mlmodel_path = path.join("MLmodel");
+        mlmodel_path.exists()
+    }
+}
+
 /// Format compatibility manager
 pub struct FormatCompatibilityManager {
     converters: HashMap<PackageFormat, Box<dyn FormatConverter>>,
@@ -619,6 +1010,8 @@ impl Default for FormatCompatibilityManager {
         // Register default converters
         manager.register_converter(Box::new(PyTorchConverter::new()));
         manager.register_converter(Box::new(HuggingFaceConverter::new()));
+        manager.register_converter(Box::new(OnnxConverter::new()));
+        manager.register_converter(Box::new(MLflowConverter::new()));
 
         manager
     }

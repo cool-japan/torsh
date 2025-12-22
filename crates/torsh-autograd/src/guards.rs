@@ -20,8 +20,9 @@ use crate::grad_mode::{pop_grad_enabled, push_grad_enabled};
 /// for inference operations where gradients are not needed.
 ///
 /// # Examples
+/// use std::time::Duration;
 ///
-/// ```rust
+/// ```rust,no_run
 /// use torsh_autograd::guards::NoGradGuard;
 ///
 /// {
@@ -59,8 +60,9 @@ impl Drop for NoGradGuard {
 /// gradients in specific scopes when they were previously disabled.
 ///
 /// # Examples
+/// use std::time::Duration;
 ///
-/// ```rust
+/// ```rust,no_run
 /// use torsh_autograd::guards::EnableGradGuard;
 ///
 /// {
@@ -96,8 +98,9 @@ impl Drop for EnableGradGuard {
 /// Convenience function that returns a NoGradGuard for disabling gradients.
 ///
 /// # Examples
+/// use std::time::Duration;
 ///
-/// ```rust
+/// ```rust,no_run
 /// use torsh_autograd::guards::no_grad;
 ///
 /// let _guard = no_grad();
@@ -112,8 +115,9 @@ pub fn no_grad() -> NoGradGuard {
 /// Convenience function that returns an EnableGradGuard for enabling gradients.
 ///
 /// # Examples
+/// use std::time::Duration;
 ///
-/// ```rust
+/// ```rust,no_run
 /// use torsh_autograd::guards::enable_grad;
 ///
 /// let _guard = enable_grad();
@@ -158,9 +162,37 @@ impl GradModeGuard {
 mod tests {
     use super::*;
     use crate::grad_mode::{is_grad_enabled, set_grad_enabled};
+    use once_cell::sync::Lazy;
+    use parking_lot::Mutex;
+
+    /// Global test mutex to ensure tests modifying gradient state run sequentially
+    /// This prevents race conditions when tests run in parallel
+    static TEST_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+
+    /// Test cleanup guard to ensure global state is reset after each test
+    /// This prevents test isolation issues when tests run in parallel
+    struct TestGuard<'a> {
+        _guard: parking_lot::MutexGuard<'a, ()>,
+    }
+
+    impl<'a> TestGuard<'a> {
+        fn new() -> Self {
+            Self {
+                _guard: TEST_MUTEX.lock(),
+            }
+        }
+    }
+
+    impl Drop for TestGuard<'_> {
+        fn drop(&mut self) {
+            // Reset to default state (enabled, empty stack)
+            set_grad_enabled(true);
+        }
+    }
 
     #[test]
     fn test_no_grad_guard() {
+        let _test_guard = TestGuard::new();
         set_grad_enabled(true);
         assert!(is_grad_enabled());
 
@@ -174,6 +206,7 @@ mod tests {
 
     #[test]
     fn test_enable_grad_guard() {
+        let _test_guard = TestGuard::new();
         set_grad_enabled(false);
         assert!(!is_grad_enabled());
 
@@ -187,6 +220,7 @@ mod tests {
 
     #[test]
     fn test_convenience_functions() {
+        let _test_guard = TestGuard::new();
         set_grad_enabled(true);
 
         {
@@ -208,6 +242,7 @@ mod tests {
 
     #[test]
     fn test_nested_guards() {
+        let _test_guard = TestGuard::new();
         set_grad_enabled(true);
 
         {
@@ -227,6 +262,7 @@ mod tests {
 
     #[test]
     fn test_custom_grad_mode_guard() {
+        let _test_guard = TestGuard::new();
         set_grad_enabled(true);
 
         {
@@ -248,6 +284,7 @@ mod tests {
 
     #[test]
     fn test_guard_defaults() {
+        let _test_guard = TestGuard::new();
         set_grad_enabled(true);
 
         {

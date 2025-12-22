@@ -5,14 +5,13 @@
 //! through SIMD optimizations, memory optimization, algorithmic improvements,
 //! CUDA kernel optimizations, and advanced parallel processing with Rayon.
 
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use rayon::prelude::*;
+// ✅ SciRS2 POLICY: Use scirs2_core::parallel_ops instead of rayon
+use scirs2_core::parallel_ops::*;
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::time::{Duration, Instant};
-use torsh_core::TensorElement;
 
 /// Ultimate performance validation coordinator
+#[allow(dead_code)] // Infrastructure fields reserved for comprehensive validation system
 pub struct UltimatePerformanceValidator {
     /// SIMD performance benchmarks
     simd_benchmarks: SIMDPerformanceBenchmarks,
@@ -37,6 +36,7 @@ pub struct UltimatePerformanceValidator {
 }
 
 /// SIMD performance benchmarking suite
+#[allow(dead_code)] // Fields reserved for future comprehensive benchmarking
 pub struct SIMDPerformanceBenchmarks {
     /// Vector operation benchmarks
     vector_ops: VectorOperationBenchmarks,
@@ -52,6 +52,7 @@ pub struct SIMDPerformanceBenchmarks {
 }
 
 /// Memory optimization benchmarking suite
+#[allow(dead_code)] // Fields reserved for future comprehensive benchmarking
 pub struct MemoryOptimizationBenchmarks {
     /// Cache performance benchmarks
     cache_benchmarks: CachePerformanceBenchmarks,
@@ -67,6 +68,7 @@ pub struct MemoryOptimizationBenchmarks {
 }
 
 /// Parallel processing benchmarking suite
+#[allow(dead_code)] // Fields reserved for future comprehensive benchmarking
 pub struct ParallelProcessingBenchmarks {
     /// Thread pool optimization benchmarks
     thread_pool_benchmarks: ThreadPoolBenchmarks,
@@ -82,6 +84,7 @@ pub struct ParallelProcessingBenchmarks {
 }
 
 /// GPU acceleration benchmarking suite
+#[allow(dead_code)] // Fields reserved for future comprehensive benchmarking
 pub struct GPUAccelerationBenchmarks {
     /// CUDA kernel performance benchmarks
     cuda_kernel_benchmarks: CUDAKernelBenchmarks,
@@ -97,6 +100,7 @@ pub struct GPUAccelerationBenchmarks {
 }
 
 /// Cross-framework comparison benchmarks
+#[allow(dead_code)] // Fields reserved for future comprehensive benchmarking
 pub struct CrossFrameworkBenchmarks {
     /// PyTorch comparison benchmarks
     pytorch_comparison: PyTorchComparisonBenchmarks,
@@ -112,6 +116,7 @@ pub struct CrossFrameworkBenchmarks {
 }
 
 /// Performance regression tracking system
+#[allow(dead_code)] // Fields reserved for future comprehensive benchmarking
 pub struct PerformanceRegressionTracker {
     /// Baseline performance measurements
     baseline_measurements: HashMap<String, PerformanceMeasurement>,
@@ -773,15 +778,15 @@ impl UltimatePerformanceValidator {
         TensorFlowBenchmarkResults::new()
     }
 
-    fn validate_performance_targets(&self, results: &ValidationResults) -> ValidationReport {
+    fn validate_performance_targets(&self, _results: &ValidationResults) -> ValidationReport {
         ValidationReport::new()
     }
 
-    fn check_performance_regressions(&self, results: &ValidationResults) -> RegressionReport {
+    fn check_performance_regressions(&self, _results: &ValidationResults) -> RegressionReport {
         RegressionReport::new()
     }
 
-    fn generate_comprehensive_report(&self, results: &ValidationResults) -> ComprehensiveReport {
+    fn generate_comprehensive_report(&self, _results: &ValidationResults) -> ComprehensiveReport {
         ComprehensiveReport::new()
     }
 }
@@ -970,7 +975,7 @@ pub struct RegressionThresholds {
 
 // Implement supporting structures
 impl SIMDPerformanceBenchmarks {
-    pub fn new(config: &ValidationConfig) -> Self {
+    pub fn new(_config: &ValidationConfig) -> Self {
         Self {
             vector_ops: VectorOperationBenchmarks::new(),
             matrix_ops: SIMDMatrixBenchmarks::new(),
@@ -981,7 +986,7 @@ impl SIMDPerformanceBenchmarks {
 }
 
 impl MemoryOptimizationBenchmarks {
-    pub fn new(config: &ValidationConfig) -> Self {
+    pub fn new(_config: &ValidationConfig) -> Self {
         Self {
             cache_benchmarks: CachePerformanceBenchmarks::new(),
             allocation_benchmarks: AllocationPatternBenchmarks::new(),
@@ -992,7 +997,7 @@ impl MemoryOptimizationBenchmarks {
 }
 
 impl ParallelProcessingBenchmarks {
-    pub fn new(config: &ValidationConfig) -> Self {
+    pub fn new(_config: &ValidationConfig) -> Self {
         Self {
             thread_pool_benchmarks: ThreadPoolBenchmarks::new(),
             work_stealing_benchmarks: WorkStealingBenchmarks::new(),
@@ -1003,7 +1008,7 @@ impl ParallelProcessingBenchmarks {
 }
 
 impl GPUAccelerationBenchmarks {
-    pub fn new(config: &ValidationConfig) -> Self {
+    pub fn new(_config: &ValidationConfig) -> Self {
         Self {
             cuda_kernel_benchmarks: CUDAKernelBenchmarks::new(),
             tensor_core_benchmarks: TensorCoreBenchmarks::new(),
@@ -1014,7 +1019,7 @@ impl GPUAccelerationBenchmarks {
 }
 
 impl CrossFrameworkBenchmarks {
-    pub fn new(config: &ValidationConfig) -> Self {
+    pub fn new(_config: &ValidationConfig) -> Self {
         Self {
             pytorch_comparison: PyTorchComparisonBenchmarks::new(),
             numpy_comparison: NumPyComparisonBenchmarks::new(),
@@ -1025,7 +1030,7 @@ impl CrossFrameworkBenchmarks {
 }
 
 impl PerformanceRegressionTracker {
-    pub fn new(config: &ValidationConfig) -> Self {
+    pub fn new(_config: &ValidationConfig) -> Self {
         Self {
             baseline_measurements: HashMap::new(),
             current_measurements: HashMap::new(),

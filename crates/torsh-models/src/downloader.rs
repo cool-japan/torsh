@@ -116,7 +116,7 @@ impl ModelDownloader {
         Self {
             #[cfg(feature = "download")]
             client: reqwest::Client::builder()
-                .user_agent("torsh-models/0.1.0-alpha.1")
+                .user_agent("torsh-models/0.1.0-alpha.2")
                 .build()
                 .expect("Failed to create HTTP client"),
             timeout_seconds: 300, // 5 minutes default
@@ -327,7 +327,7 @@ pub async fn download_model_by_name(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::tempdir;
+
     use tokio;
 
     #[tokio::test]

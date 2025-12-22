@@ -2,28 +2,28 @@
 //!
 //! Real training implementations using ToRSh ecosystem and SciRS2 foundation
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use anyhow::Result;
 use clap::{Args, Subcommand};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Instant;
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 
 use crate::config::Config;
 use crate::utils::{output, progress, time, validation};
 
-// SciRS2 ecosystem - MUST use instead of rand/ndarray (SCIRS2 POLICY COMPLIANT - legacy but allowed)
-use scirs2_autograd::ndarray::{Array1, Array2, Array3, Array4};
-use scirs2_core::random::{Random, Rng};
+// ✅ UNIFIED ACCESS (v0.1.0-RC.1+): Complete ndarray/random functionality through scirs2-core
+// SciRS2 ecosystem - MUST use instead of rand/ndarray (SCIRS2 POLICY COMPLIANT)
+use scirs2_core::ndarray::{Array1, Array2, Array3};
+use scirs2_core::random::thread_rng;
 
 // NumRS2 for numerical operations
 use numrs2::prelude::*;
 
 // ToRSh dependencies for real training operations
-use torsh_autograd::context::AutogradContext;
-use torsh_core::{DType, Device};
-use torsh_tensor::Tensor;
 
 #[derive(Subcommand)]
 pub enum TrainCommands {
@@ -600,7 +600,7 @@ async fn initialize_model(config: &TrainingConfig, device: &str) -> Result<Train
     );
 
     // Use SciRS2 for model initialization
-    let mut rng = Random::seed(42);
+    let mut rng = thread_rng();
 
     // Create realistic model parameters based on architecture
     let mut parameters = Vec::new();
@@ -670,7 +670,7 @@ async fn load_training_datasets(
     );
 
     // Use SciRS2 for dataset loading
-    let mut rng = Random::seed(42);
+    let mut rng = thread_rng();
 
     // Generate training dataset
     let train_size = 1000; // Smaller size for demo
@@ -827,12 +827,7 @@ fn initialize_scheduler(
 /// Generate unique run ID
 fn generate_run_id() -> String {
     let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
-    let mut rng = Random::seed(
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs(),
-    );
+    let mut rng = thread_rng();
     let random_suffix: String = (0..4)
         .map(|_| char::from(b'a' + rng.gen_range(0..26)))
         .collect();
@@ -1018,7 +1013,7 @@ async fn train_epoch(
 async fn validate_epoch(
     model: &TrainingModel,
     dataset: &TrainingDataset,
-    args: &StartArgs,
+    _args: &StartArgs,
 ) -> Result<(f64, f64)> {
     let num_batches = (dataset.samples.len() + dataset.batch_size - 1) / dataset.batch_size;
     let mut total_loss = 0.0;
@@ -1055,7 +1050,7 @@ async fn forward_pass_batch(
     end_idx: usize,
 ) -> Result<f64> {
     // Use SciRS2 for forward pass computation
-    let mut rng = Random::seed(42);
+    let mut rng = thread_rng();
 
     // Simulate realistic loss computation
     let batch_size = end_idx - start_idx;
@@ -1115,7 +1110,7 @@ async fn backward_pass_and_update(
     args: &StartArgs,
 ) -> Result<()> {
     // Use SciRS2 for gradient computation and parameter updates
-    let mut rng = Random::seed(42);
+    let mut rng = thread_rng();
 
     // Simulate gradients for each parameter
     for (param_idx, param) in model.parameters.iter_mut().enumerate() {
@@ -1160,8 +1155,8 @@ fn apply_adam_update(
     param_idx: usize,
 ) -> Result<()> {
     let beta1 = optimizer.state["beta1"].as_f64().unwrap_or(0.9) as f32;
-    let beta2 = optimizer.state["beta2"].as_f64().unwrap_or(0.999) as f32;
-    let eps = optimizer.state["eps"].as_f64().unwrap_or(1e-8) as f32;
+    let _beta2 = optimizer.state["_beta2"].as_f64().unwrap_or(0.999) as f32;
+    let _eps = optimizer.state["_eps"].as_f64().unwrap_or(1e-8) as f32;
     let lr = optimizer.learning_rate as f32;
 
     // Get momentum buffer
@@ -1258,7 +1253,7 @@ async fn validate_batch(
 fn update_learning_rate(
     scheduler: &mut LearningRateScheduler,
     epoch: usize,
-    val_loss: f64,
+    _val_loss: f64,
 ) -> Result<()> {
     match scheduler.scheduler_type.as_str() {
         "constant" => {
@@ -1381,7 +1376,7 @@ async fn restore_model_from_checkpoint(checkpoint: &TrainingCheckpoint) -> Resul
 
     // In a real implementation, this would deserialize the actual model state
     // For now, we'll create a new model (simplified)
-    let mut rng = Random::seed(42);
+    let mut rng = thread_rng();
     let weights: Vec<f32> = (0..1000 * 512).map(|_| rng.gen_range(-0.1..0.1)).collect();
     let parameters = vec![Array2::from_shape_vec((1000, 512), weights)?];
 
@@ -1449,7 +1444,7 @@ fn display_training_metrics(metrics: &TrainingMetrics) -> Result<()> {
 }
 
 /// Follow training logs in real-time
-async fn follow_training_logs(log_path: &PathBuf) -> Result<()> {
+async fn follow_training_logs(_log_path: &PathBuf) -> Result<()> {
     // In a real implementation, this would tail the log file
     output::print_info("Log following not implemented yet");
     Ok(())

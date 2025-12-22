@@ -4,8 +4,9 @@
 //! including tests for large graphs, deep networks, memory pressure scenarios, and
 //! performance degradation detection.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::error_handling::{AutogradError, AutogradResult};
-use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 /// Configuration for stress tests
@@ -752,7 +753,7 @@ impl ComputationGraphStressTest {
 
     /// Calculate performance metrics from test results
     fn calculate_performance_metrics(&self, result: &StressTestResults) -> PerformanceMetrics {
-        let ops_per_second = result.operations_completed as f64 / result.duration.as_secs_f64();
+        let _ops_per_second = result.operations_completed as f64 / result.duration.as_secs_f64();
         let nodes_per_second = result.nodes_processed as f64 / result.duration.as_secs_f64();
 
         PerformanceMetrics {
@@ -801,7 +802,7 @@ impl ComputationGraphStressTest {
         Ok(input.clone())
     }
 
-    fn mock_add(&self, a: &MockTensor, b: &MockTensor) -> AutogradResult<MockTensor> {
+    fn mock_add(&self, a: &MockTensor, _b: &MockTensor) -> AutogradResult<MockTensor> {
         Ok(a.clone())
     }
 

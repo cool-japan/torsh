@@ -559,38 +559,36 @@ impl BottleneckDetector {
         let profiler = get_global_profiler();
 
         // Check for long barrier operations
-        if let Ok(barrier_stats) = profiler.get_operation_stats(CommunicationOpType::Barrier) {
-            if let Some(stats) = barrier_stats {
-                let avg_barrier_time_ms = stats.avg_latency.as_secs_f64() * 1000.0;
+        if let Ok(Some(stats)) = profiler.get_operation_stats(CommunicationOpType::Barrier) {
+            let avg_barrier_time_ms = stats.avg_latency.as_secs_f64() * 1000.0;
 
-                if avg_barrier_time_ms > self.config.thresholds.long_sync_wait_ms {
-                    let confidence =
-                        (avg_barrier_time_ms / self.config.thresholds.long_sync_wait_ms).min(1.0);
+            if avg_barrier_time_ms > self.config.thresholds.long_sync_wait_ms {
+                let confidence =
+                    (avg_barrier_time_ms / self.config.thresholds.long_sync_wait_ms).min(1.0);
 
-                    let bottleneck = Bottleneck::new(
-                        BottleneckType::Synchronization,
-                        if avg_barrier_time_ms > self.config.thresholds.long_sync_wait_ms * 3.0 {
-                            BottleneckSeverity::High
-                        } else {
-                            BottleneckSeverity::Medium
-                        },
-                        format!(
-                            "Long synchronization delays detected ({:.1} ms average)",
-                            avg_barrier_time_ms
-                        ),
-                        confidence,
-                    )
-                    .with_metric("avg_barrier_time_ms".to_string(), avg_barrier_time_ms)
-                    .with_metric(
-                        "threshold_ms".to_string(),
-                        self.config.thresholds.long_sync_wait_ms,
-                    )
-                    .with_remediation("Reduce frequency of synchronization points".to_string())
-                    .with_remediation("Optimize computation-communication overlap".to_string())
-                    .with_remediation("Check for process-specific delays".to_string());
+                let bottleneck = Bottleneck::new(
+                    BottleneckType::Synchronization,
+                    if avg_barrier_time_ms > self.config.thresholds.long_sync_wait_ms * 3.0 {
+                        BottleneckSeverity::High
+                    } else {
+                        BottleneckSeverity::Medium
+                    },
+                    format!(
+                        "Long synchronization delays detected ({:.1} ms average)",
+                        avg_barrier_time_ms
+                    ),
+                    confidence,
+                )
+                .with_metric("avg_barrier_time_ms".to_string(), avg_barrier_time_ms)
+                .with_metric(
+                    "threshold_ms".to_string(),
+                    self.config.thresholds.long_sync_wait_ms,
+                )
+                .with_remediation("Reduce frequency of synchronization points".to_string())
+                .with_remediation("Optimize computation-communication overlap".to_string())
+                .with_remediation("Check for process-specific delays".to_string());
 
-                    bottlenecks.push(bottleneck);
-                }
+                bottlenecks.push(bottleneck);
             }
         }
 

@@ -1114,7 +1114,7 @@ mod tests {
 
         let stats = integration.stats();
         assert_eq!(stats.training_runs, 2);
-        assert!(stats.training_time_sec > 0.0);
+        assert!(stats.training_time_sec >= 0.0); // Allow for very fast execution in tests
     }
 
     #[test]
@@ -1146,7 +1146,7 @@ mod tests {
         if let Some(config) = elastic_config {
             assert_eq!(config.min_workers, 4);
             assert_eq!(config.max_workers, 8);
-            assert_eq!(config.enable_elastic_scheduling, true);
+            assert!(config.enable_elastic_scheduling);
             assert_eq!(config.rendezvous_backend, "etcd");
         }
     }

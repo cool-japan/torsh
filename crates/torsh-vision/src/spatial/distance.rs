@@ -1,5 +1,7 @@
 //! Distance-based vision algorithms using scirs2-spatial
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{Result, VisionError};
 use scirs2_core::ndarray::{arr2, Array1, Array2, ArrayView2};
 use scirs2_spatial::distance::{cdist, cosine, euclidean, manhattan, pdist};
@@ -40,7 +42,7 @@ impl PatchMatcher {
     fn simd_patch_search(
         &self,
         query_patches: &Array2<f64>,
-        database_patches: &Array2<f64>,
+        _database_patches: &Array2<f64>,
         k: usize,
     ) -> Result<Array2<usize>> {
         // Placeholder for SIMD implementation
@@ -146,7 +148,7 @@ impl PatchMatcher {
         &self,
         features1: &Array2<f64>,
         features2: &Array2<f64>,
-        metric: &str,
+        _metric: &str,
     ) -> Result<Array2<f64>> {
         // Placeholder for SIMD distance matrix computation
         // Real implementation would use scirs2_spatial SIMD functions

@@ -6,11 +6,7 @@
 //! - Dead code elimination through static analysis
 //! - Loop unrolling and optimization
 
-use crate::const_eval;
-use crate::{
-    ir::{BasicBlock, BlockId, Instruction, IrModule, IrValue},
-    ComputationGraph, IrFunction, JitError, JitResult, NodeId,
-};
+use crate::{ir::IrModule, ComputationGraph, IrFunction, JitError, JitResult, NodeId};
 use std::collections::{HashMap, HashSet, VecDeque};
 use torsh_core::{DType, Shape};
 

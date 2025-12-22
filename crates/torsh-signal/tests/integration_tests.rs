@@ -6,7 +6,7 @@
 use approx::assert_relative_eq;
 use torsh_core::error::Result;
 use torsh_signal::prelude::*;
-use torsh_tensor::creation::{ones, zeros};
+use torsh_tensor::creation::ones;
 
 /// Test complete signal processing pipeline: window -> STFT -> spectrogram
 #[test]

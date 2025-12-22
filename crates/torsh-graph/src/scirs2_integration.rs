@@ -166,7 +166,7 @@ pub mod generation {
 
         for i in 0..num_nodes {
             for j in (i + 1)..num_nodes {
-                if rng.gen::<f64>() < edge_prob {
+                if rng.random::<f64>() < edge_prob {
                     edges.extend_from_slice(&[i as i64, j as i64]);
                     edges.extend_from_slice(&[j as i64, i as i64]); // Undirected
                 }
@@ -213,7 +213,7 @@ pub mod generation {
 
             while targets.len() < edges_per_node && targets.len() < new_node {
                 let mut cumsum = 0;
-                let threshold = (rng.gen::<f64>() * total_degree.max(1) as f64) as usize;
+                let threshold = (rng.random::<f64>() * total_degree.max(1) as f64) as usize;
 
                 for (node_id, &degree) in degrees.iter().enumerate() {
                     cumsum += degree;
@@ -266,9 +266,9 @@ pub mod generation {
         let mut rewired_edges = Vec::new();
         let mut i = 0;
         while i < edges.len() {
-            if rng.gen::<f64>() < rewire_prob {
+            if rng.random::<f64>() < rewire_prob {
                 let src = edges[i];
-                let new_target = (rng.gen::<f64>() * num_nodes as f64) as i64;
+                let new_target = (rng.random::<f64>() * num_nodes as f64) as i64;
                 if new_target != src {
                     rewired_edges.extend_from_slice(&[src, new_target]);
                 }

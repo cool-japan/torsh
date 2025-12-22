@@ -1,9 +1,11 @@
 //! Utility functions for sparse neural networks
 
-use super::types::{SparseFormat, SparseInitConfig, SparseInitStrategy};
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
+use super::types::{SparseInitConfig, SparseInitStrategy};
 use crate::{CooTensor, CsrTensor, SparseTensor, TorshResult};
-use scirs2_core::random::{Random, Rng};
-use torsh_core::{Shape, TorshError};
+use scirs2_core::random::Random;
+use torsh_core::TorshError;
 use torsh_tensor::{creation::randn, Tensor};
 
 /// Sparse weight generation utilities
@@ -266,7 +268,7 @@ impl SparseConverter {
         // Implementation would depend on the actual tensor APIs
         // This is a placeholder showing the interface
         let shape = csr.shape();
-        let nnz = csr.nnz();
+        let _nnz = csr.nnz();
 
         // Extract triplets and create COO tensor
         // Actual implementation would use csr.triplets() or similar
@@ -397,13 +399,15 @@ mod tests {
 
     #[test]
     fn test_format_recommendation() {
+        use crate::nn::common::types::SparseFormat as LocalSparseFormat;
+
         assert_eq!(
             SparseConverter::optimal_format_for_operation("matmul"),
-            SparseFormat::Csr
+            LocalSparseFormat::Csr
         );
         assert_eq!(
             SparseConverter::optimal_format_for_operation("conv"),
-            SparseFormat::Coo
+            LocalSparseFormat::Coo
         );
     }
 }

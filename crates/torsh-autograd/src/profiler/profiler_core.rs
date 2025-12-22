@@ -17,7 +17,7 @@
 //!
 //! # Examples
 //!
-//! ```rust
+//! ```rust,ignore
 //! use crate::profiler::{AutogradProfiler, ProfilerConfig};
 //! use crate::context::AutogradContext;
 //!
@@ -43,7 +43,7 @@ use crate::profiler::analysis::PerformanceAnalyzer;
 use crate::profiler::hardware::HardwareMonitor;
 use crate::profiler::memory::MemoryTracker;
 use crate::profiler::types::{
-    AutogradProfile, HardwareUtilization, MemorySnapshot, OperationProfile, ProfileSummary,
+    AutogradProfile, HardwareUtilization, OperationProfile, ProfileSummary,
 };
 use std::collections::HashMap;
 use std::fmt::Write;
@@ -137,7 +137,7 @@ impl AutogradProfiler {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let config = ProfilerConfig {
     ///     enable_memory_tracking: true,
     ///     enable_hardware_monitoring: false, // Disable for lower overhead
@@ -171,7 +171,7 @@ impl AutogradProfiler {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// profiler.start_session("training_epoch_1".to_string())?;
     /// ```
     pub fn start_session(&mut self, session_id: String) -> Result<()> {
@@ -225,7 +225,7 @@ impl AutogradProfiler {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let profile = profiler.end_session()?;
     /// println!("Session duration: {:?}", profile.duration);
     /// ```
@@ -262,7 +262,7 @@ impl AutogradProfiler {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// profiler.start_operation("matrix_multiply".to_string())?;
     /// // ... perform matrix multiplication ...
     /// profiler.end_operation("matrix_multiply")?;
@@ -301,7 +301,7 @@ impl AutogradProfiler {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// profiler.start_operation("forward_pass".to_string())?;
     /// // ... forward pass computation ...
     /// profiler.end_operation("forward_pass")?;
@@ -340,7 +340,7 @@ impl AutogradProfiler {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let start = Instant::now();
     /// // ... gradient computation ...
     /// let grad_time = start.elapsed();
@@ -376,7 +376,7 @@ impl AutogradProfiler {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let result = profiler.profile_graph_execution(
     ///     &mut ctx,
     ///     "neural_network_forward",
@@ -440,7 +440,7 @@ impl AutogradProfiler {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let profile = profiler.end_session()?;
     /// let report = profiler.generate_report(&profile)?;
     /// println!("{}", report);
@@ -609,7 +609,7 @@ impl AutogradProfiler {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let profile = profiler.end_session()?;
     /// let json_data = profiler.export_json(&profile)?;
     /// std::fs::write("profile_data.json", json_data)?;

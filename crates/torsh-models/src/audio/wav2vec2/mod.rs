@@ -1,18 +1,14 @@
 //! Wav2Vec2 models for self-supervised speech representation learning
 //!
 //! Implementation of Wav2Vec2 architecture for speech representation learning.
-//! Reference: https://arxiv.org/abs/2006.11477
+//!
+//! Reference: [Wav2Vec 2.0: A Framework for Self-Supervised Learning of Speech Representations](https://arxiv.org/abs/2006.11477)
 
 use std::collections::HashMap;
-use torsh_core::{
-    error::{Result, TorshError},
-    DeviceType,
-};
-use torsh_nn::prelude::{
-    Conv1d, Dropout, Embedding, GroupNorm, LayerNorm, Linear, MultiheadAttention, GELU,
-};
+use torsh_core::{error::Result, DeviceType};
+use torsh_nn::prelude::{Conv1d, Dropout, LayerNorm, Linear};
 use torsh_nn::{Module, Parameter};
-use torsh_tensor::{creation, Tensor};
+use torsh_tensor::Tensor;
 
 /// Wav2Vec2 Configuration
 #[derive(Debug, Clone)]

@@ -2,29 +2,37 @@
 
 ## 🚨 CRITICAL ARCHITECTURAL REQUIREMENT
 
-**ToRSh MUST use SciRS2 as its scientific computing foundation.** This document establishes the policy for proper, minimal, and effective integration of SciRS2 crates into ToRSh.
+**ToRSh MUST use SciRS2 as its scientific computing foundation.** This document establishes the policy for proper, complete, and effective integration of SciRS2 crates into ToRSh, following the [SciRS2 POLICY](https://github.com/cool-japan/scirs/blob/master/SCIRS2_POLICY.md).
 
 ## Core Integration Principles
 
-### 1. **Foundation, Not Dependency Bloat**
+### 1. **SciRS2 POLICY Compliance (MANDATORY)**
+- **ONLY `scirs2-core` may use external dependencies directly** (rand, ndarray, num-traits, etc.)
+- **ALL ToRSh crates MUST use `scirs2-core` abstractions** instead of direct external imports
+- **NO direct imports** of `rand`, `rand_distr`, `ndarray`, `num_traits`, `num_complex` in ToRSh code
+- **UNIFIED ACCESS**: Use `scirs2_core::ndarray::*` and `scirs2_core::random::*` for complete functionality
+- This ensures: Consistent APIs, centralized version control, type safety, and maintainability
+
+### 2. **Foundation, Not Dependency Bloat**
 - ToRSh extends SciRS2's capabilities with deep learning framework specialization
 - Use SciRS2 crates **only when actually needed** by ToRSh functionality
 - **DO NOT** add SciRS2 crates "just in case" - add them when code requires them
 
-### 2. **Evidence-Based Integration**
+### 3. **Evidence-Based Integration**
 - Each SciRS2 crate must have **clear justification** based on ToRSh features
 - Document **specific use cases** for each integrated SciRS2 crate
 - Remove unused SciRS2 dependencies during code reviews
 
-### 3. **Architectural Hierarchy**
+### 4. **Architectural Hierarchy**
 ```
 ToRSh (Deep Learning Framework - PyTorch-compatible API)
     ↓ builds upon
 OptiRS (ML Optimization Specialization)
     ↓ builds upon
 SciRS2 (Scientific Computing Foundation)
-    ↓ builds upon
-ndarray, num-traits, etc. (Core Rust Scientific Stack)
+    ↓ builds upon (via scirs2-core ONLY)
+ndarray, rand, num-traits, etc. (External Dependencies)
+    ⚠️ ONLY scirs2-core may import these directly
 ```
 
 ## Required SciRS2 Crates Analysis
@@ -162,6 +170,92 @@ ndarray, num-traits, etc. (Core Rust Scientific Stack)
 #### `scirs2-io` - INPUT/OUTPUT
 - **Status**: ❌ UNLIKELY - Basic I/O likely sufficient
 
+## SciRS2 POLICY Compliance for ToRSh
+
+### **Mandatory: Unified SciRS2-Core Abstractions**
+
+Following the [SciRS2 POLICY](https://github.com/cool-japan/scirs/blob/master/SCIRS2_POLICY.md), ToRSh uses a **strict layered architecture** where all external dependencies are accessed through `scirs2-core`.
+
+#### ✅ **REQUIRED Imports in ToRSh Crates**
+
+```rust
+// Arrays and numerical operations - COMPLETE UNIFIED ACCESS
+use scirs2_core::ndarray::*;          // Complete ndarray including ALL macros (array!, s!, azip!)
+// OR selective:
+use scirs2_core::ndarray::{Array, Array1, Array2, array, s, Axis};
+
+// Random number generation - COMPLETE UNIFIED ACCESS
+use scirs2_core::random::*;           // Complete rand + rand_distr functionality
+// OR selective:
+use scirs2_core::random::{thread_rng, Normal, RandBeta, Uniform};
+
+// Numerical traits - UNIFIED ACCESS
+use scirs2_core::numeric::*;          // num-traits, num-complex, num-integer
+// OR selective:
+use scirs2_core::numeric::{Float, Zero, One, NumCast};
+
+// Complex numbers
+use scirs2_core::{Complex, Complex32, Complex64};  // Re-exported from num_complex
+```
+
+#### ❌ **PROHIBITED Direct Imports in ToRSh**
+
+```rust
+// ❌ FORBIDDEN - Direct external dependencies
+use ndarray::{Array, Array1, Array2};         // POLICY VIOLATION
+use ndarray::{array, s};                      // POLICY VIOLATION
+use rand::*;                                  // POLICY VIOLATION
+use rand::Rng;                                // POLICY VIOLATION
+use rand_distr::{Normal, Beta, StudentT};     // POLICY VIOLATION
+use num_traits::*;                            // POLICY VIOLATION
+use num_complex::Complex;                     // POLICY VIOLATION
+```
+
+#### 📋 **Complete Dependency Mapping for ToRSh**
+
+| External Crate | ToRSh MUST Use | Note |
+|----------------|----------------|------|
+| `ndarray` | `scirs2_core::ndarray` | Complete functionality including macros |
+| `ndarray-rand` | `scirs2_core::ndarray` | Via `random` feature |
+| `ndarray-stats` | `scirs2_core::ndarray` | Via `array_stats` feature |
+| `ndarray-linalg` | `scirs2_core::ndarray` | Via `linalg` feature |
+| `rand` | `scirs2_core::random` | Full RNG functionality |
+| `rand_distr` | `scirs2_core::random` | All distributions (Normal, Beta, Cauchy, etc.) |
+| `rand_chacha` | `scirs2_core::random` | ChaCha RNG variants |
+| `num-traits` | `scirs2_core::numeric` | All numerical traits |
+| `num-complex` | `scirs2_core` | Re-exported as `Complex` |
+| `rayon` | `scirs2_core::parallel_ops` | Parallel processing |
+
+### **Performance & Acceleration (MANDATORY scirs2-core Usage)**
+
+#### SIMD Operations
+```rust
+// ✅ REQUIRED: Use scirs2-core SIMD operations
+use scirs2_core::simd_ops::SimdUnifiedOps;
+let result = f32::simd_add(&a.view(), &b.view());
+
+// ❌ FORBIDDEN: Custom SIMD in ToRSh modules
+// use wide::f32x8;  // POLICY VIOLATION
+```
+
+#### Parallel Processing
+```rust
+// ✅ REQUIRED: Use scirs2-core parallel ops
+use scirs2_core::parallel_ops::*;
+
+// ❌ FORBIDDEN: Direct Rayon in ToRSh modules
+// use rayon::prelude::*;  // POLICY VIOLATION
+```
+
+#### GPU Operations
+```rust
+// ✅ REQUIRED: Use scirs2-core GPU abstractions
+use scirs2_core::gpu::{GpuDevice, GpuKernel};
+
+// ❌ FORBIDDEN: Direct CUDA/Metal calls
+// use cuda_sys::*;  // POLICY VIOLATION
+```
+
 ## Integration Guidelines
 
 ### **Adding New SciRS2 Dependencies**
@@ -189,6 +283,7 @@ ndarray, num-traits, etc. (Core Rust Scientific Stack)
    - Demonstrate actual usage in ToRSh code
    - Show integration examples
    - Verify no equivalent functionality exists in already-included crates
+   - **Verify SciRS2 POLICY compliance** (no direct external imports)
 
 3. **Documentation Requirements**
    - Update this policy document
@@ -207,62 +302,123 @@ ndarray, num-traits, etc. (Core Rust Scientific Stack)
    - Provide migration guide if functionality moves
    - Remove after deprecation period
 
-### **Best Practices**
+### **Best Practices (Updated for SciRS2 v0.1.0-RC.1+)**
 
-1. **Import Granularity**
-   ```rust
-   // ✅ GOOD - Specific imports
-   use scirs2_core::random::Random;
-   use scirs2::tensor::Tensor;
+#### 1. **UNIFIED Array Imports (scirs2-core v0.1.0-RC.1+)**
 
-   // ❌ BAD - Broad imports
-   use scirs2_core::*;
-   use scirs2::*;
-   ```
+```rust
+// ✅ PREFERRED: Complete unified ndarray access through scirs2-core
+use scirs2_core::ndarray::*;  // ALL ndarray functionality including macros
+// OR selective:
+use scirs2_core::ndarray::{Array, Array1, Array2, array, s, azip};
 
-2. **Array Import Pattern**
-   ```rust
-   // ✅ CORRECT - Primary choice: scirs2_autograd for full ndarray functionality
-   use scirs2_autograd::ndarray::{Array, Array1, Array2, array};
+// ⚠️ LEGACY (Still works but discouraged): Fragmented approach
+use scirs2_autograd::ndarray::{Array, array};  // Old pattern
+use scirs2_core::ndarray_ext::{ArrayView};     // Old pattern
 
-   // ✅ ALSO CORRECT - Alternative: scirs2_core::ndarray_ext for basic types
-   use scirs2_core::ndarray_ext::{Array, ArrayView, ArrayViewMut};
-   use scirs2_core::ndarray_ext::stats;   // Statistical operations
-   use scirs2_core::ndarray_ext::matrix;  // Matrix operations
-   // Note: scirs2_core::ndarray_ext does NOT provide array! macro
+// ❌ WRONG: Direct ndarray import
+use ndarray::{Array, array};  // POLICY VIOLATION
 
-   // ❌ WRONG - Don't use ndarray directly
-   use ndarray::{Array, array};  // Violates SciRS2 integration policy
+// Example usage in ToRSh code:
+#[cfg(test)]
+mod tests {
+    use super::*;
+    // UNIFIED: One import for everything
+    use scirs2_core::ndarray::{array, Array1, s};
 
-   // Example usage in tests:
-   #[cfg(test)]
-   mod tests {
-       use super::*;
-       // Use scirs2_autograd::ndarray when you need array! macro
-       use scirs2_autograd::ndarray::{array, Array1};
+    #[test]
+    fn test_tensor_ops() {
+        let data = array![1.0, 2.0, 3.0];      // array! macro works
+        let slice = data.slice(s![0..2]);      // s! macro works
+        let arr: Array1<f64> = Array1::zeros(10);
+        // test implementation
+    }
+}
+```
 
-       #[test]
-       fn test_tensor_ops() {
-           let data = array![1.0, 2.0, 3.0];  // Requires scirs2_autograd::ndarray
-           let arr: Array1<f64> = Array1::zeros(10);
-           // test implementation
-       }
-   }
-   ```
+#### 2. **UNIFIED Random Number Generation (scirs2-core v0.1.0-RC.1+)**
 
-3. **Feature Gates**
-   ```rust
-   // ✅ GOOD - Optional features
-   #[cfg(feature = "vision")]
-   use scirs2_vision::transforms::ImageTransform;
-   ```
+```rust
+// ✅ PREFERRED: Complete random functionality through scirs2-core
+use scirs2_core::random::*;  // ALL rand + rand_distr functionality
+// OR selective:
+use scirs2_core::random::{thread_rng, Normal, RandBeta, StudentT, Cauchy};
 
-4. **Error Handling**
-   ```rust
-   // ✅ GOOD - Proper error context
-   use scirs2_core::ScientificNumber;
-   // Document why SciRS2 types are used over alternatives
-   ```
+// Common distributions now available directly:
+// - Normal, Uniform, Exp, Gamma, Beta (as RandBeta)
+// - Cauchy, ChiSquared, FisherF, LogNormal, StudentT, Weibull
+// - Binomial, Poisson, Geometric, etc.
+
+// ❌ WRONG: Direct rand/rand_distr imports
+use rand::thread_rng;              // POLICY VIOLATION
+use rand_distr::{Normal, Beta};    // POLICY VIOLATION
+
+// Example: Initialization pattern
+fn create_weights() -> Vec<f64> {
+    let mut rng = thread_rng();  // From scirs2_core::random
+    let normal = Normal::new(0.0, 1.0).unwrap();
+    (0..100).map(|_| normal.sample(&mut rng)).collect()
+}
+```
+
+#### 3. **Import Granularity**
+
+```rust
+// ✅ GOOD - Specific imports for clarity
+use scirs2_core::ndarray::{Array1, Array2, array, s};
+use scirs2_core::random::{thread_rng, Normal};
+use scirs2_core::numeric::{Float, Zero};
+
+// ⚠️ ACCEPTABLE - Glob imports when appropriate
+use scirs2_core::ndarray::*;  // When using many array operations
+use scirs2_core::random::prelude::*;  // Common distributions
+
+// ❌ BAD - Top-level glob imports (unless in prelude)
+use scirs2_core::*;  // Too broad, unclear what's imported
+```
+
+#### 4. **Feature Gates**
+
+```rust
+// ✅ GOOD - Optional features with scirs2-core
+#[cfg(feature = "simd")]
+use scirs2_core::simd_ops::SimdUnifiedOps;
+
+#[cfg(feature = "gpu")]
+use scirs2_core::gpu::{GpuDevice, GpuKernel};
+
+#[cfg(feature = "vision")]
+use scirs2_vision::transforms::ImageTransform;
+```
+
+#### 5. **Error Handling**
+
+```rust
+// ✅ GOOD - Use scirs2-core error types
+use scirs2_core::error::{CoreError, CoreResult};
+use scirs2_core::validation::{check_positive, check_finite};
+
+pub fn process_tensor(data: &Array2<f64>, k: usize) -> CoreResult<Array2<f64>> {
+    check_positive(k, "k")?;
+    check_finite(data)?;
+    // Implementation
+    Ok(data.clone())
+}
+```
+
+#### 6. **Cargo.toml Best Practices**
+
+```toml
+# ✅ CORRECT: ToRSh module Cargo.toml
+[dependencies]
+scirs2-core = { workspace = true, features = ["ndarray", "random", "parallel"] }
+scirs2-autograd = { workspace = true }
+scirs2-neural = { workspace = true }
+
+# ❌ WRONG: Direct external dependencies
+# ndarray = { workspace = true }  # POLICY VIOLATION
+# rand = { workspace = true }      # POLICY VIOLATION
+```
 
 ## ToRSh-Specific Guidelines
 
@@ -301,8 +457,8 @@ ndarray, num-traits, etc. (Core Rust Scientific Stack)
 ## Future Considerations
 
 ### **SciRS2 Version Management**
-- Track SciRS2 release cycle (currently on 0.1.0-beta.2)
-- Test ToRSh against SciRS2 beta releases
+- Track SciRS2 release cycle (currently on 0.1.0-rc.4)
+- Test ToRSh against SciRS2 RC releases
 - Coordinate breaking change migrations
 
 ### **Performance Monitoring**
@@ -317,12 +473,35 @@ ndarray, num-traits, etc. (Core Rust Scientific Stack)
 
 ## Conclusion
 
-This policy ensures ToRSh properly leverages SciRS2's scientific computing foundation while maintaining PyTorch API compatibility. **ToRSh must use SciRS2 as its computational foundation, but intelligently and purposefully.**
+This policy ensures ToRSh properly leverages SciRS2's scientific computing foundation while maintaining PyTorch API compatibility. **ToRSh must use SciRS2 as its computational foundation, following the strict SciRS2 POLICY for layered architecture and unified abstractions.**
+
+### Key Takeaways
+
+1. **UNIFIED ACCESS**: Use `scirs2_core::ndarray::*` and `scirs2_core::random::*` for complete functionality
+2. **NO DIRECT IMPORTS**: Never import external dependencies (rand, ndarray, num-traits) directly
+3. **POLICY COMPLIANCE**: All ToRSh crates must follow the SciRS2 POLICY strictly
+4. **PERFORMANCE**: Use scirs2-core abstractions for SIMD, parallel, and GPU operations
+5. **CONSISTENCY**: Centralized dependency management ensures type safety and maintainability
+
+### Quick Migration Guide
+
+```rust
+// OLD (Policy-Violating)
+use ndarray::{Array, array, s};
+use rand::{thread_rng, Rng};
+use rand_distr::{Normal, Beta};
+
+// NEW (Policy-Compliant)
+use scirs2_core::ndarray::{Array, array, s};
+use scirs2_core::random::{thread_rng, Normal, RandBeta};
+```
 
 ---
 
-**Document Version**: 2.0 - Integration Success Update
-**Last Updated**: 2025-09-28
+**Document Version**: 3.0 - SciRS2 POLICY Alignment
+**Last Updated**: 2025-10-03
+**Based On**: [SciRS2 POLICY v3.0.0](https://github.com/cool-japan/scirs/blob/master/SCIRS2_POLICY.md)
+**SciRS2 Version**: v0.1.0-RC.1
 **Next Review**: Q1 2026
 **Owner**: ToRSh Architecture Team
 
@@ -490,26 +669,26 @@ Self { rng: thread_rng() }        // For fast, non-deterministic
 [workspace.dependencies]
 # Essential SciRS2 dependencies for ToRSh - COMPREHENSIVE INTEGRATION
 # Status: 93.3% SUCCESS (28/30 packages) - Updated to beta.3
-scirs2 = { version = "0.1.0-beta.3", features = ["neural", "autograd", "linalg"], default-features = false }
-scirs2-core = { version = "0.1.0-beta.3", default-features = false }
-scirs2-autograd = { version = "0.1.0-beta.3", default-features = false }  # Primary source for ndarray types
-scirs2-special = { version = "0.1.0-beta.3", default-features = false }
-scirs2-sparse = { version = "0.1.0-beta.3", default-features = false }
-scirs2-optimize = { version = "0.1.0-beta.3", default-features = false }
-scirs2-signal = { version = "0.1.0-beta.3", default-features = false }
-scirs2-fft = { version = "0.1.0-beta.3", default-features = false }
+scirs2 = { version = "0.1.0-beta.4", features = ["neural", "autograd", "linalg"], default-features = false }
+scirs2-core = { version = "0.1.0-beta.4", default-features = false }
+scirs2-autograd = { version = "0.1.0-beta.4", default-features = false }  # Primary source for ndarray types
+scirs2-special = { version = "0.1.0-beta.4", default-features = false }
+scirs2-sparse = { version = "0.1.0-beta.4", default-features = false }
+scirs2-optimize = { version = "0.1.0-beta.4", default-features = false }
+scirs2-signal = { version = "0.1.0-beta.4", default-features = false }
+scirs2-fft = { version = "0.1.0-beta.4", default-features = false }
 
 # NEW: Comprehensive SciRS2 integration (93.3% coverage - external issue blocks 2 packages)
-scirs2-cluster = { version = "0.1.0-beta.3", default-features = false }
-scirs2-datasets = { version = "0.1.0-beta.3", default-features = false }
-scirs2-graph = { version = "0.1.0-beta.3", default-features = false }
-scirs2-metrics = { version = "0.1.0-beta.3", default-features = false }
-scirs2-series = { version = "0.1.0-beta.3", default-features = false }
-scirs2-spatial = { version = "0.1.0-beta.3", default-features = false }  # ⚠️ EXTERNAL COMPILATION ISSUE
-scirs2-stats = { version = "0.1.0-beta.3", default-features = false }
-scirs2-text = { version = "0.1.0-beta.3", default-features = false }
-scirs2-linalg = { version = "0.1.0-beta.3", default-features = false }
-scirs2-neural = { version = "0.1.0-beta.3", default-features = false }
+scirs2-cluster = { version = "0.1.0-beta.4", default-features = false }
+scirs2-datasets = { version = "0.1.0-beta.4", default-features = false }
+scirs2-graph = { version = "0.1.0-beta.4", default-features = false }
+scirs2-metrics = { version = "0.1.0-beta.4", default-features = false }
+scirs2-series = { version = "0.1.0-beta.4", default-features = false }
+scirs2-spatial = { version = "0.1.0-beta.4", default-features = false }  # ⚠️ EXTERNAL COMPILATION ISSUE
+scirs2-stats = { version = "0.1.0-beta.4", default-features = false }
+scirs2-text = { version = "0.1.0-beta.4", default-features = false }
+scirs2-linalg = { version = "0.1.0-beta.4", default-features = false }
+scirs2-neural = { version = "0.1.0-beta.4", default-features = false }
 
 # OptiRS integration for advanced optimization
 optirs = { path = "../optirs/optirs", default-features = false }

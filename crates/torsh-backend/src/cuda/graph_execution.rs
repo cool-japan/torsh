@@ -7,8 +7,8 @@
 //! - Cross-stream graph coordination
 //! - Performance monitoring and optimization
 
-use crate::cuda::{CudaEvent, CudaStream};
-use crate::error::{CudaError, CudaResult};
+use crate::cuda::error::{CudaError, CudaResult};
+use crate::cuda::CudaStream;
 use cuda_sys::cudart::{
     cudaGraphExec_t, cudaGraphNode_t, cudaGraph_t, cudaKernelNodeParams, cudaMemcpyNodeParams,
     cudaMemsetNodeParams,

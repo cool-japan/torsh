@@ -4,13 +4,27 @@ Special mathematical functions for ToRSh, leveraging scirs2-special for optimize
 
 ## Overview
 
-This crate provides a comprehensive collection of special mathematical functions by wrapping scirs2-special with a PyTorch-compatible API:
+This crate provides a comprehensive collection of 135+ special mathematical functions organized into 19 mathematical families:
 
-- **Bessel Functions**: J₀, J₁, Y₀, Y₁, I₀, I₁, K₀, K₁
-- **Gamma Functions**: Gamma, log-gamma, digamma, polygamma
-- **Error Functions**: Erf, erfc, erfcx, erfinv
-- **Elliptic Functions**: Complete and incomplete elliptic integrals
-- **Other Functions**: Beta, zeta, exponential integrals, and more
+- **Bessel Functions**: J₀, J₁, Jₙ, Y₀, Y₁, Yₙ, I₀, I₁, Iₙ, K₀, K₁, Kₙ (cylindrical), spherical Bessel, Hankel functions
+- **Gamma Functions**: Gamma, log-gamma, digamma, polygamma, beta
+- **Error Functions**: erf, erfc, erfcx, erfinv, Fresnel integrals
+- **Elliptic Functions**: Complete and incomplete elliptic integrals (K, E, F), Jacobi functions (sn, cn, dn), Weierstrass functions, theta functions
+- **Exponential Integrals**: Ei, Eₙ, logarithmic integral, sine/cosine integrals
+- **Hypergeometric Functions**: ₁F₁, ₂F₁, pFq, Meijer G, Appell F₁
+- **Orthogonal Polynomials**: Legendre, Chebyshev, Hermite, Laguerre, Jacobi, Gegenbauer
+- **Advanced Functions**: Riemann zeta, polylogarithm, Hurwitz zeta, Dirichlet eta, Barnes G
+- **Advanced Special**: Dawson, Kelvin (ber, bei, ker, kei), parabolic cylinder, Spence, Struve, Voigt
+- **Airy Functions**: Ai, Bi and their derivatives
+- **Coulomb Wave Functions**: F_L(η,ρ), G_L(η,ρ) for quantum scattering
+- **Mathieu Functions**: ce_n, se_n, characteristic values for periodic boundaries
+- **Lommel Functions**: s_μ,ν, S_μ,ν for diffraction theory
+- **Spheroidal Wave Functions**: Prolate and oblate angular/radial functions for electromagnetic scattering
+- **Lambert W Functions**: Principal and secondary branches with applications
+- **Statistical Functions**: Normal, Student's t, chi-squared, F-distribution CDFs/PDFs, incomplete beta
+- **Complex Functions**: Complex gamma, zeta, erf, Bessel functions with branch cuts
+- **Performance Optimizations**: SIMD-accelerated, fast approximations, smart caching, lookup tables
+- **Visualization Tools**: Function analysis, accuracy comparison, ASCII plotting
 
 ## Usage
 
@@ -161,6 +175,34 @@ let pn = special::legendre(n, &x)?;
 // Associated Legendre functions
 let m = 1;
 let pmn = special::lpmv(m, n, &x)?;
+```
+
+### Spheroidal Wave Functions
+
+```rust
+use torsh_special::{prolate_angular, prolate_radial, oblate_angular, oblate_radial, spheroidal_eigenvalue};
+
+// Prolate spheroidal wave functions (electromagnetic scattering)
+let n = 2;  // Degree
+let m = 0;  // Order
+let c = 2.0; // Spheroidicity parameter
+
+// Angular function S_nm(c, η) where η ∈ [-1, 1]
+let eta = 0.5;
+let s_value = prolate_angular(n, m, c, eta)?;
+
+// Radial function R_nm(c, ξ) where ξ ∈ [1, ∞)
+let xi = 2.0;
+let r_value = prolate_radial(n, m, c, xi)?;
+
+// Oblate spheroidal wave functions (acoustic cavities)
+let xi_oblate = 0.5; // ξ ∈ [0, 1] for oblate
+let s_oblate = oblate_angular(n, m, c, eta)?;
+let r_oblate = oblate_radial(n, m, c, xi_oblate)?;
+
+// Eigenvalues λ_nm(c)
+let lambda_0 = spheroidal_eigenvalue(n, m, 0.0)?; // Spherical limit
+let lambda = spheroidal_eigenvalue(n, m, c)?;    // Spheroidal
 ```
 
 ### Batch Operations

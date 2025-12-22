@@ -4,7 +4,7 @@
 //! tensor, filter, convolution, activation, and pooling descriptors.
 
 use super::types::{ActivationMode, ConvolutionMode, NanPropagation, PoolingMode};
-use crate::error::{CudaError, CudaResult};
+use crate::cuda::error::{CudaError, CudaResult};
 use torsh_core::DType;
 
 #[cfg(feature = "cudnn")]

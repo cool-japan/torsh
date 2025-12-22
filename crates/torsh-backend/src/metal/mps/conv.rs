@@ -3,8 +3,8 @@
 use metal::foreign_types::ForeignType;
 use metal::NSUInteger;
 use metal::{CommandBuffer, Device};
-use objc2::runtime::Object;
-use objc2::{msg_send, sel, ClassType};
+use objc2::msg_send;
+use objc2::runtime::AnyObject;
 
 use crate::metal::{
     buffer::MetalBuffer,
@@ -16,7 +16,7 @@ use crate::metal::{
 #[allow(dead_code)]
 pub struct MPSConv2d {
     /// MPS CNN convolution object
-    conv: *mut Object,
+    conv: *mut AnyObject,
     /// Output buffer  
     output: MetalBuffer,
     /// Convolution parameters
@@ -98,7 +98,7 @@ impl MPSConv2d {
 
             // Create CNN convolution
             let class = objc2::class!(MPSCNNConvolution);
-            let conv: *mut Object = msg_send![class, alloc];
+            let conv: *mut AnyObject = msg_send![class, alloc];
 
             // Initialize with weights
             let weights_ptr = weights.buffer().contents() as *const f32;
@@ -108,11 +108,11 @@ impl MPSConv2d {
                 std::ptr::null()
             };
 
-            let conv: *mut Object = msg_send![conv,
-                initWithDevice: device.as_ptr() as *mut Object
-                convolutionDescriptor: desc
-                kernelWeights: weights_ptr
-                biasTerms: bias_ptr
+            let conv: *mut AnyObject = msg_send![conv,
+                initWithDevice: device.as_ptr() as *mut AnyObject,
+                convolutionDescriptor: desc,
+                kernelWeights: weights_ptr,
+                biasTerms: bias_ptr,
                 flags: 0 as NSUInteger // MPSCNNConvolutionFlagsNone
             ];
 
@@ -145,9 +145,9 @@ impl MPSConv2d {
                 MPSDataType::Float32,
             );
 
-            let input_image: *mut Object = msg_send![class, alloc];
-            let input_image: *mut Object = msg_send![input_image,
-                initWithDevice: self.device.as_ptr() as *mut Object
+            let input_image: *mut AnyObject = msg_send![class, alloc];
+            let input_image: *mut AnyObject = msg_send![input_image,
+                initWithDevice: self.device.as_ptr() as *mut AnyObject,
                 imageDescriptor: in_desc
             ];
 
@@ -166,16 +166,16 @@ impl MPSConv2d {
                 MPSDataType::Float32,
             );
 
-            let output_image: *mut Object = msg_send![class, alloc];
-            let output_image: *mut Object = msg_send![output_image,
-                initWithDevice: self.device.as_ptr() as *mut Object
+            let output_image: *mut AnyObject = msg_send![class, alloc];
+            let output_image: *mut AnyObject = msg_send![output_image,
+                initWithDevice: self.device.as_ptr() as *mut AnyObject,
                 imageDescriptor: out_desc
             ];
 
             // Encode the convolution
             let _: () = msg_send![self.conv,
-                encodeToCommandBuffer: command_buffer.as_ptr() as *mut Object
-                sourceImage: input_image
+                encodeToCommandBuffer: command_buffer.as_ptr() as *mut AnyObject,
+                sourceImage: input_image,
                 destinationImage: output_image
             ];
 

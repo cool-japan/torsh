@@ -1,11 +1,12 @@
 //! Enhanced neural network operations with cuDNN integration
 
-use crate::error::{BackendError, BackendResult};
-use crate::stream::CudaStream;
-use crate::tensor_cores::{TensorCoreContext, TensorCoreDType, TensorCoreGemmConfig};
+use crate::cuda::stream::CudaStream;
+use crate::error::BackendResult;
+use crate::tensor_cores::TensorCoreContext;
+use cust::prelude::DevicePointer;
 
 #[cfg(feature = "cudnn")]
-use crate::cudnn::{ActivationMode, CudnnOps, PoolingMode};
+use crate::cudnn::CudnnOps;
 
 /// Enhanced neural operations that can use cuDNN and Tensor Cores when available
 pub struct EnhancedNeuralOps {
@@ -69,10 +70,10 @@ impl EnhancedNeuralOps {
     /// Perform 2D convolution with optimal backend selection
     pub fn conv2d_forward(
         &self,
-        input: cust::DevicePointer<f32>,
-        weight: cust::DevicePointer<f32>,
-        bias: Option<cust::DevicePointer<f32>>,
-        output: cust::DevicePointer<f32>,
+        input: DevicePointer<f32>,
+        weight: DevicePointer<f32>,
+        bias: Option<DevicePointer<f32>>,
+        output: DevicePointer<f32>,
         input_shape: (i32, i32, i32, i32),  // (N, C, H, W)
         weight_shape: (i32, i32, i32, i32), // (K, C, H, W)
         output_shape: (i32, i32, i32, i32), // (N, K, H, W)
@@ -119,10 +120,10 @@ impl EnhancedNeuralOps {
     /// Fallback convolution using custom CUDA kernels
     fn conv2d_fallback(
         &self,
-        input: cust::DevicePointer<f32>,
-        weight: cust::DevicePointer<f32>,
-        bias: Option<cust::DevicePointer<f32>>,
-        output: cust::DevicePointer<f32>,
+        input: DevicePointer<f32>,
+        weight: DevicePointer<f32>,
+        bias: Option<DevicePointer<f32>>,
+        output: DevicePointer<f32>,
         input_shape: (i32, i32, i32, i32),
         weight_shape: (i32, i32, i32, i32),
         output_shape: (i32, i32, i32, i32),
@@ -160,8 +161,8 @@ impl EnhancedNeuralOps {
     /// Perform ReLU activation with optimal backend selection
     pub fn relu_forward(
         &self,
-        input: cust::DevicePointer<f32>,
-        output: cust::DevicePointer<f32>,
+        input: DevicePointer<f32>,
+        output: DevicePointer<f32>,
         shape: (i32, i32, i32, i32),
     ) -> BackendResult<()> {
         #[cfg(feature = "cudnn")]
@@ -179,8 +180,8 @@ impl EnhancedNeuralOps {
     /// Fallback ReLU using custom CUDA kernels
     fn relu_fallback(
         &self,
-        input: cust::DevicePointer<f32>,
-        output: cust::DevicePointer<f32>,
+        input: DevicePointer<f32>,
+        output: DevicePointer<f32>,
         shape: (i32, i32, i32, i32),
     ) -> BackendResult<()> {
         let size = (shape.0 * shape.1 * shape.2 * shape.3) as usize;
@@ -199,8 +200,8 @@ impl EnhancedNeuralOps {
     /// Perform sigmoid activation with optimal backend selection
     pub fn sigmoid_forward(
         &self,
-        input: cust::DevicePointer<f32>,
-        output: cust::DevicePointer<f32>,
+        input: DevicePointer<f32>,
+        output: DevicePointer<f32>,
         shape: (i32, i32, i32, i32),
     ) -> BackendResult<()> {
         #[cfg(feature = "cudnn")]
@@ -218,8 +219,8 @@ impl EnhancedNeuralOps {
     /// Fallback sigmoid using custom CUDA kernels
     fn sigmoid_fallback(
         &self,
-        input: cust::DevicePointer<f32>,
-        output: cust::DevicePointer<f32>,
+        input: DevicePointer<f32>,
+        output: DevicePointer<f32>,
         shape: (i32, i32, i32, i32),
     ) -> BackendResult<()> {
         let size = (shape.0 * shape.1 * shape.2 * shape.3) as usize;
@@ -238,8 +239,8 @@ impl EnhancedNeuralOps {
     /// Perform tanh activation with optimal backend selection
     pub fn tanh_forward(
         &self,
-        input: cust::DevicePointer<f32>,
-        output: cust::DevicePointer<f32>,
+        input: DevicePointer<f32>,
+        output: DevicePointer<f32>,
         shape: (i32, i32, i32, i32),
     ) -> BackendResult<()> {
         #[cfg(feature = "cudnn")]
@@ -257,8 +258,8 @@ impl EnhancedNeuralOps {
     /// Fallback tanh using custom CUDA kernels
     fn tanh_fallback(
         &self,
-        input: cust::DevicePointer<f32>,
-        output: cust::DevicePointer<f32>,
+        input: DevicePointer<f32>,
+        output: DevicePointer<f32>,
         shape: (i32, i32, i32, i32),
     ) -> BackendResult<()> {
         let size = (shape.0 * shape.1 * shape.2 * shape.3) as usize;
@@ -277,8 +278,8 @@ impl EnhancedNeuralOps {
     /// Perform 2D max pooling with optimal backend selection
     pub fn maxpool2d_forward(
         &self,
-        input: cust::DevicePointer<f32>,
-        output: cust::DevicePointer<f32>,
+        input: DevicePointer<f32>,
+        output: DevicePointer<f32>,
         input_shape: (i32, i32, i32, i32),  // (N, C, H, W)
         output_shape: (i32, i32, i32, i32), // (N, C, H_out, W_out)
         kernel_size: (i32, i32),
@@ -328,12 +329,12 @@ impl EnhancedNeuralOps {
     /// Perform 2D batch normalization with optimal backend selection
     pub fn batchnorm2d_forward(
         &self,
-        input: cust::DevicePointer<f32>,
-        output: cust::DevicePointer<f32>,
-        weight: cust::DevicePointer<f32>,
-        bias: cust::DevicePointer<f32>,
-        running_mean: cust::DevicePointer<f32>,
-        running_var: cust::DevicePointer<f32>,
+        input: DevicePointer<f32>,
+        output: DevicePointer<f32>,
+        weight: DevicePointer<f32>,
+        bias: DevicePointer<f32>,
+        running_mean: DevicePointer<f32>,
+        running_var: DevicePointer<f32>,
         shape: (i32, i32, i32, i32), // (N, C, H, W)
         eps: f32,
         momentum: f32,
@@ -383,8 +384,8 @@ impl EnhancedNeuralOps {
     /// Perform softmax
     pub fn softmax_forward(
         &self,
-        input: cust::DevicePointer<f32>,
-        output: cust::DevicePointer<f32>,
+        input: DevicePointer<f32>,
+        output: DevicePointer<f32>,
         batch_size: i32,
         classes: i32,
         stream: &CudaStream,

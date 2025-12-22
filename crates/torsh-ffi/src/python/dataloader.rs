@@ -1,14 +1,16 @@
 //! Python bindings for ToRSh data loaders
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::python::tensor::PyTensor;
 use pyo3::prelude::*;
-use pyo3::types::PyList;
-use pyo3::Bound;
+use pyo3::types::{PyAny, PyList};
+use pyo3::{Bound, Py};
 use torsh_core::DType;
 use torsh_data::{
     collate::DefaultCollate,
-    dataloader::{simple_dataloader, simple_random_dataloader, DataLoader, DataLoaderTrait},
-    dataset::{Dataset, TensorDataset},
+    dataloader::{simple_dataloader, simple_random_dataloader, DataLoader},
+    dataset::TensorDataset,
     sampler::{BatchingSampler, RandomSampler, SequentialSampler},
 };
 use torsh_tensor::Tensor;
@@ -104,7 +106,7 @@ impl PyDataLoaderIterator {
             let batch_data = vec![0.0f32; self.batch_size];
             let batch_shape = vec![self.batch_size];
 
-            Python::with_gil(|py| {
+            Python::attach(|py| {
                 let py_list = PyList::new(py, &batch_data)?;
                 let py_tensor = PyTensor::new(&py_list, Some(batch_shape), Some("f32"), false)?;
                 Ok(Some(py_tensor))
@@ -205,7 +207,7 @@ impl PyRandomDataLoaderIterator {
             let batch_data = vec![0.0f32; self.batch_size];
             let batch_shape = vec![self.batch_size];
 
-            Python::with_gil(|py| {
+            Python::attach(|py| {
                 let py_list = PyList::new(py, &batch_data)?;
                 let py_tensor = PyTensor::new(&py_list, Some(batch_shape), Some("f32"), false)?;
                 Ok(Some(py_tensor))
@@ -253,12 +255,12 @@ pub fn create_dataloader(
 
 /// Create a dataset from numpy-like arrays
 #[pyfunction]
-pub fn create_dataset_from_array(py: Python, array: PyObject) -> PyResult<PyTensor> {
+pub fn create_dataset_from_array(py: Python, array: Py<PyAny>) -> PyResult<PyTensor> {
     // This is a simplified implementation - in practice you'd want to handle
     // different array types (numpy, list, etc.) and convert them to tensors
 
     // Try to extract as a list of lists (2D array)
-    if let Ok(outer_list) = array.extract::<Vec<Vec<f32>>>(py) {
+    if let Ok(outer_list) = array.bind(py).extract::<Vec<Vec<f32>>>() {
         let rows = outer_list.len();
         let cols = if rows > 0 { outer_list[0].len() } else { 0 };
 
@@ -274,7 +276,7 @@ pub fn create_dataset_from_array(py: Python, array: PyObject) -> PyResult<PyTens
 
         let shape_vec = vec![rows, cols];
         Ok(PyTensor::from_raw(data, shape_vec, DType::F32, false))
-    } else if let Ok(flat_list) = array.extract::<Vec<f32>>(py) {
+    } else if let Ok(flat_list) = array.bind(py).extract::<Vec<f32>>() {
         // Handle 1D array
         let len = flat_list.len();
         let shape_vec = vec![len];

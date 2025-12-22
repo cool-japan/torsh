@@ -2,7 +2,7 @@
 
 use crate::{JitError, JitResult};
 use petgraph::graph::{DiGraph, NodeIndex};
-use petgraph::visit::{EdgeRef, IntoNodeReferences};
+use petgraph::visit::EdgeRef;
 use petgraph::Direction;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -721,6 +721,148 @@ impl ComputationGraph {
     pub fn is_acyclic(&self) -> bool {
         use petgraph::algo::is_cyclic_directed;
         !is_cyclic_directed(&self.graph)
+    }
+
+    /// Replace a node with one of its inputs (for constant folding and branch elimination)
+    ///
+    /// This operation:
+    /// 1. Redirects all edges coming into `node_id` to `replacement_id`
+    /// 2. Redirects all edges going out of `node_id` to come from `replacement_id`
+    /// 3. Removes `node_id` from the graph
+    ///
+    /// # Arguments
+    ///
+    /// * `node_id` - The node to replace
+    /// * `replacement_id` - The input node that will replace it
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` if successful
+    /// * `Err(JitError)` if the replacement would create an invalid graph
+    pub fn replace_node_with_input(
+        &mut self,
+        node_id: NodeId,
+        replacement_id: NodeId,
+    ) -> crate::JitResult<()> {
+        // Validate that replacement_id is actually an input to node_id
+        let is_predecessor = self
+            .predecessors(node_id)
+            .any(|pred| pred == replacement_id);
+
+        if !is_predecessor {
+            return Err(crate::JitError::CompilationError(format!(
+                "Node {:?} is not a predecessor of node {:?}",
+                replacement_id, node_id
+            )));
+        }
+
+        // Collect all successor edges before modification
+        let successors: Vec<(NodeId, Edge)> = self
+            .graph
+            .edges_directed(node_id, Direction::Outgoing)
+            .map(|edge_ref| (edge_ref.target(), edge_ref.weight().clone()))
+            .collect();
+
+        // Redirect all outgoing edges to come from replacement_id instead
+        for (successor_id, edge) in successors {
+            self.graph.add_edge(replacement_id, successor_id, edge);
+        }
+
+        // Update outputs list if node_id was an output
+        if let Some(pos) = self.outputs.iter().position(|&id| id == node_id) {
+            self.outputs[pos] = replacement_id;
+        }
+
+        // Remove the replaced node (this also cleans up inputs/outputs lists)
+        self.remove_node(node_id);
+
+        Ok(())
+    }
+
+    /// Replace a node with a sequence of nodes (for loop unrolling and macro expansion)
+    ///
+    /// This operation:
+    /// 1. Inserts the sequence of nodes into the graph
+    /// 2. Connects the first node in the sequence to the inputs of `node_id`
+    /// 3. Connects the last node in the sequence to the outputs of `node_id`
+    /// 4. Removes `node_id` from the graph
+    ///
+    /// # Arguments
+    ///
+    /// * `node_id` - The node to replace
+    /// * `sequence` - The sequence of nodes to insert (must not be empty)
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` if successful
+    /// * `Err(JitError)` if the sequence is empty or would create an invalid graph
+    pub fn replace_node_with_sequence(
+        &mut self,
+        node_id: NodeId,
+        sequence: &[Node],
+    ) -> crate::JitResult<()> {
+        if sequence.is_empty() {
+            return Err(crate::JitError::CompilationError(
+                "Cannot replace node with empty sequence".to_string(),
+            ));
+        }
+
+        // Add all nodes in the sequence
+        let sequence_ids: Vec<NodeId> = sequence
+            .iter()
+            .map(|node| self.graph.add_node(node.clone()))
+            .collect();
+
+        let first_id = sequence_ids[0];
+        let last_id = *sequence_ids.last().unwrap();
+
+        // Connect nodes in the sequence to each other
+        for window in sequence_ids.windows(2) {
+            let edge = Edge {
+                src_output: 0,
+                dst_input: 0,
+            };
+            self.graph.add_edge(window[0], window[1], edge);
+        }
+
+        // Collect predecessor edges before modification
+        let predecessors: Vec<(NodeId, Edge)> = self
+            .graph
+            .edges_directed(node_id, Direction::Incoming)
+            .map(|edge_ref| (edge_ref.source(), edge_ref.weight().clone()))
+            .collect();
+
+        // Redirect incoming edges to the first node in the sequence
+        for (pred_id, edge) in predecessors {
+            self.graph.add_edge(pred_id, first_id, edge);
+        }
+
+        // Collect successor edges before modification
+        let successors: Vec<(NodeId, Edge)> = self
+            .graph
+            .edges_directed(node_id, Direction::Outgoing)
+            .map(|edge_ref| (edge_ref.target(), edge_ref.weight().clone()))
+            .collect();
+
+        // Redirect outgoing edges to come from the last node in the sequence
+        for (succ_id, edge) in successors {
+            self.graph.add_edge(last_id, succ_id, edge);
+        }
+
+        // Update inputs list if node_id was an input
+        if let Some(pos) = self.inputs.iter().position(|&id| id == node_id) {
+            self.inputs[pos] = first_id;
+        }
+
+        // Update outputs list if node_id was an output
+        if let Some(pos) = self.outputs.iter().position(|&id| id == node_id) {
+            self.outputs[pos] = last_id;
+        }
+
+        // Remove the replaced node (this also cleans up inputs/outputs lists)
+        self.remove_node(node_id);
+
+        Ok(())
     }
 }
 

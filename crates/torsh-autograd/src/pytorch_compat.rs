@@ -4,6 +4,8 @@
 //! from PyTorch to ToRSh. It includes familiar function names, parameter behaviors,
 //! and error handling patterns that match PyTorch's autograd system.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{AutogradTensor, Result};
 use torsh_core::dtype::TensorElement;
 use torsh_core::error::TorshError;
@@ -204,7 +206,7 @@ pub mod torch {
     pub fn backward<T: TensorElement + Clone + std::fmt::Debug>(
         tensor: &dyn AutogradTensor<T>,
         gradient: Option<&dyn AutogradTensor<T>>,
-        retain_graph: bool,
+        _retain_graph: bool,
         create_graph: bool,
     ) -> Result<()>
     where

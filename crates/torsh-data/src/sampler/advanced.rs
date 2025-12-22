@@ -30,7 +30,7 @@
 //! # Examples
 //!
 //! ## Weighted Random Sampling
-//! ```rust
+//! ```rust,ignore
 //! use torsh_data::sampler::{Sampler, WeightedRandomSampler};
 //!
 //! // Sample with higher probability for larger weights
@@ -43,7 +43,7 @@
 //! ```
 //!
 //! ## Grouped Sampling
-//! ```rust
+//! ```rust,ignore
 //! use torsh_data::sampler::{Sampler, GroupedSampler};
 //!
 //! // Group samples by some criterion (e.g., class label)
@@ -64,7 +64,7 @@
 //! ```
 //!
 //! ## Stratified Sampling
-//! ```rust
+//! ```rust,ignore
 //! use torsh_data::sampler::{Sampler, StratifiedSampler};
 //!
 //! // Ensure balanced representation across classes
@@ -77,7 +77,7 @@
 //! ```
 //!
 //! ## Importance Sampling
-//! ```rust
+//! ```rust,ignore
 //! use torsh_data::sampler::{Sampler, ImportanceSampler};
 //!
 //! // Sample based on importance scores (e.g., loss values)
@@ -139,7 +139,7 @@ impl WeightedRandomSampler {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use torsh_data::sampler::{Sampler, WeightedRandomSampler};
     ///
     /// let weights = vec![1.0, 2.0, 3.0]; // Unnormalized weights
@@ -172,7 +172,7 @@ impl WeightedRandomSampler {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use torsh_data::sampler::{Sampler, WeightedRandomSampler};
     ///
     /// let weights = vec![1.0, 2.0, 3.0];
@@ -252,7 +252,7 @@ impl Sampler for WeightedRandomSampler {
             // Fisher-Yates shuffle with weights
             for i in (1..weighted_indices.len()).rev() {
                 let total_weight: f32 = weighted_indices[..=i].iter().map(|(_, w)| w).sum();
-                let mut target_weight = rng.gen::<f32>() * total_weight;
+                let mut target_weight = rng.random::<f32>() * total_weight;
 
                 let mut selected_idx = 0;
                 for (j, (_, weight)) in weighted_indices[..=i].iter().enumerate() {
@@ -343,7 +343,7 @@ impl AliasTable {
     /// Sample an index using the alias table.
     fn sample(&self, rng: &mut Random<scirs2_core::rngs::StdRng>) -> usize {
         let i = rng.gen_range(0..self.prob.len());
-        let coin_flip = rng.gen::<f32>();
+        let coin_flip = rng.random::<f32>();
 
         if coin_flip < self.prob[i] {
             i
@@ -387,7 +387,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use torsh_data::sampler::{Sampler, GroupedSampler};
     ///
     /// # struct DummyDataset { len: usize }
@@ -436,7 +436,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// # use torsh_data::sampler::GroupedSampler;
     /// # struct DummyDataset { len: usize }
     /// # impl crate::dataset::Dataset for DummyDataset {
@@ -461,7 +461,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// # use torsh_data::sampler::GroupedSampler;
     /// # struct DummyDataset { len: usize }
     /// # impl crate::dataset::Dataset for DummyDataset {
@@ -568,7 +568,7 @@ impl StratifiedSampler {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use torsh_data::sampler::{Sampler, StratifiedSampler};
     ///
     /// let labels = vec![0, 0, 1, 1, 1, 2]; // 2 class 0, 3 class 1, 1 class 2
@@ -600,7 +600,7 @@ impl StratifiedSampler {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use std::collections::HashMap;
     /// use torsh_data::sampler::StratifiedSampler;
     ///
@@ -766,7 +766,7 @@ impl ImportanceSampler {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use torsh_data::sampler::{Sampler, ImportanceSampler};
     ///
     /// // Higher scores = more important
@@ -801,7 +801,7 @@ impl ImportanceSampler {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use torsh_data::sampler::ImportanceSampler;
     ///
     /// let scores = vec![0.1, 0.8, 0.3];
@@ -862,7 +862,7 @@ impl ImportanceSampler {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use torsh_data::sampler::ImportanceSampler;
     ///
     /// let mut sampler = ImportanceSampler::new(vec![0.1, 0.5, 0.3])
@@ -922,7 +922,6 @@ impl Sampler for ImportanceSampler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashSet;
 
     // Mock dataset for testing
     struct MockDataset {

@@ -22,7 +22,7 @@ use std::sync::mpsc;
 use torsh_core::device::DeviceType;
 
 #[cfg(feature = "cuda")]
-use crate::cuda::{CudaBackend, CudaDevice as SciRs2CudaDevice};
+use crate::cuda::CudaDevice as SciRs2CudaDevice;
 
 // Temporary mock for scirs2_cuda when CUDA is not available
 #[cfg(all(feature = "cuda", not(cuda_available)))]
@@ -39,11 +39,11 @@ mod scirs2_cuda {
     }
 }
 
-#[cfg(feature = "metal")]
-use crate::metal::{MetalBackend, MetalDevice as SciRs2MetalDevice};
+#[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
+use crate::metal::MetalDevice as SciRs2MetalDevice;
 
 // Temporary mock for scirs2_metal since scirs2_core doesn't have a metal module yet
-#[cfg(feature = "metal")]
+#[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
 mod scirs2_metal {
     pub mod memory {
         use crate::metal::MetalDevice;
@@ -445,7 +445,7 @@ pub struct DefragmentationManager {
     #[cfg(feature = "cuda")]
     cuda_devices: HashMap<String, Arc<SciRs2CudaDevice>>,
     /// SciRS2 Metal devices for actual memory operations
-    #[cfg(feature = "metal")]
+    #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
     metal_devices: HashMap<String, Arc<SciRs2MetalDevice>>,
 }
 
@@ -565,7 +565,7 @@ impl DefragmentationManager {
             background_handle: None,
             #[cfg(feature = "cuda")]
             cuda_devices: HashMap::new(),
-            #[cfg(feature = "metal")]
+            #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
             metal_devices: HashMap::new(),
         }
     }
@@ -581,7 +581,7 @@ impl DefragmentationManager {
 
         #[cfg(feature = "cuda")]
         let cuda_devices = HashMap::new();
-        #[cfg(feature = "metal")]
+        #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
         let metal_devices = HashMap::new();
 
         let mut manager = Self {
@@ -593,7 +593,7 @@ impl DefragmentationManager {
             background_handle: None,
             #[cfg(feature = "cuda")]
             cuda_devices: cuda_devices.clone(),
-            #[cfg(feature = "metal")]
+            #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
             metal_devices: metal_devices.clone(),
         };
 
@@ -608,7 +608,7 @@ impl DefragmentationManager {
                 memory_managers,
                 #[cfg(feature = "cuda")]
                 cuda_devices,
-                #[cfg(feature = "metal")]
+                #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
                 metal_devices,
             ));
             manager.background_handle = Some(background_handle);
@@ -649,7 +649,7 @@ impl DefragmentationManager {
     }
 
     /// Register a Metal device for memory defragmentation
-    #[cfg(feature = "metal")]
+    #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
     pub fn register_metal_device(
         &mut self,
         device_id: String,
@@ -767,7 +767,7 @@ impl DefragmentationManager {
         stats: Arc<Mutex<DefragmentationStats>>,
         memory_managers: HashMap<String, Arc<dyn MemoryManager>>,
         #[cfg(feature = "cuda")] cuda_devices: HashMap<String, Arc<SciRs2CudaDevice>>,
-        #[cfg(feature = "metal")] metal_devices: HashMap<String, Arc<SciRs2MetalDevice>>,
+        #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))] metal_devices: HashMap<String, Arc<SciRs2MetalDevice>>,
     ) {
         while let Some(request) = receiver.recv().await {
             let start_time = Instant::now();
@@ -814,7 +814,7 @@ impl DefragmentationManager {
                 &memory_manager,
                 #[cfg(feature = "cuda")]
                 &cuda_devices,
-                #[cfg(feature = "metal")]
+                #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
                 &metal_devices,
                 active_tasks.clone(),
             )
@@ -920,7 +920,7 @@ impl DefragmentationManager {
         plan: &CompactionPlan,
         memory_manager: &Arc<dyn MemoryManager>,
         #[cfg(feature = "cuda")] cuda_devices: &HashMap<String, Arc<SciRs2CudaDevice>>,
-        #[cfg(feature = "metal")] metal_devices: &HashMap<String, Arc<SciRs2MetalDevice>>,
+        #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))] metal_devices: &HashMap<String, Arc<SciRs2MetalDevice>>,
         active_tasks: Arc<RwLock<HashMap<String, DefragmentationTask>>>,
     ) -> BackendResult<()> {
         let total_operations = plan.moves.len() + plan.merges.len();
@@ -934,7 +934,7 @@ impl DefragmentationManager {
                 memory_manager,
                 #[cfg(feature = "cuda")]
                 cuda_devices,
-                #[cfg(feature = "metal")]
+                #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
                 metal_devices,
             )
             .await
@@ -991,7 +991,7 @@ impl DefragmentationManager {
         block_move: &BlockMove,
         memory_manager: &Arc<dyn MemoryManager>,
         #[cfg(feature = "cuda")] cuda_devices: &HashMap<String, Arc<SciRs2CudaDevice>>,
-        #[cfg(feature = "metal")] metal_devices: &HashMap<String, Arc<SciRs2MetalDevice>>,
+        #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))] metal_devices: &HashMap<String, Arc<SciRs2MetalDevice>>,
     ) -> BackendResult<()> {
         // Determine device type from device_id
         if device_id.starts_with("cuda:") {
@@ -1002,7 +1002,7 @@ impl DefragmentationManager {
                 }
             }
         } else if device_id.starts_with("metal:") {
-            #[cfg(feature = "metal")]
+            #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
             {
                 if let Some(metal_device) = metal_devices.get(device_id) {
                     return Self::execute_metal_block_move(metal_device, block_move).await;
@@ -1016,6 +1016,7 @@ impl DefragmentationManager {
 
     /// Execute CUDA block move using SciRS2
     #[cfg(feature = "cuda")]
+    #[allow(unused_unsafe)]
     async fn execute_cuda_block_move(
         cuda_device: &SciRs2CudaDevice,
         block_move: &BlockMove,
@@ -1033,7 +1034,8 @@ impl DefragmentationManager {
     }
 
     /// Execute Metal block move using SciRS2
-    #[cfg(feature = "metal")]
+    #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
+    #[allow(unused_unsafe)]
     async fn execute_metal_block_move(
         metal_device: &SciRs2MetalDevice,
         block_move: &BlockMove,

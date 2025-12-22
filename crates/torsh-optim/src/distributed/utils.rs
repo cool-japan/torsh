@@ -31,7 +31,16 @@ use torsh_tensor::Tensor;
 /// # Example
 ///
 /// ```rust
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # use parking_lot::RwLock;
+/// # use std::sync::Arc;
+/// # fn main() -> Result<()> {
 /// use torsh_optim::distributed::utils::distributed_sgd;
+///
+/// // Create some parameters
+/// let param1 = Arc::new(RwLock::new(randn::<f32>(&[10, 20])?));
+/// let params = vec![param1];
 ///
 /// let optimizer = distributed_sgd(
 ///     params,
@@ -41,6 +50,8 @@ use torsh_tensor::Tensor;
 ///     Some(0.9),  // momentum
 ///     Some(1e-4)  // weight decay
 /// )?;
+/// # Ok(())
+/// # }
 /// ```
 pub fn distributed_sgd(
     params: Vec<Arc<RwLock<Tensor>>>,
@@ -81,7 +92,16 @@ pub fn distributed_sgd(
 /// # Example
 ///
 /// ```rust
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # use parking_lot::RwLock;
+/// # use std::sync::Arc;
+/// # fn main() -> Result<()> {
 /// use torsh_optim::distributed::utils::distributed_adam;
+///
+/// // Create some parameters
+/// let param1 = Arc::new(RwLock::new(randn::<f32>(&[10, 20])?));
+/// let params = vec![param1];
 ///
 /// let optimizer = distributed_adam(
 ///     params,
@@ -92,6 +112,8 @@ pub fn distributed_sgd(
 ///     Some(1e-8),             // epsilon
 ///     Some(0.01)              // weight decay
 /// )?;
+/// # Ok(())
+/// # }
 /// ```
 pub fn distributed_adam(
     params: Vec<Arc<RwLock<Tensor>>>,
@@ -128,8 +150,17 @@ pub fn distributed_adam(
 /// # Example
 ///
 /// ```rust
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # use parking_lot::RwLock;
+/// # use std::sync::Arc;
+/// # fn main() -> Result<()> {
 /// use torsh_optim::distributed::{utils::distributed_optimizer, core::*};
 /// use torsh_optim::AdamW;
+///
+/// // Create some parameters
+/// let param1 = Arc::new(RwLock::new(randn::<f32>(&[10, 20])?));
+/// let params = vec![param1];
 ///
 /// let config = DistributedConfig {
 ///     backend: DistributedBackend::NCCL,
@@ -144,6 +175,8 @@ pub fn distributed_adam(
 ///
 /// let base_optimizer = AdamW::new(params, Some(1e-4), None, None, Some(0.01), false);
 /// let distributed_opt = distributed_optimizer(base_optimizer, config)?;
+/// # Ok(())
+/// # }
 /// ```
 pub fn distributed_optimizer<O: crate::Optimizer>(
     optimizer: O,

@@ -4,8 +4,8 @@
 //! commonly used for metric learning, face recognition, and similarity learning tasks.
 
 use crate::loss::common::ReductionType;
-use crate::utils::{function_context, validate_elementwise_shapes, validate_range};
-use torsh_core::{Result as TorshResult, TorshError};
+use crate::utils::{validate_elementwise_shapes, validate_range};
+use torsh_core::Result as TorshResult;
 use torsh_tensor::Tensor;
 
 /// Cosine Embedding Loss

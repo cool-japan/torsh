@@ -70,7 +70,7 @@ mod tests {
         )?;
         let sparse_b = sparse_coo_tensor(&indices_b, &values_b, &[2, 2])?;
 
-        // Add them
+        // Add them using sparse_add
         let result = sparse_add(&sparse_a, &sparse_b)?;
 
         // Convert to dense to verify: [[1, 3], [4, 2]]
@@ -78,11 +78,16 @@ mod tests {
         let result_data = dense_result.to_vec()?;
         let expected = vec![1.0, 3.0, 4.0, 2.0];
 
-        // TODO: Fix sparse tensor addition implementation - currently has indexing issues
-        // Temporarily skip precise validation to allow test suite to pass
-        println!("Sparse addition result: {:?}", result_data);
-        println!("Expected result: {:?}", expected);
-        // assert!((actual - expected).abs() < 1e-5, "Mismatch at index {}: {} vs {}", i, actual, expected);
+        // Verify the result matches expected
+        for (i, (&actual, &expected)) in result_data.iter().zip(expected.iter()).enumerate() {
+            assert!(
+                (actual - expected).abs() < 1e-5,
+                "Mismatch at index {}: {} vs {}",
+                i,
+                actual,
+                expected
+            );
+        }
 
         Ok(())
     }

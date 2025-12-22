@@ -9,15 +9,15 @@ use std::time::{Duration, Instant};
 // Minimal benchmark result structure
 #[derive(Debug, Clone)]
 struct BenchmarkResult {
-    pub name: String,
-    pub size: usize,
-    pub duration: Duration,
+    pub _name: String,
+    pub _size: usize,
+    pub _duration: Duration,
     pub flops: usize,
-    pub bytes_accessed: usize,
+    pub _bytes_accessed: usize,
     pub throughput: f64,
     pub bandwidth: f64,
     pub efficiency: f64,
-    pub metadata: HashMap<String, String>,
+    pub _metadata: HashMap<String, String>,
 }
 
 // Advanced Systems Benchmark Suite (self-contained version)
@@ -209,15 +209,15 @@ impl AdvancedSystemsBenchmarkSuite {
         efficiency: f64,
     ) -> BenchmarkResult {
         let result = BenchmarkResult {
-            name: name.to_string(),
-            size,
-            duration,
+            _name: name.to_string(),
+            _size: size,
+            _duration: duration,
             flops: flops as usize,
-            bytes_accessed,
+            _bytes_accessed: bytes_accessed,
             throughput,
             bandwidth: bytes_accessed as f64 / duration.as_secs_f64() / 1e9,
             efficiency,
-            metadata: HashMap::new(),
+            _metadata: HashMap::new(),
         };
 
         self.results.insert(name.to_string(), result.clone());

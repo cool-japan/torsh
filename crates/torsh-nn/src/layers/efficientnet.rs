@@ -632,7 +632,8 @@ impl Module for EfficientNet {
                 let mut sum = 0.0f32;
                 for h in 0..height {
                     for w in 0..width {
-                        let idx = b * (channels * height * width) + c * (height * width) + h * width + w;
+                        let idx =
+                            b * (channels * height * width) + c * (height * width) + h * width + w;
                         if idx < features_data.len() {
                             sum += features_data[idx];
                         }

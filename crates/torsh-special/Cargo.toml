@@ -16,8 +16,7 @@ workspace = true
 torsh-core = { workspace = true }
 torsh-tensor = { workspace = true }
 scirs2-special = { workspace = true }
-num-traits = { workspace = true }
-num-complex = { workspace = true }
+scirs2-core = { workspace = true }  # For numeric traits and Complex types (POLICY compliant)
 thiserror = { workspace = true }
 lazy_static = { workspace = true }
 

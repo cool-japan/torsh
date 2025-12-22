@@ -4,10 +4,8 @@
 //! visualizations, charts, and detailed analysis of benchmark results.
 
 use crate::{BenchConfig, BenchResult};
-use std::collections::HashMap;
 use std::fs;
 use std::io::{self, Write};
-use std::path::Path;
 
 /// HTML report generator with advanced visualization
 pub struct HtmlReportGenerator {
@@ -1429,7 +1427,7 @@ impl Default for EnvironmentInfo {
             gpu: None,
             compiler: "rustc".to_string(),
             rust_version: "1.70.0".to_string(),
-            torsh_version: "0.1.0-alpha.1".to_string(),
+            torsh_version: "0.1.0-alpha.2".to_string(),
         }
     }
 }
@@ -1468,6 +1466,7 @@ pub fn generate_html_report(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
     use torsh_core::dtype::DType;
 
     #[test]

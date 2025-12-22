@@ -12,6 +12,9 @@
 //! - CPU offload for communication
 //! - Support for InfiniBand, RoCE, and iWARP protocols
 
+// Framework infrastructure - components designed for future use
+#![allow(clippy::await_holding_lock)]
+#![allow(dead_code)]
 use scirs2_core::random::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -317,7 +320,7 @@ pub struct RdmaMemoryPoolConfig {
 }
 
 #[derive(Debug, Default, Clone)]
-struct MemoryPoolStats {
+pub struct MemoryPoolStats {
     allocations: u64,
     deallocations: u64,
     cache_hits: u64,
@@ -386,7 +389,7 @@ impl RdmaMemoryPool {
         stats.deallocations += 1;
 
         let mut regions = self.regions.write().unwrap();
-        let size_regions = regions.entry(region.size).or_insert_with(Vec::new);
+        let size_regions = regions.entry(region.size).or_default();
 
         if size_regions.len() < self.config.max_pool_size {
             // Reset region for reuse
@@ -405,8 +408,8 @@ impl RdmaMemoryPool {
         Ok(MemoryRegion {
             addr: 0x1000_0000, // Placeholder address
             size,
-            rkey: thread_rng().gen::<u32>(),
-            lkey: thread_rng().gen::<u32>(),
+            rkey: thread_rng().random::<u32>(),
+            lkey: thread_rng().random::<u32>(),
             access: MemoryAccess::default(),
             registration_type: MemoryRegistration::FastReg,
         })
@@ -490,16 +493,16 @@ impl RdmaConnectionManager {
             port: 0,
             gid: None,
             lid: None,
-            qp_num: thread_rng().gen::<u32>(),
-            psn: thread_rng().gen::<u32>(),
+            qp_num: thread_rng().random::<u32>(),
+            psn: thread_rng().random::<u32>(),
         };
 
         let connection = RdmaConnection {
             local_endpoint,
             remote_endpoint,
             state: ConnectionState::Connected,
-            qp_handle: thread_rng().gen::<u64>(),
-            cq_handle: thread_rng().gen::<u64>(),
+            qp_handle: thread_rng().random::<u64>(),
+            cq_handle: thread_rng().random::<u64>(),
             stats: RdmaStatistics::default(),
         };
 
@@ -513,7 +516,7 @@ impl RdmaConnectionManager {
     /// Perform RDMA read operation
     pub async fn rdma_read(
         &self,
-        connection_id: usize,
+        _connection_id: usize,
         local_addr: u64,
         remote_addr: u64,
         length: usize,
@@ -521,7 +524,7 @@ impl RdmaConnectionManager {
         rkey: u32,
     ) -> RdmaResult<WorkCompletion> {
         self.submit_work_request(WorkRequest {
-            id: thread_rng().gen::<u64>(),
+            id: thread_rng().random::<u64>(),
             operation: RdmaOperation::Read,
             local_addr,
             lkey,
@@ -537,7 +540,7 @@ impl RdmaConnectionManager {
     /// Perform RDMA write operation
     pub async fn rdma_write(
         &self,
-        connection_id: usize,
+        _connection_id: usize,
         local_addr: u64,
         remote_addr: u64,
         length: usize,
@@ -545,7 +548,7 @@ impl RdmaConnectionManager {
         rkey: u32,
     ) -> RdmaResult<WorkCompletion> {
         self.submit_work_request(WorkRequest {
-            id: thread_rng().gen::<u64>(),
+            id: thread_rng().random::<u64>(),
             operation: RdmaOperation::Write,
             local_addr,
             lkey,
@@ -561,17 +564,17 @@ impl RdmaConnectionManager {
     /// Perform atomic compare and swap
     pub async fn atomic_compare_swap(
         &self,
-        connection_id: usize,
+        _connection_id: usize,
         remote_addr: u64,
         compare: u64,
-        swap: u64,
+        _swap: u64,
         rkey: u32,
     ) -> RdmaResult<u64> {
         // In a real implementation, this would perform the atomic operation
         // and return the previous value
         let _completion = self
             .submit_work_request(WorkRequest {
-                id: thread_rng().gen::<u64>(),
+                id: thread_rng().random::<u64>(),
                 operation: RdmaOperation::CompareSwap,
                 local_addr: 0,
                 lkey: 0,
@@ -634,7 +637,7 @@ pub struct RdmaTensorScheduler {
 }
 
 #[derive(Debug)]
-struct TensorOperation {
+pub struct TensorOperation {
     tensor_id: String,
     operation_type: TensorOperationType,
     source_node: usize,
@@ -697,6 +700,7 @@ impl RdmaTensorScheduler {
     }
 
     async fn optimize_scheduling(&self) -> RdmaResult<()> {
+        #[allow(clippy::await_holding_lock)]
         let mut queue = self.operation_queue.lock().unwrap();
 
         // Sort operations by priority and deadline

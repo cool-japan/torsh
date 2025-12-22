@@ -74,7 +74,7 @@ impl ResourceType {
 }
 
 /// A resource in the package
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Resource {
     /// Resource name (unique identifier)
     pub name: String,

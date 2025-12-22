@@ -4,7 +4,7 @@
 //! including cross entropy, negative log likelihood, binary cross entropy, and focal loss.
 
 use crate::loss::common::ReductionType;
-use crate::utils::{function_context, validate_elementwise_shapes, validate_range};
+use crate::utils::{function_context, safe_log_prob, validate_elementwise_shapes, validate_range};
 use torsh_core::{Result as TorshResult, TorshError};
 use torsh_tensor::Tensor;
 
@@ -103,13 +103,11 @@ pub fn binary_cross_entropy(
 ) -> TorshResult<Tensor> {
     validate_elementwise_shapes(input, target)?;
 
-    // Clamp input to prevent log(0)
-    let eps = 1e-8_f32;
-    let input_clamped = input.clamp(eps, 1.0 - eps)?;
-
     // BCE = -[target * log(input) + (1 - target) * log(1 - input)]
-    let log_input = input_clamped.log()?;
-    let log_one_minus_input = input_clamped.neg()?.add_scalar(1.0)?.log()?;
+    // Use safe_log_prob to prevent log(0) with proper clamping
+    let log_input = safe_log_prob(input, None)?;
+    let one_minus_input = input.neg()?.add_scalar(1.0)?;
+    let log_one_minus_input = safe_log_prob(&one_minus_input, None)?;
 
     let positive_loss = target.mul(&log_input)?;
     let one_minus_target = target.neg()?.add_scalar(1.0)?;
@@ -281,7 +279,7 @@ pub fn cross_entropy_with_label_smoothing(
     label_smoothing: f64,
     weight: Option<&Tensor>,
     reduction: &str,
-    ignore_index: Option<i64>,
+    _ignore_index: Option<i64>,
 ) -> TorshResult<Tensor> {
     if label_smoothing < 0.0 || label_smoothing >= 1.0 {
         return Err(TorshError::InvalidArgument(

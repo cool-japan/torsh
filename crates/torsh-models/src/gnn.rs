@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use torsh_core::{DType, DeviceType};
+use torsh_core::DeviceType;
 use torsh_nn::prelude::{Dropout, Linear};
 use torsh_nn::{Module, Parameter};
 use torsh_tensor::{stats::StatMode, Tensor};

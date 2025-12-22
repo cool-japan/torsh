@@ -78,13 +78,13 @@ impl LSTMForecaster {
     pub fn forward(&self, x: &Tensor) -> Result<Tensor> {
         // Input shape: [batch_size, seq_len, input_size]
         let batch_size = x.shape().dims()[0];
-        let seq_len = x.shape().dims()[1];
+        let _seq_len = x.shape().dims()[1];
 
         // Pass through LSTM
         let lstm_out = self.lstm.forward(x)?;
 
         // Apply dropout if specified
-        let lstm_out = if let Some(ref dropout) = self.dropout {
+        let _lstm_out = if let Some(ref dropout) = self.dropout {
             dropout.forward(&lstm_out)?
         } else {
             lstm_out
@@ -507,7 +507,7 @@ impl CNNForecaster {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use torsh_tensor::creation::*;
+    use torsh_tensor::Tensor;
 
     fn create_test_series() -> TimeSeries {
         let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];

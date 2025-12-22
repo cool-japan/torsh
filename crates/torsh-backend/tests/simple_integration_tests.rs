@@ -3,11 +3,11 @@
 //! This test suite provides basic integration tests for the CUDA performance
 //! optimization systems with minimal dependencies and straightforward test cases.
 
-#![cfg(feature = "cuda")]
+#![cfg(cuda_available)]
 
 use std::time::{Duration, SystemTime};
 
-#[cfg(all(test, feature = "cuda"))]
+#[cfg(all(test, cuda_available))]
 mod tests {
     use super::*;
 
@@ -278,7 +278,7 @@ mod tests {
 }
 
 /// Basic performance characterization tests
-#[cfg(all(test, feature = "cuda"))]
+#[cfg(all(test, cuda_available))]
 mod performance_tests {
     use super::*;
     use std::time::Instant;

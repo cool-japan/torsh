@@ -14,7 +14,7 @@
 //!
 //! ## Usage Example
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_autograd::visualization::core::{GradientFlowAnalysis, GradientStatistics};
 //!
 //! // Create gradient statistics

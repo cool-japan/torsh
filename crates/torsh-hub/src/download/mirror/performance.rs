@@ -4,6 +4,8 @@
 //! management, including trend analysis, prediction, benchmarking, and adaptive
 //! learning algorithms for optimal mirror selection.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use super::types::*;
 use reqwest::Client;
 use std::collections::HashMap;
@@ -68,9 +70,9 @@ impl PerformanceAnalyzer {
         let throughput_result = self.measure_throughput(client, mirror).await;
 
         // Calculate overall score
-        let overall_score = self.calculate_benchmark_score(&latency_result, &throughput_result);
+        let _overall_score = self.calculate_benchmark_score(&latency_result, &throughput_result);
 
-        let benchmark_duration = benchmark_start.elapsed();
+        let _benchmark_duration = benchmark_start.elapsed();
 
         // Create benchmark result
         let result = MirrorBenchmarkResult {
@@ -124,7 +126,7 @@ impl PerformanceAnalyzer {
         match client.get(&test_url).send().await {
             Ok(response) => {
                 if response.status().is_success() {
-                    let content_length = response.content_length().unwrap_or(1_048_576); // 1MB fallback
+                    let _content_length = response.content_length().unwrap_or(1_048_576); // 1MB fallback
 
                     // Download the content
                     match response.bytes().await {
@@ -251,7 +253,7 @@ impl PerformanceAnalyzer {
 
         self.performance_cache
             .entry(mirror_id.to_string())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(snapshot);
 
         // Limit cache size per mirror
@@ -278,10 +280,9 @@ impl PerformanceAnalyzer {
             .take(10)
             .collect::<Vec<_>>();
 
-        let mut response_times: Vec<u64> = recent_samples.iter().map(|s| s.response_time).collect();
+        let response_times: Vec<u64> = recent_samples.iter().map(|s| s.response_time).collect();
 
-        let mut throughputs: Vec<f64> =
-            recent_samples.iter().filter_map(|s| s.throughput).collect();
+        let throughputs: Vec<f64> = recent_samples.iter().filter_map(|s| s.throughput).collect();
 
         // Calculate trends
         let response_time_trend = if response_times.len() >= 3 {
@@ -357,20 +358,17 @@ impl PerformanceAnalyzer {
         // Calculate standard deviations for anomaly detection
         let response_time_std =
             self.calculate_standard_deviation(&response_times, avg_response_time);
-        let throughput_std = if let Some(avg_tp) = avg_throughput {
-            Some(self.calculate_standard_deviation(&throughputs, avg_tp))
-        } else {
-            None
-        };
+        let throughput_std =
+            avg_throughput.map(|avg_tp| self.calculate_standard_deviation(&throughputs, avg_tp));
 
         // Detect anomalies (values more than 2 standard deviations from mean)
         let anomaly_threshold = 2.0;
-        let response_time_anomalies = response_times
+        let _response_time_anomalies = response_times
             .iter()
             .filter(|&&rt| (rt - avg_response_time).abs() > response_time_std * anomaly_threshold)
             .count();
 
-        let throughput_anomalies =
+        let _throughput_anomalies =
             if let (Some(avg_tp), Some(tp_std)) = (avg_throughput, throughput_std) {
                 throughputs
                     .iter()
@@ -498,7 +496,7 @@ impl PerformanceAnalyzer {
 
         Some(PerformancePrediction {
             mirror_id: mirror_id.to_string(),
-            time_horizon: Duration::from_secs(horizon_minutes as u64 * 60),
+            time_horizon: Duration::from_secs(horizon_minutes * 60),
             predicted_response_time: Duration::from_millis(predicted_response_time.max(0.0) as u64),
             predicted_throughput,
             confidence_level: self.calculate_prediction_confidence(&analysis) as f32,
@@ -663,7 +661,6 @@ impl Default for PerformanceAnalysis {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio;
 
     #[test]
     fn test_performance_analyzer_creation() {

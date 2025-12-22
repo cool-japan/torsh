@@ -3,6 +3,8 @@
 //! This module provides memory-efficient strategies including activation
 //! checkpointing, disk offloading, and memory usage monitoring.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{TorshDistributedError, TorshResult};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -86,7 +88,7 @@ impl MemoryManager {
         }
 
         // Update memory statistics
-        self.update_memory_usage(activation.numel() * std::mem::size_of::<f32>() as usize);
+        self.update_memory_usage(activation.numel() * std::mem::size_of::<f32>());
 
         Ok(())
     }
@@ -401,7 +403,7 @@ impl CachedActivation {
 enum StorageLocation {
     Memory,
     Disk,
-    GPU,
+    Gpu,
 }
 
 /// Memory usage statistics
@@ -481,10 +483,7 @@ impl MemoryPool {
 
     fn deallocate_tensor(&mut self, tensor: Tensor<f32>) {
         let shape_key = format!("{:?}", tensor.shape().dims());
-        let tensors = self
-            .allocated_tensors
-            .entry(shape_key)
-            .or_insert_with(Vec::new);
+        let tensors = self.allocated_tensors.entry(shape_key).or_default();
 
         // Keep a limited number of tensors for reuse
         if tensors.len() < 10 {

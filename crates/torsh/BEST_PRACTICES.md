@@ -62,7 +62,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-torsh = { version = "0.1.0-alpha.1", features = ["full"] }
+torsh = { version = "0.1.0-alpha.2", features = ["full"] }
 tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 clap = { version = "4.0", features = ["derive"] }

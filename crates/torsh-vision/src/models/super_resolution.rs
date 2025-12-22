@@ -49,7 +49,7 @@ impl SRCNN {
     /// Preprocess low-resolution image (bicubic upsampling)
     pub fn preprocess(&self, lr_image: &Tensor<f32>) -> Result<Tensor<f32>> {
         let shape = lr_image.shape();
-        let (batch, channels, height, width) = (
+        let (_batch, _channels, height, width) = (
             shape.dims()[0],
             shape.dims()[1],
             shape.dims()[2],
@@ -300,7 +300,7 @@ impl Upsampler {
     /// Create upsampler for given scale factor
     pub fn new(in_channels: usize, out_channels: usize, scale_factor: usize) -> Result<Self> {
         let mut layers = Vec::new();
-        let mut current_channels = in_channels;
+        let current_channels = in_channels;
         let mut remaining_scale = scale_factor;
 
         // Decompose scale factor into powers of 2 and 3

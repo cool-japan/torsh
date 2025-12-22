@@ -168,11 +168,7 @@ impl RelativePositionalEncoding {
         // Simplified implementation for testing
         let total_elements = seq_len * seq_len * self.d_model;
         let data: Vec<f32> = (0..total_elements).map(|i| (i as f32) * 0.01).collect();
-        Tensor::from_data(
-            data,
-            vec![seq_len, seq_len, self.d_model],
-            DeviceType::Cpu,
-        )
+        Tensor::from_data(data, vec![seq_len, seq_len, self.d_model], DeviceType::Cpu)
     }
 }
 
@@ -439,7 +435,7 @@ mod tests {
     #[test]
     fn test_rms_norm() {
         let norm = RMSNorm::new(vec![128], 1e-6);
-        let data: Vec<f32> = (0..4*128).map(|i| (i as f32) * 0.01).collect();
+        let data: Vec<f32> = (0..4 * 128).map(|i| (i as f32) * 0.01).collect();
         let x = Tensor::from_vec(data, &[4, 128]).unwrap();
         let normalized = norm.forward(&x).unwrap();
         assert_eq!(normalized.shape(), x.shape());
@@ -448,7 +444,7 @@ mod tests {
     #[test]
     fn test_group_norm() {
         let norm = GroupNorm::new(8, 64, 1e-5, true);
-        let data: Vec<f32> = (0..2*64*32*32).map(|i| (i as f32) * 0.001).collect();
+        let data: Vec<f32> = (0..2 * 64 * 32 * 32).map(|i| (i as f32) * 0.001).collect();
         let x = Tensor::from_vec(data, &[2, 64, 32, 32]).unwrap();
         let normalized = norm.forward(&x).unwrap();
         assert_eq!(normalized.shape(), x.shape());

@@ -41,7 +41,6 @@ pub use text::{
 mod tests {
     use super::*;
     use torsh_nn::Module;
-    use torsh_tensor::creation;
 
     #[test]
     fn test_align_config_creation() {

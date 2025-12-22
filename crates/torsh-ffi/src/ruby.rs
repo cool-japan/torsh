@@ -182,7 +182,6 @@ pub unsafe extern "C" fn ruby_cuda_device_count() -> c_int {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::ptr;
 
     #[test]
     fn test_ruby_tensor_operations() {

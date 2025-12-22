@@ -3,6 +3,8 @@
 //! This module provides seamless integration with HuggingFace Hub, allowing
 //! users to load and convert models from HuggingFace to ToRSh format.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::CacheManager;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -37,7 +39,7 @@ impl Default for HuggingFaceHub {
                     .join("huggingface"),
             )
             .expect("Failed to create cache manager"),
-            user_agent: "torsh/0.1.0-alpha.1".to_string(),
+            user_agent: "torsh/0.1.0-alpha.2".to_string(),
             timeout: 300,
         }
     }
@@ -55,7 +57,7 @@ impl HuggingFaceHub {
             api_url,
             token,
             cache: CacheManager::new(&cache_dir).expect("Failed to create cache manager"),
-            user_agent: "torsh/0.1.0-alpha.1".to_string(),
+            user_agent: "torsh/0.1.0-alpha.2".to_string(),
             timeout: 300,
         }
     }
@@ -68,8 +70,8 @@ impl HuggingFaceHub {
 
     /// List models from HuggingFace Hub
     pub fn list_models(&self, search: &HfSearchParams) -> Result<Vec<HfModelInfo>> {
-        let url = format!("{}/api/models", self.api_url);
-        let query_params = search.to_query_params();
+        let _url = format!("{}/api/models", self.api_url);
+        let _query_params = search.to_query_params();
 
         // Placeholder: Make HTTP request to HuggingFace API
         // For now, return mock data
@@ -90,7 +92,7 @@ impl HuggingFaceHub {
 
     /// Get model information
     pub fn model_info(&self, model_id: &str) -> Result<HfModelInfo> {
-        let url = format!("{}/api/models/{}", self.api_url, model_id);
+        let _url = format!("{}/api/models/{}", self.api_url, model_id);
 
         // Placeholder: Make HTTP request
         Err(TorshError::NotImplemented(
@@ -148,9 +150,9 @@ impl HuggingFaceHub {
         model_id: &str,
         filename: &str,
         revision: &str,
-        local_path: &PathBuf,
+        _local_path: &PathBuf,
     ) -> Result<()> {
-        let url = format!(
+        let _url = format!(
             "{}/{}/resolve/{}/{}",
             self.api_url, model_id, revision, filename
         );
@@ -163,7 +165,7 @@ impl HuggingFaceHub {
 
     /// List files in a model repository
     fn list_model_files(&self, model_id: &str, revision: &str) -> Result<Vec<String>> {
-        let url = format!("{}/api/models/{}/tree/{}", self.api_url, model_id, revision);
+        let _url = format!("{}/api/models/{}/tree/{}", self.api_url, model_id, revision);
 
         // Placeholder: Get file list from API
         Ok(vec![
@@ -210,8 +212,8 @@ impl HuggingFaceHub {
     /// Convert BERT model
     fn convert_bert_model(
         &self,
-        model_path: &PathBuf,
-        config: &HfModelConfig,
+        _model_path: &PathBuf,
+        _config: &HfModelConfig,
     ) -> Result<Box<dyn Module>> {
         // Placeholder: Implement BERT conversion
         Err(TorshError::NotImplemented(
@@ -222,8 +224,8 @@ impl HuggingFaceHub {
     /// Convert GPT-2 model
     fn convert_gpt2_model(
         &self,
-        model_path: &PathBuf,
-        config: &HfModelConfig,
+        _model_path: &PathBuf,
+        _config: &HfModelConfig,
     ) -> Result<Box<dyn Module>> {
         // Placeholder: Implement GPT-2 conversion
         Err(TorshError::NotImplemented(
@@ -234,8 +236,8 @@ impl HuggingFaceHub {
     /// Convert BART model
     fn convert_bart_model(
         &self,
-        model_path: &PathBuf,
-        config: &HfModelConfig,
+        _model_path: &PathBuf,
+        _config: &HfModelConfig,
     ) -> Result<Box<dyn Module>> {
         // Placeholder: Implement BART conversion
         Err(TorshError::NotImplemented(
@@ -246,8 +248,8 @@ impl HuggingFaceHub {
     /// Convert T5 model
     fn convert_t5_model(
         &self,
-        model_path: &PathBuf,
-        config: &HfModelConfig,
+        _model_path: &PathBuf,
+        _config: &HfModelConfig,
     ) -> Result<Box<dyn Module>> {
         // Placeholder: Implement T5 conversion
         Err(TorshError::NotImplemented(
@@ -258,9 +260,9 @@ impl HuggingFaceHub {
     /// Upload ToRSh model to HuggingFace Hub
     pub fn upload_model(
         &self,
-        model: &dyn Module,
-        model_id: &str,
-        commit_message: Option<&str>,
+        _model: &dyn Module,
+        _model_id: &str,
+        _commit_message: Option<&str>,
     ) -> Result<()> {
         if self.token.is_none() {
             return Err(TorshError::InvalidArgument(
@@ -422,8 +424,8 @@ impl HfToTorshConverter {
     /// Convert weights from HuggingFace format to ToRSh format
     pub fn convert_weights(
         &self,
-        weights_path: &PathBuf,
-        config: &HfModelConfig,
+        _weights_path: &PathBuf,
+        _config: &HfModelConfig,
     ) -> Result<HashMap<String, Vec<f32>>> {
         // Placeholder: Implement weight conversion from PyTorch/SafeTensors to ToRSh format
         Err(TorshError::NotImplemented(
@@ -532,7 +534,7 @@ mod tests {
     fn test_huggingface_hub_creation() {
         let hub = HuggingFaceHub::new();
         assert_eq!(hub.api_url, "https://huggingface.co");
-        assert_eq!(hub.user_agent, "torsh/0.1.0-alpha.1");
+        assert_eq!(hub.user_agent, "torsh/0.1.0-alpha.2");
         assert_eq!(hub.timeout, 300);
     }
 

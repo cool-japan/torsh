@@ -107,9 +107,7 @@ impl QualityAssessor {
 
         if orig_data.len() != quant_data.len() {
             return Err(torsh_core::TorshError::operation_error(
-                "quality assessment",
-                "Tensor size mismatch",
-                None,
+                "quality assessment: Tensor size mismatch",
             ));
         }
 

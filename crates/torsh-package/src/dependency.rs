@@ -3,6 +3,8 @@
 //! This module provides functionality for resolving package dependencies,
 //! handling version conflicts, and automatically installing required packages.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;
 
@@ -607,7 +609,6 @@ impl PackageRegistry for LocalPackageRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
 
     fn create_test_package_info(name: &str, version: &str) -> PackageInfo {
         PackageInfo {

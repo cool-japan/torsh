@@ -186,7 +186,6 @@ impl SSA {
 mod tests {
     use super::*;
     use crate::TimeSeries;
-    use torsh_tensor::creation::*;
 
     fn create_test_series() -> TimeSeries {
         // Create synthetic time series with trend and seasonality

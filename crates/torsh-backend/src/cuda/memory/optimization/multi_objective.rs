@@ -4,8 +4,6 @@
 //! including various algorithms (NSGA-II, NSGA-III, SPEA2, MOEA/D, SMS-EMOA),
 //! Pareto front management, constraint handling, and performance metrics.
 
-use scirs2_core::ndarray::{array, Array1, Array2, ArrayView1, Axis};
-use scirs2_core::random::Random;
 use std::collections::{HashMap, VecDeque};
 use std::time::{Duration, Instant};
 
@@ -96,7 +94,7 @@ pub enum MOAlgorithmType {
     /// Multi-Objective Evolutionary Algorithm based on Decomposition
     MOEAD,
     /// S-Metric Selection Evolutionary Multi-Objective Algorithm
-    SMS_EMOA,
+    SmsEmoa,
     /// Hypervolume-based Evolutionary Algorithm
     HypE,
     /// Multi-Objective Particle Swarm Optimization
@@ -796,7 +794,7 @@ impl MultiObjectiveOptimizer {
             MOAlgorithmType::NSGA3 => self.run_nsga3(objectives, constraints, algorithm),
             MOAlgorithmType::SPEA2 => self.run_spea2(objectives, constraints, algorithm),
             MOAlgorithmType::MOEAD => self.run_moead(objectives, constraints, algorithm),
-            MOAlgorithmType::SMS_EMOA => self.run_sms_emoa(objectives, constraints, algorithm),
+            MOAlgorithmType::SmsEmoa => self.run_sms_emoa(objectives, constraints, algorithm),
             _ => Err("Algorithm not implemented yet".to_string()),
         }
     }

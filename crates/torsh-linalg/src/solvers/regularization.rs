@@ -438,8 +438,7 @@ pub fn solve_damped_least_squares(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
-    use torsh_tensor::creation::{eye, zeros};
+    use torsh_tensor::creation::eye;
 
     #[test]
     fn test_solve_tikhonov() -> TorshResult<()> {

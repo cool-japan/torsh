@@ -10,10 +10,18 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+// SciRS2 POLICY COMPLIANCE: Use unified parallel operations
+#[cfg(feature = "parallel")]
+use crate::parallel::{ThreadPool, ThreadPoolBuilder};
+
 /// CPU device implementation
 ///
 /// Provides CPU compute capabilities with SIMD optimizations and
-/// multi-threading support through Rayon.
+/// multi-threading support through SciRS2 parallel operations.
+///
+/// # SciRS2 POLICY COMPLIANCE
+/// This implementation uses `crate::parallel` (scirs2-core::parallel_ops)
+/// instead of direct rayon imports for better integration and fallback support.
 ///
 /// # Examples
 ///
@@ -27,7 +35,10 @@ use std::sync::{Arc, Mutex};
 #[derive(Debug)]
 pub struct CpuDevice {
     context: DeviceContext,
-    thread_pool: Option<Arc<rayon::ThreadPool>>,
+    #[cfg(feature = "parallel")]
+    thread_pool: Option<Arc<ThreadPool>>,
+    #[cfg(not(feature = "parallel"))]
+    thread_pool: Option<()>, // Placeholder when parallel feature is disabled
     simd_level: SimdLevel,
 }
 
@@ -74,25 +85,35 @@ impl CpuDevice {
     }
 
     /// Create with specific number of threads
+    ///
+    /// # SciRS2 POLICY COMPLIANCE
+    /// Uses scirs2-core parallel operations for thread pool management.
     pub fn with_threads(num_threads: usize) -> Result<Self> {
         let context = DeviceContext::new(DeviceType::Cpu);
         context
             .lifecycle()
             .set_state(crate::device::core::DeviceState::Initializing)?;
 
-        let thread_pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(num_threads)
-            .build()
-            .map_err(|e| {
-                crate::error::TorshError::DeviceError(format!(
-                    "Failed to create thread pool: {}",
-                    e
-                ))
-            })?;
+        #[cfg(feature = "parallel")]
+        let thread_pool = {
+            let pool = ThreadPoolBuilder::new()
+                .num_threads(num_threads)
+                .build()
+                .map_err(|e| {
+                    crate::error::TorshError::DeviceError(format!(
+                        "Failed to create thread pool: {}",
+                        e
+                    ))
+                })?;
+            Some(Arc::new(pool))
+        };
+
+        #[cfg(not(feature = "parallel"))]
+        let thread_pool = None;
 
         let device = Self {
             context,
-            thread_pool: Some(Arc::new(thread_pool)),
+            thread_pool,
             simd_level: Self::detect_simd_level(),
         };
 
@@ -104,8 +125,18 @@ impl CpuDevice {
     }
 
     /// Get the thread pool
-    pub fn thread_pool(&self) -> Option<&Arc<rayon::ThreadPool>> {
+    ///
+    /// # SciRS2 POLICY COMPLIANCE
+    /// Returns thread pool from scirs2-core parallel operations.
+    #[cfg(feature = "parallel")]
+    pub fn thread_pool(&self) -> Option<&Arc<ThreadPool>> {
         self.thread_pool.as_ref()
+    }
+
+    /// Get the thread pool (fallback when parallel feature is disabled)
+    #[cfg(not(feature = "parallel"))]
+    pub fn thread_pool(&self) -> Option<()> {
+        None
     }
 
     /// Get SIMD level
@@ -114,6 +145,10 @@ impl CpuDevice {
     }
 
     /// Execute work on the thread pool
+    ///
+    /// # SciRS2 POLICY COMPLIANCE
+    /// Uses scirs2-core parallel operations for work execution.
+    #[cfg(feature = "parallel")]
     pub fn execute_parallel<F, T>(&self, work: F) -> T
     where
         F: FnOnce() -> T + Send,
@@ -125,8 +160,24 @@ impl CpuDevice {
         }
     }
 
-    fn create_thread_pool() -> Option<Arc<rayon::ThreadPool>> {
-        rayon::ThreadPoolBuilder::new().build().map(Arc::new).ok()
+    /// Execute work (fallback when parallel feature is disabled)
+    #[cfg(not(feature = "parallel"))]
+    pub fn execute_parallel<F, T>(&self, work: F) -> T
+    where
+        F: FnOnce() -> T + Send,
+        T: Send,
+    {
+        work()
+    }
+
+    #[cfg(feature = "parallel")]
+    fn create_thread_pool() -> Option<Arc<ThreadPool>> {
+        ThreadPoolBuilder::new().build().map(Arc::new).ok()
+    }
+
+    #[cfg(not(feature = "parallel"))]
+    fn create_thread_pool() -> Option<()> {
+        None
     }
 
     fn detect_simd_level() -> SimdLevel {

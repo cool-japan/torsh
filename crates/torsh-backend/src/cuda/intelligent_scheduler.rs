@@ -7,11 +7,11 @@
 //! - Cross-stream dependency optimization
 //! - CUDA graph integration for repeated workloads
 
+use crate::cuda::error::{CudaError, CudaResult};
 use crate::cuda::{
     stream_advanced::{AdvancedStreamPool, AllocationStrategy, WorkloadType},
-    CudaEvent, CudaStream, StreamPriority,
+    CudaEvent, CudaStream,
 };
-use crate::error::{CudaError, CudaResult};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};

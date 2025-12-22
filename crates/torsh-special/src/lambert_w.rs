@@ -15,7 +15,7 @@
 //! - Mathematics (analytic number theory, asymptotic analysis)
 
 use crate::TorshResult;
-use num_complex::Complex64;
+use scirs2_core::Complex64; // SciRS2 POLICY compliant
 use std::f64::consts::E;
 use torsh_tensor::Tensor;
 
@@ -99,7 +99,7 @@ pub fn lambert_w_secondary(x: &Tensor<f32>) -> TorshResult<Tensor<f32>> {
 /// # Examples
 /// ```rust
 /// use torsh_special::lambert_w_complex;
-/// use num_complex::Complex64;
+/// use scirs2_core::Complex64;  // SciRS2 POLICY compliant
 /// let z = Complex64::new(1.0, 1.0);
 /// let w = lambert_w_complex(z);
 /// // w ≈ 0.46047 + 0.30633i

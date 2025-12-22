@@ -2,8 +2,8 @@
 
 use metal::foreign_types::ForeignType;
 use metal::{CommandBuffer, Device, NSUInteger};
-use objc2::runtime::{Bool, Object};
-use objc2::{msg_send, sel, ClassType};
+use objc2::msg_send;
+use objc2::runtime::AnyObject;
 
 use crate::metal::{
     buffer::MetalBuffer,
@@ -15,7 +15,7 @@ use crate::metal::{
 #[allow(dead_code)]
 pub struct MPSMatMul {
     /// MPS matrix multiplication object
-    matmul: *mut Object,
+    matmul: *mut AnyObject,
     /// Output buffer
     output: MetalBuffer,
     /// Dimensions
@@ -101,15 +101,15 @@ impl MPSMatMul {
 
             // Create MPS matrix multiplication
             let class = objc2::class!(MPSMatrixMultiplication);
-            let matmul: *mut Object = msg_send![class, alloc];
-            let matmul: *mut Object = msg_send![matmul,
-                initWithDevice: device.as_ptr() as *mut Object
-                transposeLeft: objc2::runtime::Bool::from(transpose_a)
-                transposeRight: objc2::runtime::Bool::from(transpose_b)
-                resultRows: m as NSUInteger
-                resultColumns: n as NSUInteger
-                interiorColumns: k as NSUInteger
-                alpha: alpha as f64
+            let matmul: *mut AnyObject = msg_send![class, alloc];
+            let matmul: *mut AnyObject = msg_send![matmul,
+                initWithDevice: device.as_ptr() as *mut AnyObject,
+                transposeLeft: objc2::runtime::Bool::from(transpose_a),
+                transposeRight: objc2::runtime::Bool::from(transpose_b),
+                resultRows: m as NSUInteger,
+                resultColumns: n as NSUInteger,
+                interiorColumns: k as NSUInteger,
+                alpha: alpha as f64,
                 beta: beta as f64
             ];
 
@@ -134,29 +134,29 @@ impl MPSMatMul {
             // Create matrix objects
             let class = objc2::class!(MPSMatrix);
 
-            let a_matrix: *mut Object = msg_send![class, alloc];
-            let a_matrix: *mut Object = msg_send![a_matrix,
-                initWithBuffer: a.buffer().as_ptr() as *mut Object
+            let a_matrix: *mut AnyObject = msg_send![class, alloc];
+            let a_matrix: *mut AnyObject = msg_send![a_matrix,
+                initWithBuffer: a.buffer().as_ptr() as *mut AnyObject,
                 descriptor: create_matrix_descriptor(self.m, self.k, MPSDataType::Float32)
             ];
 
-            let b_matrix: *mut Object = msg_send![class, alloc];
-            let b_matrix: *mut Object = msg_send![b_matrix,
-                initWithBuffer: b.buffer().as_ptr() as *mut Object
+            let b_matrix: *mut AnyObject = msg_send![class, alloc];
+            let b_matrix: *mut AnyObject = msg_send![b_matrix,
+                initWithBuffer: b.buffer().as_ptr() as *mut AnyObject,
                 descriptor: create_matrix_descriptor(self.k, self.n, MPSDataType::Float32)
             ];
 
-            let c_matrix: *mut Object = msg_send![class, alloc];
-            let c_matrix: *mut Object = msg_send![c_matrix,
-                initWithBuffer: self.output.buffer().as_ptr() as *mut Object
+            let c_matrix: *mut AnyObject = msg_send![class, alloc];
+            let c_matrix: *mut AnyObject = msg_send![c_matrix,
+                initWithBuffer: self.output.buffer().as_ptr() as *mut AnyObject,
                 descriptor: create_matrix_descriptor(self.m, self.n, MPSDataType::Float32)
             ];
 
             // Encode the operation
             let _: () = msg_send![self.matmul,
-                encodeToCommandBuffer: command_buffer.as_ptr() as *mut Object
-                leftMatrix: a_matrix
-                rightMatrix: b_matrix
+                encodeToCommandBuffer: command_buffer.as_ptr() as *mut AnyObject,
+                leftMatrix: a_matrix,
+                rightMatrix: b_matrix,
                 resultMatrix: c_matrix
             ];
 
@@ -175,7 +175,8 @@ impl MPSOperation for MPSMatMul {
         // This would need the input buffers passed in
         // For now, this is a placeholder
         Err(metal_errors::kernel_execution_error(
-            "MPSMatMul::encode requires input buffers".to_string(), None
+            "MPSMatMul::encode requires input buffers".to_string(),
+            None,
         ))
     }
 }

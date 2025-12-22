@@ -135,7 +135,7 @@ mod tests {
 
     #[test]
     fn test_power_monitor_basic() {
-        let monitor = PowerMonitor::new();
+        let _monitor = PowerMonitor::new();
 
         // Test that we can create a monitor with custom interval
         let _custom_monitor = PowerMonitor::new().with_sampling_interval(Duration::from_millis(50));

@@ -62,12 +62,15 @@ pub enum GraphNode {
 /// # Examples
 ///
 /// ```rust
-/// use torsh_nn::container::{DynamicGraph, GraphNode};
-/// use torsh_nn::linear::Linear;
-///
+/// # use torsh_nn::container::{DynamicGraph, GraphNode};
+/// # use torsh_nn::layers::linear::Linear;
+/// # use torsh_nn::Module;
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// let mut graph = DynamicGraph::new();
-/// graph.add_module("linear1".to_string(), Linear::new(784, 128)?);
-/// graph.add_module("linear2".to_string(), Linear::new(128, 10)?);
+/// graph.add_module("linear1".to_string(), Linear::new(784, 128, true));
+/// graph.add_module("linear2".to_string(), Linear::new(128, 10, true));
 ///
 /// // Create a simple sequential execution graph
 /// let seq_graph = DynamicGraph::sequential(vec![
@@ -76,7 +79,11 @@ pub enum GraphNode {
 /// ]);
 /// graph.set_graph(seq_graph);
 ///
+/// // Create input and run forward pass
+/// let input = randn(&[1, 784])?;
 /// let output = graph.forward(&input)?;
+/// # Ok(())
+/// # }
 /// ```
 pub struct DynamicGraph {
     base: ModuleBase,
@@ -116,13 +123,22 @@ impl DynamicGraph {
                         "No tensors to concatenate".to_string(),
                     ));
                 }
-                // Simple concatenation along the last dimension
-                let mut result = tensors[0].clone();
-                for _tensor in tensors.iter().skip(1) {
-                    // Simple concatenation along last dimension - replace with proper implementation when available
-                    result = result.clone(); // TODO: implement proper concatenation
+
+                // Get the last dimension for concatenation
+                let ndim = tensors[0].ndim();
+                if ndim == 0 {
+                    return Err(TorshError::InvalidArgument(
+                        "Cannot concatenate 0-dimensional tensors".to_string(),
+                    ));
                 }
-                Ok(result)
+
+                let concat_dim = (ndim - 1) as i32; // Concatenate along last dimension
+
+                // Use proper concatenation via Tensor::cat
+                // Convert Vec<Tensor> to &[&Tensor]
+                let tensor_refs: Vec<&Tensor> = tensors.iter().collect();
+                Tensor::cat(&tensor_refs, concat_dim)
+                    .map_err(|e| TorshError::Other(format!("Concatenation failed: {}", e)))
             }),
         );
 
@@ -461,14 +477,14 @@ mod tests {
     // Mock module for testing
     struct MockModule {
         base: ModuleBase,
-        id: i32,
+        _id: i32,
     }
 
     impl MockModule {
         fn new(id: i32) -> Self {
             Self {
                 base: ModuleBase::new(),
-                id,
+                _id: id,
             }
         }
     }

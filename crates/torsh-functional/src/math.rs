@@ -96,7 +96,9 @@ pub fn einsum(equation: &str, operands: &[Tensor]) -> TorshResult<Tensor> {
     // 5. Execute tensor operations
 
     match equation {
-        // Handle common cases
+        // ====================================================================
+        // Matrix operations (2D)
+        // ====================================================================
         "ij,jk->ik" if operands.len() == 2 => {
             // Matrix multiplication
             operands[0].matmul(&operands[1])
@@ -121,6 +123,104 @@ pub fn einsum(equation: &str, operands: &[Tensor]) -> TorshResult<Tensor> {
             // Column sum
             operands[0].sum_dim(&[0], false)
         }
+        "ij,ij->ij" if operands.len() == 2 => {
+            // Element-wise multiplication (Hadamard product) for 2D
+            operands[0].mul(&operands[1])
+        }
+        "ij,ij->" if operands.len() == 2 => {
+            // Frobenius inner product (sum of element-wise multiplication)
+            let prod = operands[0].mul(&operands[1])?;
+            prod.sum()
+        }
+
+        // ====================================================================
+        // Vector operations (1D)
+        // ====================================================================
+        "i,i->" if operands.len() == 2 => {
+            // Dot product (inner product)
+            let prod = operands[0].mul(&operands[1])?;
+            prod.sum()
+        }
+        "i,i->i" if operands.len() == 2 => {
+            // Element-wise multiplication (Hadamard product)
+            operands[0].mul(&operands[1])
+        }
+        "i,j->ij" if operands.len() == 2 => {
+            // Outer product
+            let a = operands[0].view(&[-1, 1])?;
+            let b = operands[1].view(&[1, -1])?;
+            a.matmul(&b)
+        }
+        "i->" if operands.len() == 1 => {
+            // Sum all elements (1D case)
+            operands[0].sum()
+        }
+
+        // ====================================================================
+        // Batched matrix operations (3D+)
+        // ====================================================================
+        "ijk,ikl->ijl" if operands.len() == 2 => {
+            // Batched matrix multiplication
+            operands[0].matmul(&operands[1])
+        }
+        "ijk->ikj" if operands.len() == 1 => {
+            // Swap last two dimensions
+            operands[0].transpose(-2, -1)
+        }
+        "ijk->ij" if operands.len() == 1 => {
+            // Sum over last dimension
+            operands[0].sum_dim(&[2], false)
+        }
+        "ijk->jk" if operands.len() == 1 => {
+            // Sum over first dimension
+            operands[0].sum_dim(&[0], false)
+        }
+        "ijk->ik" if operands.len() == 1 => {
+            // Sum over middle dimension
+            operands[0].sum_dim(&[1], false)
+        }
+        "ijk->" if operands.len() == 1 => {
+            // Sum all elements
+            operands[0].sum()
+        }
+        "ijk,ijk->ijk" if operands.len() == 2 => {
+            // Element-wise multiplication for 3D
+            operands[0].mul(&operands[1])
+        }
+        "ijk,ijk->" if operands.len() == 2 => {
+            // Sum of element-wise multiplication
+            let prod = operands[0].mul(&operands[1])?;
+            prod.sum()
+        }
+
+        // ====================================================================
+        // Trace operations
+        // ====================================================================
+        "ii->" if operands.len() == 1 => {
+            // Trace (sum of diagonal)
+            let diag = extract_diagonal(&operands[0])?;
+            diag.sum()
+        }
+
+        // ====================================================================
+        // General permutations
+        // ====================================================================
+        "ijk->jik" if operands.len() == 1 => {
+            // Permute dimensions: (i,j,k) -> (j,i,k)
+            operands[0].permute(&[1, 0, 2])
+        }
+        "ijk->kji" if operands.len() == 1 => {
+            // Reverse dimensions: (i,j,k) -> (k,j,i)
+            operands[0].permute(&[2, 1, 0])
+        }
+        "ijkl->ikjl" if operands.len() == 1 => {
+            // Permute dimensions: (i,j,k,l) -> (i,k,j,l)
+            operands[0].permute(&[0, 2, 1, 3])
+        }
+
+        // ====================================================================
+        // Not yet implemented
+        // ====================================================================
         _ => {
             // General einsum implementation would go here
             Err(TorshError::Other(format!(

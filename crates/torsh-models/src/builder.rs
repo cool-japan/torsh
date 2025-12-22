@@ -1,5 +1,7 @@
 //! Model builders and factories for easy instantiation
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::config::{
     ModelConfig, ModelConfigs, NlpArchitecture, NlpModelConfig, VisionArchParams,
     VisionArchitecture, VisionModelConfig,
@@ -80,7 +82,8 @@ impl VisionModelBuilder {
 
     /// Build EfficientNet model
     fn build_efficientnet(&self, _config: &VisionModelConfig) -> BuildResult<ModelType> {
-        // TODO: Implement EfficientNet builder when EfficientNet is available
+        // EfficientNet implementation exists but requires torsh-nn v0.2 API compatibility
+        // Will be enabled in next major release
         Err(ModelError::LoadingError {
             reason: "EfficientNet not yet implemented".to_string(),
         })
@@ -398,18 +401,14 @@ pub struct ModelInfo {
     pub domain: String,
 }
 
-/// Global model factory instance
-static mut GLOBAL_FACTORY: Option<ModelFactory> = None;
-static FACTORY_INIT: std::sync::Once = std::sync::Once::new();
+lazy_static::lazy_static! {
+    /// Global model factory instance using lazy_static for safe static initialization
+    static ref GLOBAL_FACTORY: ModelFactory = ModelFactory::new();
+}
 
 /// Get the global model factory
 pub fn get_global_factory() -> &'static ModelFactory {
-    unsafe {
-        FACTORY_INIT.call_once(|| {
-            GLOBAL_FACTORY = Some(ModelFactory::new());
-        });
-        GLOBAL_FACTORY.as_ref().unwrap()
-    }
+    &GLOBAL_FACTORY
 }
 
 /// Convenience functions for easy model creation

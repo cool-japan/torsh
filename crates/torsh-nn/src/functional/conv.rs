@@ -30,17 +30,17 @@ pub fn conv1d(
     let weight_shape = weight_shape_obj.dims();
 
     if input_shape.len() != 3 {
-        return Err(torsh_core::error::TorshError::ShapeMismatch {
-            expected: vec![0, 0, 0], // Placeholder for expected 3D
-            got: input_shape.to_vec(),
-        });
+        return Err(torsh_core::error::TorshError::InvalidShape(format!(
+            "Input must be 3D [batch, in_channels, length], got {}D",
+            input_shape.len()
+        )));
     }
 
     if weight_shape.len() != 3 {
-        return Err(torsh_core::error::TorshError::ShapeMismatch {
-            expected: vec![0, 0, 0], // Placeholder for expected 3D
-            got: weight_shape.to_vec(),
-        });
+        return Err(torsh_core::error::TorshError::InvalidShape(format!(
+            "Weight must be 3D [out_channels, in_channels/groups, kernel_size], got {}D",
+            weight_shape.len()
+        )));
     }
 
     let batch_size = input_shape[0];
@@ -61,19 +61,69 @@ pub fn conv1d(
     // Calculate output dimensions
     let out_length = (in_length + 2 * padding - dilation * (kernel_size - 1) - 1) / stride + 1;
 
-    // For now, implement a simplified version
-    let output = torsh_tensor::creation::zeros(&[batch_size, out_channels, out_length])?;
+    // Extract data once for efficiency
+    let input_vec = input.to_vec()?;
+    let weight_vec = weight.to_vec()?;
 
-    // Apply bias if provided
-    let mut result = output;
-    if let Some(bias_tensor) = bias {
-        // Bias shape: [out_channels]
-        // Need to broadcast to [batch_size, out_channels, out_length]
-        let bias_reshaped = bias_tensor.reshape(&[1, out_channels as i32, 1])?;
-        result = result.add_op(&bias_reshaped)?;
+    // Build output data directly
+    let mut output_data = vec![0.0f32; batch_size * out_channels * out_length];
+
+    // Implement 1D convolution
+    for b in 0..batch_size {
+        for g in 0..groups {
+            let channels_per_group = in_channels / groups;
+            let out_channels_per_group = out_channels / groups;
+            let group_start = g * channels_per_group;
+            let out_start = g * out_channels_per_group;
+
+            for oc in 0..out_channels_per_group {
+                let global_oc = out_start + oc;
+
+                for ol in 0..out_length {
+                    let mut sum = 0.0f32;
+
+                    // Convolve over kernel
+                    for ic in 0..channels_per_group {
+                        let global_ic = group_start + ic;
+
+                        for k in 0..kernel_size {
+                            // Calculate input position
+                            let il = (ol * stride + k * dilation) as i32 - padding as i32;
+
+                            // Check bounds
+                            if il >= 0 && il < in_length as i32 {
+                                // Compute flat indices
+                                let input_idx = b * in_channels * in_length
+                                    + global_ic * in_length
+                                    + il as usize;
+
+                                let weight_idx = global_oc * (in_channels / groups) * kernel_size
+                                    + ic * kernel_size
+                                    + k;
+
+                                sum += input_vec[input_idx] * weight_vec[weight_idx];
+                            }
+                        }
+                    }
+
+                    // Store result
+                    let output_idx = b * out_channels * out_length + global_oc * out_length + ol;
+                    output_data[output_idx] = sum;
+                }
+            }
+        }
     }
 
-    Ok(result)
+    // Create output tensor from data
+    let mut output = Tensor::from_vec(output_data, &[batch_size, out_channels, out_length])?;
+
+    // Apply bias if provided
+    if let Some(bias_tensor) = bias {
+        let bias_reshaped = bias_tensor.reshape(&[1, out_channels as i32, 1])?;
+        output = output.add(&bias_reshaped)?;
+    }
+
+    Ok(output)
 }
 
 // =============================================================================
@@ -100,17 +150,17 @@ pub fn conv2d(
     let weight_shape = weight_shape_obj.dims();
 
     if input_shape.len() != 4 {
-        return Err(torsh_core::error::TorshError::ShapeMismatch {
-            expected: vec![0, 0, 0, 0], // Placeholder for expected 4D
-            got: input_shape.to_vec(),
-        });
+        return Err(torsh_core::error::TorshError::InvalidShape(format!(
+            "Input must be 4D [batch, in_channels, height, width], got {}D",
+            input_shape.len()
+        )));
     }
 
     if weight_shape.len() != 4 {
-        return Err(torsh_core::error::TorshError::ShapeMismatch {
-            expected: vec![0, 0, 0, 0], // Placeholder for expected 4D
-            got: weight_shape.to_vec(),
-        });
+        return Err(torsh_core::error::TorshError::InvalidShape(format!(
+            "Weight must be 4D [out_channels, in_channels/groups, kernel_h, kernel_w], got {}D",
+            weight_shape.len()
+        )));
     }
 
     let batch_size = input_shape[0];
@@ -135,56 +185,91 @@ pub fn conv2d(
         (in_height + 2 * padding.0 - dilation.0 * (kernel_height - 1) - 1) / stride.0 + 1;
     let out_width = (in_width + 2 * padding.1 - dilation.1 * (kernel_width - 1) - 1) / stride.1 + 1;
 
-    // For now, implement a simplified version that works for basic cases
-    // TODO: Implement proper optimized convolution with im2col or Winograd
+    // Extract data once for efficiency
+    let input_vec = input.to_vec()?;
+    let weight_vec = weight.to_vec()?;
 
-    // Handle simple case without padding, stride=1, dilation=1, groups=1
-    if padding == (0, 0) && stride == (1, 1) && dilation == (1, 1) && groups == 1 {
-        // Simple case: can use matrix multiplication approach
-        // Reshape input to [batch_size, in_channels, height * width]
-        let _input_flat = input.reshape(&[
-            batch_size as i32,
-            in_channels as i32,
-            (in_height * in_width) as i32,
-        ])?;
+    // Build output data directly
+    let mut output_data = vec![0.0f32; batch_size * out_channels * out_height * out_width];
 
-        // Reshape weight to [out_channels, in_channels * kernel_height * kernel_width]
-        let _weight_flat = weight.reshape(&[
-            out_channels as i32,
-            (in_channels * kernel_height * kernel_width) as i32,
-        ])?;
+    // Implement 2D convolution using direct approach
+    for b in 0..batch_size {
+        for g in 0..groups {
+            let channels_per_group = in_channels / groups;
+            let out_channels_per_group = out_channels / groups;
+            let group_start = g * channels_per_group;
+            let out_start = g * out_channels_per_group;
 
-        // For proper convolution, we'd need to unfold the input tensor
-        // For now, return a placeholder of the right shape
-        let output =
-            torsh_tensor::creation::zeros(&[batch_size, out_channels, out_height, out_width])?;
+            for oc in 0..out_channels_per_group {
+                let global_oc = out_start + oc;
 
-        // Apply bias if provided
-        let mut result = output;
-        if let Some(bias_tensor) = bias {
-            // Bias shape: [out_channels]
-            // Need to broadcast to [batch_size, out_channels, out_height, out_width]
-            let bias_reshaped = bias_tensor.reshape(&[1, out_channels as i32, 1, 1])?;
-            result = result.add_op(&bias_reshaped)?;
+                for oh in 0..out_height {
+                    for ow in 0..out_width {
+                        let mut sum = 0.0f32;
+
+                        // Convolve over kernel
+                        for ic in 0..channels_per_group {
+                            let global_ic = group_start + ic;
+
+                            for kh in 0..kernel_height {
+                                for kw in 0..kernel_width {
+                                    // Calculate input position with stride, padding, and dilation
+                                    let ih =
+                                        (oh * stride.0 + kh * dilation.0) as i32 - padding.0 as i32;
+                                    let iw =
+                                        (ow * stride.1 + kw * dilation.1) as i32 - padding.1 as i32;
+
+                                    // Check bounds
+                                    if ih >= 0
+                                        && ih < in_height as i32
+                                        && iw >= 0
+                                        && iw < in_width as i32
+                                    {
+                                        // Compute flat indices
+                                        let input_idx = b * in_channels * in_height * in_width
+                                            + global_ic * in_height * in_width
+                                            + ih as usize * in_width
+                                            + iw as usize;
+
+                                        let weight_idx = global_oc
+                                            * (in_channels / groups)
+                                            * kernel_height
+                                            * kernel_width
+                                            + ic * kernel_height * kernel_width
+                                            + kh * kernel_width
+                                            + kw;
+
+                                        sum += input_vec[input_idx] * weight_vec[weight_idx];
+                                    }
+                                }
+                            }
+                        }
+
+                        // Store result
+                        let output_idx = b * out_channels * out_height * out_width
+                            + global_oc * out_height * out_width
+                            + oh * out_width
+                            + ow;
+                        output_data[output_idx] = sum;
+                    }
+                }
+            }
         }
-
-        Ok(result)
-    } else {
-        // General case: create output tensor
-        let mut output =
-            torsh_tensor::creation::zeros(&[batch_size, out_channels, out_height, out_width])?;
-
-        // For the general implementation, we need unfold/im2col functionality
-        // which isn't available yet in torsh_tensor
-        // Return the output with bias applied for now
-
-        if let Some(bias_tensor) = bias {
-            let bias_reshaped = bias_tensor.reshape(&[1, out_channels as i32, 1, 1])?;
-            output = output.add(&bias_reshaped)?;
-        }
-
-        Ok(output)
     }
+
+    // Create output tensor from data
+    let mut output = Tensor::from_vec(
+        output_data,
+        &[batch_size, out_channels, out_height, out_width],
+    )?;
+
+    // Apply bias if provided
+    if let Some(bias_tensor) = bias {
+        let bias_reshaped = bias_tensor.reshape(&[1, out_channels as i32, 1, 1])?;
+        output = output.add(&bias_reshaped)?;
+    }
+
+    Ok(output)
 }
 
 // =============================================================================
@@ -211,17 +296,16 @@ pub fn conv3d(
     let weight_shape = weight_shape_obj.dims();
 
     if input_shape.len() != 5 {
-        return Err(torsh_core::error::TorshError::ShapeMismatch {
-            expected: vec![0, 0, 0, 0, 0], // Placeholder for expected 5D
-            got: input_shape.to_vec(),
-        });
+        return Err(torsh_core::error::TorshError::InvalidShape(format!(
+            "Input must be 5D [batch, in_channels, depth, height, width], got {}D",
+            input_shape.len()
+        )));
     }
 
     if weight_shape.len() != 5 {
-        return Err(torsh_core::error::TorshError::ShapeMismatch {
-            expected: vec![0, 0, 0, 0, 0], // Placeholder for expected 5D
-            got: weight_shape.to_vec(),
-        });
+        return Err(torsh_core::error::TorshError::InvalidShape(format!(
+            "Weight must be 5D [out_channels, in_channels/groups, kernel_d, kernel_h, kernel_w], got {}D", weight_shape.len()
+        )));
     }
 
     let batch_size = input_shape[0];
@@ -249,25 +333,111 @@ pub fn conv3d(
         (in_height + 2 * padding.1 - dilation.1 * (kernel_height - 1) - 1) / stride.1 + 1;
     let out_width = (in_width + 2 * padding.2 - dilation.2 * (kernel_width - 1) - 1) / stride.2 + 1;
 
-    // For now, implement a simplified version
-    let output = torsh_tensor::creation::zeros(&[
-        batch_size,
-        out_channels,
-        out_depth,
-        out_height,
-        out_width,
-    ])?;
+    // Extract data once for efficiency
+    let input_vec = input.to_vec()?;
+    let weight_vec = weight.to_vec()?;
 
-    // Apply bias if provided
-    let mut result = output;
-    if let Some(bias_tensor) = bias {
-        // Bias shape: [out_channels]
-        // Need to broadcast to [batch_size, out_channels, out_depth, out_height, out_width]
-        let bias_reshaped = bias_tensor.reshape(&[1, out_channels as i32, 1, 1, 1])?;
-        result = result.add_op(&bias_reshaped)?;
+    // Build output data directly
+    let mut output_data =
+        vec![0.0f32; batch_size * out_channels * out_depth * out_height * out_width];
+
+    // Implement 3D convolution
+    for b in 0..batch_size {
+        for g in 0..groups {
+            let channels_per_group = in_channels / groups;
+            let out_channels_per_group = out_channels / groups;
+            let group_start = g * channels_per_group;
+            let out_start = g * out_channels_per_group;
+
+            for oc in 0..out_channels_per_group {
+                let global_oc = out_start + oc;
+
+                for od in 0..out_depth {
+                    for oh in 0..out_height {
+                        for ow in 0..out_width {
+                            let mut sum = 0.0f32;
+
+                            // Convolve over kernel
+                            for ic in 0..channels_per_group {
+                                let global_ic = group_start + ic;
+
+                                for kd in 0..kernel_depth {
+                                    for kh in 0..kernel_height {
+                                        for kw in 0..kernel_width {
+                                            // Calculate input position
+                                            let id = (od * stride.0 + kd * dilation.0) as i32
+                                                - padding.0 as i32;
+                                            let ih = (oh * stride.1 + kh * dilation.1) as i32
+                                                - padding.1 as i32;
+                                            let iw = (ow * stride.2 + kw * dilation.2) as i32
+                                                - padding.2 as i32;
+
+                                            // Check bounds
+                                            if id >= 0
+                                                && id < in_depth as i32
+                                                && ih >= 0
+                                                && ih < in_height as i32
+                                                && iw >= 0
+                                                && iw < in_width as i32
+                                            {
+                                                // Compute flat indices
+                                                let input_idx = b
+                                                    * in_channels
+                                                    * in_depth
+                                                    * in_height
+                                                    * in_width
+                                                    + global_ic * in_depth * in_height * in_width
+                                                    + id as usize * in_height * in_width
+                                                    + ih as usize * in_width
+                                                    + iw as usize;
+
+                                                let weight_idx = global_oc
+                                                    * (in_channels / groups)
+                                                    * kernel_depth
+                                                    * kernel_height
+                                                    * kernel_width
+                                                    + ic * kernel_depth
+                                                        * kernel_height
+                                                        * kernel_width
+                                                    + kd * kernel_height * kernel_width
+                                                    + kh * kernel_width
+                                                    + kw;
+
+                                                sum +=
+                                                    input_vec[input_idx] * weight_vec[weight_idx];
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Store result
+                            let output_idx = b * out_channels * out_depth * out_height * out_width
+                                + global_oc * out_depth * out_height * out_width
+                                + od * out_height * out_width
+                                + oh * out_width
+                                + ow;
+                            output_data[output_idx] = sum;
+                        }
+                    }
+                }
+            }
+        }
     }
 
-    Ok(result)
+    // Create output tensor from data
+    let mut output = Tensor::from_vec(
+        output_data,
+        &[batch_size, out_channels, out_depth, out_height, out_width],
+    )?;
+
+    // Apply bias if provided
+    if let Some(bias_tensor) = bias {
+        let bias_reshaped = bias_tensor.reshape(&[1, out_channels as i32, 1, 1, 1])?;
+        output = output.add(&bias_reshaped)?;
+    }
+
+    Ok(output)
 }
 
 // =============================================================================
@@ -301,7 +471,7 @@ pub fn conv_transpose1d(
     }
 
     let batch_size = input_shape[0];
-    let in_channels = input_shape[1];
+    let _in_channels = input_shape[1];
     let in_length = input_shape[2];
 
     let out_channels = weight_shape[1] * groups;
@@ -351,7 +521,7 @@ pub fn conv_transpose2d(
     }
 
     let batch_size = input_shape[0];
-    let in_channels = input_shape[1];
+    let _in_channels = input_shape[1];
     let in_height = input_shape[2];
     let in_width = input_shape[3];
 
@@ -409,7 +579,7 @@ pub fn conv_transpose3d(
     }
 
     let batch_size = input_shape[0];
-    let in_channels = input_shape[1];
+    let _in_channels = input_shape[1];
     let in_depth = input_shape[2];
     let in_height = input_shape[3];
     let in_width = input_shape[4];

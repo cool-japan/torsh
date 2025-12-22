@@ -226,8 +226,8 @@ pub mod loss_correctness {
 #[cfg(test)]
 pub mod math_correctness {
     use super::*;
-    use crate::math::{abs, cos, exp, log, pow, sin, sqrt};
-    use crate::reduction::{max, mean, min, sum};
+    use crate::math::{cos, exp, sin, sqrt};
+    use crate::reduction::{mean, sum};
 
     #[test]
     fn test_reduction_ops_pytorch_equivalence() -> TorshResult<()> {

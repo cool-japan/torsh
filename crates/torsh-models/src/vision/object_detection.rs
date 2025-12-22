@@ -48,19 +48,14 @@
 //! let detections = model.forward(&input)?;
 //! ```
 
-use crate::error::{Result, TorshError};
 use crate::vision::resnet::ResNet;
+use torsh_core::error::{Result, TorshError};
 use scirs2_core::random::{Random, rng};
 use std::collections::HashMap;
-use torsh_core::{DeviceType, Tensor, DType};
-use torsh_nn::{
-    activations::ReLU,
-    attention::MultiheadAttention,
-    dropout::Dropout,
-    layers::{Conv2d, Linear},
-    normalization::LayerNorm,
-    module::{Module, Parameter},
-};
+use torsh_core::{DeviceType, DType};
+use torsh_tensor::Tensor;
+use torsh_nn::prelude::*;
+use torsh_nn::{Module, Parameter};
 
 /// Multi-Layer Perceptron for DETR
 ///
@@ -1288,16 +1283,4 @@ mod tests {
     }
 }
 
-/// Re-export commonly used types
-pub use self::{
-    MLP,
-    PositionalEncoding,
-    TransformerEncoderLayer,
-    TransformerDecoderLayer,
-    TransformerEncoder,
-    TransformerDecoder,
-    DETRTransformer,
-    DETR,
-    DETRConfig,
-    DETRFactory,
-};
+// Types are already public, no need for re-export

@@ -13,10 +13,10 @@ use torsh_tensor::Tensor;
 #[tokio::test]
 async fn test_all_reduce() -> Result<()> {
     // Create a mock process group
-    let pg = init_process_group(BackendType::Gloo, 0, 4, "127.0.0.1", 29500)?;
+    let pg = init_process_group(BackendType::Gloo, 0, 4, "127.0.0.1", 29500).await?;
 
     // Create a tensor
-    let mut tensor = ones::<f32>(&[2, 3]);
+    let mut tensor = ones::<f32>(&[2, 3])?;
 
     // Perform all-reduce
     all_reduce(&mut tensor, ReduceOp::Sum, &pg).await?;
@@ -26,8 +26,8 @@ async fn test_all_reduce() -> Result<()> {
     let expected = full::<f32>(&[2, 3], 0.25);
 
     // Compare tensors element-wise
-    let data = tensor.to_vec();
-    let expected_data = expected.to_vec();
+    let data = tensor.to_vec()?;
+    let expected_data = expected.to_vec()?;
     assert_eq!(data.len(), expected_data.len());
     for (a, b) in data.iter().zip(expected_data.iter()) {
         assert!((a - b).abs() < 1e-6);
@@ -38,7 +38,7 @@ async fn test_all_reduce() -> Result<()> {
 
 #[tokio::test]
 async fn test_broadcast() -> Result<()> {
-    let pg = init_process_group(BackendType::Gloo, 1, 4, "127.0.0.1", 29500)?;
+    let pg = init_process_group(BackendType::Gloo, 1, 4, "127.0.0.1", 29500).await?;
 
     // Create a tensor with rank-specific values
     let rank = pg.rank() as f32;
@@ -52,8 +52,8 @@ async fn test_broadcast() -> Result<()> {
     let expected = full::<f32>(&[3, 3], rank);
 
     // Compare tensors
-    let data = tensor.to_vec();
-    let expected_data = expected.to_vec();
+    let data = tensor.to_vec()?;
+    let expected_data = expected.to_vec()?;
     assert_eq!(data, expected_data);
 
     Ok(())
@@ -61,7 +61,7 @@ async fn test_broadcast() -> Result<()> {
 
 #[tokio::test]
 async fn test_all_gather() -> Result<()> {
-    let pg = init_process_group(BackendType::Gloo, 2, 4, "127.0.0.1", 29500)?;
+    let pg = init_process_group(BackendType::Gloo, 2, 4, "127.0.0.1", 29500).await?;
 
     // Create input tensor
     let input = eye::<f32>(3);
@@ -74,9 +74,9 @@ async fn test_all_gather() -> Result<()> {
     assert_eq!(output.len(), 4);
 
     // With mock backend, all tensors are copies of input
-    let input_data = input.to_vec();
+    let input_data = input.to_vec()?;
     for tensor in &output {
-        let tensor_data = tensor.to_vec();
+        let tensor_data = tensor.to_vec()?;
         assert_eq!(tensor_data, input_data);
     }
 
@@ -85,7 +85,7 @@ async fn test_all_gather() -> Result<()> {
 
 #[tokio::test]
 async fn test_reduce() -> Result<()> {
-    let pg = init_process_group(BackendType::Gloo, 0, 4, "127.0.0.1", 29500)?;
+    let pg = init_process_group(BackendType::Gloo, 0, 4, "127.0.0.1", 29500).await?;
 
     // Create tensor
     let mut tensor = full::<f32>(&[2, 2], 2.0);
@@ -97,8 +97,8 @@ async fn test_reduce() -> Result<()> {
     let expected = full::<f32>(&[2, 2], 8.0); // 2.0 * 4
 
     // Compare tensors
-    let data = tensor.to_vec();
-    let expected_data = expected.to_vec();
+    let data = tensor.to_vec()?;
+    let expected_data = expected.to_vec()?;
     for (a, b) in data.iter().zip(expected_data.iter()) {
         assert!((a - b).abs() < 1e-6);
     }
@@ -108,7 +108,7 @@ async fn test_reduce() -> Result<()> {
 
 #[tokio::test]
 async fn test_scatter() -> Result<()> {
-    let pg = init_process_group(BackendType::Gloo, 0, 4, "127.0.0.1", 29500)?;
+    let pg = init_process_group(BackendType::Gloo, 0, 4, "127.0.0.1", 29500).await?;
 
     // Create tensors to scatter
     let tensors: Vec<Tensor<f32>> = (0..4).map(|i| full(&[2, 2], i as f32)).collect();
@@ -122,8 +122,8 @@ async fn test_scatter() -> Result<()> {
     let expected = zeros::<f32>(&[2, 2]);
 
     // Compare tensors
-    let data = output.to_vec();
-    let expected_data = expected.to_vec();
+    let data = output.to_vec()?;
+    let expected_data = expected.to_vec()?;
     assert_eq!(data, expected_data);
 
     Ok(())
@@ -131,7 +131,7 @@ async fn test_scatter() -> Result<()> {
 
 #[tokio::test]
 async fn test_barrier() -> Result<()> {
-    let pg = init_process_group(BackendType::Gloo, 0, 4, "127.0.0.1", 29500)?;
+    let pg = init_process_group(BackendType::Gloo, 0, 4, "127.0.0.1", 29500).await?;
 
     // Barrier should succeed without error
     barrier(&pg).await?;

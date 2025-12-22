@@ -1,9 +1,9 @@
 //! Serialization support for FX graphs
 
 use crate::fx::types::{Edge, Node};
-use crate::graph_analysis::{calculate_graph_metrics, GraphMetrics};
+use crate::graph_analysis::GraphMetrics;
 use crate::FxGraph;
-use petgraph::graph::{Graph, NodeIndex};
+use petgraph::graph::Graph;
 use petgraph::visit::EdgeRef;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -34,7 +34,6 @@ impl SerializableGraph {
 
         // Collect edges
         for edge_ref in graph.graph.edge_references() {
-            use petgraph::visit::EdgeRef;
             edges.push((
                 edge_ref.source().index(),
                 edge_ref.target().index(),
@@ -500,12 +499,13 @@ impl FxGraph {
 
     /// Deserialize graph from binary format
     pub fn from_binary(data: &[u8]) -> TorshResult<Self> {
-        let (serializable, _): (SerializableGraph, usize) = bincode::serde::decode_from_slice(data, bincode::config::standard()).map_err(|e| {
-            torsh_core::error::TorshError::SerializationError(format!(
-                "Failed to deserialize graph from binary: {}",
-                e
-            ))
-        })?;
+        let (serializable, _): (SerializableGraph, usize) =
+            bincode::serde::decode_from_slice(data, bincode::config::standard()).map_err(|e| {
+                torsh_core::error::TorshError::SerializationError(format!(
+                    "Failed to deserialize graph from binary: {}",
+                    e
+                ))
+            })?;
         Ok(serializable.to_graph())
     }
 }

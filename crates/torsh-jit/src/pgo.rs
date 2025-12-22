@@ -7,7 +7,7 @@ use crate::{ComputationGraph, JitError, JitResult, NodeId};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 /// Profile-guided optimization manager
 pub struct ProfileGuidedOptimizer {

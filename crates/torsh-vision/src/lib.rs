@@ -1,6 +1,7 @@
 #![allow(clippy::all)]
 #![allow(dead_code)]
 #![allow(unused_imports)]
+#![allow(ambiguous_glob_reexports)]
 
 pub mod advanced_transforms;
 pub mod benchmarks;
@@ -8,6 +9,7 @@ pub mod datasets;
 pub mod datasets_impl;
 pub mod error_handling;
 pub mod examples;
+pub mod explainability;
 pub mod hardware;
 pub mod interactive;
 pub mod io;
@@ -17,6 +19,7 @@ pub mod ops;
 pub mod optimized_impl;
 pub mod prelude;
 pub mod scirs2_integration;
+pub mod self_supervised;
 pub mod spatial;
 pub mod transforms;
 pub mod unified_transforms;
@@ -29,6 +32,9 @@ pub use datasets::{DatasetConfig, DatasetError, DatasetStats};
 pub use datasets_impl::{CifarDataset, CocoDataset, ImageFolder, MnistDataset, VocDataset};
 pub use error_handling::*;
 pub use examples::*;
+pub use explainability::{
+    AttentionVisualizer, BaselineType, FeatureVisualizer, GradCAM, IntegratedGradients, SaliencyMap,
+};
 pub use hardware::*;
 pub use interactive::*;
 pub use io::*;
@@ -59,6 +65,12 @@ pub use scirs2_integration::{
     ContrastMethod, CornerPoint, DenoiseMethod, DisparityMap, EdgeDetectionMethod,
     Keypoint as SciKeypoint, MemoryStrategy, OpticalFlow, OrbFeatures, QualityLevel,
     SciRS2VisionProcessor, SiftFeatures, SimdLevel, SurfFeatures, VisionConfig,
+};
+
+// Self-supervised learning augmentations
+pub use self_supervised::{
+    BYOLAugmentation, DINOAugmentation, GaussianBlur, MoCoAugmentation, RandomGrayscale,
+    SimCLRAugmentation, Solarize, SwAVAugmentation,
 };
 
 // Comprehensive benchmarking suite

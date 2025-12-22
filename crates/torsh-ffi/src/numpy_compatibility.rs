@@ -4,6 +4,8 @@
 //! enabling zero-copy conversion, broadcasting compatibility, and familiar
 //! NumPy-style operations on ToRSh tensors.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -125,6 +127,7 @@ impl Default for BroadcastingRules {
 pub struct NumpyCompat {
     broadcasting_rules: BroadcastingRules,
     type_promotions: HashMap<(NumpyDType, NumpyDType), NumpyDType>,
+    #[allow(dead_code)]
     conversion_cache: Arc<RwLock<HashMap<String, Vec<u8>>>>,
 }
 
@@ -500,7 +503,7 @@ impl NumpyCompat {
 
     #[cfg(feature = "python")]
     /// Convert NumPy array to ToRSh tensor (Python integration)
-    pub fn from_numpy_array(&self, py_array: &PyArrayDyn<f32>) -> Result<Vec<f32>, String> {
+    pub fn from_numpy_array(&self, _py_array: &PyArrayDyn<f32>) -> Result<Vec<f32>, String> {
         // TODO: Fix PyArray compatibility issues
         // Get array info
         // let shape = py_array.shape().to_vec();
@@ -533,13 +536,13 @@ impl NumpyCompat {
     /// Convert ToRSh tensor to NumPy array (Python integration)
     pub fn to_numpy_array(
         &self,
-        data: &[f32],
-        shape: &[usize],
+        _data: &[f32],
+        _shape: &[usize],
     ) -> Result<Py<PyArrayDyn<f32>>, String> {
         // TODO: Fix PyArray compatibility issues
         Err("PyArray compatibility not implemented".to_string())
 
-        // Python::with_gil(|py| {
+        // Python::attach(|py| {
         //     let array = PyArrayDyn::from_vec(py, data.to_vec())
         //         .reshape(shape)
         //         .map_err(|e| format!("Array creation error: {}", e))?;
@@ -548,13 +551,14 @@ impl NumpyCompat {
     }
 
     #[cfg(feature = "python")]
+    #[allow(dead_code)]
     /// Copy strided array data to contiguous layout
     fn copy_strided_array_to_contiguous(
         &self,
-        py_array: &PyArrayDyn<f32>,
-        shape: &[usize],
-        strides: &[isize],
-        result: &mut Vec<f32>,
+        _py_array: &PyArrayDyn<f32>,
+        _shape: &[usize],
+        _strides: &[isize],
+        _result: &mut Vec<f32>,
     ) -> Result<(), String> {
         // Get the raw data pointer
         // let data_ptr = py_array.as_ptr();

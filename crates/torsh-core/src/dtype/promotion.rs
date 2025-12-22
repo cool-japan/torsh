@@ -170,6 +170,7 @@ impl TypePromotion for DType {
             // Quantized types (special handling)
             DType::QInt8 => 15,
             DType::QUInt8 => 16,
+            DType::QInt32 => 35, // Higher precision quantized
 
             // Floating point types by precision
             DType::F16 => 50,
@@ -535,6 +536,7 @@ pub mod utils {
             DType::I64 | DType::U64 | DType::F64 | DType::C64 => 64,
             DType::C128 => 128,
             DType::QInt8 | DType::QUInt8 => 8, // Quantized types have effective 8-bit precision
+            DType::QInt32 => 32,               // QInt32 has effective 32-bit precision
         }
     }
 

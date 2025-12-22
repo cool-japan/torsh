@@ -1,10 +1,52 @@
 //! Device handling for Python bindings
+//!
+//! This module provides PyO3 bindings for ToRSh device types, allowing Python code
+//! to specify and manage computational devices (CPU, CUDA, Metal, etc.).
+//!
+//! # Examples
+//!
+//! ```python
+//! import torsh
+//!
+//! # Create devices
+//! cpu = torsh.PyDevice("cpu")
+//! cuda = torsh.PyDevice("cuda:0")
+//! metal = torsh.PyDevice("metal:0")
+//!
+//! # Check device properties
+//! print(cpu.type)    # "cpu"
+//! print(cuda.index)  # 0
+//! ```
 
 use crate::error::PyResult;
 use pyo3::prelude::*;
 use torsh_core::device::DeviceType;
 
 /// Python wrapper for ToRSh devices
+///
+/// Represents a computational device where tensors can be allocated and operations executed.
+/// Supports CPU, CUDA (NVIDIA GPUs), Metal (Apple Silicon), and WGPU devices.
+///
+/// # Examples
+///
+/// ```python
+/// # Create CPU device
+/// cpu = torsh.PyDevice("cpu")
+///
+/// # Create CUDA device (default index 0)
+/// cuda = torsh.PyDevice("cuda")
+///
+/// # Create CUDA device with specific index
+/// cuda1 = torsh.PyDevice("cuda:1")
+///
+/// # Create from integer (defaults to CUDA)
+/// cuda2 = torsh.PyDevice(2)  # cuda:2
+///
+/// # Check device properties
+/// print(cpu.type)     # "cpu"
+/// print(cuda1.type)   # "cuda"
+/// print(cuda1.index)  # 1
+/// ```
 #[pyclass(name = "device")]
 #[derive(Clone, Debug)]
 pub struct PyDevice {
@@ -13,6 +55,31 @@ pub struct PyDevice {
 
 #[pymethods]
 impl PyDevice {
+    /// Create a new device from a string or integer specification.
+    ///
+    /// # Arguments
+    ///
+    /// * `device` - Device specification as string ("cpu", "cuda", "cuda:0", "metal:0")
+    ///              or integer (for CUDA device index)
+    ///
+    /// # Returns
+    ///
+    /// New PyDevice instance
+    ///
+    /// # Errors
+    ///
+    /// Returns ValueError if:
+    /// - Device string is not recognized
+    /// - Device index is invalid (negative or malformed)
+    /// - Input type is not string or integer
+    ///
+    /// # Examples
+    ///
+    /// ```python
+    /// cpu = torsh.PyDevice("cpu")
+    /// cuda = torsh.PyDevice("cuda:0")
+    /// cuda_from_int = torsh.PyDevice(1)  # cuda:1
+    /// ```
     #[new]
     fn new(device: &Bound<'_, PyAny>) -> PyResult<Self> {
         let device_type = if let Ok(s) = device.extract::<String>() {
@@ -92,7 +159,23 @@ impl PyDevice {
         hasher.finish()
     }
 
+    /// Get the type of this device (cpu, cuda, metal, wgpu).
+    ///
+    /// # Returns
+    ///
+    /// String representing the device type
+    ///
+    /// # Examples
+    ///
+    /// ```python
+    /// cpu = torsh.PyDevice("cpu")
+    /// print(cpu.type)  # "cpu"
+    ///
+    /// cuda = torsh.PyDevice("cuda:3")
+    /// print(cuda.type)  # "cuda"
+    /// ```
     #[getter]
+    #[pyo3(name = "type")]
     fn type_(&self) -> String {
         match self.device {
             DeviceType::Cpu => "cpu".to_string(),
@@ -102,6 +185,21 @@ impl PyDevice {
         }
     }
 
+    /// Get the index of this device (for multi-device systems).
+    ///
+    /// # Returns
+    ///
+    /// Device index (0-based) for CUDA/Metal/WGPU devices, None for CPU
+    ///
+    /// # Examples
+    ///
+    /// ```python
+    /// cpu = torsh.PyDevice("cpu")
+    /// print(cpu.index)  # None
+    ///
+    /// cuda = torsh.PyDevice("cuda:2")
+    /// print(cuda.index)  # 2
+    /// ```
     #[getter]
     fn index(&self) -> Option<u32> {
         match self.device {
@@ -139,7 +237,19 @@ pub fn parse_device(device: Option<&Bound<'_, PyAny>>) -> PyResult<DeviceType> {
     }
 }
 
-/// Register device constants and functions
+/// Register device constants and utility functions with the Python module.
+///
+/// This function adds:
+/// - Device constants (cpu, etc.)
+/// - Device utility functions (device_count, is_available, etc.)
+///
+/// # Arguments
+///
+/// * `m` - Python module to register functions with
+///
+/// # Returns
+///
+/// PyResult<()> indicating success or failure
 pub fn register_device_constants(m: &Bound<'_, PyModule>) -> PyResult<()> {
     use pyo3::wrap_pyfunction;
 
@@ -151,7 +261,15 @@ pub fn register_device_constants(m: &Bound<'_, PyModule>) -> PyResult<()> {
         },
     )?;
 
-    // Add device utility functions
+    /// Get the number of available devices.
+    ///
+    /// # Returns
+    ///
+    /// Number of available compute devices
+    ///
+    /// # Note
+    ///
+    /// Currently returns 1 (CPU). Proper device discovery will be added in future versions.
     #[pyfunction]
     fn device_count() -> u32 {
         // For now, return 1 (would need proper device discovery)

@@ -59,7 +59,7 @@ async fn create_project_structure(dir: &Path, template: &str) -> Result<()> {
     tokio::fs::create_dir_all(&src_dir).await?;
 
     // Create main.rs
-    let main_content = match template {
+    let _main_content = match template {
         "vision" => {
             r#"//! Vision project template
 
@@ -132,7 +132,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-torsh = "0.1.0-alpha.1"
+torsh = "0.1.0-alpha.2"
 "#;
     tokio::fs::write(&cargo_toml, cargo_content).await?;
 

@@ -4,11 +4,9 @@
 //! for CUDA memory optimization, including Bayesian optimization, hyperparameter search,
 //! multi-fidelity optimization, and advanced parameter space exploration.
 
-use scirs2_core::ndarray::{Array1, Array2, Array3, ArrayView1};
-use scirs2_core::random::Random;
-use std::cmp::Ordering;
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
-use std::sync::{Arc, Mutex, RwLock};
+use scirs2_core::ndarray::Array2;
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
 /// Comprehensive parameter management and auto-tuning system
@@ -223,7 +221,7 @@ pub struct ParameterTuning {
 }
 
 /// Parameter types for classification
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ParameterType {
     /// Hyperparameter for algorithm configuration
     Hyperparameter,
@@ -1474,10 +1472,6 @@ pub trait SamplingStrategy: std::fmt::Debug + Send + Sync {
 pub struct ParameterManagerConfig;
 #[derive(Debug, Default)]
 pub struct ParameterRegistryConfig;
-#[derive(Debug, Default)]
-pub struct AutoTuningEngine;
-#[derive(Debug, Default)]
-pub struct HyperparameterOptimizer;
 #[derive(Debug, Default)]
 pub struct MultiFidelitySystem;
 #[derive(Debug, Default)]

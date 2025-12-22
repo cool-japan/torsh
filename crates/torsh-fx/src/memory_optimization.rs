@@ -186,8 +186,9 @@ impl MemoryMappedGraph {
         self.header.edge_data_offset = self.header.node_data_offset + node_data.len() as u64;
 
         // Re-serialize header with correct offsets
-        let updated_header_data = bincode::serde::encode_to_vec(&self.header, bincode::config::standard())
-            .map_err(|e| torsh_core::error::TorshError::SerializationError(e.to_string()))?;
+        let updated_header_data =
+            bincode::serde::encode_to_vec(&self.header, bincode::config::standard())
+                .map_err(|e| torsh_core::error::TorshError::SerializationError(e.to_string()))?;
 
         // Write header size first (as u32)
         let header_size = updated_header_data.len() as u32;
@@ -231,8 +232,9 @@ impl MemoryMappedGraph {
         file.read_exact(&mut header_data)
             .map_err(|e| torsh_core::error::TorshError::IoError(e.to_string()))?;
 
-        let (header, _): (GraphHeader, usize) = bincode::serde::decode_from_slice(&header_data, bincode::config::standard())
-            .map_err(|e| torsh_core::error::TorshError::SerializationError(e.to_string()))?;
+        let (header, _): (GraphHeader, usize) =
+            bincode::serde::decode_from_slice(&header_data, bincode::config::standard())
+                .map_err(|e| torsh_core::error::TorshError::SerializationError(e.to_string()))?;
         self.header = header;
 
         Ok(())
@@ -333,11 +335,13 @@ impl MemoryMappedGraph {
 
     /// Deserialize graph from binary data
     fn deserialize_graph(&self, node_data: &[u8], edge_data: &[u8]) -> TorshResult<FxGraph> {
-        let (nodes, _): (Vec<(usize, Node)>, usize) = bincode::serde::decode_from_slice(node_data, bincode::config::standard())
-            .map_err(|e| torsh_core::error::TorshError::SerializationError(e.to_string()))?;
+        let (nodes, _): (Vec<(usize, Node)>, usize) =
+            bincode::serde::decode_from_slice(node_data, bincode::config::standard())
+                .map_err(|e| torsh_core::error::TorshError::SerializationError(e.to_string()))?;
 
-        let (edges, _): (Vec<(usize, usize, Edge)>, usize) = bincode::serde::decode_from_slice(edge_data, bincode::config::standard())
-            .map_err(|e| torsh_core::error::TorshError::SerializationError(e.to_string()))?;
+        let (edges, _): (Vec<(usize, usize, Edge)>, usize) =
+            bincode::serde::decode_from_slice(edge_data, bincode::config::standard())
+                .map_err(|e| torsh_core::error::TorshError::SerializationError(e.to_string()))?;
 
         // Reconstruct graph
         let mut graph = petgraph::Graph::new();

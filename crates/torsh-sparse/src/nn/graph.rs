@@ -5,10 +5,10 @@
 //! large-scale graph datasets commonly found in social networks, knowledge graphs,
 //! and molecular modeling applications.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{CooTensor, CsrTensor, SparseTensor, TorshResult};
-use scirs2_core::random::{Random, Rng};
-use std::collections::HashMap;
-use torsh_core::{Shape, TorshError};
+use torsh_core::TorshError;
 use torsh_tensor::{
     creation::{randn, zeros},
     Tensor,
@@ -380,7 +380,7 @@ impl GraphAttention {
     }
 
     /// Forward pass (simplified implementation)
-    pub fn forward(&self, node_features: &Tensor, adjacency: &CsrTensor) -> TorshResult<Tensor> {
+    pub fn forward(&self, node_features: &Tensor, _adjacency: &CsrTensor) -> TorshResult<Tensor> {
         // This is a simplified implementation - full GAT would require more complex attention computation
         let feature_shape = node_features.shape();
         if feature_shape.ndim() != 2 {
@@ -429,6 +429,8 @@ impl GraphAttention {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{CooTensor, CsrTensor};
+    use torsh_core::Shape;
     use torsh_tensor::creation::ones;
 
     #[test]

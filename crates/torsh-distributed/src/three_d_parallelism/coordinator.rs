@@ -3,10 +3,12 @@
 //! This module contains the central coordinator that orchestrates
 //! forward and backward passes across the 3D parallelism dimensions.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::ProcessGroup;
 use crate::TorshResult;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use torsh_tensor::Tensor;
 
 use super::{
@@ -135,32 +137,24 @@ impl ThreeDParallelismCoordinator {
         let start_time = Instant::now();
         let sequence_length = grad_output.shape().dims()[1];
 
-        // Start with gradient output
-        let mut current_gradients = grad_output.clone();
-
         // Pipeline parallel backward pass (reverse order)
-        match self.config.pipeline_schedule {
+        let _current_gradients = match self.config.pipeline_schedule {
             PipelineSchedule::Interleaved => {
-                current_gradients = self
-                    .interleaved_backward_pass(&current_gradients, micro_batch_id)
-                    .await?;
+                self.interleaved_backward_pass(grad_output, micro_batch_id)
+                    .await?
             }
             PipelineSchedule::GPipe => {
-                current_gradients = self
-                    .gpipe_backward_pass(&current_gradients, micro_batch_id)
-                    .await?;
+                self.gpipe_backward_pass(grad_output, micro_batch_id)
+                    .await?
             }
             PipelineSchedule::OneForwardOneBackward => {
-                current_gradients = self
-                    .f1b1_backward_pass(&current_gradients, micro_batch_id)
-                    .await?;
+                self.f1b1_backward_pass(grad_output, micro_batch_id).await?
             }
             PipelineSchedule::RoundRobin => {
-                current_gradients = self
-                    .round_robin_backward_pass(&current_gradients, micro_batch_id)
-                    .await?;
+                self.round_robin_backward_pass(grad_output, micro_batch_id)
+                    .await?
             }
-        }
+        };
 
         // Synchronize gradients across data parallel dimension
         if micro_batch_id == self.get_num_micro_batches() - 1 {
@@ -343,7 +337,7 @@ impl ThreeDParallelismCoordinator {
     async fn apply_layer_backward(
         &mut self,
         grad_output: &Tensor<f32>,
-        activation: &Tensor<f32>,
+        _activation: &Tensor<f32>,
         layer_idx: usize,
     ) -> TorshResult<Tensor<f32>> {
         // Simplified backward pass computation
@@ -370,7 +364,7 @@ impl ThreeDParallelismCoordinator {
         let hidden_dim = dims[dims.len() - 1];
         let chunk_size = hidden_dim / self.config.tp_size;
         let start_idx = self.rank_mapping.tp_rank * chunk_size;
-        let end_idx = start_idx + chunk_size;
+        let _end_idx = start_idx + chunk_size;
 
         // Create slice of the tensor
         let mut new_dims = dims.to_vec();
@@ -384,7 +378,7 @@ impl ThreeDParallelismCoordinator {
     async fn receive_tensor_parallel_input(
         &self,
         shape: &[usize],
-        micro_batch_id: usize,
+        _micro_batch_id: usize,
     ) -> TorshResult<Tensor<f32>> {
         // For simplicity, create a zero tensor
         Ok(Tensor::zeros(shape, torsh_core::DeviceType::Cpu)?)

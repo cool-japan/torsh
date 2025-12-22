@@ -6,12 +6,15 @@
 //!
 //! # Key Features
 //!
-//! - **K-Means Clustering**: Classic centroid-based clustering with multiple initialization strategies
-//! - **Hierarchical Clustering**: Agglomerative and divisive clustering methods
-//! - **DBSCAN**: Density-based clustering for arbitrary-shaped clusters
-//! - **Gaussian Mixture Models**: Probabilistic clustering with EM algorithm
+//! - **K-Means Clustering**: Classic centroid-based clustering with multiple variants (Lloyd, Elkan, Mini-batch)
+//! - **Gaussian Mixture Models**: Probabilistic clustering with EM algorithm (Full, Diagonal, Spherical covariance)
 //! - **Spectral Clustering**: Graph-based clustering using eigendecomposition
-//! - **Evaluation Metrics**: Silhouette score, adjusted rand index, and more
+//! - **DBSCAN**: Density-based clustering for arbitrary-shaped clusters with noise detection
+//! - **HDBSCAN**: Hierarchical DBSCAN for varying density clusters
+//! - **OPTICS**: Ordering Points To Identify the Clustering Structure with reachability plots
+//! - **Hierarchical Clustering**: Agglomerative clustering with multiple linkage methods
+//! - **Online K-Means**: Incremental clustering for streaming data with concept drift detection
+//! - **Evaluation Metrics**: Comprehensive metrics including silhouette, ARI, NMI, Gap Statistic, and more
 //!
 //! # SciRS2 Integration
 //!
@@ -25,10 +28,10 @@
 //!
 //! ```rust
 //! use torsh_cluster::prelude::*;
-//! use torsh_tensor::Tensor;
+//! use torsh_tensor::creation::randn;
 //!
 //! // Create sample data
-//! let data = Tensor::randn(&[100, 2])?;
+//! let data = randn::<f32>(&[100, 2])?;
 //!
 //! // Perform K-means clustering
 //! let kmeans = KMeans::new(3)
@@ -38,6 +41,7 @@
 //! let result = kmeans.fit(&data)?;
 //! println!("Cluster centers: {:?}", result.centroids);
 //! println!("Labels: {:?}", result.labels);
+//! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -54,10 +58,15 @@ pub mod utils;
 
 // Re-export core clustering algorithms
 pub use algorithms::{
-    dbscan::{DBSCANConfig, DBSCANResult, DBSCAN},
+    dbscan::{DBSCANConfig, DBSCANResult, HDBSCANConfig, HDBSCANResult, DBSCAN, HDBSCAN},
     gaussian_mixture::{GMConfig, GMResult, GaussianMixture},
     hierarchical::{AgglomerativeClustering, HierarchicalResult, Linkage},
-    kmeans::{InitMethod, KMeans, KMeansConfig, KMeansResult},
+    incremental::{
+        IncrementalClustering, OnlineKMeans, OnlineKMeansConfig, OnlineKMeansResult,
+        SlidingWindowConfig, SlidingWindowKMeans, SlidingWindowResult,
+    },
+    kmeans::{InitMethod, KMeans, KMeansAlgorithm, KMeansConfig, KMeansResult},
+    optics::{OPTICSConfig, OPTICSResult, OPTICS},
     spectral::{SpectralClustering, SpectralConfig, SpectralResult},
 };
 
@@ -82,7 +91,10 @@ pub use traits::{ClusteringAlgorithm, ClusteringResult, Fit, FitPredict, Transfo
 
 // Re-export utilities
 pub use utils::{
+    adaptive::{suggest_dbscan_params, suggest_epsilon},
     distance::{cosine_distance, euclidean_distance, manhattan_distance, DistanceMetric},
+    drift_detection::{CompositeDriftDetector, DriftStatus, PageHinkleyTest, ADWIN, DDM},
+    memory_efficient::{ChunkedDataProcessor, IncrementalCentroidUpdater, MemoryEfficientConfig},
     preprocessing::{normalize_features, standardize_features, PreprocessingMethod},
     validation::{validate_cluster_input, validate_n_clusters, ClusterValidation},
 };

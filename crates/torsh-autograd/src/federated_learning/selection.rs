@@ -39,7 +39,7 @@
 
 use std::collections::{HashMap, VecDeque};
 
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::Random;
 
 use super::types::ClientSelectionStrategy;
 use crate::federated_learning::aggregation::FederatedError;

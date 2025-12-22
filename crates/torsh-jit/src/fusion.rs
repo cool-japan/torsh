@@ -111,6 +111,12 @@ impl KernelFusion {
         fusion_groups.extend(self.find_reduction_chains(&graph)?);
         fusion_groups.extend(self.find_matmul_chains(&graph)?);
 
+        // Advanced neural network patterns
+        fusion_groups.extend(self.find_residual_patterns(&graph)?);
+        fusion_groups.extend(self.find_bottleneck_patterns(&graph)?);
+        fusion_groups.extend(self.find_depthwise_separable_patterns(&graph)?);
+        fusion_groups.extend(self.find_batchnorm_activation_patterns(&graph)?);
+
         // Try to grow fusion groups
         let grown_groups = self.grow_fusion_groups(&graph, fusion_groups)?;
 
@@ -672,7 +678,7 @@ impl KernelFusion {
         graph: ComputationGraph,
         fusion_groups: Vec<Vec<NodeId>>,
     ) -> JitResult<ComputationGraph> {
-        use crate::graph::{ComputationGraph, Edge, Node, Operation};
+        use crate::graph::{ComputationGraph, Node, Operation};
         use std::collections::{HashMap, HashSet};
 
         if fusion_groups.is_empty() {
@@ -803,6 +809,209 @@ impl KernelFusion {
         new_graph.metadata = graph.metadata.clone();
 
         Ok(new_graph)
+    }
+
+    /// Find residual/skip connection patterns
+    fn find_residual_patterns(&self, graph: &ComputationGraph) -> JitResult<Vec<Vec<NodeId>>> {
+        let mut patterns = Vec::new();
+
+        // Look for Add operations that combine a processed path with a skip connection
+        for (node_id, node) in graph.nodes() {
+            if let Operation::Add = &node.op {
+                let predecessors: Vec<_> = graph.predecessors(node_id).collect();
+
+                // A residual pattern has exactly 2 inputs: main path and skip connection
+                if predecessors.len() == 2 {
+                    // Try to identify the main path (with more operations)
+                    let path1_depth = self.compute_path_depth(graph, predecessors[0]);
+                    let path2_depth = self.compute_path_depth(graph, predecessors[1]);
+
+                    if path1_depth > 1 || path2_depth > 1 {
+                        // This looks like a residual connection
+                        let main_path = if path1_depth > path2_depth {
+                            predecessors[0]
+                        } else {
+                            predecessors[1]
+                        };
+
+                        // Collect nodes from main path
+                        let mut pattern = self.collect_path_nodes(graph, main_path);
+                        pattern.push(node_id); // Include the Add operation
+
+                        if pattern.len() > 2 {
+                            patterns.push(pattern);
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(patterns)
+    }
+
+    /// Find bottleneck patterns (1x1 -> 3x3 -> 1x1 convolutions)
+    fn find_bottleneck_patterns(&self, graph: &ComputationGraph) -> JitResult<Vec<Vec<NodeId>>> {
+        let mut patterns = Vec::new();
+
+        for (node_id, node) in graph.nodes() {
+            // Look for 1x1 convolutions as potential bottleneck start
+            if let Operation::Conv2d(conv_info) = &node.op {
+                if conv_info.kernel_size == (1, 1) {
+                    if let Some(pattern) = self.try_match_bottleneck(graph, node_id) {
+                        patterns.push(pattern);
+                    }
+                }
+            }
+        }
+
+        Ok(patterns)
+    }
+
+    /// Try to match bottleneck pattern starting from 1x1 conv
+    fn try_match_bottleneck(
+        &self,
+        graph: &ComputationGraph,
+        start_node: NodeId,
+    ) -> Option<Vec<NodeId>> {
+        let mut pattern = vec![start_node];
+        let mut current = start_node;
+
+        // Look for 3x3 conv after 1x1
+        for succ in graph.successors(current) {
+            if let Some(succ_node) = graph.node(succ) {
+                if let Operation::Conv2d(conv_info) = &succ_node.op {
+                    if conv_info.kernel_size == (3, 3) {
+                        pattern.push(succ);
+                        current = succ;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if pattern.len() < 2 {
+            return None;
+        }
+
+        // Look for final 1x1 conv
+        for succ in graph.successors(current) {
+            if let Some(succ_node) = graph.node(succ) {
+                if let Operation::Conv2d(conv_info) = &succ_node.op {
+                    if conv_info.kernel_size == (1, 1) {
+                        pattern.push(succ);
+                        return Some(pattern);
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Find depthwise separable convolution patterns
+    fn find_depthwise_separable_patterns(
+        &self,
+        graph: &ComputationGraph,
+    ) -> JitResult<Vec<Vec<NodeId>>> {
+        let mut patterns = Vec::new();
+
+        for (node_id, node) in graph.nodes() {
+            // Look for depthwise convolutions (groups == in_channels)
+            if let Operation::Conv2d(conv_info) = &node.op {
+                if conv_info.groups == conv_info.in_channels && conv_info.groups > 1 {
+                    // Found depthwise conv, look for pointwise (1x1) conv after it
+                    for succ in graph.successors(node_id) {
+                        if let Some(succ_node) = graph.node(succ) {
+                            if let Operation::Conv2d(pointwise_info) = &succ_node.op {
+                                if pointwise_info.kernel_size == (1, 1) {
+                                    patterns.push(vec![node_id, succ]);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(patterns)
+    }
+
+    /// Find batch normalization + activation patterns
+    fn find_batchnorm_activation_patterns(
+        &self,
+        graph: &ComputationGraph,
+    ) -> JitResult<Vec<Vec<NodeId>>> {
+        let mut patterns = Vec::new();
+
+        for (node_id, node) in graph.nodes() {
+            // Look for batch normalization operations (would be a custom op in real implementation)
+            if self.is_batchnorm_like(&node.op) {
+                // Look for activation after batchnorm
+                for succ in graph.successors(node_id) {
+                    if let Some(succ_node) = graph.node(succ) {
+                        if self.is_activation(&succ_node.op) {
+                            patterns.push(vec![node_id, succ]);
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(patterns)
+    }
+
+    /// Check if operation is batch normalization-like
+    fn is_batchnorm_like(&self, op: &Operation) -> bool {
+        // In a full implementation, this would check for actual BatchNorm operations
+        // For now, we look for patterns that normalize data
+        matches!(
+            op,
+            Operation::Div | // Mean normalization
+            Operation::Sub // Mean centering
+        )
+    }
+
+    /// Compute depth of path from a node
+    fn compute_path_depth(&self, graph: &ComputationGraph, node_id: NodeId) -> usize {
+        let mut depth = 0;
+        let mut current = node_id;
+        let mut visited = HashSet::new();
+
+        while !visited.contains(&current) {
+            visited.insert(current);
+            depth += 1;
+
+            let preds: Vec<_> = graph.predecessors(current).collect();
+            if preds.is_empty() {
+                break;
+            }
+
+            current = preds[0]; // Follow first predecessor
+        }
+
+        depth
+    }
+
+    /// Collect all nodes in a path
+    fn collect_path_nodes(&self, graph: &ComputationGraph, start_node: NodeId) -> Vec<NodeId> {
+        let mut nodes = Vec::new();
+        let mut current = start_node;
+        let mut visited = HashSet::new();
+
+        while !visited.contains(&current) {
+            visited.insert(current);
+            nodes.push(current);
+
+            let preds: Vec<_> = graph.predecessors(current).collect();
+            if preds.is_empty() {
+                break;
+            }
+
+            current = preds[0]; // Follow first predecessor
+        }
+
+        nodes.reverse(); // Return in topological order
+        nodes
     }
 }
 

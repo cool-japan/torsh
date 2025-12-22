@@ -658,7 +658,7 @@ mod tests {
     #[test]
     fn test_snapshots_in_range() {
         let mut tracker = MemoryTracker::new(Duration::from_millis(100));
-        let start_time = SystemTime::now();
+        let _start_time = SystemTime::now();
 
         tracker.take_snapshot(Some("before".to_string()));
         std::thread::sleep(Duration::from_millis(100));

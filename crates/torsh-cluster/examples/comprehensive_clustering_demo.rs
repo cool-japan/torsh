@@ -4,7 +4,6 @@
 //! along with evaluation metrics and best practices for real-world usage.
 
 use scirs2_core::random::prelude::*;
-use std::collections::HashMap;
 use torsh_cluster::{
     algorithms::{
         gaussian_mixture::CovarianceType,
@@ -380,8 +379,8 @@ fn create_blob_dataset() -> Result<(Tensor, Tensor), Box<dyn std::error::Error>>
     // Cluster 0: around (0, 0)
     for _ in 0..50 {
         data.extend_from_slice(&[
-            thread_rng().gen::<f32>() * 2.0 - 1.0,
-            thread_rng().gen::<f32>() * 2.0 - 1.0,
+            thread_rng().random::<f32>() * 2.0 - 1.0,
+            thread_rng().random::<f32>() * 2.0 - 1.0,
         ]);
         labels.push(0.0);
     }
@@ -389,8 +388,8 @@ fn create_blob_dataset() -> Result<(Tensor, Tensor), Box<dyn std::error::Error>>
     // Cluster 1: around (5, 5)
     for _ in 0..50 {
         data.extend_from_slice(&[
-            thread_rng().gen::<f32>() * 2.0 + 4.0,
-            thread_rng().gen::<f32>() * 2.0 + 4.0,
+            thread_rng().random::<f32>() * 2.0 + 4.0,
+            thread_rng().random::<f32>() * 2.0 + 4.0,
         ]);
         labels.push(1.0);
     }
@@ -398,8 +397,8 @@ fn create_blob_dataset() -> Result<(Tensor, Tensor), Box<dyn std::error::Error>>
     // Cluster 2: around (-5, 5)
     for _ in 0..50 {
         data.extend_from_slice(&[
-            thread_rng().gen::<f32>() * 2.0 - 6.0,
-            thread_rng().gen::<f32>() * 2.0 + 4.0,
+            thread_rng().random::<f32>() * 2.0 - 6.0,
+            thread_rng().random::<f32>() * 2.0 + 4.0,
         ]);
         labels.push(2.0);
     }
@@ -418,7 +417,7 @@ fn create_circle_dataset() -> Result<(Tensor, Tensor), Box<dyn std::error::Error
     // Inner circle
     for i in 0..50 {
         let angle = 2.0 * std::f32::consts::PI * i as f32 / 50.0;
-        let radius = 2.0 + thread_rng().gen::<f32>() * 0.5;
+        let radius = 2.0 + thread_rng().random::<f32>() * 0.5;
         data.extend_from_slice(&[radius * angle.cos(), radius * angle.sin()]);
         labels.push(0.0);
     }
@@ -426,7 +425,7 @@ fn create_circle_dataset() -> Result<(Tensor, Tensor), Box<dyn std::error::Error
     // Outer circle
     for i in 0..50 {
         let angle = 2.0 * std::f32::consts::PI * i as f32 / 50.0;
-        let radius = 5.0 + thread_rng().gen::<f32>() * 0.5;
+        let radius = 5.0 + thread_rng().random::<f32>() * 0.5;
         data.extend_from_slice(&[radius * angle.cos(), radius * angle.sin()]);
         labels.push(1.0);
     }
@@ -448,8 +447,8 @@ fn create_streaming_dataset() -> Result<Vec<Tensor>, Box<dyn std::error::Error>>
         for _ in 0..20 {
             let drift = batch_idx as f32 * 0.1;
             batch_data.extend_from_slice(&[
-                thread_rng().gen::<f32>() * 4.0 - 2.0 + drift,
-                thread_rng().gen::<f32>() * 4.0 - 2.0 + drift,
+                thread_rng().random::<f32>() * 4.0 - 2.0 + drift,
+                thread_rng().random::<f32>() * 4.0 - 2.0 + drift,
             ]);
         }
 

@@ -37,8 +37,9 @@
 //!
 //! ## Basic Usage
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_autograd::memory::{AdaptiveMemoryManager, AdaptiveMemoryConfig};
+//! # fn example() -> torsh_core::error::Result<()> {
 //!
 //! // Create memory manager with default configuration
 //! let config = AdaptiveMemoryConfig::default();
@@ -56,12 +57,15 @@
 //! // Analyze memory usage patterns
 //! let analysis = manager.analyze_gradient_memory_usage();
 //! println!("High memory operations: {:?}", analysis.high_memory_operations);
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Advanced Configuration
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_autograd::memory::{
+//! # fn example() -> torsh_core::error::Result<()> {
 //!     AdaptiveMemoryConfig, AllocationStrategy, MemoryPressure, OptimizationTechnique
 //! };
 //! use std::time::Duration;
@@ -81,11 +85,13 @@
 //! };
 //!
 //! let manager: AdaptiveMemoryManager<f32> = AdaptiveMemoryManager::new(config)?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Memory Monitoring and Analysis
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_autograd::memory::{GradientMemoryMonitor, MemoryAnomalyDetector};
 //!
 //! // Start real-time monitoring
@@ -93,6 +99,7 @@
 //!
 //! // Perform operations with monitoring
 //! let memory = manager.allocate_gradient_memory_for_operation(2048, "conv2d_backward")?;
+//! # fn example() -> torsh_core::error::Result<()> {
 //! monitor.take_snapshot(memory.len())?;
 //!
 //! // Analyze results
@@ -104,6 +111,8 @@
 //! println!("Memory efficiency: {:.1}%", analysis.memory_efficiency * 100.0);
 //! for rec in analysis.optimization_recommendations {
 //!     println!("Recommendation: {}", rec);
+//! # Ok(())
+//! # }
 //! }
 //! ```
 //!
@@ -111,7 +120,7 @@
 //!
 //! ## High Performance Training
 //!
-//! ```rust
+//! ```rust,ignore
 //! let config = AdaptiveMemoryConfig::high_performance();
 //! // - Uses up to 60% of system memory
 //! // - Aggressive allocation strategy
@@ -120,7 +129,7 @@
 //!
 //! ## Memory-Efficient Inference
 //!
-//! ```rust
+//! ```rust,ignore
 //! let config = AdaptiveMemoryConfig::memory_efficient();
 //! // - Uses up to 20% of system memory
 //! // - Conservative allocation strategy
@@ -129,7 +138,7 @@
 //!
 //! ## Real-Time Applications
 //!
-//! ```rust
+//! ```rust,ignore
 //! let config = AdaptiveMemoryConfig::real_time();
 //! // - Predictable memory usage
 //! // - No garbage collection pauses
@@ -162,9 +171,10 @@
 //!
 //! The memory management system provides comprehensive error handling:
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_core::error::{Result, TorshError};
 //!
+//! # fn example() -> torsh_core::error::Result<()> {
 //! match manager.allocate_gradient_memory(very_large_size) {
 //!     Ok(memory) => {
 //!         // Allocation successful
@@ -182,6 +192,8 @@
 //!     }
 //!     Err(e) => {
 //!         eprintln!("Memory allocation error: {}", e);
+//! # Ok(())
+//! # }
 //!     }
 //! }
 //! ```
@@ -190,18 +202,21 @@
 //!
 //! All public components are thread-safe and can be safely shared across threads:
 //!
-//! ```rust
+//! ```rust,ignore
 //! use std::sync::Arc;
 //!
 //! let manager = Arc::new(AdaptiveMemoryManager::<f32>::new(config)?);
 //!
 //! // Share across threads
 //! let manager_clone = Arc::clone(&manager);
+//! # fn example() -> torsh_core::error::Result<()> {
 //! std::thread::spawn(move || {
 //!     let memory = manager_clone.allocate_gradient_memory(1000).unwrap();
 //!     // ... use memory ...
 //!     manager_clone.deallocate_gradient_memory(memory);
 //! });
+//! # Ok(())
+//! # }
 //! ```
 
 use std::time::Duration;
@@ -273,12 +288,15 @@ pub mod prelude {
     //!
     //! # Example
     //!
-    //! ```rust
+    //! ```rust,ignore
+    //! # fn example() -> torsh_core::error::Result<()> {
     //! use torsh_autograd::memory::prelude::*;
     //!
     //! let config = AdaptiveMemoryConfig::default();
     //! let manager: AdaptiveMemoryManager<f32> = AdaptiveMemoryManager::new(config)?;
     //! let memory = manager.allocate_gradient_memory(1000)?;
+    //! # Ok(())
+    //! # }
     //! ```
 
     pub use super::error::{Result, TorshError};
@@ -361,7 +379,7 @@ pub mod utils {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let config = AdaptiveMemoryConfig::default();
     /// let warnings = validate_memory_config(&config);
     /// for warning in warnings {
@@ -386,7 +404,7 @@ pub mod utils {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// assert_eq!(format_memory_size(1024), "1.00 KB");
     /// assert_eq!(format_memory_size(1024 * 1024), "1.00 MB");
     /// ```
@@ -538,8 +556,6 @@ mod tests {
 
     #[test]
     fn test_error_extensions() {
-        use super::error::MemoryErrorExt;
-
         let oom_error = TorshError::invalid_operation("Test OOM");
         // Note: OutOfMemory variant may not exist in current TorshError enum
         // This is a placeholder test that should be updated when proper

@@ -1,9 +1,9 @@
 //! Unified memory buffer implementation for CUDA
 
 use crate::cuda::device::CudaDevice;
-use crate::cuda::error::{CudaError, CudaResult};
+use crate::cuda::error::CudaResult;
 use crate::cuda::memory::{MemoryAdvice, UnifiedAllocation};
-use crate::{Buffer, BufferOps};
+use crate::Buffer;
 use std::sync::Arc;
 use torsh_core::DType;
 

@@ -2,6 +2,11 @@
 //!
 //! This example demonstrates how to load models from various sources using ToRSh Hub.
 
+#![allow(dead_code)]
+#![allow(unused_variables)]
+#![allow(unused_imports)]
+#![allow(unexpected_cfgs)]
+
 use torsh_core::error::Result;
 use torsh_hub::*;
 

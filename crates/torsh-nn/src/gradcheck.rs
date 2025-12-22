@@ -4,7 +4,7 @@
 //! automatic differentiation implementations.
 
 use crate::{Module, Parameter};
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::Random;
 use torsh_core::error::{Result, TorshError};
 use torsh_tensor::Tensor;
 
@@ -569,11 +569,13 @@ where
 }
 
 // Helper trait for tensors to support item access and modification
+#[allow(dead_code)]
 trait TensorItemAccess<T> {
     fn get_item(&self, idx: usize) -> Result<T>;
     fn set_item(&mut self, idx: usize, value: T) -> Result<()>;
 }
 
+#[allow(dead_code)]
 impl TensorItemAccess<f32> for Tensor<f32> {
     fn get_item(&self, idx: usize) -> Result<f32> {
         let data = self.data()?;

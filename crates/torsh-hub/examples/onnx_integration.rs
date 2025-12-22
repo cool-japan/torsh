@@ -3,7 +3,9 @@
 //! This example demonstrates how to work with ONNX models in ToRSh Hub,
 //! including loading, converting, optimizing, and deploying ONNX models.
 
-use std::collections::HashMap;
+#![allow(dead_code)]
+#![allow(unused_variables)]
+
 use torsh_core::error::Result;
 use torsh_hub::onnx::*;
 use torsh_hub::*;
@@ -518,12 +520,14 @@ struct OptimizationReport {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 enum Precision {
     FP32,
     FP16,
     INT8,
 }
 
+#[allow(dead_code)]
 struct ConversionConfig {
     preserve_metadata: bool,
     optimize_for_inference: bool,
@@ -531,6 +535,7 @@ struct ConversionConfig {
     batch_size: Option<usize>,
 }
 
+#[allow(dead_code)]
 struct ConversionResult {
     success: bool,
     input_size_mb: f32,
@@ -539,6 +544,7 @@ struct ConversionResult {
     accuracy_preserved: bool,
 }
 
+#[allow(dead_code)]
 struct ExportConfig {
     opset_version: i32,
     dynamic_axes: Option<Vec<(String, Vec<i32>)>>,
@@ -546,6 +552,7 @@ struct ExportConfig {
     constant_folding: bool,
 }
 
+#[allow(dead_code)]
 struct ExportResult {
     success: bool,
     output_file: String,
@@ -553,6 +560,7 @@ struct ExportResult {
     model_size_mb: f32,
 }
 
+#[allow(dead_code)]
 struct BatchProcessingConfig {
     max_batch_size: usize,
     timeout_ms: u64,
@@ -560,6 +568,7 @@ struct BatchProcessingConfig {
     preferred_batch_size: usize,
 }
 
+#[allow(dead_code)]
 struct DynamicShapeConfig {
     min_shapes: Vec<(String, Vec<usize>)>,
     max_shapes: Vec<(String, Vec<usize>)>,

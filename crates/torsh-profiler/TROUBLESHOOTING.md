@@ -26,8 +26,8 @@ error: failed to resolve dependencies
 Ensure you have the correct version in your `Cargo.toml`:
 ```toml
 [dependencies]
-torsh-profiler = "0.1.0-alpha.1"
-torsh-core = "0.1.0-alpha.1"
+torsh-profiler = "0.1.0-alpha.2"
+torsh-core = "0.1.0-alpha.2"
 ```
 
 Update your dependencies:
@@ -46,7 +46,7 @@ error: feature `xyz` is not available
 Check available features in `Cargo.toml`:
 ```toml
 [dependencies]
-torsh-profiler = { version = "0.1.0-alpha.1", features = ["full"] }
+torsh-profiler = { version = "0.1.0-alpha.2", features = ["full"] }
 ```
 
 Available features:
@@ -594,7 +594,7 @@ debug!("Starting profiling for operation: {}", operation_name);
 Enable debug output in Cargo.toml:
 ```toml
 [dependencies]
-torsh-profiler = { version = "0.1.0-alpha.1", features = ["debug"] }
+torsh-profiler = { version = "0.1.0-alpha.2", features = ["debug"] }
 ```
 
 ## Getting Help

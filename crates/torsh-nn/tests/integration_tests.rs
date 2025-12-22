@@ -75,7 +75,7 @@ fn test_cnn_end_to_end() -> Result<()> {
         .add(MaxPool2d::new((2, 2), Some((2, 2)), (0, 0), (1, 1), false))
         // Global average pooling and classifier
         .add(AdaptiveAvgPool2d::new((Some(1), Some(1))))
-        .add(Flatten::new())  // Flatten from [batch, 64, 1, 1] to [batch, 64]
+        .add(Flatten::new()) // Flatten from [batch, 64, 1, 1] to [batch, 64]
         .add(Linear::new(64, 10, true))
         .add(Softmax::new(Some(1)));
 
@@ -278,7 +278,7 @@ fn test_graph_neural_networks() -> Result<()> {
     let batch_size = 1; // Graphs typically use batch_size=1
 
     let node_features = randn::<f32>(&[batch_size, num_nodes, in_features])?;
-    let adjacency = randn::<f32>(&[num_nodes, num_nodes])?;
+    let _adjacency = randn::<f32>(&[num_nodes, num_nodes])?;
 
     // Test Graph Convolution
     let gcn = GraphConvLayer::new(in_features, out_features, true)?;
@@ -451,13 +451,19 @@ fn test_loss_functions() -> Result<()> {
     // Test MSE using functional interface
     let mse_loss_result = mse_loss(&predictions, &targets, "mean")?;
     // Scalar losses have empty shape [] (like PyTorch)
-    assert!(mse_loss_result.shape().dims().len() <= 1,
-            "Loss should be scalar or 1D, got shape {:?}", mse_loss_result.shape().dims());
+    assert!(
+        mse_loss_result.shape().dims().len() <= 1,
+        "Loss should be scalar or 1D, got shape {:?}",
+        mse_loss_result.shape().dims()
+    );
 
     // Test L1 using functional interface
     let l1_loss_result = l1_loss(&predictions, &targets, "mean")?;
-    assert!(l1_loss_result.shape().dims().len() <= 1,
-            "Loss should be scalar or 1D, got shape {:?}", l1_loss_result.shape().dims());
+    assert!(
+        l1_loss_result.shape().dims().len() <= 1,
+        "Loss should be scalar or 1D, got shape {:?}",
+        l1_loss_result.shape().dims()
+    );
 
     // All losses should be non-negative
     let mse_data = mse_loss_result.data()?;
@@ -506,8 +512,11 @@ fn test_gradient_computation() -> Result<()> {
     let loss = mse_loss(&output, &target, "mean")?;
 
     // Verify loss is scalar or 1D (scalar losses have empty shape [] in PyTorch style)
-    assert!(loss.shape().dims().len() <= 1,
-            "Loss should be scalar or 1D, got shape {:?}", loss.shape().dims());
+    assert!(
+        loss.shape().dims().len() <= 1,
+        "Loss should be scalar or 1D, got shape {:?}",
+        loss.shape().dims()
+    );
 
     // TODO: Add backward pass testing when autograd is fully integrated
     Ok(())

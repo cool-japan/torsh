@@ -993,7 +993,7 @@ impl std::fmt::Display for ComparisonResults {
 }
 
 /// Utility functions for model comparison
-pub mod utils {
+pub mod comparison_utils {
     use super::*;
 
     /// Create a standard comparison configuration
@@ -1006,8 +1006,8 @@ pub mod utils {
                 ComparisonDimension::Memory,
                 ComparisonDimension::Size,
             ],
-            benchmark_config: Some(crate::benchmark::utils::quick_benchmark_config()),
-            validation_config: Some(crate::validation::utils::create_quick_config()),
+            benchmark_config: Some(crate::benchmark::benchmark_utils::quick_benchmark_config()),
+            validation_config: Some(crate::validation::validation_utils::create_quick_config()),
             statistical_tests: true,
             generate_plots: false,
             output_config: OutputConfig {
@@ -1034,8 +1034,12 @@ pub mod utils {
                 ComparisonDimension::Robustness,
                 ComparisonDimension::Interpretability,
             ],
-            benchmark_config: Some(crate::benchmark::utils::comprehensive_benchmark_config()),
-            validation_config: Some(crate::validation::utils::create_classification_config(5)),
+            benchmark_config: Some(
+                crate::benchmark::benchmark_utils::comprehensive_benchmark_config(),
+            ),
+            validation_config: Some(
+                crate::validation::validation_utils::create_classification_config(5),
+            ),
             statistical_tests: true,
             generate_plots: true,
             output_config: OutputConfig {
@@ -1126,7 +1130,6 @@ pub mod utils {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use torsh_core::DeviceType;
 
     #[test]
     fn test_comparison_config_creation() {
@@ -1139,7 +1142,7 @@ mod tests {
             model_size_bytes: Some(4000000),
         }];
 
-        let config = utils::create_standard_comparison_config(model_specs);
+        let config = comparison_utils::create_standard_comparison_config(model_specs);
         assert_eq!(config.models.len(), 1);
         assert_eq!(config.dimensions.len(), 4);
     }

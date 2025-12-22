@@ -8,7 +8,7 @@
 
 use crate::{QuantConfig, TorshResult};
 // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::Rng;
 use std::collections::HashMap;
 use torsh_core::TorshError;
 use torsh_tensor::Tensor;
@@ -522,15 +522,15 @@ impl NasQuantizer {
 
     /// Generate random architecture
     pub fn generate_random_architecture(&self) -> ArchitectureConfig {
-        let mut rng = Random::new();
-        let num_layers = 5 + (rng.gen::<usize>() % 10); // 5-15 layers
+        let mut rng = scirs2_core::random::thread_rng();
+        let num_layers = 5 + rng.random_range(0..10); // 5-15 layers
         let mut layers = Vec::new();
 
         for i in 0..num_layers {
             let layer_config = LayerConfig {
                 name: format!("layer_{i}"),
                 quant_config: self.random_quant_config(),
-                dimensions: vec![vec![64, 128, 256, 512][rng.gen::<usize>() % 4]],
+                dimensions: vec![vec![64, 128, 256, 512][rng.random_range(0..4)]],
             };
             layers.push(layer_config);
         }
@@ -543,7 +543,7 @@ impl NasQuantizer {
 
     /// Generate random quantization configuration
     fn random_quant_config(&self) -> QuantConfig {
-        let mut rng = Random::new();
+        let mut rng = scirs2_core::random::thread_rng();
         let configs = [
             QuantConfig::int8(),
             QuantConfig::int4(),
@@ -551,7 +551,7 @@ impl NasQuantizer {
             QuantConfig::ternary(),
         ];
 
-        configs[rng.gen::<usize>() % configs.len()].clone()
+        configs[rng.random_range(0..configs.len())].clone()
     }
 
     /// Evolutionary search for optimal architecture
@@ -593,8 +593,8 @@ impl NasQuantizer {
     fn evaluate_architecture(&self, _arch: &ArchitectureConfig) -> f32 {
         // In practice, this would train/evaluate the architecture
         // For now, return random fitness
-        let mut rng = Random::new();
-        rng.gen::<f32>()
+        let mut rng = scirs2_core::random::thread_rng();
+        rng.random::<f32>()
     }
 
     /// Evolve population using genetic operators
@@ -634,13 +634,13 @@ impl NasQuantizer {
 
     /// Tournament selection
     fn tournament_selection(&self, fitness: &[f32]) -> usize {
-        let mut rng = Random::new();
+        let mut rng = scirs2_core::random::thread_rng();
         let tournament_size = 3;
-        let mut best_idx = rng.gen::<usize>() % fitness.len();
+        let mut best_idx = rng.random_range(0..fitness.len());
         let mut best_fitness = fitness[best_idx];
 
         for _ in 1..tournament_size {
-            let idx = rng.gen::<usize>() % fitness.len();
+            let idx = rng.random_range(0..fitness.len());
             if fitness[idx] > best_fitness {
                 best_idx = idx;
                 best_fitness = fitness[idx];
@@ -656,13 +656,13 @@ impl NasQuantizer {
         parent1: &ArchitectureConfig,
         parent2: &ArchitectureConfig,
     ) -> ArchitectureConfig {
-        let mut rng = Random::new();
+        let mut rng = scirs2_core::random::thread_rng();
         let mut child_layers = Vec::new();
         let max_layers = parent1.layers.len().min(parent2.layers.len());
 
         for i in 0..max_layers {
             // Randomly choose from either parent
-            if rng.gen::<bool>() {
+            if rng.random_bool(0.5) {
                 child_layers.push(parent1.layers[i].clone());
             } else {
                 child_layers.push(parent2.layers[i].clone());
@@ -671,7 +671,7 @@ impl NasQuantizer {
 
         ArchitectureConfig {
             layers: child_layers,
-            global_config: if rng.gen::<bool>() {
+            global_config: if rng.random_bool(0.5) {
                 parent1.global_config.clone()
             } else {
                 parent2.global_config.clone()
@@ -681,16 +681,16 @@ impl NasQuantizer {
 
     /// Mutate architecture
     fn mutate(&self, arch: &mut ArchitectureConfig) {
-        let mut rng = Random::new();
+        let mut rng = scirs2_core::random::thread_rng();
         let mutation_rate = 0.1;
 
         for layer in &mut arch.layers {
-            if rng.gen::<f32>() < mutation_rate {
+            if rng.random::<f32>() < mutation_rate {
                 layer.quant_config = self.random_quant_config();
             }
         }
 
-        if rng.gen::<f32>() < mutation_rate {
+        if rng.random::<f32>() < mutation_rate {
             arch.global_config = self.random_quant_config();
         }
     }

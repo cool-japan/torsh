@@ -98,7 +98,7 @@ pub fn uniform_(
 
     for _ in 0..size {
         // Use SciRS2's uniform generation
-        values.push(rng.gen::<f32>() * (high - low) + low);
+        values.push(rng.random::<f32>() * (high - low) + low);
     }
 
     Tensor::from_vec(values, shape)

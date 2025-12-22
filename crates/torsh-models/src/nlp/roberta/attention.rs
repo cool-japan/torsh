@@ -3,8 +3,8 @@
 use super::config::RobertaConfig;
 use torsh_core::error::Result;
 use torsh_nn::prelude::*;
-use torsh_nn::{Module, Parameter};
-use torsh_tensor::{creation, Tensor};
+use torsh_nn::Module;
+use torsh_tensor::Tensor;
 
 /// RoBERTa Self Attention
 pub struct RobertaSelfAttention {
@@ -41,8 +41,8 @@ impl Module for RobertaSelfAttention {
         // 4. Context computation
 
         // Simplified placeholder
-        let query_layer = self.query.forward(hidden_states)?;
-        let key_layer = self.key.forward(hidden_states)?;
+        let _query_layer = self.query.forward(hidden_states)?;
+        let _key_layer = self.key.forward(hidden_states)?;
         let value_layer = self.value.forward(hidden_states)?;
 
         // In full implementation: reshape for multi-head, compute attention, etc.

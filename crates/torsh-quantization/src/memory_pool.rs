@@ -712,8 +712,8 @@ mod tests {
         pool.garbage_collect().unwrap();
 
         let analytics = pool.get_analytics();
-        // GC time might be 0 for very fast operations, so just check it's non-negative
-        assert!(analytics.gc_time_us >= 0);
+        // GC time is u64, always non-negative - verify it can be accessed
+        let _gc_time = analytics.gc_time_us; // Verify field access works
     }
 
     #[test]
@@ -746,7 +746,8 @@ mod tests {
         pool.release_tensor(tensor2);
 
         let report = pool.get_utilization_report();
-        assert!(report.total_pools >= 0);
+        // total_pools is usize, always non-negative - verify field access
+        let _pools = report.total_pools;
         assert!(report.hit_rate >= 0.0);
         assert!(report.performance_score >= 0.0);
         assert!(report.performance_score <= 100.0);

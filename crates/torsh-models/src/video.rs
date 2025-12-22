@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use torsh_core::{DType, DeviceType};
+use torsh_core::DeviceType;
 use torsh_nn::prelude::{
     BatchNorm3d, Conv3d, Dropout, LayerNorm, Linear, MaxPool3d, MultiheadAttention,
 };
@@ -57,7 +57,7 @@ impl BasicBlock3D {
         in_channels: usize,
         out_channels: usize,
         stride: usize,
-        temporal_stride: usize,
+        _temporal_stride: usize,
     ) -> torsh_core::error::Result<Self> {
         let conv1 = Conv3d::new(
             in_channels,

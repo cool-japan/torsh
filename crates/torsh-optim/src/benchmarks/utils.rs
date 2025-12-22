@@ -23,12 +23,15 @@ use torsh_tensor::creation;
 ///
 /// # Example
 ///
-/// ```rust
+/// ```rust,no_run
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
 /// use torsh_optim::benchmarks::utils::run_quick_benchmark_suite;
 ///
-/// // Run benchmarks on common optimizers
-/// let result = run_quick_benchmark_suite();
-/// assert!(result.is_ok());
+/// // Run benchmarks on common optimizers (this may take some time)
+/// run_quick_benchmark_suite()?;
+/// # Ok(())
+/// # }
 /// ```
 pub fn run_quick_benchmark_suite() -> OptimizerResult<()> {
     let benchmarks = OptimizerBenchmarks::new();

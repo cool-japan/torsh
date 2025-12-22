@@ -3,7 +3,7 @@
 //! This module provides implementations of complex Bessel functions of the
 //! first and second kind with proper handling of branch cuts and numerical stability.
 
-use num_complex::ComplexFloat;
+use scirs2_core::ComplexFloat; // SciRS2 POLICY compliant (for Complex trait methods)
 use std::f64::consts::PI;
 use torsh_core::dtype::{Complex32, Complex64};
 use torsh_tensor::Tensor;

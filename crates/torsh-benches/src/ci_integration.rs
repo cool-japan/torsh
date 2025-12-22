@@ -4,17 +4,18 @@
 //! benchmarking, performance monitoring, and regression detection in continuous
 //! integration pipelines.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{
     performance_dashboards::RegressionSeverity,
     performance_dashboards::{PerformanceDashboard, PerformancePoint},
     regression_detection::{AdvancedRegressionDetector, AdvancedRegressionResult},
     visualization::{ChartTheme, VisualizationGenerator},
-    BenchConfig, BenchResult, BenchRunner, Benchmarkable,
+    BenchConfig, BenchResult, BenchRunner,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::Path;
 
 /// CI configuration for automated benchmarking
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -675,7 +676,7 @@ impl CIBenchmarkRunner {
 
     /// Execute benchmarks based on configuration
     async fn execute_benchmarks(&mut self) -> Result<Vec<BenchResult>, String> {
-        let mut results = Vec::new();
+        let results = Vec::new();
 
         let benchmark_configs = match self.config.execution_mode {
             ExecutionMode::Quick => self.get_quick_benchmarks(),
@@ -948,14 +949,16 @@ impl CIBenchmarkRunner {
         decision: &CIDecision,
         regressions: &[AdvancedRegressionResult],
     ) -> NotificationResult {
-        let message = self.format_notification_message(decision, regressions);
+        let _message = self.format_notification_message(decision, regressions);
 
         let status = match channel {
             NotificationChannel::PullRequest => {
                 // Would integrate with GitHub API
                 NotificationStatus::Success
             }
-            NotificationChannel::Slack { webhook_url } => {
+            NotificationChannel::Slack {
+                webhook_url: _webhook_url,
+            } => {
                 // Would send to Slack webhook
                 NotificationStatus::Success
             }

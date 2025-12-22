@@ -274,7 +274,7 @@ pub enum KernelHandle {
     Cuda { module: u64, function: u64 },
 
     /// Metal kernel
-    #[cfg(feature = "metal")]
+    #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
     Metal { library_id: u64, function_id: u64 },
 
     /// WebGPU kernel
@@ -293,21 +293,29 @@ pub enum KernelHandle {
 impl Clone for KernelHandle {
     fn clone(&self) -> Self {
         match self {
-            KernelHandle::Cpu { function } => KernelHandle::Cpu { function: *function },
+            KernelHandle::Cpu { function } => KernelHandle::Cpu {
+                function: *function,
+            },
             #[cfg(feature = "cuda")]
             KernelHandle::Cuda { module, function } => KernelHandle::Cuda {
                 module: *module,
-                function: *function
+                function: *function,
             },
-            #[cfg(feature = "metal")]
-            KernelHandle::Metal { library_id, function_id } => KernelHandle::Metal {
+            #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
+            KernelHandle::Metal {
+                library_id,
+                function_id,
+            } => KernelHandle::Metal {
                 library_id: *library_id,
-                function_id: *function_id
+                function_id: *function_id,
             },
             #[cfg(feature = "webgpu")]
-            KernelHandle::WebGpu { shader_module_id, entry_point } => KernelHandle::WebGpu {
+            KernelHandle::WebGpu {
+                shader_module_id,
+                entry_point,
+            } => KernelHandle::WebGpu {
                 shader_module_id: shader_module_id.clone(),
-                entry_point: entry_point.clone()
+                entry_point: entry_point.clone(),
             },
             KernelHandle::Generic { .. } => {
                 // For Generic handles, we can't actually clone the Box<dyn Any>

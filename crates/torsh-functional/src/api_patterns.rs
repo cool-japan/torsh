@@ -58,11 +58,12 @@ use torsh_tensor::Tensor;
 /// - Matrix multiplication fails
 ///
 /// # Example
-/// ```rust
+/// ```rust,no_run
 /// use torsh_functional::api_patterns::example_linear;
-/// let input = Tensor::randn(&[2, 3]).unwrap();
-/// let weight = Tensor::randn(&[4, 3]).unwrap();
-/// let bias = Some(Tensor::randn(&[4]).unwrap());
+/// use torsh_functional::random_ops::randn;
+/// let input = randn(&[2, 3], None, None, None).unwrap();
+/// let weight = randn(&[4, 3], None, None, None).unwrap();
+/// let bias = Some(randn(&[4], None, None, None).unwrap());
 /// let output = example_linear(&input, &weight, bias.as_ref()).unwrap();
 /// assert_eq!(output.shape().dims(), &[2, 4]);
 /// ```

@@ -3,6 +3,8 @@
 //! This module provides functionality for creating and applying delta patches
 //! between package versions, enabling efficient incremental updates for large models.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
@@ -14,7 +16,6 @@ use crate::manifest::PackageManifest;
 use crate::package::Package;
 use crate::resources::Resource;
 use crate::utils::calculate_hash;
-use crate::version::PackageVersion;
 
 /// Delta patch operation types
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -203,7 +204,10 @@ impl DeltaPatchBuilder {
         let patch_size = self.calculate_patch_size(&operations);
 
         // Generate target hash (simplified - just hash the new package manifest)
-    let target_hash = calculate_hash(&bincode::serde::encode_to_vec(&new_package.manifest, bincode::config::standard()).unwrap());
+        let target_hash = calculate_hash(
+            &bincode::serde::encode_to_vec(&new_package.manifest, bincode::config::standard())
+                .unwrap(),
+        );
 
         let mut metadata = HashMap::new();
         metadata.insert(
@@ -225,7 +229,7 @@ impl DeltaPatchBuilder {
     }
 
     /// Create binary diff between two byte arrays
-    fn create_binary_diff(&self, old_data: &[u8], new_data: &[u8]) -> Result<Vec<u8>> {
+    fn create_binary_diff(&self, _old_data: &[u8], new_data: &[u8]) -> Result<Vec<u8>> {
         // Simple implementation using basic compression
         // In a production system, you might want to use more sophisticated algorithms like bsdiff
 
@@ -339,7 +343,10 @@ impl DeltaPatchApplier {
 
         // Verify final hash if enabled
         if self.verify_checksums {
-            let current_hash = calculate_hash(&bincode::serde::encode_to_vec(&package.manifest, bincode::config::standard()).unwrap());
+            let current_hash = calculate_hash(
+                &bincode::serde::encode_to_vec(&package.manifest, bincode::config::standard())
+                    .unwrap(),
+            );
             if current_hash != patch.target_hash {
                 return Err(TorshError::InvalidArgument(
                     "Package hash doesn't match expected target hash after applying patch"
@@ -461,8 +468,9 @@ impl DeltaPatchApplier {
     pub fn load_patch<P: AsRef<Path>>(path: P) -> Result<DeltaPatch> {
         let data = fs::read(path).map_err(|e| TorshError::IoError(e.to_string()))?;
 
-        let (patch, _): (DeltaPatch, usize) = bincode::serde::decode_from_slice(&data, bincode::config::standard())
-            .map_err(|e| TorshError::SerializationError(e.to_string()))?;
+        let (patch, _): (DeltaPatch, usize) =
+            bincode::serde::decode_from_slice(&data, bincode::config::standard())
+                .map_err(|e| TorshError::SerializationError(e.to_string()))?;
 
         Ok(patch)
     }
@@ -492,7 +500,9 @@ impl DeltaPackageExt for Package {
     }
 
     fn get_package_hash(&self) -> String {
-    calculate_hash(&bincode::serde::encode_to_vec(&self.manifest, bincode::config::standard()).unwrap())
+        calculate_hash(
+            &bincode::serde::encode_to_vec(&self.manifest, bincode::config::standard()).unwrap(),
+        )
     }
 }
 
@@ -525,7 +535,7 @@ mod tests {
 
     #[test]
     fn test_simple_delta_creation() {
-        let mut old_package = Package::new("test".to_string(), "1.0.0".to_string());
+        let old_package = Package::new("test".to_string(), "1.0.0".to_string());
         let mut new_package = Package::new("test".to_string(), "1.1.0".to_string());
 
         // Add a resource to the new package
@@ -565,8 +575,10 @@ mod tests {
         };
 
         // Test serialization and deserialization
-    let serialized = bincode::serde::encode_to_vec(&patch, bincode::config::standard()).unwrap();
-    let (deserialized, _): (DeltaPatch, usize) = bincode::serde::decode_from_slice(&serialized, bincode::config::standard()).unwrap();
+        let serialized =
+            bincode::serde::encode_to_vec(&patch, bincode::config::standard()).unwrap();
+        let (deserialized, _): (DeltaPatch, usize) =
+            bincode::serde::decode_from_slice(&serialized, bincode::config::standard()).unwrap();
 
         assert_eq!(patch.from_version, deserialized.from_version);
         assert_eq!(patch.to_version, deserialized.to_version);

@@ -3,6 +3,8 @@
 //! This module provides extensive integration testing to ensure all optimization
 //! systems work together seamlessly and deliver the promised performance improvements.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -14,7 +16,7 @@ use crate::cross_platform_validator::{
 use crate::hardware_accelerators::{
     AccelerationWorkload, ComplexityLevel, HardwareAcceleratorSystem, WorkloadType,
 };
-use crate::ultimate_integration_optimizer::{OptimizationComplexity, UltimateIntegrationOptimizer};
+use crate::ultimate_integration_optimizer::UltimateIntegrationOptimizer;
 use crate::ultra_performance_profiler::{UltraPerformanceProfiler, UltraProfilingConfig};
 
 /// Comprehensive integration test suite
@@ -1254,7 +1256,7 @@ impl Default for PerformanceBaseline {
             .collect(),
             baseline_timestamp: Instant::now(),
             hardware_config: "Default test configuration".to_string(),
-            framework_version: "torsh-0.1.0-alpha.1".to_string(),
+            framework_version: "torsh-0.1.0-alpha.2".to_string(),
         }
     }
 }

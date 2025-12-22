@@ -4,7 +4,7 @@
 //! including ReLU, Sigmoid, Tanh, and GELU.
 
 #[cfg(feature = "simd")]
-use wide::{f32x8, CmpLt};
+use wide::f32x8;
 
 /// SIMD-accelerated ReLU activation for f32 arrays
 #[cfg(feature = "simd")]

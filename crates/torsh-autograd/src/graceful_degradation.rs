@@ -4,13 +4,14 @@
 //! that may not be supported in all configurations, backends, or hardware environments.
 //! It ensures the system remains functional even when specific features are unavailable.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::error_handling::{AutogradError, AutogradResult};
-use scirs2_core::error::CoreError;
 use scirs2_core::ndarray::{Array, ArrayView, IxDyn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Mutex, RwLock};
 
 /// Supported operation categories for degradation handling
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -417,7 +418,7 @@ impl GracefulDegradationManager {
 
             Some(DegradationStrategy::UserDefinedFallback {
                 fallback_id,
-                metadata,
+                metadata: _metadata,
             }) => {
                 let functions = self.fallback_functions.read().unwrap();
                 if let Some(fallback_fn) = functions.get(fallback_id) {
@@ -790,18 +791,15 @@ impl FallbackFunction for MatrixMultiplyFallback {
 }
 
 /// Global graceful degradation manager instance
-static mut GLOBAL_DEGRADATION_MANAGER: Option<GracefulDegradationManager> = None;
-static DEGRADATION_INIT: std::sync::Once = std::sync::Once::new();
+static GLOBAL_DEGRADATION_MANAGER: std::sync::OnceLock<GracefulDegradationManager> =
+    std::sync::OnceLock::new();
 
 pub fn get_global_degradation_manager() -> &'static GracefulDegradationManager {
-    unsafe {
-        DEGRADATION_INIT.call_once(|| {
-            let mut manager = GracefulDegradationManager::new();
-            manager.initialize_default_strategies();
-            GLOBAL_DEGRADATION_MANAGER = Some(manager);
-        });
-        GLOBAL_DEGRADATION_MANAGER.as_ref().unwrap()
-    }
+    GLOBAL_DEGRADATION_MANAGER.get_or_init(|| {
+        let manager = GracefulDegradationManager::new();
+        manager.initialize_default_strategies();
+        manager
+    })
 }
 
 /// Convenience macro for executing operations with graceful degradation

@@ -51,6 +51,8 @@
 //! }
 //! ```
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::profiler::analysis::{BottleneckThresholds, PerformanceAnalyzer};
 use crate::profiler::types::{AutogradProfile, BottleneckType, PerformanceBottleneck};
 use serde::{Deserialize, Serialize};
@@ -268,7 +270,7 @@ impl AutoTuningController {
     /// Generate compute-related tuning recommendations
     fn generate_compute_recommendations(
         &self,
-        bottleneck: &PerformanceBottleneck,
+        _bottleneck: &PerformanceBottleneck,
         _profile: &AutogradProfile,
     ) -> Vec<TuningRecommendation> {
         let mut recommendations = Vec::new();
@@ -305,7 +307,7 @@ impl AutoTuningController {
     /// Generate gradient-related tuning recommendations
     fn generate_gradient_recommendations(
         &self,
-        bottleneck: &PerformanceBottleneck,
+        _bottleneck: &PerformanceBottleneck,
         _profile: &AutogradProfile,
     ) -> Vec<TuningRecommendation> {
         let mut recommendations = Vec::new();

@@ -4,10 +4,11 @@
 //! batch normalization, activation, and pooling operations. All operations
 //! are implemented with proper error handling and feature-conditional compilation.
 
+use cust::prelude::DevicePointer;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use crate::error::{CudaError, CudaResult};
+use crate::cuda::error::{CudaError, CudaResult};
 use torsh_core::DType;
 
 use super::descriptors::{
@@ -135,10 +136,10 @@ impl CudnnOps {
     /// ```
     pub fn conv2d_forward(
         &self,
-        input: cust::DevicePointer<f32>,
-        weight: cust::DevicePointer<f32>,
-        bias: Option<cust::DevicePointer<f32>>,
-        output: cust::DevicePointer<f32>,
+        input: DevicePointer<f32>,
+        weight: DevicePointer<f32>,
+        bias: Option<DevicePointer<f32>>,
+        output: DevicePointer<f32>,
         input_shape: (i32, i32, i32, i32),  // (N, C, H, W)
         weight_shape: (i32, i32, i32, i32), // (K, C, H, W)
         output_shape: (i32, i32, i32, i32), // (N, K, H, W)
@@ -314,12 +315,12 @@ impl CudnnOps {
     /// ```
     pub fn batchnorm_forward(
         &self,
-        input: cust::DevicePointer<f32>,
-        output: cust::DevicePointer<f32>,
-        scale: cust::DevicePointer<f32>,
-        bias: cust::DevicePointer<f32>,
-        running_mean: cust::DevicePointer<f32>,
-        running_var: cust::DevicePointer<f32>,
+        input: DevicePointer<f32>,
+        output: DevicePointer<f32>,
+        scale: DevicePointer<f32>,
+        bias: DevicePointer<f32>,
+        running_mean: DevicePointer<f32>,
+        running_var: DevicePointer<f32>,
         epsilon: f64,
         exponential_average_factor: f64,
         shape: (i32, i32, i32, i32),
@@ -451,8 +452,8 @@ impl CudnnOps {
     pub fn activation_forward(
         &self,
         mode: ActivationMode,
-        input: cust::DevicePointer<f32>,
-        output: cust::DevicePointer<f32>,
+        input: DevicePointer<f32>,
+        output: DevicePointer<f32>,
         shape: (i32, i32, i32, i32),
     ) -> CudaResult<()> {
         #[cfg(feature = "cudnn")]
@@ -548,8 +549,8 @@ impl CudnnOps {
     pub fn pooling2d_forward(
         &self,
         mode: PoolingMode,
-        input: cust::DevicePointer<f32>,
-        output: cust::DevicePointer<f32>,
+        input: DevicePointer<f32>,
+        output: DevicePointer<f32>,
         input_shape: (i32, i32, i32, i32),  // (N, C, H, W)
         output_shape: (i32, i32, i32, i32), // (N, C, H_out, W_out)
         window_size: (i32, i32),
@@ -680,15 +681,15 @@ impl CudnnOps {
     /// ```
     pub fn layer_norm_forward(
         &self,
-        x: cust::DevicePointer<f32>,
-        scale: cust::DevicePointer<f32>,
-        bias: cust::DevicePointer<f32>,
+        x: DevicePointer<f32>,
+        scale: DevicePointer<f32>,
+        bias: DevicePointer<f32>,
         epsilon: f64,
         x_desc: &TensorDescriptor,
         scale_bias_desc: &TensorDescriptor,
-        y: cust::DevicePointer<f32>,
-        mean: cust::DevicePointer<f32>,
-        inv_variance: cust::DevicePointer<f32>,
+        y: DevicePointer<f32>,
+        mean: DevicePointer<f32>,
+        inv_variance: DevicePointer<f32>,
     ) -> CudaResult<()> {
         #[cfg(feature = "cudnn")]
         {
@@ -802,10 +803,10 @@ impl CudnnOps {
     /// ```
     pub fn grouped_conv2d_forward(
         &self,
-        input: cust::DevicePointer<f32>,
-        filter: cust::DevicePointer<f32>,
-        bias: Option<cust::DevicePointer<f32>>,
-        output: cust::DevicePointer<f32>,
+        input: DevicePointer<f32>,
+        filter: DevicePointer<f32>,
+        bias: Option<DevicePointer<f32>>,
+        output: DevicePointer<f32>,
         input_desc: &TensorDescriptor,
         filter_desc: &FilterDescriptor,
         bias_desc: Option<&TensorDescriptor>,
@@ -1144,23 +1145,23 @@ impl CudnnOps {
         &self,
         rnn_desc: &RNNDescriptor,
         forward_mode: RNNForwardMode,
-        dev_seq_lengths: Option<cust::DevicePointer<i32>>,
+        dev_seq_lengths: Option<DevicePointer<i32>>,
         x_desc: &RNNDataDescriptor,
-        x: cust::DevicePointer<f32>,
+        x: DevicePointer<f32>,
         y_desc: &RNNDataDescriptor,
-        y: cust::DevicePointer<f32>,
+        y: DevicePointer<f32>,
         h_desc: &TensorDescriptor,
-        hx: Option<cust::DevicePointer<f32>>,
-        hy: Option<cust::DevicePointer<f32>>,
+        hx: Option<DevicePointer<f32>>,
+        hy: Option<DevicePointer<f32>>,
         c_desc: &TensorDescriptor,
-        cx: Option<cust::DevicePointer<f32>>,
-        cy: Option<cust::DevicePointer<f32>>,
+        cx: Option<DevicePointer<f32>>,
+        cy: Option<DevicePointer<f32>>,
         weight_space_size: usize,
-        weight_space: cust::DevicePointer<u8>,
+        weight_space: DevicePointer<u8>,
         work_space_size: usize,
-        work_space: cust::DevicePointer<u8>,
+        work_space: DevicePointer<u8>,
         reserve_space_size: usize,
-        reserve_space: Option<cust::DevicePointer<u8>>,
+        reserve_space: Option<DevicePointer<u8>>,
     ) -> CudaResult<()> {
         #[cfg(feature = "cudnn")]
         {

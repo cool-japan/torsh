@@ -3,8 +3,6 @@
 //! This library provides the core functionality for the ToRSh command-line interface,
 //! including configuration management, command implementations, and utilities.
 
-#![cfg_attr(docsrs, feature(doc_cfg))]
-
 pub mod commands;
 pub mod config;
 pub mod utils;

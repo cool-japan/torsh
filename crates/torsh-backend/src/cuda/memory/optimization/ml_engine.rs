@@ -4,8 +4,7 @@
 //! multiple model types, online learning, reinforcement learning, and feature
 //! extraction for optimizing CUDA memory allocation and management strategies.
 
-use scirs2_core::ndarray::{array, Array1, Array2};
-use scirs2_core::random::Random;
+use scirs2_core::ndarray::{Array1, Array2};
 use std::collections::{HashMap, VecDeque};
 use std::time::{Duration, Instant};
 

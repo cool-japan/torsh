@@ -3,6 +3,8 @@
 //! This module provides various geometric transformations commonly used in computer vision
 //! and data augmentation pipelines, including resizing, cropping, flipping, rotation, and padding.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{Result, VisionError};
 use scirs2_core::legacy::rng;
 use scirs2_core::random::Random;
@@ -143,7 +145,7 @@ fn resize_bilinear(
     target_width: usize,
     target_height: usize,
 ) -> Result<Tensor<f32>> {
-    let mut output = zeros(&[channels, target_height, target_width]).unwrap();
+    let output = zeros(&[channels, target_height, target_width]).unwrap();
 
     let scale_x = width as f32 / target_width as f32;
     let scale_y = height as f32 / target_height as f32;
@@ -185,7 +187,7 @@ fn resize_nearest(
     target_width: usize,
     target_height: usize,
 ) -> Result<Tensor<f32>> {
-    let mut output = zeros(&[channels, target_height, target_width]).unwrap();
+    let output = zeros(&[channels, target_height, target_width]).unwrap();
 
     let scale_x = width as f32 / target_width as f32;
     let scale_y = height as f32 / target_height as f32;
@@ -224,7 +226,7 @@ fn resize_bicubic(
 
 /// Center crop operation
 pub fn center_crop(image: &Tensor<f32>, size: (usize, usize)) -> Result<Tensor<f32>> {
-    let (channels, height, width) = utils::validate_image_tensor_3d(image)?;
+    let (_channels, height, width) = utils::validate_image_tensor_3d(image)?;
     let (target_width, target_height) = size;
 
     utils::validate_crop_size(width, height, target_width, target_height)?;
@@ -237,7 +239,7 @@ pub fn center_crop(image: &Tensor<f32>, size: (usize, usize)) -> Result<Tensor<f
 
 /// Random crop operation
 pub fn random_crop(image: &Tensor<f32>, size: (usize, usize)) -> Result<Tensor<f32>> {
-    let (channels, height, width) = utils::validate_image_tensor_3d(image)?;
+    let (_channels, height, width) = utils::validate_image_tensor_3d(image)?;
     let (target_width, target_height) = size;
 
     utils::validate_crop_size(width, height, target_width, target_height)?;
@@ -279,7 +281,7 @@ pub fn crop_region(
 pub fn horizontal_flip(image: &Tensor<f32>) -> Result<Tensor<f32>> {
     let (channels, height, width) = utils::validate_image_tensor_3d(image)?;
 
-    let mut output = zeros(&[channels, height, width]).unwrap();
+    let output = zeros(&[channels, height, width]).unwrap();
 
     for c in 0..channels {
         for y in 0..height {
@@ -298,7 +300,7 @@ pub fn horizontal_flip(image: &Tensor<f32>) -> Result<Tensor<f32>> {
 pub fn vertical_flip(image: &Tensor<f32>) -> Result<Tensor<f32>> {
     let (channels, height, width) = utils::validate_image_tensor_3d(image)?;
 
-    let mut output = zeros(&[channels, height, width]).unwrap();
+    let output = zeros(&[channels, height, width]).unwrap();
 
     for c in 0..channels {
         for y in 0..height {
@@ -317,7 +319,7 @@ pub fn vertical_flip(image: &Tensor<f32>) -> Result<Tensor<f32>> {
 pub fn rotate(image: &Tensor<f32>, angle: f32) -> Result<Tensor<f32>> {
     let (channels, height, width) = utils::validate_image_tensor_3d(image)?;
 
-    let mut output = zeros(&[channels, height, width]).unwrap();
+    let output = zeros(&[channels, height, width]).unwrap();
 
     let center_x = width as f32 / 2.0;
     let center_y = height as f32 / 2.0;

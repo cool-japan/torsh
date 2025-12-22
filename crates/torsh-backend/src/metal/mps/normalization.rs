@@ -2,15 +2,15 @@
 
 use metal::foreign_types::ForeignType;
 use metal::{CommandBuffer, Device};
-use objc2::runtime::Object;
-use objc2::{msg_send, sel, ClassType};
+use objc2::msg_send;
+use objc2::runtime::AnyObject;
 
 use crate::metal::{buffer::MetalBuffer, error::Result};
 
 /// Batch normalization using MPS
 #[allow(dead_code)]
 pub struct MPSBatchNorm {
-    batch_norm: *mut Object,
+    batch_norm: *mut AnyObject,
 }
 
 impl MPSBatchNorm {
@@ -23,13 +23,13 @@ impl MPSBatchNorm {
     ) -> Result<Self> {
         unsafe {
             let class = objc2::class!(MPSCNNBatchNormalization);
-            let batch_norm: *mut Object = msg_send![class, alloc];
+            let batch_norm: *mut AnyObject = msg_send![class, alloc];
 
             // Note: This is a simplified version. Real implementation would need
             // to properly initialize with gamma, beta, moving mean, and moving variance
-            let batch_norm: *mut Object = msg_send![batch_norm,
-                initWithDevice: device.as_ptr() as *mut Object
-                dataSource: std::ptr::null::<Object>() // Would need proper data source
+            let batch_norm: *mut AnyObject = msg_send![batch_norm,
+                initWithDevice: device.as_ptr() as *mut AnyObject,
+                dataSource: std::ptr::null::<AnyObject>() // Would need proper data source
             ];
 
             Ok(Self { batch_norm })

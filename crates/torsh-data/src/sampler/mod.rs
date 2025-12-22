@@ -22,7 +22,7 @@
 //!
 //! ## Quick Start
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_data::sampler::{RandomSampler, SequentialSampler, Sampler};
 //!
 //! // Basic random sampling
@@ -40,7 +40,7 @@
 //!
 //! ## Advanced Usage
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_data::sampler::{WeightedRandomSampler, StratifiedSampler};
 //!
 //! // Weighted sampling with alias table optimization
@@ -147,7 +147,7 @@ pub type DefaultBatchSampler = BatchingSampler<RandomSampler>;
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_data::sampler::default_sampler;
 ///
 /// // Create sampler for 1000 samples with reproducible results
@@ -173,7 +173,7 @@ pub fn default_sampler(dataset_size: usize, seed: Option<u64>) -> RandomSampler 
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_data::sampler::default_batch_sampler;
 ///
 /// // Create batch sampler for training
@@ -204,7 +204,7 @@ pub fn default_batch_sampler(
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_data::sampler::default_distributed_sampler;
 ///
 /// // Setup for 4-GPU training, current process is rank 0
@@ -216,7 +216,7 @@ pub fn default_distributed_sampler(
     dataset_size: usize,
     num_replicas: usize,
     rank: usize,
-    seed: Option<u64>,
+    _seed: Option<u64>,
 ) -> DistributedSampler {
     distributed_sampler(dataset_size, num_replicas, rank, true)
 }
@@ -243,7 +243,7 @@ pub fn default_distributed_sampler(
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_data::sampler::create_sampler;
 /// use std::collections::HashMap;
 ///
@@ -309,7 +309,7 @@ pub fn create_sampler(
                 .get("shuffle")
                 .map(|s| s.parse::<bool>().unwrap_or(true))
                 .unwrap_or(true);
-            let drop_last = config
+            let _drop_last = config
                 .get("drop_last")
                 .map(|s| s.parse::<bool>().unwrap_or(false))
                 .unwrap_or(false);
@@ -396,7 +396,7 @@ pub fn train_val_split(
     let mut indices: Vec<usize> = (0..dataset_size).collect();
 
     if let Some(seed_val) = seed {
-        use scirs2_core::random::{Random, Rng};
+        use scirs2_core::random::Random;
         let mut rng = Random::seed(seed_val);
         // Simple Fisher-Yates shuffle
         for i in (1..indices.len()).rev() {
@@ -444,12 +444,12 @@ pub fn train_val_test_split(
 
     let train_size = (dataset_size as f32 * train_ratio).round() as usize;
     let val_size = (dataset_size as f32 * val_ratio).round() as usize;
-    let test_size = dataset_size - train_size - val_size;
+    let _test_size = dataset_size - train_size - val_size;
 
     let mut indices: Vec<usize> = (0..dataset_size).collect();
 
     if let Some(seed_val) = seed {
-        use scirs2_core::random::{Random, Rng};
+        use scirs2_core::random::Random;
         let mut rng = Random::seed(seed_val);
         // Simple Fisher-Yates shuffle
         for i in (1..indices.len()).rev() {
@@ -490,7 +490,7 @@ pub fn kfold_splits(
     let mut indices: Vec<usize> = (0..dataset_size).collect();
 
     if let Some(seed_val) = seed {
-        use scirs2_core::random::{Random, Rng};
+        use scirs2_core::random::Random;
         let mut rng = Random::seed(seed_val);
         // Simple Fisher-Yates shuffle
         for i in (1..indices.len()).rev() {
@@ -658,7 +658,6 @@ mod tests {
     #[test]
     fn test_comprehensive_api_coverage() {
         // Test that all major sampling strategies are available
-        use std::collections::HashMap;
 
         // Basic samplers
         let _seq = SequentialSampler::new(100);

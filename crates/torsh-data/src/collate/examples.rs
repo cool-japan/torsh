@@ -1,6 +1,6 @@
 //! Custom collation examples
 
-use super::{optimized::stack_tensors, Collate};
+use super::optimized::stack_tensors;
 use torsh_core::{
     dtype::TensorElement,
     error::{Result, TorshError},

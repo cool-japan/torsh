@@ -485,30 +485,32 @@ impl<T: FloatElement + Default> Tensor<T> {
         ones.sub(&erf_result).unwrap()
     }
 
-    /// Gamma function
+    /// Gamma function using Lanczos approximation
     pub fn gamma(&self) -> Self {
         let mut result = self.clone();
         for i in 0..result.numel() {
             if let Ok(val) = result.get_item_flat(i) {
                 if let Some(val_f64) = <T as TensorElement>::to_f64(&val) {
-                    // TODO: Implement gamma function (currently unstable in std)
-                    let gamma_val = val; // Placeholder
-                    let _ = result.set_item_flat(i, gamma_val);
+                    let gamma_val_f64 = lanczos_gamma(val_f64);
+                    if let Some(gamma_val) = <T as TensorElement>::from_f64(gamma_val_f64) {
+                        let _ = result.set_item_flat(i, gamma_val);
+                    }
                 }
             }
         }
         result
     }
 
-    /// Natural logarithm of gamma function
+    /// Natural logarithm of gamma function using Lanczos approximation
     pub fn lgamma(&self) -> Self {
         let mut result = self.clone();
         for i in 0..result.numel() {
             if let Ok(val) = result.get_item_flat(i) {
                 if let Some(val_f64) = <T as TensorElement>::to_f64(&val) {
-                    // TODO: Implement ln_gamma function (currently unstable in std)
-                    let lgamma_val = val; // Placeholder
-                    let _ = result.set_item_flat(i, lgamma_val);
+                    let lgamma_val_f64 = lanczos_lgamma(val_f64);
+                    if let Some(lgamma_val) = <T as TensorElement>::from_f64(lgamma_val_f64) {
+                        let _ = result.set_item_flat(i, lgamma_val);
+                    }
                 }
             }
         }
@@ -636,5 +638,73 @@ impl<T: FloatElement + Default> Tensor<T> {
         }
 
         Ok(result)
+    }
+}
+
+// =============================================================================
+// Helper functions for special mathematical functions
+// =============================================================================
+
+/// Lanczos approximation for the gamma function
+/// Uses g=7 with 9 coefficients for good accuracy
+fn lanczos_gamma(z: f64) -> f64 {
+    // Lanczos coefficients for g=7
+    const LANCZOS_G: f64 = 7.0;
+    const LANCZOS_COEFF: [f64; 9] = [
+        0.99999999999980993,
+        676.5203681218851,
+        -1259.1392167224028,
+        771.32342877765313,
+        -176.61502916214059,
+        12.507343278686905,
+        -0.13857109526572012,
+        9.9843695780195716e-6,
+        1.5056327351493116e-7,
+    ];
+
+    if z < 0.5 {
+        // Use reflection formula: Γ(z)Γ(1-z) = π/sin(πz)
+        std::f64::consts::PI / ((std::f64::consts::PI * z).sin() * lanczos_gamma(1.0 - z))
+    } else {
+        let z = z - 1.0;
+        let mut x = LANCZOS_COEFF[0];
+        for i in 1..9 {
+            x += LANCZOS_COEFF[i] / (z + i as f64);
+        }
+        let t = z + LANCZOS_G + 0.5;
+        let sqrt_2pi = (2.0 * std::f64::consts::PI).sqrt();
+        sqrt_2pi * t.powf(z + 0.5) * (-t).exp() * x
+    }
+}
+
+/// Natural logarithm of gamma function using Lanczos approximation
+fn lanczos_lgamma(z: f64) -> f64 {
+    // Lanczos coefficients for g=7
+    const LANCZOS_G: f64 = 7.0;
+    const LANCZOS_COEFF: [f64; 9] = [
+        0.99999999999980993,
+        676.5203681218851,
+        -1259.1392167224028,
+        771.32342877765313,
+        -176.61502916214059,
+        12.507343278686905,
+        -0.13857109526572012,
+        9.9843695780195716e-6,
+        1.5056327351493116e-7,
+    ];
+
+    if z < 0.5 {
+        // Use reflection formula for log: ln(Γ(z)) = ln(π/sin(πz)) - ln(Γ(1-z))
+        let sin_pi_z = (std::f64::consts::PI * z).sin();
+        (std::f64::consts::PI / sin_pi_z).ln() - lanczos_lgamma(1.0 - z)
+    } else {
+        let z = z - 1.0;
+        let mut x = LANCZOS_COEFF[0];
+        for i in 1..9 {
+            x += LANCZOS_COEFF[i] / (z + i as f64);
+        }
+        let t = z + LANCZOS_G + 0.5;
+        let log_sqrt_2pi = 0.5 * (2.0 * std::f64::consts::PI).ln();
+        log_sqrt_2pi + (z + 0.5) * t.ln() - t + x.ln()
     }
 }

@@ -49,6 +49,8 @@
 //! - Client reputation management
 //! - Adaptive detection thresholds
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use std::collections::{HashMap, HashSet};
 
 use crate::federated_learning::aggregation::FederatedError;
@@ -451,7 +453,7 @@ impl ByzantineDetector {
     }
 
     /// Adapts detection threshold based on recent behavior
-    fn adapt_threshold(&mut self, client_id: &str, current_score: f64) -> f64 {
+    fn adapt_threshold(&mut self, client_id: &str, _current_score: f64) -> f64 {
         if !self.adaptive_threshold_config.enabled {
             return self.detection_threshold;
         }

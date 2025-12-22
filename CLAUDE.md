@@ -126,229 +126,460 @@ The backend trait abstraction allows swapping between different compute backends
 - CPU backend uses Rayon for parallelism and SIMD for vectorization
 - CUDA backend (in development) integrates with scirs2's GPU support
 
-## Critical Dependencies and SciRS2 Policy
+## 🚨 Critical: SciRS2 POLICY Compliance
 
-ToRSh **must** use SciRS2 as its foundation (see SCIRS2_INTEGRATION_POLICY.md):
-- `scirs2-core` - Core scientific primitives (required) - **replaces direct rand and ndarray usage**
-- `scirs2-optimize` - Base optimization interfaces (required)
-- `optirs` - Advanced ML optimization algorithms
-- Additional SciRS2 crates added based on compilation evidence
+ToRSh **must** follow the [SciRS2 POLICY](https://github.com/cool-japan/scirs/blob/master/SCIRS2_POLICY.md) strictly (see [SCIRS2_INTEGRATION_POLICY.md](SCIRS2_INTEGRATION_POLICY.md)):
 
-### FULL USE OF SciRS2-Core
+### **Mandatory Layered Architecture**
+- **ONLY `scirs2-core` may use external dependencies directly** (rand, ndarray, num-traits, etc.)
+- **ALL ToRSh crates MUST use `scirs2-core` abstractions** instead of direct external imports
+- **NO direct imports** of `rand`, `rand_distr`, `ndarray`, `num_traits`, `num_complex` in ToRSh code
+- This ensures: Consistent APIs, centralized version control, type safety, and maintainability
 
-ToRSh must make **FULL USE** of scirs2-core's extensive capabilities:
+### UNIFIED ACCESS Through scirs2-core (v0.1.0-RC.1+)
 
-#### Core Array Operations (replaces ndarray)
+ToRSh must use **UNIFIED scirs2-core abstractions** for all external functionality:
+
+#### 1. Array Operations - UNIFIED ndarray Module (v0.1.0-RC.1+)
+
 ```rust
-// UNIFIED ACCESS: Complete ndarray functionality through scirs2-core
-use scirs2_core::ndarray::*;  // Complete ndarray API including ALL macros
-
-// Or selective imports for specific needs
+// ✅ PREFERRED: Complete unified ndarray access
+use scirs2_core::ndarray::*;  // ALL ndarray functionality including macros
+// OR selective:
 use scirs2_core::ndarray::{
+    // Core types
     Array, Array1, Array2, Array3, Array4, ArrayD,
     ArrayView, ArrayView1, ArrayView2, ArrayViewMut,
+
+    // Essential macros - NOW AVAILABLE!
+    array, arr1, arr2, s, azip,  // ALL macros work!
+
+    // Common operations
     Axis, Ix1, Ix2, IxDyn,
-    array, arr1, arr2, s,     // ALL macros now available!
-    concatenate, stack, azip  // Advanced operations
+    concatenate, stack,
 };
 
 // Prelude for common usage
 use scirs2_core::ndarray::prelude::*;
 
-// Legacy compatibility (still works but discouraged)
-use scirs2_autograd::ndarray::{Array, array};  // Autograd-specific usage
-use scirs2_core::ndarray_ext::{stats, matrix}; // Extended utilities
+// ⚠️ LEGACY (Still works but discouraged)
+use scirs2_autograd::ndarray::{Array, array};  // Fragmented
+use scirs2_core::ndarray_ext::{stats, matrix};  // Fragmented
+
+// ❌ WRONG: Direct ndarray import
+use ndarray::{Array, array, s};  // POLICY VIOLATION
 ```
 
-#### Random Number Generation (replaces rand + rand_distr)
-```rust
-// UNIFIED ACCESS: Complete random functionality including all distributions
-use scirs2_core::random::prelude::*;  // Common distributions & RNG
+#### 2. Random Number Generation - UNIFIED random Module (v0.1.0-RC.1+)
 
-// All rand_distr distributions now available directly
+```rust
+// ✅ PREFERRED: Complete random functionality
+use scirs2_core::random::*;  // ALL rand + rand_distr functionality
+// OR selective:
 use scirs2_core::random::{
     // Basic RNG
-    Random, thread_rng, rng,
+    thread_rng, seeded_rng, CoreRandom,
 
-    // Continuous distributions
+    // Common distributions (directly available)
+    Normal, Uniform, Exp, Gamma,
+    RandBeta,  // Beta distribution (renamed to avoid conflict)
+
+    // Advanced distributions
     Cauchy, ChiSquared, FisherF, LogNormal, StudentT, Weibull,
-    RandBeta, InverseGaussian, Pareto, Pert, Triangular,
-
-    // Discrete distributions
-    Binomial, Poisson, Geometric, Hypergeometric, Zipf, Zeta,
-
-    // Multivariate distributions
-    RandDirichlet, UnitBall, UnitCircle, UnitDisc, UnitSphere,
+    Binomial, Poisson, Geometric,
 };
 
-// Enhanced unified interface with array sampling
-use scirs2_core::random::distributions_unified::{
-    UnifiedNormal, UnifiedBeta, UnifiedStudentT, UnifiedCauchy,
+// Prelude for common distributions
+use scirs2_core::random::prelude::*;
+
+// Advanced features (when available)
+use scirs2_core::random::{
+    qmc::{SobolGenerator, HaltonGenerator, LatinHypercubeSampler},
+    variance_reduction::{ImportanceSampling, AntitheticSampling},
+    secure::SecureRandom,
 };
 
-// Advanced features
-use scirs2_core::random::{QuasiMonteCarloSequence, SecureRandom};
-use scirs2_core::random::{ImportanceSampling, VarianceReduction};
+// ❌ WRONG: Direct rand imports
+use rand::{thread_rng, Rng};           // POLICY VIOLATION
+use rand_distr::{Normal, Beta};        // POLICY VIOLATION
 ```
 
-#### Performance Optimization Features
+#### 3. Numerical Traits - UNIFIED numeric Module
+
 ```rust
-// SIMD acceleration
-use scirs2_core::simd::{SimdArray, SimdOps, auto_vectorize};
-use scirs2_core::simd_ops::{simd_dot_product, simd_matrix_multiply};
+// ✅ REQUIRED: Use scirs2-core numeric abstractions
+use scirs2_core::numeric::*;  // num-traits, num-complex, num-integer
+// OR selective:
+use scirs2_core::numeric::{Float, Zero, One, NumCast, ToPrimitive};
 
-// Parallel processing
-use scirs2_core::parallel::{ParallelExecutor, ChunkStrategy, LoadBalancer};
-use scirs2_core::parallel_ops::{par_chunks, par_join, par_scope};
+// Complex numbers
+use scirs2_core::{Complex, Complex32, Complex64};
 
-// GPU acceleration
-use scirs2_core::gpu::{GpuContext, GpuBuffer, GpuKernel, CudaBackend, MetalBackend};
-use scirs2_core::tensor_cores::{TensorCore, MixedPrecision, AutoTuning};
+// ❌ WRONG: Direct num-traits imports
+use num_traits::{Float, Zero};        // POLICY VIOLATION
+use num_complex::Complex;              // POLICY VIOLATION
 ```
 
-#### Memory Management & Efficiency
-```rust
-// Memory-efficient operations
-use scirs2_core::memory_efficient::{MemoryMappedArray, LazyArray, ChunkedArray};
-use scirs2_core::memory_efficient::{ZeroCopyOps, AdaptiveChunking, DiskBackedArray};
+#### 4. Performance Optimization - MANDATORY scirs2-core Usage
 
-// Memory management
-use scirs2_core::memory::{BufferPool, GlobalBufferPool, ChunkProcessor};
-use scirs2_core::memory::{LeakDetector, MemoryMetricsCollector};
+```rust
+// ✅ REQUIRED: SIMD acceleration through scirs2-core
+use scirs2_core::simd_ops::SimdUnifiedOps;  // Unified SIMD operations
+let result = f32::simd_add(&a.view(), &b.view());
+let dot = f64::simd_dot(&x.view(), &y.view());
+
+// ❌ FORBIDDEN: Direct SIMD in ToRSh modules
+// use wide::f32x8;  // POLICY VIOLATION
+
+// ✅ REQUIRED: Parallel processing through scirs2-core
+use scirs2_core::parallel_ops::*;
+let results: Vec<_> = (0..1000).into_par_iter().map(|x| x * x).collect();
+
+// ❌ FORBIDDEN: Direct Rayon in ToRSh modules
+// use rayon::prelude::*;  // POLICY VIOLATION
+
+// ✅ REQUIRED: GPU operations through scirs2-core
+#[cfg(feature = "gpu")]
+use scirs2_core::gpu::{GpuDevice, GpuKernel, GpuContext};
+
+// ❌ FORBIDDEN: Direct CUDA/Metal calls
+// use cuda_sys::*;  // POLICY VIOLATION
 ```
 
-#### Advanced Scientific Computing
-```rust
-// Complex numbers and numeric conversions
-use scirs2_core::types::{ComplexOps, ComplexExt, NumericConversion};
+#### 5. Memory Management & Utilities
 
-// Scientific constants and units
-use scirs2_core::constants::{math, physical, prefixes};
-use scirs2_core::units::{UnitSystem, UnitRegistry, Dimension, convert};
+```rust
+// Memory-efficient operations (when available)
+#[cfg(feature = "memory_efficient")]
+use scirs2_core::memory_efficient::{
+    MemoryMappedArray, LazyArray, ChunkedArray,
+    chunk_wise_op, create_mmap,
+};
+
+// Memory management (when available)
+#[cfg(feature = "memory_management")]
+use scirs2_core::memory::{
+    BufferPool, GlobalBufferPool, ChunkProcessor,
+    global_buffer_pool,
+};
 
 // Validation and error handling
-use scirs2_core::validation::{check_finite, check_in_bounds, ValidationSchema};
-use scirs2_core::error::{CoreError, Result};
+use scirs2_core::validation::{check_positive, check_finite, checkarray_finite};
+use scirs2_core::error::{CoreError, CoreResult};
+
+// Scientific constants
+use scirs2_core::constants::{math, physical};
 ```
 
-#### Production-Ready Features
+#### 6. Production Features (when available)
+
 ```rust
 // Performance profiling
-use scirs2_core::profiling::{Profiler, profiling_memory_tracker};
+#[cfg(feature = "profiling")]
+use scirs2_core::profiling::Profiler;
+
+// Benchmarking
+#[cfg(feature = "benchmarking")]
 use scirs2_core::benchmarking::{BenchmarkSuite, BenchmarkRunner};
 
 // Metrics and monitoring
-use scirs2_core::metrics::{MetricRegistry, Counter, Gauge, Histogram, Timer};
-use scirs2_core::observability::{audit, tracing};
+use scirs2_core::metrics::{
+    global_metrics_registry, Counter, Gauge, Histogram,
+};
 ```
 
-### Mandatory Usage Guidelines
+### Mandatory SciRS2 POLICY Guidelines (CRITICAL)
 
-1. **NEVER** import `ndarray` directly - use `scirs2_core::ndarray` for complete unified functionality
-2. **NEVER** import `rand` or `rand_distr` directly - use `scirs2_core::random` for all RNG and distributions
-3. **ALWAYS** use `scirs2_core::ndarray::*` or `scirs2_core::ndarray::prelude::*` for array operations (includes ALL macros)
-4. **ALWAYS** use `scirs2_core::random::prelude::*` for common distributions and RNG
-5. **ALWAYS** use scirs2-core's SIMD operations for performance-critical code (if available)
-6. **ALWAYS** use scirs2-core's GPU abstractions for hardware acceleration (if available)
-7. **ALWAYS** use scirs2-core's memory management for large data operations (if available)
-8. **ALWAYS** use scirs2-core's profiling and benchmarking tools (if available)
+#### ✅ REQUIRED Practices
 
-### ToRSh Module-Specific SciRS2 Usage
+1. **UNIFIED ndarray Access (v0.1.0-RC.1+)**
+   - Use `scirs2_core::ndarray::*` for complete functionality (ALL macros included)
+   - Single import point eliminates confusion and ensures POLICY compliance
 
-#### torsh-tensor
-- Use `scirs2_core::ndarray::*` for complete array functionality (includes all macros)
-- Use `scirs2_core::ndarray::prelude::*` for common operations
-- Use `scirs2_core::simd_ops` for vectorized operations (check availability)
-- Use `scirs2_core::parallel_ops` for parallel tensor operations (check availability)
-- Legacy: `scirs2_autograd::ndarray` still works but discouraged
+2. **UNIFIED random Access (v0.1.0-RC.1+)**
+   - Use `scirs2_core::random::*` for ALL RNG and distributions
+   - Complete rand + rand_distr functionality through one module
 
-#### torsh-autograd
-- Use `scirs2-autograd` for automatic differentiation with SafeVariableEnvironment
-- Use `scirs2_core::ndarray::*` for array operations in autograd contexts
-- Use `scirs2_core::memory_efficient` for gradient accumulation (check availability)
-- Use `scirs2_core::random::prelude::*` for stochastic operations
+3. **UNIFIED numeric Access**
+   - Use `scirs2_core::numeric::*` for all numerical traits
+   - Never import num-traits, num-complex directly
 
-#### torsh-nn
-- Use `scirs2-neural` (via scirs2 features) as foundation for all layers
-- Use `scirs2_core::jit` for optimized kernels where applicable
+4. **Performance Through scirs2-core**
+   - SIMD: `scirs2_core::simd_ops::SimdUnifiedOps` (MANDATORY)
+   - Parallel: `scirs2_core::parallel_ops::*` (MANDATORY)
+   - GPU: `scirs2_core::gpu` (MANDATORY when using GPU)
 
-#### torsh-optim
-- Use `scirs2-optimize` for base optimizer implementations
-- Use `optirs` for advanced optimization algorithms
-- Use `scirs2_core::random::prelude::*` for stochastic optimizers
-- Use `scirs2_core::metrics` for optimization metrics
+5. **Cargo.toml POLICY Compliance**
+   ```toml
+   # ✅ CORRECT: ToRSh module Cargo.toml
+   [dependencies]
+   scirs2-core = { workspace = true, features = ["ndarray", "random", "parallel"] }
+   scirs2-autograd = { workspace = true }
+   scirs2-neural = { workspace = true }
 
-#### torsh-backend
-- Use `scirs2_core::gpu` as foundation for GPU abstractions
-- Use `scirs2_core::tensor_cores` for mixed-precision training
-- Use `scirs2_core::array_protocol::GPUArray` for GPU array interface
-- Use `scirs2_core::ndarray::*` for CPU backend arrays
+   # ❌ FORBIDDEN: Direct external dependencies
+   # ndarray = { workspace = true }  # POLICY VIOLATION
+   # rand = { workspace = true }      # POLICY VIOLATION
+   # rayon = { workspace = true }     # POLICY VIOLATION
+   ```
 
-#### torsh-data
-- Use `scirs2` with datasets feature for data loading
-- Use `scirs2_core::memory_efficient` for large dataset handling
-- Use `scirs2_core::parallel::LoadBalancer` for parallel data loading
-- Use `scirs2_core::random::prelude::*` for data augmentation
+#### ❌ PROHIBITED Practices (POLICY VIOLATIONS)
 
-#### torsh-benches
-- Use `scirs2_core::benchmarking` exclusively for all benchmarks
-- Use `scirs2_core::profiling::Profiler` for detailed analysis
-- Use `scirs2_core::metrics::MetricRegistry` for tracking
-- Use `scirs2_core::ndarray::*` for test data generation
-
-### Migration Checklist - Ensure Full SciRS2 Usage
-
-When reviewing or writing ToRSh code, verify:
-
-#### ✅ Arrays and Numerical Operations
-- [ ] NO direct `use ndarray::{...}`
-- [ ] NO direct `Array`, `Array1`, `Array2` from ndarray
-- [ ] YES `use scirs2_core::ndarray::*` or `use scirs2_core::ndarray::prelude::*`
-- [ ] YES `scirs2_core::ndarray::{array, s, azip}` macros available everywhere
-- [ ] Legacy: `scirs2_autograd::ndarray` usage minimized
-
-#### ✅ Random Number Generation and Distributions
-- [ ] NO direct `use rand::{...}`
-- [ ] NO direct `use rand_distr::{...}`
-- [ ] YES `use scirs2_core::random::prelude::*` for common usage
-- [ ] YES `use scirs2_core::random::{Cauchy, StudentT, Beta, ...}` for specific distributions
-- [ ] YES `use scirs2_core::random::distributions_unified::*` for enhanced functionality
-
-#### ✅ Performance Optimization
-- [ ] YES use `scirs2_core::simd` for vectorized operations
-- [ ] YES use `scirs2_core::parallel_ops` for parallelization
-- [ ] YES use `scirs2_core::gpu` for GPU acceleration
-- [ ] YES use `scirs2_core::memory_efficient` for large datasets
-
-#### ✅ Production Features
-- [ ] YES use `scirs2_core::error::{CoreError, Result}`
-- [ ] YES use `scirs2_core::profiling` for performance analysis
-- [ ] YES use `scirs2_core::metrics` for monitoring
-- [ ] YES use `scirs2_core::benchmarking` for benchmarks
-
-### Common Anti-Patterns to Avoid
 ```rust
-// ❌ WRONG - Direct dependencies (POLICY VIOLATIONS)
-use ndarray::{Array2, array, s};
-use rand::{Rng, thread_rng};
-use rand_distr::{Normal, Beta, StudentT};
+// ❌ FORBIDDEN: Direct external imports
+use ndarray::{Array, array, s};            // POLICY VIOLATION
+use rand::{thread_rng, Rng};               // POLICY VIOLATION
+use rand_distr::{Normal, Beta, StudentT};  // POLICY VIOLATION
+use num_traits::{Float, Zero};             // POLICY VIOLATION
+use rayon::prelude::*;                     // POLICY VIOLATION
+use wide::f32x8;                           // POLICY VIOLATION
+```
 
-// ❌ WRONG - Fragmented SciRS2 usage
-use scirs2_autograd::ndarray::{Array2, array};  // Fragmented
-use scirs2_core::ndarray_ext::{ArrayView};      // Missing macros
-use ndarray::s;  // Still violating policy for s! macro
+### ToRSh Module-Specific SciRS2 POLICY Compliance
 
-// ✅ CORRECT - Unified SciRS2 usage
-use scirs2_core::ndarray::*;  // Complete unified access
-// Or selective:
+#### torsh-tensor (Array Operations Core)
+```rust
+// ✅ REQUIRED: Unified ndarray access
+use scirs2_core::ndarray::*;  // Complete functionality including macros
+
+// ✅ REQUIRED: Performance operations
+#[cfg(feature = "simd")]
+use scirs2_core::simd_ops::SimdUnifiedOps;
+
+#[cfg(feature = "parallel")]
+use scirs2_core::parallel_ops::*;
+
+// ❌ FORBIDDEN
+// use ndarray::{Array, array};  // POLICY VIOLATION
+```
+
+#### torsh-autograd (Automatic Differentiation)
+```rust
+// ✅ REQUIRED: Autograd from scirs2
+use scirs2_autograd::*;  // SafeVariableEnvironment, Variable, etc.
+
+// ✅ REQUIRED: Arrays through scirs2-core
+use scirs2_core::ndarray::*;
+
+// ✅ REQUIRED: Random for stochastic operations
+use scirs2_core::random::*;
+
+// Memory-efficient gradient accumulation (when available)
+#[cfg(feature = "memory_efficient")]
+use scirs2_core::memory_efficient::chunk_wise_op;
+```
+
+#### torsh-nn (Neural Networks)
+```rust
+// ✅ REQUIRED: Neural network foundation
+use scirs2_neural::*;  // Via scirs2 features
+
+// ✅ REQUIRED: Arrays and random
+use scirs2_core::ndarray::*;
+use scirs2_core::random::*;
+
+// JIT compilation (when available)
+#[cfg(feature = "jit")]
+use scirs2_core::jit::{JitCompiler, JitKernel};
+```
+
+#### torsh-optim (Optimization)
+```rust
+// ✅ REQUIRED: Base optimizers
+use scirs2_optimize::*;
+
+// ✅ REQUIRED: Advanced optimizers
+use optirs::*;
+
+// ✅ REQUIRED: Random for stochastic optimizers
+use scirs2_core::random::*;
+
+// ✅ REQUIRED: Metrics tracking
+use scirs2_core::metrics::{global_metrics_registry, Counter, Histogram};
+```
+
+#### torsh-backend (Compute Backends)
+```rust
+// ✅ REQUIRED: GPU abstractions
+#[cfg(feature = "gpu")]
+use scirs2_core::gpu::{GpuDevice, GpuKernel};
+
+// ✅ REQUIRED: Tensor cores (when available)
+#[cfg(feature = "tensor_cores")]
+use scirs2_core::tensor_cores::{TensorCore, MixedPrecision};
+
+// ✅ REQUIRED: Arrays for CPU backend
+use scirs2_core::ndarray::*;
+
+// ✅ REQUIRED: Parallel for CPU parallelism
+#[cfg(feature = "parallel")]
+use scirs2_core::parallel_ops::*;
+```
+
+#### torsh-data (Data Loading)
+```rust
+// ✅ REQUIRED: Dataset utilities
+use scirs2_datasets::*;  // Via scirs2 features
+
+// ✅ REQUIRED: Memory-efficient loading
+#[cfg(feature = "memory_efficient")]
+use scirs2_core::memory_efficient::{ChunkedArray, create_mmap};
+
+// ✅ REQUIRED: Parallel data loading
+#[cfg(feature = "parallel")]
+use scirs2_core::parallel_ops::*;
+
+// ✅ REQUIRED: Data augmentation
+use scirs2_core::random::*;
+```
+
+#### torsh-benches (Benchmarking)
+```rust
+// ✅ REQUIRED: Benchmarking framework
+#[cfg(feature = "benchmarking")]
+use scirs2_core::benchmarking::{BenchmarkSuite, BenchmarkRunner};
+
+// ✅ REQUIRED: Profiling
+#[cfg(feature = "profiling")]
+use scirs2_core::profiling::Profiler;
+
+// ✅ REQUIRED: Metrics
+use scirs2_core::metrics::global_metrics_registry;
+
+// ✅ REQUIRED: Test data generation
+use scirs2_core::ndarray::*;
+use scirs2_core::random::*;
+```
+
+### SciRS2 POLICY Compliance Checklist (MANDATORY)
+
+When reviewing or writing ToRSh code, **ALWAYS verify**:
+
+#### ✅ UNIFIED Arrays (v0.1.0-RC.1+)
+- [ ] **NO** direct `use ndarray::{...}` (POLICY VIOLATION)
+- [ ] **NO** direct `Array`, `Array1`, `Array2` from ndarray (POLICY VIOLATION)
+- [ ] **YES** `use scirs2_core::ndarray::*` for complete functionality (ALL macros)
+- [ ] **YES** `scirs2_core::ndarray::{array, s, azip}` macros work everywhere
+- [ ] **LEGACY REMOVAL**: Minimize `scirs2_autograd::ndarray` usage (deprecated pattern)
+
+#### ✅ UNIFIED Random (v0.1.0-RC.1+)
+- [ ] **NO** direct `use rand::{...}` (POLICY VIOLATION)
+- [ ] **NO** direct `use rand_distr::{...}` (POLICY VIOLATION)
+- [ ] **YES** `use scirs2_core::random::*` for complete functionality
+- [ ] **YES** Common distributions: `Normal`, `Uniform`, `RandBeta`, `StudentT`, `Cauchy`
+- [ ] **YES** `use scirs2_core::random::prelude::*` for common patterns
+
+#### ✅ UNIFIED Numerical Traits
+- [ ] **NO** direct `use num_traits::{...}` (POLICY VIOLATION)
+- [ ] **NO** direct `use num_complex::{...}` (POLICY VIOLATION)
+- [ ] **YES** `use scirs2_core::numeric::*` for all numerical traits
+- [ ] **YES** `use scirs2_core::{Complex, Complex32, Complex64}` for complex numbers
+
+#### ✅ Performance Through scirs2-core (MANDATORY)
+- [ ] **YES** `scirs2_core::simd_ops::SimdUnifiedOps` for SIMD (NO direct wide/packed_simd)
+- [ ] **YES** `scirs2_core::parallel_ops::*` for parallel (NO direct rayon)
+- [ ] **YES** `scirs2_core::gpu` for GPU (NO direct CUDA/Metal calls)
+- [ ] **YES** `scirs2_core::memory_efficient` for large datasets
+
+#### ✅ Cargo.toml POLICY Compliance
+- [ ] **NO** `ndarray = { workspace = true }` in dependencies (POLICY VIOLATION)
+- [ ] **NO** `rand = { workspace = true }` in dependencies (POLICY VIOLATION)
+- [ ] **NO** `rayon = { workspace = true }` in dependencies (POLICY VIOLATION)
+- [ ] **YES** `scirs2-core = { workspace = true, features = [...] }`
+- [ ] **YES** Only SciRS2 crates in dependencies (scirs2-*, optirs)
+
+#### ✅ Production Features (when available)
+- [ ] **YES** `scirs2_core::error::{CoreError, CoreResult}` for errors
+- [ ] **YES** `scirs2_core::validation` for input validation
+- [ ] **YES** `scirs2_core::profiling::Profiler` for performance analysis
+- [ ] **YES** `scirs2_core::metrics` for monitoring
+- [ ] **YES** `scirs2_core::benchmarking` for benchmarks
+
+### Common Anti-Patterns to Avoid (POLICY VIOLATIONS)
+
+```rust
+// ❌ WRONG - Direct external dependencies (CRITICAL POLICY VIOLATIONS)
+use ndarray::{Array2, array, s};              // POLICY VIOLATION
+use rand::{Rng, thread_rng};                  // POLICY VIOLATION
+use rand_distr::{Normal, Beta, StudentT};     // POLICY VIOLATION
+use num_traits::{Float, Zero};                // POLICY VIOLATION
+use rayon::prelude::*;                        // POLICY VIOLATION
+
+// ❌ WRONG - Fragmented SciRS2 usage (Deprecated Patterns)
+use scirs2_autograd::ndarray::{Array2, array};  // Old fragmented pattern
+use scirs2_core::ndarray_ext::{ArrayView};      // Old fragmented pattern
+use ndarray::s;  // Still violating policy
+
+// ✅ CORRECT - UNIFIED SciRS2 Access (v0.1.0-RC.1+)
+use scirs2_core::ndarray::*;  // Complete unified access (ALL macros)
+// OR selective:
 use scirs2_core::ndarray::{Array2, array, s, Axis};
 
-use scirs2_core::random::prelude::*;  // Common distributions & RNG
-// Or selective:
-use scirs2_core::random::{thread_rng, Normal as RandNormal, RandBeta, StudentT};
+use scirs2_core::random::*;  // Complete unified access (ALL distributions)
+// OR selective:
+use scirs2_core::random::{thread_rng, Normal, RandBeta, StudentT};
 
-// ✅ CORRECT - Enhanced unified interface
-use scirs2_core::random::distributions_unified::{UnifiedNormal, UnifiedBeta};
+use scirs2_core::numeric::*;  // Complete numerical traits
+// OR selective:
+use scirs2_core::numeric::{Float, Zero, One};
+```
+
+### Quick Migration Examples
+
+#### Example 1: Array Operations
+
+```rust
+// ❌ OLD (Policy-Violating)
+use ndarray::{Array, Array2, array, s};
+let matrix = array![[1, 2], [3, 4]];
+let slice = matrix.slice(s![.., 0]);
+
+// ✅ NEW (Policy-Compliant)
+use scirs2_core::ndarray::{Array, Array2, array, s};
+let matrix = array![[1, 2], [3, 4]];  // array! macro works
+let slice = matrix.slice(s![.., 0]);  // s! macro works
+```
+
+#### Example 2: Random Sampling
+
+```rust
+// ❌ OLD (Policy-Violating)
+use rand::thread_rng;
+use rand_distr::{Normal, Beta};
+let mut rng = thread_rng();
+let normal = Normal::new(0.0, 1.0)?;
+let beta = Beta::new(2.0, 5.0)?;
+
+// ✅ NEW (Policy-Compliant)
+use scirs2_core::random::{thread_rng, Normal, RandBeta};
+let mut rng = thread_rng();
+let normal = Normal::new(0.0, 1.0)?;
+let beta = RandBeta::new(2.0, 5.0)?;  // Note: RandBeta (renamed)
+```
+
+#### Example 3: Tensor Initialization
+
+```rust
+// ❌ OLD (Policy-Violating)
+use ndarray::{Array2, array};
+use rand::{thread_rng, Rng};
+use rand_distr::Normal;
+
+fn xavier_init(shape: (usize, usize)) -> Array2<f32> {
+    let mut rng = thread_rng();
+    let normal = Normal::new(0.0, 1.0).unwrap();
+    Array2::from_shape_fn(shape, |_| normal.sample(&mut rng) as f32)
+}
+
+// ✅ NEW (Policy-Compliant)
+use scirs2_core::ndarray::Array2;
+use scirs2_core::random::{thread_rng, Normal};
+
+fn xavier_init(shape: (usize, usize)) -> Array2<f32> {
+    let mut rng = thread_rng();
+    let normal = Normal::new(0.0, 1.0).unwrap();
+    Array2::from_shape_fn(shape, |_| normal.sample(&mut rng) as f32)
+}
 ```
 
 ## Testing Approach
@@ -361,17 +592,51 @@ The project uses Rust's built-in testing framework:
 
 ## Important Notes
 
-- Always run `make check` before committing to ensure code quality
-- **CRITICAL**: Follow the SCIRS2_INTEGRATION_POLICY.md strictly - ToRSh MUST use SciRS2 as its scientific computing foundation
-- **NEVER** use ndarray, rand, or rand_distr directly - ALWAYS use scirs2_core::ndarray and scirs2_core::random
-- **UNIFIED ACCESS**: Use scirs2_core::ndarray::* and scirs2_core::random::prelude::* for complete functionality
-- Make FULL USE of SciRS2's features to avoid reinventing the wheel
-- The project is designed for ease of maintenance and readability
-- The project follows Rust idioms and conventions
-- Prefer editing existing files over creating new ones
-- Use the latest available crate versions (as per the "Latest crates policy")
-- When refactoring, keep single files under 2000 lines
-- The CPU backend may have thread pool initialization warnings - these are expected
-- Some crates (torsh-models, torsh-ffi) are temporarily disabled due to API compatibility issues
+### 🚨 CRITICAL: SciRS2 POLICY Enforcement
 
-**Remember**: ToRSh is built on top of SciRS2, not as a standalone project. It must leverage the full power of the SciRS2 ecosystem to provide a PyTorch-compatible deep learning framework.
+- **MANDATORY**: Follow the [SciRS2 POLICY](https://github.com/cool-japan/scirs/blob/master/SCIRS2_POLICY.md) strictly
+- **MANDATORY**: Follow the [SCIRS2_INTEGRATION_POLICY.md](SCIRS2_INTEGRATION_POLICY.md) for ToRSh-specific guidance
+- **ONLY `scirs2-core` may use external dependencies directly** - ALL ToRSh crates use scirs2-core abstractions
+- **ZERO TOLERANCE** for direct external imports (ndarray, rand, num-traits, rayon, etc.) in ToRSh code
+
+### ✅ Required Practices (POLICY Compliance)
+
+1. **UNIFIED ndarray Access (v0.1.0-RC.1+)**
+   - Use `scirs2_core::ndarray::*` for ALL array operations (includes ALL macros)
+   - NEVER import ndarray directly
+
+2. **UNIFIED random Access (v0.1.0-RC.1+)**
+   - Use `scirs2_core::random::*` for ALL RNG and distributions
+   - NEVER import rand or rand_distr directly
+
+3. **UNIFIED numeric Access**
+   - Use `scirs2_core::numeric::*` for ALL numerical traits
+   - NEVER import num-traits or num-complex directly
+
+4. **Performance Through scirs2-core**
+   - SIMD: `scirs2_core::simd_ops::SimdUnifiedOps` (MANDATORY)
+   - Parallel: `scirs2_core::parallel_ops::*` (MANDATORY)
+   - GPU: `scirs2_core::gpu` (MANDATORY when using GPU)
+
+### 📋 Development Workflow
+
+- Always run `make check` before committing (format + lint + test-fast)
+- Make FULL USE of SciRS2's extensive features to avoid reinventing the wheel
+- Prefer editing existing files over creating new ones
+- Use the latest available crate versions (as per "Latest crates policy")
+- When refactoring, keep single files under 2000 lines (use splitrs if needed)
+
+### ⚠️ Known Issues
+
+- CPU backend may have thread pool initialization warnings (expected behavior)
+- Some crates temporarily disabled due to API compatibility issues (see SCIRS2_INTEGRATION_POLICY.md)
+
+### 🎯 Project Philosophy
+
+**ToRSh is built ON TOP OF SciRS2, not as a standalone project.** It leverages the complete SciRS2 ecosystem to provide a PyTorch-compatible deep learning framework while maintaining strict POLICY compliance for:
+- Consistent APIs across all modules
+- Centralized dependency management
+- Type safety and maintainability
+- Superior performance through unified optimizations
+
+**Remember**: ToRSh's success depends on proper SciRS2 integration. Follow the POLICY strictly!

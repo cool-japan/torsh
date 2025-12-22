@@ -459,11 +459,9 @@ pub fn create_gpu_processor() -> SciRS2LinalgProcessor {
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
-    use torsh_tensor::creation;
-
     #[test]
     fn test_matrix_pow_integer_power() -> TorshResult<()> {
-        let mut processor = SciRS2LinalgProcessor::with_default_config();
+        let processor = SciRS2LinalgProcessor::with_default_config();
 
         // Create a simple 2x2 matrix
         let data = vec![2.0f32, 0.0, 0.0, 3.0];
@@ -483,7 +481,7 @@ mod tests {
 
     #[test]
     fn test_matrix_pow_zero_power() -> TorshResult<()> {
-        let mut processor = SciRS2LinalgProcessor::with_default_config();
+        let processor = SciRS2LinalgProcessor::with_default_config();
 
         // Create a simple 2x2 matrix
         let data = vec![2.0f32, 1.0, 1.0, 2.0];
@@ -503,7 +501,7 @@ mod tests {
 
     #[test]
     fn test_matrix_pow_one_power() -> TorshResult<()> {
-        let mut processor = SciRS2LinalgProcessor::with_default_config();
+        let processor = SciRS2LinalgProcessor::with_default_config();
 
         // Create a simple 2x2 matrix
         let data = vec![2.0f32, 1.0, 1.0, 2.0];
@@ -522,9 +520,8 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // TODO: Debug eigendecomposition approach for fractional powers
     fn test_matrix_pow_fractional_positive_definite() -> TorshResult<()> {
-        let mut processor = SciRS2LinalgProcessor::with_default_config();
+        let processor = SciRS2LinalgProcessor::with_default_config();
 
         // Compare against the existing matrix_sqrt implementation
         let data = vec![4.0f32, 0.0, 0.0, 9.0];
@@ -561,7 +558,7 @@ mod tests {
 
     #[test]
     fn test_matrix_pow_invalid_input() -> TorshResult<()> {
-        let mut processor = SciRS2LinalgProcessor::with_default_config();
+        let processor = SciRS2LinalgProcessor::with_default_config();
 
         // Create non-square matrix
         let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0];

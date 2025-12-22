@@ -4,8 +4,9 @@ pub mod neural_ops;
 pub mod reduction_ops;
 pub mod tensor_ops;
 
-use crate::error::{CudaError, CudaResult};
-use crate::stream::CudaStream;
+use crate::cuda::error::CudaResult;
+use crate::cuda::stream::CudaStream;
+use cust::prelude::DevicePointer;
 
 /// Launch configuration for CUDA kernels
 #[derive(Debug, Clone)]
@@ -134,10 +135,11 @@ impl KernelRegistry {
         args: &[&dyn cust::DeviceCopy],
     ) -> CudaResult<()> {
         let func = self.get_function(name)?;
+        let stream_raw = stream.raw();
 
         unsafe {
             cust::launch!(
-                func<<<config.grid_size, config.block_size, config.shared_memory, stream.raw()>>>(
+                func<<<config.grid_size, config.block_size, config.shared_memory, stream_raw>>>(
                     args.as_ptr()
                 )
             )?;
@@ -150,32 +152,32 @@ impl KernelRegistry {
 /// Common kernel arguments
 #[derive(Debug)]
 pub struct ElementwiseArgs<T> {
-    pub input: cust::DevicePointer<T>,
-    pub output: cust::DevicePointer<T>,
+    pub input: DevicePointer<T>,
+    pub output: DevicePointer<T>,
     pub size: usize,
 }
 
 #[derive(Debug)]
 pub struct BinaryArgs<T> {
-    pub lhs: cust::DevicePointer<T>,
-    pub rhs: cust::DevicePointer<T>,
-    pub output: cust::DevicePointer<T>,
+    pub lhs: DevicePointer<T>,
+    pub rhs: DevicePointer<T>,
+    pub output: DevicePointer<T>,
     pub size: usize,
 }
 
 #[derive(Debug)]
 pub struct ReductionArgs<T> {
-    pub input: cust::DevicePointer<T>,
-    pub output: cust::DevicePointer<T>,
+    pub input: DevicePointer<T>,
+    pub output: DevicePointer<T>,
     pub size: usize,
     pub axis: i32,
 }
 
 #[derive(Debug)]
 pub struct MatmulArgs<T> {
-    pub a: cust::DevicePointer<T>,
-    pub b: cust::DevicePointer<T>,
-    pub c: cust::DevicePointer<T>,
+    pub a: DevicePointer<T>,
+    pub b: DevicePointer<T>,
+    pub c: DevicePointer<T>,
     pub m: usize,
     pub n: usize,
     pub k: usize,

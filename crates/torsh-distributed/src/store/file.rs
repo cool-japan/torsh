@@ -26,7 +26,7 @@ impl FileStore {
         };
 
         // Try to load existing data
-        if let Err(_) = store.load_from_file() {
+        if store.load_from_file().is_err() {
             // If loading fails, start with empty store
         }
 
@@ -107,8 +107,7 @@ impl Store for FileStore {
                 return Err(TorshDistributedError::communication_error(
                     "Store wait",
                     "Timeout waiting for keys",
-                )
-                .into());
+                ));
             }
 
             tokio::time::sleep(Duration::from_millis(100)).await;

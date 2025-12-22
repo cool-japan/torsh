@@ -7,7 +7,6 @@
 //! - Collective communication operations
 //! - RPC framework
 
-use log::{debug, info, warn};
 use thiserror::Error;
 use torsh_core::TorshError;
 
@@ -299,6 +298,8 @@ impl From<TorshError> for TorshDistributedError {
     }
 }
 
+pub mod advanced_monitoring;
+pub mod alerting;
 pub mod backend;
 pub mod bottleneck_detection;
 pub mod collectives;
@@ -328,6 +329,7 @@ pub mod parameter_server;
 pub mod pipeline;
 pub mod process_group;
 pub mod profiling;
+pub mod prometheus_exporter;
 pub mod ray_integration;
 pub mod rdma_support;
 pub mod rpc;
@@ -567,6 +569,7 @@ pub fn is_gloo_available() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use log::info;
 
     #[test]
     fn test_availability() {
@@ -574,4 +577,10 @@ mod tests {
         let available = is_available();
         info!("Distributed training available: {}", available);
     }
+}
+
+/// Prelude module for convenient imports
+pub mod prelude {
+    pub use crate::{TorshDistributedError, TorshResult};
+    // Re-export public items from modules when they exist
 }

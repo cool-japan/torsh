@@ -214,7 +214,8 @@
 //!
 //! This crate is organized into focused modules for maintainability and clarity:
 
-#![cfg_attr(docsrs, feature(doc_cfg))]
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 
 #[cfg(feature = "python")]
 pub mod python;
@@ -231,14 +232,26 @@ pub mod ruby;
 /// Java JNI bindings for Java Native Interface integration
 pub mod java;
 
+/// GraalVM integration for polyglot JVM support and native image compilation
+pub mod graalvm;
+
 /// C# P/Invoke bindings for .NET integration
 pub mod csharp;
+
+/// .NET 6+ modern async/await and high-performance features
+pub mod dotnet6;
 
 /// Go CGO bindings for Go language integration
 pub mod go;
 
 /// Swift C interop bindings for iOS/macOS integration
 pub mod swift;
+
+/// iOS-specific bindings with Swift Concurrency, Combine, Core ML, and Metal support
+pub mod ios;
+
+/// Android-specific bindings with Kotlin Coroutines, Flow, NNAPI, and Jetpack Compose
+pub mod android;
 
 /// R language bindings for statistical computing integration
 pub mod r_lang;
@@ -257,6 +270,18 @@ pub mod julia;
 /// Node.js N-API bindings for JavaScript/TypeScript integration
 // TEMPORARILY DISABLED DUE TO CLIPPY UNSAFE POINTER ISSUES
 // pub mod nodejs;
+
+/// WebAssembly bindings for browser and edge deployment
+pub mod wasm;
+
+/// WebGPU hardware acceleration for WASM (browser GPU support)
+pub mod webgpu;
+
+/// Model quantization and compression for edge deployment
+pub mod quantization;
+
+/// Model optimization (pruning, distillation, fusion)
+pub mod model_optimization;
 
 /// Performance optimizations and batched operations
 pub mod performance;
@@ -302,16 +327,25 @@ pub mod error;
 
 pub use error::FfiError;
 
+/// Unified type system for consistent cross-language type handling
+pub mod type_system;
+
+/// Unified conversion utilities to reduce code duplication
+pub mod conversions;
+
 // Re-export commonly used types
+#[allow(ambiguous_glob_reexports)]
 pub mod prelude {
     pub use crate::api_docs::*;
     pub use crate::benchmark_suite::*;
     pub use crate::binding_generator::*;
     pub use crate::c_api::*;
+    pub use crate::conversions;
     pub use crate::error::FfiError;
     pub use crate::migration_tools::*;
     pub use crate::numpy_compatibility::*;
     pub use crate::performance::*;
+    pub use crate::type_system::*;
 
     #[cfg(feature = "python")]
     pub use crate::python::*;
@@ -329,17 +363,24 @@ pub mod prelude {
     pub use crate::scipy_integration::*;
 
     // Language-specific re-exports
+    pub use crate::android::*;
     pub use crate::csharp::*;
     pub use crate::go::*;
+    pub use crate::ios::*;
     pub use crate::java::*;
     pub use crate::julia::*;
+    pub use crate::model_optimization::*;
+    pub use crate::quantization::*;
     pub use crate::r_lang::*;
     pub use crate::ruby::*;
     pub use crate::swift::*;
+    pub use crate::wasm::*;
+    pub use crate::webgpu::*;
 }
 
 #[cfg(test)]
 mod tests {
+    #[allow(unused_imports)]
     use super::*;
 
     #[test]

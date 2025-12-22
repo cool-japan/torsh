@@ -3,6 +3,8 @@
 //! This module consolidates tensor and message serialization patterns
 //! used across RPC, parameter server, and collective operations.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{TorshDistributedError, TorshResult};
 use serde::{Deserialize, Serialize};
 use torsh_core::device::DeviceType;
@@ -24,9 +26,13 @@ pub fn serialize_message<T: CommunicationMessage>(msg: &T) -> TorshResult<Vec<u8
 
 /// Deserialize a message from communication
 pub fn deserialize_message<T: CommunicationMessage>(data: &[u8]) -> TorshResult<T> {
-    let (value, _): (T, usize) = bincode::serde::decode_from_slice(data, bincode::config::standard()).map_err(|e| {
-        TorshDistributedError::SerializationError(format!("Message deserialization failed: {}", e))
-    })?;
+    let (value, _): (T, usize) =
+        bincode::serde::decode_from_slice(data, bincode::config::standard()).map_err(|e| {
+            TorshDistributedError::SerializationError(format!(
+                "Message deserialization failed: {}",
+                e
+            ))
+        })?;
     Ok(value)
 }
 
@@ -84,8 +90,7 @@ where
         return Err(TorshDistributedError::TensorShapeMismatch {
             expected: expected_shape.to_vec(),
             actual: serializable.shape,
-        }
-        .into());
+        });
     }
 
     // Validate element size
@@ -94,8 +99,7 @@ where
         return Err(TorshDistributedError::SerializationError(format!(
             "Element size mismatch: expected {}, got {}",
             expected_element_size, serializable.element_size
-        ))
-        .into());
+        )));
     }
 
     // Convert bytes back to typed data
@@ -110,7 +114,6 @@ where
             "Failed to create tensor from data: {}",
             e
         ))
-        .into()
     })
 }
 

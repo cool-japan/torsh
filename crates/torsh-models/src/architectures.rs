@@ -4,6 +4,8 @@
 //! used across different model types, including attention mechanisms, normalization
 //! layers, and specialized building blocks.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use torsh_core::error::{Result, TorshError};
@@ -320,7 +322,7 @@ impl AdvancedMultiHeadAttention {
         let kv_matrix = k_transposed.matmul(v)?;
 
         // Normalize by sum of keys
-        let k_sum = k_features.sum()?; // Sum over all dimensions (simplified)
+        let _k_sum = k_features.sum()?; // Sum over all dimensions (simplified)
         let q_kv = q_features.matmul(&kv_matrix)?;
         let q_k_sum = q_features.mul_scalar(1.0)?; // Simplified normalization
 
@@ -378,7 +380,7 @@ impl AdvancedMultiHeadAttention {
         transposed.reshape(&new_shape.iter().map(|&x| x as i32).collect::<Vec<i32>>())
     }
 
-    fn create_local_attention_mask(&self, seq_len: usize, window_size: usize) -> Result<Tensor> {
+    fn create_local_attention_mask(&self, seq_len: usize, _window_size: usize) -> Result<Tensor> {
         // Create a mask that allows attention only within a local window
         let mask_data = vec![1.0f32; seq_len * seq_len]; // Use f32 instead of bool
                                                          // In practice, would properly implement sliding window mask
@@ -389,7 +391,7 @@ impl AdvancedMultiHeadAttention {
         )?)
     }
 
-    fn create_block_diagonal_mask(&self, seq_len: usize, block_size: usize) -> Result<Tensor> {
+    fn create_block_diagonal_mask(&self, seq_len: usize, _block_size: usize) -> Result<Tensor> {
         // Create block diagonal sparse mask
         let mask_data = vec![0.0f32; seq_len * seq_len]; // Start with all false
                                                          // In practice, would set blocks to true
@@ -400,7 +402,7 @@ impl AdvancedMultiHeadAttention {
         )?)
     }
 
-    fn create_strided_mask(&self, seq_len: usize, stride: usize) -> Result<Tensor> {
+    fn create_strided_mask(&self, seq_len: usize, _stride: usize) -> Result<Tensor> {
         // Create strided sparse mask
         let mask_data = vec![0.0f32; seq_len * seq_len];
         // In practice, would set strided pattern to true
@@ -690,7 +692,7 @@ impl AttentionMaskProcessor {
         )?)
     }
 
-    pub fn create_padding_mask(&self, input_ids: &Tensor, pad_token_id: i32) -> Result<Tensor> {
+    pub fn create_padding_mask(&self, input_ids: &Tensor, _pad_token_id: i32) -> Result<Tensor> {
         // Create mask for padded tokens - simplified version using direct calculation
         // In practice would properly convert bool tensor to f32 tensor
         let shape = input_ids.shape().to_vec();

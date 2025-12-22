@@ -6,7 +6,6 @@
 
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
 use hex;
-use scirs2_core::random::{Random, Rng};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
@@ -249,7 +248,7 @@ impl TokenManager {
         // Update user mapping
         self.tokens_by_user
             .entry(user_id)
-            .or_insert_with(HashSet::new)
+            .or_default()
             .insert(token_id.clone());
 
         Ok((token_id, raw_token))
@@ -421,7 +420,7 @@ impl PermissionChecker {
     pub fn require_permission(&mut self, operation: &str, scope: TokenScope) {
         self.operation_permissions
             .entry(operation.to_string())
-            .or_insert_with(HashSet::new)
+            .or_default()
             .insert(scope);
     }
 
@@ -430,7 +429,7 @@ impl PermissionChecker {
         let perms = self
             .operation_permissions
             .entry(operation.to_string())
-            .or_insert_with(HashSet::new);
+            .or_default();
 
         for scope in scopes {
             perms.insert(scope);

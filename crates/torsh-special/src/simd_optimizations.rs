@@ -11,10 +11,9 @@ use torsh_tensor::Tensor;
 /// Uses vectorized operations for computing the gamma function on multiple values simultaneously.
 /// Falls back to scalar implementation when SIMD is not available.
 pub fn gamma_simd(input: &Tensor<f32>) -> TorshResult<Tensor<f32>> {
-    let data = input.data()?;
-
     #[cfg(target_arch = "x86_64")]
     {
+        let data = input.data()?;
         if std::arch::is_x86_feature_detected!("avx2") {
             return gamma_avx2(&data, input);
         }
@@ -31,10 +30,9 @@ pub fn gamma_simd(input: &Tensor<f32>) -> TorshResult<Tensor<f32>> {
 ///
 /// Uses vectorized polynomial approximations for improved performance.
 pub fn erf_simd(input: &Tensor<f32>) -> TorshResult<Tensor<f32>> {
-    let data = input.data()?;
-
     #[cfg(target_arch = "x86_64")]
     {
+        let data = input.data()?;
         if std::arch::is_x86_feature_detected!("avx2") {
             return erf_avx2(&data, input);
         }
@@ -51,10 +49,9 @@ pub fn erf_simd(input: &Tensor<f32>) -> TorshResult<Tensor<f32>> {
 ///
 /// Provides fast vectorized implementations of exp, expm1, and related functions.
 pub fn exp_family_simd(input: &Tensor<f32>, variant: ExpVariant) -> TorshResult<Tensor<f32>> {
-    let data = input.data()?;
-
     #[cfg(target_arch = "x86_64")]
     {
+        let data = input.data()?;
         if std::arch::is_x86_feature_detected!("avx2") {
             return exp_family_avx2(&data, input, variant);
         }

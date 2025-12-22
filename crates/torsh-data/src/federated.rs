@@ -16,6 +16,8 @@ pub struct FederatedDataset {
     clients: HashMap<ClientId, Box<dyn Dataset<Item = torsh_tensor::Tensor>>>,
     client_weights: HashMap<ClientId, f64>,
     aggregation_strategy: AggregationStrategy,
+    // Placeholder for future privacy-preserving federated learning
+    #[allow(dead_code)]
     privacy_budget: Option<f64>,
     client_selection_strategy: ClientSelectionStrategy,
     current_round: usize,
@@ -412,6 +414,8 @@ impl Dataset for FederatedDataset {
 /// Federated sampler that coordinates sampling across multiple clients
 pub struct FederatedSampler {
     client_samplers: HashMap<ClientId, Box<dyn Sampler<Iter = crate::sampler::SamplerIterator>>>,
+    // Placeholder for future client selection logic
+    #[allow(dead_code)]
     selection_strategy: ClientSelectionStrategy,
     aggregation_weights: HashMap<ClientId, f64>,
     current_round: usize,
@@ -618,7 +622,7 @@ pub mod federated_utils {
         let mut rng = Random::seed(42);
         client_ids
             .iter()
-            .filter(|_| rng.gen::<f64>() < availability_prob)
+            .filter(|_| rng.random::<f64>() < availability_prob)
             .cloned()
             .collect()
     }
@@ -646,10 +650,12 @@ pub mod federated_utils {
 
 /// Wrapper dataset that adapts TensorDataset to return a single tensor
 /// This is used for federated learning where we expect single tensors
+#[allow(dead_code)]
 struct SingleTensorDataset<T: torsh_core::dtype::TensorElement> {
     inner: crate::dataset::TensorDataset<T>,
 }
 
+#[allow(dead_code)]
 impl<T: torsh_core::dtype::TensorElement> SingleTensorDataset<T> {
     fn new(inner: crate::dataset::TensorDataset<T>) -> Self {
         Self { inner }

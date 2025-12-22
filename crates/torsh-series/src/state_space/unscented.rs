@@ -1,5 +1,7 @@
 //! Unscented Kalman filter implementation
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::TimeSeries;
 use torsh_tensor::{
     creation::{eye, zeros},
@@ -157,7 +159,7 @@ impl UnscentedKalmanFilter {
 
         // Covariance weights
         // w_0^c = lambda / (n + lambda) + (1 - alpha^2 + beta)
-        let w0_cov = w0_mean + (1.0 - self.alpha.powi(2) + self.beta);
+        let _w0_cov = w0_mean + (1.0 - self.alpha.powi(2) + self.beta);
         // w_i^c = 1 / (2 * (n + lambda)) for i = 1, ..., 2n
 
         // TODO: Set weights when tensor indexing is available
@@ -245,7 +247,7 @@ impl UnscentedKalmanFilter {
         self.generate_sigma_points();
 
         // Apply unscented transform
-        let (predicted_mean, predicted_cov) = self.unscented_transform_predict(transition_fn);
+        let (predicted_mean, _predicted_cov) = self.unscented_transform_predict(transition_fn);
 
         // Update state and covariance
         self.state = predicted_mean;
@@ -264,12 +266,12 @@ impl UnscentedKalmanFilter {
             .map(|i| self.sigma_points.slice_tensor(0, i, i + 1).unwrap())
             .collect();
 
-        let (obs_mean, obs_cov, cross_cov) =
+        let (_obs_mean, _obs_cov, _cross_cov) =
             self.unscented_transform_update(observation_fn, &predicted_sigma_points);
 
         // Innovation
         // innovation = observation - obs_mean
-        let innovation = observation.clone(); // TODO: Implement subtraction
+        let _innovation = observation.clone(); // TODO: Implement subtraction
 
         // Kalman gain
         // K = cross_cov @ inv(obs_cov + measurement_noise)
@@ -326,9 +328,9 @@ impl UnscentedKalmanFilter {
     /// Compute log-likelihood
     pub fn log_likelihood(
         &mut self,
-        series: &TimeSeries,
-        transition_fn: &dyn Fn(&Tensor) -> Tensor,
-        observation_fn: &dyn Fn(&Tensor) -> Tensor,
+        _series: &TimeSeries,
+        _transition_fn: &dyn Fn(&Tensor) -> Tensor,
+        _observation_fn: &dyn Fn(&Tensor) -> Tensor,
     ) -> f32 {
         // TODO: Implement log-likelihood computation
         0.0
@@ -365,7 +367,6 @@ pub struct UKFStats {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use torsh_tensor::creation::*;
 
     fn create_test_series() -> TimeSeries {
         let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0];

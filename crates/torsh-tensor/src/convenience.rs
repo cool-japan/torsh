@@ -666,7 +666,7 @@ impl<T: TensorElement + Copy + num_traits::Float> FluentTensor<T> {
     /// Chain power operation
     pub fn pow(mut self, exponent: T) -> Self
     where
-        T: Into<f32>,
+        T: torsh_core::dtype::FloatElement + Into<f32>,
     {
         if let Ok(result) = self.tensor.pow(exponent) {
             self.tensor = result;

@@ -3,8 +3,9 @@
 //! Implementation of multi-relational GNNs for heterogeneous graphs
 //! with different node types and edge types, as specified in TODO.md
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::parameter::Parameter;
-use crate::{GraphData, GraphLayer};
 use std::collections::HashMap;
 use torsh_tensor::{
     creation::{randn, zeros},
@@ -73,6 +74,7 @@ impl HeteroGraphData {
 }
 
 /// Heterogeneous Graph Neural Network layer
+#[derive(Debug)]
 pub struct HeteroGNN {
     node_types: Vec<NodeType>,
     edge_types: Vec<EdgeType>,
@@ -173,7 +175,7 @@ impl HeteroGNN {
 
                     // Initialize aggregated messages for destination nodes
                     let dst_num_nodes = hetero_graph.num_nodes.get(dst_type).unwrap_or(&0);
-                    let mut messages = zeros(&[*dst_num_nodes, self.out_features]).unwrap();
+                    let messages = zeros(&[*dst_num_nodes, self.out_features]).unwrap();
 
                     // Compute and aggregate messages
                     for edge_idx in 0..num_edges {
@@ -201,7 +203,7 @@ impl HeteroGNN {
                             messages.slice_tensor(0, dst_node, dst_node + 1).unwrap();
                         let current_msg = dst_slice.squeeze_tensor(0).unwrap();
                         let updated_msg = current_msg.add(&message).unwrap();
-                        dst_slice.copy_(&updated_msg.unsqueeze_tensor(0).unwrap());
+                        let _ = dst_slice.copy_(&updated_msg.unsqueeze_tensor(0).unwrap());
                     }
 
                     // Store aggregated messages
@@ -274,6 +276,7 @@ impl HeteroGNN {
 }
 
 /// Heterogeneous Graph Attention Network
+#[derive(Debug)]
 pub struct HeteroGAT {
     node_types: Vec<NodeType>,
     edge_types: Vec<EdgeType>,
@@ -389,7 +392,7 @@ impl HeteroGAT {
         // Step 2: Compute attention and aggregate for each edge type
         for dst_type in &self.node_types {
             let dst_num_nodes = hetero_graph.num_nodes.get(dst_type).unwrap_or(&0);
-            let mut aggregated_output =
+            let aggregated_output =
                 zeros(&[*dst_num_nodes, self.heads * self.out_features]).unwrap();
 
             // Aggregate from all edge types that target this node type
@@ -402,10 +405,10 @@ impl HeteroGAT {
 
                 if let (
                     Some(edge_index),
-                    Some(src_queries),
-                    Some(dst_keys),
+                    Some(_src_queries),
+                    Some(_dst_keys),
                     Some(src_values),
-                    Some(attention_params),
+                    Some(_attention_params),
                 ) = (
                     hetero_graph.edge_indices.get(edge_type),
                     queries.get(src_type),
@@ -443,7 +446,7 @@ impl HeteroGAT {
                                 .unwrap();
                             let current = dst_slice.squeeze_tensor(0).unwrap();
                             let updated = current.add(&src_value).unwrap();
-                            dst_slice.copy_(&updated.unsqueeze_tensor(0).unwrap());
+                            let _ = dst_slice.copy_(&updated.unsqueeze_tensor(0).unwrap());
                         }
                     }
                 }
@@ -487,6 +490,7 @@ impl HeteroGAT {
 }
 
 /// Knowledge Graph Embedding layer
+#[derive(Debug)]
 pub struct KnowledgeGraphEmbedding {
     entity_types: Vec<NodeType>,
     relation_types: Vec<String>,

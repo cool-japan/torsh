@@ -2,8 +2,6 @@
 
 use std::collections::HashMap;
 use std::time::Duration;
-use tempfile::TempDir;
-use torsh_tensor::Tensor;
 use torsh_utils::benchmark::TimingStats;
 use torsh_utils::bottleneck::*;
 
@@ -649,6 +647,7 @@ mod tests {
     // Test data structures matching the main module
 
     #[derive(Debug, Clone)]
+    #[allow(dead_code)]
     struct ProfileSample {
         function_name: String,
         duration_ms: f32,

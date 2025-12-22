@@ -594,7 +594,7 @@ impl Module for DropPath {
         let random_tensor = Tensor::from_vec(
             (0..batch_size)
                 .map(|_| {
-                    if rng.gen::<f32>() < keep_prob {
+                    if rng.random::<f32>() < keep_prob {
                         1.0 / keep_prob
                     } else {
                         0.0

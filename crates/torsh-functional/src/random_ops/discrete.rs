@@ -4,7 +4,6 @@
 //! and Bernoulli distributions. These distributions are essential for categorical
 //! sampling, binary outcomes, and discrete choice modeling in machine learning.
 
-use scirs2_core::rand_prelude::SliceRandom;
 use scirs2_core::random::{Random, Rng};
 use torsh_core::{Result as TorshResult, TorshError};
 use torsh_tensor::Tensor;
@@ -251,7 +250,7 @@ pub fn bernoulli_(shape: &[usize], p: f32, generator: Option<u64>) -> TorshResul
     let mut values = Vec::with_capacity(size);
 
     for _ in 0..size {
-        let val: f32 = if rng.gen::<f32>() < p { 1.0 } else { 0.0 };
+        let val: f32 = if rng.random::<f32>() < p { 1.0 } else { 0.0 };
         values.push(val);
     }
 
@@ -313,7 +312,7 @@ pub fn bernoulli(input: &Tensor, generator: Option<u64>) -> TorshResult<Tensor> 
             if !(0.0..=1.0).contains(&p) {
                 panic!("bernoulli: all values in input must be between 0 and 1");
             }
-            if rng.gen::<f32>() < p {
+            if rng.random::<f32>() < p {
                 1.0
             } else {
                 0.0

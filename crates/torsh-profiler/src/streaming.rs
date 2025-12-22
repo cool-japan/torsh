@@ -3,9 +3,130 @@
 //! This module provides advanced real-time streaming features including
 //! adaptive bitrate streaming, data compression, intelligent buffering,
 //! and multi-protocol streaming support for profiling data.
+//!
+//! # Features
+//!
+//! - **Adaptive Bitrate Streaming**: Automatically adjusts streaming rate based on network conditions
+//! - **Multiple Compression Algorithms**: Gzip, Zlib, Lz4, Zstd with adaptive compression
+//! - **Intelligent Buffering**: Priority-based event buffering with overflow management
+//! - **Multi-Protocol Support**: WebSocket, SSE, TCP, UDP protocols
+//! - **Quality Adaptation**: Dynamic quality adjustment based on bandwidth and latency
+//! - **Connection Management**: Handle multiple concurrent client connections
+//! - **Statistics Tracking**: Real-time metrics on throughput, latency, and compression ratios
+//!
+//! # Quick Start
+//!
+//! ```rust
+//! use torsh_profiler::create_streaming_engine;
+//!
+//! // Create a basic streaming engine with default configuration
+//! let engine = create_streaming_engine();
+//! let stats = engine.get_stats();
+//! println!("Active connections: {}", stats.active_connections);
+//! ```
+//!
+//! # Factory Functions
+//!
+//! Three convenience functions create pre-configured engines for common use cases:
+//!
+//! ```rust
+//! use torsh_profiler::{
+//!     create_streaming_engine,
+//!     create_high_performance_streaming_engine,
+//!     create_low_latency_streaming_engine,
+//! };
+//!
+//! // 1. Default balanced configuration
+//! let default_engine = create_streaming_engine();
+//!
+//! // 2. High-performance: Optimized for maximum throughput
+//! //    - 50,000 event buffer
+//! //    - 2,000 events/sec max bitrate
+//! //    - Level 9 compression
+//! let hp_engine = create_high_performance_streaming_engine();
+//!
+//! // 3. Low-latency: Optimized for minimal delay
+//! //    - 1,000 event buffer
+//! //    - Compression disabled
+//! //    - 50ms latency target
+//! let ll_engine = create_low_latency_streaming_engine();
+//! ```
+//!
+//! # Custom Configuration
+//!
+//! ```rust
+//! use torsh_profiler::{
+//!     EnhancedStreamingEngine, StreamingConfig, AdaptiveBitrateConfig,
+//!     CompressionConfig, CompressionAlgorithm, QualityConfig,
+//!     ProtocolConfig, AdvancedFeatures,
+//! };
+//!
+//! let config = StreamingConfig {
+//!     base_port: 8080,
+//!     max_connections: 50,
+//!     buffer_size: 5000,
+//!     adaptive_bitrate: AdaptiveBitrateConfig {
+//!         enabled: true,
+//!         min_bitrate: 50,
+//!         max_bitrate: 500,
+//!         initial_bitrate: 100,
+//!         adaptation_threshold: 0.15,
+//!         adjustment_factor: 1.5,
+//!     },
+//!     compression: CompressionConfig {
+//!         enabled: true,
+//!         algorithm: CompressionAlgorithm::Lz4,
+//!         level: 3,
+//!         adaptive: false,
+//!         threshold: 512,
+//!     },
+//!     quality: QualityConfig::default(),
+//!     protocols: ProtocolConfig::default(),
+//!     advanced_features: AdvancedFeatures::default(),
+//! };
+//!
+//! let engine = EnhancedStreamingEngine::new(config);
+//! ```
+//!
+//! # Compression Algorithms
+//!
+//! ```rust
+//! use torsh_profiler::{CompressionAlgorithm, CompressionConfig};
+//!
+//! // Available compression algorithms:
+//! // - None: No compression (best for latency)
+//! // - Gzip: Standard gzip compression (good balance)
+//! // - Zlib: Similar to gzip (slightly faster)
+//! // - Lz4: Very fast compression (best for throughput)
+//! // - Zstd: Modern compression (best ratio)
+//!
+//! let compression = CompressionConfig {
+//!     enabled: true,
+//!     algorithm: CompressionAlgorithm::Zstd,
+//!     level: 6,  // 0-9, higher = better compression but slower
+//!     adaptive: true,  // Automatically adjust based on performance
+//!     threshold: 1024,  // Only compress events larger than 1KB
+//! };
+//! ```
+//!
+//! # Statistics and Monitoring
+//!
+//! ```rust
+//! use torsh_profiler::create_streaming_engine;
+//!
+//! let engine = create_streaming_engine();
+//! let stats = engine.get_stats();
+//!
+//! println!("Total events sent: {}", stats.total_events_sent);
+//! println!("Total bytes sent: {}", stats.total_bytes_sent);
+//! println!("Active connections: {}", stats.active_connections);
+//! println!("Average latency: {}ms", stats.average_latency_ms);
+//! println!("Compression ratio: {}%", stats.compression_ratio);
+//! println!("Dropped events: {}", stats.dropped_events);
+//! ```
 
-use crate::core::{EventCategory, ProfileEvent};
-use crate::dashboard::websocket::{WebSocketConfig, WebSocketMessage, WebSocketStats};
+use crate::dashboard::types::WebSocketConfig;
+use crate::ProfileEvent;
 use futures_util::{SinkExt, StreamExt};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
@@ -19,11 +140,28 @@ use std::time::{Duration, Instant, SystemTime};
 use tokio::sync::{broadcast, mpsc};
 use tokio::time::interval;
 
+/// WebSocket message types for streaming
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum WebSocketMessage {
+    ProfileEvent(ProfileEvent),
+    Stats(StreamingStatsSnapshot),
+    Control(ControlMessage),
+}
+
+/// Control messages for WebSocket communication
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ControlMessage {
+    Subscribe(String),
+    Unsubscribe(String),
+    Ping,
+    Pong,
+}
+
 /// Enhanced streaming engine with adaptive capabilities
 #[derive(Debug)]
 pub struct EnhancedStreamingEngine {
     /// Configuration
-    config: StreamingConfig,
+    pub config: StreamingConfig,
     /// Active streams
     streams: Arc<RwLock<HashMap<String, StreamConnection>>>,
     /// Event buffer for intelligent batching
@@ -176,7 +314,7 @@ pub struct QualityLevel {
 }
 
 impl QualityLevel {
-    fn new(name: &str, sampling_rate: f64, min_eps: usize, max_eps: usize) -> Self {
+    pub fn new(name: &str, sampling_rate: f64, min_eps: usize, max_eps: usize) -> Self {
         Self {
             name: name.to_string(),
             sampling_rate,
@@ -297,7 +435,7 @@ pub struct StreamConnection {
 #[derive(Debug)]
 pub struct EventBuffer {
     events: VecDeque<BufferedEvent>,
-    categories: BTreeMap<EventCategory, VecDeque<BufferedEvent>>,
+    categories: BTreeMap<String, VecDeque<BufferedEvent>>,
     max_size: usize,
     total_size: usize,
 }
@@ -310,6 +448,7 @@ pub struct BufferedEvent {
     pub timestamp: Instant,
     pub size_bytes: usize,
     pub compressed: bool,
+    pub category: String, // Store category as String
 }
 
 /// Event priority levels
@@ -469,6 +608,7 @@ impl EnhancedStreamingEngine {
     pub fn add_event(&self, event: ProfileEvent) {
         let priority = self.calculate_event_priority(&event);
         let size_bytes = self.estimate_event_size(&event);
+        let category = event.category.clone();
 
         let buffered_event = BufferedEvent {
             event,
@@ -476,6 +616,7 @@ impl EnhancedStreamingEngine {
             timestamp: Instant::now(),
             size_bytes,
             compressed: false,
+            category,
         };
 
         let mut buffer = self.event_buffer.lock().unwrap();
@@ -517,17 +658,17 @@ impl EnhancedStreamingEngine {
 
     /// Calculate event priority based on type and context
     fn calculate_event_priority(&self, event: &ProfileEvent) -> EventPriority {
-        match &event.category {
-            EventCategory::Memory => {
+        match event.category.as_str() {
+            "memory" | "Memory" => {
                 if event.name.contains("leak") || event.name.contains("critical") {
                     EventPriority::Critical
                 } else {
                     EventPriority::High
                 }
             }
-            EventCategory::Performance => EventPriority::High,
-            EventCategory::Error => EventPriority::Critical,
-            EventCategory::Debug => EventPriority::Low,
+            "performance" | "Performance" => EventPriority::High,
+            "error" | "Error" => EventPriority::Critical,
+            "debug" | "Debug" => EventPriority::Low,
             _ => EventPriority::Normal,
         }
     }
@@ -568,21 +709,28 @@ impl EnhancedStreamingEngine {
         &self,
         events: Vec<BufferedEvent>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let streams = self.streams.read();
+        // Clone stream info before async operations to avoid holding lock across await
+        let stream_info: Vec<(String, StreamingProtocol)> = {
+            let streams = self.streams.read();
+            streams
+                .iter()
+                .map(|(id, conn)| (id.clone(), conn.protocol.clone()))
+                .collect()
+        };
 
-        for (stream_id, connection) in streams.iter() {
-            match connection.protocol {
+        for (stream_id, protocol) in stream_info {
+            match protocol {
                 StreamingProtocol::WebSocket => {
-                    self.send_to_websocket(stream_id, &events).await?;
+                    self.send_to_websocket(&stream_id, &events).await?;
                 }
                 StreamingProtocol::ServerSentEvents => {
-                    self.send_to_sse(stream_id, &events).await?;
+                    self.send_to_sse(&stream_id, &events).await?;
                 }
                 StreamingProtocol::Tcp => {
-                    self.send_to_tcp(stream_id, &events).await?;
+                    self.send_to_tcp(&stream_id, &events).await?;
                 }
                 StreamingProtocol::Udp => {
-                    self.send_to_udp(stream_id, &events).await?;
+                    self.send_to_udp(&stream_id, &events).await?;
                 }
             }
         }
@@ -775,7 +923,7 @@ impl EventBuffer {
 
         // Add to category-specific queue
         self.categories
-            .entry(event.event.category.clone())
+            .entry(event.category.clone())
             .or_default()
             .push_back(event.clone());
 
@@ -976,7 +1124,7 @@ mod tests {
 
         let event = ProfileEvent {
             name: "test".to_string(),
-            category: EventCategory::Memory,
+            category: "memory".to_string(),
             start_us: 0,
             duration_us: 100,
             thread_id: 1,
@@ -992,6 +1140,7 @@ mod tests {
             timestamp: Instant::now(),
             size_bytes: 100,
             compressed: false,
+            category: "memory".to_string(),
         };
 
         buffer.add_event(buffered_event);
@@ -1005,7 +1154,7 @@ mod tests {
 
         let memory_event = ProfileEvent {
             name: "memory_leak_detected".to_string(),
-            category: EventCategory::Memory,
+            category: "memory".to_string(),
             start_us: 0,
             duration_us: 100,
             thread_id: 1,
@@ -1027,7 +1176,7 @@ mod tests {
         let event = BufferedEvent {
             event: ProfileEvent {
                 name: "test".to_string(),
-                category: EventCategory::Memory,
+                category: "memory".to_string(),
                 start_us: 0,
                 duration_us: 100,
                 thread_id: 1,
@@ -1040,6 +1189,7 @@ mod tests {
             timestamp: Instant::now(),
             size_bytes: 2000, // Above threshold
             compressed: false,
+            category: "memory".to_string(),
         };
 
         let compressed = manager.compress_event(event).await.unwrap();

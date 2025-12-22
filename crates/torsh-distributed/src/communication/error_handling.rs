@@ -12,12 +12,9 @@ pub fn wrap_communication_error<T>(
     operation: &str,
     result: std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>,
 ) -> TorshResult<T> {
-    result.map_err(|e| {
-        TorshDistributedError::CommunicationError {
-            operation: operation.to_string(),
-            cause: e.to_string(),
-        }
-        .into()
+    result.map_err(|e| TorshDistributedError::CommunicationError {
+        operation: operation.to_string(),
+        cause: e.to_string(),
     })
 }
 
@@ -65,8 +62,7 @@ where
                 return Err(TorshDistributedError::OperationTimeout {
                     operation: "retry_with_backoff".to_string(),
                     timeout_secs: total_timeout.as_secs(),
-                }
-                .into());
+                });
             }
         }
 
@@ -82,7 +78,7 @@ where
                 }
 
                 // Check if error is retryable
-                if !is_retryable_error(&last_error.as_ref().unwrap()) {
+                if !is_retryable_error(last_error.as_ref().unwrap()) {
                     break;
                 }
 
@@ -99,13 +95,12 @@ where
     }
 
     // Return the last error if all retries failed
-    Err(last_error.unwrap_or_else(|| {
-        TorshDistributedError::CommunicationError {
+    Err(
+        last_error.unwrap_or_else(|| TorshDistributedError::CommunicationError {
             operation: "retry_with_backoff".to_string(),
             cause: "Unknown error during retry".to_string(),
-        }
-        .into()
-    }))
+        }),
+    )
 }
 
 /// Synchronous version of retry with backoff
@@ -124,8 +119,7 @@ where
                 return Err(TorshDistributedError::OperationTimeout {
                     operation: "retry_with_backoff_sync".to_string(),
                     timeout_secs: total_timeout.as_secs(),
-                }
-                .into());
+                });
             }
         }
 
@@ -141,7 +135,7 @@ where
                 }
 
                 // Check if error is retryable
-                if !is_retryable_error(&last_error.as_ref().unwrap()) {
+                if !is_retryable_error(last_error.as_ref().unwrap()) {
                     break;
                 }
 
@@ -158,13 +152,12 @@ where
     }
 
     // Return the last error if all retries failed
-    Err(last_error.unwrap_or_else(|| {
-        TorshDistributedError::CommunicationError {
+    Err(
+        last_error.unwrap_or_else(|| TorshDistributedError::CommunicationError {
             operation: "retry_with_backoff_sync".to_string(),
             cause: "Unknown error during retry".to_string(),
-        }
-        .into()
-    }))
+        }),
+    )
 }
 
 /// Check if an error is retryable
@@ -204,8 +197,7 @@ where
         Err(_) => Err(TorshDistributedError::OperationTimeout {
             operation: operation_name.to_string(),
             timeout_secs: timeout.as_secs(),
-        }
-        .into()),
+        }),
     }
 }
 
@@ -302,8 +294,7 @@ impl ErrorCollector {
             Err(TorshDistributedError::CommunicationError {
                 operation: self.operation,
                 cause: combined_message,
-            }
-            .into())
+            })
         }
     }
 }

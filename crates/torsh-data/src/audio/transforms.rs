@@ -235,7 +235,9 @@ pub mod transforms {
 
         fn transform(&self, input: AudioData) -> Result<Self::Output> {
             // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
-            use scirs2_core::random::{Random, Rng};
+            // Rng trait is needed for gen_range() method
+            #[allow(unused_imports)]
+            use scirs2_core::random::Random;
             let mut rng = Random::seed(42);
 
             let noisy_samples: Vec<f32> = input

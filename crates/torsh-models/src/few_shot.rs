@@ -7,6 +7,8 @@
 //! - Few-shot classification and regression
 //! - Evaluation metrics for few-shot learning scenarios
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use torsh_core::error::{Result, TorshError};
@@ -147,7 +149,7 @@ impl FewShotDataset {
 
     /// Generate a random episode
     pub fn generate_episode(&self) -> Result<Episode> {
-        use scirs2_core::random::{Random, Rng};
+        use scirs2_core::random::Random;
 
         let mut rng = Random::seed(42);
 
@@ -551,7 +553,7 @@ impl Reptile {
                 let original_tensor = original_param.tensor();
                 let original_tensor_guard = original_tensor.read();
                 let diff = adapted_tensor_guard.sub(&*original_tensor_guard)?;
-                let update = diff.mul_scalar(self.outer_lr as f32)?;
+                let _update = diff.mul_scalar(self.outer_lr as f32)?;
                 // Apply update: original_param.tensor() += update
                 // This would need proper parameter update implementation
             }
@@ -724,7 +726,7 @@ impl std::fmt::Display for FewShotMetrics {
 }
 
 /// Utility functions for few-shot learning
-pub mod utils {
+pub mod few_shot_utils {
     use super::*;
 
     /// Create a standard few-shot configuration
@@ -781,7 +783,7 @@ pub mod utils {
         Vec<(Tensor, usize)>,
         Vec<(Tensor, usize)>,
     ) {
-        use scirs2_core::random::{Random, Rng};
+        use scirs2_core::random::Random;
 
         let mut rng = Random::seed(42);
         let mut shuffled_data = data;
@@ -875,11 +877,10 @@ impl std::fmt::Display for FewShotStatistics {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use torsh_core::DeviceType;
 
     #[test]
     fn test_few_shot_config_creation() {
-        let config = utils::create_standard_config(5, 1);
+        let config = few_shot_utils::create_standard_config(5, 1);
         assert_eq!(config.n_way, 5);
         assert_eq!(config.k_shot, 1);
         assert_eq!(config.query_shots, 15);
@@ -896,7 +897,7 @@ mod tests {
             }
         }
 
-        let config = utils::create_standard_config(3, 5);
+        let config = few_shot_utils::create_standard_config(3, 5);
         let dataset = FewShotDataset::new(data, config);
 
         let episode = dataset.generate_episode().unwrap();
@@ -935,7 +936,7 @@ mod tests {
             data.push((tensor, i % 10));
         }
 
-        let (train, val, test) = utils::split_dataset(data, 0.7, 0.2);
+        let (train, val, test) = few_shot_utils::split_dataset(data, 0.7, 0.2);
         assert_eq!(train.len(), 70);
         assert_eq!(val.len(), 20);
         assert_eq!(test.len(), 10);
@@ -960,7 +961,7 @@ mod tests {
             },
         ];
 
-        let stats = utils::compute_statistics(&metrics);
+        let stats = few_shot_utils::compute_statistics(&metrics);
         assert!((stats.mean_accuracy - 0.825).abs() < 1e-10);
         assert_eq!(stats.num_runs, 2);
     }

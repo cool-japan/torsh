@@ -34,7 +34,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyModule, PyModuleMethods};
 
 /// Register the nn module with Python
-pub fn register_nn_module(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+pub fn register_nn_module(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Register base module
     m.add_class::<PyNNModule>()?;
 

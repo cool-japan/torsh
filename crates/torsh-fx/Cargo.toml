@@ -24,12 +24,12 @@ bincode = { workspace = true }
 once_cell = { workspace = true }
 md5 = { workspace = true }
 flate2 = { workspace = true }
-rayon = { workspace = true }
-uuid = { version = "1.18", features = ["v4", "serde"] }
-tokio = { version = "1.47", features = ["macros", "rt-multi-thread"] }
+uuid = { version = "1.19", features = ["v4", "serde"] }
+tokio = { version = "1.48", features = ["macros", "rt-multi-thread"] }
+chrono = { workspace = true }
 
 # SciRS2 dependencies (POLICY COMPLIANCE)
-scirs2-core = { workspace = true }
+scirs2-core = { workspace = true, features = ["parallel"] }
 
 [dev-dependencies]
 criterion = { workspace = true }

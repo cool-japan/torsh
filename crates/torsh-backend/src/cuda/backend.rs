@@ -1,5 +1,10 @@
 //! CUDA backend implementation
 
+use crate::backend::{
+    BackendCapabilities, BackendCore, BackendDeviceManager, BackendExecutor, BackendLifecycle,
+    BackendOperations, BackendOps, BackendResourceManager, BackendType, CapabilityValue,
+    OperationsBundle, PerformanceHints,
+};
 use crate::cuda::buffer::CudaBuffer;
 use crate::cuda::cooperative_groups::{
     CooperativeGroupsContext, CooperativeKernelConfig, CooperativeWorkload,
@@ -7,17 +12,21 @@ use crate::cuda::cooperative_groups::{
 use crate::cuda::device::CudaDevice;
 use crate::cuda::error::{CudaError, CudaResult};
 use crate::cuda::graph::{CudaGraph, GraphCache, GraphCaptureContext};
-use crate::cuda::kernels::{KernelRegistry, LaunchConfig};
+use crate::cuda::kernels::KernelRegistry;
 use crate::cuda::memory::{CudaMemoryManager, MemoryAdvice, UnifiedAllocation};
 use crate::cuda::stream::CudaStream;
-use crate::error::BackendError;
-use crate::Backend;
+use crate::error::{conversion, BackendError, BackendResult};
+use crate::{
+    Backend, Buffer, BufferDescriptor, Device, Kernel, KernelDescriptor, MemoryManager, Profiler,
+};
 use async_trait::async_trait;
+use std::collections::HashMap;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc, Mutex, RwLock,
 };
-use torsh_core::{DType, DeviceType};
+use torsh_core::device::DeviceType;
+use torsh_core::DType;
 
 /// CUDA backend implementation with enhanced resource management
 #[derive(Debug)]
@@ -37,7 +46,7 @@ pub struct CudaBackend {
 /// Resource tracker for proper cleanup
 #[derive(Debug, Default)]
 pub struct ResourceTracker {
-    active_buffers: Vec<*mut std::ffi::c_void>,
+    active_buffers: Vec<usize>, // Store addresses as usize for thread safety
     active_streams: Vec<Arc<CudaStream>>,
     active_graphs: Vec<String>, // Graph keys for cleanup
     unified_allocations: Vec<UnifiedAllocation>,
@@ -47,13 +56,14 @@ impl ResourceTracker {
     /// Track a new buffer allocation
     pub fn track_buffer(&mut self, ptr: *mut std::ffi::c_void) {
         if !ptr.is_null() {
-            self.active_buffers.push(ptr);
+            self.active_buffers.push(ptr as usize);
         }
     }
 
     /// Untrack a buffer allocation
     pub fn untrack_buffer(&mut self, ptr: *mut std::ffi::c_void) {
-        self.active_buffers.retain(|&p| p != ptr);
+        let addr = ptr as usize;
+        self.active_buffers.retain(|&p| p != addr);
     }
 
     /// Track a new stream
@@ -254,7 +264,7 @@ impl CudaBackend {
     fn load_kernels() -> CudaResult<KernelRegistry> {
         // In a real implementation, this would load compiled PTX
         // For now, we'll create a placeholder registry
-        let ptx = include_str!("../kernels/compiled.ptx");
+        let ptx = include_str!("kernels/compiled.ptx");
         KernelRegistry::load_from_ptx(ptx).or_else(|_| {
             // Fallback: create empty registry for testing
             tracing::warn!("Failed to load CUDA kernels, using fallback");
@@ -803,187 +813,454 @@ impl Drop for CudaBackend {
     }
 }
 
-#[async_trait]
-impl Backend for CudaBackend {
-    type Device = CudaDevice;
-    type Config = CudaBackendConfig;
-
-    async fn initialize(config: Self::Config) -> Result<Self, BackendError> {
-        CudaBackend::new(config).map_err(|e| BackendError::InitializationFailed {
-            message: e.to_string(),
-        })
-    }
-
-    fn name(&self) -> &str {
-        "cuda"
-    }
-
+// ============== BackendCore Implementation ==============
+impl BackendCore for CudaBackend {
     fn device_type(&self) -> DeviceType {
         DeviceType::Cuda(self.config.device_id)
     }
 
-    fn is_available(&self) -> bool {
-        crate::is_available()
+    fn name(&self) -> &str {
+        "CUDA Backend"
     }
 
-    fn synchronize(&self) -> Result<(), BackendError> {
-        self.synchronize().map_err(|e| BackendError::Runtime {
-            message: e.to_string(),
+    fn is_available(&self) -> BackendResult<bool> {
+        Ok(crate::cuda::is_available())
+    }
+
+    fn capabilities(&self) -> BackendCapabilities {
+        use crate::backend::{ExtendedCapabilities, HardwareFeature, PrecisionMode};
+
+        let mut extended_capabilities = ExtendedCapabilities::default();
+        extended_capabilities.precision_modes = vec![
+            PrecisionMode::F16,
+            PrecisionMode::F32,
+            PrecisionMode::F64,
+            PrecisionMode::Mixed,
+        ];
+        extended_capabilities.hardware_features = vec![
+            HardwareFeature::TensorCores,
+            HardwareFeature::SharedMemory,
+            HardwareFeature::AtomicOperations,
+            HardwareFeature::CooperativeGroups,
+            HardwareFeature::DynamicParallelism,
+        ];
+        extended_capabilities.execution_model.supports_simd = true;
+        extended_capabilities.execution_model.supports_simt = true;
+        extended_capabilities
+            .execution_model
+            .supports_task_parallelism = true;
+        extended_capabilities
+            .execution_model
+            .supports_data_parallelism = true;
+        extended_capabilities.execution_model.max_concurrent_streams = Some(32);
+        extended_capabilities.execution_model.supports_out_of_order = true;
+
+        BackendCapabilities {
+            max_buffer_size: 16 * 1024 * 1024 * 1024, // 16GB typical GPU memory
+            max_compute_units: 128,                   // Typical SM count
+            max_workgroup_size: (1024, 1024, 64),
+            supported_dtypes: vec![
+                DType::F16,
+                DType::F32,
+                DType::F64,
+                DType::I32,
+                DType::I64,
+                DType::I16,
+                DType::I8,
+                DType::U8,
+                DType::Bool,
+            ],
+            supports_async: true,
+            supports_unified_memory: true,
+            supports_sub_buffers: true,
+            supports_kernel_caching: true,
+            memory_bandwidth_gbps: 900.0,       // Typical high-end GPU
+            compute_throughput_gflops: 20000.0, // Typical GPU TFLOPS
+            extended_capabilities,
+        }
+    }
+
+    fn performance_hints(&self) -> PerformanceHints {
+        PerformanceHints {
+            preferred_workgroup_size: (256, 1, 1),
+            memory_alignment: 256, // CUDA memory alignment
+            prefer_vectorized: true,
+            prefer_async: true,
+            optimal_batch_size: 256,
+            cache_kernels: true,
+        }
+    }
+}
+
+// ============== BackendLifecycle Implementation ==============
+#[async_trait]
+impl BackendLifecycle for CudaBackend {
+    async fn initialize(&mut self) -> BackendResult<()> {
+        if self.is_shutdown() {
+            return Err(conversion::cuda_error_with_context(
+                "Backend has been shutdown",
+                "initialize",
+                self.config.device_id,
+            ));
+        }
+        Ok(())
+    }
+
+    async fn shutdown(&mut self) -> BackendResult<()> {
+        CudaBackend::shutdown(self).map_err(|e| {
+            conversion::cuda_error_with_context(e.to_string(), "shutdown", self.config.device_id)
         })
     }
 
-    fn create_buffer<T: Clone + Send + Sync + 'static>(
-        &self,
-        length: usize,
-        dtype: DType,
-    ) -> Result<Box<dyn crate::Buffer<T>>, BackendError> {
-        let buffer =
-            self.create_buffer::<T>(length, dtype)
-                .map_err(|e| BackendError::AllocationFailed {
-                    message: e.to_string(),
-                })?;
-        Ok(Box::new(buffer))
+    fn is_initialized(&self) -> bool {
+        !self.is_shutdown()
+    }
+}
+
+// ============== BackendDeviceManager Implementation ==============
+impl BackendDeviceManager for CudaBackend {
+    fn devices(&self) -> BackendResult<Vec<Device>> {
+        let device = cuda_device_to_abstract(&self.device, self.config.device_id);
+        Ok(vec![device])
     }
 
-    fn add_tensors<T: Clone + Send + Sync + 'static>(
-        &self,
-        a: &dyn crate::Buffer<T>,
-        b: &dyn crate::Buffer<T>,
-        output: &mut dyn crate::Buffer<T>,
-    ) -> Result<(), BackendError> {
-        // Downcast to CUDA buffers
-        let a_cuda = a.as_any().downcast_ref::<CudaBuffer<T>>().ok_or_else(|| {
-            BackendError::InvalidBuffer {
-                message: "Expected CUDA buffer for input A".to_string(),
-            }
-        })?;
-        let b_cuda = b.as_any().downcast_ref::<CudaBuffer<T>>().ok_or_else(|| {
-            BackendError::InvalidBuffer {
-                message: "Expected CUDA buffer for input B".to_string(),
-            }
-        })?;
-        let output_cuda = output
-            .as_any_mut()
-            .downcast_mut::<CudaBuffer<T>>()
-            .ok_or_else(|| BackendError::InvalidBuffer {
-                message: "Expected CUDA buffer for output".to_string(),
-            })?;
-
-        // For now, only support f32
-        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
-            let a_f32 = unsafe { std::mem::transmute::<&CudaBuffer<T>, &CudaBuffer<f32>>(a_cuda) };
-            let b_f32 = unsafe { std::mem::transmute::<&CudaBuffer<T>, &CudaBuffer<f32>>(b_cuda) };
-            let output_f32 = unsafe {
-                std::mem::transmute::<&mut CudaBuffer<T>, &mut CudaBuffer<f32>>(output_cuda)
-            };
-
-            self.elementwise_add_f32(a_f32, b_f32, output_f32, None)
-                .map_err(|e| BackendError::Runtime {
-                    message: e.to_string(),
-                })?;
-        } else {
-            return Err(BackendError::UnsupportedOperation {
-                operation: "add_tensors".to_string(),
-                dtype: std::any::type_name::<T>().to_string(),
-            });
-        }
-
-        Ok(())
+    fn default_device(&self) -> BackendResult<Device> {
+        Ok(cuda_device_to_abstract(&self.device, self.config.device_id))
     }
 
-    fn multiply_tensors<T: Clone + Send + Sync + 'static>(
-        &self,
-        a: &dyn crate::Buffer<T>,
-        b: &dyn crate::Buffer<T>,
-        output: &mut dyn crate::Buffer<T>,
-    ) -> Result<(), BackendError> {
-        // Downcast to CUDA buffers
-        let a_cuda = a.as_any().downcast_ref::<CudaBuffer<T>>().ok_or_else(|| {
-            BackendError::InvalidBuffer {
-                message: "Expected CUDA buffer for input A".to_string(),
-            }
-        })?;
-        let b_cuda = b.as_any().downcast_ref::<CudaBuffer<T>>().ok_or_else(|| {
-            BackendError::InvalidBuffer {
-                message: "Expected CUDA buffer for input B".to_string(),
-            }
-        })?;
-        let output_cuda = output
-            .as_any_mut()
-            .downcast_mut::<CudaBuffer<T>>()
-            .ok_or_else(|| BackendError::InvalidBuffer {
-                message: "Expected CUDA buffer for output".to_string(),
-            })?;
-
-        // For now, only support f32
-        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
-            let a_f32 = unsafe { std::mem::transmute::<&CudaBuffer<T>, &CudaBuffer<f32>>(a_cuda) };
-            let b_f32 = unsafe { std::mem::transmute::<&CudaBuffer<T>, &CudaBuffer<f32>>(b_cuda) };
-            let output_f32 = unsafe {
-                std::mem::transmute::<&mut CudaBuffer<T>, &mut CudaBuffer<f32>>(output_cuda)
-            };
-
-            self.elementwise_mul_f32(a_f32, b_f32, output_f32, None)
-                .map_err(|e| BackendError::Runtime {
-                    message: e.to_string(),
-                })?;
-        } else {
-            return Err(BackendError::UnsupportedOperation {
-                operation: "multiply_tensors".to_string(),
-                dtype: std::any::type_name::<T>().to_string(),
-            });
+    fn create_device(&self, device_id: usize) -> BackendResult<Device> {
+        if device_id != self.config.device_id {
+            return Err(conversion::cuda_error_with_context(
+                format!(
+                    "CUDA device {} not managed by this backend (managing device {})",
+                    device_id, self.config.device_id
+                ),
+                "create_device",
+                self.config.device_id,
+            ));
         }
-
-        Ok(())
+        Ok(cuda_device_to_abstract(&self.device, self.config.device_id))
     }
 
-    fn matmul<T: Clone + Send + Sync + 'static>(
+    fn device_count(&self) -> BackendResult<usize> {
+        Ok(1) // This backend manages one device
+    }
+
+    fn is_device_available(&self, device_id: usize) -> bool {
+        device_id == self.config.device_id
+    }
+}
+
+/// Helper function to convert CudaDevice to abstract Device
+fn cuda_device_to_abstract(_cuda_device: &Arc<CudaDevice>, device_id: usize) -> Device {
+    use crate::{DeviceFeature, DeviceInfo};
+
+    let info = DeviceInfo {
+        vendor: "NVIDIA".to_string(),
+        driver_version: "CUDA".to_string(),
+        total_memory: 16 * 1024 * 1024 * 1024, // 16GB default estimate
+        available_memory: 16 * 1024 * 1024 * 1024,
+        compute_units: 128, // Typical SM count
+        max_work_group_size: 1024,
+        max_work_group_dimensions: vec![1024, 1024, 64],
+        clock_frequency_mhz: 2000,
+        memory_bandwidth_gbps: 900.0,
+        peak_gflops: 20000.0,
+        features: vec![
+            DeviceFeature::DoublePrecision,
+            DeviceFeature::UnifiedMemory,
+            DeviceFeature::AtomicOperations,
+            DeviceFeature::Profiling,
+            DeviceFeature::ConcurrentExecution,
+            DeviceFeature::AsyncMemory,
+            DeviceFeature::FastMath,
+        ],
+        properties: vec![
+            ("compute_capability".to_string(), "7.0+".to_string()),
+            ("tensor_cores".to_string(), "supported".to_string()),
+        ],
+    };
+
+    Device::new(
+        device_id,
+        DeviceType::Cuda(device_id),
+        format!("CUDA Device {}", device_id),
+        info,
+    )
+}
+
+// ============== BackendResourceManager Implementation ==============
+impl BackendResourceManager for CudaBackend {
+    fn create_buffer(
         &self,
-        a: &dyn crate::Buffer<T>,
-        b: &dyn crate::Buffer<T>,
-        output: &mut dyn crate::Buffer<T>,
-        m: usize,
-        n: usize,
-        k: usize,
-    ) -> Result<(), BackendError> {
-        // Downcast to CUDA buffers
-        let a_cuda = a.as_any().downcast_ref::<CudaBuffer<T>>().ok_or_else(|| {
-            BackendError::InvalidBuffer {
-                message: "Expected CUDA buffer for input A".to_string(),
-            }
-        })?;
-        let b_cuda = b.as_any().downcast_ref::<CudaBuffer<T>>().ok_or_else(|| {
-            BackendError::InvalidBuffer {
-                message: "Expected CUDA buffer for input B".to_string(),
-            }
-        })?;
-        let output_cuda = output
-            .as_any_mut()
-            .downcast_mut::<CudaBuffer<T>>()
-            .ok_or_else(|| BackendError::InvalidBuffer {
-                message: "Expected CUDA buffer for output".to_string(),
-            })?;
+        _device: &Device,
+        _descriptor: &BufferDescriptor,
+    ) -> BackendResult<Buffer> {
+        // For CUDA backend, create a generic Buffer wrapper
+        // This is a simplified implementation - in production you'd have proper CUDA buffer creation
+        Err(conversion::cuda_error_with_context(
+            "CUDA buffer creation through abstract interface not yet implemented",
+            "create_buffer",
+            self.config.device_id,
+        ))
+    }
 
-        // For now, only support f32
-        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
-            let a_f32 = unsafe { std::mem::transmute::<&CudaBuffer<T>, &CudaBuffer<f32>>(a_cuda) };
-            let b_f32 = unsafe { std::mem::transmute::<&CudaBuffer<T>, &CudaBuffer<f32>>(b_cuda) };
-            let output_f32 = unsafe {
-                std::mem::transmute::<&mut CudaBuffer<T>, &mut CudaBuffer<f32>>(output_cuda)
-            };
+    fn create_kernel(
+        &self,
+        _device: &Device,
+        _descriptor: &KernelDescriptor,
+    ) -> BackendResult<Kernel> {
+        Err(conversion::cuda_error_with_context(
+            "CUDA kernel creation through abstract interface not yet implemented",
+            "create_kernel",
+            self.config.device_id,
+        ))
+    }
 
-            self.matmul_f32(a_f32, b_f32, output_f32, m, n, k, None)
-                .map_err(|e| BackendError::Runtime {
-                    message: e.to_string(),
-                })?;
-        } else {
-            return Err(BackendError::UnsupportedOperation {
-                operation: "matmul".to_string(),
-                dtype: std::any::type_name::<T>().to_string(),
-            });
+    fn memory_manager(
+        &self,
+        _device: &Device,
+    ) -> BackendResult<Box<dyn MemoryManager + Send + Sync>> {
+        // Return a memory manager wrapper
+        Err(conversion::cuda_error_with_context(
+            "CUDA memory manager through abstract interface not yet implemented",
+            "memory_manager",
+            self.config.device_id,
+        ))
+    }
+
+    fn profiler(&self) -> BackendResult<Box<dyn Profiler + Send + Sync>> {
+        Err(conversion::cuda_error_with_context(
+            "CUDA profiler through abstract interface not yet implemented",
+            "profiler",
+            self.config.device_id,
+        ))
+    }
+
+    fn create_scoped_buffer(
+        &self,
+        device: &Device,
+        descriptor: &BufferDescriptor,
+    ) -> BackendResult<Buffer> {
+        self.create_buffer(device, descriptor)
+    }
+}
+
+// ============== BackendExecutor Implementation ==============
+#[async_trait]
+impl BackendExecutor for CudaBackend {
+    async fn synchronize(&self, _device: &Device) -> BackendResult<()> {
+        CudaBackend::synchronize(self).map_err(|e| {
+            conversion::cuda_error_with_context(e.to_string(), "synchronize", self.config.device_id)
+        })
+    }
+
+    async fn copy_buffer(
+        &self,
+        _src: &Buffer,
+        _dst: &Buffer,
+        _src_offset: usize,
+        _dst_offset: usize,
+        _size: usize,
+    ) -> BackendResult<()> {
+        Err(conversion::cuda_error_with_context(
+            "CUDA buffer copy through abstract interface not yet implemented",
+            "copy_buffer",
+            self.config.device_id,
+        ))
+    }
+
+    async fn copy_to_device(
+        &self,
+        _src: &[u8],
+        _dst: &Buffer,
+        _dst_offset: usize,
+    ) -> BackendResult<()> {
+        Err(conversion::cuda_error_with_context(
+            "CUDA copy to device through abstract interface not yet implemented",
+            "copy_to_device",
+            self.config.device_id,
+        ))
+    }
+
+    async fn copy_from_device(
+        &self,
+        _src: &Buffer,
+        _dst: &mut [u8],
+        _src_offset: usize,
+    ) -> BackendResult<()> {
+        Err(conversion::cuda_error_with_context(
+            "CUDA copy from device through abstract interface not yet implemented",
+            "copy_from_device",
+            self.config.device_id,
+        ))
+    }
+
+    async fn execute_kernel(
+        &self,
+        _kernel: &Kernel,
+        _buffers: &[&Buffer],
+        _uniform_data: &[u8],
+        _workgroup_size: (u32, u32, u32),
+        _workgroup_count: (u32, u32, u32),
+    ) -> BackendResult<()> {
+        Err(conversion::cuda_error_with_context(
+            "CUDA kernel execution through abstract interface not yet implemented",
+            "execute_kernel",
+            self.config.device_id,
+        ))
+    }
+}
+
+// ============== BackendOperations Implementation ==============
+impl BackendOperations for CudaBackend {
+    fn fft_ops(&self) -> Box<dyn crate::fft::FftOps> {
+        Box::new(crate::fft::DefaultFftOps::new())
+    }
+
+    fn convolution_ops(&self) -> Box<dyn crate::convolution::ConvolutionOps> {
+        Box::new(crate::convolution::DefaultConvolutionOps::new())
+    }
+
+    fn rnn_ops(&self) -> Box<dyn crate::rnn::RnnOps> {
+        Box::new(crate::rnn::DefaultRnnOps::new())
+    }
+
+    fn sparse_ops(&self) -> Box<dyn crate::sparse_ops::SparseOps<f32>> {
+        Box::new(crate::sparse_ops::DefaultSparseOps::new(
+            self.default_device().unwrap(),
+        ))
+    }
+
+    fn quantization_ops(&self) -> Box<dyn crate::quantization::QuantizationOps> {
+        Box::new(crate::quantization::DefaultQuantizationOps::new())
+    }
+
+    fn operations_bundle(&self) -> OperationsBundle {
+        OperationsBundle::new(
+            self.fft_ops(),
+            self.convolution_ops(),
+            self.rnn_ops(),
+            self.sparse_ops(),
+            self.quantization_ops(),
+        )
+    }
+}
+
+// ============== BackendOps Implementation ==============
+impl BackendOps for CudaBackend {
+    fn backend_type(&self) -> BackendType {
+        BackendType::Cuda
+    }
+
+    fn available_ops(&self) -> Vec<&str> {
+        vec![
+            "add",
+            "sub",
+            "mul",
+            "div",
+            "sin",
+            "cos",
+            "exp",
+            "log",
+            "matmul",
+            "conv2d",
+            "batch_norm",
+            "relu",
+            "softmax",
+            "dropout",
+            "fft",
+            "ifft",
+            "rnn",
+            "lstm",
+            "gru",
+            "sparse_matmul",
+            "quantize",
+            "dequantize",
+            "tensor_core_matmul",
+            "mixed_precision",
+        ]
+    }
+
+    fn supports_op(&self, op_name: &str) -> bool {
+        self.available_ops().contains(&op_name)
+    }
+
+    fn supports_fft(&self) -> bool {
+        true // cuFFT available
+    }
+
+    fn supports_convolution(&self) -> bool {
+        true // cuDNN available
+    }
+
+    fn supports_rnn(&self) -> bool {
+        true // cuDNN RNN available
+    }
+
+    fn supports_sparse(&self) -> bool {
+        true // cuSPARSE available
+    }
+
+    fn supports_quantization(&self) -> bool {
+        true // CUDA quantization supported
+    }
+
+    fn operation_capabilities(&self, op_name: &str) -> Option<HashMap<String, CapabilityValue>> {
+        let mut caps = HashMap::new();
+
+        match op_name {
+            "matmul" => {
+                caps.insert("max_size".to_string(), CapabilityValue::Int(65536));
+                caps.insert("supports_batched".to_string(), CapabilityValue::Bool(true));
+                caps.insert("supports_strided".to_string(), CapabilityValue::Bool(true));
+                caps.insert(
+                    "supports_tensor_cores".to_string(),
+                    CapabilityValue::Bool(true),
+                );
+            }
+            "conv2d" => {
+                caps.insert("max_kernel_size".to_string(), CapabilityValue::Int(31));
+                caps.insert("supports_groups".to_string(), CapabilityValue::Bool(true));
+                caps.insert("supports_dilation".to_string(), CapabilityValue::Bool(true));
+                caps.insert("supports_cudnn".to_string(), CapabilityValue::Bool(true));
+            }
+            "fft" => {
+                caps.insert("max_size".to_string(), CapabilityValue::Int(134217728)); // 128M elements
+                caps.insert("supports_real".to_string(), CapabilityValue::Bool(true));
+                caps.insert("supports_batched".to_string(), CapabilityValue::Bool(true));
+            }
+            _ => return None,
         }
 
-        Ok(())
+        Some(caps)
+    }
+}
+
+// ============== Main Backend Trait Implementation ==============
+impl Backend for CudaBackend {
+    fn as_core(&self) -> &dyn BackendCore {
+        self
+    }
+
+    fn as_lifecycle(&mut self) -> &mut dyn BackendLifecycle {
+        self
+    }
+
+    fn as_device_manager(&self) -> &dyn BackendDeviceManager {
+        self
+    }
+
+    fn as_resource_manager(&self) -> &dyn BackendResourceManager {
+        self
+    }
+
+    fn as_executor(&self) -> &dyn BackendExecutor {
+        self
+    }
+
+    fn as_operations(&self) -> &dyn BackendOperations {
+        self
     }
 }
 
@@ -1009,26 +1286,27 @@ pub struct Conv2dConfig {
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    async fn test_cuda_backend_creation() {
-        if crate::is_available() {
+    #[test]
+    fn test_cuda_backend_creation() {
+        if crate::cuda::is_available() {
             let config = CudaBackendConfig::default();
-            let backend = CudaBackend::initialize(config).await;
+            let backend = CudaBackend::new(config);
             assert!(backend.is_ok());
 
             let backend = backend.unwrap();
-            assert_eq!(backend.name(), "cuda");
-            assert!(backend.is_available());
+            assert_eq!(BackendCore::name(&backend), "CUDA Backend");
+            assert!(BackendCore::is_available(&backend).unwrap_or(false));
         }
     }
 
-    #[tokio::test]
-    async fn test_buffer_creation() {
-        if crate::is_available() {
+    #[test]
+    fn test_cuda_buffer_creation() {
+        if crate::cuda::is_available() {
             let config = CudaBackendConfig::default();
-            let backend = CudaBackend::initialize(config).await.unwrap();
+            let backend = CudaBackend::new(config).unwrap();
 
-            let buffer = backend.create_buffer::<f32>(1024, DType::F32);
+            // Use the CudaBackend's own create_buffer method
+            let buffer = CudaBackend::create_buffer::<f32>(&backend, 1024, DType::F32);
             assert!(buffer.is_ok());
 
             let buffer = buffer.unwrap();
@@ -1037,15 +1315,15 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_elementwise_addition() {
-        if crate::is_available() {
+    #[test]
+    fn test_elementwise_addition() {
+        if crate::cuda::is_available() {
             let config = CudaBackendConfig::default();
-            let backend = CudaBackend::initialize(config).await.unwrap();
+            let backend = CudaBackend::new(config).unwrap();
 
-            let mut a = backend.create_buffer::<f32>(4, DType::F32).unwrap();
-            let mut b = backend.create_buffer::<f32>(4, DType::F32).unwrap();
-            let mut output = backend.create_buffer::<f32>(4, DType::F32).unwrap();
+            let a = CudaBackend::create_buffer::<f32>(&backend, 4, DType::F32).unwrap();
+            let b = CudaBackend::create_buffer::<f32>(&backend, 4, DType::F32).unwrap();
+            let mut output = CudaBackend::create_buffer::<f32>(&backend, 4, DType::F32).unwrap();
 
             // Copy test data
             let data_a = vec![1.0, 2.0, 3.0, 4.0];
@@ -1067,11 +1345,11 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_cuda_graph_capture() {
-        if crate::is_available() {
+    #[test]
+    fn test_cuda_graph_capture() {
+        if crate::cuda::is_available() {
             let config = CudaBackendConfig::default();
-            let backend = CudaBackend::initialize(config).await.unwrap();
+            let backend = CudaBackend::new(config).unwrap();
 
             // Test graph capture
             assert!(!backend.is_capturing_graph());
@@ -1091,15 +1369,15 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_cuda_graph_operations() {
-        if crate::is_available() {
+    #[test]
+    fn test_cuda_graph_operations() {
+        if crate::cuda::is_available() {
             let config = CudaBackendConfig::default();
-            let backend = CudaBackend::initialize(config).await.unwrap();
+            let backend = CudaBackend::new(config).unwrap();
 
-            let mut a = backend.create_buffer::<f32>(1024, DType::F32).unwrap();
-            let mut b = backend.create_buffer::<f32>(1024, DType::F32).unwrap();
-            let mut output = backend.create_buffer::<f32>(1024, DType::F32).unwrap();
+            let a = CudaBackend::create_buffer::<f32>(&backend, 1024, DType::F32).unwrap();
+            let b = CudaBackend::create_buffer::<f32>(&backend, 1024, DType::F32).unwrap();
+            let mut output = CudaBackend::create_buffer::<f32>(&backend, 1024, DType::F32).unwrap();
 
             // Copy test data
             let data_a: Vec<f32> = (0..1024).map(|i| i as f32).collect();
@@ -1129,19 +1407,20 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_cuda_graph_matmul() {
-        if crate::is_available() {
+    #[test]
+    fn test_cuda_graph_matmul() {
+        if crate::cuda::is_available() {
             let config = CudaBackendConfig::default();
-            let backend = CudaBackend::initialize(config).await.unwrap();
+            let backend = CudaBackend::new(config).unwrap();
 
             let m = 32;
             let n = 32;
             let k = 32;
 
-            let mut a = backend.create_buffer::<f32>(m * k, DType::F32).unwrap();
-            let mut b = backend.create_buffer::<f32>(k * n, DType::F32).unwrap();
-            let mut output = backend.create_buffer::<f32>(m * n, DType::F32).unwrap();
+            let a = CudaBackend::create_buffer::<f32>(&backend, m * k, DType::F32).unwrap();
+            let b = CudaBackend::create_buffer::<f32>(&backend, k * n, DType::F32).unwrap();
+            let mut output =
+                CudaBackend::create_buffer::<f32>(&backend, m * n, DType::F32).unwrap();
 
             // Initialize with simple data
             let data_a: Vec<f32> = vec![1.0; m * k];
@@ -1167,11 +1446,11 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_unified_memory_support() {
-        if crate::is_available() {
+    #[test]
+    fn test_unified_memory_support() {
+        if crate::cuda::is_available() {
             let config = CudaBackendConfig::default();
-            let backend = CudaBackend::initialize(config).await.unwrap();
+            let backend = CudaBackend::new(config).unwrap();
 
             // Test unified memory support detection
             let supports = backend.supports_unified_memory();
@@ -1192,11 +1471,11 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_unified_memory_operations() {
-        if crate::is_available() {
+    #[test]
+    fn test_unified_memory_operations() {
+        if crate::cuda::is_available() {
             let config = CudaBackendConfig::default();
-            let backend = CudaBackend::initialize(config).await.unwrap();
+            let backend = CudaBackend::new(config).unwrap();
 
             if backend.supports_unified_memory().unwrap_or(false) {
                 let mut allocation = backend.allocate_unified(16).unwrap();
@@ -1233,11 +1512,11 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_unified_memory_performance_hints() {
-        if crate::is_available() {
+    #[test]
+    fn test_unified_memory_performance_hints() {
+        if crate::cuda::is_available() {
             let config = CudaBackendConfig::default();
-            let backend = CudaBackend::initialize(config).await.unwrap();
+            let backend = CudaBackend::new(config).unwrap();
 
             if backend.supports_unified_memory().unwrap_or(false) {
                 let allocation = backend.allocate_unified(4096).unwrap();

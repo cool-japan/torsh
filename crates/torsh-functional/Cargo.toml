@@ -16,12 +16,12 @@ workspace = true
 torsh-core = { workspace = true }
 torsh-tensor = { workspace = true }
 torsh-special = { workspace = true }
+torsh-linalg = { workspace = true }
 torsh-backend = { workspace = true, features = ["simd"], optional = true }
 
 # Numerical - using SciRS2 ecosystem
 num-traits = { workspace = true }
 rustfft = { workspace = true }
-scirs2 = { workspace = true }
 scirs2-autograd = { workspace = true }
 
 # Error handling

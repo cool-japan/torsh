@@ -47,7 +47,7 @@ impl TextAnalyzer {
         let word_count = words.len();
 
         let sentences: Vec<&str> = text
-            .split(|c| c == '.' || c == '!' || c == '?')
+            .split(['.', '!', '?'])
             .filter(|s| !s.trim().is_empty())
             .collect();
         let sentence_count = sentences.len();
@@ -532,8 +532,6 @@ mod tests {
 /// Text clustering functionality for grouping similar documents
 pub mod clustering {
     use super::*;
-    use crate::scirs2_ops::string_ops;
-    use std::collections::HashMap;
 
     /// K-Means clustering for text documents
     #[derive(Debug, Clone)]
@@ -615,7 +613,7 @@ pub mod clustering {
             _vocab_size: usize,
         ) -> Result<Vec<Vec<f64>>> {
             // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
-            use scirs2_core::random::{Random, Rng};
+            use scirs2_core::random::Random;
             let mut rng = Random::seed(42);
             let mut centroids = Vec::new();
 
@@ -779,7 +777,7 @@ pub mod clustering {
                 0.0
             };
 
-            1.0 - cosine_sim.max(0.0).min(1.0)
+            1.0 - cosine_sim.clamp(0.0, 1.0)
         }
 
         fn find_closest_clusters(

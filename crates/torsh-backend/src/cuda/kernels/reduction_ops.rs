@@ -1,6 +1,7 @@
 //! Rust bindings for reduction operation kernels
 
-use crate::error::{CudaError, CudaResult};
+#[allow(unused_imports)]
+use crate::cuda::error::{CudaError, CudaResult};
 
 /// Launch sum reduction kernel
 pub fn launch_sum_f32(

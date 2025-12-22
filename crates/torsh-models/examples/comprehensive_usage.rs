@@ -3,8 +3,7 @@
 //! This example demonstrates how to use various models from the torsh-models crate
 //! including vision, NLP, audio, multimodal, RL, and domain-specific models.
 
-use std::collections::HashMap;
-use torsh_core::{DType, DeviceType, Shape};
+use torsh_core::DeviceType;
 use torsh_nn::Module;
 use torsh_tensor::Tensor;
 
@@ -14,14 +13,11 @@ use torsh_models::domain::{PINNConfig, UNet, UNetConfig, PINN};
 use torsh_models::multimodal::{CLIPConfig, CLIPModel, CLIPTextConfig, CLIPVisionConfig};
 use torsh_models::nlp::{RobertaConfig, RobertaForSequenceClassification};
 use torsh_models::rl::{DQNConfig, PPOConfig, DQN, PPO};
-use torsh_models::vision::{
-    EfficientNet, EfficientNetConfig, EfficientNetVariant, ResNet, ResNetConfig, ResNetVariant,
-};
+use torsh_models::vision::{ResNet, ResNetConfig, ResNetVariant};
 
 // Import utilities
-use torsh_models::benchmark::{BenchmarkConfig, ModelBenchmark};
-use torsh_models::comparison::{ComparisonConfig, ModelComparator};
-use torsh_models::quantization::{ModelQuantizer, QuantizationConfig, QuantizationStrategy};
+use torsh_models::benchmark::BenchmarkConfig;
+use torsh_models::quantization::QuantizationConfig;
 use torsh_models::registry::ModelRegistry;
 use torsh_models::validation::{
     AverageType, ToleranceConfig, ValidationConfig, ValidationMetric, ValidationStrategy,
@@ -90,24 +86,9 @@ fn vision_models_example() -> Result<(), Box<dyn std::error::Error>> {
         resnet_output.shape().dims()
     );
 
-    // EfficientNet for efficient inference
-    let efficientnet_config = EfficientNetConfig {
-        width_multiplier: 1.0,
-        depth_multiplier: 1.0,
-        input_resolution: 224,
-        dropout_rate: 0.2,
-        stochastic_depth_rate: 0.2,
-        num_classes: 1000,
-    };
-
-    let mut efficientnet = EfficientNet::new(efficientnet_config)?;
-
-    println!("🔄 Running EfficientNet-B0 inference...");
-    let efficientnet_output = efficientnet.forward(&image_input)?;
-    println!(
-        "✅ EfficientNet-B0 output shape: {:?}",
-        efficientnet_output.shape().dims()
-    );
+    // Note: EfficientNet is implemented but not yet enabled due to API compatibility
+    // Will be available in v0.2.0 after torsh-nn API stabilization
+    println!("ℹ️  EfficientNet skipped (awaiting torsh-nn v0.2 API compatibility)");
 
     // Switch between training and evaluation modes
     resnet.train();
@@ -143,7 +124,7 @@ fn nlp_models_example() -> Result<(), Box<dyn std::error::Error>> {
         position_embedding_type: "absolute".to_string(),
     };
 
-    let mut roberta = RobertaForSequenceClassification::new(roberta_config, 2)?;
+    let roberta = RobertaForSequenceClassification::new(roberta_config, 2)?;
 
     // Create token IDs input (batch_size=1, seq_length=128)
     let token_ids = create_random_tensor(&[1, 128], DeviceType::Cpu)?;
@@ -196,7 +177,7 @@ fn audio_models_example() -> Result<(), Box<dyn std::error::Error>> {
         use_weighted_layer_sum: false,
     };
 
-    let mut wav2vec2 = Wav2Vec2ForCTC::new(wav2vec2_config)?;
+    let wav2vec2 = Wav2Vec2ForCTC::new(wav2vec2_config)?;
 
     // Create audio input (1 second at 16kHz)
     let audio_input = create_random_tensor(&[1, 16000], DeviceType::Cpu)?;
@@ -257,7 +238,7 @@ fn multimodal_models_example() -> Result<(), Box<dyn std::error::Error>> {
         logit_scale_init_value: 2.6592,
     };
 
-    let mut clip_model = CLIPModel::new(clip_config)?;
+    let clip_model = CLIPModel::new(clip_config)?;
 
     // Encode image and text
     let image_input = create_random_tensor(&[1, 3, 224, 224], DeviceType::Cpu)?;
@@ -287,7 +268,7 @@ fn rl_models_example() -> Result<(), Box<dyn std::error::Error>> {
     // DQN for value-based RL
     let dqn_config = DQNConfig::default();
 
-    let mut dqn = DQN::new(dqn_config)?;
+    let dqn = DQN::new(dqn_config)?;
     let state = create_random_tensor(&[32, 4], DeviceType::Cpu)?; // batch of states
 
     println!("🔄 Running DQN value estimation...");
@@ -297,7 +278,7 @@ fn rl_models_example() -> Result<(), Box<dyn std::error::Error>> {
     // PPO for policy-based RL
     let ppo_config = PPOConfig::default();
 
-    let mut ppo = PPO::new(ppo_config)?;
+    let ppo = PPO::new(ppo_config)?;
     let single_state = create_random_tensor(&[1, 4], DeviceType::Cpu)?;
 
     println!("🔄 Running PPO policy and value estimation...");
@@ -329,7 +310,7 @@ fn domain_models_example() -> Result<(), Box<dyn std::error::Error>> {
         activation: "relu".to_string(),
     };
 
-    let mut unet = UNet::new(unet_config)?;
+    let unet = UNet::new(unet_config)?;
     let medical_image = create_random_tensor(&[1, 1, 256, 256], DeviceType::Cpu)?;
 
     println!("🔄 Running U-Net medical image segmentation...");
@@ -351,7 +332,7 @@ fn domain_models_example() -> Result<(), Box<dyn std::error::Error>> {
         adaptive_weights: true,
     };
 
-    let mut pinn = PINN::new(pinn_config)?;
+    let pinn = PINN::new(pinn_config)?;
     let coordinates = create_random_tensor(&[1000, 2], DeviceType::Cpu)?; // 1000 sample points
 
     println!("🔄 Running PINN physics simulation...");

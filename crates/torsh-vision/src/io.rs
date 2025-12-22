@@ -7,6 +7,8 @@
 //! - Memory-mapped file operations
 //! - Batch processing utilities
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{Result, VisionError};
 use image::{DynamicImage, GenericImageView, ImageFormat};
 use std::collections::HashMap;
@@ -392,7 +394,7 @@ impl VisionIO {
     pub fn get_image_info<P: AsRef<Path>>(&self, path: P) -> Result<ImageInfo> {
         let path = path.as_ref();
 
-        let reader = image::io::Reader::open(path)?;
+        let reader = image::ImageReader::open(path)?;
 
         let reader = reader.with_guessed_format()?;
 
@@ -522,6 +524,7 @@ static mut GLOBAL_IO: Option<VisionIO> = None;
 static INIT: std::sync::Once = std::sync::Once::new();
 
 /// Get the global VisionIO instance
+#[allow(static_mut_refs)]
 pub fn global_io() -> &'static VisionIO {
     unsafe {
         INIT.call_once(|| {

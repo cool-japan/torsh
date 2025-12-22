@@ -1,12 +1,9 @@
 //! CLIP transformer layers
 
-use super::super::common::activations::QuickGELU;
+use super::super::multimodal_common::activations::QuickGELU;
 use super::config::{CLIPTextConfig, CLIPVisionConfig};
 use std::collections::HashMap;
-use torsh_core::{
-    error::{Result, TorshError},
-    DeviceType,
-};
+use torsh_core::{error::Result, DeviceType};
 use torsh_nn::prelude::*;
 use torsh_nn::{Module, Parameter};
 use torsh_tensor::Tensor;

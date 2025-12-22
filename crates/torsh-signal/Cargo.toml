@@ -16,17 +16,18 @@ torsh-core = { workspace = true }
 torsh-tensor = { workspace = true }
 torsh-functional = { workspace = true }
 torsh-linalg = { workspace = true }
-# SciRS2 ecosystem for signal processing (following SCIRS2 policy)
-scirs2-core = { version = "0.1.0-beta.2" }
-scirs2-signal = { version = "0.1.0-beta.2", optional = true }
-scirs2-fft = { version = "0.1.0-beta.2", optional = true }
-num-complex = { workspace = true }
-num-traits = { workspace = true }
+# SciRS2 ecosystem for signal processing (following SCIRS2 POLICY)
+# All numeric types and traits accessed through scirs2-core (POLICY compliant)
+scirs2-core = { workspace = true }
+scirs2-signal = { version = "0.1.0-rc.4", optional = true }
+scirs2-fft = { version = "0.1.0-rc.4", optional = true }
 thiserror = { workspace = true }
 approx = { workspace = true }
 
 [features]
 default = []
+simd = ["scirs2-core/simd"]
+parallel = ["scirs2-core/parallel"]
 scirs2-integration = ["scirs2-signal", "scirs2-fft"]
 advanced-signal = ["scirs2-signal"]
 fft-support = ["scirs2-fft"]

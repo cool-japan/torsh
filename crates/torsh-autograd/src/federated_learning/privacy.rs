@@ -39,10 +39,11 @@
 //! The module includes sophisticated privacy accounting to track cumulative privacy loss
 //! across multiple federated learning rounds, supporting various composition methods.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use std::collections::HashMap;
-use std::f64::consts::PI;
 
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::{thread_rng, Normal};
 
 use super::types::PrivacyMechanism;
 use crate::federated_learning::aggregation::FederatedError;
@@ -377,8 +378,9 @@ impl PrivacyEngine {
     ///
     /// A sample from the Laplace distribution
     fn sample_laplace_noise(&self, location: f64, scale: f64) -> f64 {
-        let u: f64 = Random::default().gen_range(-0.5..0.5);
-        location - scale * u.signum() * (1.0 - 2.0 * u.abs()).ln()
+        let mut rng = thread_rng();
+        let u: f64 = rng.gen_range(-0.5..0.5);
+        location - scale * u.signum() * f64::ln(1.0 - 2.0 * u.abs())
     }
 
     /// Samples noise from a Gaussian distribution
@@ -394,12 +396,11 @@ impl PrivacyEngine {
     ///
     /// A sample from the Gaussian distribution
     fn sample_gaussian_noise(&self, mean: f64, std_dev: f64) -> f64 {
-        let u1: f64 = Random::default().gen();
-        let u2: f64 = Random::default().gen();
+        use scirs2_core::random::Distribution;
 
-        // Box-Muller transform
-        let z0 = (-2.0 * u1.ln()).sqrt() * (2.0 * PI * u2).cos();
-        mean + std_dev * z0
+        let mut rng = thread_rng();
+        let normal = Normal::new(mean, std_dev).unwrap();
+        normal.sample(&mut rng)
     }
 
     /// Estimates the L2 sensitivity of gradients

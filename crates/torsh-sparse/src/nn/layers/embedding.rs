@@ -1,14 +1,14 @@
 //! Sparse embedding layer implementation
 
 use super::super::common::{
-    traits::{SparseConverter, SparseLayer},
+    traits::SparseLayer,
     types::{SparseLayerConfig, SparseStats},
     utils::SparseWeightGenerator,
 };
-use crate::{CooTensor, CsrTensor, SparseTensor, TorshResult};
-use scirs2_core::random::{Random, Rng};
+use crate::{CsrTensor, SparseTensor, TorshResult};
+// scirs2_core::random provides Random trait for RNG operations
 use std::collections::HashSet;
-use torsh_core::{Shape, TorshError};
+use torsh_core::TorshError;
 use torsh_tensor::{creation::zeros, Tensor};
 
 /// Sparse embedding layer

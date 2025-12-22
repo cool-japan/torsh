@@ -8,7 +8,6 @@ use crate::error::{DataError, Result};
 use crate::sampler::{Sampler, SamplerIterator};
 // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand_distr
 use scirs2_core::rand_prelude::Distribution;
-use scirs2_core::random::DistributionExt;
 use scirs2_core::random::RandNormal;
 use std::collections::HashMap;
 
@@ -344,8 +343,8 @@ impl NoiseGenerator for LaplaceNoise {
         // Approximate Laplace distribution using two exponential distributions
         let data: Vec<f32> = (0..size)
             .map(|_| {
-                let u1: f64 = rng.gen();
-                let u2: f64 = rng.gen();
+                let u1: f64 = rng.random();
+                let u2: f64 = rng.random();
                 let sign = if u1 < 0.5 { -1.0 } else { 1.0 };
                 (sign * scale * (-u2.ln())) as f32
             })
@@ -363,8 +362,6 @@ impl NoiseGenerator for LaplaceNoise {
         std: f64,
     ) -> Result<torsh_tensor::Tensor> {
         // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand_distr
-        use scirs2_core::random::prelude::*;
-
         let size: usize = shape.iter().product();
         let normal = RandNormal::new(mean, std).map_err(|e| {
             DataError::tensor_creation_failed(format!(
@@ -421,8 +418,6 @@ impl NoiseGenerator for GaussianNoise {
         std: f64,
     ) -> Result<torsh_tensor::Tensor> {
         // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand_distr
-        use scirs2_core::random::prelude::*;
-
         let size: usize = shape.iter().product();
         let normal = RandNormal::new(mean, std).map_err(|e| {
             DataError::tensor_creation_failed(format!(
@@ -705,10 +700,12 @@ pub mod dp_utils {
 
 /// Wrapper dataset that adapts TensorDataset to return a single tensor
 /// This is used for privacy testing where we expect single tensors
+#[allow(dead_code)]
 struct SingleTensorDataset<T: torsh_core::dtype::TensorElement> {
     inner: crate::dataset::TensorDataset<T>,
 }
 
+#[allow(dead_code)]
 impl<T: torsh_core::dtype::TensorElement> SingleTensorDataset<T> {
     fn new(inner: crate::dataset::TensorDataset<T>) -> Self {
         Self { inner }

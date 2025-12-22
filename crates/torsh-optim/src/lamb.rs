@@ -99,7 +99,9 @@ impl LAMB {
 
     /// Get parameter key for state storage
     fn get_param_key(param: &Tensor) -> Result<String> {
-        Ok(format!("param_{:p}", param.data()?.as_ptr()))
+        // Bind data to a variable to extend lifetime before taking pointer
+        let data = param.data()?;
+        Ok(format!("param_{:p}", data.as_ptr()))
     }
 
     /// Compute layer-wise learning rate adaptation

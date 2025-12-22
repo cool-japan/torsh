@@ -1,5 +1,7 @@
 //! Feature matching and correspondence algorithms using spatial data structures
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{Result, VisionError};
 use scirs2_core::ndarray::{arr1, arr2, s, Array1, Array2, ArrayView2};
 use scirs2_spatial::distance::{cosine, euclidean, EuclideanDistance}; // Note: hamming not available
@@ -303,7 +305,7 @@ impl FeatureMatcher {
             }
             DistanceMetric::ChiSquared => {
                 let mut chi_squared = 0.0;
-                for (i, (&a, &b)) in desc1.iter().zip(desc2.iter()).enumerate() {
+                for (_i, (&a, &b)) in desc1.iter().zip(desc2.iter()).enumerate() {
                     if a + b > 0.0 {
                         chi_squared += (a - b).powi(2) / (a + b);
                     }
@@ -324,8 +326,8 @@ impl FeatureMatcher {
     pub fn filter_matches_geometric(
         &self,
         matches: &[Match],
-        query_keypoints: &[Keypoint],
-        train_keypoints: &[Keypoint],
+        _query_keypoints: &[Keypoint],
+        _train_keypoints: &[Keypoint],
     ) -> Result<Vec<Match>> {
         if self.config.cross_check {
             self.cross_check_matches(matches)

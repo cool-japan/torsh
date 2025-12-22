@@ -5,14 +5,16 @@
 
 pub mod kernels;
 
-#[cfg(feature = "webgpu")]
-use md5;
-#[cfg(feature = "webgpu")]
-use wgpu;
 use crate::webgpu::{WebGpuDevice, WebGpuError, WebGpuResult};
+#[cfg(feature = "webgpu")]
+#[allow(unused_imports)]
+use md5;
 use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::sync::Arc;
+#[cfg(feature = "webgpu")]
+#[allow(unused_imports)]
+use wgpu;
 
 /// Modern shader source types (WGSL focused)
 #[derive(Debug, Clone)]
@@ -42,7 +44,7 @@ impl ShaderModule {
     ) -> WebGpuResult<Self> {
         let (wgsl_source, size_bytes) = match &source {
             ShaderSource::Wgsl(code) => (code.clone(), code.len()),
-            ShaderSource::Glsl(glsl_code) => {
+            ShaderSource::Glsl(_glsl_code) => {
                 // In a full implementation, you would use naga or similar to translate
                 // For now, we'll return an error with guidance
                 return Err(WebGpuError::UnsupportedFeature(
@@ -51,10 +53,12 @@ impl ShaderModule {
             }
         };
 
-        let module = device.device().create_shader_module(wgpu::ShaderModuleDescriptor {
-            label,
-            source: wgpu::ShaderSource::Wgsl(wgsl_source.into()),
-        });
+        let module = device
+            .device()
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label,
+                source: wgpu::ShaderSource::Wgsl(wgsl_source.into()),
+            });
 
         // For simplicity, assume 'main' entry point
         let entry_points = vec!["main".to_string()];

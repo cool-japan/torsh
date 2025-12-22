@@ -1,7 +1,7 @@
 //! Adaptive pooling operations that produce fixed output sizes
 
 use crate::utils::{function_context, validate_tensor_dims};
-use torsh_core::{Result as TorshResult, TorshError};
+use torsh_core::Result as TorshResult;
 use torsh_tensor::Tensor;
 
 /// Adaptive 1D max pooling

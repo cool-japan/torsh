@@ -41,8 +41,8 @@ impl SpeedAnalyzer {
 
     /// Compare speed between different quantization schemes
     pub fn compare_schemes(
-        num_operations: usize,
-        baseline_duration: Duration,
+        _num_operations: usize,
+        _baseline_duration: Duration,
     ) -> std::collections::HashMap<QScheme, f32> {
         let mut comparison = std::collections::HashMap::new();
 

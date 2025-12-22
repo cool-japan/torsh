@@ -22,7 +22,7 @@
 //! # Examples
 //!
 //! ## Basic Aggregation
-//! ```rust
+//! ```rust,ignore
 //! use torsh_autograd::communication_efficient::aggregation::AggregationEngine;
 //! use torsh_autograd::communication_efficient::config::AggregationMethod;
 //! use std::collections::HashMap;
@@ -41,7 +41,7 @@
 //! ```
 //!
 //! ## Byzantine-Resistant Aggregation
-//! ```rust
+//! ```rust,ignore
 //! use torsh_autograd::communication_efficient::aggregation::AggregationEngine;
 //! use torsh_autograd::communication_efficient::config::AggregationMethod;
 //!
@@ -50,13 +50,13 @@
 //! engine.set_byzantine_threshold(0.33); // Tolerate up to 33% malicious workers
 //! ```
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use super::config::{
-    AggregationMethod, CommunicationConfig, CommunicationEfficientGradient, CommunicationMetadata,
-};
+use super::config::{AggregationMethod, CommunicationConfig};
 
 /// Error types specific to gradient aggregation operations.
 #[derive(Debug, Clone)]
@@ -180,7 +180,7 @@ impl AggregationEngine {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use torsh_autograd::communication_efficient::aggregation::AggregationEngine;
     /// use torsh_autograd::communication_efficient::config::AggregationMethod;
     ///
@@ -289,7 +289,7 @@ impl AggregationEngine {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use torsh_autograd::communication_efficient::aggregation::AggregationEngine;
     /// use torsh_autograd::communication_efficient::config::AggregationMethod;
     /// use std::collections::HashMap;

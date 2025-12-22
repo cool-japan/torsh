@@ -12,13 +12,13 @@
 //! - Temporal pooling and aggregation operations
 //! - Causal temporal modeling with proper time ordering
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::parameter::Parameter;
 use crate::{GraphData, GraphLayer};
-use scirs2_core::ndarray::{Array1, Array2, ArrayView1, ArrayView2};
-use scirs2_core::random::Random;
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap};
 use torsh_tensor::{
-    creation::{from_vec, ones, randn, zeros},
+    creation::{from_vec, randn, zeros},
     Tensor,
 };
 
@@ -147,7 +147,7 @@ impl TemporalGraphData {
 
         let mut updated_features = current_features;
         let start_idx = node_id * feature_dim;
-        let end_idx = start_idx + feature_dim.min(new_features.len());
+        let _end_idx = start_idx + feature_dim.min(new_features.len());
 
         for (i, &value) in new_features.iter().take(feature_dim).enumerate() {
             if start_idx + i < updated_features.len() {
@@ -215,7 +215,7 @@ impl TemporalGraphData {
     }
 
     /// Create a snapshot of the graph at a specific time
-    pub fn snapshot_at_time(&self, time: f64) -> GraphData {
+    pub fn snapshot_at_time(&self, _time: f64) -> GraphData {
         // Simplified implementation - returns current graph
         // In practice, this would reconstruct the graph state at the specified time
         self.current_graph.clone()
@@ -302,7 +302,7 @@ impl TGCNConv {
         let recent_events = temporal_graph.get_events_in_range(lookback_time, current_time);
 
         // Initialize temporal encoding
-        let mut temporal_encoding = zeros::<f32>(&[num_nodes, self.out_features]).unwrap();
+        let _temporal_encoding = zeros::<f32>(&[num_nodes, self.out_features]).unwrap();
 
         // Simple temporal encoding based on event recency and frequency
         let mut node_event_counts = vec![0.0; num_nodes];
@@ -510,7 +510,7 @@ impl TGATConv {
         q: &Tensor,
         k: &Tensor,
         v: &Tensor,
-        time_encoding: &Tensor,
+        _time_encoding: &Tensor,
         temporal_graph: &TemporalGraphData,
     ) -> Tensor {
         let num_nodes = temporal_graph.current_graph.num_nodes;
@@ -522,8 +522,8 @@ impl TGATConv {
         // For each head, compute attention with temporal bias
         for head in 0..self.heads {
             // Extract head-specific features
-            let q_head = q.slice_tensor(1, head, head + 1).unwrap();
-            let k_head = k.slice_tensor(1, head, head + 1).unwrap();
+            let _q_head = q.slice_tensor(1, head, head + 1).unwrap();
+            let _k_head = k.slice_tensor(1, head, head + 1).unwrap();
             let v_head = v.slice_tensor(1, head, head + 1).unwrap();
 
             // Simplified attention computation (using dot product)
@@ -830,7 +830,7 @@ pub mod pooling {
                 let current_data = weighted_sum.to_vec().unwrap();
                 let mut new_data = Vec::new();
 
-                for (i, (&current, &new)) in
+                for (_i, (&current, &new)) in
                     current_data.iter().zip(features_data.iter()).enumerate()
                 {
                     new_data.push(current + new);

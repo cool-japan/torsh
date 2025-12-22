@@ -6,9 +6,9 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
-use torsh_core::error::{Result, TorshError};
+use torsh_core::error::Result;
 use torsh_core::DeviceType;
-use torsh_nn::{Module, Parameter};
+use torsh_nn::Module;
 use torsh_tensor::Tensor;
 
 /// Configuration for model optimization

@@ -25,25 +25,30 @@ torsh-autograd = { workspace = true }
 
 # SciRS2 ecosystem dependencies (following SCIRS2 POLICY)
 # Must use SciRS2 as foundation instead of rand/ndarray
-scirs2-core = "0.1.0-beta.2"
-scirs2-autograd = "0.1.0-beta.2"
-numrs2 = "0.1.0-beta.2"
-torsh-nn = { path = "../torsh-nn", version = "0.1.0-alpha.1", optional = true }
-torsh-optim = { path = "../torsh-optim", version = "0.1.0-alpha.1", optional = true }
-torsh-data = { path = "../torsh-data", version = "0.1.0-alpha.1", optional = true }
-torsh-vision = { path = "../torsh-vision", version = "0.1.0-alpha.1", optional = true }
-torsh-text = { path = "../torsh-text", version = "0.1.0-alpha.1", optional = true }
-torsh-quantization = { path = "../torsh-quantization", version = "0.1.0-alpha.1", optional = true }
-torsh-jit = { path = "../torsh-jit", version = "0.1.0-alpha.1", optional = true }
-torsh-profiler = { path = "../torsh-profiler", version = "0.1.0-alpha.1", optional = true }
-torsh-hub = { path = "../torsh-hub", version = "0.1.0-alpha.1", optional = true }
+# ✅ UNIFIED ACCESS: Use scirs2-core 0.1.0-RC.1+ for complete ndarray/random functionality
+scirs2-core = { workspace = true, features = ["simd", "parallel"] }
+scirs2-autograd = { workspace = true }
+scirs2-neural = { workspace = true, optional = true }
+scirs2-linalg = { workspace = true, optional = true }
+scirs2-optimize = { workspace = true, optional = true }
+scirs2-metrics = { workspace = true, optional = true }
+numrs2 = { workspace = true }
+torsh-nn = { path = "../torsh-nn", version = "0.1.0-alpha.2", optional = true }
+torsh-optim = { path = "../torsh-optim", version = "0.1.0-alpha.2", optional = true }
+torsh-data = { path = "../torsh-data", version = "0.1.0-alpha.2", optional = true }
+torsh-vision = { path = "../torsh-vision", version = "0.1.0-alpha.2", optional = true }
+torsh-text = { path = "../torsh-text", version = "0.1.0-alpha.2", optional = true }
+torsh-quantization = { path = "../torsh-quantization", version = "0.1.0-alpha.2", optional = true }
+torsh-jit = { path = "../torsh-jit", version = "0.1.0-alpha.2", optional = true }
+torsh-profiler = { path = "../torsh-profiler", version = "0.1.0-alpha.2", optional = true }
+torsh-hub = { path = "../torsh-hub", version = "0.1.0-alpha.2", optional = true }
 
 # CLI framework
-clap = { version = "4.5", features = ["derive", "env", "color"] }
+clap = { version = "4.5.53", features = ["derive", "env", "color"] }
 clap_complete = "4.5"
 
 # Async runtime
-tokio = { version = "1.47", features = ["full"] }
+tokio = { version = "1.48", features = ["full"] }
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
@@ -70,10 +75,10 @@ anyhow = "1.0"
 thiserror = "2.0"
 
 # Utilities
-chrono = { version = "0.4", features = ["serde"] }
+chrono = { version = "0.4.42", features = ["serde"] }
 humantime = "2.3"
-byte-unit = "5.1"
-uuid = { version = "1.18", features = ["v4"] }
+byte-unit = "5.2"
+uuid = { version = "1.19", features = ["v4", "serde"] }
 fastrand = "2.3"
 
 # Networking for model downloads
@@ -91,8 +96,8 @@ dirs = "6.0"
 default = ["nn", "optim", "data", "vision", "text"]
 
 # Core modules
-nn = ["dep:torsh-nn"]
-optim = ["dep:torsh-optim"]
+nn = ["dep:torsh-nn", "dep:scirs2-neural"]
+optim = ["dep:torsh-optim", "dep:scirs2-optimize"]
 data = ["dep:torsh-data"]
 vision = ["dep:torsh-vision"]
 text = ["dep:torsh-text"]
@@ -102,11 +107,13 @@ quantization = ["dep:torsh-quantization"]
 jit = ["dep:torsh-jit"]
 profiler = ["dep:torsh-profiler"]
 hub = ["dep:torsh-hub"]
+linalg = ["dep:scirs2-linalg"]
+metrics = ["dep:scirs2-metrics"]
 
 # Development features
 dev = []
 
 [dev-dependencies]
 tempfile = "3.23"
-assert_cmd = "2.0"
+assert_cmd = "2.1"
 predicates = "3.1"

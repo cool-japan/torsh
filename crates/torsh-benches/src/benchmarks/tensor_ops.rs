@@ -6,8 +6,7 @@
 //! in the ToRSh framework.
 
 use super::common::*;
-use crate::{BenchConfig, BenchRunner, Benchmarkable};
-use torsh_core::device::DeviceType;
+use crate::{BenchRunner, Benchmarkable};
 use torsh_core::dtype::DType;
 use torsh_tensor::{creation::*, Tensor};
 
@@ -368,7 +367,7 @@ pub fn run_tensor_operation_benchmarks() {
 
     // Arithmetic operation benchmarks
     println!("Running tensor arithmetic benchmarks...");
-    let arithmetic_config =
+    let _arithmetic_config =
         create_tensor_bench_config("tensor_arithmetic").with_sizes(vec![64, 128, 256, 512, 1024]);
 
     // Test each arithmetic operation type

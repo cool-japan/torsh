@@ -52,6 +52,7 @@ impl<M: Module> WeightStandardization<M> {
     }
 
     /// Standardize a weight tensor
+    #[allow(dead_code)]
     fn standardize_weight(&self, weight: &Tensor) -> Result<Tensor> {
         let weight_shape = weight.shape();
         let dims = weight_shape.dims();
@@ -201,6 +202,7 @@ impl<M: Module> SpectralNorm<M> {
     }
 
     /// Compute spectral norm using power iteration
+    #[allow(dead_code)]
     fn compute_spectral_norm(&self, weight: &Tensor) -> Result<f32> {
         let weight_shape = weight.shape();
         let dims = weight_shape.dims();
@@ -372,6 +374,7 @@ impl<M: Module> WeightNorm<M> {
     }
 
     /// Compute weight normalization: w = g * v / ||v||
+    #[allow(dead_code)]
     fn normalize_weight(&self, weight: &Tensor, g: &Tensor) -> Result<Tensor> {
         // Compute L2 norm along specified dimension
         let weight_data = weight.to_vec()?;

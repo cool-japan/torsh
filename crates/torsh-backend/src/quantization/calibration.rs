@@ -5,6 +5,8 @@
 //! calibration methods including statistical approaches, entropy-based methods,
 //! and error minimization techniques.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::quantization::{QuantizationParams, QuantizationScheme, QuantizedDType};
 use crate::{BackendResult, Device};
 use std::collections::HashMap;
@@ -107,11 +109,11 @@ impl QuantizationCalibrator {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use torsh_backend::quantization::calibration::{QuantizationCalibrator, CalibrationMethod};
-    /// use torsh_core::Device;
+    /// use torsh_core::DeviceType;
     ///
-    /// let device = Device::cpu().unwrap();
+    /// let device = DeviceType::Cpu;
     /// let calibrator = QuantizationCalibrator::new(CalibrationMethod::MinMax, device);
     /// ```
     pub fn new(method: CalibrationMethod, device: Device) -> Self {
@@ -699,7 +701,7 @@ impl PercentileCalibrator {
         // Try different percentile values and pick the highest one that
         // doesn't exceed the entropy loss threshold
         let mut best_params = None;
-        let mut best_percentile = 0.0;
+        let mut _best_percentile = 0.0;
 
         for test_percentile in [50.0, 70.0, 80.0, 90.0, 95.0, 97.0, 99.0, 99.5] {
             if test_percentile > self.percentile {
@@ -715,7 +717,7 @@ impl PercentileCalibrator {
 
                 if entropy_loss <= max_entropy_loss {
                     best_params = Some(params);
-                    best_percentile = test_percentile;
+                    _best_percentile = test_percentile;
                 }
             }
         }

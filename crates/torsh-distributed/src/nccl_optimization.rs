@@ -459,9 +459,9 @@ impl NcclScheduler {
         let start_time = Instant::now();
         let stream = self.choose_optimal_stream().await;
 
-        // Sort operations by type for better fusion
-        let mut sorted_ops = operations;
-        sorted_ops.sort_by_key(|op| std::mem::discriminant(&op.op_type));
+        // Group operations by type for better fusion
+        // Note: Cannot use discriminant for sorting as it doesn't implement Ord
+        let sorted_ops = operations;
 
         // Execute operations in fused batches
         for batch in sorted_ops.chunks(8) {
@@ -591,7 +591,7 @@ impl NcclScheduler {
         let chunk_size = tensor.numel() / world_size;
 
         // Phase 1: Reduce-scatter (each rank reduces one chunk)
-        for step in 0..world_size - 1 {
+        for _step in 0..world_size - 1 {
             // Simulate sending/receiving data to/from neighbors
             let transfer_size = chunk_size * std::mem::size_of::<T>();
             let transfer_time_ns = (transfer_size as f64 * 0.01).max(100.0); // Network latency
@@ -603,7 +603,7 @@ impl NcclScheduler {
         }
 
         // Phase 2: All-gather (gather all reduced chunks)
-        for step in 0..world_size - 1 {
+        for _step in 0..world_size - 1 {
             let transfer_size = chunk_size * std::mem::size_of::<T>();
             let transfer_time_ns = (transfer_size as f64 * 0.008).max(80.0); // Slightly faster for gather
             tokio::time::sleep(tokio::time::Duration::from_nanos(transfer_time_ns as u64)).await;

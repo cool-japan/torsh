@@ -6,7 +6,7 @@
 
 use crate::{AutogradTensor, Result};
 use num_traits::{Float, FromPrimitive, ToPrimitive};
-use scirs2_core::random::{thread_rng, Rng}; // SciRS2 POLICY compliant
+use scirs2_core::random::thread_rng; // SciRS2 POLICY compliant
 use torsh_core::device::CpuDevice;
 use torsh_core::dtype::TensorElement;
 use torsh_core::error::TorshError;

@@ -20,9 +20,9 @@ use pyo3::prelude::*;
 pub mod device;
 pub mod dtype;
 pub mod error;
-// pub mod nn;  // Temporarily disabled due to scirs2-autograd conflicts
-// pub mod optim;  // Temporarily disabled due to scirs2-autograd conflicts
-// pub mod tensor;  // Temporarily disabled due to scirs2-autograd conflicts
+pub mod nn;
+pub mod optim;
+pub mod tensor;
 pub mod utils;
 
 // Legacy modules (temporarily kept for compatibility)
@@ -34,24 +34,19 @@ pub mod utils;
 pub use device::PyDevice;
 pub use dtype::PyDType;
 pub use error::TorshPyError;
-// pub use tensor::PyTensor;  // Temporarily disabled due to scirs2-autograd conflicts
+pub use tensor::PyTensor;
 
 /// ToRSh Python module
 #[pymodule]
 fn torsh(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Register main classes
-    // m.add_class::<PyTensor>()?;  // Temporarily disabled due to scirs2-autograd conflicts
+    m.add_class::<PyTensor>()?;
     m.add_class::<PyDevice>()?;
     m.add_class::<PyDType>()?;
 
     // Add submodules with new modular structure
-    // let nn_module = PyModule::new(m.py(), "nn")?;
-    // nn::register_nn_module(m.py(), &nn_module)?;
-    // m.add_submodule(&nn_module)?;
-
-    // let optim_module = PyModule::new(m.py(), "optim")?;
-    // optim::register_optim_module(m.py(), &optim_module)?;
-    // m.add_submodule(&optim_module)?;
+    nn::register_nn_module(m.py(), m)?;
+    optim::register_optim_module(m.py(), m)?;
 
     // let autograd_module = PyModule::new(m.py(), "autograd")?;
     // autograd::register_autograd_module(m.py(), &autograd_module)?;
@@ -66,7 +61,7 @@ fn torsh(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // m.add_submodule(&functional_module)?;
 
     // Add tensor creation functions
-    // tensor::register_creation_functions(m)?; // Disabled: tensor module commented out
+    tensor::register_creation_functions(m)?;
 
     // Add device and dtype constants
     device::register_device_constants(m)?;

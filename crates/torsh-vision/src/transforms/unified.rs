@@ -1,3 +1,5 @@
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::unified_transforms::{TransformContext, TransformParameter, UnifiedTransform};
 use crate::{Result, VisionError};
 use scirs2_core::random::{Random, Rng};
@@ -156,7 +158,7 @@ impl UnifiedRandomHorizontalFlip {
 impl UnifiedTransform for UnifiedRandomHorizontalFlip {
     fn apply(&self, input: &Tensor<f32>) -> Result<Tensor<f32>> {
         let mut rng = Random::seed(42);
-        if rng.gen::<f32>() < self.p {
+        if rng.random::<f32>() < self.p {
             crate::ops::horizontal_flip(input)
         } else {
             Ok(input.clone())
@@ -733,7 +735,7 @@ pub mod migration {
     }
 
     /// Analyze old transform pipeline and suggest unified equivalents
-    pub fn analyze_pipeline(compose: &crate::transforms::Compose) -> String {
+    pub fn analyze_pipeline(_compose: &crate::transforms::Compose) -> String {
         let mut suggestions = Vec::new();
 
         suggestions.push("Consider migrating to UnifiedTransform API for:".to_string());

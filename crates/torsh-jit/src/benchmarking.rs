@@ -4,10 +4,9 @@
 //! analyzing, and comparing JIT compilation performance across different
 //! strategies, workloads, and configurations.
 
-use crate::{ComputationGraph, JitCompiler, JitConfig, JitError, JitResult, NodeId};
+use crate::{JitCompiler, JitError, JitResult};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
-use std::fmt;
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime};
 

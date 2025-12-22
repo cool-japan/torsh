@@ -7,7 +7,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::process::Command;
 
 /// Comprehensive system information
 #[derive(Debug, Clone, Serialize, Deserialize)]

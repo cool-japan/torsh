@@ -4,13 +4,13 @@
 //! for accelerated neural network operations on Apple Silicon Macs and iOS devices.
 
 use crate::error::{BackendError, BackendResult};
-use metal::{Device, NSUInteger};
-use objc2::runtime::Object;
-use objc2::{msg_send, sel, ClassType};
+use metal::NSUInteger;
+use objc2::msg_send;
+use objc2::runtime::AnyObject;
 use std::collections::HashMap;
 use std::ptr;
 use std::sync::{Arc, Mutex, OnceLock};
-use torsh_core::{device::DeviceType, dtype::DType, shape::Shape};
+use torsh_core::{dtype::DType, shape::Shape};
 
 /// Neural Engine device capabilities
 #[derive(Debug, Clone)]
@@ -79,7 +79,7 @@ pub enum NeuralEngineOperation {
 /// Neural Engine context for managing ANE operations
 pub struct NeuralEngineContext {
     /// Core ML compute unit configuration
-    compute_config: *mut Object,
+    compute_config: *mut AnyObject,
     /// Model cache for compiled operations
     model_cache: Arc<Mutex<HashMap<String, CompiledModel>>>,
     /// Device capabilities
@@ -102,7 +102,7 @@ impl std::fmt::Debug for NeuralEngineContext {
 /// Compiled model for Neural Engine execution
 struct CompiledModel {
     /// Core ML model handle
-    model: *mut Object,
+    model: *mut AnyObject,
     /// Input specifications
     input_specs: Vec<TensorSpec>,
     /// Output specifications
@@ -127,7 +127,7 @@ impl std::fmt::Debug for CompiledModel {
 
 /// Tensor specification for Neural Engine operations
 #[derive(Debug, Clone)]
-struct TensorSpec {
+pub struct TensorSpec {
     /// Tensor name
     name: String,
     /// Data type
@@ -140,7 +140,7 @@ struct TensorSpec {
 
 /// Memory layout for tensors
 #[derive(Debug, Clone, PartialEq)]
-enum MemoryLayout {
+pub enum MemoryLayout {
     /// Contiguous row-major layout
     RowMajor,
     /// Contiguous column-major layout
@@ -153,7 +153,7 @@ enum MemoryLayout {
 
 /// Neural Engine performance statistics
 #[derive(Debug, Default, Clone)]
-struct NeuralEngineStats {
+pub struct NeuralEngineStats {
     /// Total operations executed
     total_operations: u64,
     /// Total execution time in microseconds
@@ -207,7 +207,7 @@ impl NeuralEngineContext {
         if !capabilities.available {
             return Err(BackendError::UnsupportedOperation {
                 op: "neural_engine_access".to_string(),
-                dtype: "neural_engine".to_string()
+                dtype: "neural_engine".to_string(),
             });
         }
 
@@ -223,7 +223,7 @@ impl NeuralEngineContext {
 
     /// Get the global Neural Engine context
     pub fn global() -> BackendResult<Arc<Mutex<NeuralEngineContext>>> {
-        NEURAL_ENGINE_CONTEXT
+        let context = NEURAL_ENGINE_CONTEXT
             .get_or_init(|| {
                 match Self::new() {
                     Ok(context) => Arc::new(Mutex::new(context)),
@@ -252,23 +252,68 @@ impl NeuralEngineContext {
             })
             .clone();
 
-        Ok(NEURAL_ENGINE_CONTEXT.get().unwrap().clone())
+        Ok(context)
     }
 
     /// Detect Neural Engine capabilities
     fn detect_capabilities() -> BackendResult<NeuralEngineCapabilities> {
+        #[allow(unused_unsafe)]
         unsafe {
             // Check if we're running on Apple Silicon
-            #[cfg(target_arch = "aarch64")]
+            #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
             {
                 // Check for Neural Engine availability through Core ML
-                // Check Core ML availability by attempting to get the class
-                #[cfg(target_os = "macos")]
-                {
+                // Try to check if CoreML is available - if not, return early
+                // Note: This may fail if CoreML framework is not available (e.g., in CI/test environments)
+                // We catch the panic to handle this gracefully
+                use std::panic::AssertUnwindSafe;
+                let coreml_available = std::panic::catch_unwind(AssertUnwindSafe(|| {
+                    // This will panic if MLModel class is not found
                     let _ml_model_class = objc2::class!(MLModel);
+                    true
+                }))
+                .unwrap_or(false);
+
+                if !coreml_available {
+                    // CoreML is not available, Neural Engine cannot be used
+                    return Ok(NeuralEngineCapabilities {
+                        available: false,
+                        supported_formats: vec![],
+                        max_input_dims: vec![],
+                        max_batch_size: 0,
+                        supported_dtypes: vec![],
+                        memory_bandwidth_gbps: None,
+                        processing_units: 0,
+                    });
                 }
-                #[cfg(not(target_os = "macos"))]
-                if false {
+            }
+
+            // If not on Apple Silicon macOS, Neural Engine is not available
+            #[cfg(not(all(target_arch = "aarch64", target_os = "macos")))]
+            {
+                return Ok(NeuralEngineCapabilities {
+                    available: false,
+                    supported_formats: vec![],
+                    max_input_dims: vec![],
+                    max_batch_size: 0,
+                    supported_dtypes: vec![],
+                    memory_bandwidth_gbps: None,
+                    processing_units: 0,
+                });
+            }
+
+            #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
+            {
+                // Check for Neural Engine compute units
+                use std::panic::AssertUnwindSafe;
+                let coreml_compute_units_available =
+                    std::panic::catch_unwind(AssertUnwindSafe(|| {
+                        let _compute_units_class = objc2::class!(MLComputeUnits);
+                        true
+                    }))
+                    .unwrap_or(false);
+
+                if !coreml_compute_units_available {
                     return Ok(NeuralEngineCapabilities {
                         available: false,
                         supported_formats: vec![],
@@ -280,65 +325,26 @@ impl NeuralEngineContext {
                     });
                 }
 
-                // Check for Neural Engine compute units
-                let compute_units_class = objc2::class!(MLComputeUnits);
-                let ane_available: bool = {
-                    // MLComputeUnitsAll includes ANE - assume available on macOS
-                    #[cfg(target_os = "macos")]
-                    {
-                        true
-                    }
-                    #[cfg(not(target_os = "macos"))]
-                    {
-                        false
-                    }
-                };
-
-                if ane_available {
-                    Ok(NeuralEngineCapabilities {
-                        available: true,
-                        supported_formats: vec![
-                            ModelFormat::CoreML,
-                            ModelFormat::ONNX,
-                            ModelFormat::MIL,
-                        ],
-                        max_input_dims: vec![8192, 8192, 8192, 8192], // Typical ANE limits
-                        max_batch_size: 16,                           // Conservative batch size
-                        supported_dtypes: vec![DType::F16, DType::F32, DType::I8, DType::U8],
-                        memory_bandwidth_gbps: Some(800.0), // Estimated for M1/M2 ANE
-                        processing_units: 16,               // Typical ANE configuration
-                    })
-                } else {
-                    Ok(NeuralEngineCapabilities {
-                        available: false,
-                        supported_formats: vec![],
-                        max_input_dims: vec![],
-                        max_batch_size: 0,
-                        supported_dtypes: vec![],
-                        memory_bandwidth_gbps: None,
-                        processing_units: 0,
-                    })
-                }
-            }
-
-            #[cfg(not(target_arch = "aarch64"))]
-            {
-                // Neural Engine only available on Apple Silicon
+                // CoreML is available, assume Neural Engine is available
                 Ok(NeuralEngineCapabilities {
-                    available: false,
-                    supported_formats: vec![],
-                    max_input_dims: vec![],
-                    max_batch_size: 0,
-                    supported_dtypes: vec![],
-                    memory_bandwidth_gbps: None,
-                    processing_units: 0,
+                    available: true,
+                    supported_formats: vec![
+                        ModelFormat::CoreML,
+                        ModelFormat::ONNX,
+                        ModelFormat::MIL,
+                    ],
+                    max_input_dims: vec![8192, 8192, 8192, 8192], // Typical ANE limits
+                    max_batch_size: 16,                           // Conservative batch size
+                    supported_dtypes: vec![DType::F16, DType::F32, DType::I8, DType::U8],
+                    memory_bandwidth_gbps: Some(800.0), // Estimated for M1/M2 ANE
+                    processing_units: 16,               // Typical ANE configuration
                 })
             }
         }
     }
 
     /// Create Core ML compute configuration for Neural Engine
-    fn create_compute_config() -> BackendResult<*mut Object> {
+    fn create_compute_config() -> BackendResult<*mut AnyObject> {
         unsafe {
             #[cfg(target_arch = "aarch64")]
             {
@@ -350,11 +356,11 @@ impl NeuralEngineContext {
                     ));
                 }
 
-                let config: *mut Object = msg_send![config_class, alloc];
-                let config: *mut Object = msg_send![config, init];
+                let config: *mut AnyObject = msg_send![config_class, alloc];
+                let config: *mut AnyObject = msg_send![config, init];
 
                 // Set compute units to use Neural Engine when available
-                let compute_units_class = objc2::class!(MLComputeUnits);
+                let _compute_units_class = objc2::class!(MLComputeUnits);
                 #[cfg(target_os = "macos")]
                 {
                     let compute_units_all: NSUInteger = 0; // MLComputeUnitsAll
@@ -394,10 +400,12 @@ impl NeuralEngineContext {
         output_specs: &[TensorSpec],
     ) -> BackendResult<String> {
         if !self.capabilities.available {
-            return Err(crate::metal::error::metal_errors::unsupported_operation_error(
-                "Neural Engine not available",
-                None,
-            ));
+            return Err(
+                crate::metal::error::metal_errors::unsupported_operation_error(
+                    "Neural Engine not available",
+                    None,
+                ),
+            );
         }
 
         // Generate a unique key for this operation
@@ -450,10 +458,12 @@ impl NeuralEngineContext {
         outputs: &mut [NeuralEngineBuffer],
     ) -> BackendResult<()> {
         if !self.capabilities.available {
-            return Err(crate::metal::error::metal_errors::unsupported_operation_error(
-                "Neural Engine not available",
-                None,
-            ));
+            return Err(
+                crate::metal::error::metal_errors::unsupported_operation_error(
+                    "Neural Engine not available",
+                    None,
+                ),
+            );
         }
 
         let start_time = std::time::Instant::now();
@@ -523,7 +533,7 @@ impl NeuralEngineContext {
     /// Compile operation to Core ML model
     fn compile_to_coreml(
         &self,
-        operation: &NeuralEngineOperation,
+        _operation: &NeuralEngineOperation,
         input_specs: &[TensorSpec],
         output_specs: &[TensorSpec],
     ) -> BackendResult<CompiledModel> {
@@ -544,7 +554,7 @@ impl NeuralEngineContext {
 
                 // For now, return a placeholder model
                 // Real implementation would create an actual Core ML model
-                let model: *mut Object = msg_send![model_class, alloc];
+                let model: *mut AnyObject = msg_send![model_class, alloc];
 
                 Ok(CompiledModel {
                     model,
@@ -567,7 +577,7 @@ impl NeuralEngineContext {
     /// Execute Core ML model
     fn execute_coreml_model(
         &self,
-        model: *mut Object,
+        _model: *mut AnyObject,
         inputs: &[NeuralEngineBuffer],
         outputs: &mut [NeuralEngineBuffer],
     ) -> BackendResult<()> {

@@ -211,7 +211,7 @@ impl DistributedTrainingCoordinator {
 
                 // Average gradients
                 let world_size = self.process_group.world_size() as f32;
-                let gradient_data = gradient.to_vec_mut();
+                let gradient_data = gradient.data_mut();
                 for value in gradient_data {
                     *value /= world_size;
                 }
@@ -228,8 +228,8 @@ impl DistributedTrainingCoordinator {
                 model.parameters.get_mut(&param_name),
                 model.get_gradient(&param_name),
             ) {
-                let param_data = param.to_vec_mut();
-                let grad_data = gradient.to_vec();
+                let param_data = param.data_mut();
+                let grad_data = gradient.to_vec()?;
 
                 for (p, g) in param_data.iter_mut().zip(grad_data.iter()) {
                     *p -= self.config.learning_rate * g;
@@ -347,7 +347,7 @@ async fn test_end_to_end_ddp_training() -> Result<()> {
 #[tokio::test]
 async fn test_fsdp_integration() -> Result<()> {
     let world_size = 4;
-    let pg = init_process_group(BackendType::Gloo, 0, world_size, "127.0.0.1", 40010)?;
+    let pg = init_process_group(BackendType::Gloo, 0, world_size, "127.0.0.1", 40010).await?;
 
     let fsdp_config = FsdpConfig {
         sharding_strategy: ShardingStrategy::FullShard,
@@ -370,7 +370,7 @@ async fn test_fsdp_integration() -> Result<()> {
     println!("Each shard has approximately {} parameters", shard_size);
 
     // Test parameter all-gather simulation
-    let mut shard_tensor = ones::<f32>(&[shard_size]);
+    let mut shard_tensor = ones::<f32>(&[shard_size])?;
     all_reduce(&mut shard_tensor, ReduceOp::Sum, &pg).await?;
 
     // Verify sharding works
@@ -390,10 +390,10 @@ async fn test_parameter_server_integration() -> Result<()> {
     };
 
     // Simulate parameter server setup
-    let pg = init_process_group(BackendType::Gloo, 0, 4, "127.0.0.1", 40020)?;
+    let pg = init_process_group(BackendType::Gloo, 0, 4, "127.0.0.1", 40020).await?;
 
     // Create parameter server (mock)
-    let parameter_server = ParameterServer::new(ps_config, pg.clone())?;
+    let parameter_server = ParameterServer::new(ps_config, Arc::new(pg))?;
 
     let model = MockTrainingModel::new();
 
@@ -420,7 +420,7 @@ async fn test_parameter_server_integration() -> Result<()> {
 #[tokio::test]
 async fn test_pipeline_parallelism_integration() -> Result<()> {
     let num_stages = 4;
-    let pg = init_process_group(BackendType::Gloo, 0, num_stages, "127.0.0.1", 40030)?;
+    let pg = init_process_group(BackendType::Gloo, 0, num_stages, "127.0.0.1", 40030).await?;
 
     let pipeline_config = PipelineConfig {
         num_stages,
@@ -431,7 +431,7 @@ async fn test_pipeline_parallelism_integration() -> Result<()> {
     };
 
     // Create pipeline parallel setup
-    let pipeline = PipelineParallel::new(pipeline_config, pg.clone())?;
+    let pipeline = PipelineParallel::new(pipeline_config, Arc::new(pg))?;
 
     // Simulate pipeline stages
     let stage_id = pg.rank();
@@ -542,7 +542,8 @@ async fn test_fault_tolerance_integration() -> Result<()> {
 
     // Initialize all workers
     for rank in 0..world_size {
-        let pg = init_process_group(BackendType::Gloo, rank, world_size, "127.0.0.1", 40050)?;
+        let pg =
+            init_process_group(BackendType::Gloo, rank, world_size, "127.0.0.1", 40050).await?;
         workers.push(Some(pg));
     }
 
@@ -554,7 +555,7 @@ async fn test_fault_tolerance_integration() -> Result<()> {
 
     for pg in &remaining_workers {
         // Each remaining worker should be able to perform operations
-        let mut tensor = ones::<f32>(&[10, 10]);
+        let mut tensor = ones::<f32>(&[10, 10])?;
         let result = all_reduce(&mut tensor, ReduceOp::Sum, pg).await;
         assert!(
             result.is_ok(),
@@ -571,22 +572,22 @@ async fn test_fault_tolerance_integration() -> Result<()> {
 
 #[tokio::test]
 async fn test_mixed_precision_integration() -> Result<()> {
-    let pg = init_process_group(BackendType::Gloo, 0, 2, "127.0.0.1", 40060)?;
+    let pg = init_process_group(BackendType::Gloo, 0, 2, "127.0.0.1", 40060).await?;
 
     // Simulate mixed precision training
     let model = MockTrainingModel::new();
 
     // Test FP32 operations
-    let mut fp32_tensor = ones::<f32>(&[100, 100]);
+    let mut fp32_tensor = ones::<f32>(&[100, 100])?;
     all_reduce(&mut fp32_tensor, ReduceOp::Sum, &pg).await?;
 
     // Simulate FP16 gradients (using FP32 for simplicity in this test)
-    let mut fp16_grad = ones::<f32>(&[100, 100]) * 0.5;
+    let mut fp16_grad = ones::<f32>(&[100, 100])? * 0.5;
     all_reduce(&mut fp16_grad, ReduceOp::Sum, &pg).await?;
 
     // Verify mixed precision workflow
-    let fp32_data = fp32_tensor.to_vec();
-    let fp16_data = fp16_grad.to_vec();
+    let fp32_data = fp32_tensor.to_vec()?;
+    let fp16_data = fp16_grad.to_vec()?;
 
     assert!(!fp32_data.is_empty(), "FP32 tensor should have data");
     assert!(!fp16_data.is_empty(), "FP16 gradient should have data");
@@ -598,7 +599,7 @@ async fn test_mixed_precision_integration() -> Result<()> {
 #[tokio::test]
 async fn test_large_model_sharding_integration() -> Result<()> {
     let world_size = 4;
-    let pg = init_process_group(BackendType::Gloo, 0, world_size, "127.0.0.1", 40070)?;
+    let pg = init_process_group(BackendType::Gloo, 0, world_size, "127.0.0.1", 40070).await?;
 
     // Simulate large model with many parameters
     let large_model_params = vec![
@@ -618,7 +619,7 @@ async fn test_large_model_sharding_integration() -> Result<()> {
         // Test sharding of each parameter
         let shard_size = elements / world_size as usize;
         if shard_size > 0 {
-            let mut param_shard = ones::<f32>(&[shard_size]);
+            let mut param_shard = ones::<f32>(&[shard_size])?;
             all_reduce(&mut param_shard, ReduceOp::Sum, &pg).await?;
 
             println!(

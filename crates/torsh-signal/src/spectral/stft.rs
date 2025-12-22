@@ -8,10 +8,7 @@ use torsh_core::{
     error::{Result, TorshError},
 };
 use torsh_functional::spectral::{fft, ifft, rfft};
-use torsh_tensor::{
-    creation::{ones, zeros},
-    Tensor,
-};
+use torsh_tensor::{creation::ones, Tensor};
 
 use crate::windows::Window;
 
@@ -93,6 +90,7 @@ fn apply_fft_real(
 }
 
 /// Wrapper for FFT that handles complex input
+#[allow(dead_code)]
 fn apply_fft_complex(
     input: &Tensor<Complex32>,
     n_fft: Option<usize>,

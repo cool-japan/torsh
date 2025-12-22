@@ -397,6 +397,436 @@ fn trace_optimized(tensor: &Tensor) -> TorshResult<f32> {
     Ok(sum)
 }
 
+/// Compute the matrix sign function
+///
+/// The matrix sign function sign(A) is defined as:
+/// - For a diagonalizable matrix A = QΛQ^(-1), sign(A) = Q * sign(Λ) * Q^(-1)
+/// - where sign(Λ) replaces each eigenvalue λ with sign(λ) = λ/|λ| for λ ≠ 0
+///
+/// This implementation uses the Newton iteration method:
+/// X_{k+1} = (X_k + X_k^(-1)) / 2
+///
+/// # Arguments
+///
+/// * `tensor` - Square matrix for which to compute the sign function
+///
+/// # Returns
+///
+/// Matrix sign(A), which satisfies sign(A)^2 = I for non-singular matrices
+///
+/// # Properties
+///
+/// - sign(A)^2 = I for non-singular A
+/// - sign(A) has eigenvalues in {-1, 1}
+/// - Useful for computing matrix square root: sqrt(A) = (A + sign(A)) / 2
+///
+/// # Examples
+///
+/// ```ignore
+/// use torsh_linalg::matrix_sign;
+/// let a = create_positive_definite_matrix()?;
+/// let sign_a = matrix_sign(&a)?;
+/// ```
+pub fn matrix_sign(tensor: &Tensor) -> TorshResult<Tensor> {
+    if tensor.shape().ndim() != 2 {
+        return Err(TorshError::InvalidArgument(
+            "Matrix sign requires a 2D tensor".to_string(),
+        ));
+    }
+
+    let (m, n) = (tensor.shape().dims()[0], tensor.shape().dims()[1]);
+    if m != n {
+        return Err(TorshError::InvalidArgument(format!(
+            "Matrix sign requires a square matrix, got {m}x{n}"
+        )));
+    }
+
+    // Newton iteration for matrix sign: X_{k+1} = (X_k + X_k^(-1)) / 2
+    let mut x = tensor.clone();
+    let max_iter = 100;
+    let tolerance = 1e-6;
+
+    for _ in 0..max_iter {
+        let x_inv = crate::solvers::inv(&x)?;
+        let x_new_data: Vec<f32> = (0..n * n)
+            .map(|idx| {
+                let i = idx / n;
+                let j = idx % n;
+                let x_val = x.get(&[i, j]).unwrap_or(0.0);
+                let x_inv_val = x_inv.get(&[i, j]).unwrap_or(0.0);
+                (x_val + x_inv_val) / 2.0
+            })
+            .collect();
+
+        let x_new = Tensor::from_data(x_new_data, vec![n, n], tensor.device())?;
+
+        // Check convergence using Frobenius norm of difference
+        let mut diff_norm = 0.0f32;
+        for i in 0..n {
+            for j in 0..n {
+                let diff = x_new.get(&[i, j])? - x.get(&[i, j])?;
+                diff_norm += diff * diff;
+            }
+        }
+        diff_norm = diff_norm.sqrt();
+
+        x = x_new;
+
+        if diff_norm < tolerance {
+            break;
+        }
+    }
+
+    Ok(x)
+}
+
+/// Compute the Kronecker product of two matrices
+///
+/// The Kronecker product A ⊗ B of matrices A (m×n) and B (p×q) produces
+/// a matrix of size (mp)×(nq) where each element of A is multiplied by
+/// the entire matrix B:
+///
+/// A ⊗ B = [[a_{11}*B, a_{12}*B, ...],
+///          [a_{21}*B, a_{22}*B, ...],
+///          ...]
+///
+/// # Arguments
+///
+/// * `a` - First matrix (m×n)
+/// * `b` - Second matrix (p×q)
+///
+/// # Returns
+///
+/// Kronecker product matrix of size (mp)×(nq)
+///
+/// # Properties
+///
+/// - (A ⊗ B)(C ⊗ D) = (AC) ⊗ (BD) when dimensions are compatible
+/// - (A ⊗ B)^T = A^T ⊗ B^T
+/// - det(A ⊗ B) = det(A)^q * det(B)^n for A (n×n) and B (q×q)
+///
+/// # Examples
+///
+/// ```ignore
+/// use torsh_linalg::kronecker;
+/// let a = eye::<f32>(2)?;  // 2x2 identity
+/// let b = eye::<f32>(3)?;  // 3x3 identity
+/// let kron = kronecker(&a, &b)?;  // 6x6 identity
+/// ```
+pub fn kronecker(a: &Tensor, b: &Tensor) -> TorshResult<Tensor> {
+    if a.shape().ndim() != 2 || b.shape().ndim() != 2 {
+        return Err(TorshError::InvalidArgument(
+            "Kronecker product requires 2D tensors".to_string(),
+        ));
+    }
+
+    let (m, n) = (a.shape().dims()[0], a.shape().dims()[1]);
+    let (p, q) = (b.shape().dims()[0], b.shape().dims()[1]);
+
+    let result_rows = m * p;
+    let result_cols = n * q;
+    let mut result_data = vec![0.0f32; result_rows * result_cols];
+
+    // Compute Kronecker product
+    for i in 0..m {
+        for j in 0..n {
+            let a_ij = a.get(&[i, j])?;
+            for k in 0..p {
+                for l in 0..q {
+                    let b_kl = b.get(&[k, l])?;
+                    let row = i * p + k;
+                    let col = j * q + l;
+                    result_data[row * result_cols + col] = a_ij * b_kl;
+                }
+            }
+        }
+    }
+
+    Tensor::from_data(result_data, vec![result_rows, result_cols], a.device())
+}
+
+/// Compute the Khatri-Rao product (column-wise Kronecker product) of two matrices
+///
+/// The Khatri-Rao product A ⊙ B of matrices A (m×n) and B (p×n) produces
+/// a matrix of size (mp)×n where each column is the Kronecker product of
+/// corresponding columns of A and B:
+///
+/// A ⊙ B = [a_1 ⊗ b_1, a_2 ⊗ b_2, ..., a_n ⊗ b_n]
+///
+/// # Arguments
+///
+/// * `a` - First matrix (m×n)
+/// * `b` - Second matrix (p×n) - must have same number of columns as A
+///
+/// # Returns
+///
+/// Khatri-Rao product matrix of size (mp)×n
+///
+/// # Properties
+///
+/// - Both matrices must have the same number of columns
+/// - Useful in tensor decomposition and factor analysis
+/// - (A ⊙ B)^T (A ⊙ B) = (A^T A) ∗ (B^T B) where ∗ is Hadamard product
+///
+/// # Examples
+///
+/// ```ignore
+/// use torsh_linalg::khatri_rao;
+/// let a = Tensor::from_data(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu)?;
+/// let b = Tensor::from_data(vec![5.0, 6.0, 7.0, 8.0], vec![2, 2], DeviceType::Cpu)?;
+/// let kr = khatri_rao(&a, &b)?;  // 4x2 matrix
+/// ```
+pub fn khatri_rao(a: &Tensor, b: &Tensor) -> TorshResult<Tensor> {
+    if a.shape().ndim() != 2 || b.shape().ndim() != 2 {
+        return Err(TorshError::InvalidArgument(
+            "Khatri-Rao product requires 2D tensors".to_string(),
+        ));
+    }
+
+    let (m, n_a) = (a.shape().dims()[0], a.shape().dims()[1]);
+    let (p, n_b) = (b.shape().dims()[0], b.shape().dims()[1]);
+
+    if n_a != n_b {
+        return Err(TorshError::InvalidArgument(format!(
+            "Khatri-Rao product requires matrices with same number of columns, got {n_a} and {n_b}"
+        )));
+    }
+
+    let n = n_a;
+    let result_rows = m * p;
+    let mut result_data = vec![0.0f32; result_rows * n];
+
+    // Compute column-wise Kronecker product
+    for j in 0..n {
+        for i in 0..m {
+            let a_ij = a.get(&[i, j])?;
+            for k in 0..p {
+                let b_kj = b.get(&[k, j])?;
+                let row = i * p + k;
+                result_data[row * n + j] = a_ij * b_kj;
+            }
+        }
+    }
+
+    Tensor::from_data(result_data, vec![result_rows, n], a.device())
+}
+
+/// Compute the cross product of two 3D vectors
+///
+/// The cross product a × b produces a vector perpendicular to both a and b,
+/// with magnitude ||a|| ||b|| sin(θ) where θ is the angle between them.
+///
+/// For vectors a = [a1, a2, a3] and b = [b1, b2, b3]:
+/// a × b = [a2*b3 - a3*b2, a3*b1 - a1*b3, a1*b2 - a2*b1]
+///
+/// # Arguments
+///
+/// * `a` - First 3D vector
+/// * `b` - Second 3D vector
+///
+/// # Returns
+///
+/// Cross product vector perpendicular to both input vectors
+///
+/// # Properties
+///
+/// - a × b = -(b × a) (anti-commutative)
+/// - a × a = 0
+/// - ||a × b|| = ||a|| ||b|| sin(θ)
+/// - Result is perpendicular to both a and b
+///
+/// # Examples
+///
+/// ```ignore
+/// use torsh_linalg::cross;
+/// let a = Tensor::from_data(vec![1.0, 0.0, 0.0], vec![3], DeviceType::Cpu)?;
+/// let b = Tensor::from_data(vec![0.0, 1.0, 0.0], vec![3], DeviceType::Cpu)?;
+/// let c = cross(&a, &b)?;  // [0, 0, 1]
+/// ```
+pub fn cross(a: &Tensor, b: &Tensor) -> TorshResult<Tensor> {
+    if a.shape().ndim() != 1 || b.shape().ndim() != 1 {
+        return Err(TorshError::InvalidArgument(
+            "Cross product requires 1D tensors (vectors)".to_string(),
+        ));
+    }
+
+    let a_len = a.shape().dims()[0];
+    let b_len = b.shape().dims()[0];
+
+    if a_len != 3 || b_len != 3 {
+        return Err(TorshError::InvalidArgument(format!(
+            "Cross product requires 3D vectors, got dimensions {a_len} and {b_len}"
+        )));
+    }
+
+    // Cross product formula: a × b = [a2*b3 - a3*b2, a3*b1 - a1*b3, a1*b2 - a2*b1]
+    let a1 = a.get(&[0])?;
+    let a2 = a.get(&[1])?;
+    let a3 = a.get(&[2])?;
+    let b1 = b.get(&[0])?;
+    let b2 = b.get(&[1])?;
+    let b3 = b.get(&[2])?;
+
+    let result = vec![a2 * b3 - a3 * b2, a3 * b1 - a1 * b3, a1 * b2 - a2 * b1];
+
+    Tensor::from_data(result, vec![3], a.device())
+}
+
+/// Compute the matrix hyperbolic sine: sinh(A) = (e^A - e^(-A)) / 2
+///
+/// # Arguments
+///
+/// * `tensor` - Square matrix (n×n)
+///
+/// # Returns
+///
+/// Matrix sinh(A)
+///
+/// # Properties
+///
+/// - sinh(-A) = -sinh(A) (odd function)
+/// - sinh(0) = 0
+/// - d/dt sinh(tA) = A cosh(tA)
+///
+/// # Examples
+///
+/// ```ignore
+/// use torsh_linalg::matrix_functions::matrix_sinh;
+/// let a = create_matrix()?;
+/// let sinh_a = matrix_sinh(&a)?;
+/// ```
+pub fn matrix_sinh(tensor: &Tensor) -> TorshResult<Tensor> {
+    if tensor.shape().ndim() != 2 {
+        return Err(TorshError::InvalidArgument(
+            "Matrix sinh requires 2D tensor".to_string(),
+        ));
+    }
+
+    let (m, n) = (tensor.shape().dims()[0], tensor.shape().dims()[1]);
+    if m != n {
+        return Err(TorshError::InvalidArgument(format!(
+            "Matrix sinh requires square matrix, got {m}x{n}"
+        )));
+    }
+
+    // sinh(A) = (exp(A) - exp(-A)) / 2
+    let exp_a = matrix_exp(tensor)?;
+
+    // Compute -A
+    let neg_a = tensor.mul_scalar(-1.0)?;
+    let exp_neg_a = matrix_exp(&neg_a)?;
+
+    // (exp(A) - exp(-A)) / 2
+    let diff = exp_a.sub(&exp_neg_a)?;
+    diff.mul_scalar(0.5)
+}
+
+/// Compute the matrix hyperbolic cosine: cosh(A) = (e^A + e^(-A)) / 2
+///
+/// # Arguments
+///
+/// * `tensor` - Square matrix (n×n)
+///
+/// # Returns
+///
+/// Matrix cosh(A)
+///
+/// # Properties
+///
+/// - cosh(-A) = cosh(A) (even function)
+/// - cosh(0) = I
+/// - d/dt cosh(tA) = A sinh(tA)
+/// - cosh²(A) - sinh²(A) = I (hyperbolic identity)
+///
+/// # Examples
+///
+/// ```ignore
+/// use torsh_linalg::matrix_functions::matrix_cosh;
+/// let a = create_matrix()?;
+/// let cosh_a = matrix_cosh(&a)?;
+/// ```
+pub fn matrix_cosh(tensor: &Tensor) -> TorshResult<Tensor> {
+    if tensor.shape().ndim() != 2 {
+        return Err(TorshError::InvalidArgument(
+            "Matrix cosh requires 2D tensor".to_string(),
+        ));
+    }
+
+    let (m, n) = (tensor.shape().dims()[0], tensor.shape().dims()[1]);
+    if m != n {
+        return Err(TorshError::InvalidArgument(format!(
+            "Matrix cosh requires square matrix, got {m}x{n}"
+        )));
+    }
+
+    // cosh(A) = (exp(A) + exp(-A)) / 2
+    let exp_a = matrix_exp(tensor)?;
+
+    // Compute -A
+    let neg_a = tensor.mul_scalar(-1.0)?;
+    let exp_neg_a = matrix_exp(&neg_a)?;
+
+    // (exp(A) + exp(-A)) / 2
+    let sum = exp_a.add(&exp_neg_a)?;
+    sum.mul_scalar(0.5)
+}
+
+/// Compute the matrix hyperbolic tangent: tanh(A) = sinh(A) / cosh(A)
+///
+/// # Arguments
+///
+/// * `tensor` - Square matrix (n×n)
+///
+/// # Returns
+///
+/// Matrix tanh(A)
+///
+/// # Properties
+///
+/// - tanh(-A) = -tanh(A) (odd function)
+/// - tanh(0) = 0
+/// - |tanh(A)| ≤ I (bounded by identity)
+/// - d/dt tanh(tA) = A(I - tanh²(tA))
+///
+/// # Examples
+///
+/// ```ignore
+/// use torsh_linalg::matrix_functions::matrix_tanh;
+/// let a = create_matrix()?;
+/// let tanh_a = matrix_tanh(&a)?;
+/// ```
+pub fn matrix_tanh(tensor: &Tensor) -> TorshResult<Tensor> {
+    if tensor.shape().ndim() != 2 {
+        return Err(TorshError::InvalidArgument(
+            "Matrix tanh requires 2D tensor".to_string(),
+        ));
+    }
+
+    let (m, n) = (tensor.shape().dims()[0], tensor.shape().dims()[1]);
+    if m != n {
+        return Err(TorshError::InvalidArgument(format!(
+            "Matrix tanh requires square matrix, got {m}x{n}"
+        )));
+    }
+
+    // tanh(A) = sinh(A) / cosh(A) = (exp(A) - exp(-A)) / (exp(A) + exp(-A))
+    let exp_a = matrix_exp(tensor)?;
+
+    // Compute -A
+    let neg_a = tensor.mul_scalar(-1.0)?;
+    let exp_neg_a = matrix_exp(&neg_a)?;
+
+    // Numerator: exp(A) - exp(-A)
+    let numer = exp_a.sub(&exp_neg_a)?;
+
+    // Denominator: exp(A) + exp(-A)
+    let denom = exp_a.add(&exp_neg_a)?;
+
+    // Solve: tanh(A) = numer * inv(denom)
+    let denom_inv = crate::solvers::inv(&denom)?;
+    numer.matmul(&denom_inv)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -751,6 +1181,316 @@ mod tests {
         assert_relative_eq!(matrix_norm(&zero, Some("fro"))?, 0.0, epsilon = 1e-6);
         assert_relative_eq!(matrix_norm(&zero, Some("1"))?, 0.0, epsilon = 1e-6);
         assert_relative_eq!(matrix_norm(&zero, Some("inf"))?, 0.0, epsilon = 1e-6);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_matrix_sign_identity() -> TorshResult<()> {
+        let identity = eye::<f32>(3)?;
+        let sign_identity = matrix_sign(&identity)?;
+
+        // sign(I) = I
+        for i in 0..3 {
+            for j in 0..3 {
+                let expected = if i == j { 1.0 } else { 0.0 };
+                assert_relative_eq!(sign_identity.get(&[i, j])?, expected, epsilon = 1e-4);
+            }
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_matrix_sign_negative_identity() -> TorshResult<()> {
+        let neg_identity = torsh_tensor::creation::zeros::<f32>(&[2, 2])?;
+        neg_identity.set(&[0, 0], -1.0)?;
+        neg_identity.set(&[1, 1], -1.0)?;
+
+        let sign_neg_identity = matrix_sign(&neg_identity)?;
+
+        // sign(-I) = -I
+        for i in 0..2 {
+            for j in 0..2 {
+                let expected = if i == j { -1.0 } else { 0.0 };
+                assert_relative_eq!(sign_neg_identity.get(&[i, j])?, expected, epsilon = 1e-4);
+            }
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_kronecker_identity() -> TorshResult<()> {
+        let a = eye::<f32>(2)?;
+        let b = eye::<f32>(3)?;
+
+        let kron = kronecker(&a, &b)?;
+
+        // I_2 ⊗ I_3 = I_6
+        assert_eq!(kron.shape().dims(), &[6, 6]);
+
+        for i in 0..6 {
+            for j in 0..6 {
+                let expected = if i == j { 1.0 } else { 0.0 };
+                assert_relative_eq!(kron.get(&[i, j])?, expected, epsilon = 1e-6);
+            }
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_kronecker_simple() -> TorshResult<()> {
+        // A = [[1, 2], [3, 4]], B = [[5, 6], [7, 8]]
+        let a = Tensor::from_data(
+            vec![1.0, 2.0, 3.0, 4.0],
+            vec![2, 2],
+            torsh_core::DeviceType::Cpu,
+        )?;
+        let b = Tensor::from_data(
+            vec![5.0, 6.0, 7.0, 8.0],
+            vec![2, 2],
+            torsh_core::DeviceType::Cpu,
+        )?;
+
+        let kron = kronecker(&a, &b)?;
+
+        // Result should be 4x4
+        assert_eq!(kron.shape().dims(), &[4, 4]);
+
+        // Check a few elements
+        // Top-left block should be 1*B = [[5, 6], [7, 8]]
+        assert_relative_eq!(kron.get(&[0, 0])?, 5.0, epsilon = 1e-6);
+        assert_relative_eq!(kron.get(&[0, 1])?, 6.0, epsilon = 1e-6);
+        assert_relative_eq!(kron.get(&[1, 0])?, 7.0, epsilon = 1e-6);
+        assert_relative_eq!(kron.get(&[1, 1])?, 8.0, epsilon = 1e-6);
+
+        // Top-right block should be 2*B = [[10, 12], [14, 16]]
+        assert_relative_eq!(kron.get(&[0, 2])?, 10.0, epsilon = 1e-6);
+        assert_relative_eq!(kron.get(&[0, 3])?, 12.0, epsilon = 1e-6);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_khatri_rao_simple() -> TorshResult<()> {
+        // A = [[1, 2], [3, 4]], B = [[5, 6], [7, 8]]
+        let a = Tensor::from_data(
+            vec![1.0, 2.0, 3.0, 4.0],
+            vec![2, 2],
+            torsh_core::DeviceType::Cpu,
+        )?;
+        let b = Tensor::from_data(
+            vec![5.0, 6.0, 7.0, 8.0],
+            vec![2, 2],
+            torsh_core::DeviceType::Cpu,
+        )?;
+
+        let kr = khatri_rao(&a, &b)?;
+
+        // Result should be 4x2 (column-wise Kronecker product)
+        assert_eq!(kr.shape().dims(), &[4, 2]);
+
+        // First column: [1, 3] ⊗ [5, 7] = [1*5, 1*7, 3*5, 3*7] = [5, 7, 15, 21]
+        assert_relative_eq!(kr.get(&[0, 0])?, 5.0, epsilon = 1e-6);
+        assert_relative_eq!(kr.get(&[1, 0])?, 7.0, epsilon = 1e-6);
+        assert_relative_eq!(kr.get(&[2, 0])?, 15.0, epsilon = 1e-6);
+        assert_relative_eq!(kr.get(&[3, 0])?, 21.0, epsilon = 1e-6);
+
+        // Second column: [2, 4] ⊗ [6, 8] = [2*6, 2*8, 4*6, 4*8] = [12, 16, 24, 32]
+        assert_relative_eq!(kr.get(&[0, 1])?, 12.0, epsilon = 1e-6);
+        assert_relative_eq!(kr.get(&[1, 1])?, 16.0, epsilon = 1e-6);
+        assert_relative_eq!(kr.get(&[2, 1])?, 24.0, epsilon = 1e-6);
+        assert_relative_eq!(kr.get(&[3, 1])?, 32.0, epsilon = 1e-6);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_cross_product_standard_basis() -> TorshResult<()> {
+        // i × j = k
+        let i = Tensor::from_data(vec![1.0, 0.0, 0.0], vec![3], torsh_core::DeviceType::Cpu)?;
+        let j = Tensor::from_data(vec![0.0, 1.0, 0.0], vec![3], torsh_core::DeviceType::Cpu)?;
+
+        let k = cross(&i, &j)?;
+
+        assert_relative_eq!(k.get(&[0])?, 0.0, epsilon = 1e-6);
+        assert_relative_eq!(k.get(&[1])?, 0.0, epsilon = 1e-6);
+        assert_relative_eq!(k.get(&[2])?, 1.0, epsilon = 1e-6);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_cross_product_anticommutative() -> TorshResult<()> {
+        let a = Tensor::from_data(vec![1.0, 2.0, 3.0], vec![3], torsh_core::DeviceType::Cpu)?;
+        let b = Tensor::from_data(vec![4.0, 5.0, 6.0], vec![3], torsh_core::DeviceType::Cpu)?;
+
+        let a_cross_b = cross(&a, &b)?;
+        let b_cross_a = cross(&b, &a)?;
+
+        // a × b = -(b × a)
+        for i in 0..3 {
+            assert_relative_eq!(a_cross_b.get(&[i])?, -b_cross_a.get(&[i])?, epsilon = 1e-6);
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_cross_product_self_zero() -> TorshResult<()> {
+        let a = Tensor::from_data(vec![1.0, 2.0, 3.0], vec![3], torsh_core::DeviceType::Cpu)?;
+
+        let a_cross_a = cross(&a, &a)?;
+
+        // a × a = 0
+        for i in 0..3 {
+            assert_relative_eq!(a_cross_a.get(&[i])?, 0.0, epsilon = 1e-6);
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_new_functions_error_cases() -> TorshResult<()> {
+        // Test non-square matrix for matrix_sign
+        let nonsquare = torsh_tensor::creation::zeros::<f32>(&[2, 3])?;
+        assert!(matrix_sign(&nonsquare).is_err());
+
+        // Test 1D tensor for kronecker
+        let vec1d = torsh_tensor::creation::zeros::<f32>(&[3])?;
+        let mat2d = torsh_tensor::creation::zeros::<f32>(&[2, 2])?;
+        assert!(kronecker(&vec1d, &mat2d).is_err());
+
+        // Test incompatible dimensions for khatri_rao
+        let a = torsh_tensor::creation::zeros::<f32>(&[2, 3])?;
+        let b = torsh_tensor::creation::zeros::<f32>(&[2, 4])?;
+        assert!(khatri_rao(&a, &b).is_err());
+
+        // Test non-3D vectors for cross
+        let vec2d = torsh_tensor::creation::zeros::<f32>(&[2])?;
+        let vec3d = torsh_tensor::creation::zeros::<f32>(&[3])?;
+        assert!(cross(&vec2d, &vec3d).is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_matrix_sinh_zero() -> TorshResult<()> {
+        let zero = torsh_tensor::creation::zeros::<f32>(&[2, 2])?;
+        let sinh_zero = matrix_sinh(&zero)?;
+
+        // sinh(0) = 0
+        for i in 0..2 {
+            for j in 0..2 {
+                assert_relative_eq!(sinh_zero.get(&[i, j])?, 0.0, epsilon = 1e-6);
+            }
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_matrix_cosh_zero() -> TorshResult<()> {
+        let zero = torsh_tensor::creation::zeros::<f32>(&[2, 2])?;
+        let cosh_zero = matrix_cosh(&zero)?;
+
+        // cosh(0) = I
+        for i in 0..2 {
+            for j in 0..2 {
+                let expected = if i == j { 1.0 } else { 0.0 };
+                assert_relative_eq!(cosh_zero.get(&[i, j])?, expected, epsilon = 1e-4);
+            }
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_matrix_tanh_zero() -> TorshResult<()> {
+        let zero = torsh_tensor::creation::zeros::<f32>(&[2, 2])?;
+        let tanh_zero = matrix_tanh(&zero)?;
+
+        // tanh(0) = 0
+        for i in 0..2 {
+            for j in 0..2 {
+                assert_relative_eq!(tanh_zero.get(&[i, j])?, 0.0, epsilon = 1e-4);
+            }
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_hyperbolic_identity() -> TorshResult<()> {
+        // Test cosh²(A) - sinh²(A) = I for a simple matrix
+        let a = Tensor::from_data(
+            vec![0.1, 0.0, 0.0, 0.1],
+            vec![2, 2],
+            torsh_core::DeviceType::Cpu,
+        )?;
+
+        let sinh_a = matrix_sinh(&a)?;
+        let cosh_a = matrix_cosh(&a)?;
+
+        // Compute cosh²(A)
+        let cosh_squared = cosh_a.matmul(&cosh_a)?;
+
+        // Compute sinh²(A)
+        let sinh_squared = sinh_a.matmul(&sinh_a)?;
+
+        // Compute difference
+        let diff = cosh_squared.sub(&sinh_squared)?;
+
+        // Should be close to identity
+        for i in 0..2 {
+            for j in 0..2 {
+                let expected = if i == j { 1.0 } else { 0.0 };
+                assert_relative_eq!(diff.get(&[i, j])?, expected, epsilon = 1e-3);
+            }
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_hyperbolic_symmetry() -> TorshResult<()> {
+        // Test sinh(-A) = -sinh(A) and cosh(-A) = cosh(A)
+        let a = Tensor::from_data(
+            vec![0.1, 0.05, 0.05, 0.1],
+            vec![2, 2],
+            torsh_core::DeviceType::Cpu,
+        )?;
+        let neg_a = a.mul_scalar(-1.0)?;
+
+        let sinh_a = matrix_sinh(&a)?;
+        let sinh_neg_a = matrix_sinh(&neg_a)?;
+
+        // sinh(-A) = -sinh(A)
+        for i in 0..2 {
+            for j in 0..2 {
+                assert_relative_eq!(
+                    sinh_neg_a.get(&[i, j])?,
+                    -sinh_a.get(&[i, j])?,
+                    epsilon = 1e-5
+                );
+            }
+        }
+
+        let cosh_a = matrix_cosh(&a)?;
+        let cosh_neg_a = matrix_cosh(&neg_a)?;
+
+        // cosh(-A) = cosh(A)
+        for i in 0..2 {
+            for j in 0..2 {
+                assert_relative_eq!(
+                    cosh_neg_a.get(&[i, j])?,
+                    cosh_a.get(&[i, j])?,
+                    epsilon = 1e-5
+                );
+            }
+        }
 
         Ok(())
     }

@@ -3,17 +3,16 @@
 //! This module provides efficient zero-copy host-device and device-device transfers
 //! where supported by the underlying hardware and drivers.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::error::{BackendError, BackendResult};
 use crate::{Device, MemoryManager};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use torsh_core::device::DeviceType;
 
-#[cfg(feature = "async")]
-use futures::TryFutureExt;
-
 #[cfg(feature = "cuda")]
-use crate::cuda::{CudaBackend, CudaDevice as SciRs2CudaDevice, MemoryAdvice};
+use crate::cuda::CudaDevice as SciRs2CudaDevice;
 
 // Temporary mock for scirs2_cuda when CUDA is not available
 #[cfg(all(feature = "cuda", not(cuda_available)))]
@@ -95,11 +94,11 @@ mod scirs2_cuda {
     }
 }
 
-#[cfg(feature = "metal")]
-use crate::metal::{MetalBackend, MetalDevice as SciRs2MetalDevice};
+#[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
+use crate::metal::MetalDevice as SciRs2MetalDevice;
 
 // Temporary mock for scirs2_metal since scirs2_core doesn't have a metal module yet
-#[cfg(feature = "metal")]
+#[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
 mod scirs2_metal {
     pub mod memory {
         use crate::metal::device::MetalDevice;
@@ -517,7 +516,7 @@ pub struct ZeroCopyManager {
     #[cfg(feature = "cuda")]
     cuda_devices: HashMap<String, Arc<SciRs2CudaDevice>>,
     /// SciRS2 Metal devices for actual zero-copy operations
-    #[cfg(feature = "metal")]
+    #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
     metal_devices: HashMap<String, Arc<SciRs2MetalDevice>>,
 }
 
@@ -530,7 +529,7 @@ impl ZeroCopyManager {
             memory_managers: HashMap::new(),
             #[cfg(feature = "cuda")]
             cuda_devices: HashMap::new(),
-            #[cfg(feature = "metal")]
+            #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
             metal_devices: HashMap::new(),
         }
     }
@@ -573,7 +572,7 @@ impl ZeroCopyManager {
     }
 
     /// Register a Metal device for zero-copy operations
-    #[cfg(feature = "metal")]
+    #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
     pub fn register_metal_device(
         &mut self,
         device: &Device,
@@ -713,6 +712,7 @@ impl ZeroCopyManager {
     }
 
     /// Cross-device zero-copy transfer
+    #[allow(unused_unsafe)]
     async fn cross_device_transfer(&self, transfer: &ZeroCopyTransfer) -> BackendResult<bool> {
         let source_caps = self
             .get_capabilities(&transfer.source_device)
@@ -748,6 +748,7 @@ impl ZeroCopyManager {
             DeviceType::Cuda(_) => {
                 if let Some(cuda_device) = self.cuda_devices.get(&device_key) {
                     // Use SciRS2 CUDA unified memory
+                    #[allow(unused_unsafe)]
                     unsafe {
                         scirs2_cuda::memory::prefetch_async(
                             cuda_device.as_ref(),
@@ -783,10 +784,11 @@ impl ZeroCopyManager {
                 }
             }
 
-            #[cfg(feature = "metal")]
+            #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
             DeviceType::Metal(_) => {
                 if let Some(metal_device) = self.metal_devices.get(&device_key) {
                     // Use SciRS2 Metal unified memory
+                    #[allow(unused_unsafe)]
                     unsafe {
                         scirs2_metal::memory::set_cpu_cache_mode(
                             metal_device,
@@ -829,6 +831,7 @@ impl ZeroCopyManager {
 
     /// Pinned memory transfer implementation
     async fn pinned_memory_transfer(&self, transfer: &ZeroCopyTransfer) -> BackendResult<bool> {
+        #[allow(unused_variables)]
         let device_key = format!(
             "{}:{}",
             transfer.destination_device.device_type(),
@@ -856,7 +859,7 @@ impl ZeroCopyManager {
                 }
             }
 
-            #[cfg(feature = "metal")]
+            #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
             DeviceType::Metal(_) => {
                 if let Some(metal_device) = self.metal_devices.get(&device_key) {
                     match transfer.mode {
@@ -1053,12 +1056,15 @@ impl ZeroCopyManager {
     }
 
     /// Launch peer-to-peer transfer
+    #[allow(unused_unsafe)]
     async fn launch_p2p_transfer(&self, transfer: &ZeroCopyTransfer) -> BackendResult<bool> {
+        #[allow(unused_variables)]
         let source_key = format!(
             "{}:{}",
             transfer.source_device.device_type(),
             transfer.source_device.id()
         );
+        #[allow(unused_variables)]
         let dest_key = format!(
             "{}:{}",
             transfer.destination_device.device_type(),
@@ -1071,7 +1077,7 @@ impl ZeroCopyManager {
         ) {
             #[cfg(feature = "cuda")]
             (DeviceType::Cuda(_), DeviceType::Cuda(_)) => {
-                if let (Some(src_device), Some(dst_device)) = (
+                if let (Some(_src_device), Some(_dst_device)) = (
                     self.cuda_devices.get(&source_key),
                     self.cuda_devices.get(&dest_key),
                 ) {
@@ -1117,9 +1123,10 @@ impl ZeroCopyManager {
 
     /// Launch CUDA asynchronous transfer
     #[cfg(feature = "cuda")]
+    #[allow(unused_unsafe)]
     async fn launch_cuda_async_transfer(
         &self,
-        cuda_device: &SciRs2CudaDevice,
+        _cuda_device: &SciRs2CudaDevice,
         transfer: &ZeroCopyTransfer,
     ) -> BackendResult<bool> {
         unsafe {
@@ -1160,9 +1167,10 @@ impl ZeroCopyManager {
     #[cfg(feature = "cuda")]
     async fn launch_cuda_sync_transfer(
         &self,
-        cuda_device: &SciRs2CudaDevice,
+        _cuda_device: &SciRs2CudaDevice,
         transfer: &ZeroCopyTransfer,
     ) -> BackendResult<bool> {
+        #[allow(unused_unsafe)]
         unsafe {
             match transfer.direction {
                 TransferDirection::HostToDevice => {
@@ -1239,12 +1247,13 @@ impl ZeroCopyManager {
     }
 
     /// Launch Metal asynchronous transfer
-    #[cfg(feature = "metal")]
+    #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
     async fn launch_metal_async_transfer(
         &self,
         metal_device: &SciRs2MetalDevice,
         transfer: &ZeroCopyTransfer,
     ) -> BackendResult<bool> {
+        #[allow(unused_unsafe)]
         unsafe {
             match transfer.direction {
                 TransferDirection::HostToDevice => {
@@ -1288,12 +1297,13 @@ impl ZeroCopyManager {
     }
 
     /// Launch Metal synchronous transfer
-    #[cfg(feature = "metal")]
+    #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
     async fn launch_metal_sync_transfer(
         &self,
         metal_device: &SciRs2MetalDevice,
         transfer: &ZeroCopyTransfer,
     ) -> BackendResult<bool> {
+        #[allow(unused_unsafe)]
         unsafe {
             match transfer.direction {
                 TransferDirection::HostToDevice => {
@@ -1329,7 +1339,7 @@ impl ZeroCopyManager {
     }
 
     /// Launch Metal streaming transfer
-    #[cfg(feature = "metal")]
+    #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
     async fn launch_metal_streaming_transfer(
         &self,
         metal_device: &SciRs2MetalDevice,

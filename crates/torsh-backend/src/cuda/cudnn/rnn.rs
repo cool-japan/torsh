@@ -4,7 +4,7 @@
 //! implementations with various configuration options. It includes descriptors
 //! for RNN networks, dropout layers, and data layout management.
 
-use crate::error::{CudaError, CudaResult};
+use crate::cuda::error::{CudaError, CudaResult};
 use torsh_core::DType;
 
 use super::handle::CudnnHandle;

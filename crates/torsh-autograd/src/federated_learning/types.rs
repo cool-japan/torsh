@@ -5,8 +5,6 @@
 //! for federated learning operations including aggregation strategies, client
 //! selection methods, privacy mechanisms, and system configuration.
 
-use std::time::Instant;
-
 /// Configuration for federated learning system
 ///
 /// This structure defines all the hyperparameters and settings for a federated
@@ -14,6 +12,7 @@ use std::time::Instant;
 /// and system constraints.
 ///
 /// # Examples
+/// use std::time::Duration;
 ///
 /// ```rust,ignore
 /// use torsh_autograd::federated_learning::types::*;

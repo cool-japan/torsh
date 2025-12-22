@@ -5,7 +5,6 @@
 
 use crate::{TorshDistributedError, TorshResult};
 use async_trait::async_trait;
-use log::{debug, info, warn};
 use std::any::Any;
 use std::collections::HashMap;
 use std::fmt;
@@ -204,19 +203,35 @@ pub trait Backend: Send + Sync {
     }
 
     /// All-reduce operation on tensor
-    async fn all_reduce(&mut self, tensor: &mut dyn Any, op: ReduceOp) -> TorshResult<()>;
+    async fn all_reduce(
+        &mut self,
+        tensor: &mut (dyn Any + Send + Sync),
+        op: ReduceOp,
+    ) -> TorshResult<()>;
 
     /// All-gather operation on tensor
-    async fn all_gather(&mut self, tensor: &dyn Any) -> TorshResult<Box<dyn Any>>;
+    async fn all_gather(
+        &mut self,
+        tensor: &(dyn Any + Send + Sync),
+    ) -> TorshResult<Box<dyn Any + Send>>;
 
     /// Broadcast operation on tensor
-    async fn broadcast(&mut self, tensor: &mut dyn Any, root: u32) -> TorshResult<()>;
+    async fn broadcast(
+        &mut self,
+        tensor: &mut (dyn Any + Send + Sync),
+        root: u32,
+    ) -> TorshResult<()>;
 
     /// Point-to-point send operation
-    async fn send(&mut self, tensor: &dyn Any, dst: u32, tag: u32) -> TorshResult<()>;
+    async fn send(
+        &mut self,
+        tensor: &(dyn Any + Send + Sync),
+        dst: u32,
+        tag: u32,
+    ) -> TorshResult<()>;
 
     /// Point-to-point receive operation
-    async fn recv(&mut self, src: u32, tag: u32) -> TorshResult<Box<dyn Any>>;
+    async fn recv(&mut self, src: u32, tag: u32) -> TorshResult<Box<dyn Any + Send>>;
 
     /// Health check for the backend
     async fn health_check(&mut self) -> TorshResult<bool> {
@@ -371,7 +386,7 @@ impl Backend for MockBackend {
 
     async fn barrier(&mut self) -> TorshResult<()> {
         if !self.status.initialized {
-            return Err(TorshDistributedError::BackendNotInitialized.into());
+            return Err(TorshDistributedError::BackendNotInitialized);
         }
 
         self.status.active_operations += 1;
@@ -384,7 +399,11 @@ impl Backend for MockBackend {
         Ok(())
     }
 
-    async fn all_reduce(&mut self, _tensor: &mut dyn Any, op: ReduceOp) -> TorshResult<()> {
+    async fn all_reduce(
+        &mut self,
+        _tensor: &mut (dyn Any + Send + Sync),
+        op: ReduceOp,
+    ) -> TorshResult<()> {
         if !self.status.initialized {
             return Err(TorshDistributedError::BackendNotInitialized);
         }
@@ -416,7 +435,10 @@ impl Backend for MockBackend {
         Ok(())
     }
 
-    async fn all_gather(&mut self, _tensor: &dyn Any) -> TorshResult<Box<dyn Any>> {
+    async fn all_gather(
+        &mut self,
+        _tensor: &(dyn Any + Send + Sync),
+    ) -> TorshResult<Box<dyn Any + Send>> {
         if !self.status.initialized {
             return Err(TorshDistributedError::BackendNotInitialized);
         }
@@ -435,7 +457,11 @@ impl Backend for MockBackend {
         Ok(Box::new(result))
     }
 
-    async fn broadcast(&mut self, _tensor: &mut dyn Any, root: u32) -> TorshResult<()> {
+    async fn broadcast(
+        &mut self,
+        _tensor: &mut (dyn Any + Send + Sync),
+        root: u32,
+    ) -> TorshResult<()> {
         if !self.status.initialized {
             return Err(TorshDistributedError::BackendNotInitialized);
         }
@@ -459,7 +485,12 @@ impl Backend for MockBackend {
         Ok(())
     }
 
-    async fn send(&mut self, _tensor: &dyn Any, dst: u32, _tag: u32) -> TorshResult<()> {
+    async fn send(
+        &mut self,
+        _tensor: &(dyn Any + Send + Sync),
+        dst: u32,
+        _tag: u32,
+    ) -> TorshResult<()> {
         if !self.status.initialized {
             return Err(TorshDistributedError::BackendNotInitialized);
         }
@@ -481,7 +512,7 @@ impl Backend for MockBackend {
         Ok(())
     }
 
-    async fn recv(&mut self, src: u32, _tag: u32) -> TorshResult<Box<dyn Any>> {
+    async fn recv(&mut self, src: u32, _tag: u32) -> TorshResult<Box<dyn Any + Send>> {
         if !self.status.initialized {
             return Err(TorshDistributedError::BackendNotInitialized);
         }
@@ -665,7 +696,11 @@ mod mpi_backend {
             Ok(())
         }
 
-        async fn all_reduce(&mut self, _tensor: &mut dyn Any, _op: ReduceOp) -> TorshResult<()> {
+        async fn all_reduce(
+            &mut self,
+            _tensor: &mut (dyn Any + Send + Sync),
+            _op: ReduceOp,
+        ) -> TorshResult<()> {
             if !self.initialized {
                 return Err(TorshDistributedError::backend_error(
                     "MPI",
@@ -713,7 +748,10 @@ mod mpi_backend {
             Ok(())
         }
 
-        async fn all_gather(&mut self, _tensor: &dyn Any) -> TorshResult<Box<dyn Any>> {
+        async fn all_gather(
+            &mut self,
+            _tensor: &(dyn Any + Send + Sync),
+        ) -> TorshResult<Box<dyn Any + Send>> {
             if !self.initialized {
                 return Err(TorshDistributedError::backend_error(
                     "MPI",
@@ -759,7 +797,11 @@ mod mpi_backend {
             Ok(mock_result)
         }
 
-        async fn broadcast(&mut self, _tensor: &mut dyn Any, _root: u32) -> TorshResult<()> {
+        async fn broadcast(
+            &mut self,
+            _tensor: &mut (dyn Any + Send + Sync),
+            _root: u32,
+        ) -> TorshResult<()> {
             if !self.initialized {
                 return Err(TorshDistributedError::backend_error(
                     "MPI",
@@ -819,7 +861,12 @@ mod mpi_backend {
             Ok(())
         }
 
-        async fn send(&mut self, _tensor: &dyn Any, _dst: u32, _tag: u32) -> TorshResult<()> {
+        async fn send(
+            &mut self,
+            _tensor: &(dyn Any + Send + Sync),
+            _dst: u32,
+            _tag: u32,
+        ) -> TorshResult<()> {
             if !self.initialized {
                 return Err(TorshDistributedError::backend_error(
                     "MPI",
@@ -845,7 +892,7 @@ mod mpi_backend {
             Ok(())
         }
 
-        async fn recv(&mut self, _src: u32, _tag: u32) -> TorshResult<Box<dyn Any>> {
+        async fn recv(&mut self, _src: u32, _tag: u32) -> TorshResult<Box<dyn Any + Send>> {
             if !self.initialized {
                 return Err(TorshDistributedError::backend_error(
                     "MPI",
@@ -983,6 +1030,11 @@ mod nccl_backend {
             self.device_id
         }
 
+        /// Check if NCCL backend is initialized
+        pub fn is_initialized(&self) -> bool {
+            self.initialized.load(std::sync::atomic::Ordering::Acquire)
+        }
+
         /// Enhanced mock NCCL all-reduce operation
         pub fn mock_all_reduce(&self, data: &[f32]) -> TorshResult<Vec<f32>> {
             if !self.is_initialized() {
@@ -1107,6 +1159,7 @@ mod nccl_backend {
         }
     }
 
+    #[async_trait]
     impl Backend for NcclBackend {
         fn backend_type(&self) -> BackendType {
             BackendType::Nccl
@@ -1191,7 +1244,7 @@ mod nccl_backend {
 
             // Simulate barrier implementation using all-reduce of dummy data
             info!("    Creating dummy data for barrier all-reduce");
-            let dummy_data = vec![1.0f32]; // Single element for barrier
+            let _dummy_data = vec![1.0f32]; // Single element for barrier
 
             // Simulate all-reduce latency (barrier is typically slower than regular all-reduce)
             let latency_ms = (self.world_size as f64 * 2.0).max(5.0);
@@ -1243,59 +1296,286 @@ mod nccl_backend {
             }
         }
 
-        async fn all_reduce(&mut self, _tensor: &mut dyn Any, _op: ReduceOp) -> TorshResult<()> {
+        async fn all_reduce(
+            &mut self,
+            tensor: &mut (dyn Any + Send + Sync),
+            op: ReduceOp,
+        ) -> TorshResult<()> {
             if !self.is_ready() {
                 return Err(TorshDistributedError::backend_error(
                     "NCCL",
                     "Backend not initialized",
                 ));
             }
-            // TODO: Implement actual NCCL all-reduce operation
+
+            // Enhanced mock NCCL all-reduce using the helper method
+            // In a real implementation, this would:
+            // 1. Convert tensor to CUDA device memory
+            // 2. Call ncclAllReduce() with appropriate operation
+            // 3. Synchronize CUDA stream
+
+            let start_time = std::time::Instant::now();
+
+            info!(
+                " Enhanced Mock NCCL: All-reduce operation {:?} on device {} (rank {}/{})",
+                op, self.device_id, self.rank, self.world_size
+            );
+
+            // Try to downcast to f32 slice for processing
+            if let Some(data) = tensor.downcast_mut::<Vec<f32>>() {
+                // Simulate operation-specific behavior
+                match op {
+                    ReduceOp::Sum => {
+                        // Simulate sum reduction: multiply by world_size (as if summed)
+                        for val in data.iter_mut() {
+                            *val *= self.world_size as f32;
+                        }
+                    }
+                    ReduceOp::Product => {
+                        // Simulate product reduction: raise to power of world_size
+                        for val in data.iter_mut() {
+                            *val = val.powi(self.world_size as i32);
+                        }
+                    }
+                    ReduceOp::Min => {
+                        // Min stays the same in mock (no change needed)
+                        info!("     Mock MIN reduction (no change in single process)");
+                    }
+                    ReduceOp::Max => {
+                        // Max stays the same in mock (no change needed)
+                        info!("     Mock MAX reduction (no change in single process)");
+                    }
+                    ReduceOp::Mean => {
+                        // Mean stays the same (sum / world_size = original)
+                        info!("    Mock MEAN reduction (no change in single process)");
+                    }
+                    ReduceOp::Band | ReduceOp::Bor | ReduceOp::Bxor => {
+                        // Bitwise operations stay the same in single process mock
+                        info!("    Mock BITWISE reduction (no change in single process)");
+                    }
+                }
+
+                // Simulate network latency
+                let latency_ms =
+                    (data.len() as f64 * 0.001 + self.world_size as f64 * 0.5).max(1.0);
+                tokio::time::sleep(std::time::Duration::from_millis(latency_ms as u64)).await;
+
+                let duration = start_time.elapsed();
+                let bandwidth_gbps = (data.len() * 4) as f64 / duration.as_secs_f64() / 1e9;
+
+                info!(
+                    "    All-reduce completed in {:?} (simulated bandwidth: {:.2} GB/s)",
+                    duration, bandwidth_gbps
+                );
+            }
+
             Ok(())
         }
 
-        async fn all_gather(&mut self, _tensor: &dyn Any) -> TorshResult<Box<dyn Any>> {
+        async fn all_gather(
+            &mut self,
+            tensor: &(dyn Any + Send + Sync),
+        ) -> TorshResult<Box<dyn Any + Send>> {
             if !self.is_ready() {
                 return Err(TorshDistributedError::backend_error(
                     "NCCL",
                     "Backend not initialized",
                 ));
             }
-            // TODO: Implement actual NCCL all-gather operation
-            Err(TorshDistributedError::not_implemented("NCCL all_gather"))
+
+            // Enhanced mock NCCL all-gather implementation
+            // In a real implementation, this would:
+            // 1. Allocate output buffer of size world_size * tensor_size
+            // 2. Call ncclAllGather()
+            // 3. Each rank gets concatenated tensors from all ranks
+
+            let start_time = std::time::Instant::now();
+
+            info!(
+                " Enhanced Mock NCCL: All-gather on device {} (rank {}/{})",
+                self.device_id, self.rank, self.world_size
+            );
+
+            // Try to downcast to f32 slice for processing
+            if let Some(data) = tensor.downcast_ref::<Vec<f32>>() {
+                // Create output buffer: concatenate data from all ranks
+                let mut gathered = Vec::with_capacity(data.len() * self.world_size as usize);
+
+                // Simulate gathering from all ranks
+                for rank_id in 0..self.world_size {
+                    // Simulate rank-specific data variation
+                    let rank_data: Vec<f32> = data
+                        .iter()
+                        .enumerate()
+                        .map(|(i, &v)| v + rank_id as f32 * 0.01 + i as f32 * 0.0001)
+                        .collect();
+                    gathered.extend(rank_data);
+                }
+
+                // Simulate network latency (all-gather transfers more data than all-reduce)
+                let latency_ms =
+                    (data.len() as f64 * self.world_size as f64 * 0.001 + 2.0).max(1.0);
+                tokio::time::sleep(std::time::Duration::from_millis(latency_ms as u64)).await;
+
+                let duration = start_time.elapsed();
+                let total_bytes = gathered.len() * 4;
+                let bandwidth_gbps = total_bytes as f64 / duration.as_secs_f64() / 1e9;
+
+                info!(
+                    "    All-gather completed: {} elements -> {} elements in {:?} (bandwidth: {:.2} GB/s)",
+                    data.len(),
+                    gathered.len(),
+                    duration,
+                    bandwidth_gbps
+                );
+
+                return Ok(Box::new(gathered));
+            }
+
+            Err(TorshDistributedError::backend_error(
+                "NCCL all_gather",
+                "Unsupported tensor type for mock implementation",
+            ))
         }
 
-        async fn broadcast(&mut self, _tensor: &mut dyn Any, _root: u32) -> TorshResult<()> {
+        async fn broadcast(
+            &mut self,
+            tensor: &mut (dyn Any + Send + Sync),
+            root: u32,
+        ) -> TorshResult<()> {
             if !self.is_ready() {
                 return Err(TorshDistributedError::backend_error(
                     "NCCL",
                     "Backend not initialized",
                 ));
             }
-            // TODO: Implement actual NCCL broadcast operation
+
+            if root >= self.world_size {
+                return Err(TorshDistributedError::RankOutOfBounds {
+                    rank: root,
+                    world_size: self.world_size,
+                });
+            }
+
+            // Enhanced mock NCCL broadcast using the helper method
+            let start_time = std::time::Instant::now();
+
+            info!(
+                " Enhanced Mock NCCL: Broadcast from rank {} to device {} (rank {}/{})",
+                root, self.device_id, self.rank, self.world_size
+            );
+
+            // Try to downcast to f32 slice for processing
+            if let Some(data) = tensor.downcast_mut::<Vec<f32>>() {
+                self.mock_broadcast(data, root)?;
+            }
+
+            let duration = start_time.elapsed();
+            info!("    Broadcast completed in {:?}", duration);
+
             Ok(())
         }
 
-        async fn send(&mut self, _tensor: &dyn Any, _dst: u32, _tag: u32) -> TorshResult<()> {
+        async fn send(
+            &mut self,
+            tensor: &(dyn Any + Send + Sync),
+            dst: u32,
+            tag: u32,
+        ) -> TorshResult<()> {
             if !self.is_ready() {
                 return Err(TorshDistributedError::backend_error(
                     "NCCL",
                     "Backend not initialized",
                 ));
             }
-            // TODO: Implement actual NCCL send operation
+
+            if dst >= self.world_size {
+                return Err(TorshDistributedError::RankOutOfBounds {
+                    rank: dst,
+                    world_size: self.world_size,
+                });
+            }
+
+            // Enhanced mock NCCL point-to-point send
+            // In a real implementation, this would:
+            // 1. Call ncclSend() to destination rank
+            // 2. Uses NCCL's efficient P2P communication
+
+            let start_time = std::time::Instant::now();
+
+            info!(
+                "📤 Enhanced Mock NCCL: Send to rank {} with tag {} from device {} (rank {}/{})",
+                dst, tag, self.device_id, self.rank, self.world_size
+            );
+
+            // Try to get tensor size for simulation
+            let data_size = if let Some(data) = tensor.downcast_ref::<Vec<f32>>() {
+                data.len()
+            } else {
+                1024 // Default size for unknown types
+            };
+
+            // Simulate P2P send latency (faster than collectives)
+            let latency_ms = (data_size as f64 * 0.0005 + 0.5).max(0.2);
+            tokio::time::sleep(std::time::Duration::from_millis(latency_ms as u64)).await;
+
+            let duration = start_time.elapsed();
+            let bandwidth_gbps = (data_size * 4) as f64 / duration.as_secs_f64() / 1e9;
+
+            info!(
+                "     Send completed: {} elements in {:?} (bandwidth: {:.2} GB/s)",
+                data_size, duration, bandwidth_gbps
+            );
+
             Ok(())
         }
 
-        async fn recv(&mut self, _src: u32, _tag: u32) -> TorshResult<Box<dyn Any>> {
+        async fn recv(&mut self, src: u32, tag: u32) -> TorshResult<Box<dyn Any + Send>> {
             if !self.is_ready() {
                 return Err(TorshDistributedError::backend_error(
                     "NCCL",
                     "Backend not initialized",
                 ));
             }
-            // TODO: Implement actual NCCL recv operation
-            Err(TorshDistributedError::not_implemented("NCCL recv"))
+
+            if src >= self.world_size {
+                return Err(TorshDistributedError::RankOutOfBounds {
+                    rank: src,
+                    world_size: self.world_size,
+                });
+            }
+
+            // Enhanced mock NCCL point-to-point receive
+            // In a real implementation, this would:
+            // 1. Call ncclRecv() from source rank
+            // 2. Return received tensor data
+
+            let start_time = std::time::Instant::now();
+
+            info!(
+                "📥 Enhanced Mock NCCL: Recv from rank {} with tag {} on device {} (rank {}/{})",
+                src, tag, self.device_id, self.rank, self.world_size
+            );
+
+            // Simulate receiving data - create mock data based on src rank
+            let mock_size = 1024; // Default mock tensor size
+            let received_data: Vec<f32> = (0..mock_size)
+                .map(|i| src as f32 + tag as f32 * 0.1 + i as f32 * 0.001)
+                .collect();
+
+            // Simulate P2P recv latency (faster than collectives)
+            let latency_ms = (mock_size as f64 * 0.0005 + 0.5).max(0.2);
+            tokio::time::sleep(std::time::Duration::from_millis(latency_ms as u64)).await;
+
+            let duration = start_time.elapsed();
+            let bandwidth_gbps = (mock_size * 4) as f64 / duration.as_secs_f64() / 1e9;
+
+            info!(
+                "     Recv completed: {} elements in {:?} (bandwidth: {:.2} GB/s)",
+                mock_size, duration, bandwidth_gbps
+            );
+
+            Ok(Box::new(received_data))
         }
 
         fn as_any(&self) -> &dyn std::any::Any {

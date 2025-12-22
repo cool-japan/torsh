@@ -146,6 +146,194 @@ mod tests {
     }
 
     #[test]
+    fn test_replace_node_with_input() {
+        let mut graph = ComputationGraph::new();
+
+        // Create a simple chain: input -> relu -> output
+        let input = graph.add_node(
+            Node::new(Operation::Input, "input".to_string())
+                .with_output_shapes(vec![Some(Shape::new(vec![1, 10]))])
+                .with_dtypes(vec![DType::F32]),
+        );
+        let relu = graph.add_node(
+            Node::new(Operation::Relu, "relu".to_string())
+                .with_output_shapes(vec![Some(Shape::new(vec![1, 10]))])
+                .with_dtypes(vec![DType::F32]),
+        );
+        let output = graph.add_node(
+            Node::new(Operation::Input, "output".to_string())
+                .with_output_shapes(vec![Some(Shape::new(vec![1, 10]))])
+                .with_dtypes(vec![DType::F32]),
+        );
+
+        graph.add_edge(
+            input,
+            relu,
+            Edge {
+                src_output: 0,
+                dst_input: 0,
+            },
+        );
+        graph.add_edge(
+            relu,
+            output,
+            Edge {
+                src_output: 0,
+                dst_input: 0,
+            },
+        );
+        graph.add_output(output);
+
+        let initial_node_count = graph.node_count();
+
+        // Replace relu with input (bypass the relu)
+        let result = graph.replace_node_with_input(relu, input);
+        assert!(result.is_ok());
+
+        // One node should have been removed (relu)
+        assert_eq!(graph.node_count(), initial_node_count - 1);
+
+        // Since NodeIndex can be reused by petgraph after node removal,
+        // we need to find nodes by their properties (name) rather than old indices
+        let actual_output_id = graph
+            .nodes()
+            .find(|(_, n)| n.name == "output")
+            .map(|(id, _)| id)
+            .expect("Output node should exist");
+
+        let actual_input_id = graph
+            .nodes()
+            .find(|(_, n)| n.name == "input")
+            .map(|(id, _)| id)
+            .expect("Input node should exist");
+
+        // Verify that input now connects directly to output
+        let output_predecessors: Vec<_> = graph.predecessors(actual_output_id).collect();
+        assert_eq!(
+            output_predecessors.len(),
+            1,
+            "Output should have exactly 1 predecessor"
+        );
+        assert_eq!(
+            output_predecessors[0], actual_input_id,
+            "Output's predecessor should be input"
+        );
+    }
+
+    #[test]
+    fn test_replace_node_with_sequence() {
+        let mut graph = ComputationGraph::new();
+
+        // Create: input -> placeholder -> output
+        let input = graph.add_node(
+            Node::new(Operation::Input, "input".to_string())
+                .with_output_shapes(vec![Some(Shape::new(vec![1, 10]))])
+                .with_dtypes(vec![DType::F32]),
+        );
+        let placeholder = graph.add_node(
+            Node::new(Operation::Input, "placeholder".to_string())
+                .with_output_shapes(vec![Some(Shape::new(vec![1, 10]))])
+                .with_dtypes(vec![DType::F32]),
+        );
+        let output = graph.add_node(
+            Node::new(Operation::Input, "output".to_string())
+                .with_output_shapes(vec![Some(Shape::new(vec![1, 10]))])
+                .with_dtypes(vec![DType::F32]),
+        );
+
+        graph.add_edge(
+            input,
+            placeholder,
+            Edge {
+                src_output: 0,
+                dst_input: 0,
+            },
+        );
+        graph.add_edge(
+            placeholder,
+            output,
+            Edge {
+                src_output: 0,
+                dst_input: 0,
+            },
+        );
+        graph.add_output(output);
+
+        // Create a sequence of relu -> tanh to replace the placeholder
+        let sequence = vec![
+            Node::new(Operation::Relu, "relu".to_string())
+                .with_output_shapes(vec![Some(Shape::new(vec![1, 10]))])
+                .with_dtypes(vec![DType::F32]),
+            Node::new(Operation::Tanh, "tanh".to_string())
+                .with_output_shapes(vec![Some(Shape::new(vec![1, 10]))])
+                .with_dtypes(vec![DType::F32]),
+        ];
+
+        let initial_node_count = graph.node_count();
+        let result = graph.replace_node_with_sequence(placeholder, &sequence);
+        assert!(result.is_ok());
+
+        // Placeholder should be removed, but 2 nodes added, so net +1
+        assert_eq!(graph.node_count(), initial_node_count + 1);
+
+        // Verify graph structure: input should connect to a relu-like node,
+        // and output should have a tanh-like node as predecessor
+        let output_predecessors: Vec<_> = graph.predecessors(output).collect();
+        assert_eq!(
+            output_predecessors.len(),
+            1,
+            "Output should have exactly one predecessor"
+        );
+
+        // The predecessor of output should be one of the newly added nodes
+        let output_pred_id = output_predecessors[0];
+        let output_pred_node = graph
+            .node(output_pred_id)
+            .expect("Output predecessor should exist");
+        // The last node in the sequence was Tanh
+        assert_eq!(
+            output_pred_node.operation,
+            Operation::Tanh,
+            "Output predecessor should be the Tanh node"
+        );
+    }
+
+    #[test]
+    fn test_replace_node_with_input_error_on_non_predecessor() {
+        let mut graph = ComputationGraph::new();
+
+        let node1 = graph.add_node(
+            Node::new(Operation::Input, "node1".to_string())
+                .with_output_shapes(vec![Some(Shape::new(vec![1, 10]))])
+                .with_dtypes(vec![DType::F32]),
+        );
+        let node2 = graph.add_node(
+            Node::new(Operation::Relu, "node2".to_string())
+                .with_output_shapes(vec![Some(Shape::new(vec![1, 10]))])
+                .with_dtypes(vec![DType::F32]),
+        );
+
+        // node1 is not a predecessor of node2, so this should fail
+        let result = graph.replace_node_with_input(node2, node1);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_replace_node_with_empty_sequence_error() {
+        let mut graph = ComputationGraph::new();
+
+        let node = graph.add_node(
+            Node::new(Operation::Input, "node".to_string())
+                .with_output_shapes(vec![Some(Shape::new(vec![1, 10]))])
+                .with_dtypes(vec![DType::F32]),
+        );
+
+        // Empty sequence should fail
+        let result = graph.replace_node_with_sequence(node, &[]);
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn test_node_categories() {
         use crate::graph::core::OperationCategory;
 

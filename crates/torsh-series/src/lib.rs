@@ -4,8 +4,10 @@
 //! built on top of SciRS2's time series decomposition and state-space methods.
 
 pub mod anomaly;
+pub mod changepoint;
 pub mod decomposition;
 pub mod forecast;
+pub mod frequency;
 pub mod state_space;
 pub mod utils;
 
@@ -136,7 +138,7 @@ impl TimeSeries {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+
     use torsh_tensor::creation::*;
 
     #[test]

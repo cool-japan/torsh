@@ -17,6 +17,7 @@ use super::types::{ConnectionType, DeviceType, DistributionType};
 /// weighting, and personalization decisions.
 ///
 /// # Examples
+/// use std::time::Duration;
 ///
 /// ```rust,ignore
 /// use torsh_autograd::federated_learning::client::*;
@@ -294,30 +295,13 @@ impl FederatedClient {
     ///
     /// A sample from the Gaussian distribution
     fn sample_gaussian_noise(mean: f64, std_dev: f64) -> f64 {
-        // Simple Box-Muller transform for Gaussian noise
-        // In production, use a proper cryptographic random number generator
-        use std::f64::consts::PI;
+        // Use scirs2's Normal distribution for proper Gaussian noise
+        // Note: In production federated learning, use cryptographic RNG for privacy
+        use scirs2_core::random::{thread_rng, Distribution, Normal};
 
-        static mut U1: Option<f64> = None;
-        static mut U2: Option<f64> = None;
-
-        unsafe {
-            if U1.is_none() {
-                // Generate two uniform random numbers
-                let u1 = 0.5 + (std::ptr::addr_of!(mean) as usize % 1000) as f64 / 2000.0;
-                let u2 = 0.5 + (std::ptr::addr_of!(std_dev) as usize % 1000) as f64 / 2000.0;
-
-                // Box-Muller transform
-                let z1 = (-2.0 * u1.ln()).sqrt() * (2.0 * PI * u2).cos();
-                let z2 = (-2.0 * u1.ln()).sqrt() * (2.0 * PI * u2).sin();
-
-                U1 = Some(z1);
-                U2 = Some(z2);
-            }
-
-            let noise = U1.take().unwrap_or(0.0);
-            mean + std_dev * noise
-        }
+        let mut rng = thread_rng();
+        let normal = Normal::new(mean, std_dev).unwrap_or(Normal::new(0.0, 1.0).unwrap());
+        normal.sample(&mut rng)
     }
 }
 

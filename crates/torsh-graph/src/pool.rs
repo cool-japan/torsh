@@ -1,8 +1,9 @@
 //! Graph pooling layers
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::parameter::Parameter;
 use crate::GraphData;
-use scirs2_core::random::Random;
 use torsh_tensor::{
     creation::{from_vec, randn, zeros},
     Tensor,
@@ -112,7 +113,7 @@ pub mod global {
 
         /// Apply Set2Set pooling
         pub fn forward(&self, graph: &GraphData) -> Tensor {
-            let num_nodes = graph.num_nodes;
+            let _num_nodes = graph.num_nodes;
             let mut query = zeros(&[1, self.hidden_dim]).unwrap();
 
             // Simplified Set2Set implementation

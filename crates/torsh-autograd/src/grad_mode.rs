@@ -2,8 +2,7 @@
 
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
-use std::sync::{Arc, Mutex};
-use torsh_core::error::{Result, TorshError};
+use std::sync::Arc;
 
 /// Global gradient mode state
 #[derive(Debug, Clone)]

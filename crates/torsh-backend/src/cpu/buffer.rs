@@ -213,7 +213,7 @@ impl BufferCpuExt for Buffer {
             }
             #[cfg(feature = "cuda")]
             BufferHandle::Cuda { .. } => false,
-            #[cfg(feature = "metal")]
+            #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
             BufferHandle::Metal { .. } => false,
             #[cfg(feature = "webgpu")]
             BufferHandle::WebGpu { .. } => false,
@@ -235,7 +235,7 @@ impl BufferCpuExt for Buffer {
             }
             #[cfg(feature = "cuda")]
             BufferHandle::Cuda { .. } => None,
-            #[cfg(feature = "metal")]
+            #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
             BufferHandle::Metal { .. } => None,
             #[cfg(feature = "webgpu")]
             BufferHandle::WebGpu { .. } => None,
@@ -248,7 +248,7 @@ impl BufferCpuExt for Buffer {
             BufferHandle::Cpu { .. } => None, // Legacy CPU buffers don't have CpuBuffer reference
             #[cfg(feature = "cuda")]
             BufferHandle::Cuda { .. } => None,
-            #[cfg(feature = "metal")]
+            #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
             BufferHandle::Metal { .. } => None,
             #[cfg(feature = "webgpu")]
             BufferHandle::WebGpu { .. } => None,

@@ -4,6 +4,8 @@
 //! including tensor inspection, gradient debugging, activation analysis,
 //! and interactive debugging utilities.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -1136,7 +1138,7 @@ impl TensorInspector {
                 name: tensor_name.to_string(),
                 producer_layer: None,
                 requires_grad: false,
-                memory_usage: (data.len() * std::mem::size_of::<f32>()) as u64,
+                memory_usage: std::mem::size_of_val(data) as u64,
                 created_at: SystemTime::now(),
             },
         })
@@ -1313,7 +1315,7 @@ impl DeadNeuronDetector {
         }
     }
 
-    fn detect(&mut self, layer_name: &str, activations: &[f32]) -> Vec<usize> {
+    fn detect(&mut self, _layer_name: &str, activations: &[f32]) -> Vec<usize> {
         activations
             .iter()
             .enumerate()
@@ -1336,7 +1338,7 @@ impl ActivationDistributionAnalyzer {
         }
     }
 
-    fn analyze(&mut self, activations: &[f32]) -> ActivationDistribution {
+    fn analyze(&mut self, _activations: &[f32]) -> ActivationDistribution {
         // Simple implementation - would use proper statistical analysis
         ActivationDistribution {
             distribution_type: DistributionType::Normal,

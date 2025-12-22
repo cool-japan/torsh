@@ -3,6 +3,8 @@
 //! This module handles memory pool information, advanced analytics,
 //! health assessment, and optimization recommendations.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use super::config::{HealthIndicator, HealthTrend, PoolOptimizationRecommendation, RiskFactor};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
@@ -170,7 +172,7 @@ impl ScirS2PoolInfo {
 
     /// Update pool utilization
     pub fn update_utilization(&mut self, new_utilization: f64) {
-        let old_utilization = self.utilization;
+        let _old_utilization = self.utilization;
         self.utilization = new_utilization.clamp(0.0, 1.0);
 
         // Record utilization change in efficiency timeline

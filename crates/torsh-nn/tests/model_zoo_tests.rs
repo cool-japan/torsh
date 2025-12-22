@@ -153,7 +153,7 @@ fn test_training_workflow() {
     // Simulate a training step
     let batch_size = 4;
     let input = randn::<f32>(&[batch_size, 784]).unwrap();
-    let target = tensor_1d(&[0i64, 1, 2, 3]).unwrap(); // Class labels
+    let _target = tensor_1d(&[0i64, 1, 2, 3]).unwrap(); // Class labels
 
     // Forward pass
     let logits = model.forward(&input).unwrap();
@@ -328,8 +328,26 @@ fn test_pretrained_weights() {
     let load_result = weights.load_weights(model.as_mut(), "mnist_mlp");
     assert!(load_result.is_err());
 
-    let save_result = weights.save_weights(model.as_ref(), "mnist_mlp", "test_weights.pth");
-    assert!(save_result.is_err());
+    // Save weights behavior depends on feature flags
+    #[cfg(feature = "serialize")]
+    {
+        use std::env;
+        let temp_dir = env::temp_dir();
+        let temp_path = temp_dir.join("test_weights.safetensors");
+        let save_result =
+            weights.save_weights(model.as_ref(), "mnist_mlp", temp_path.to_str().unwrap());
+        // With serialize feature, save should succeed
+        assert!(save_result.is_ok());
+        // Clean up
+        let _ = std::fs::remove_file(temp_path);
+    }
+
+    #[cfg(not(feature = "serialize"))]
+    {
+        let save_result = weights.save_weights(model.as_ref(), "mnist_mlp", "test_weights.pth");
+        // Without serialize feature, save should fail
+        assert!(save_result.is_err());
+    }
 }
 
 /// Test that models work with loss functions

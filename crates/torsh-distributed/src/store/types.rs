@@ -63,6 +63,8 @@ pub struct StoreConfig {
     pub timeout: Duration,
     /// Number of retries for failed operations
     pub max_retries: u32,
+    /// Whether this instance is the server (for TCP store)
+    pub is_server: bool,
 }
 
 impl Default for StoreConfig {
@@ -75,6 +77,7 @@ impl Default for StoreConfig {
             redis_url: None,
             timeout: DEFAULT_TIMEOUT,
             max_retries: 3,
+            is_server: false,
         }
     }
 }

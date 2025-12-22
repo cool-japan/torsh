@@ -1,10 +1,12 @@
 //! Mixed precision training support for CUDA backend
 
+use cust::prelude::DevicePointer;
+use half::f16;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use crate::error::{CudaError, CudaResult};
-use crate::stream::CudaStream;
+use crate::cuda::error::CudaResult;
+use crate::cuda::stream::CudaStream;
 use torsh_core::DType;
 
 /// Gradient scaler for mixed precision training
@@ -86,7 +88,7 @@ impl GradientScaler {
     /// Scale gradients
     pub fn scale_gradients(
         &self,
-        gradients: &mut [cust::DevicePointer<f32>],
+        gradients: &mut [DevicePointer<f32>],
         stream: &CudaStream,
     ) -> CudaResult<()> {
         if !self.enabled {
@@ -106,7 +108,7 @@ impl GradientScaler {
     /// Scale a single tensor
     fn scale_tensor(
         &self,
-        tensor: &mut cust::DevicePointer<f32>,
+        tensor: &mut DevicePointer<f32>,
         scale: f32,
         stream: &CudaStream,
     ) -> CudaResult<()> {
@@ -124,7 +126,7 @@ impl GradientScaler {
     /// Unscale gradients and check for infinities
     pub fn unscale_gradients(
         &mut self,
-        gradients: &mut [cust::DevicePointer<f32>],
+        gradients: &mut [DevicePointer<f32>],
         stream: &CudaStream,
     ) -> CudaResult<bool> {
         if !self.enabled {
@@ -157,7 +159,7 @@ impl GradientScaler {
     /// Unscale a tensor and check for infinities
     fn unscale_and_check_tensor(
         &self,
-        tensor: &mut cust::DevicePointer<f32>,
+        tensor: &mut DevicePointer<f32>,
         inv_scale: f32,
         stream: &CudaStream,
     ) -> CudaResult<()> {
@@ -184,7 +186,7 @@ impl GradientScaler {
     /// Check if tensor contains infinite or NaN values
     fn check_tensor_validity(
         &self,
-        tensor: &cust::DevicePointer<f32>,
+        tensor: &DevicePointer<f32>,
         stream: &CudaStream,
     ) -> CudaResult<bool> {
         // In a full implementation, this would launch a reduction kernel
@@ -220,8 +222,8 @@ impl GradientScaler {
     pub fn step(
         &mut self,
         optimizer: &mut dyn Optimizer,
-        gradients: &mut [cust::DevicePointer<f32>],
-        parameters: &mut [cust::DevicePointer<f32>],
+        gradients: &mut [DevicePointer<f32>],
+        parameters: &mut [DevicePointer<f32>],
         stream: &CudaStream,
     ) -> CudaResult<bool> {
         if !self.enabled {
@@ -250,8 +252,8 @@ impl GradientScaler {
 pub trait Optimizer {
     fn step(
         &mut self,
-        parameters: &mut [cust::DevicePointer<f32>],
-        gradients: &[cust::DevicePointer<f32>],
+        parameters: &mut [DevicePointer<f32>],
+        gradients: &[DevicePointer<f32>],
         stream: &CudaStream,
     ) -> CudaResult<()>;
 }
@@ -344,8 +346,8 @@ impl AmpContext {
     /// Convert tensor to appropriate precision
     pub fn autocast(
         &self,
-        input: cust::DevicePointer<f32>,
-        output: cust::DevicePointer<f16>,
+        input: DevicePointer<f32>,
+        output: DevicePointer<f16>,
         size: usize,
         stream: &CudaStream,
     ) -> CudaResult<()> {
@@ -363,8 +365,8 @@ impl AmpContext {
     /// Convert tensor to FP16 with saturation to prevent overflow
     pub fn autocast_with_saturation(
         &self,
-        input: cust::DevicePointer<f32>,
-        output: cust::DevicePointer<f16>,
+        input: DevicePointer<f32>,
+        output: DevicePointer<f16>,
         size: usize,
         stream: &CudaStream,
     ) -> CudaResult<()> {
@@ -380,8 +382,8 @@ impl AmpContext {
     /// Convert tensor back to F32
     pub fn uncast(
         &self,
-        input: cust::DevicePointer<f16>,
-        output: cust::DevicePointer<f32>,
+        input: DevicePointer<f16>,
+        output: DevicePointer<f32>,
         size: usize,
         stream: &CudaStream,
     ) -> CudaResult<()> {
@@ -463,7 +465,7 @@ impl MixedPrecisionTrainer {
     pub fn backward_pass<F>(
         &mut self,
         mut backward_fn: F,
-        gradients: &mut [cust::DevicePointer<f32>],
+        gradients: &mut [DevicePointer<f32>],
         stream: &CudaStream,
     ) -> CudaResult<()>
     where
@@ -486,8 +488,8 @@ impl MixedPrecisionTrainer {
     pub fn optimizer_step(
         &mut self,
         optimizer: &mut dyn Optimizer,
-        gradients: &mut [cust::DevicePointer<f32>],
-        parameters: &mut [cust::DevicePointer<f32>],
+        gradients: &mut [DevicePointer<f32>],
+        parameters: &mut [DevicePointer<f32>],
         stream: &CudaStream,
     ) -> CudaResult<bool> {
         let success = if self.loss_scaling {

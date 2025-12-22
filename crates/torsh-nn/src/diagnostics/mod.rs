@@ -10,7 +10,7 @@ use std::collections::HashMap;
 #[cfg(not(feature = "std"))]
 use hashbrown::HashMap;
 
-use crate::{ParameterDiagnostics, ParameterStats};
+use crate::ParameterDiagnostics;
 
 /// Module information for debugging and introspection
 #[derive(Debug, Clone)]

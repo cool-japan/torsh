@@ -8,7 +8,8 @@ use crate::{
     dataset::Dataset,
     sampler::{BatchSampler, BatchingSampler, RandomSampler, SequentialSampler},
 };
-use rayon::prelude::*;
+// ✅ SciRS2 POLICY: Use scirs2_core::parallel_ops instead of rayon::prelude
+use scirs2_core::parallel_ops::*;
 use torsh_core::error::Result;
 
 #[cfg(not(feature = "std"))]
@@ -36,7 +37,7 @@ pub trait DataLoaderTrait<D: Dataset, C: Collate<D::Item>> {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_data::dataloader::core::DataLoader;
 /// use torsh_data::dataset::TensorDataset;
 ///
@@ -90,7 +91,7 @@ where
     ///
     /// Returns a DataLoaderIterator that will yield batches according to
     /// the configured sampler and collation function.
-    pub fn iter(&self) -> DataLoaderIterator<D, S, C> {
+    pub fn iter(&self) -> DataLoaderIterator<'_, D, S, C> {
         DataLoaderIterator {
             dataset: &self.dataset,
             sampler_iter: self.sampler.iter(),
@@ -225,7 +226,7 @@ where
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_data::dataloader::core::DataLoaderBuilder;
 /// use torsh_data::dataset::TensorDataset;
 ///

@@ -2,7 +2,7 @@
 
 use torsh_core::device::DeviceType;
 use torsh_tensor::{
-    creation::{eye, from_vec, zeros},
+    creation::{from_vec, zeros},
     Tensor,
 };
 // Direct implementation of graph algorithms for now
@@ -57,7 +57,7 @@ pub fn graph_laplacian(edge_index: &Tensor, num_nodes: usize, normalized: bool) 
     }
 
     // Create tensors
-    let adjacency = from_vec(
+    let _adjacency = from_vec(
         adjacency_data.clone(),
         &[num_nodes, num_nodes],
         DeviceType::Cpu,
@@ -136,7 +136,7 @@ pub fn degree_matrix(edge_index: &Tensor, num_nodes: usize) -> Tensor {
 /// Graph connectivity utilities
 pub mod connectivity {
     use super::*;
-    use std::collections::{HashSet, VecDeque};
+    use std::collections::VecDeque;
 
     /// Check if graph is connected
     pub fn is_connected(edge_index: &Tensor, num_nodes: usize) -> bool {
@@ -235,7 +235,7 @@ pub mod connectivity {
 /// Graph metrics and statistics
 pub mod metrics {
     use super::*;
-    use std::collections::{HashMap, VecDeque};
+    use std::collections::VecDeque;
 
     /// Compute node centrality measures
     pub fn node_centrality(edge_index: &Tensor, num_nodes: usize) -> CentralityMeasures {
@@ -649,7 +649,7 @@ pub mod sampling {
             // Importance sampling
             for _ in 0..layer_size.min(num_nodes) {
                 let mut cumsum = 0.0;
-                let random_val = rng.gen::<f64>();
+                let random_val = rng.random::<f64>();
 
                 for (node, &prob) in probabilities.iter().enumerate() {
                     cumsum += prob;

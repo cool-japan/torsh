@@ -1,14 +1,13 @@
 //! WebGPU device management for ToRSh
 
-#[cfg(feature = "webgpu")]
-use bytemuck;
-#[cfg(feature = "webgpu")]
-use wgpu;
 use crate::webgpu::{AdapterInfo, WebGpuError, WebGpuResult};
-use crate::{Device, DeviceFeature, DeviceInfo};
+use crate::{DeviceFeature, DeviceInfo};
 use parking_lot::RwLock;
 use std::sync::Arc;
 use torsh_core::device::{DeviceId, DeviceType};
+#[cfg(feature = "webgpu")]
+#[allow(unused_imports)]
+use wgpu;
 
 /// WebGPU device wrapper
 #[derive(Debug)]
@@ -193,28 +192,26 @@ impl WebGpuDevice {
         let adapter_info = adapter.get_info();
 
         let (device, queue) = adapter
-            .request_device(
-                &wgpu::DeviceDescriptor {
-                    label: Some(&format!("ToRSh WebGPU Device {}", device_id)),
-                    required_features: wgpu::Features::TIMESTAMP_QUERY
-                        | wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS
-                        | wgpu::Features::MAPPABLE_PRIMARY_BUFFERS
-                        | wgpu::Features::BUFFER_BINDING_ARRAY
-                        | wgpu::Features::STORAGE_RESOURCE_BINDING_ARRAY,
-                    required_limits: wgpu::Limits {
-                        max_storage_buffer_binding_size: 1024 * 1024 * 1024, // 1GB
-                        max_compute_workgroup_storage_size: 32768,
-                        max_compute_invocations_per_workgroup: 1024,
-                        max_compute_workgroup_size_x: 1024,
-                        max_compute_workgroup_size_y: 1024,
-                        max_compute_workgroup_size_z: 64,
-                        max_compute_workgroups_per_dimension: 65535,
-                        ..Default::default()
-                    },
-                    memory_hints: wgpu::MemoryHints::Performance,
-                    trace: Default::default(),
-                }
-            )
+            .request_device(&wgpu::DeviceDescriptor {
+                label: Some(&format!("ToRSh WebGPU Device {}", device_id)),
+                required_features: wgpu::Features::TIMESTAMP_QUERY
+                    | wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS
+                    | wgpu::Features::MAPPABLE_PRIMARY_BUFFERS
+                    | wgpu::Features::BUFFER_BINDING_ARRAY
+                    | wgpu::Features::STORAGE_RESOURCE_BINDING_ARRAY,
+                required_limits: wgpu::Limits {
+                    max_storage_buffer_binding_size: 1024 * 1024 * 1024, // 1GB
+                    max_compute_workgroup_storage_size: 32768,
+                    max_compute_invocations_per_workgroup: 1024,
+                    max_compute_workgroup_size_x: 1024,
+                    max_compute_workgroup_size_y: 1024,
+                    max_compute_workgroup_size_z: 64,
+                    max_compute_workgroups_per_dimension: 65535,
+                    ..Default::default()
+                },
+                memory_hints: wgpu::MemoryHints::Performance,
+                trace: Default::default(),
+            })
             .await
             .map_err(|e| WebGpuError::DeviceCreation(e.to_string()))?;
 
@@ -234,13 +231,16 @@ impl WebGpuDevice {
                 limits.max_compute_workgroup_size_y as usize,
                 limits.max_compute_workgroup_size_z as usize,
             ],
-            clock_frequency_mhz: 1000, // Default 1GHz estimate
+            clock_frequency_mhz: 1000,    // Default 1GHz estimate
             memory_bandwidth_gbps: 100.0, // 100 GB/s estimate
-            peak_gflops: 1000.0, // 1 TFLOPS estimate
+            peak_gflops: 1000.0,          // 1 TFLOPS estimate
             features: Self::get_device_features(&features),
             properties: vec![
                 ("backend".to_string(), format!("{:?}", adapter_info.backend)),
-                ("device_type".to_string(), format!("{:?}", adapter_info.device_type)),
+                (
+                    "device_type".to_string(),
+                    format!("{:?}", adapter_info.device_type),
+                ),
             ],
         };
 
@@ -770,37 +770,42 @@ impl WebGpuDevice {
             view_formats: &[],
         });
 
-        // Benchmark texture copy operations
+        // Benchmark texture copy operations using wgpu 26.x API
         let start = std::time::Instant::now();
         let iterations = 20;
 
-        // TODO: Fix ImageCopyTexture API compatibility for wgpu 26.0.1
-        /*
+        let copy_size = wgpu::Extent3d {
+            width: texture_size,
+            height: texture_size,
+            depth_or_array_layers: 1,
+        };
+
         for _ in 0..iterations {
-            let mut encoder = self.create_command_encoder(Some("Benchmark Texture Copy"));
+            let mut encoder = self
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("Benchmark Texture Copy"),
+                });
+
             encoder.copy_texture_to_texture(
-                wgpu::ImageCopyTexture {
+                wgpu::TexelCopyTextureInfo {
                     texture: &src_texture,
                     mip_level: 0,
                     origin: wgpu::Origin3d::ZERO,
                     aspect: wgpu::TextureAspect::All,
                 },
-                wgpu::ImageCopyTexture {
+                wgpu::TexelCopyTextureInfo {
                     texture: &dst_texture,
                     mip_level: 0,
                     origin: wgpu::Origin3d::ZERO,
                     aspect: wgpu::TextureAspect::All,
                 },
-                wgpu::Extent3d {
-                    width: texture_size,
-                    height: texture_size,
-                    depth_or_array_layers: 1,
-                },
+                copy_size,
             );
-            self.submit([encoder.finish()]);
-            self.wait_for_completion().await?;
+
+            self.queue.submit([encoder.finish()]);
+            let _ = self.device.poll(wgpu::PollType::Wait);
         }
-        */
 
         let elapsed = start.elapsed();
         let pixels_processed = pixel_count as f64 * iterations as f64;
@@ -1176,14 +1181,14 @@ mod tests {
 
     #[test]
     fn test_optimal_workgroup_size() {
-        let limits = wgpu::Limits {
+        let _limits = wgpu::Limits {
             max_compute_workgroup_size_x: 256,
             max_compute_invocations_per_workgroup: 256,
             ..Default::default()
         };
 
         // Mock device with test limits
-        let device_info = DeviceInfo {
+        let _device_info = DeviceInfo {
             vendor: "Test".to_string(),
             driver_version: "1.0".to_string(),
             total_memory: 1024 * 1024 * 1024,
@@ -1193,6 +1198,9 @@ mod tests {
             max_work_group_dimensions: vec![256, 256, 64],
             clock_frequency_mhz: 1000,
             memory_bandwidth_gbps: 400.0,
+            peak_gflops: 1000.0,
+            features: vec![],
+            properties: vec![],
         };
 
         // Test workgroup size calculation logic (would need access to device for full test)

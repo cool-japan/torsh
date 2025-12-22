@@ -525,7 +525,7 @@ impl MigrationTool {
                 requires_manual_review: false,
             },
             ReplacementRule {
-                pattern: r"\.shape".to_string(),
+                pattern: ".shape".to_string(),
                 replacement: ".shape().dims()".to_string(),
                 framework: SourceFramework::NumPy,
                 language: "python".to_string(),

@@ -153,12 +153,12 @@ impl StressTestRunner {
 
         // Launch concurrent operations
         for i in 0..self.config.max_concurrent_ops {
-            let pg_clone = pg.clone();
+            let pg_clone = &pg;
             let metrics = self.metrics.clone();
 
             let handle = tokio::spawn(async move {
                 let tensor_size = 100 + (i % 900); // Varying sizes
-                let mut tensor = ones::<f32>(&[tensor_size]);
+                let mut tensor = ones::<f32>(&[tensor_size])?;
 
                 let op_start = Instant::now();
                 let result = all_reduce(&mut tensor, ReduceOp::Sum, &pg_clone).await;
@@ -217,7 +217,7 @@ impl StressTestRunner {
             // Create large tensor to simulate memory pressure
             let tensor_elements =
                 std::cmp::min(max_elements_per_tensor, self.config.max_tensor_size);
-            let mut large_tensor = ones::<f32>(&[tensor_elements]);
+            let mut large_tensor = ones::<f32>(&[tensor_elements])?;
 
             let op_start = Instant::now();
             let result = all_reduce(&mut large_tensor, ReduceOp::Sum, &pg).await;
@@ -264,15 +264,15 @@ impl StressTestRunner {
             // Vary operation types
             let op_result = match i % 4 {
                 0 => {
-                    let mut tensor = ones::<f32>(&[1000]);
+                    let mut tensor = ones::<f32>(&[1000])?;
                     all_reduce(&mut tensor, ReduceOp::Sum, &pg).await
                 }
                 1 => {
-                    let tensor = ones::<f32>(&[1000]);
+                    let tensor = ones::<f32>(&[1000])?;
                     all_gather(&tensor, &pg).await.map(|_| ())
                 }
                 2 => {
-                    let mut tensor = ones::<f32>(&[1000]);
+                    let mut tensor = ones::<f32>(&[1000])?;
                     broadcast(&mut tensor, 0, &pg).await
                 }
                 _ => barrier(&pg).await,
@@ -314,7 +314,7 @@ impl StressTestRunner {
 
         while start_time.elapsed() < self.config.test_duration {
             if active_operations < max_active {
-                let pg_clone = pg.clone();
+                let pg_clone = &pg;
                 let metrics = self.metrics.clone();
 
                 tokio::spawn(async move {
@@ -372,7 +372,7 @@ async fn test_high_concurrency_stress() -> Result<()> {
         ..Default::default()
     };
 
-    let pg = init_process_group(BackendType::Gloo, 0, 4, "127.0.0.1", 50000)?;
+    let pg = init_process_group(BackendType::Gloo, 0, 4, "127.0.0.1", 50000).await?;
     let runner = StressTestRunner::new(config, "High Concurrency".to_string());
 
     runner.run_concurrency_stress_test(pg).await?;
@@ -395,7 +395,7 @@ async fn test_memory_pressure_stress() -> Result<()> {
         ..Default::default()
     };
 
-    let pg = init_process_group(BackendType::Gloo, 0, 2, "127.0.0.1", 50010)?;
+    let pg = init_process_group(BackendType::Gloo, 0, 2, "127.0.0.1", 50010).await?;
     let runner = StressTestRunner::new(config, "Memory Pressure".to_string());
 
     runner.run_memory_pressure_test(pg).await?;
@@ -420,7 +420,7 @@ async fn test_endurance_stress() -> Result<()> {
         ..Default::default()
     };
 
-    let pg = init_process_group(BackendType::Gloo, 0, 2, "127.0.0.1", 50020)?;
+    let pg = init_process_group(BackendType::Gloo, 0, 2, "127.0.0.1", 50020).await?;
     let runner = StressTestRunner::new(config, "Endurance".to_string());
 
     runner.run_endurance_test(pg).await?;
@@ -442,7 +442,7 @@ async fn test_network_saturation_stress() -> Result<()> {
         ..Default::default()
     };
 
-    let pg = init_process_group(BackendType::Gloo, 0, 4, "127.0.0.1", 50030)?;
+    let pg = init_process_group(BackendType::Gloo, 0, 4, "127.0.0.1", 50030).await?;
     let runner = StressTestRunner::new(config, "Network Saturation".to_string());
 
     runner.run_network_saturation_test(pg).await?;
@@ -461,7 +461,7 @@ async fn test_network_saturation_stress() -> Result<()> {
 
 #[tokio::test]
 async fn test_large_tensor_stress() -> Result<()> {
-    let pg = init_process_group(BackendType::Gloo, 0, 2, "127.0.0.1", 50040)?;
+    let pg = init_process_group(BackendType::Gloo, 0, 2, "127.0.0.1", 50040).await?;
 
     // Test with increasingly large tensors
     let sizes = vec![1000, 10000, 100000];
@@ -471,7 +471,7 @@ async fn test_large_tensor_stress() -> Result<()> {
         println!("Testing tensor size: {} elements", size);
 
         let start = Instant::now();
-        let mut large_tensor = ones::<f32>(&[size]);
+        let mut large_tensor = ones::<f32>(&[size])?;
 
         let result = timeout(
             Duration::from_secs(10),
@@ -522,7 +522,7 @@ async fn test_rapid_world_size_changes() -> Result<()> {
 
         // Perform operations with this world size
         for _ in 0..5 {
-            let mut tensor = ones::<f32>(&[1000]);
+            let mut tensor = ones::<f32>(&[1000])?;
             all_reduce(&mut tensor, ReduceOp::Sum, &pg).await?;
         }
 
@@ -536,7 +536,7 @@ async fn test_rapid_world_size_changes() -> Result<()> {
 
 #[tokio::test]
 async fn test_mixed_operation_stress() -> Result<()> {
-    let pg = init_process_group(BackendType::Gloo, 0, 4, "127.0.0.1", 50060)?;
+    let pg = init_process_group(BackendType::Gloo, 0, 4, "127.0.0.1", 50060).await?;
     let test_duration = Duration::from_secs(10);
     let start_time = Instant::now();
 
@@ -548,23 +548,23 @@ async fn test_mixed_operation_stress() -> Result<()> {
 
         let result = match op_type {
             0 => {
-                let mut tensor = ones::<f32>(&[tensor_size]);
+                let mut tensor = ones::<f32>(&[tensor_size])?;
                 all_reduce(&mut tensor, ReduceOp::Sum, &pg).await
             }
             1 => {
-                let tensor = ones::<f32>(&[tensor_size]);
+                let tensor = ones::<f32>(&[tensor_size])?;
                 all_gather(&tensor, &pg).await.map(|_| ())
             }
             2 => {
-                let mut tensor = ones::<f32>(&[tensor_size]);
+                let mut tensor = ones::<f32>(&[tensor_size])?;
                 broadcast(&mut tensor, 0, &pg).await
             }
             3 => {
-                let tensor = ones::<f32>(&[tensor_size]);
+                let tensor = ones::<f32>(&[tensor_size])?;
                 reduce(&tensor, 0, ReduceOp::Sum, &pg).await
             }
             4 => {
-                let tensor = ones::<f32>(&[tensor_size]);
+                let tensor = ones::<f32>(&[tensor_size])?;
                 scatter(&tensor, &pg).await.map(|_| ())
             }
             _ => barrier(&pg).await,
@@ -603,7 +603,7 @@ async fn test_compression_under_stress() -> Result<()> {
     };
 
     let compressor = GradientCompressor::new(compression_config);
-    let pg = init_process_group(BackendType::Gloo, 0, 2, "127.0.0.1", 50070)?;
+    let pg = init_process_group(BackendType::Gloo, 0, 2, "127.0.0.1", 50070).await?;
 
     let test_duration = Duration::from_secs(5);
     let start_time = Instant::now();
@@ -652,15 +652,15 @@ async fn test_scheduler_stress() -> Result<()> {
     };
 
     let scheduler = CommunicationScheduler::new(scheduler_config);
-    let pg = init_process_group(BackendType::Gloo, 0, 4, "127.0.0.1", 50080)?;
+    let pg = init_process_group(BackendType::Gloo, 0, 4, "127.0.0.1", 50080).await?;
 
     let num_operations = 50;
     let mut futures = Vec::new();
 
     // Schedule many operations rapidly
     for i in 0..num_operations {
-        let tensor = ones::<f32>(&[1000]) * (i as f32);
-        let future = scheduler.schedule_all_reduce(tensor, ReduceOp::Sum, pg.clone());
+        let tensor = ones::<f32>(&[1000])? * (i as f32);
+        let future = scheduler.schedule_all_reduce(tensor, ReduceOp::Sum, &pg);
         futures.push(future);
     }
 

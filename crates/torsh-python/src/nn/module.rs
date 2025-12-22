@@ -2,6 +2,7 @@
 
 use crate::{device::PyDevice, error::PyResult, tensor::PyTensor};
 use pyo3::prelude::*;
+use pyo3::types::PyAny;
 use std::collections::HashMap;
 
 /// Base class for all neural network modules
@@ -61,7 +62,7 @@ impl PyModule {
     }
 
     /// Forward pass - must be implemented by subclasses
-    fn forward(&self, input: &PyTensor) -> PyResult<PyTensor> {
+    fn forward(&self, _input: &PyTensor) -> PyResult<PyTensor> {
         Err(PyErr::new::<pyo3::exceptions::PyNotImplementedError, _>(
             "Subclasses must implement forward method",
         ))
@@ -73,7 +74,7 @@ impl PyModule {
     }
 
     /// Apply a function to all submodules
-    fn apply(&mut self, _func: PyObject) -> PyResult<()> {
+    fn apply(&mut self, _func: Py<PyAny>) -> PyResult<()> {
         // Default implementation - subclasses should override
         Ok(())
     }

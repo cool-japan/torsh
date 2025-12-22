@@ -186,6 +186,7 @@ impl From<DType> for OnnxDataType {
             DType::C128 => OnnxDataType::Complex128,
             DType::QInt8 => OnnxDataType::Int8, // Quantized types map to base types
             DType::QUInt8 => OnnxDataType::Uint8,
+            DType::QInt32 => OnnxDataType::Int32, // QInt32 maps to Int32
         }
     }
 }
@@ -262,7 +263,7 @@ impl From<DType> for ArrowDataType {
             DType::I8 | DType::QInt8 => ArrowDataType::Int8,
             DType::U8 | DType::QUInt8 => ArrowDataType::UInt8,
             DType::I16 => ArrowDataType::Int16,
-            DType::I32 => ArrowDataType::Int32,
+            DType::I32 | DType::QInt32 => ArrowDataType::Int32,
             DType::I64 => ArrowDataType::Int64,
             DType::U32 => ArrowDataType::UInt32,
             DType::U64 => ArrowDataType::UInt64,

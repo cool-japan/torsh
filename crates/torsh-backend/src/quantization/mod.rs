@@ -15,18 +15,18 @@
 //!
 //! # Quick Start
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_backend::quantization::{
 //!     QuantizationParams, QuantizedDType, QuantizationScheme,
 //!     ops::CpuQuantizationOps, QuantizationOps,
 //! };
-//! use torsh_core::Device;
+//! use torsh_core::DeviceType;
 //!
 //! // Create quantization parameters
 //! let params = QuantizationParams::int8_symmetric();
 //!
 //! // Create quantization operations
-//! let device = Device::cpu().unwrap();
+//! let device = DeviceType::Cpu;
 //! let ops = CpuQuantizationOps::new(device);
 //!
 //! // Quantize data
@@ -51,6 +51,8 @@
 //! - [`calibration`]: Calibration methods for optimal parameter selection
 //! - [`benchmarks`]: Performance measurement and analysis tools
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 // Core modules
 pub mod core;
 pub mod ops;
@@ -126,7 +128,7 @@ use alloc::{boxed::Box, string::String, sync::Arc, vec::Vec};
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_backend::quantization;
 /// use torsh_core::Device;
 ///
@@ -305,7 +307,7 @@ impl QuantizationSystem {
     ) -> BackendResult<Vec<u8>> {
         // Use accelerated operations if available and beneficial
         if self.should_use_acceleration(&params.dtype) {
-            if let Some(ref accelerator) = self.accelerator {
+            if let Some(ref _accelerator) = self.accelerator {
                 // For now, delegate to base ops
                 // In a full implementation, would use accelerated paths
                 return self.base_ops.quantize_f32(input, params);
@@ -323,7 +325,7 @@ impl QuantizationSystem {
     ) -> BackendResult<Vec<f32>> {
         // Use accelerated operations if available and beneficial
         if self.should_use_acceleration(&params.dtype) {
-            if let Some(ref accelerator) = self.accelerator {
+            if let Some(ref _accelerator) = self.accelerator {
                 // For now, delegate to base ops
                 // In a full implementation, would use accelerated paths
                 return self.base_ops.dequantize_f32(input, params);

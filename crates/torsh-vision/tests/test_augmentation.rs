@@ -1,6 +1,6 @@
 //! Integration tests for data augmentation framework
 
-use torsh_core::device::{CpuDevice, DeviceType};
+use torsh_core::device::CpuDevice;
 use torsh_tensor::creation::*;
 use torsh_vision::transforms::*;
 
@@ -29,7 +29,7 @@ fn test_basic_transforms() {
 
 #[test]
 fn test_compose_transforms() {
-    let cpu_device = CpuDevice::new();
+    let _cpu_device = CpuDevice::new();
     let input = ones(&[3, 128, 128]).unwrap();
 
     let pipeline = Compose::new(vec![
@@ -48,7 +48,7 @@ fn test_compose_transforms() {
 
 #[test]
 fn test_random_transforms() {
-    let cpu_device = CpuDevice::new();
+    let _cpu_device = CpuDevice::new();
     let input = ones(&[3, 100, 100]).unwrap();
 
     // Test random crop
@@ -66,7 +66,7 @@ fn test_random_transforms() {
 
 #[test]
 fn test_color_transforms() {
-    let cpu_device = CpuDevice::new();
+    let _cpu_device = CpuDevice::new();
     let input = ones(&[3, 32, 32]).unwrap();
 
     // Test color jitter
@@ -81,7 +81,7 @@ fn test_color_transforms() {
 #[test]
 fn test_transform_error_handling() {
     // Test with invalid tensor shapes
-    let cpu_device = CpuDevice::new();
+    let _cpu_device = CpuDevice::new();
     let invalid_input = ones(&[32, 32]).unwrap(); // 2D instead of 3D
 
     let result = Resize::new((16, 16)).forward(&invalid_input);
@@ -93,7 +93,7 @@ fn test_transform_error_handling() {
 
 #[test]
 fn test_training_vs_inference_pipelines() {
-    let cpu_device = CpuDevice::new();
+    let _cpu_device = CpuDevice::new();
     let input = ones(&[3, 256, 256]).unwrap();
 
     // Training pipeline (with randomness)

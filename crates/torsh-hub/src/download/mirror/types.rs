@@ -7,7 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, SystemTime};
 
 // ================================================================================================
 // Core Configuration Types
@@ -149,7 +149,7 @@ pub struct MirrorLocation {
 }
 
 /// Mirror capacity and performance information with real-time metrics
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MirrorCapacity {
     /// Maximum bandwidth capacity in Mbps
     pub max_bandwidth: Option<u64>,
@@ -167,21 +167,6 @@ pub struct MirrorCapacity {
     pub cpu_utilization: Option<f32>,
     /// Memory utilization percentage (0-100)
     pub memory_utilization: Option<f32>,
-}
-
-impl Default for MirrorCapacity {
-    fn default() -> Self {
-        Self {
-            max_bandwidth: None,
-            current_load: None,
-            max_connections: None,
-            current_connections: None,
-            storage_capacity: None,
-            storage_used: None,
-            cpu_utilization: None,
-            memory_utilization: None,
-        }
-    }
 }
 
 /// Network provider and infrastructure information
@@ -339,25 +324,13 @@ pub enum MLModelType {
 // ================================================================================================
 
 /// Internal state for mirror selection algorithms with advanced tracking
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct MirrorSelectionState {
     pub round_robin_index: usize,
     pub last_benchmark: u64,
     pub adaptive_weights: MirrorWeights,
     pub selection_history: Vec<SelectionRecord>,
     pub ml_model_state: Option<MLModelState>,
-}
-
-impl Default for MirrorSelectionState {
-    fn default() -> Self {
-        Self {
-            round_robin_index: 0,
-            last_benchmark: 0,
-            adaptive_weights: MirrorWeights::default(),
-            selection_history: Vec::new(),
-            ml_model_state: None,
-        }
-    }
 }
 
 /// Performance analyzer for sophisticated performance tracking and prediction

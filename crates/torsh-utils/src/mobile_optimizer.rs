@@ -3,7 +3,8 @@
 //! This module provides utilities for optimizing models for mobile deployment,
 //! including model compression, quantization, and optimization passes.
 
-use scirs2_core::random::Rng;
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use std::collections::HashMap;
 use std::path::Path;
 use torsh_core::error::{Result as TorshResult, TorshError};
@@ -790,8 +791,6 @@ fn apply_layer_compression(model: &mut OptimizedModel, compression_ratio: f32) -
 
 /// Prune tensor by setting smallest weights to zero
 fn prune_tensor(tensor: &Tensor, sparsity: f32) -> TorshResult<Tensor> {
-    use scirs2_core::ndarray_ext::manipulation;
-
     // Advanced magnitude-based pruning with structured sparsity
     let abs_tensor = tensor.abs()?;
     let shape = tensor.shape();
@@ -836,7 +835,7 @@ fn apply_structured_sparsity(tensor: &Tensor, sparsity: f32) -> TorshResult<Tens
 
     // For 2D tensors (linear layers), apply block sparsity
     if shape_dims.len() == 2 {
-        let rows = shape_dims[0];
+        let _rows = shape_dims[0];
         let cols = shape_dims[1];
 
         // Apply 2:4 structured sparsity if dimensions allow
@@ -860,7 +859,7 @@ fn apply_2_4_sparsity(tensor: &Tensor) -> TorshResult<Tensor> {
         return Ok(tensor.clone());
     }
 
-    let mut result = tensor.clone();
+    let result = tensor.clone();
     let rows = shape_dims[0];
     let cols = shape_dims[1];
 
@@ -883,7 +882,7 @@ fn apply_2_4_sparsity(tensor: &Tensor) -> TorshResult<Tensor> {
 
             // Zero out bottom 2 values
             for i in 2..4 {
-                let col_to_zero = values_with_indices[i].1;
+                let _col_to_zero = values_with_indices[i].1;
                 // In actual implementation, would set tensor value to 0
                 // This is a simplified representation
             }
@@ -909,7 +908,7 @@ fn apply_block_sparsity(tensor: &Tensor, block_size: usize) -> TorshResult<Tenso
         return Ok(tensor.clone());
     }
 
-    let mut result = tensor.clone();
+    let result = tensor.clone();
 
     // Apply block-wise sparsity pattern
     for row_block in 0..(rows / block_size) {
@@ -952,7 +951,7 @@ fn apply_channel_sparsity(tensor: &Tensor, sparsity: f32) -> TorshResult<Tensor>
     // For conv layers (4D), apply channel-wise sparsity
     if shape_dims.len() == 4 {
         let out_channels = shape_dims[0];
-        let channels_to_prune = ((out_channels as f32) * sparsity).round() as usize;
+        let _channels_to_prune = ((out_channels as f32) * sparsity).round() as usize;
 
         // Calculate channel magnitudes
         let mut channel_magnitudes = Vec::new();
@@ -983,8 +982,6 @@ fn apply_channel_sparsity(tensor: &Tensor, sparsity: f32) -> TorshResult<Tensor>
 
 /// Cluster weights to reduce unique values using advanced clustering algorithms
 fn cluster_weights(tensor: &Tensor, num_clusters: usize) -> TorshResult<Tensor> {
-    use scirs2_core::ndarray_ext::stats;
-
     if num_clusters == 0 {
         return Ok(tensor.clone());
     }
@@ -1149,7 +1146,7 @@ fn apply_codebook_compression(tensor: &Tensor, codebook: &[f32]) -> TorshResult<
     // For now, this is a placeholder implementation
 
     let shape = tensor.shape();
-    let total_elements = shape.dims().iter().product::<usize>();
+    let _total_elements = shape.dims().iter().product::<usize>();
 
     // Calculate compression ratio
     let original_bits = 32; // f32
@@ -1164,8 +1161,7 @@ fn apply_codebook_compression(tensor: &Tensor, codebook: &[f32]) -> TorshResult<
 
 /// Optimize weights for SIMD operations
 fn optimize_for_simd_weights(tensor: &Tensor) -> TorshResult<()> {
-    #[cfg(feature = "simd")]
-    use scirs2_core::simd::{auto_vectorize, SimdOps};
+    // Note: SIMD optimization is handled at the scirs2-core level
 
     let shape = tensor.shape();
     let shape_dims = shape.as_slice();
@@ -1188,8 +1184,6 @@ fn optimize_for_simd_weights(tensor: &Tensor) -> TorshResult<()> {
 
 /// Compress linear layer using advanced SVD-based techniques
 fn compress_linear_layer(weight: &Tensor, compression_ratio: f32) -> TorshResult<Tensor> {
-    use scirs2_core::ndarray_ext::matrix;
-
     let shape = weight.shape();
     let shape_dims = shape.as_slice();
     if shape_dims.len() != 2 {
@@ -1241,7 +1235,7 @@ fn apply_column_wise_compression(weight: &Tensor, rank: usize) -> TorshResult<Te
 
     let shape = weight.shape();
     let shape_dims = shape.as_slice();
-    let rows = shape_dims[0];
+    let _rows = shape_dims[0];
     let cols = shape_dims[1];
 
     if rank >= cols {
@@ -1425,6 +1419,7 @@ pub struct PlatformBenchmarkInfo {
 
 /// Mobile platform types
 #[derive(Debug, Clone)]
+#[allow(non_camel_case_types)]
 pub enum MobilePlatform {
     iOS { chip: String, neural_engine: bool },
     Android { soc: String, npu_available: bool },
@@ -2281,7 +2276,7 @@ mod tests {
 
     #[test]
     fn test_graph_construction() {
-        let mut graph = ModelGraph {
+        let graph = ModelGraph {
             nodes: vec![
                 GraphNode {
                     id: "conv1".to_string(),

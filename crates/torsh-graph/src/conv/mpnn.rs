@@ -11,6 +11,8 @@
 //! - **Adaptive Message Passing**: Dynamic message routing based on graph topology
 //! - **Multi-Scale Features**: Hierarchical node and edge feature processing
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::parameter::Parameter;
 use crate::{GraphData, GraphLayer};
 use torsh_tensor::{
@@ -19,8 +21,7 @@ use torsh_tensor::{
 };
 
 // High-performance SciRS2 imports for SIMD-optimized graph operations
-use scirs2_core::ndarray::{s, Array1, Array2, ArrayView1, ArrayView2, Axis};
-use scirs2_core::ndarray_ext::stats;
+use scirs2_core::ndarray::{Array1, Array2, ArrayView1, Axis};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -30,6 +31,7 @@ use std::sync::Arc;
 /// 1. Messages are computed on edges using edge features and node features
 /// 2. Messages are aggregated at nodes (sum, mean, max, or attention-based)
 /// 3. Node states are updated using aggregated messages and current node states
+#[derive(Debug)]
 pub struct MPNNConv {
     in_features: usize,
     out_features: usize,
@@ -142,7 +144,7 @@ impl MPNNConv {
     pub fn forward(&self, graph: &GraphData) -> GraphData {
         let num_nodes = graph.num_nodes;
         let edge_data = crate::utils::tensor_to_vec2::<f32>(&graph.edge_index).unwrap();
-        let num_edges = edge_data[0].len();
+        let _num_edges = edge_data[0].len();
 
         // Step 1: Compute messages for each edge
         let messages = self.compute_messages(graph);
@@ -859,7 +861,7 @@ impl AdvancedSIMDMPNN {
         let mut hidden = Array1::zeros(self.message_weights.ncols());
 
         // Vectorized matrix-vector multiplication
-        for (i, mut row) in self.message_weights.axis_iter(Axis(1)).enumerate() {
+        for (i, _row) in self.message_weights.axis_iter(Axis(1)).enumerate() {
             let dot_product = input
                 .iter()
                 .zip(self.message_weights.axis_iter(Axis(0)))

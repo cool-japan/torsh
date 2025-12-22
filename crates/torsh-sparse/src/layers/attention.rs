@@ -4,14 +4,9 @@
 //! including multi-head attention with sparse patterns for improved efficiency.
 
 use crate::layers::linear::SparseLinear;
-use crate::{CooTensor, CscTensor, CsrTensor, SparseTensor, TorshResult};
-use scirs2_core::random::{Random, Rng};
-use std::collections::HashMap;
-use torsh_core::{Shape, TorshError};
-use torsh_tensor::{
-    creation::{randn, zeros},
-    Tensor,
-};
+use crate::{CsrTensor, TorshResult};
+use torsh_core::TorshError;
+use torsh_tensor::{creation::zeros, Tensor};
 
 /// Sparse Multi-Head Attention mechanism
 ///

@@ -314,6 +314,37 @@ pub fn eig(tensor: &Tensor) -> TorshResult<(Tensor, Tensor)> {
         ));
     }
 
+    // Special case: diagonal matrices have exact eigendecomposition
+    // This provides numerically exact results for diagonal matrices
+    let tolerance = 1e-10;
+    let mut is_diagonal = true;
+    for i in 0..n {
+        for j in 0..n {
+            if i != j && tensor.get(&[i, j])?.abs() > tolerance {
+                is_diagonal = false;
+                break;
+            }
+        }
+        if !is_diagonal {
+            break;
+        }
+    }
+
+    if is_diagonal {
+        // For diagonal matrices, eigenvalues are diagonal elements
+        // and eigenvectors are canonical basis vectors (identity matrix)
+        let mut eigenvalue_data = Vec::with_capacity(n);
+        for i in 0..n {
+            eigenvalue_data.push(tensor.get(&[i, i])?);
+        }
+        let eigenvalues = Tensor::from_data(eigenvalue_data, vec![n], tensor.device())?;
+
+        // Eigenvectors are identity matrix for diagonal matrices
+        let eigenvectors = eye::<f32>(n)?;
+
+        return Ok((eigenvalues, eigenvectors));
+    }
+
     let max_iterations = 100;
     let tolerance = 1e-6;
     let max_eigenvalues = n.min(5); // Find up to 5 dominant eigenvalues for efficiency
@@ -929,6 +960,146 @@ pub fn jordan_form(tensor: &Tensor) -> TorshResult<(Tensor, Tensor)> {
     Ok((p, j))
 }
 
+/// Compute the Hessenberg decomposition of a matrix
+///
+/// The Hessenberg decomposition factors a matrix A as A = QHQ^T where:
+/// - Q is an orthogonal matrix
+/// - H is an upper Hessenberg matrix (zeros below the first subdiagonal)
+///
+/// This is an intermediate step in many eigenvalue algorithms and is
+/// computationally cheaper than full Schur decomposition.
+///
+/// # Arguments
+///
+/// * `tensor` - Square matrix to decompose (n×n)
+///
+/// # Returns
+///
+/// Tuple (Q, H) where:
+/// - Q: Orthogonal matrix (n×n)
+/// - H: Upper Hessenberg matrix (n×n) with zeros below first subdiagonal
+///
+/// # Properties
+///
+/// - A = QHQ^T
+/// - Q^T Q = I (Q is orthogonal)
+/// - H_{ij} = 0 for i > j+1 (upper Hessenberg form)
+/// - Preserves eigenvalues: eig(A) = eig(H)
+///
+/// # Algorithm
+///
+/// Uses Householder reflections to reduce the matrix to Hessenberg form
+///
+/// # Examples
+///
+/// ```ignore
+/// use torsh_linalg::decomposition::hessenberg;
+/// let a = create_matrix()?;
+/// let (q, h) = hessenberg(&a)?;
+/// // Verify: A ≈ Q * H * Q^T
+/// ```
+pub fn hessenberg(tensor: &Tensor) -> TorshResult<(Tensor, Tensor)> {
+    if tensor.shape().ndim() != 2 {
+        return Err(TorshError::InvalidArgument(
+            "Hessenberg decomposition requires 2D tensor".to_string(),
+        ));
+    }
+
+    let (m, n) = (tensor.shape().dims()[0], tensor.shape().dims()[1]);
+    if m != n {
+        return Err(TorshError::InvalidArgument(format!(
+            "Hessenberg decomposition requires square matrix, got {m}x{n}"
+        )));
+    }
+
+    // Start with H = A and Q = I
+    let h = tensor.clone();
+    let q = eye::<f32>(n)?;
+
+    // Householder reduction to Hessenberg form
+    for k in 0..n.saturating_sub(2) {
+        // Compute Householder vector for column k
+        let mut col_data = Vec::with_capacity(n - k - 1);
+        for i in (k + 1)..n {
+            col_data.push(h.get(&[i, k])?);
+        }
+
+        if col_data.is_empty() {
+            continue;
+        }
+
+        // Compute norm of subcolumn
+        let mut norm = 0.0f32;
+        for &val in &col_data {
+            norm += val * val;
+        }
+        norm = norm.sqrt();
+
+        if norm < 1e-10 {
+            continue; // Skip if column is already zero
+        }
+
+        // Compute Householder vector
+        let sign = if col_data[0] >= 0.0 { 1.0 } else { -1.0 };
+        let u1 = col_data[0] + sign * norm;
+        let tau = 2.0 / (u1 * u1 + col_data[1..].iter().map(|x| x * x).sum::<f32>());
+
+        let mut v = vec![0.0f32; n];
+        v[k + 1] = u1;
+        for (i, &val) in col_data[1..].iter().enumerate() {
+            v[k + 2 + i] = val;
+        }
+
+        // Apply Householder reflection: H = (I - τvv^T) H (I - τvv^T)
+        // Left multiplication: H <- (I - τvv^T) H
+        for j in k..n {
+            let mut dot = 0.0f32;
+            for i in (k + 1)..n {
+                dot += v[i] * h.get(&[i, j])?;
+            }
+            for i in (k + 1)..n {
+                let old_val = h.get(&[i, j])?;
+                h.set(&[i, j], old_val - tau * v[i] * dot)?;
+            }
+        }
+
+        // Right multiplication: H <- H (I - τvv^T)
+        for i in 0..n {
+            let mut dot = 0.0f32;
+            for j in (k + 1)..n {
+                dot += h.get(&[i, j])? * v[j];
+            }
+            for j in (k + 1)..n {
+                let old_val = h.get(&[i, j])?;
+                h.set(&[i, j], old_val - tau * dot * v[j])?;
+            }
+        }
+
+        // Update Q: Q <- Q (I - τvv^T)
+        for i in 0..n {
+            let mut dot = 0.0f32;
+            for j in (k + 1)..n {
+                dot += q.get(&[i, j])? * v[j];
+            }
+            for j in (k + 1)..n {
+                let old_val = q.get(&[i, j])?;
+                q.set(&[i, j], old_val - tau * dot * v[j])?;
+            }
+        }
+    }
+
+    // Zero out elements below the first subdiagonal for numerical stability
+    for i in 0..n {
+        for j in 0..i.saturating_sub(1) {
+            if h.get(&[i, j])?.abs() < 1e-10 {
+                h.set(&[i, j], 0.0)?;
+            }
+        }
+    }
+
+    Ok((q, h))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1338,6 +1509,75 @@ mod tests {
         bad_mat.set(&[0, 0], -1.0)?; // Negative on diagonal
         bad_mat.set(&[1, 1], 1.0)?;
         assert!(cholesky(&bad_mat, false).is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_hessenberg_identity() -> TorshResult<()> {
+        // Hessenberg of identity should be identity
+        let identity = eye::<f32>(3)?;
+        let (q, h) = hessenberg(&identity)?;
+
+        // H should be identity (already in Hessenberg form)
+        for i in 0..3 {
+            for j in 0..3 {
+                let expected = if i == j { 1.0 } else { 0.0 };
+                assert_relative_eq!(h.get(&[i, j])?, expected, epsilon = 1e-4);
+            }
+        }
+
+        // Q should be approximately orthogonal (Q^T Q ≈ I)
+        let qt = q.transpose_view(0, 1)?;
+        let qtq = qt.matmul(&q)?;
+        for i in 0..3 {
+            for j in 0..3 {
+                let expected = if i == j { 1.0 } else { 0.0 };
+                assert_relative_eq!(qtq.get(&[i, j])?, expected, epsilon = 1e-3);
+            }
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_hessenberg_structure() -> TorshResult<()> {
+        // Test that Hessenberg form has zeros below first subdiagonal
+        let mat = Tensor::from_data(
+            vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
+            vec![3, 3],
+            torsh_core::DeviceType::Cpu,
+        )?;
+
+        let (_, h) = hessenberg(&mat)?;
+
+        // Check that H has zeros below first subdiagonal
+        // Element (2, 0) should be zero
+        assert!(h.get(&[2, 0])?.abs() < 1e-6);
+
+        // Elements on and above the first subdiagonal can be non-zero
+        // We just verify the structure, not specific values
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_hessenberg_small_matrix() -> TorshResult<()> {
+        // Test 2x2 matrix (already in Hessenberg form)
+        let mat = create_test_matrix_2x2()?;
+        let (q, _h) = hessenberg(&mat)?;
+
+        // For 2x2, Hessenberg form is same as original (all 2x2 are Hessenberg)
+        // Just verify Q is approximately orthogonal
+        let qt = q.transpose_view(0, 1)?;
+        let qtq = qt.matmul(&q)?;
+
+        for i in 0..2 {
+            for j in 0..2 {
+                let expected = if i == j { 1.0 } else { 0.0 };
+                assert_relative_eq!(qtq.get(&[i, j])?, expected, epsilon = 1e-3);
+            }
+        }
 
         Ok(())
     }

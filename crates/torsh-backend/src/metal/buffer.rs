@@ -93,7 +93,7 @@ impl MetalBuffer {
 
     /// Create a new Metal buffer with random values
     pub fn rand(shape: &Shape, dtype: &DType, device: &MetalDevice) -> Result<Self> {
-        use scirs2_core::random::{Random, Rng};
+        use scirs2_core::random::Random;
         let mut rng = Random::seed(42);
 
         let numel = shape.numel();
@@ -113,10 +113,12 @@ impl MetalBuffer {
                         *ptr.add(i) = rng.gen_range(0.0..1.0);
                     }
                 }
-                _ => return Err(MetalError::UnsupportedOperation {
-                    op: "fill_with_scalar".to_string(),
-                    dtype: format!("{:?}", dtype)
-                }),
+                _ => {
+                    return Err(MetalError::UnsupportedOperation {
+                        op: "fill_with_scalar".to_string(),
+                        dtype: format!("{:?}", dtype),
+                    })
+                }
             }
         }
 
@@ -125,7 +127,7 @@ impl MetalBuffer {
 
     /// Create a new Metal buffer with random normal values
     pub fn randn(shape: &Shape, dtype: &DType, device: &MetalDevice) -> Result<Self> {
-        use scirs2_core::random::{Random, Rng};
+        use scirs2_core::random::Random;
         let mut rng = Random::seed(42);
 
         // Box-Muller transform for normal distribution
@@ -152,10 +154,12 @@ impl MetalBuffer {
                         *ptr.add(i) = normal_gen();
                     }
                 }
-                _ => return Err(MetalError::UnsupportedOperation {
-                    op: "fill_with_scalar".to_string(),
-                    dtype: format!("{:?}", dtype)
-                }),
+                _ => {
+                    return Err(MetalError::UnsupportedOperation {
+                        op: "fill_with_scalar".to_string(),
+                        dtype: format!("{:?}", dtype),
+                    })
+                }
             }
         }
 
@@ -193,10 +197,12 @@ impl MetalBuffer {
                         *ptr.add(i) = val;
                     }
                 }
-                _ => return Err(MetalError::UnsupportedOperation {
-                    op: "get_data".to_string(),
-                    dtype: format!("{:?}", self.dtype)
-                }),
+                _ => {
+                    return Err(MetalError::UnsupportedOperation {
+                        op: "get_data".to_string(),
+                        dtype: format!("{:?}", self.dtype),
+                    })
+                }
             }
         }
         Ok(())
@@ -334,7 +340,6 @@ impl MetalBuffer {
 // }
 
 // SciRS2 dependencies for random number generation
-use scirs2_core::random;
 
 impl std::fmt::Debug for MetalBuffer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

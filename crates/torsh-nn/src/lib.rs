@@ -25,6 +25,7 @@
 extern crate alloc;
 
 // pub mod checkpoint; // Temporarily disabled for testing
+pub mod compile_time;
 pub mod container;
 #[cfg(feature = "std")]
 pub mod conversion;
@@ -33,6 +34,7 @@ pub mod cuda_kernels;
 pub mod export;
 pub mod functional;
 pub mod gradcheck;
+pub mod hardware_opts;
 pub mod init;
 pub mod layers;
 pub mod lazy;
@@ -48,6 +50,7 @@ pub mod research;
 pub mod scirs2_neural_integration;
 #[cfg(feature = "serialize")]
 pub mod serialization;
+pub mod sparse;
 pub mod summary;
 pub mod visualization;
 
@@ -96,18 +99,9 @@ pub use utils::{ModuleApply, ModuleParameterStats};
 // BACKWARD COMPATIBILITY IMPORTS AND RE-EXPORTS
 // =============================================================================
 
-use crate::init::Initializer;
-use parking_lot::RwLock;
-use torsh_core::device::DeviceType;
-use torsh_core::error::Result;
 use torsh_tensor::Tensor;
 
-#[cfg(feature = "serialize")]
-use serde_json;
-
 // Conditional imports for std/no_std compatibility
-#[cfg(feature = "std")]
-use std::{collections::HashMap, sync::Arc};
 
 #[cfg(not(feature = "std"))]
 use alloc::sync::Arc;
@@ -158,7 +152,29 @@ pub mod prelude {
     pub use crate::gradcheck::{
         fast_gradcheck, gradcheck, precise_gradcheck, GradCheckConfig, GradCheckResult, GradChecker,
     };
-    pub use crate::init::{self, FanMode, InitMethod, Initializer, Nonlinearity};
+    pub use crate::init::{
+        self,
+        // Automatic initialization
+        auto_init,
+        coordinate_mlp_init,
+        delta_orthogonal_init,
+        // Modern initialization methods
+        fixup_init,
+        gan_balanced_init,
+        lsuv_init,
+        metainit,
+        recommend_init_method,
+        rezero_alpha_init,
+        rezero_init,
+        zero_centered_variance_init,
+        ActivationHint,
+        ArchitectureHint,
+        // Core types
+        FanMode,
+        InitMethod,
+        Initializer,
+        Nonlinearity,
+    };
     pub use crate::layers::*;
     pub use crate::lazy::{lazy_linear, lazy_linear_no_bias, LazyLinear, LazyModule, LazyWrapper};
     pub use crate::mixed_precision::prelude::*;
@@ -204,10 +220,11 @@ pub mod prelude {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use torsh_core::error::Result;
 
     // Conditional imports for std/no_std compatibility
     #[cfg(feature = "std")]
-    use std::{boxed::Box, string::String, sync::Arc, vec::Vec};
+    use std::{boxed::Box, sync::Arc, vec::Vec};
 
     #[cfg(not(feature = "std"))]
     use alloc::{boxed::Box, string::String, sync::Arc, vec::Vec};

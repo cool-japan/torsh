@@ -5,16 +5,13 @@
 
 #[cfg(feature = "webgpu")]
 use crate::webgpu::wgpu;
-use scirs2_core::random::prelude::*;
 use crate::webgpu::{WebGpuDevice, WebGpuError, WebGpuResult};
-use crate::{BackendResult, Device};
 use parking_lot::{Mutex, RwLock};
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use scirs2_core::random::prelude::*;
+use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::time::sleep;
-use torsh_core::device::DeviceType;
 
 /// Load balancing strategies for multi-device WebGPU
 #[derive(Debug, Clone, PartialEq)]
@@ -425,19 +422,25 @@ impl MultiDeviceWebGpuManager {
 
                     device_count += 1;
 
+                    #[cfg(feature = "webgpu")]
                     log::info!(
                         "Initialized WebGPU device {}: {} ({:?})",
                         device_id,
                         adapter_info.name,
                         adapter_info.device_type
                     );
+                    #[cfg(not(feature = "webgpu"))]
+                    let _ = (&device_id, &adapter_info);
                 }
                 Err(e) => {
+                    #[cfg(feature = "webgpu")]
                     log::warn!(
                         "Failed to initialize WebGPU device {}: {}",
                         adapter_index,
                         e
                     );
+                    #[cfg(not(feature = "webgpu"))]
+                    let _ = (&adapter_index, &e);
                 }
             }
         }
@@ -455,6 +458,7 @@ impl MultiDeviceWebGpuManager {
             ));
         }
 
+        #[cfg(feature = "webgpu")]
         log::info!("Initialized {} WebGPU devices", device_count);
         Ok(())
     }
@@ -590,7 +594,7 @@ impl MultiDeviceWebGpuManager {
             .filter(|&device_id| {
                 // Check if device has enough memory
                 if let Some(device) = devices.get(device_id) {
-                    let (used, free) = device.memory_info();
+                    let (_used, free) = device.memory_info();
                     free >= context.memory_requirement
                 } else {
                     false
@@ -637,7 +641,7 @@ impl MultiDeviceWebGpuManager {
         }
 
         let mut rng = thread_rng();
-        let mut random_val = rng.gen::<f32>() * total_weight;
+        let mut random_val = rng.random::<f32>() * total_weight;
         for (i, &weight) in weights.iter().enumerate() {
             random_val -= weight;
             if random_val <= 0.0 && i < device_ids.len() {
@@ -708,7 +712,7 @@ impl MultiDeviceWebGpuManager {
         // Multi-device distribution
         let devices = self.devices.read();
         let metrics = self.device_metrics.read();
-        let num_devices = devices.len().min(self.config.max_devices);
+        let _num_devices = devices.len().min(self.config.max_devices);
 
         let mut assignments = Vec::new();
         let mut total_estimated_time = Duration::from_secs(0);
@@ -783,7 +787,7 @@ impl MultiDeviceWebGpuManager {
         &self,
         device_id: usize,
         metrics: &HashMap<usize, DeviceMetrics>,
-        context: &DeviceSelectionContext,
+        _context: &DeviceSelectionContext,
     ) -> f32 {
         let metric = metrics.get(&device_id).cloned().unwrap_or_default();
 
@@ -893,6 +897,8 @@ impl MultiDeviceWebGpuManager {
         let performance_monitor = Arc::clone(&self.performance_monitor);
         let device_metrics = Arc::clone(&self.device_metrics);
         let rebalance_interval = self.config.rebalance_interval;
+        // Clone Arc to devices for use in spawned task
+        let devices = Arc::new(self.devices.read().clone());
 
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(rebalance_interval);
@@ -900,7 +906,8 @@ impl MultiDeviceWebGpuManager {
                 interval.tick().await;
 
                 // Update device metrics
-                // TODO: Implement device metrics update with proper device access
+                let devices_lock = RwLock::new(devices.as_ref().clone());
+                Self::update_device_metrics(&devices_lock, &device_metrics).await;
 
                 // Collect performance data
                 performance_monitor.collect_metrics(&device_metrics).await;

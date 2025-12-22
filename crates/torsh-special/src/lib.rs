@@ -9,10 +9,12 @@ use torsh_tensor::Tensor;
 pub type TorshResult<T> = Result<T>;
 
 pub mod advanced;
+pub mod advanced_special;
 pub mod airy;
 pub mod bessel;
 pub mod complex;
 pub mod constants;
+pub mod coulomb;
 pub mod elliptic;
 pub mod error_functions;
 pub mod error_handling;
@@ -21,12 +23,15 @@ pub mod fast_approximations;
 pub mod gamma;
 pub mod hypergeometric;
 pub mod lambert_w;
+pub mod lommel;
 pub mod lookup_tables;
+pub mod mathieu;
 pub mod numerical_accuracy_tests;
 pub mod orthogonal_polynomials;
 pub mod scirs2_integration;
 pub mod simd_optimizations;
 pub mod smart_caching;
+pub mod spheroidal;
 pub mod statistical;
 pub mod trigonometric;
 pub mod utils;
@@ -66,8 +71,24 @@ pub use orthogonal_polynomials::{
 };
 // Export advanced functions
 pub use advanced::{barnes_g, dirichlet_eta, hurwitz_zeta, polylogarithm, riemann_zeta};
+// Export advanced special functions
+pub use advanced_special::{
+    dawson, kelvin_bei, kelvin_ber, kelvin_kei, kelvin_ker, parabolic_cylinder_d, spence, struve_h,
+    struve_l, voigt_profile,
+};
 // Export Airy functions
 pub use airy::{airy_ai, airy_ai_prime, airy_bi, airy_bi_prime};
+// Export Coulomb wave functions
+pub use coulomb::{coulomb_f, coulomb_g, coulomb_sigma};
+// Export Lommel functions
+pub use lommel::{lommel_S, lommel_s, lommel_u, lommel_v};
+// Export Mathieu functions
+pub use mathieu::{mathieu_Ce, mathieu_Se, mathieu_a, mathieu_b, mathieu_ce, mathieu_se};
+// Export Spheroidal Wave functions
+pub use spheroidal::{
+    oblate_angular, oblate_angular_tensor, oblate_radial, oblate_radial_tensor, prolate_angular,
+    prolate_angular_tensor, prolate_radial, prolate_radial_tensor, spheroidal_eigenvalue,
+};
 // Export Lambert W functions
 pub use lambert_w::{
     lambert_w, lambert_w_complex, lambert_w_derivative, lambert_w_principal, lambert_w_secondary,
@@ -222,3 +243,12 @@ pub use utils::{
     chebyshev_expansion, chebyshev_expansion_tensor, continued_fraction, continued_fraction_tensor,
     double_factorial, factorial_safe, pade_approximant, pade_approximant_tensor,
 };
+
+/// Prelude module for convenient imports
+pub mod prelude {
+    pub use crate::{
+        advanced::*, advanced_special::*, airy::*, bessel::*, coulomb::*, elliptic::*,
+        exponential_integrals::*, hypergeometric::*, lambert_w::*, lommel::*, mathieu::*,
+        orthogonal_polynomials::*, scirs2_integration::*, spheroidal::*,
+    };
+}

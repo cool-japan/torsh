@@ -8,7 +8,7 @@
 
 use torsh_core::{Result as TorshResult, TorshError};
 use torsh_tensor::{
-    creation::{ones, rand, randn},
+    creation::{rand, randn},
     Tensor,
 };
 
@@ -27,7 +27,7 @@ use torsh_tensor::{
 /// ## Mathematical Representation
 ///
 /// For an architecture with L layers and O operations:
-/// ```
+/// ```text
 /// encoding = [op₁, op₂, ..., opₗ, conn₁₁, conn₁₂, ..., connₗₗ]
 /// ```
 /// where opᵢ ∈ {0,1}^O is one-hot and connᵢⱼ ∈ {0,1} indicates connections.
@@ -171,7 +171,7 @@ pub fn decode_architecture(
 ///
 /// # Returns
 /// Mixed operation output
-pub fn darts_operation(x: &Tensor, alpha: &Tensor, operations: &[Tensor]) -> TorshResult<Tensor> {
+pub fn darts_operation(_x: &Tensor, alpha: &Tensor, operations: &[Tensor]) -> TorshResult<Tensor> {
     if operations.is_empty() {
         return Err(TorshError::invalid_argument_with_context(
             "Operations list cannot be empty",
@@ -271,7 +271,7 @@ pub fn mutate_architecture(
     num_ops: usize,
 ) -> TorshResult<(Vec<usize>, Tensor)> {
     let mut mutated_ops = operations.to_vec();
-    let mut mutated_connections = connections.clone();
+    let mut _mutated_connections = connections.clone();
 
     // Mutate operations
     for op in &mut mutated_ops {
@@ -285,7 +285,7 @@ pub fn mutate_architecture(
     // Mutate connections (simplified - just add noise and threshold)
     let noise = randn(connections.shape().dims())?;
     let noisy_connections = connections.add(&noise.mul_scalar(mutation_rate)?)?;
-    mutated_connections = noisy_connections.sigmoid()?; // Threshold with sigmoid
+    let mutated_connections = noisy_connections.sigmoid()?; // Threshold with sigmoid
 
     Ok((mutated_ops, mutated_connections))
 }
@@ -293,6 +293,7 @@ pub fn mutate_architecture(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use torsh_tensor::creation::{ones, randn};
 
     #[test]
     fn test_encode_decode_architecture() -> TorshResult<()> {

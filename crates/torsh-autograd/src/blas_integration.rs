@@ -4,14 +4,14 @@
 //! for optimized gradient computation in linear algebra operations. It supports multiple
 //! BLAS implementations and provides fallback mechanisms for environments without BLAS.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::error_handling::{AutogradError, AutogradResult};
-use scirs2_core::error::CoreError;
 use scirs2_core::ndarray::{Array, ArrayView, ArrayViewMut, Ix1, Ix2};
-use scirs2_core::random::{Random, Rng};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Mutex, RwLock};
 
 /// Supported BLAS implementations
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -187,7 +187,7 @@ impl BlasConfig {
         Self::library_exists("libcblas") || Self::library_exists("libblas")
     }
 
-    fn library_exists(library_name: &str) -> bool {
+    fn library_exists(_library_name: &str) -> bool {
         // Simplified library detection - in practice would use proper library detection
         // This is a placeholder for actual library detection logic
         false
@@ -531,7 +531,7 @@ impl BlasProvider for PureRustBlasProvider {
         a: &ArrayView<f64, Ix2>,
     ) -> AutogradResult<(Array<f64, Ix2>, Array<f64, Ix2>)> {
         let (m, n) = (a.nrows(), a.ncols());
-        let mut q = Array::eye(m);
+        let q = Array::eye(m);
         let mut r = a.to_owned();
 
         // Gram-Schmidt process (simplified implementation)
@@ -654,12 +654,12 @@ pub struct BlasManager {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-struct OperationStats {
-    total_calls: usize,
-    total_time: f64,
-    average_time: f64,
-    min_time: f64,
-    max_time: f64,
+pub struct OperationStats {
+    pub total_calls: usize,
+    pub total_time: f64,
+    pub average_time: f64,
+    pub min_time: f64,
+    pub max_time: f64,
 }
 
 impl BlasManager {
@@ -1013,21 +1013,17 @@ impl BlasPerformanceReport {
 }
 
 /// Global BLAS manager instance
-static mut GLOBAL_BLAS_MANAGER: Option<BlasManager> = None;
-static BLAS_INIT: std::sync::Once = std::sync::Once::new();
+static GLOBAL_BLAS_MANAGER: std::sync::OnceLock<BlasManager> = std::sync::OnceLock::new();
 
 pub fn get_global_blas_manager() -> &'static BlasManager {
-    unsafe {
-        BLAS_INIT.call_once(|| {
-            let mut manager = BlasManager::with_default_config();
-            if let Err(e) = manager.initialize() {
-                tracing::error!("Failed to initialize BLAS manager: {}", e);
-                // Continue with uninitialized manager as fallback
-            }
-            GLOBAL_BLAS_MANAGER = Some(manager);
-        });
-        GLOBAL_BLAS_MANAGER.as_ref().unwrap()
-    }
+    GLOBAL_BLAS_MANAGER.get_or_init(|| {
+        let mut manager = BlasManager::with_default_config();
+        if let Err(e) = manager.initialize() {
+            tracing::error!("Failed to initialize BLAS manager: {}", e);
+            // Continue with uninitialized manager as fallback
+        }
+        manager
+    })
 }
 
 /// Convenience functions for BLAS operations
@@ -1078,10 +1074,10 @@ mod tests {
 
         // Test dot product
         let x = Array::from_vec(vec![1.0, 2.0, 3.0])
-            .into_shape((3,))
+            .into_shape_with_order((3,))
             .unwrap();
         let y = Array::from_vec(vec![4.0, 5.0, 6.0])
-            .into_shape((3,))
+            .into_shape_with_order((3,))
             .unwrap();
         let result = provider.dot(&x.view(), &y.view()).unwrap();
         assert_eq!(result, 32.0); // 1*4 + 2*5 + 3*6 = 32
@@ -1122,7 +1118,9 @@ mod tests {
         let manager = get_global_blas_manager();
 
         let a = Array::from_shape_vec((2, 2), vec![1.0, 2.0, 3.0, 4.0]).unwrap();
-        let x = Array::from_vec(vec![5.0, 6.0]).into_shape((2,)).unwrap();
+        let x = Array::from_vec(vec![5.0, 6.0])
+            .into_shape_with_order((2,))
+            .unwrap();
         let mut y = Array::zeros(2);
 
         manager
@@ -1189,10 +1187,10 @@ mod tests {
     #[test]
     fn test_convenience_functions() {
         let x = Array::from_vec(vec![1.0, 2.0, 3.0])
-            .into_shape((3,))
+            .into_shape_with_order((3,))
             .unwrap();
         let y = Array::from_vec(vec![4.0, 5.0, 6.0])
-            .into_shape((3,))
+            .into_shape_with_order((3,))
             .unwrap();
 
         let result = blas_dot(&x.view(), &y.view()).unwrap();
@@ -1205,10 +1203,10 @@ mod tests {
 
         // Perform some operations to generate stats
         let x = Array::from_vec(vec![1.0, 2.0, 3.0])
-            .into_shape((3,))
+            .into_shape_with_order((3,))
             .unwrap();
         let y = Array::from_vec(vec![4.0, 5.0, 6.0])
-            .into_shape((3,))
+            .into_shape_with_order((3,))
             .unwrap();
         let _result = manager.dot_product(&x.view(), &y.view()).unwrap();
 

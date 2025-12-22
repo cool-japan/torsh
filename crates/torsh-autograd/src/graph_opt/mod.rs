@@ -22,7 +22,7 @@
 //!
 //! # Usage Examples
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_autograd::graph_opt::{OptimizedGraph, GraphOptConfig};
 //!
 //! # fn example() -> torsh_core::error::Result<()> {

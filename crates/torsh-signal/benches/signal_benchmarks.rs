@@ -3,9 +3,10 @@
 //! These benchmarks measure the performance of key signal processing operations
 //! to ensure optimal performance and identify bottlenecks.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use std::hint::black_box;
 use torsh_signal::prelude::*;
-use torsh_tensor::creation::{ones, zeros};
+use torsh_tensor::creation::ones;
 
 /// Benchmark window function generation
 fn benchmark_windows(c: &mut Criterion) {
@@ -76,7 +77,7 @@ fn benchmark_stft(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("stft", format!("{}_{}", signal_len, n_fft)),
             &(&signal, &params),
-            |b, (signal, params)| b.iter(|| stft(black_box(signal), black_box(**params))),
+            |b, (signal, params)| b.iter(|| stft(black_box(signal), black_box((*params).clone()))),
         );
     }
 

@@ -2,10 +2,8 @@
 
 use super::{CudaBackend, CudaBuffer, CudaDevice, CudaStream};
 use crate::cuda::error::{CudaError, CudaResult};
-use crate::error::{BackendError, BackendResult};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
-use torsh_core::DType;
+use std::sync::Arc;
 
 /// Multi-GPU context for managing multiple CUDA devices
 #[derive(Debug)]

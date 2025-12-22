@@ -34,8 +34,8 @@ fn bench_tensor_arithmetic(c: &mut Criterion) {
         group.throughput(Throughput::Elements(elements as u64));
 
         // Pre-create tensors for benchmarking
-        let a = rand::<f32>(&[*size, *size]);
-        let b = rand::<f32>(&[*size, *size]);
+        let a = rand::<f32>(&[*size, *size]).unwrap();
+        let b = rand::<f32>(&[*size, *size]).unwrap();
 
         group.bench_with_input(BenchmarkId::new("add", size), size, |bench, _| {
             bench.iter(|| a.add(&b).unwrap());
@@ -57,8 +57,8 @@ fn bench_matrix_multiplication(c: &mut Criterion) {
         let flops = 2 * size * size * size;
         group.throughput(Throughput::Elements(flops as u64));
 
-        let a = rand::<f32>(&[*size, *size]);
-        let b = rand::<f32>(&[*size, *size]);
+        let a = rand::<f32>(&[*size, *size]).unwrap();
+        let b = rand::<f32>(&[*size, *size]).unwrap();
 
         group.bench_with_input(BenchmarkId::new("matmul_f32", size), size, |bench, _| {
             bench.iter(|| a.matmul(&b).unwrap());
@@ -75,14 +75,14 @@ fn bench_tensor_reductions(c: &mut Criterion) {
         let elements = size * size;
         group.throughput(Throughput::Elements(elements as u64));
 
-        let tensor = rand::<f32>(&[*size, *size]);
+        let tensor = rand::<f32>(&[*size, *size]).unwrap();
 
         group.bench_with_input(BenchmarkId::new("sum", size), size, |bench, _| {
             bench.iter(|| tensor.sum().unwrap());
         });
 
         group.bench_with_input(BenchmarkId::new("mean", size), size, |bench, _| {
-            bench.iter(|| tensor.mean().unwrap());
+            bench.iter(|| tensor.mean(None, false).unwrap());
         });
     }
 
@@ -107,7 +107,7 @@ fn bench_memory_operations(c: &mut Criterion) {
             },
         );
 
-        let source = rand::<f32>(&[*size, *size]);
+        let source = rand::<f32>(&[*size, *size]).unwrap();
         group.bench_with_input(BenchmarkId::new("clone", size), size, |bench, _| {
             bench.iter(|| source.clone());
         });

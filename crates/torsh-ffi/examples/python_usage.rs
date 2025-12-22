@@ -1,5 +1,3 @@
-use torsh_ffi::python::*;
-
 fn main() {
     println!("ToRSh Python FFI Example");
     println!("This example demonstrates how to use ToRSh from Python");

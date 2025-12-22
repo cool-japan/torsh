@@ -1,8 +1,7 @@
 //! WebGPU kernel operations for ToRSh
 
 #[cfg(feature = "webgpu")]
-use bytemuck;
-#[cfg(feature = "webgpu")]
+#[allow(unused_imports)]
 use wgpu;
 
 use crate::webgpu::pipeline::{ComputePipeline, PipelineDescriptor, PipelineFactory};
@@ -93,9 +92,11 @@ impl WebGpuKernelExecutor {
                 label: Some(&descriptor.name),
                 source: wgpu::ShaderSource::Wgsl(match &descriptor.source {
                     crate::kernel::KernelSource::Source { code, .. } => code.clone().into(),
-                    _ => return Err(WebGpuError::InvalidShaderSource(
-                        "Only WGSL source code is supported for WebGPU".to_string()
-                    )),
+                    _ => {
+                        return Err(WebGpuError::InvalidShaderSource(
+                            "Only WGSL source code is supported for WebGPU".to_string(),
+                        ))
+                    }
                 }),
             });
 
@@ -124,7 +125,7 @@ impl WebGpuKernelExecutor {
                     push_constant_ranges: &[],
                 });
 
-        let pipeline = self
+        let _pipeline = self
             .device
             .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
                 label: Some(&descriptor.name),
@@ -141,36 +142,38 @@ impl WebGpuKernelExecutor {
                 // For WebGPU, we expect WGSL
                 match language {
                     crate::kernel::KernelLanguage::Wgsl => code.clone(),
-                    _ => return Err(WebGpuError::UnsupportedFeature(
-                        format!("WebGPU only supports WGSL, got {:?}", language)
-                    )),
+                    _ => {
+                        return Err(WebGpuError::UnsupportedFeature(format!(
+                            "WebGPU only supports WGSL, got {:?}",
+                            language
+                        )))
+                    }
                 }
-            },
+            }
             crate::kernel::KernelSource::Bytecode { .. } => {
                 return Err(WebGpuError::UnsupportedFeature(
-                    "WebGPU backend does not support pre-compiled bytecode".to_string()
+                    "WebGPU backend does not support pre-compiled bytecode".to_string(),
                 ));
-            },
+            }
             crate::kernel::KernelSource::SpirV { .. } => {
                 return Err(WebGpuError::UnsupportedFeature(
-                    "WebGPU backend does not support SPIR-V bytecode directly".to_string()
+                    "WebGPU backend does not support SPIR-V bytecode directly".to_string(),
                 ));
-            },
+            }
             crate::kernel::KernelSource::Binary { .. } => {
                 return Err(WebGpuError::UnsupportedFeature(
-                    "WebGPU backend does not support platform-specific binary code".to_string()
+                    "WebGPU backend does not support platform-specific binary code".to_string(),
                 ));
-            },
+            }
         };
 
         // Create pipeline descriptor for the WebGpuComputePipeline wrapper
-        let pipeline_descriptor = PipelineDescriptor::new(
-            descriptor.name.clone(),
-            shader_source,
-            "main".to_string(),
-        ).with_workgroup_size((64, 1, 1));
+        let pipeline_descriptor =
+            PipelineDescriptor::new(descriptor.name.clone(), shader_source, "main".to_string())
+                .with_workgroup_size((64, 1, 1));
 
-        let compute_pipeline = WebGpuComputePipeline::new(self.device.clone(), pipeline_descriptor)?;
+        let compute_pipeline =
+            WebGpuComputePipeline::new(self.device.clone(), pipeline_descriptor)?;
 
         let shader_module_id = format!("kernel_{}", descriptor.name);
         Ok(WebGpuKernel {
@@ -189,7 +192,7 @@ impl WebGpuKernelExecutor {
         kernel: &WebGpuKernel,
         buffers: &[&WebGpuBuffer],
         uniform_data: &[u8],
-        workgroup_size: (u32, u32, u32),
+        _workgroup_size: (u32, u32, u32),
         workgroup_count: (u32, u32, u32),
     ) -> WebGpuResult<()> {
         let mut encoder = self.device.create_command_encoder(Some("Kernel Execution"));
@@ -214,7 +217,7 @@ impl WebGpuKernelExecutor {
 
         // Create bind groups (simplified implementation)
         let wgpu_buffers: Vec<_> = buffers.iter().map(|b| b.wgpu_buffer()).collect();
-        let bind_groups = kernel
+        let _bind_groups = kernel
             .pipeline
             .create_bind_groups(&[wgpu_buffers.as_slice()])?;
 
@@ -466,7 +469,7 @@ impl WebGpuKernelExecutor {
 
         // Create bind groups
         let wgpu_buffers: Vec<_> = buffers.iter().map(|b| b.wgpu_buffer()).collect();
-        let mut buffer_group = wgpu_buffers.as_slice();
+        let buffer_group = wgpu_buffers.as_slice();
 
         if let Some(uniform_buf) = uniform_buffer.as_ref() {
             let mut all_buffers = vec![uniform_buf];
@@ -489,11 +492,11 @@ impl WebGpuKernelExecutor {
     /// Execute a simple kernel by name
     pub async fn execute_simple_kernel(
         &self,
-        kernel_name: &str,
-        buffers: &[&wgpu::Buffer],
-        uniform_data: &[u8],
-        workgroup_size: (u32, u32, u32),
-        workgroup_count: (u32, u32, u32),
+        _kernel_name: &str,
+        _buffers: &[&wgpu::Buffer],
+        _uniform_data: &[u8],
+        _workgroup_size: (u32, u32, u32),
+        _workgroup_count: (u32, u32, u32),
     ) -> WebGpuResult<()> {
         // For now, this is a simplified implementation that just synchronizes
         // Real implementation would dispatch based on kernel_name
@@ -599,14 +602,27 @@ mod tests {
                     WebGpuBuffer::new(
                         Arc::clone(&device),
                         descriptor.clone(),
-                        BufferHandle::new(1),
+                        BufferHandle::WebGpu {
+                            buffer_ptr: 1,
+                            size,
+                        },
                     ),
                     WebGpuBuffer::new(
                         Arc::clone(&device),
                         descriptor.clone(),
-                        BufferHandle::new(2),
+                        BufferHandle::WebGpu {
+                            buffer_ptr: 2,
+                            size,
+                        },
                     ),
-                    WebGpuBuffer::new(Arc::clone(&device), descriptor, BufferHandle::new(3)),
+                    WebGpuBuffer::new(
+                        Arc::clone(&device),
+                        descriptor.clone(),
+                        BufferHandle::WebGpu {
+                            buffer_ptr: 3,
+                            size,
+                        },
+                    ),
                 ) {
                     // Test elementwise addition
                     let result = executor.elementwise_add(&a, &b, &output).await;
@@ -646,20 +662,35 @@ mod tests {
                 let device = Arc::new(device);
                 let executor = WebGpuKernelExecutor::new(Arc::clone(&device));
 
+                let size = 512usize;
                 let descriptor = BufferDescriptor {
-                    name: "relu_test".to_string(),
-                    size: 512,
+                    size,
                     usage: BufferUsage::STORAGE | BufferUsage::COPY_SRC | BufferUsage::COPY_DST,
-                    memory_location: MemoryLocation::Device,
+                    location: MemoryLocation::Device,
+                    dtype: None,
+                    shape: None,
+                    initial_data: None,
+                    alignment: None,
+                    zero_init: false,
                 };
 
                 if let (Ok(input), Ok(output)) = (
                     WebGpuBuffer::new(
                         Arc::clone(&device),
                         descriptor.clone(),
-                        BufferHandle::new(1),
+                        BufferHandle::WebGpu {
+                            buffer_ptr: 1,
+                            size,
+                        },
                     ),
-                    WebGpuBuffer::new(Arc::clone(&device), descriptor, BufferHandle::new(2)),
+                    WebGpuBuffer::new(
+                        Arc::clone(&device),
+                        descriptor.clone(),
+                        BufferHandle::WebGpu {
+                            buffer_ptr: 2,
+                            size,
+                        },
+                    ),
                 ) {
                     let result = executor.relu(&input, &output).await;
                     if result.is_ok() {

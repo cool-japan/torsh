@@ -4,8 +4,61 @@
 //! throughout the CUDA memory management system. It defines the basic
 //! interfaces for different types of CUDA memory allocations.
 
-use crate::error::{CudaError, CudaResult};
+#[allow(unused_imports)]
+use crate::cuda::error::CudaResult;
 use std::time::Instant;
+
+/// Thread-safe wrapper for raw pointers used in CUDA allocations.
+///
+/// This wrapper allows raw pointers to be used in types that need to be
+/// Send + Sync. The safety is ensured by the CUDA memory management system
+/// which guarantees proper synchronization of memory access.
+#[derive(Debug, Clone, Copy)]
+#[repr(transparent)]
+pub struct SendSyncPtr<T>(*mut T);
+
+impl<T> SendSyncPtr<T> {
+    /// Create a new wrapper from a raw pointer
+    pub fn new(ptr: *mut T) -> Self {
+        Self(ptr)
+    }
+
+    /// Create a null pointer
+    pub fn null() -> Self {
+        Self(std::ptr::null_mut())
+    }
+
+    /// Get the raw pointer
+    pub fn as_ptr(&self) -> *mut T {
+        self.0
+    }
+
+    /// Check if the pointer is null
+    pub fn is_null(&self) -> bool {
+        self.0.is_null()
+    }
+}
+
+// SAFETY: CUDA memory access is synchronized through CUDA streams and events.
+// The memory management system ensures proper synchronization before any
+// cross-thread access.
+unsafe impl<T> Send for SendSyncPtr<T> {}
+unsafe impl<T> Sync for SendSyncPtr<T> {}
+
+impl<T> Default for SendSyncPtr<T> {
+    fn default() -> Self {
+        Self::null()
+    }
+}
+
+impl<T> From<*mut T> for SendSyncPtr<T> {
+    fn from(ptr: *mut T) -> Self {
+        Self::new(ptr)
+    }
+}
+
+/// Device pointer wrapper that is thread-safe
+pub type DevicePointer<T> = SendSyncPtr<T>;
 
 /// CUDA memory allocation trait
 ///
@@ -53,7 +106,7 @@ pub enum AllocationType {
 #[derive(Debug, Clone)]
 pub struct CudaAllocation {
     /// Device pointer to allocated memory
-    pub ptr: cust::DevicePointer<u8>,
+    pub ptr: DevicePointer<u8>,
 
     /// Size of allocation in bytes
     pub size: usize,
@@ -81,7 +134,7 @@ pub struct CudaAllocation {
 #[derive(Debug, Clone)]
 pub struct UnifiedAllocation {
     /// Pointer to unified memory
-    pub ptr: *mut u8,
+    pub ptr: SendSyncPtr<u8>,
 
     /// Size of allocation in bytes
     pub size: usize,
@@ -109,7 +162,7 @@ pub struct UnifiedAllocation {
 #[derive(Debug, Clone)]
 pub struct PinnedAllocation {
     /// Pointer to pinned host memory
-    pub ptr: *mut u8,
+    pub ptr: SendSyncPtr<u8>,
 
     /// Size of allocation in bytes
     pub size: usize,
@@ -124,7 +177,7 @@ pub struct PinnedAllocation {
     pub is_mapped: bool,
 
     /// Device pointer if mapped
-    pub device_ptr: Option<cust::DevicePointer<u8>>,
+    pub device_ptr: Option<DevicePointer<u8>>,
 
     /// Mapping flags used during allocation
     pub mapping_flags: PinnedMemoryFlags,
@@ -334,7 +387,7 @@ pub struct AllocationStats {
 // Implementation for CudaAllocation
 impl CudaAllocation {
     /// Create a new CUDA device memory allocation
-    pub fn new(ptr: cust::DevicePointer<u8>, size: usize, size_class: usize) -> Self {
+    pub fn new(ptr: DevicePointer<u8>, size: usize, size_class: usize) -> Self {
         Self {
             ptr,
             size,
@@ -348,7 +401,7 @@ impl CudaAllocation {
 
     /// Create allocation with specific device
     pub fn new_on_device(
-        ptr: cust::DevicePointer<u8>,
+        ptr: DevicePointer<u8>,
         size: usize,
         size_class: usize,
         device_id: usize,
@@ -365,7 +418,7 @@ impl CudaAllocation {
     }
 
     /// Get device pointer as raw pointer
-    pub fn as_device_ptr(&self) -> cust::DevicePointer<u8> {
+    pub fn as_device_ptr(&self) -> DevicePointer<u8> {
         self.ptr
     }
 
@@ -517,7 +570,7 @@ impl PinnedAllocation {
     pub fn new_with_mapping(
         ptr: *mut u8,
         size: usize,
-        device_ptr: Option<cust::DevicePointer<u8>>,
+        device_ptr: Option<DevicePointer<u8>>,
         flags: PinnedMemoryFlags,
     ) -> Self {
         Self {
@@ -548,7 +601,7 @@ impl PinnedAllocation {
     }
 
     /// Get device pointer if mapped
-    pub fn device_ptr(&self) -> Option<cust::DevicePointer<u8>> {
+    pub fn device_ptr(&self) -> Option<DevicePointer<u8>> {
         self.device_ptr
     }
 }
@@ -672,6 +725,64 @@ impl Default for AllocationStats {
             average_allocation_time: std::time::Duration::from_secs(0),
             fragmentation_level: 0.0,
         }
+    }
+}
+
+/// Result type for allocation operations
+pub type AllocationResult<T> = Result<T, String>;
+
+/// Memory allocation strategy
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AllocationStrategy {
+    /// First-fit allocation strategy
+    FirstFit,
+    /// Best-fit allocation strategy
+    BestFit,
+    /// Worst-fit allocation strategy
+    WorstFit,
+    /// Buddy allocation strategy
+    Buddy,
+    /// Slab allocation strategy
+    Slab,
+}
+
+impl Default for AllocationStrategy {
+    fn default() -> Self {
+        Self::BestFit
+    }
+}
+
+/// Memory alignment requirements
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MemoryAlignment {
+    /// Default alignment (256 bytes)
+    Default,
+    /// Cache line alignment (typically 64-128 bytes)
+    Cache,
+    /// Page alignment (4KB)
+    Page,
+    /// Large page alignment (2MB)
+    LargePage,
+    /// Custom alignment in bytes
+    Custom(usize),
+}
+
+impl MemoryAlignment {
+    /// Get the alignment value in bytes
+    pub fn bytes(&self) -> usize {
+        match self {
+            MemoryAlignment::Default => 256,
+            MemoryAlignment::Cache => 128,
+            MemoryAlignment::Page => 4096,
+            MemoryAlignment::LargePage => 2 * 1024 * 1024,
+            MemoryAlignment::Custom(bytes) => *bytes,
+        }
+    }
+}
+
+impl Default for MemoryAlignment {
+    fn default() -> Self {
+        Self::Default
     }
 }
 

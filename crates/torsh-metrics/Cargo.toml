@@ -22,8 +22,16 @@ scirs2-core = { workspace = true }
 
 # Additional dependencies
 thiserror = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 
 [dev-dependencies]
 approx = { workspace = true }
 scirs2-autograd = { workspace = true }  # For array! macro in tests
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[features]
+default = []
+gpu = ["scirs2-core/gpu"]
+parallel = ["scirs2-core/parallel"]
+full = ["gpu", "parallel"]

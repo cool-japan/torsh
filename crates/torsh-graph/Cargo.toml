@@ -15,14 +15,14 @@ workspace = true
 [dependencies]
 torsh-core = { workspace = true }
 torsh-tensor = { workspace = true }
-# torsh-nn = { workspace = true }  # Temporarily disabled due to compilation issues
+torsh-nn = { workspace = true }
 torsh-autograd = { workspace = true }
 
 # SciRS2 graph capabilities
 scirs2-graph = { workspace = true }
 scirs2-core = { workspace = true }
 scirs2-autograd = { workspace = true }
-# scirs2-spatial = { workspace = true }  # Temporarily disabled due to compilation issues
+scirs2-spatial = { workspace = true }
 
 # Additional dependencies
 thiserror = { workspace = true }

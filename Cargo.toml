@@ -54,9 +54,9 @@ default-members = [
     # "crates/torsh-backend-metal",   # Deprecated - use torsh-backend with "metal" feature
     # "crates/torsh-backend-cuda",    # Deprecated - use torsh-backend with "cuda" feature
     "crates/torsh-vision",
-    # "crates/torsh-text",  # Temporarily disabled due to compilation issues
+    "crates/torsh-text",
     "crates/torsh-jit",
-    # "crates/torsh-distributed",  # Temporarily disabled due to API incompatibilities
+    # "crates/torsh-distributed",  # Tests/examples need additional API updates (scheduled for alpha.3)
     "crates/torsh-functional",
     "crates/torsh-sparse",
     "crates/torsh-linalg",
@@ -72,13 +72,15 @@ default-members = [
     "crates/torsh-hub",
     "crates/torsh-utils",
     "crates/torsh-package",
-    "crates/torsh-python",  # Re-enabled - fixing PyO3 compatibility issues
+    # PyO3-based crates excluded from default testing (see CHANGELOG.md Known Limitations)
+    # "crates/torsh-python",  # PyO3 bindings - test executables have symbol resolution issues
+    # "crates/torsh-ffi",     # PyO3 bindings - test executables have symbol resolution issues
     "crates/torsh-models",
     "crates/torsh-benches",
 ]
 
 [workspace.package]
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 edition = "2021"
 authors = ["Team KitaSan (cool-japan)"]
 license = "MIT OR Apache-2.0"
@@ -88,74 +90,76 @@ rust-version = "1.76"
 
 [workspace.dependencies]
 # Internal ToRSh crates - workspace management
-torsh-core = { version = "0.1.0-alpha.1", path = "crates/torsh-core" }
-torsh-backend = { version = "0.1.0-alpha.1", path = "crates/torsh-backend" }
-torsh-tensor = { version = "0.1.0-alpha.1", path = "crates/torsh-tensor" }
-torsh-autograd = { version = "0.1.0-alpha.1", path = "crates/torsh-autograd" }
-torsh-linalg = { version = "0.1.0-alpha.1", path = "crates/torsh-linalg" }
-torsh-optim = { version = "0.1.0-alpha.1", path = "crates/torsh-optim" }
-torsh-sparse = { version = "0.1.0-alpha.1", path = "crates/torsh-sparse" }
-torsh-special = { version = "0.1.0-alpha.1", path = "crates/torsh-special" }
-torsh-functional = { version = "0.1.0-alpha.1", path = "crates/torsh-functional" }
-torsh-data = { version = "0.1.0-alpha.1", path = "crates/torsh-data" }
-torsh-nn = { version = "0.1.0-alpha.1", path = "crates/torsh-nn" }
-torsh-vision = { version = "0.1.0-alpha.1", path = "crates/torsh-vision" }
-torsh-text = { version = "0.1.0-alpha.1", path = "crates/torsh-text" }
-torsh-graph = { version = "0.1.0-alpha.1", path = "crates/torsh-graph" }
-torsh-series = { version = "0.1.0-alpha.1", path = "crates/torsh-series" }
-torsh-signal = { version = "0.1.0-alpha.1", path = "crates/torsh-signal" }
-torsh-cluster = { version = "0.1.0-alpha.1", path = "crates/torsh-cluster" }
-torsh-metrics = { version = "0.1.0-alpha.1", path = "crates/torsh-metrics" }
-torsh-jit = { version = "0.1.0-alpha.1", path = "crates/torsh-jit" }
-torsh-distributed = { version = "0.1.0-alpha.1", path = "crates/torsh-distributed" }
-torsh-quantization = { version = "0.1.0-alpha.1", path = "crates/torsh-quantization" }
-torsh-fx = { version = "0.1.0-alpha.1", path = "crates/torsh-fx" }
-torsh-hub = { version = "0.1.0-alpha.1", path = "crates/torsh-hub" }
-torsh-utils = { version = "0.1.0-alpha.1", path = "crates/torsh-utils" }
-torsh-package = { version = "0.1.0-alpha.1", path = "crates/torsh-package" }
-torsh-profiler = { version = "0.1.0-alpha.1", path = "crates/torsh-profiler" }
-torsh-python = { version = "0.1.0-alpha.1", path = "crates/torsh-python" }
-torsh-ffi = { version = "0.1.0-alpha.1", path = "crates/torsh-ffi" }
-torsh-models = { version = "0.1.0-alpha.1", path = "crates/torsh-models" }
-torsh-benches = { version = "0.1.0-alpha.1", path = "crates/torsh-benches" }
+torsh-core = { version = "0.1.0-alpha.2", path = "crates/torsh-core" }
+torsh-backend = { version = "0.1.0-alpha.2", path = "crates/torsh-backend" }
+torsh-tensor = { version = "0.1.0-alpha.2", path = "crates/torsh-tensor" }
+torsh-autograd = { version = "0.1.0-alpha.2", path = "crates/torsh-autograd" }
+torsh-linalg = { version = "0.1.0-alpha.2", path = "crates/torsh-linalg" }
+torsh-optim = { version = "0.1.0-alpha.2", path = "crates/torsh-optim" }
+torsh-sparse = { version = "0.1.0-alpha.2", path = "crates/torsh-sparse" }
+torsh-special = { version = "0.1.0-alpha.2", path = "crates/torsh-special" }
+torsh-functional = { version = "0.1.0-alpha.2", path = "crates/torsh-functional" }
+torsh-data = { version = "0.1.0-alpha.2", path = "crates/torsh-data" }
+torsh-nn = { version = "0.1.0-alpha.2", path = "crates/torsh-nn" }
+torsh-vision = { version = "0.1.0-alpha.2", path = "crates/torsh-vision" }
+torsh-text = { version = "0.1.0-alpha.2", path = "crates/torsh-text" }
+torsh-graph = { version = "0.1.0-alpha.2", path = "crates/torsh-graph" }
+torsh-series = { version = "0.1.0-alpha.2", path = "crates/torsh-series" }
+torsh-signal = { version = "0.1.0-alpha.2", path = "crates/torsh-signal" }
+torsh-cluster = { version = "0.1.0-alpha.2", path = "crates/torsh-cluster" }
+torsh-metrics = { version = "0.1.0-alpha.2", path = "crates/torsh-metrics" }
+torsh-jit = { version = "0.1.0-alpha.2", path = "crates/torsh-jit" }
+torsh-distributed = { version = "0.1.0-alpha.2", path = "crates/torsh-distributed" }
+torsh-quantization = { version = "0.1.0-alpha.2", path = "crates/torsh-quantization" }
+torsh-fx = { version = "0.1.0-alpha.2", path = "crates/torsh-fx" }
+torsh-hub = { version = "0.1.0-alpha.2", path = "crates/torsh-hub" }
+torsh-utils = { version = "0.1.0-alpha.2", path = "crates/torsh-utils" }
+torsh-package = { version = "0.1.0-alpha.2", path = "crates/torsh-package" }
+torsh-profiler = { version = "0.1.0-alpha.2", path = "crates/torsh-profiler" }
+torsh-python = { version = "0.1.0-alpha.2", path = "crates/torsh-python" }
+torsh-ffi = { version = "0.1.0-alpha.2", path = "crates/torsh-ffi" }
+torsh-models = { version = "0.1.0-alpha.2", path = "crates/torsh-models" }
+torsh-benches = { version = "0.1.0-alpha.2", path = "crates/torsh-benches" }
 
-# Core dependencies - CRATES.IO VERSION beta.3 with SIMD support
-scirs2 = { version = "0.1.0-beta.3", features = ["neural", "autograd", "linalg"], default-features = false }
-scirs2-core = { version = "0.1.0-beta.3", features = ["simd", "parallel"], default-features = false }
-scirs2-autograd = { version = "0.1.0-beta.3", default-features = false }
-scirs2-special = { version = "0.1.0-beta.3", default-features = false }
-scirs2-sparse = { version = "0.1.0-beta.3", default-features = false }
-scirs2-optimize = { version = "0.1.0-beta.3", default-features = false }
-scirs2-signal = { version = "0.1.0-beta.3", default-features = false }
-scirs2-fft = { version = "0.1.0-beta.3", default-features = false }
+# Core dependencies - CRATES.IO VERSION RC.2 (Release Candidate) with SIMD support
+# NOTE: scirs2 meta crate removed to speed up compilation - use specific sub-crates instead
+scirs2-core = { version = "0.1.0-rc.4", features = ["simd", "parallel", "memory_management"], default-features = false }
+scirs2-autograd = { version = "0.1.0-rc.4", default-features = false }
+scirs2-special = { version = "0.1.0-rc.4", default-features = false }
+scirs2-sparse = { version = "0.1.0-rc.4", default-features = false }
+scirs2-optimize = { version = "0.1.0-rc.4", default-features = false }
+scirs2-signal = { version = "0.1.0-rc.4", default-features = false }
+scirs2-fft = { version = "0.1.0-rc.4", default-features = false }
 # Additional SciRS2 crates for comprehensive integration
-scirs2-cluster = { version = "0.1.0-beta.3", default-features = false }
-scirs2-datasets = { version = "0.1.0-beta.3", default-features = false }
-scirs2-graph = { version = "0.1.0-beta.3", default-features = false }
-scirs2-metrics = { version = "0.1.0-beta.3", default-features = false }
-scirs2-series = { version = "0.1.0-beta.3", default-features = false }
-scirs2-spatial = { version = "0.1.0-beta.3", default-features = false }
-scirs2-stats = { version = "0.1.0-beta.3", default-features = false }
-scirs2-text = { version = "0.1.0-beta.3", default-features = false }
-scirs2-vision = { version = "0.1.0-beta.3", default-features = false }
-scirs2-linalg = { version = "0.1.0-beta.3", default-features = false }
-scirs2-neural = { version = "0.1.0-beta.3", default-features = false }
-# TEMPORARILY DISABLED DUE TO SCIRS2 API COMPATIBILITY ISSUES
-# optirs = { path = "../optirs/optirs", default-features = false }
-# optirs-core = { path = "../optirs/optirs-core", default-features = false }
-numrs2 = "0.1.0-beta.2"
-polars = { version = "0.51", features = ["lazy"] }
+scirs2-cluster = { version = "0.1.0-rc.4", default-features = false }
+scirs2-datasets = { version = "0.1.0-rc.4", default-features = false }
+scirs2-graph = { version = "0.1.0-rc.4", default-features = false }
+scirs2-metrics = { version = "0.1.0-rc.4", default-features = false }
+scirs2-series = { version = "0.1.0-rc.4", default-features = false }
+scirs2-spatial = { version = "0.1.0-rc.4", default-features = false }
+scirs2-stats = { version = "0.1.0-rc.4", default-features = false }
+scirs2-text = { version = "0.1.0-rc.4", default-features = false }
+scirs2-vision = { version = "0.1.0-rc.4", default-features = false }
+scirs2-linalg = { version = "0.1.0-rc.4", default-features = false }
+scirs2-neural = { version = "0.1.0-rc.4", default-features = false }
+# OptiRS - Advanced ML optimization (now available on crates.io at beta.3)
+optirs = { version = "0.1.0-rc.1", default-features = false }
+optirs-core = { version = "0.1.0-rc.1", default-features = false }
+numrs2 = "0.1.0-rc.1"
+polars = { version = "0.48", features = ["lazy"] }
 
 # Parallelism and async
-rayon = "1.10"
-tokio = { version = "1.47", features = ["full"] }
+# ⚠️ SciRS2 POLICY: Use scirs2-core::parallel_ops for parallel operations
+# rayon is kept for LEGACY compatibility only - NEW code should use scirs2-core::parallel_ops
+rayon = "1.10"  # LEGACY ONLY - prefer scirs2-core::parallel_ops
+tokio = { version = "1.48", features = ["full"] }
 crossbeam = "0.8"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-bincode = { version = "2.0.1", features = ["serde"] }
-safetensors = "0.6.2"
+bincode = "2.0"  # Updated to 2.x - serde support is built-in
+safetensors = "0.5.3"
 
 # Error handling
 thiserror = "2.0"
@@ -164,9 +168,10 @@ anyhow = "1.0"
 # GPU backends
 cust = "0.3"
 cuda-sys = "0.2"
-wgpu = "26.0.1"
+cudnn-sys = "0.0.3"
+wgpu = "24.0.5"
 metal = "0.31"
-bytemuck = "1.23"
+bytemuck = "1.24"
 
 # SIMD
 wide = "0.7"
@@ -190,19 +195,19 @@ tracing-subscriber = "0.3"
 # ndarray = "0.16"  # REMOVED: Use scirs2_core::ndarray instead (SciRS2 POLICY)
 # ✅ SciRS2 Policy: Use scirs2_core::ndarray::* for all array operations
 petgraph = "0.8"
-indexmap = "2.11"
+indexmap = { version = "2.11", features = ["serde"] }
 
 # FFI
 libc = "0.2"
-pyo3 = "0.26"
-numpy = "0.26"
+pyo3 = "0.27"
+numpy = "0.27"
 
 # Additional utilities
 hostname = "0.4"
 rustc-version = "0.4"
 which = "8.0"
 sysinfo = "0.36"
-zip = "4.2"
+zip = "6.0"
 chrono = { version = "0.4", features = ["serde"] }
 
 # Distributed computing dependencies
@@ -212,7 +217,7 @@ tonic-build = "0.14"
 redis = "0.32"
 tokio-test = "0.4"
 futures-util = "0.3"
-uuid = { version = "1.18", features = ["v4", "serde"] }
+uuid = { version = "1.19", features = ["v4", "serde"] }
 
 # Updated dependencies to fix security issues
 cached = "0.56"  # Replace 0.48.1 to fix instant dependency
@@ -223,9 +228,11 @@ bindgen = "0.72"
 cc = "1.2"
 
 # Utilities
-num-traits = "0.2"
-num-derive = "0.4"
-num-complex = "0.4"
+# ⚠️ SciRS2 POLICY: Use scirs2-core::numeric for numerical traits
+# num-traits/num-complex are kept for LEGACY compatibility only - NEW code should use scirs2-core::numeric
+num-traits = "0.2"  # LEGACY ONLY - prefer scirs2-core::numeric
+num-derive = "0.4"  # LEGACY ONLY - prefer scirs2-core::numeric
+num-complex = "0.4"  # LEGACY ONLY - prefer scirs2-core::{Complex, Complex32, Complex64}
 once_cell = "1.21"
 parking_lot = "0.12"
 dashmap = "6.1"
@@ -234,6 +241,8 @@ dashmap = "6.1"
 # rand_distr = "0.5.1"   # REMOVED: Use scirs2_core::random::prelude instead (SciRS2 POLICY)
 # rand_chacha = "0.9.0"  # REMOVED: Use scirs2_core::random instead (SciRS2 POLICY)
 # ✅ SciRS2 Policy: All random number generation handled by scirs2_core::random
+# EXCEPTION: rand is needed for security features (cryptographic randomness)
+rand = "0.9.2"  # Used only for security module (ed25519-dalek requirement)
 half = "2.4"
 lazy_static = "1.5"
 md5 = "0.8"
@@ -242,6 +251,17 @@ tar = "0.4"
 sha2 = "0.10"
 hex = "0.4"
 semver = "1.0"
+
+# Advanced compression for package management
+zstd = "0.13"
+lzma-rs = "0.3"
+
+# Security features for package signing and encryption
+ring = "0.17"
+ed25519-dalek = "2.1"
+
+# Memory mapping for large file access
+memmap2 = "0.9"
 
 # JIT compilation
 cranelift = "0.111"
@@ -281,6 +301,8 @@ unused_variables = "warn"
 dead_code = "warn"
 unreachable_code = "warn"
 # missing_docs = "warn" # Enable when documentation is more complete
+# Allow unsafe for FFI and performance-critical code
+unsafe_code = "allow"
 
 [workspace.lints.clippy]
 # Deny critical correctness issues
@@ -307,6 +329,4 @@ panic = "allow"        # Allow but should be used carefully
 # Performance-critical warnings (not denials to allow flexibility)
 large_stack_arrays = "warn"
 large_types_passed_by_value = "warn"
-# Allow unsafe for FFI and performance-critical code
-unsafe_code = "allow"
 

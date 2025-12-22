@@ -1,5 +1,7 @@
 //! Graph debugging and analysis utilities
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use super::core::AutogradContext;
 use petgraph::visit::EdgeRef;
 use petgraph::{Direction, Graph};
@@ -539,7 +541,7 @@ impl GraphProfiler {
 
     /// Profile graph execution
     pub fn profile_execution(&self, ctx: &AutogradContext) -> Result<ProfileResult> {
-        let start_time = Instant::now();
+        let _start_time = Instant::now();
         let initial_memory = ctx.estimate_memory_usage();
 
         // Simulate profiling - in real implementation, this would track actual execution

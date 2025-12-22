@@ -34,26 +34,29 @@ pub mod minimal_integration;
 // Re-export key types for easier access
 pub use config::*;
 
-// Full module re-exports (may have compilation dependencies)
-#[cfg(feature = "full-execution-engine")]
-pub use task_management::{TaskId, TaskManager, TaskPriority, TaskStatus};
+// Export task management types
+pub use task_management::{ResourceType, TaskId, TaskManager, TaskPriority};
 
-#[cfg(feature = "full-execution-engine")]
-pub use resource_management::{ResourceId, ResourceManager, ResourceType};
+// Export performance monitoring types (includes TaskStatus)
+pub use performance_monitoring::TaskStatus;
 
-#[cfg(feature = "full-execution-engine")]
+// Export resource management types
+pub use load_balancing::ResourceId;
+pub use resource_management::GpuResourceManager;
+
+// Export fault tolerance types
 pub use fault_tolerance::{FailureHandlingResult, FaultToleranceManager, RetryDecision};
 
-#[cfg(feature = "full-execution-engine")]
+// Export performance monitoring types
 pub use performance_monitoring::{BottleneckRecord, MetricDataPoint, PerformanceMonitoringManager};
 
-#[cfg(feature = "full-execution-engine")]
+// Export security management types
 pub use security_management::{AuthenticationResult, SecurityManager, SecuritySession};
 
-#[cfg(feature = "full-execution-engine")]
+// Export load balancing types
 pub use load_balancing::{LoadBalancingManager, LoadLevel, WorkloadDistribution};
 
-#[cfg(feature = "full-execution-engine")]
+// Export hardware management types
 pub use hardware_management::{GpuDevice, HardwareManager, HealthStatus};
 
 // Always available minimal integration

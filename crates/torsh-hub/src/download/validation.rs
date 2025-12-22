@@ -3,15 +3,15 @@
 //! This module provides comprehensive validation functions for URLs, files, hashes,
 //! archives, and security checks used throughout the ToRSh Hub download system.
 
-use std::collections::HashMap;
 use std::fs;
 use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use torsh_core::error::{Result, TorshError};
 
 /// Supported hash algorithms for file verification
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum HashAlgorithm {
+    #[default]
     Sha256,
 }
 
@@ -28,12 +28,6 @@ impl HashAlgorithm {
         match self {
             HashAlgorithm::Sha256 => "SHA-256",
         }
-    }
-}
-
-impl Default for HashAlgorithm {
-    fn default() -> Self {
-        HashAlgorithm::Sha256
     }
 }
 

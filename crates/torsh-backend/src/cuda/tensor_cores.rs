@@ -3,11 +3,12 @@
 //! This module provides high-performance tensor operations using NVIDIA Tensor Cores
 //! available on Volta, Turing, Ampere, and later GPU architectures.
 
-use crate::error::{BackendError, BackendResult, ErrorContext, ErrorContextExt};
-use crate::stream::CudaStream;
-use scirs2_core::cuda::CudaDevice as SciRs2CudaDevice;
-use scirs2_core::tensor::{TensorView, TensorViewMut};
-use scirs2_core::{cuda, tensor};
+use crate::cuda::stream::CudaStream;
+use crate::error::BackendResult;
+use half::f16;
+// Note: scirs2-core provides GPU support through gpu::backends::cuda, not a top-level cuda module
+// use scirs2_core::gpu::backends::cuda;
+// use scirs2_core::tensor_cores;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 

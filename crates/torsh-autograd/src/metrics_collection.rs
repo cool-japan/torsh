@@ -506,7 +506,7 @@ impl MetricsCollector {
         }
 
         // Apply sampling - SciRS2 POLICY compliant
-        let random_value = thread_rng().gen::<f64>();
+        let random_value = thread_rng().random::<f64>();
         let sampling_rate_f64 =
             num_traits::ToPrimitive::to_f64(&self.config.sampling_rate).unwrap_or(1.0);
         if random_value > sampling_rate_f64 {

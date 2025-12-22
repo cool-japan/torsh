@@ -1,9 +1,7 @@
 //! CPU RNN implementation with optimized algorithms
 
 use crate::cpu::buffer::BufferCpuExt;
-use crate::rnn::{
-    cells, RnnActivation, RnnOps, RnnOutput, RnnPerformanceHints,
-};
+use crate::rnn::{cells, RnnActivation, RnnOps, RnnOutput, RnnPerformanceHints};
 use crate::{BackendResult, Buffer, Device};
 
 // Re-export for benchmarks

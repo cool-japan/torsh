@@ -1,12 +1,7 @@
 //! Utility functions for metrics
 
-use scirs2_core::legacy::rng;
-use scirs2_core::random::{Random, Rng};
 use torsh_core::{device::DeviceType, error::TorshError};
-use torsh_tensor::{
-    creation::{from_vec, zeros},
-    Tensor,
-};
+use torsh_tensor::{creation::from_vec, Tensor};
 
 /// Convert probabilities to class predictions
 pub fn probs_to_preds(probs: &Tensor, threshold: f64) -> Result<Tensor, TorshError> {
@@ -71,23 +66,25 @@ pub fn probs_to_preds(probs: &Tensor, threshold: f64) -> Result<Tensor, TorshErr
 
 /// One-hot encode labels
 pub fn one_hot(labels: &Tensor, num_classes: usize) -> Result<Tensor, TorshError> {
-    let batch_size = labels.shape().dims()[0];
-    let mut one_hot = zeros(&[batch_size, num_classes])?;
+    let labels_vec = labels.to_vec()?;
+    let batch_size = labels_vec.len();
 
-    for i in 0..batch_size {
-        let label = labels
-            .slice_tensor(0, i, i + 1)?
-            .to_vec()?
-            .get(0)
-            .copied()
-            .unwrap_or(0.0) as usize;
-        if label < num_classes {
-            // TODO: Implement proper one-hot encoding when tensor indexing is available
-            // For now, this is a placeholder implementation
+    // Create one-hot encoded data
+    let mut one_hot_data = vec![0.0f32; batch_size * num_classes];
+
+    for (i, &label) in labels_vec.iter().enumerate() {
+        let label_idx = label as usize;
+        if label_idx < num_classes {
+            one_hot_data[i * num_classes + label_idx] = 1.0;
+        } else {
+            return Err(TorshError::InvalidArgument(format!(
+                "Label {} exceeds num_classes {}",
+                label_idx, num_classes
+            )));
         }
     }
 
-    Ok(one_hot)
+    from_vec(one_hot_data, &[batch_size, num_classes], DeviceType::Cpu)
 }
 
 /// Calculate class weights for imbalanced datasets
@@ -125,7 +122,7 @@ pub fn bootstrap_ci(
     n_bootstrap: usize,
     seed: Option<u64>,
 ) -> (f64, f64) {
-    use scirs2_core::random::{Random, Rng};
+    use scirs2_core::random::Random;
 
     let mut rng = Random::seed(seed.unwrap_or_else(|| {
         use std::time::{SystemTime, UNIX_EPOCH};
@@ -281,4 +278,278 @@ fn calculate_confusion_matrix(preds: &[i64], targets: &[i64]) -> (usize, usize, 
     }
 
     (tp, tn, fp, fn_count)
+}
+
+/// Comprehensive metric evaluation result
+#[derive(Debug, Clone)]
+pub struct MetricEvaluationResult {
+    pub accuracy: f64,
+    pub precision: f64,
+    pub recall: f64,
+    pub f1_score: f64,
+    pub confusion_matrix: Option<Vec<Vec<usize>>>,
+}
+
+/// Evaluate multiple classification metrics at once
+pub fn evaluate_classification(
+    predictions: &Tensor,
+    targets: &Tensor,
+) -> Result<MetricEvaluationResult, TorshError> {
+    let pred_vec = predictions.to_vec()?;
+    let target_vec = targets.to_vec()?;
+
+    if pred_vec.len() != target_vec.len() {
+        return Err(TorshError::InvalidArgument("Size mismatch".to_string()));
+    }
+
+    let preds: Vec<i64> = pred_vec.iter().map(|&x| x as i64).collect();
+    let targets_i64: Vec<i64> = target_vec.iter().map(|&x| x as i64).collect();
+
+    let accuracy = calculate_accuracy(&preds, &targets_i64);
+    let f1_score = calculate_f1(&preds, &targets_i64);
+
+    let (tp, fp, fn_count) = calculate_confusion_elements(&preds, &targets_i64);
+    let precision = if tp + fp > 0 {
+        tp as f64 / (tp + fp) as f64
+    } else {
+        0.0
+    };
+    let recall = if tp + fn_count > 0 {
+        tp as f64 / (tp + fn_count) as f64
+    } else {
+        0.0
+    };
+
+    Ok(MetricEvaluationResult {
+        accuracy,
+        precision,
+        recall,
+        f1_score,
+        confusion_matrix: None,
+    })
+}
+
+/// Quick evaluation helper - compute common metrics
+pub fn quick_eval(predictions: &Tensor, targets: &Tensor) -> String {
+    match evaluate_classification(predictions, targets) {
+        Ok(result) => format!(
+            "Accuracy: {:.4} | Precision: {:.4} | Recall: {:.4} | F1: {:.4}",
+            result.accuracy, result.precision, result.recall, result.f1_score
+        ),
+        Err(e) => format!("Error: {:?}", e),
+    }
+}
+
+/// Compute prediction confidence statistics
+pub fn confidence_statistics(probabilities: &Tensor) -> Result<(f64, f64, f64, f64), TorshError> {
+    let prob_vec = probabilities.to_vec()?;
+
+    if prob_vec.is_empty() {
+        return Err(TorshError::InvalidArgument(
+            "Empty probabilities".to_string(),
+        ));
+    }
+
+    let prob_f64: Vec<f64> = prob_vec.iter().map(|&x| x as f64).collect();
+
+    // Mean confidence
+    let mean = prob_f64.iter().sum::<f64>() / prob_f64.len() as f64;
+
+    // Std deviation
+    let variance =
+        prob_f64.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / prob_f64.len() as f64;
+    let std_dev = variance.sqrt();
+
+    // Min and max
+    let min = prob_f64.iter().fold(f64::INFINITY, |a, &b| a.min(b));
+    let max = prob_f64.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+
+    Ok((mean, std_dev, min, max))
+}
+
+/// Check if predictions are well-calibrated (confidence matches accuracy)
+pub fn calibration_check(
+    probabilities: &Tensor,
+    predictions: &Tensor,
+    targets: &Tensor,
+) -> Result<bool, TorshError> {
+    let prob_vec = probabilities.to_vec()?;
+    let pred_vec = predictions.to_vec()?;
+    let target_vec = targets.to_vec()?;
+
+    if prob_vec.len() != pred_vec.len() || prob_vec.len() != target_vec.len() {
+        return Err(TorshError::InvalidArgument("Size mismatch".to_string()));
+    }
+
+    // Compute average confidence
+    let avg_confidence = prob_vec.iter().map(|&x| x as f64).sum::<f64>() / prob_vec.len() as f64;
+
+    // Compute accuracy
+    let correct: usize = pred_vec
+        .iter()
+        .zip(target_vec.iter())
+        .filter(|(p, t)| (**p - **t).abs() < 1e-6)
+        .count();
+    let accuracy = correct as f64 / pred_vec.len() as f64;
+
+    // Well-calibrated if confidence is within 5% of accuracy
+    Ok((avg_confidence - accuracy).abs() < 0.05)
+}
+
+/// Detect if model is overconfident or underconfident
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CalibrationStatus {
+    WellCalibrated,
+    Overconfident,
+    Underconfident,
+}
+
+pub fn detect_calibration_status(
+    probabilities: &Tensor,
+    predictions: &Tensor,
+    targets: &Tensor,
+) -> Result<CalibrationStatus, TorshError> {
+    let prob_vec = probabilities.to_vec()?;
+    let pred_vec = predictions.to_vec()?;
+    let target_vec = targets.to_vec()?;
+
+    if prob_vec.len() != pred_vec.len() || prob_vec.len() != target_vec.len() {
+        return Err(TorshError::InvalidArgument("Size mismatch".to_string()));
+    }
+
+    let avg_confidence = prob_vec.iter().map(|&x| x as f64).sum::<f64>() / prob_vec.len() as f64;
+
+    let correct: usize = pred_vec
+        .iter()
+        .zip(target_vec.iter())
+        .filter(|(p, t)| (**p - **t).abs() < 1e-6)
+        .count();
+    let accuracy = correct as f64 / pred_vec.len() as f64;
+
+    let diff = avg_confidence - accuracy;
+
+    if diff.abs() < 0.05 {
+        Ok(CalibrationStatus::WellCalibrated)
+    } else if diff > 0.0 {
+        Ok(CalibrationStatus::Overconfident)
+    } else {
+        Ok(CalibrationStatus::Underconfident)
+    }
+}
+
+/// Format a comprehensive metric report
+pub fn format_metric_report(
+    accuracy: f64,
+    precision: f64,
+    recall: f64,
+    f1: f64,
+    additional_info: Option<&str>,
+) -> String {
+    let mut report = String::new();
+    report.push_str("╔═══════════════════════════════════════════════╗\n");
+    report.push_str("║         Classification Metrics Report         ║\n");
+    report.push_str("╠═══════════════════════════════════════════════╣\n");
+    report.push_str(&format!(
+        "║ Accuracy:  {:.4} ({:.2}%)                    ║\n",
+        accuracy,
+        accuracy * 100.0
+    ));
+    report.push_str(&format!(
+        "║ Precision: {:.4} ({:.2}%)                    ║\n",
+        precision,
+        precision * 100.0
+    ));
+    report.push_str(&format!(
+        "║ Recall:    {:.4} ({:.2}%)                    ║\n",
+        recall,
+        recall * 100.0
+    ));
+    report.push_str(&format!(
+        "║ F1-Score:  {:.4} ({:.2}%)                    ║\n",
+        f1,
+        f1 * 100.0
+    ));
+
+    if let Some(info) = additional_info {
+        report.push_str("╠═══════════════════════════════════════════════╣\n");
+        report.push_str(&format!("║ {:<45} ║\n", info));
+    }
+
+    report.push_str("╚═══════════════════════════════════════════════╝\n");
+
+    report
+}
+
+/// Helper to create visualization-ready data from predictions
+pub fn prepare_confusion_matrix_data(
+    predictions: &Tensor,
+    targets: &Tensor,
+    num_classes: usize,
+) -> Result<Vec<Vec<usize>>, TorshError> {
+    let pred_vec = predictions.to_vec()?;
+    let target_vec = targets.to_vec()?;
+
+    if pred_vec.len() != target_vec.len() {
+        return Err(TorshError::InvalidArgument("Size mismatch".to_string()));
+    }
+
+    let mut matrix = vec![vec![0; num_classes]; num_classes];
+
+    for (pred, target) in pred_vec.iter().zip(target_vec.iter()) {
+        let pred_class = (*pred as usize).min(num_classes - 1);
+        let target_class = (*target as usize).min(num_classes - 1);
+        matrix[target_class][pred_class] += 1;
+    }
+
+    Ok(matrix)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use torsh_tensor::creation::from_vec;
+
+    #[test]
+    fn test_one_hot_encoding_basic() {
+        let labels = from_vec(vec![0.0, 1.0, 2.0], &[3], DeviceType::Cpu).unwrap();
+        let one_hot_result = one_hot(&labels, 3).unwrap();
+        let result_vec = one_hot_result.to_vec().unwrap();
+
+        // Expected: [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+        let expected = vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
+        assert_eq!(result_vec, expected);
+    }
+
+    #[test]
+    fn test_one_hot_encoding_with_duplicates() {
+        let labels = from_vec(vec![0.0, 0.0, 1.0, 2.0, 1.0], &[5], DeviceType::Cpu).unwrap();
+        let one_hot_result = one_hot(&labels, 3).unwrap();
+        let result_vec = one_hot_result.to_vec().unwrap();
+
+        // Expected: [[1,0,0], [1,0,0], [0,1,0], [0,0,1], [0,1,0]]
+        let expected = vec![
+            1.0, 0.0, 0.0, // Label 0
+            1.0, 0.0, 0.0, // Label 0
+            0.0, 1.0, 0.0, // Label 1
+            0.0, 0.0, 1.0, // Label 2
+            0.0, 1.0, 0.0, // Label 1
+        ];
+        assert_eq!(result_vec, expected);
+    }
+
+    #[test]
+    fn test_one_hot_encoding_invalid_label() {
+        let labels = from_vec(vec![0.0, 1.0, 3.0], &[3], DeviceType::Cpu).unwrap();
+        let result = one_hot(&labels, 3);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_one_hot_encoding_single_class() {
+        let labels = from_vec(vec![0.0], &[1], DeviceType::Cpu).unwrap();
+        let one_hot_result = one_hot(&labels, 1).unwrap();
+        let result_vec = one_hot_result.to_vec().unwrap();
+
+        assert_eq!(result_vec, vec![1.0]);
+    }
 }

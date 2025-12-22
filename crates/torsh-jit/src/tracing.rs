@@ -623,7 +623,7 @@ fn dtype_size_bytes(dtype: DType) -> usize {
     match dtype {
         DType::Bool | DType::I8 | DType::U8 | DType::QInt8 | DType::QUInt8 => 1,
         DType::I16 | DType::F16 | DType::BF16 => 2,
-        DType::I32 | DType::F32 | DType::U32 => 4,
+        DType::I32 | DType::F32 | DType::U32 | DType::QInt32 => 4,
         DType::I64 | DType::F64 | DType::C64 | DType::U64 => 8,
         DType::C128 => 16,
     }

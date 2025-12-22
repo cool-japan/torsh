@@ -1,6 +1,6 @@
 //! Visualization tools for quantization analysis
 
-use crate::analysis::config::{AccuracyComparison, SensitivityAnalysisResults};
+use crate::analysis::config::SensitivityAnalysisResults;
 use crate::analysis::size::SizeAnalyzer;
 use crate::QScheme;
 use crate::TorshResult;

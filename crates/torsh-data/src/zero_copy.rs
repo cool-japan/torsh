@@ -12,10 +12,9 @@
 //! - **Memory mapping**: Direct access to file data without loading into memory
 //! - **Thread-safe operations**: Concurrent access to shared memory pools
 
-use crate::core_framework::Result;
 use parking_lot::Mutex;
 use std::{mem, slice};
-use torsh_core::error::TorshError;
+use torsh_core::error::{Result, TorshError};
 
 /// Zero-copy tensor wrapper that avoids unnecessary memory allocation
 ///

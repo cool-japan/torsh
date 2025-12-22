@@ -2,7 +2,6 @@
 
 use crate::fx::types::{Edge, Node};
 use crate::FxGraph;
-use petgraph::graph::NodeIndex;
 
 impl FxGraph {
     /// Convenience method to create a graph with a single operation

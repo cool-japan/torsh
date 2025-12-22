@@ -1,16 +1,13 @@
 //! WebGPU memory management for ToRSh
 
-#[cfg(feature = "webgpu")]
-use crate::webgpu::wgpu;
-
 use crate::webgpu::{WebGpuBuffer, WebGpuBufferPool, WebGpuDevice, WebGpuError, WebGpuResult};
 use crate::{
     buffer::generate_buffer_id, BufferDescriptor, BufferHandle, BufferUsage, MemoryLocation,
-    MemoryManager, MemoryPool, MemoryPoolConfig, MemoryStats, PoolStats,
+    MemoryManager, MemoryPoolConfig, MemoryStats,
 };
 use parking_lot::{Mutex, RwLock};
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use torsh_core::error::TorshError;
 
 /// WebGPU memory manager implementation
@@ -74,7 +71,9 @@ impl WebGpuMemoryManager {
             stats.active_allocations += delta_count as usize;
         } else {
             stats.total_deallocations += (-delta_count) as usize;
-            stats.active_allocations = stats.active_allocations.saturating_sub((-delta_count) as usize);
+            stats.active_allocations = stats
+                .active_allocations
+                .saturating_sub((-delta_count) as usize);
         }
     }
 
@@ -87,12 +86,11 @@ impl WebGpuMemoryManager {
         }
 
         if descriptor.size > self.device.limits().max_storage_buffer_binding_size as usize {
-            return Err(WebGpuError::MemoryAllocation(
-                format!("Buffer size {} exceeds maximum limit {}",
-                    descriptor.size,
-                    self.device.limits().max_storage_buffer_binding_size
-                )
-            ));
+            return Err(WebGpuError::MemoryAllocation(format!(
+                "Buffer size {} exceeds maximum limit {}",
+                descriptor.size,
+                self.device.limits().max_storage_buffer_binding_size
+            )));
         }
 
         // Check if requested usage is supported
@@ -117,7 +115,8 @@ impl WebGpuMemoryManager {
             BufferUsage::MAP_READ | BufferUsage::COPY_DST
         };
 
-        let descriptor = BufferDescriptor::new(size as usize, usage).with_location(MemoryLocation::Host);
+        let descriptor =
+            BufferDescriptor::new(size as usize, usage).with_location(MemoryLocation::Host);
 
         let handle = BufferHandle::WebGpu {
             buffer_ptr: *self.next_handle.lock(),
@@ -229,26 +228,23 @@ impl MemoryManager for WebGpuMemoryManager {
     fn device(&self) -> &crate::Device {
         // This is a workaround - we can't store a reference to Device
         // We need to create one on-the-fly or restructure the trait
-        // For now, let's create a Device instance
-        static mut CACHED_DEVICE: Option<crate::Device> = None;
-        unsafe {
-            if CACHED_DEVICE.is_none() {
-                CACHED_DEVICE = Some(crate::Device::new(
-                    0, // Use 0 as default device index for WebGPU
-                    self.device.device_type(),
-                    self.device.name().to_string(),
-                    self.device.info().clone(),
-                ));
-            }
-            CACHED_DEVICE.as_ref().unwrap()
-        }
+        // For now, let's create a Device instance using OnceLock for thread-safety
+        static CACHED_DEVICE: OnceLock<crate::Device> = OnceLock::new();
+        CACHED_DEVICE.get_or_init(|| {
+            crate::Device::new(
+                0, // Use 0 as default device index for WebGPU
+                self.device.device_type(),
+                self.device.name().to_string(),
+                self.device.info().clone(),
+            )
+        })
     }
 
     // Raw memory allocation methods
     fn allocate_raw(
         &mut self,
-        size: usize,
-        alignment: usize,
+        _size: usize,
+        _alignment: usize,
     ) -> torsh_core::error::Result<*mut u8> {
         // WebGPU doesn't support raw pointer allocation, return error
         Err(TorshError::BackendError(
@@ -256,7 +252,7 @@ impl MemoryManager for WebGpuMemoryManager {
         ))
     }
 
-    fn deallocate_raw(&mut self, ptr: *mut u8, size: usize) -> torsh_core::error::Result<()> {
+    fn deallocate_raw(&mut self, _ptr: *mut u8, _size: usize) -> torsh_core::error::Result<()> {
         // WebGPU doesn't support raw pointer deallocation, return error
         Err(TorshError::BackendError(
             "WebGPU doesn't support raw memory deallocation".to_string(),
@@ -268,34 +264,34 @@ impl MemoryManager for WebGpuMemoryManager {
         false // WebGPU doesn't support unified memory
     }
 
-    fn allocate_unified(&mut self, size: usize) -> torsh_core::error::Result<*mut u8> {
+    fn allocate_unified(&mut self, _size: usize) -> torsh_core::error::Result<*mut u8> {
         Err(TorshError::BackendError(
             "WebGPU doesn't support unified memory allocation".to_string(),
         ))
     }
 
-    fn deallocate_unified(&mut self, ptr: *mut u8, size: usize) -> torsh_core::error::Result<()> {
+    fn deallocate_unified(&mut self, _ptr: *mut u8, _size: usize) -> torsh_core::error::Result<()> {
         Err(TorshError::BackendError(
             "WebGPU doesn't support unified memory deallocation".to_string(),
         ))
     }
 
     // Memory prefetching methods
-    fn prefetch_to_device(&self, ptr: *mut u8, size: usize) -> torsh_core::error::Result<()> {
+    fn prefetch_to_device(&self, _ptr: *mut u8, _size: usize) -> torsh_core::error::Result<()> {
         // WebGPU handles memory transfer automatically, no explicit prefetch needed
         Ok(())
     }
 
-    fn prefetch_to_host(&self, ptr: *mut u8, size: usize) -> torsh_core::error::Result<()> {
+    fn prefetch_to_host(&self, _ptr: *mut u8, _size: usize) -> torsh_core::error::Result<()> {
         // WebGPU handles memory transfer automatically, no explicit prefetch needed
         Ok(())
     }
 
     fn set_memory_advice(
         &self,
-        ptr: *mut u8,
-        size: usize,
-        advice: crate::memory::MemoryAdvice,
+        _ptr: *mut u8,
+        _size: usize,
+        _advice: crate::memory::MemoryAdvice,
     ) -> torsh_core::error::Result<()> {
         // WebGPU doesn't support memory advice hints
         Ok(())
@@ -368,7 +364,7 @@ impl MemoryManager for WebGpuMemoryManager {
         })
     }
 
-    fn set_defragmentation_policy(&mut self, policy: crate::memory::DefragmentationPolicy) {
+    fn set_defragmentation_policy(&mut self, _policy: crate::memory::DefragmentationPolicy) {
         // WebGPU doesn't support configurable defragmentation policies
         // Policy setting is ignored
     }
@@ -393,7 +389,7 @@ impl WebGpuMemoryPool {
 }
 
 impl crate::MemoryPool for WebGpuMemoryPool {
-    fn allocate(&mut self, size: usize, alignment: usize) -> torsh_core::error::Result<*mut u8> {
+    fn allocate(&mut self, _size: usize, _alignment: usize) -> torsh_core::error::Result<*mut u8> {
         // WebGPU doesn't support raw pointer allocation, so we simulate it
         // This is a simplified implementation - real usage would manage this differently
         let ptr = std::ptr::null_mut();
@@ -493,6 +489,7 @@ impl crate::MemoryPool for WebGpuMemoryPool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::MemoryPool;
 
     #[tokio::test]
     async fn test_memory_manager_creation() {
@@ -502,8 +499,8 @@ mod tests {
                 let config = MemoryPoolConfig::default();
                 let manager = WebGpuMemoryManager::new(device, config);
 
-                assert_eq!(manager.stats().allocated_bytes, 0);
-                assert_eq!(manager.stats().allocation_count, 0);
+                assert_eq!(manager.stats().allocated_memory, 0);
+                assert_eq!(manager.stats().active_allocations, 0);
             }
         }
     }
@@ -513,32 +510,32 @@ mod tests {
         if cfg!(feature = "webgpu") && crate::webgpu::is_available() {
             if let Ok(device) = WebGpuDevice::from_best_adapter(0).await {
                 let device = Arc::new(device);
-                let manager = WebGpuMemoryManager::with_default_config(device);
+                let mut manager = WebGpuMemoryManager::with_default_config(device);
 
                 let descriptor = BufferDescriptor {
-                    name: "test_buffer".to_string(),
                     size: 1024,
                     usage: BufferUsage::STORAGE,
-                    memory_location: MemoryLocation::Device,
+                    location: MemoryLocation::Device,
+                    dtype: None,
+                    shape: None,
+                    initial_data: None,
+                    alignment: None,
+                    zero_init: false,
                 };
 
-                let handle = manager.allocate_buffer(descriptor);
-                assert!(handle.is_ok());
+                let buffer_result = manager.allocate(&descriptor);
+                assert!(buffer_result.is_ok());
 
-                if let Ok(handle) = handle {
-                    assert_eq!(manager.stats().allocated_bytes, 1024);
-                    assert_eq!(manager.stats().allocation_count, 1);
-
-                    // Test buffer retrieval
-                    let buffer = manager.get_buffer(handle);
-                    assert!(buffer.is_ok());
+                if let Ok(buffer) = buffer_result {
+                    assert_eq!(manager.stats().allocated_memory, 1024);
+                    assert_eq!(manager.stats().active_allocations, 1);
 
                     // Test deallocation
-                    let result = manager.deallocate_buffer(handle);
+                    let result = manager.deallocate(&buffer);
                     assert!(result.is_ok());
 
-                    assert_eq!(manager.stats().allocated_bytes, 0);
-                    assert_eq!(manager.stats().deallocation_count, 1);
+                    assert_eq!(manager.stats().allocated_memory, 0);
+                    assert_eq!(manager.stats().active_allocations, 0);
                 }
             }
         }

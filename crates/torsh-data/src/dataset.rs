@@ -6,9 +6,6 @@ use torsh_tensor::Tensor;
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, vec::Vec};
 
-// ✅ SciRS2 Policy Compliant - Import SliceRandom for shuffle functionality
-use scirs2_core::rand_prelude::SliceRandom;
-
 #[cfg(feature = "std")]
 use std::{
     collections::HashMap,
@@ -232,7 +229,7 @@ where
     let mut indices: Vec<usize> = (0..dataset.len()).collect();
 
     // Shuffle indices if generator seed is provided
-    if let Some(seed) = generator {
+    if let Some(_seed) = generator {
         // ✅ SciRS2 Policy Compliant - Using enhanced scientific shuffle
         use scirs2_core::random::prelude::*;
         use scirs2_core::random::seq::ScientificSliceRandom;
@@ -1102,6 +1099,522 @@ where
     }
 }
 
+/// Dataset profiler for analyzing data loading performance
+///
+/// This utility helps diagnose performance bottlenecks in data loading pipelines
+/// by tracking access patterns, timing statistics, and providing optimization hints.
+#[cfg(feature = "std")]
+pub struct DatasetProfiler {
+    /// Total number of accesses
+    access_count: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    /// Sequential access count
+    sequential_count: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    /// Last accessed index
+    last_index: std::sync::Arc<std::sync::Mutex<Option<usize>>>,
+    /// Total access time in microseconds
+    total_time_us: std::sync::Arc<std::sync::atomic::AtomicU64>,
+    /// Start time for profiling session
+    start_time: std::time::Instant,
+}
+
+#[cfg(feature = "std")]
+impl Default for DatasetProfiler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(feature = "std")]
+impl DatasetProfiler {
+    /// Create a new dataset profiler
+    pub fn new() -> Self {
+        Self {
+            access_count: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            sequential_count: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            last_index: std::sync::Arc::new(std::sync::Mutex::new(None)),
+            total_time_us: std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            start_time: std::time::Instant::now(),
+        }
+    }
+
+    /// Record a dataset access
+    pub fn record_access(&self, index: usize, duration: std::time::Duration) {
+        use std::sync::atomic::Ordering;
+
+        // Update access count
+        self.access_count.fetch_add(1, Ordering::Relaxed);
+
+        // Update timing
+        self.total_time_us
+            .fetch_add(duration.as_micros() as u64, Ordering::Relaxed);
+
+        // Check if sequential
+        if let Ok(mut last) = self.last_index.lock() {
+            if let Some(prev_idx) = *last {
+                if index == prev_idx + 1 {
+                    self.sequential_count.fetch_add(1, Ordering::Relaxed);
+                }
+            }
+            *last = Some(index);
+        }
+    }
+
+    /// Get profiling statistics
+    pub fn stats(&self) -> DatasetProfileStats {
+        use std::sync::atomic::Ordering;
+
+        let access_count = self.access_count.load(Ordering::Relaxed);
+        let sequential_count = self.sequential_count.load(Ordering::Relaxed);
+        let total_time_us = self.total_time_us.load(Ordering::Relaxed);
+        let elapsed = self.start_time.elapsed();
+
+        DatasetProfileStats {
+            total_accesses: access_count,
+            sequential_accesses: sequential_count,
+            sequential_ratio: if access_count > 1 {
+                sequential_count as f64 / (access_count - 1) as f64
+            } else {
+                0.0
+            },
+            avg_access_time_us: if access_count > 0 {
+                total_time_us as f64 / access_count as f64
+            } else {
+                0.0
+            },
+            total_time_us,
+            elapsed_seconds: elapsed.as_secs_f64(),
+            throughput_accesses_per_sec: if elapsed.as_secs_f64() > 0.0 {
+                access_count as f64 / elapsed.as_secs_f64()
+            } else {
+                0.0
+            },
+        }
+    }
+
+    /// Get optimization hints based on profiling data
+    pub fn hints(&self) -> Vec<String> {
+        let stats = self.stats();
+        let mut hints = Vec::new();
+
+        // Check sequential access pattern
+        if stats.sequential_ratio > 0.9 {
+            hints.push("High sequential access detected. Consider using SequentialSampler for optimal performance.".to_string());
+        } else if stats.sequential_ratio < 0.1 {
+            hints.push("Random access pattern detected. Consider using memory-mapped dataset or caching for better performance.".to_string());
+        }
+
+        // Check access time
+        if stats.avg_access_time_us > 1000.0 {
+            hints.push(format!(
+                "Average access time is {:.2}ms. Consider prefetching or increasing num_workers.",
+                stats.avg_access_time_us / 1000.0
+            ));
+        }
+
+        // Check throughput
+        if stats.throughput_accesses_per_sec < 100.0 && stats.total_accesses > 100 {
+            hints.push(format!(
+                "Low throughput ({:.1} accesses/sec). Consider optimizing dataset.get() implementation or using parallel loading.",
+                stats.throughput_accesses_per_sec
+            ));
+        }
+
+        if hints.is_empty() {
+            hints.push("Data loading performance looks good!".to_string());
+        }
+
+        hints
+    }
+
+    /// Reset profiling statistics
+    pub fn reset(&self) {
+        use std::sync::atomic::Ordering;
+
+        self.access_count.store(0, Ordering::Relaxed);
+        self.sequential_count.store(0, Ordering::Relaxed);
+        self.total_time_us.store(0, Ordering::Relaxed);
+        if let Ok(mut last) = self.last_index.lock() {
+            *last = None;
+        }
+    }
+}
+
+/// Statistics from dataset profiling
+#[cfg(feature = "std")]
+#[derive(Debug, Clone)]
+pub struct DatasetProfileStats {
+    /// Total number of dataset accesses
+    pub total_accesses: usize,
+    /// Number of sequential accesses
+    pub sequential_accesses: usize,
+    /// Ratio of sequential to total accesses
+    pub sequential_ratio: f64,
+    /// Average access time in microseconds
+    pub avg_access_time_us: f64,
+    /// Total access time in microseconds
+    pub total_time_us: u64,
+    /// Elapsed time since profiling started (seconds)
+    pub elapsed_seconds: f64,
+    /// Throughput in accesses per second
+    pub throughput_accesses_per_sec: f64,
+}
+
+#[cfg(feature = "std")]
+impl std::fmt::Display for DatasetProfileStats {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Dataset Profile Statistics:")?;
+        writeln!(f, "  Total Accesses: {}", self.total_accesses)?;
+        writeln!(
+            f,
+            "  Sequential Accesses: {} ({:.1}%)",
+            self.sequential_accesses,
+            self.sequential_ratio * 100.0
+        )?;
+        writeln!(
+            f,
+            "  Avg Access Time: {:.2} µs ({:.3} ms)",
+            self.avg_access_time_us,
+            self.avg_access_time_us / 1000.0
+        )?;
+        writeln!(
+            f,
+            "  Throughput: {:.1} accesses/sec",
+            self.throughput_accesses_per_sec
+        )?;
+        writeln!(f, "  Elapsed Time: {:.2} seconds", self.elapsed_seconds)?;
+        Ok(())
+    }
+}
+
+/// Wrapper dataset that profiles accesses
+#[cfg(feature = "std")]
+pub struct ProfiledDataset<D: Dataset> {
+    dataset: D,
+    profiler: std::sync::Arc<DatasetProfiler>,
+}
+
+#[cfg(feature = "std")]
+impl<D: Dataset> ProfiledDataset<D> {
+    /// Wrap a dataset with profiling
+    pub fn new(dataset: D) -> Self {
+        Self {
+            dataset,
+            profiler: std::sync::Arc::new(DatasetProfiler::new()),
+        }
+    }
+
+    /// Get reference to the profiler
+    pub fn profiler(&self) -> &std::sync::Arc<DatasetProfiler> {
+        &self.profiler
+    }
+
+    /// Get profiling statistics
+    pub fn stats(&self) -> DatasetProfileStats {
+        self.profiler.stats()
+    }
+
+    /// Get optimization hints
+    pub fn hints(&self) -> Vec<String> {
+        self.profiler.hints()
+    }
+
+    /// Print a profiling report
+    pub fn print_report(&self) {
+        println!("{}", self.stats());
+        println!("\nOptimization Hints:");
+        for hint in self.hints() {
+            println!("  • {}", hint);
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl<D: Dataset> Dataset for ProfiledDataset<D> {
+    type Item = D::Item;
+
+    fn len(&self) -> usize {
+        self.dataset.len()
+    }
+
+    fn get(&self, index: usize) -> Result<Self::Item> {
+        let start = std::time::Instant::now();
+        let result = self.dataset.get(index);
+        let duration = start.elapsed();
+        self.profiler.record_access(index, duration);
+        result
+    }
+}
+
+// ============================================================================
+// Dataset Analysis and Splitting Utilities
+// ============================================================================
+
+/// Dataset statistics for a single feature
+#[derive(Debug, Clone)]
+pub struct FeatureStats {
+    pub mean: f32,
+    pub std: f32,
+    pub min: f32,
+    pub max: f32,
+    pub count: usize,
+}
+
+impl FeatureStats {
+    /// Create feature statistics from data
+    pub fn from_data(data: &[f32]) -> Self {
+        if data.is_empty() {
+            return Self {
+                mean: 0.0,
+                std: 0.0,
+                min: 0.0,
+                max: 0.0,
+                count: 0,
+            };
+        }
+
+        let count = data.len();
+        let sum: f32 = data.iter().sum();
+        let mean = sum / count as f32;
+
+        let min = data.iter().copied().fold(f32::INFINITY, f32::min);
+        let max = data.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+
+        let variance: f32 = data.iter().map(|&x| (x - mean).powi(2)).sum::<f32>() / count as f32;
+        let std = variance.sqrt();
+
+        Self {
+            mean,
+            std,
+            min,
+            max,
+            count,
+        }
+    }
+}
+
+/// Compute statistics for a tensor dataset
+///
+/// Returns feature statistics for each feature dimension in the dataset.
+/// Only works with TensorDataset<f32> where the first tensor contains the features.
+pub fn dataset_statistics(dataset: &TensorDataset<f32>) -> Result<Vec<FeatureStats>> {
+    if dataset.len() == 0 {
+        return Ok(Vec::new());
+    }
+
+    // Get the first item to determine feature dimensions
+    let first_item = dataset.get(0)?;
+    if first_item.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let features_tensor = &first_item[0];
+    let n_features = features_tensor.numel();
+
+    // Collect all feature values
+    let mut feature_data: Vec<Vec<f32>> = vec![Vec::with_capacity(dataset.len()); n_features];
+
+    for i in 0..dataset.len() {
+        let item = dataset.get(i)?;
+        if item.is_empty() {
+            continue;
+        }
+
+        let features = &item[0];
+
+        // Extract feature values - assuming 1D tensor for features
+        // For each feature dimension, extract the value
+        for feat_idx in 0..n_features.min(features.numel()) {
+            // Use indexing to get individual elements
+            if let Ok(indices) = torsh_tensor::Tensor::from_vec(vec![feat_idx as i64], &[1]) {
+                if let Ok(value_tensor) = features.index_select(0, &indices) {
+                    if let Ok(value) = value_tensor.item() {
+                        feature_data[feat_idx].push(value);
+                    }
+                }
+            }
+        }
+    }
+
+    // Compute statistics for each feature
+    Ok(feature_data
+        .iter()
+        .map(|data| FeatureStats::from_data(data))
+        .collect())
+}
+
+/// K-fold cross-validation indices generator
+///
+/// Generates k folds of train/validation indices for cross-validation.
+/// Each fold uses (k-1)/k of the data for training and 1/k for validation.
+#[derive(Debug, Clone)]
+pub struct KFold {
+    n_splits: usize,
+    shuffle: bool,
+    random_seed: Option<u64>,
+}
+
+impl KFold {
+    /// Create a new K-fold cross-validator
+    ///
+    /// # Arguments
+    /// * `n_splits` - Number of folds (must be >= 2)
+    /// * `shuffle` - Whether to shuffle data before splitting
+    /// * `random_seed` - Random seed for reproducible shuffling
+    pub fn new(n_splits: usize, shuffle: bool, random_seed: Option<u64>) -> Self {
+        assert!(n_splits >= 2, "n_splits must be at least 2");
+        Self {
+            n_splits,
+            shuffle,
+            random_seed,
+        }
+    }
+
+    /// Generate fold indices for a dataset
+    ///
+    /// Returns a vector of (train_indices, val_indices) tuples, one for each fold.
+    pub fn split(&self, n_samples: usize) -> Vec<(Vec<usize>, Vec<usize>)> {
+        let mut indices: Vec<usize> = (0..n_samples).collect();
+
+        // Shuffle if requested
+        if self.shuffle {
+            // ✅ SciRS2 Policy Compliant - Using enhanced scientific shuffle
+            use scirs2_core::random::prelude::*;
+            use scirs2_core::random::seq::ScientificSliceRandom;
+            use scirs2_core::random::SeedableRng;
+
+            let mut rng = if let Some(seed) = self.random_seed {
+                StdRng::seed_from_u64(seed)
+            } else {
+                // Use current time as seed for non-deterministic shuffling
+                use std::time::SystemTime;
+                let seed = SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs();
+                StdRng::seed_from_u64(seed)
+            };
+            indices.scientific_shuffle(&mut rng);
+        }
+
+        let mut folds = Vec::with_capacity(self.n_splits);
+        let fold_size = n_samples / self.n_splits;
+
+        for fold_idx in 0..self.n_splits {
+            let val_start = fold_idx * fold_size;
+            let val_end = if fold_idx == self.n_splits - 1 {
+                n_samples // Last fold gets remainder
+            } else {
+                (fold_idx + 1) * fold_size
+            };
+
+            let val_indices: Vec<usize> = indices[val_start..val_end].to_vec();
+            let mut train_indices: Vec<usize> = Vec::with_capacity(n_samples - val_indices.len());
+
+            train_indices.extend_from_slice(&indices[0..val_start]);
+            train_indices.extend_from_slice(&indices[val_end..n_samples]);
+
+            folds.push((train_indices, val_indices));
+        }
+
+        folds
+    }
+}
+
+/// Stratified split that preserves class distribution
+///
+/// Splits data into train/val/test sets while maintaining the same class distribution
+/// in each split as in the original dataset.
+pub fn stratified_split<D>(
+    dataset: D,
+    labels: &[usize],
+    train_ratio: f32,
+    val_ratio: Option<f32>,
+    random_seed: Option<u64>,
+) -> Result<(Subset<D>, Subset<D>, Option<Subset<D>>)>
+where
+    D: Dataset + Clone,
+{
+    if train_ratio <= 0.0 || train_ratio >= 1.0 {
+        return Err(torsh_core::error::TorshError::InvalidArgument(
+            "train_ratio must be between 0 and 1".to_string(),
+        ));
+    }
+
+    let has_val = val_ratio.is_some();
+    let val_r = val_ratio.unwrap_or(0.0);
+
+    if has_val && (train_ratio + val_r >= 1.0) {
+        return Err(torsh_core::error::TorshError::InvalidArgument(
+            "train_ratio + val_ratio must be less than 1".to_string(),
+        ));
+    }
+
+    if labels.len() != dataset.len() {
+        return Err(torsh_core::error::TorshError::InvalidArgument(
+            "labels length must equal dataset length".to_string(),
+        ));
+    }
+
+    // Group indices by class
+    let mut class_indices: std::collections::HashMap<usize, Vec<usize>> =
+        std::collections::HashMap::new();
+    for (idx, &label) in labels.iter().enumerate() {
+        class_indices.entry(label).or_default().push(idx);
+    }
+
+    // ✅ SciRS2 Policy Compliant - Using enhanced scientific shuffle
+    use scirs2_core::random::prelude::*;
+    use scirs2_core::random::seq::ScientificSliceRandom;
+    use scirs2_core::random::SeedableRng;
+
+    let mut rng = if let Some(seed) = random_seed {
+        StdRng::seed_from_u64(seed)
+    } else {
+        // Use current time as seed for non-deterministic shuffling
+        use std::time::SystemTime;
+        let seed = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        StdRng::seed_from_u64(seed)
+    };
+
+    let mut train_indices = Vec::new();
+    let mut val_indices = Vec::new();
+    let mut test_indices = Vec::new();
+
+    // Split each class proportionally
+    for (_class, mut indices) in class_indices {
+        indices.scientific_shuffle(&mut rng);
+
+        let n_train = (indices.len() as f32 * train_ratio).round() as usize;
+        let n_val = if has_val {
+            (indices.len() as f32 * val_r).round() as usize
+        } else {
+            0
+        };
+
+        train_indices.extend_from_slice(&indices[0..n_train]);
+
+        if has_val {
+            val_indices.extend_from_slice(&indices[n_train..n_train + n_val]);
+            test_indices.extend_from_slice(&indices[n_train + n_val..]);
+        } else {
+            test_indices.extend_from_slice(&indices[n_train..]);
+        }
+    }
+
+    let train_subset = Subset::new(dataset.clone(), train_indices);
+    let test_subset = Subset::new(dataset.clone(), test_indices);
+    let val_subset = if has_val {
+        Some(Subset::new(dataset, val_indices))
+    } else {
+        None
+    };
+
+    Ok((train_subset, test_subset, val_subset))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1335,5 +1848,363 @@ mod tests {
 
         // Test reset functionality
         assert!(buffered.reset().is_ok());
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn test_dataset_profiler_sequential_access() {
+        use std::thread;
+        use std::time::Duration;
+
+        let tensor = ones::<f32>(&[10, 2]).unwrap();
+        let dataset = TensorDataset::from_tensor(tensor);
+        let profiled = ProfiledDataset::new(dataset);
+
+        // Access sequentially
+        for i in 0..10 {
+            let _ = profiled.get(i).unwrap();
+            thread::sleep(Duration::from_micros(100));
+        }
+
+        let stats = profiled.stats();
+        assert_eq!(stats.total_accesses, 10);
+        assert_eq!(stats.sequential_accesses, 9); // 9 sequential transitions for 10 accesses
+        assert!(stats.sequential_ratio > 0.8);
+        assert!(stats.avg_access_time_us > 0.0);
+        assert!(stats.throughput_accesses_per_sec > 0.0);
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn test_dataset_profiler_random_access() {
+        let tensor = ones::<f32>(&[10, 2]).unwrap();
+        let dataset = TensorDataset::from_tensor(tensor);
+        let profiled = ProfiledDataset::new(dataset);
+
+        // Access randomly (no sequential pattern)
+        let indices = [0, 5, 2, 8, 1];
+        for &i in &indices {
+            let _ = profiled.get(i).unwrap();
+        }
+
+        let stats = profiled.stats();
+        assert_eq!(stats.total_accesses, 5);
+        assert_eq!(stats.sequential_accesses, 0);
+        assert_eq!(stats.sequential_ratio, 0.0);
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn test_dataset_profiler_hints() {
+        let tensor = ones::<f32>(&[100, 2]).unwrap();
+        let dataset = TensorDataset::from_tensor(tensor);
+        let profiled = ProfiledDataset::new(dataset);
+
+        // Sequential access
+        for i in 0..20 {
+            let _ = profiled.get(i).unwrap();
+        }
+
+        let hints = profiled.hints();
+        assert!(!hints.is_empty());
+        // Should detect sequential pattern
+        assert!(hints
+            .iter()
+            .any(|h| h.contains("sequential") || h.contains("good")));
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn test_dataset_profiler_reset() {
+        let tensor = ones::<f32>(&[10, 2]).unwrap();
+        let dataset = TensorDataset::from_tensor(tensor);
+        let profiled = ProfiledDataset::new(dataset);
+
+        // Make some accesses
+        for i in 0..5 {
+            let _ = profiled.get(i).unwrap();
+        }
+
+        assert_eq!(profiled.stats().total_accesses, 5);
+
+        // Reset and verify
+        profiled.profiler().reset();
+        assert_eq!(profiled.stats().total_accesses, 0);
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn test_dataset_profiler_display() {
+        let tensor = ones::<f32>(&[10, 2]).unwrap();
+        let dataset = TensorDataset::from_tensor(tensor);
+        let profiled = ProfiledDataset::new(dataset);
+
+        // Make some accesses
+        for i in 0..5 {
+            let _ = profiled.get(i).unwrap();
+        }
+
+        // Test Display implementation
+        let stats_string = format!("{}", profiled.stats());
+        assert!(stats_string.contains("Dataset Profile Statistics"));
+        assert!(stats_string.contains("Total Accesses: 5"));
+    }
+
+    // ============================================================================
+    // Tests for new dataset analysis and splitting utilities
+    // ============================================================================
+
+    #[test]
+    fn test_feature_stats() {
+        let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let stats = FeatureStats::from_data(&data);
+
+        assert_eq!(stats.count, 5);
+        assert_eq!(stats.mean, 3.0);
+        assert_eq!(stats.min, 1.0);
+        assert_eq!(stats.max, 5.0);
+        assert!((stats.std - 1.4142).abs() < 0.01); // sqrt(2) ≈ 1.4142
+    }
+
+    #[test]
+    fn test_feature_stats_empty() {
+        let data: Vec<f32> = vec![];
+        let stats = FeatureStats::from_data(&data);
+
+        assert_eq!(stats.count, 0);
+        assert_eq!(stats.mean, 0.0);
+        assert_eq!(stats.std, 0.0);
+    }
+
+    #[test]
+    fn test_dataset_statistics() {
+        // Create a simple dataset with 10 samples, 3 features
+        let data = torsh_tensor::creation::randn::<f32>(&[10, 3]).unwrap();
+        let dataset = TensorDataset::from_tensor(data);
+
+        let stats = dataset_statistics(&dataset).unwrap();
+
+        assert_eq!(stats.len(), 3); // 3 features
+        for stat in &stats {
+            assert_eq!(stat.count, 10); // 10 samples
+            assert!(stat.min <= stat.mean);
+            assert!(stat.mean <= stat.max);
+            assert!(stat.std >= 0.0);
+        }
+    }
+
+    #[test]
+    fn test_dataset_statistics_empty() {
+        let data = torsh_tensor::creation::zeros::<f32>(&[0, 3]).unwrap();
+        let dataset = TensorDataset::from_tensor(data);
+
+        let stats = dataset_statistics(&dataset).unwrap();
+        assert_eq!(stats.len(), 0);
+    }
+
+    #[test]
+    fn test_kfold_basic() {
+        let kfold = KFold::new(5, false, Some(42));
+        let folds = kfold.split(100);
+
+        assert_eq!(folds.len(), 5);
+
+        for (fold_idx, (train_indices, val_indices)) in folds.iter().enumerate() {
+            // Each fold should have 20 validation samples (100 / 5)
+            assert_eq!(val_indices.len(), 20);
+
+            // Training should have the remaining 80 samples
+            assert_eq!(train_indices.len(), 80);
+
+            // Verify no overlap between train and val
+            for &val_idx in val_indices {
+                assert!(!train_indices.contains(&val_idx));
+            }
+
+            // All indices should be in range
+            for &idx in train_indices.iter().chain(val_indices.iter()) {
+                assert!(idx < 100);
+            }
+
+            println!(
+                "Fold {}: train={}, val={}",
+                fold_idx,
+                train_indices.len(),
+                val_indices.len()
+            );
+        }
+    }
+
+    #[test]
+    fn test_kfold_shuffle() {
+        let kfold_shuffled = KFold::new(3, true, Some(42));
+        let kfold_unshuffled = KFold::new(3, false, None);
+
+        let folds_shuffled = kfold_shuffled.split(30);
+        let folds_unshuffled = kfold_unshuffled.split(30);
+
+        // Both should have same number of folds
+        assert_eq!(folds_shuffled.len(), folds_unshuffled.len());
+
+        // Validation indices should be different due to shuffling
+        let shuffled_val = &folds_shuffled[0].1;
+        let unshuffled_val = &folds_unshuffled[0].1;
+
+        // Unshuffled should be [0..10], shuffled should be different
+        assert_eq!(unshuffled_val, &(0..10).collect::<Vec<_>>());
+        assert_ne!(shuffled_val, unshuffled_val);
+    }
+
+    #[test]
+    fn test_kfold_uneven_split() {
+        let kfold = KFold::new(3, false, None);
+        let folds = kfold.split(10); // 10 doesn't divide evenly by 3
+
+        // Should still create 3 folds
+        assert_eq!(folds.len(), 3);
+
+        // Last fold gets the remainder
+        assert_eq!(folds[0].1.len(), 3); // 10 / 3 = 3
+        assert_eq!(folds[1].1.len(), 3);
+        assert_eq!(folds[2].1.len(), 4); // Gets remainder
+
+        // All samples should be used
+        let all_val_samples: usize = folds.iter().map(|(_, val)| val.len()).sum();
+        assert_eq!(all_val_samples, 10);
+    }
+
+    #[test]
+    #[should_panic(expected = "n_splits must be at least 2")]
+    fn test_kfold_invalid_splits() {
+        KFold::new(1, false, None); // Should panic
+    }
+
+    #[test]
+    fn test_stratified_split_binary() {
+        let data = ones::<f32>(&[100, 5]).unwrap();
+        let dataset = TensorDataset::from_tensor(data);
+
+        // Create balanced binary labels: 50 class 0, 50 class 1
+        let labels: Vec<usize> = (0..100).map(|i| if i < 50 { 0 } else { 1 }).collect();
+
+        let (train, test, val) =
+            stratified_split(dataset, &labels, 0.6, Some(0.2), Some(42)).unwrap();
+
+        // Check sizes (60% train, 20% val, 20% test)
+        assert_eq!(train.len(), 60);
+        assert!(val.is_some());
+        assert_eq!(val.as_ref().unwrap().len(), 20);
+        assert_eq!(test.len(), 20);
+
+        // Verify stratification: each split should have roughly equal class distribution
+        // For a 50-50 split with 60 training samples, we expect ~30 of each class
+        println!(
+            "Stratified split: train={}, val={}, test={}",
+            train.len(),
+            val.as_ref().unwrap().len(),
+            test.len()
+        );
+    }
+
+    #[test]
+    fn test_stratified_split_multi_class() {
+        let data = ones::<f32>(&[90, 5]).unwrap();
+        let dataset = TensorDataset::from_tensor(data);
+
+        // Create 3-class labels: 30 of each class
+        let labels: Vec<usize> = (0..90).map(|i| i / 30).collect();
+
+        let (train, test, _val) = stratified_split(dataset, &labels, 0.7, None, Some(42)).unwrap();
+
+        // Check sizes (70% train, 30% test)
+        assert_eq!(train.len(), 63); // 0.7 * 90 = 63
+        assert_eq!(test.len(), 27); // 0.3 * 90 = 27
+
+        println!(
+            "Multi-class split: train={}, test={}",
+            train.len(),
+            test.len()
+        );
+    }
+
+    #[test]
+    fn test_stratified_split_no_val() {
+        let data = ones::<f32>(&[50, 3]).unwrap();
+        let dataset = TensorDataset::from_tensor(data);
+        let labels: Vec<usize> = (0..50).map(|i| i % 2).collect();
+
+        let (train, test, val) = stratified_split(dataset, &labels, 0.8, None, Some(42)).unwrap();
+
+        assert_eq!(train.len(), 40);
+        assert_eq!(test.len(), 10);
+        assert!(val.is_none());
+    }
+
+    #[test]
+    fn test_stratified_split_invalid_ratio() {
+        let data = ones::<f32>(&[50, 3]).unwrap();
+        let dataset = TensorDataset::from_tensor(data);
+        let labels: Vec<usize> = (0..50).map(|i| i % 2).collect();
+
+        // Invalid: train_ratio >= 1.0
+        let result = stratified_split(dataset.clone(), &labels, 1.0, None, None);
+        assert!(result.is_err());
+
+        // Invalid: train_ratio + val_ratio >= 1.0
+        let result = stratified_split(dataset, &labels, 0.7, Some(0.4), None);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_stratified_split_mismatched_labels() {
+        let data = ones::<f32>(&[50, 3]).unwrap();
+        let dataset = TensorDataset::from_tensor(data);
+        let labels: Vec<usize> = vec![0, 1]; // Wrong length
+
+        let result = stratified_split(dataset, &labels, 0.8, None, None);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_kfold_reproducibility() {
+        let kfold1 = KFold::new(5, true, Some(42));
+        let kfold2 = KFold::new(5, true, Some(42));
+
+        let folds1 = kfold1.split(50);
+        let folds2 = kfold2.split(50);
+
+        // Same seed should produce same splits
+        for (f1, f2) in folds1.iter().zip(folds2.iter()) {
+            assert_eq!(f1.0, f2.0); // Train indices
+            assert_eq!(f1.1, f2.1); // Val indices
+        }
+    }
+
+    #[test]
+    fn test_stratified_split_reproducibility() {
+        let data = ones::<f32>(&[100, 5]).unwrap();
+        let labels: Vec<usize> = (0..100).map(|i| i % 3).collect();
+
+        let (train1, test1, _) = stratified_split(
+            TensorDataset::from_tensor(data.clone()),
+            &labels,
+            0.7,
+            None,
+            Some(42),
+        )
+        .unwrap();
+
+        let (train2, test2, _) = stratified_split(
+            TensorDataset::from_tensor(data),
+            &labels,
+            0.7,
+            None,
+            Some(42),
+        )
+        .unwrap();
+
+        // Same seed should produce same splits
+        assert_eq!(train1.len(), train2.len());
+        assert_eq!(test1.len(), test2.len());
     }
 }

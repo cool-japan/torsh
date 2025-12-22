@@ -4,6 +4,8 @@
 //! all mirror management components including selection algorithms, performance
 //! analysis, geographic optimization, and download coordination.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use super::selection::{validate_selection_strategy, MirrorSelector};
 use super::types::*;
 use super::types::{GeographicCalculator, PerformanceAnalyzer};
@@ -78,7 +80,7 @@ impl MirrorManager {
         validate_selection_strategy(&config.selection_strategy)?;
 
         let client = Client::builder()
-            .user_agent("torsh-hub/0.1.0-alpha.1")
+            .user_agent("torsh-hub/0.1.0-alpha.2")
             .timeout(config.connection_timeout)
             .build()
             .map_err(|e| TorshError::IoError(e.to_string()))?;
@@ -546,7 +548,7 @@ impl MirrorManager {
             .iter()
             .map(|mirror| {
                 // Calculate average recent throughput from last 10 performance snapshots
-                let avg_recent_throughput = if mirror.performance_history.len() >= 3 {
+                let _avg_recent_throughput = if mirror.performance_history.len() >= 3 {
                     let recent_throughputs: Vec<f64> = mirror
                         .performance_history
                         .iter()
@@ -684,7 +686,7 @@ impl MirrorManager {
                     .last_successful_connection
                     .map(|timestamp| std::time::UNIX_EPOCH + Duration::from_secs(timestamp))
                     .unwrap_or(std::time::SystemTime::now()),
-                response_time: mirror.avg_response_time.map(|t| Duration::from_millis(t)),
+                response_time: mirror.avg_response_time.map(Duration::from_millis),
                 error_rate: (mirror.consecutive_failures as f32) / 10.0, // Convert to a reasonable error rate
                 uptime_percentage: (mirror.reliability_score * 100.0) as f32,
             });
@@ -1056,9 +1058,12 @@ mod tests {
         );
 
         let default_config = create_regional_mirror_config("unknown");
-        match default_config.selection_strategy {
-            MirrorSelectionStrategy::Weighted(_) => {}
-            _ => panic!("Expected weighted strategy for unknown region"),
-        }
+        assert!(
+            matches!(
+                default_config.selection_strategy,
+                MirrorSelectionStrategy::Weighted(_)
+            ),
+            "Expected weighted strategy for unknown region"
+        );
     }
 }

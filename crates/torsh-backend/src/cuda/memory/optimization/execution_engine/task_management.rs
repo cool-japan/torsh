@@ -5,15 +5,12 @@
 //! task lifecycle management, metadata tracking, and execution coordination.
 
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
-use std::sync::{
-    atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
-    Arc, Mutex, RwLock,
-};
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant, SystemTime};
 use uuid::Uuid;
 
-use super::config::{ExecutionConfig, TaskPriority};
+use super::config::ExecutionConfig;
 
 /// Comprehensive optimization task for execution
 ///
@@ -554,7 +551,7 @@ pub struct HardwareRequirement {
 }
 
 /// Hardware types for specialized requirements
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum HardwareType {
     /// CPU processing unit
     CPU,

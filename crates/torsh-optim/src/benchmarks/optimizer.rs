@@ -637,7 +637,7 @@ impl OptimizerBenchmarks {
                         0.0
                     }
                 };
-                grads.set(&[i], grad_val);
+                let _ = grads.set(&[i], grad_val);
             }
 
             let iter_start = Instant::now();

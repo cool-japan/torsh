@@ -4,12 +4,9 @@
 //! including long-term data storage, archival, compression, querying, analytics, and trend analysis
 //! for optimization performance tracking and decision making.
 
-use scirs2_core::ndarray::{Array1, Array2};
-use scirs2_core::random::Random;
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
-use std::path::PathBuf;
-use std::sync::{Arc, Mutex, RwLock};
-use std::time::{Duration, Instant, SystemTime};
+use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, RwLock};
+use std::time::{Duration, Instant};
 
 /// Comprehensive historical data management system
 #[derive(Debug)]
@@ -258,7 +255,7 @@ pub struct LearningMilestone {
 }
 
 /// Types of learning milestones
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MilestoneType {
     /// First successful optimization
     FirstSuccess,
@@ -1152,36 +1149,3 @@ pub enum TimeFrame {
     Custom { start: Instant, end: Instant },
     All,
 }
-
-// Default implementations and placeholder structures
-// (Due to space constraints, providing abbreviated versions)
-
-#[derive(Debug, Default)]
-pub struct HistoryManagerConfig;
-#[derive(Debug, Default)]
-pub struct HistoryStorageConfig;
-#[derive(Debug, Default)]
-pub struct DataArchivalSystem;
-#[derive(Debug, Default)]
-pub struct HistoricalAnalyticsEngine;
-#[derive(Debug, Default)]
-pub struct DataCompressionSystem;
-#[derive(Debug, Default)]
-pub struct HistoryQuerySystem;
-#[derive(Debug, Default)]
-pub struct DataMigrationSystem;
-#[derive(Debug, Default)]
-pub struct DataRetentionManager;
-#[derive(Debug, Default)]
-pub struct HistoryValidationSystem;
-#[derive(Debug, Default)]
-pub struct HistoryExportImportSystem;
-#[derive(Debug, Default)]
-pub struct HistoricalTrendAnalyzer;
-#[derive(Debug, Default)]
-pub struct HistoryVisualizationSystem;
-#[derive(Debug, Default)]
-pub struct HistoryPerformanceTracker;
-
-// This represents the comprehensive historical data management system
-// Additional implementations would be provided for complete functionality

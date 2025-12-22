@@ -1,7 +1,6 @@
 //! Data conversion utilities for Python-Rust interop
 
-use crate::{device::PyDevice, dtype::PyDType, error::PyResult};
-use numpy::{PyArray1, PyArray2, PyArrayDyn, PyArrayMethods, PyUntypedArrayMethods};
+use crate::error::PyResult;
 use pyo3::prelude::*;
 use pyo3::types::PyList;
 use torsh_core::{device::DeviceType, dtype::DType};

@@ -1,5 +1,7 @@
 //! Optimized collation implementations
 
+// Used in both std and no_std feature branches
+#[allow(unused_imports)]
 use super::stacking::TensorStacker;
 use crate::collate::Collate;
 use torsh_core::{
@@ -11,8 +13,9 @@ use torsh_tensor::Tensor;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
+// ✅ SciRS2 POLICY: Use scirs2_core::parallel_ops instead of rayon::prelude
 #[cfg(feature = "std")]
-use rayon::prelude::*;
+use scirs2_core::parallel_ops::*;
 
 /// Stack tensors along a new dimension (optimized version)
 pub fn stack_tensors<T: TensorElement + Copy>(
@@ -53,10 +56,14 @@ pub fn stack_tensors<T: TensorElement + Copy>(
         }
     }
 
-    // Optimized stacking: pre-allocate and copy data efficiently
+    // Optimized stacking: pre-allocate without unnecessary initialization
+    // Use with_capacity + unsafe set_len for better performance when we know
+    // we'll immediately overwrite all values
     let tensor_size = tensors[0].numel();
     let total_elements = new_dims.iter().product::<usize>();
-    let mut new_data = vec![T::from_f64(0.0).unwrap(); total_elements];
+    let mut new_data = Vec::with_capacity(total_elements);
+    // SAFETY: We immediately fill all elements below, so uninitialized memory is never read
+    unsafe { new_data.set_len(total_elements) };
 
     // Use parallel processing for large batches when std feature is available
     #[cfg(feature = "std")]

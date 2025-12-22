@@ -565,7 +565,7 @@ fn apply_horizontal_convolution(
     width: usize,
     padding: PaddingMode,
 ) -> Result<Tensor<f32>> {
-    let mut result = zeros(&[channels, height, width])?;
+    let result = zeros(&[channels, height, width])?;
     let kernel_size = kernel.len();
     let kernel_radius = kernel_size / 2;
 
@@ -598,7 +598,7 @@ fn apply_vertical_convolution(
     width: usize,
     padding: PaddingMode,
 ) -> Result<Tensor<f32>> {
-    let mut result = zeros(&[channels, height, width])?;
+    let result = zeros(&[channels, height, width])?;
     let kernel_size = kernel.len();
     let kernel_radius = kernel_size / 2;
 
@@ -633,7 +633,7 @@ fn apply_2d_convolution(
     kernel_width: usize,
     config: FilteringConfig,
 ) -> Result<Tensor<f32>> {
-    let mut result = zeros(&[channels, height, width])?;
+    let result = zeros(&[channels, height, width])?;
     let kernel_radius_y = kernel_height / 2;
     let kernel_radius_x = kernel_width / 2;
 
@@ -679,7 +679,7 @@ fn apply_erosion(
     height: usize,
     width: usize,
 ) -> Result<Tensor<f32>> {
-    let mut result = zeros(&[1, height, width])?;
+    let result = zeros(&[1, height, width])?;
     let kernel_size = structuring_element.len();
     let kernel_radius = kernel_size / 2;
 
@@ -715,7 +715,7 @@ fn apply_dilation(
     height: usize,
     width: usize,
 ) -> Result<Tensor<f32>> {
-    let mut result = zeros(&[1, height, width])?;
+    let result = zeros(&[1, height, width])?;
     let kernel_size = structuring_element.len();
     let kernel_radius = kernel_size / 2;
 
@@ -752,7 +752,7 @@ fn apply_median_filter(
     width: usize,
     kernel_size: usize,
 ) -> Result<Tensor<f32>> {
-    let mut result = zeros(&[channels, height, width])?;
+    let result = zeros(&[channels, height, width])?;
     let kernel_radius = kernel_size / 2;
 
     for c in 0..channels {
@@ -792,7 +792,7 @@ fn apply_bilateral_filter(
     sigma_spatial: f32,
     sigma_color: f32,
 ) -> Result<Tensor<f32>> {
-    let mut result = zeros(&[channels, height, width])?;
+    let result = zeros(&[channels, height, width])?;
     let kernel_radius = kernel_size / 2;
     let spatial_coeff = -1.0 / (2.0 * sigma_spatial * sigma_spatial);
     let color_coeff = -1.0 / (2.0 * sigma_color * sigma_color);
@@ -815,8 +815,8 @@ fn apply_bilateral_filter(
                         let pixel_val: f32 = image.get(&[c, clamped_y, clamped_x])?.clone().into();
 
                         // Spatial distance weight
-                        let spatial_dist = ((ky as f32 - kernel_radius as f32).powi(2)
-                            + (kx as f32 - kernel_radius as f32).powi(2));
+                        let spatial_dist = (ky as f32 - kernel_radius as f32).powi(2)
+                            + (kx as f32 - kernel_radius as f32).powi(2);
                         let spatial_weight = (spatial_dist * spatial_coeff).exp();
 
                         // Color distance weight
@@ -868,7 +868,7 @@ fn apply_padding_1d(coord: i64, size: usize, padding: PaddingMode) -> usize {
 }
 
 fn tensor_from_2d_array(array: &[[f32; 3]; 3]) -> Result<Tensor<f32>> {
-    let mut result = zeros(&[3, 3])?;
+    let result = zeros(&[3, 3])?;
     for i in 0..3 {
         for j in 0..3 {
             result.set(&[i, j], array[i][j].into())?;
@@ -880,7 +880,7 @@ fn tensor_from_2d_array(array: &[[f32; 3]; 3]) -> Result<Tensor<f32>> {
 fn compute_gradient_magnitude(grad_x: &Tensor<f32>, grad_y: &Tensor<f32>) -> Result<Tensor<f32>> {
     let shape = grad_x.shape();
     let dims = shape.dims();
-    let mut result: Tensor<f32> = zeros(&dims)?;
+    let result: Tensor<f32> = zeros(&dims)?;
 
     let total_elements = dims.iter().product::<usize>();
 
@@ -912,7 +912,7 @@ fn compute_gradient_magnitude(grad_x: &Tensor<f32>, grad_y: &Tensor<f32>) -> Res
 fn compute_gradient_direction(grad_x: &Tensor<f32>, grad_y: &Tensor<f32>) -> Result<Tensor<f32>> {
     let shape = grad_x.shape();
     let dims = shape.dims();
-    let mut result: Tensor<f32> = zeros(&dims)?;
+    let result: Tensor<f32> = zeros(&dims)?;
 
     let total_elements = dims.iter().product::<usize>();
 
@@ -939,7 +939,7 @@ fn non_maximum_suppression(
     }
 
     let (channels, height, width) = (dims[0], dims[1], dims[2]);
-    let mut result: Tensor<f32> = zeros(&dims)?;
+    let result: Tensor<f32> = zeros(&dims)?;
 
     for c in 0..channels {
         for y in 1..height - 1 {
@@ -996,7 +996,7 @@ fn double_threshold_and_hysteresis(
 ) -> Result<Tensor<f32>> {
     let shape = edges.shape();
     let dims = shape.dims();
-    let mut result: Tensor<f32> = zeros(&dims)?;
+    let result: Tensor<f32> = zeros(&dims)?;
 
     if dims.len() != 3 {
         return Err(VisionError::InvalidShape("Expected 3D tensor".to_string()));
@@ -1080,7 +1080,7 @@ fn double_threshold_and_hysteresis(
 fn subtract_tensors(a: &Tensor<f32>, b: &Tensor<f32>) -> Result<Tensor<f32>> {
     let shape = a.shape();
     let dims = shape.dims();
-    let mut result: Tensor<f32> = zeros(&dims)?;
+    let result: Tensor<f32> = zeros(&dims)?;
 
     let total_elements = dims.iter().product::<usize>();
 

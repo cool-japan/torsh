@@ -108,6 +108,12 @@ pub struct ParallelDownloadConfigBuilder {
     config: ParallelDownloadConfig,
 }
 
+impl Default for ParallelDownloadConfigBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ParallelDownloadConfigBuilder {
     /// Create a new builder with default values
     pub fn new() -> Self {

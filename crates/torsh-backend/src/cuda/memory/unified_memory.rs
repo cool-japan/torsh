@@ -5,10 +5,10 @@
 //! for optimal performance across host and device execution.
 
 use super::allocation::{
-    AccessFrequency, AccessHints, AllocationRequest, AllocationStats, AllocationType, DataLocality,
-    MigrationStats, PreferredLocation, UnifiedAllocation,
+    AccessFrequency, AllocationRequest, AllocationStats, AllocationType, DataLocality,
+    MigrationStats, UnifiedAllocation,
 };
-use crate::error::{CudaError, CudaResult};
+use crate::cuda::error::{CudaError, CudaResult};
 use std::collections::HashMap;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
@@ -23,7 +23,7 @@ use std::time::{Duration, Instant};
 #[derive(Debug)]
 pub struct UnifiedMemoryManager {
     /// Unified memory allocations tracking
-    allocations: Mutex<HashMap<*mut u8, UnifiedAllocation>>,
+    allocations: Mutex<HashMap<usize, UnifiedAllocation>>,
 
     /// Total allocated unified memory
     total_allocated: AtomicUsize,
@@ -126,7 +126,7 @@ pub struct MigrationTracker {
     migration_history: Vec<MigrationEvent>,
 
     /// Access pattern analysis
-    access_patterns: HashMap<*mut u8, AccessPattern>,
+    access_patterns: HashMap<usize, AccessPattern>,
 
     /// Migration prediction model
     prediction_model: MigrationPredictor,
@@ -138,8 +138,8 @@ pub struct MigrationTracker {
 /// Individual migration event
 #[derive(Debug, Clone)]
 pub struct MigrationEvent {
-    /// Memory pointer
-    pub ptr: *mut u8,
+    /// Memory pointer address
+    pub ptr_addr: usize,
 
     /// Size of migrated data
     pub size: usize,
@@ -286,7 +286,7 @@ pub struct PrefetchScheduler {
     scheduled_operations: Vec<PrefetchOperation>,
 
     /// Active prefetch tasks
-    active_tasks: HashMap<*mut u8, PrefetchTask>,
+    active_tasks: HashMap<usize, PrefetchTask>,
 
     /// Prefetch history for learning
     prefetch_history: Vec<PrefetchOutcome>,
@@ -298,8 +298,8 @@ pub struct PrefetchScheduler {
 /// Prefetch operation definition
 #[derive(Debug, Clone)]
 pub struct PrefetchOperation {
-    /// Memory pointer to prefetch
-    pub ptr: *mut u8,
+    /// Memory pointer address to prefetch
+    pub ptr_addr: usize,
 
     /// Size to prefetch
     pub size: usize,
@@ -385,7 +385,7 @@ pub enum TaskStatus {
 #[derive(Debug)]
 pub struct AdviceManager {
     /// Current advice settings per allocation
-    advice_settings: Mutex<HashMap<*mut u8, MemoryAdviceSettings>>,
+    advice_settings: Mutex<HashMap<usize, MemoryAdviceSettings>>,
 
     /// Advice effectiveness tracking
     effectiveness_tracker: EffectivenessTracker,
@@ -446,8 +446,8 @@ pub struct EffectivenessTracker {
 /// Performance change measurement
 #[derive(Debug, Clone)]
 pub struct PerformanceDelta {
-    /// Memory pointer
-    pub ptr: *mut u8,
+    /// Memory address (using usize instead of raw pointer for thread safety)
+    pub ptr_address: usize,
 
     /// Applied advice
     pub advice: MemoryAdvice,
@@ -555,8 +555,8 @@ pub struct TrainingExample {
 /// Optimization operation result
 #[derive(Debug, Clone)]
 pub struct OptimizationResult {
-    /// Target allocation
-    pub ptr: *mut u8,
+    /// Target allocation pointer address
+    pub ptr_addr: usize,
 
     /// Applied optimization
     pub optimization: String,
@@ -1171,5 +1171,51 @@ mod tests {
         assert_eq!(pattern.dominant_location, Location::Host);
         assert_eq!(pattern.frequency_pattern, AccessFrequency::High);
         assert_eq!(pattern.confidence, 0.8);
+    }
+}
+
+// Type aliases and missing types for compatibility
+
+/// Migration strategy for unified memory
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MigrationStrategy {
+    /// Automatic migration based on usage
+    Automatic,
+    /// Manual migration controlled by application
+    Manual,
+    /// Lazy migration on first access
+    OnDemand,
+    /// Eager migration based on predictions
+    Predictive,
+}
+
+impl Default for MigrationStrategy {
+    fn default() -> Self {
+        Self::Automatic
+    }
+}
+
+/// Unified memory metrics
+pub type UnifiedMemoryMetrics = UnifiedMemoryStats;
+
+/// Unified memory pool (placeholder for pool implementation)
+#[derive(Debug)]
+pub struct UnifiedMemoryPool {
+    /// Total capacity of the pool
+    pub capacity: usize,
+    /// Current usage
+    pub used: usize,
+    /// Pool configuration
+    pub config: UnifiedMemoryConfig,
+}
+
+impl UnifiedMemoryPool {
+    /// Create a new unified memory pool
+    pub fn new(capacity: usize, config: UnifiedMemoryConfig) -> Self {
+        Self {
+            capacity,
+            used: 0,
+            config,
+        }
     }
 }

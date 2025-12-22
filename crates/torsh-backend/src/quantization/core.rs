@@ -10,7 +10,7 @@ use crate::{BackendResult, Device};
 use torsh_core::error::TorshError;
 
 #[cfg(not(feature = "std"))]
-use alloc::{vec::Vec};
+use alloc::vec::Vec;
 
 /// Quantization data types
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -80,7 +80,10 @@ impl QuantizedDType {
 
     /// Check if this type requires packing (multiple elements per byte)
     pub fn is_packed(&self) -> bool {
-        matches!(self, QuantizedDType::Int4 | QuantizedDType::UInt4 | QuantizedDType::Binary)
+        matches!(
+            self,
+            QuantizedDType::Int4 | QuantizedDType::UInt4 | QuantizedDType::Binary
+        )
     }
 
     /// Get the packing factor (elements per byte) for packed types
@@ -113,7 +116,10 @@ pub enum QuantizationScheme {
 impl QuantizationScheme {
     /// Check if this scheme supports zero points
     pub fn supports_zero_point(&self) -> bool {
-        matches!(self, QuantizationScheme::Asymmetric | QuantizationScheme::Linear)
+        matches!(
+            self,
+            QuantizationScheme::Asymmetric | QuantizationScheme::Linear
+        )
     }
 
     /// Check if this scheme requires per-channel parameters
@@ -288,8 +294,9 @@ impl QuantizationParams {
             if self.scale.is_empty() || self.zero_point.is_empty() {
                 return Err(TorshError::dimension_error(
                     "Channel-wise quantization requires non-empty scale and zero_point vectors",
-                    "validate"
-                ).into());
+                    "validate",
+                )
+                .into());
             }
             if self.scale.len() != self.zero_point.len() {
                 return Err(TorshError::dimension_error(
@@ -301,8 +308,9 @@ impl QuantizationParams {
             if self.scale.len() != 1 || self.zero_point.len() != 1 {
                 return Err(TorshError::dimension_error(
                     "Non-channel-wise quantization requires exactly one scale and zero_point value",
-                    "validate"
-                ).into());
+                    "validate",
+                )
+                .into());
             }
         }
 
@@ -310,8 +318,9 @@ impl QuantizationParams {
         if self.scheme.is_block_wise() && self.block_size.is_none() {
             return Err(TorshError::dimension_error(
                 "Block-wise quantization requires a block_size",
-                "validate"
-            ).into());
+                "validate",
+            )
+            .into());
         }
 
         // Check scale values are positive
@@ -319,8 +328,9 @@ impl QuantizationParams {
             if scale <= 0.0 || !scale.is_finite() {
                 return Err(TorshError::dimension_error(
                     "Scale values must be positive and finite",
-                    "validate"
-                ).into());
+                    "validate",
+                )
+                .into());
             }
         }
 
@@ -365,7 +375,11 @@ pub struct QuantizedTensor {
 
 impl QuantizedTensor {
     /// Create a new quantized tensor
-    pub fn new(shape: Vec<usize>, params: QuantizationParams, device: Device) -> BackendResult<Self> {
+    pub fn new(
+        shape: Vec<usize>,
+        params: QuantizationParams,
+        device: Device,
+    ) -> BackendResult<Self> {
         // Validate parameters first
         params.validate()?;
 
@@ -449,8 +463,9 @@ impl QuantizedTensor {
                     expected_size,
                     self.data.len()
                 ),
-                "validate_memory_layout"
-            ).into());
+                "validate_memory_layout",
+            )
+            .into());
         }
 
         Ok(())
@@ -478,7 +493,10 @@ impl QuantizedTensor {
 
     /// Check if tensor is on GPU
     pub fn is_gpu(&self) -> bool {
-        matches!(self.device.device_type, torsh_core::device::DeviceType::Cuda(_) | torsh_core::device::DeviceType::Metal(_))
+        matches!(
+            self.device.device_type,
+            torsh_core::device::DeviceType::Cuda(_) | torsh_core::device::DeviceType::Metal(_)
+        )
     }
 
     /// Get tensor data as slice
@@ -513,15 +531,16 @@ pub fn quantize_to_int8(data: &[f32], params: &QuantizationParams) -> Result<Vec
 /// Dequantize i8 data back to f32 using the given parameters
 ///
 /// This is a standalone utility function for benchmarking purposes
-pub fn dequantize_from_int8(data: &[i8], params: &QuantizationParams) -> Result<Vec<f32>, TorshError> {
+pub fn dequantize_from_int8(
+    data: &[i8],
+    params: &QuantizationParams,
+) -> Result<Vec<f32>, TorshError> {
     let scale = params.scale[0];
     let zero_point = params.zero_point[0] as i8;
 
     let dequantized = data
         .iter()
-        .map(|&x| {
-            (x - zero_point) as f32 * scale
-        })
+        .map(|&x| (x - zero_point) as f32 * scale)
         .collect();
 
     Ok(dequantized)

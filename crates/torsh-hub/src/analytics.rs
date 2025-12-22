@@ -8,6 +8,8 @@
 //! - Model popularity and recommendation analytics
 //! - A/B testing framework for model comparison
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use chrono::Timelike;
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
@@ -134,7 +136,7 @@ pub struct ThroughputMeasurement {
 }
 
 /// Resource utilization metrics
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ResourceUtilization {
     pub cpu_usage: Vec<f32>,
     pub memory_usage: Vec<u64>,
@@ -272,7 +274,7 @@ pub enum ActionType {
 }
 
 /// User interaction patterns
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct InteractionPatterns {
     pub most_popular_models: Vec<String>,
     pub common_workflows: Vec<Workflow>,
@@ -693,10 +695,7 @@ impl UserAnalytics {
     }
 
     fn record_action(&mut self, user_id: &str, action: UserAction) -> Result<()> {
-        let sessions = self
-            .user_sessions
-            .entry(user_id.to_string())
-            .or_insert_with(Vec::new);
+        let _sessions = self.user_sessions.entry(user_id.to_string()).or_default();
 
         // Implementation would record the action and update analytics
         println!(
@@ -867,18 +866,6 @@ impl Default for MemoryUsage {
     }
 }
 
-impl Default for ResourceUtilization {
-    fn default() -> Self {
-        Self {
-            cpu_usage: vec![],
-            memory_usage: vec![],
-            gpu_usage: None,
-            io_usage: IOMetrics::default(),
-            network_usage: NetworkMetrics::default(),
-        }
-    }
-}
-
 impl Default for IOMetrics {
     fn default() -> Self {
         Self {
@@ -926,17 +913,6 @@ impl Default for SystemMetrics {
                 latency: Duration::from_millis(0),
             },
             gpu_info: None,
-        }
-    }
-}
-
-impl Default for InteractionPatterns {
-    fn default() -> Self {
-        Self {
-            most_popular_models: vec![],
-            common_workflows: vec![],
-            usage_patterns_by_time: HashMap::new(),
-            model_transition_matrix: HashMap::new(),
         }
     }
 }

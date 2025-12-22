@@ -9,7 +9,7 @@
 
 use crate::TorshResult;
 // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::Rng;
 use std::collections::HashMap;
 use torsh_core::TorshError;
 use torsh_tensor::Tensor;
@@ -968,10 +968,11 @@ impl CompressionEngine {
         match self.vq_config.init_method {
             VqInitMethod::Random => {
                 // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
-                let mut rng = Random::new();
+                let mut rng = scirs2_core::random::thread_rng();
                 for _ in 0..self.vq_config.codebook_size {
-                    let centroid: Vec<f32> =
-                        (0..dim).map(|_| (rng.gen::<f32>() - 0.5) * 2.0).collect();
+                    let centroid: Vec<f32> = (0..dim)
+                        .map(|_| (rng.random::<f32>() - 0.5) * 2.0)
+                        .collect();
                     centroids.push(centroid);
                 }
             }

@@ -349,7 +349,7 @@ impl Transform for RandomErasing {
     fn forward(&self, input: &Tensor<f32>) -> Result<Tensor<f32>> {
         // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
         let mut rng = Random::seed(42);
-        if rng.gen::<f32>() >= self.p {
+        if rng.random::<f32>() >= self.p {
             return Ok(input.clone());
         }
 
@@ -381,7 +381,7 @@ impl Transform for RandomErasing {
         let start_x = rng.gen_range(0..=(width - erase_width));
 
         // Apply erasing
-        let mut output = input.clone();
+        let output = input.clone();
         for c in 0..channels {
             for y in start_y..(start_y + erase_height) {
                 for x in start_x..(start_x + erase_width) {
@@ -480,7 +480,7 @@ impl Transform for Cutout {
         }
 
         let (channels, height, width) = (shape.dims()[0], shape.dims()[1], shape.dims()[2]);
-        let mut output = input.clone();
+        let output = input.clone();
         // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
         let mut rng = Random::seed(42);
 

@@ -46,6 +46,8 @@
 //! }
 //! ```
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use super::types::HardwareUtilization;
 use std::time::{Duration, Instant};
 
@@ -144,11 +146,11 @@ struct MemoryStats {
 
 /// Utilization measurement with timestamp
 #[derive(Debug, Clone)]
-struct TimestampedUtilization {
+pub struct TimestampedUtilization {
     /// Timestamp of measurement
-    timestamp: Instant,
+    pub timestamp: Instant,
     /// Utilization data
-    utilization: HardwareUtilization,
+    pub utilization: HardwareUtilization,
 }
 
 /// Comprehensive hardware statistics
@@ -788,12 +790,9 @@ mod tests {
         let mut monitor = HardwareMonitor::new();
         monitor.update_utilization();
 
-        let recommendations = monitor.get_recommendations();
+        let _recommendations = monitor.get_recommendations();
         // Recommendations should always be valid (may be empty)
-        assert!(recommendations.cpu_recommendations.len() >= 0);
-        assert!(recommendations.gpu_recommendations.len() >= 0);
-        assert!(recommendations.memory_recommendations.len() >= 0);
-        assert!(recommendations.system_recommendations.len() >= 0);
+        // Note: len() returns usize which is always >= 0, so we just verify the struct is valid
     }
 
     #[test]
@@ -826,8 +825,8 @@ mod tests {
         let device_count = monitor.get_gpu_device_count();
 
         // GPU availability is platform-dependent
-        assert!(is_available == true || is_available == false);
-        assert!(device_count >= 0);
+        // Note: device_count is always >= 0 (usize), so we just verify it's returned
+        let _ = (is_available, device_count);
     }
 
     #[test]
@@ -845,7 +844,7 @@ mod tests {
 
     #[test]
     fn test_cpu_times() {
-        let mut cpu_state = CpuMonitorState::new();
+        let cpu_state = CpuMonitorState::new();
         let times1 = cpu_state.get_cpu_times();
         let times2 = cpu_state.get_cpu_times();
 

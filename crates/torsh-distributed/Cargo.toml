@@ -33,6 +33,7 @@ redis = { workspace = true, optional = true, features = ["tokio-comp"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 bincode = { workspace = true }
+flate2 = { workspace = true, optional = true }
 
 # Error handling
 thiserror = { workspace = true }
@@ -61,6 +62,12 @@ nccl = []  # Mock NCCL backend (no external dependencies for now)
 redis = ["dep:redis"]
 # gloo = ["dep:gloo-sys"]
 
+# Optional feature flags for enhanced functionality
+compression = ["dep:flate2"]  # Enable compression support
+scirs2-simd = []  # Enable SIMD optimizations
+scirs2-profiling = []  # Enable profiling support
+scirs2-memory = []  # Enable memory optimization features
+
 [dev-dependencies]
 criterion = { workspace = true }
 tokio-test = { workspace = true }
@@ -71,33 +78,10 @@ approx = { workspace = true }
 [build-dependencies]
 tonic-build = { workspace = true }
 
-[[example]]
-name = "distributed"
-path = "../../examples/distributed.rs"
-
-[[example]]
-name = "distributed_comprehensive"
-path = "../../examples/distributed_comprehensive.rs"
-
-[[example]]
-name = "distributed_fsdp"
-path = "../../examples/distributed_fsdp.rs"
-
-# [[example]]
-# name = "distributed_gradient_sync"
-# path = "../../examples/distributed_gradient_sync.rs"
-# Temporarily disabled due to API incompatibilities
-
-# [[example]]
-# name = "distributed_nccl"
-# path = "../../examples/distributed_nccl.rs"
-# Temporarily disabled due to API incompatibilities
-
-# [[example]]
-# name = "distributed_pipeline"
-# path = "../../examples/distributed_pipeline.rs"
-# Temporarily disabled due to API incompatibilities
-
-[[example]]
-name = "distributed_rpc"
-path = "../../examples/distributed_rpc.rs"
+# Examples are located in the workspace root examples/ directory
+# and are not included when publishing to crates.io.
+# See: https://github.com/your-repo/torsh/tree/main/examples
+# - distributed.rs
+# - distributed_comprehensive.rs
+# - distributed_fsdp.rs
+# - distributed_rpc.rs

@@ -85,13 +85,22 @@ impl DynamicGraph {
                         "No tensors to concatenate".to_string(),
                     ));
                 }
-                // Simple concatenation along the last dimension
-                let mut result = tensors[0].clone();
-                for _tensor in tensors.iter().skip(1) {
-                    // Simple concatenation along last dimension - replace with proper implementation when available
-                    result = result.clone(); // TODO: implement proper concatenation
+
+                // Get the last dimension for concatenation
+                let ndim = tensors[0].ndim();
+                if ndim == 0 {
+                    return Err(TorshError::InvalidArgument(
+                        "Cannot concatenate 0-dimensional tensors".to_string(),
+                    ));
                 }
-                Ok(result)
+
+                let concat_dim = (ndim - 1) as i32; // Concatenate along last dimension
+
+                // Use proper concatenation via Tensor::cat
+                // Convert Vec<Tensor> to &[&Tensor]
+                let tensor_refs: Vec<&Tensor> = tensors.iter().collect();
+                Tensor::cat(&tensor_refs, concat_dim)
+                    .map_err(|e| TorshError::Other(format!("Concatenation failed: {}", e)))
             }),
         );
 

@@ -1,5 +1,7 @@
 //! Utility functions for model loading and saving
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -440,12 +442,12 @@ pub fn save_tensors_to_safetensors<P: AsRef<Path>>(
     let mut tensor_views = Vec::new();
     let mut all_data = Vec::new();
 
-    for (name, tensor) in tensors {
-        let shape = tensor.shape().dims().to_vec();
+    for (_name, tensor) in tensors {
+        let _shape = tensor.shape().dims().to_vec();
         let data = tensor.to_vec()?;
 
         // Convert tensor data to bytes based on dtype
-        let (bytes, dtype) = match tensor.dtype() {
+        let (bytes, _dtype) = match tensor.dtype() {
             DType::F32 => {
                 let mut bytes = Vec::new();
                 for &value in data.iter() {
@@ -466,9 +468,9 @@ pub fn save_tensors_to_safetensors<P: AsRef<Path>>(
             }
         };
 
-        let start = all_data.len();
+        let _start = all_data.len();
         all_data.extend_from_slice(&bytes);
-        let end = all_data.len();
+        let _end = all_data.len();
     }
 
     // Create tensor views after all data is collected
@@ -483,7 +485,7 @@ pub fn save_tensors_to_safetensors<P: AsRef<Path>>(
             }
         };
         let shape: Vec<usize> = tensor.shape().dims().to_vec();
-        let data_size = shape.iter().product::<usize>() * dtype.size();
+        let data_size = shape.iter().product::<usize>() * (dtype.size() / 8);
 
         let tensor_view = TensorView::new(dtype, shape, &all_data[offset..offset + data_size])?;
         tensor_views.push((name.clone(), tensor_view));

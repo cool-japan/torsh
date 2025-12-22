@@ -22,10 +22,10 @@ use torsh_tensor::Tensor;
 use alloc::{boxed::Box, vec::Vec};
 
 #[cfg(feature = "std")]
-use scirs2_core::random::{thread_rng, Random, Rng};
+use scirs2_core::random::{thread_rng, Rng};
 
 #[cfg(not(feature = "std"))]
-use scirs2_core::random::{thread_rng, Random, Rng};
+use scirs2_core::random::{thread_rng, Rng};
 
 /// Augmentation pipeline builder for easy composition of transforms
 pub struct AugmentationPipeline<T> {
@@ -83,7 +83,7 @@ impl<T> Transform<T> for AugmentationPipeline<T> {
         let mut rng = thread_rng();
 
         // Check if we should apply the pipeline at all
-        if rng.gen::<f32>() > self.probability {
+        if rng.random::<f32>() > self.probability {
             return Ok(input);
         }
 
@@ -127,7 +127,7 @@ where
     fn transform(&self, input: T) -> Result<Self::Output> {
         let mut rng = thread_rng();
 
-        if rng.gen::<f32>() < self.probability {
+        if rng.random::<f32>() < self.probability {
             self.transform.transform(input)
         } else {
             Ok(input)

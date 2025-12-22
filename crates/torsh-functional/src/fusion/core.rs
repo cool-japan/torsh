@@ -4,8 +4,6 @@
 //! including the FusedOp enum that represents different fusion patterns
 //! and OpSequence for tracking operation chains.
 
-use crate::TorshResult;
-
 /// A fused operation that combines multiple element-wise operations
 #[derive(Debug, Clone)]
 pub enum FusedOp {

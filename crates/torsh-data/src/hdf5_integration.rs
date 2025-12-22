@@ -4,7 +4,7 @@
 //! which are commonly used in scientific computing and machine learning.
 
 #[cfg(feature = "hdf5-support")]
-use hdf5::{Dataset as HDF5Dataset, File, Group, H5Type};
+use hdf5::{File, Group, H5Type};
 
 use crate::{utils, Dataset};
 use torsh_core::{

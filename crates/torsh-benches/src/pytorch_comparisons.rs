@@ -4,6 +4,8 @@
 //! the most popular deep learning framework. These comparisons cover core tensor operations,
 //! neural network layers, autograd functionality, and data loading performance.
 
+#![allow(deprecated)]
+
 use crate::{
     core::ComparisonResult,
     ndarray_comparisons::{TorshElementwiseBench, TorshMatmulBench},

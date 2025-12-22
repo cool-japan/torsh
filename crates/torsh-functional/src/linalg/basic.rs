@@ -153,19 +153,20 @@ pub fn norm(
         }
         NormOrd::Nuclear => {
             // Nuclear norm (sum of singular values)
-            Err(TorshError::Other(
-                "Nuclear norm not yet implemented".to_string(),
-            ))
+            // Delegate to the nuclear norm implementation in reduction module
+            crate::reduction::norm_nuclear(tensor)
         }
         NormOrd::Inf => {
             // Infinity norm: ||A||_∞ = maxᵢ ∑ⱼ |aᵢⱼ|
             if let Some(dims) = dim {
-                let result = tensor.abs()?;
-                if dims.iter().next().is_some() {
-                    // TODO: Implement max_dim when available
-                    return Err(TorshError::Other("max_dim not yet implemented".to_string()));
+                let abs_tensor = tensor.abs()?;
+                // Sum along the specified dimensions
+                let mut result = abs_tensor;
+                for &d in dims.iter() {
+                    result = result.sum_dim(&[d as i32], keepdim)?;
                 }
-                Ok(result)
+                // Then take the maximum of the result
+                result.max(None, false)
             } else {
                 tensor.abs()?.max(None, false)
             }
@@ -173,12 +174,14 @@ pub fn norm(
         NormOrd::NegInf => {
             // Negative infinity norm: ||A||_{-∞} = minᵢ ∑ⱼ |aᵢⱼ|
             if let Some(dims) = dim {
-                let result = tensor.abs()?;
-                if dims.iter().next().is_some() {
-                    // TODO: Implement min_dim when available
-                    return Err(TorshError::Other("min_dim not yet implemented".to_string()));
+                let abs_tensor = tensor.abs()?;
+                // Sum along the specified dimensions
+                let mut result = abs_tensor;
+                for &d in dims.iter() {
+                    result = result.sum_dim(&[d as i32], keepdim)?;
                 }
-                Ok(result)
+                // Then take the minimum of the result
+                result.min()
             } else {
                 tensor.abs()?.min()
             }

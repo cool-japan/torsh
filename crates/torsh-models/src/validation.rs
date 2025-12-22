@@ -7,6 +7,8 @@
 //! - Statistical significance testing
 //! - Model correctness verification
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use torsh_core::error::Result;
@@ -372,7 +374,7 @@ impl ModelValidator {
         test_ratio: f64,
         _stratified: bool,
     ) -> Result<Vec<ValidationSplit>> {
-        use scirs2_core::random::{Random, Rng};
+        use scirs2_core::random::Random;
 
         let mut indices: Vec<usize> = (0..dataset.len()).collect();
         let mut rng = Random::seed(42);
@@ -401,7 +403,7 @@ impl ModelValidator {
         shuffle: bool,
         _stratified: bool,
     ) -> Result<Vec<ValidationSplit>> {
-        use scirs2_core::random::{Random, Rng};
+        use scirs2_core::random::Random;
 
         let mut indices: Vec<usize> = (0..dataset.len()).collect();
         if shuffle {
@@ -497,7 +499,7 @@ impl ModelValidator {
         n_bootstrap: usize,
         sample_ratio: f64,
     ) -> Result<Vec<ValidationSplit>> {
-        use scirs2_core::random::{Random, Rng};
+        use scirs2_core::random::Random;
 
         let mut splits = Vec::new();
         let sample_size = (dataset.len() as f64 * sample_ratio) as usize;
@@ -1024,7 +1026,7 @@ impl std::fmt::Display for ValidationResults {
 }
 
 /// Utility functions for model validation
-pub mod utils {
+pub mod validation_utils {
     use super::*;
 
     /// Create a standard classification validation config
@@ -1148,7 +1150,7 @@ mod tests {
 
     #[test]
     fn test_validation_config_creation() {
-        let config = utils::create_classification_config(5);
+        let config = validation_utils::create_classification_config(5);
         assert_eq!(config.metrics.len(), 6);
 
         match config.strategy {
@@ -1159,7 +1161,7 @@ mod tests {
 
     #[test]
     fn test_holdout_split_generation() {
-        let validator = ModelValidator::new(utils::create_quick_config());
+        let validator = ModelValidator::new(validation_utils::create_quick_config());
 
         // Create mock dataset
         let mut dataset = Vec::new();
@@ -1179,7 +1181,7 @@ mod tests {
 
     #[test]
     fn test_kfold_split_generation() {
-        let config = utils::create_classification_config(5);
+        let config = validation_utils::create_classification_config(5);
         let validator = ModelValidator::new(config);
 
         // Create mock dataset
@@ -1202,7 +1204,7 @@ mod tests {
 
     #[test]
     fn test_metric_computation() {
-        let config = utils::create_quick_config();
+        let config = validation_utils::create_quick_config();
         let validator = ModelValidator::new(config);
 
         // Create mock predictions and targets
@@ -1222,7 +1224,7 @@ mod tests {
 
     #[test]
     fn test_metric_summary() {
-        let config = utils::create_quick_config();
+        let config = validation_utils::create_quick_config();
         let validator = ModelValidator::new(config);
 
         let values = vec![0.8, 0.85, 0.9, 0.82, 0.88];
@@ -1246,11 +1248,11 @@ mod tests {
         let a = Tensor::from_data(vec![1.0, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
         let b = Tensor::from_data(vec![1.0005, 2.0005, 3.0005], vec![3], DeviceType::Cpu).unwrap();
 
-        let close = utils::tensors_close(&a, &b, &tolerance).unwrap();
+        let close = validation_utils::tensors_close(&a, &b, &tolerance).unwrap();
         assert!(close);
 
         let c = Tensor::from_data(vec![1.1, 2.1, 3.1], vec![3], DeviceType::Cpu).unwrap();
-        let not_close = utils::tensors_close(&a, &c, &tolerance).unwrap();
+        let not_close = validation_utils::tensors_close(&a, &c, &tolerance).unwrap();
         assert!(!not_close);
     }
 }

@@ -1521,3 +1521,782 @@ impl std::fmt::Debug for MaxPool3d {
             .finish()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use torsh_tensor::creation::zeros;
+
+    // ========================================================================
+    // MaxPool2d Tests
+    // ========================================================================
+
+    #[test]
+    fn test_maxpool2d_new() {
+        let pool = MaxPool2d::new((2, 2), None, (0, 0), (1, 1), false);
+        assert_eq!(pool.kernel_size, (2, 2));
+        assert_eq!(pool.stride, None);
+        assert_eq!(pool.padding, (0, 0));
+        assert_eq!(pool.dilation, (1, 1));
+        assert!(!pool.ceil_mode);
+    }
+
+    #[test]
+    fn test_maxpool2d_with_kernel_size() {
+        let pool = MaxPool2d::with_kernel_size(3);
+        assert_eq!(pool.kernel_size, (3, 3));
+        assert_eq!(pool.stride, None);
+        assert_eq!(pool.padding, (0, 0));
+    }
+
+    #[test]
+    fn test_maxpool2d_forward() -> Result<()> {
+        let pool = MaxPool2d::with_kernel_size(2);
+        let input = zeros(&[2, 3, 8, 8])?; // batch=2, channels=3, height=8, width=8
+
+        let output = pool.forward(&input)?;
+        let output_shape = output.shape();
+
+        // Expected: (8 - 2) / 2 + 1 = 4
+        assert_eq!(output_shape.dims(), &[2, 3, 4, 4]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_maxpool2d_forward_with_stride() -> Result<()> {
+        let pool = MaxPool2d::new((2, 2), Some((1, 1)), (0, 0), (1, 1), false);
+        let input = zeros(&[1, 1, 4, 4])?;
+
+        let output = pool.forward(&input)?;
+        let output_shape = output.shape();
+
+        // Expected: (4 - 2) / 1 + 1 = 3
+        assert_eq!(output_shape.dims(), &[1, 1, 3, 3]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_maxpool2d_forward_with_padding() -> Result<()> {
+        let pool = MaxPool2d::new((2, 2), None, (1, 1), (1, 1), false);
+        let input = zeros(&[1, 1, 4, 4])?;
+
+        let output = pool.forward(&input)?;
+        let output_shape = output.shape();
+
+        // Expected: (4 + 2*1 - 2) / 2 + 1 = 3
+        assert_eq!(output_shape.dims(), &[1, 1, 3, 3]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_maxpool2d_training_mode() {
+        let mut pool = MaxPool2d::with_kernel_size(2);
+        assert!(pool.training());
+
+        pool.eval();
+        assert!(!pool.training());
+
+        pool.train();
+        assert!(pool.training());
+    }
+
+    #[test]
+    fn test_maxpool2d_parameters() {
+        let pool = MaxPool2d::with_kernel_size(2);
+        let params = pool.parameters();
+        assert_eq!(params.len(), 0); // Pooling layers have no parameters
+    }
+
+    // ========================================================================
+    // AvgPool2d Tests
+    // ========================================================================
+
+    #[test]
+    fn test_avgpool2d_new() {
+        let pool = AvgPool2d::new((2, 2), None, (0, 0), false, true);
+        assert_eq!(pool.kernel_size, (2, 2));
+        assert_eq!(pool.stride, None);
+        assert_eq!(pool.padding, (0, 0));
+        assert!(!pool.ceil_mode);
+    }
+
+    #[test]
+    fn test_avgpool2d_with_kernel_size() {
+        let pool = AvgPool2d::with_kernel_size(3);
+        assert_eq!(pool.kernel_size, (3, 3));
+    }
+
+    #[test]
+    fn test_avgpool2d_forward() -> Result<()> {
+        let pool = AvgPool2d::with_kernel_size(2);
+        let input = zeros(&[1, 1, 8, 8])?;
+
+        let output = pool.forward(&input)?;
+        let output_shape = output.shape();
+
+        // Expected: (8 - 2) / 2 + 1 = 4
+        assert_eq!(output_shape.dims(), &[1, 1, 4, 4]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_avgpool2d_training_mode() {
+        let mut pool = AvgPool2d::with_kernel_size(2);
+        assert!(pool.training());
+
+        pool.eval();
+        assert!(!pool.training());
+    }
+
+    // ========================================================================
+    // AdaptiveAvgPool2d Tests
+    // ========================================================================
+
+    #[test]
+    fn test_adaptive_avgpool2d_new() {
+        let pool = AdaptiveAvgPool2d::new((Some(4), Some(4)));
+        assert_eq!(pool.output_size, (Some(4), Some(4)));
+    }
+
+    #[test]
+    fn test_adaptive_avgpool2d_with_output_size() {
+        let pool = AdaptiveAvgPool2d::with_output_size(7);
+        assert_eq!(pool.output_size, (Some(7), Some(7)));
+    }
+
+    #[test]
+    fn test_adaptive_avgpool2d_forward() -> Result<()> {
+        let pool = AdaptiveAvgPool2d::with_output_size(4);
+        let input = zeros(&[2, 3, 16, 16])?;
+
+        let output = pool.forward(&input)?;
+        let output_shape = output.shape();
+
+        assert_eq!(output_shape.dims(), &[2, 3, 4, 4]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_adaptive_avgpool2d_forward_partial_none() -> Result<()> {
+        let pool = AdaptiveAvgPool2d::new((Some(4), None));
+        let input = zeros(&[1, 1, 8, 12])?;
+
+        let output = pool.forward(&input)?;
+        let output_shape = output.shape();
+
+        // Height should be 4, width should remain 12
+        assert_eq!(output_shape.dims(), &[1, 1, 4, 12]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_adaptive_avgpool2d_forward_invalid_input() {
+        let pool = AdaptiveAvgPool2d::with_output_size(4);
+        let input = zeros(&[2, 3, 16]).unwrap(); // 3D input - should fail
+
+        let result = pool.forward(&input);
+        assert!(result.is_err());
+    }
+
+    // ========================================================================
+    // MaxPool1d Tests
+    // ========================================================================
+
+    #[test]
+    fn test_maxpool1d_new() {
+        let pool = MaxPool1d::new(3, None, 0, 1, false);
+        assert_eq!(pool.kernel_size, 3);
+        assert_eq!(pool.stride, None);
+        assert_eq!(pool.padding, 0);
+    }
+
+    #[test]
+    fn test_maxpool1d_with_kernel_size() {
+        let pool = MaxPool1d::with_kernel_size(4);
+        assert_eq!(pool.kernel_size, 4);
+    }
+
+    #[test]
+    fn test_maxpool1d_forward_3d() -> Result<()> {
+        let pool = MaxPool1d::with_kernel_size(2);
+        let input = zeros(&[2, 3, 16])?; // batch=2, channels=3, length=16
+
+        let output = pool.forward(&input)?;
+        let output_shape = output.shape();
+
+        // Expected: (16 - 2) / 2 + 1 = 8
+        assert_eq!(output_shape.dims(), &[2, 3, 8]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_maxpool1d_forward_2d() -> Result<()> {
+        let pool = MaxPool1d::with_kernel_size(2);
+        let input = zeros(&[2, 16])?; // batch=2, length=16
+
+        let output = pool.forward(&input)?;
+        let output_shape = output.shape();
+
+        assert_eq!(output_shape.dims(), &[2, 8]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_maxpool1d_forward_invalid_input() {
+        let pool = MaxPool1d::with_kernel_size(2);
+        let input = zeros(&[2]).unwrap(); // 1D input - should fail
+
+        let result = pool.forward(&input);
+        assert!(result.is_err());
+    }
+
+    // ========================================================================
+    // MaxPool3d Tests
+    // ========================================================================
+
+    #[test]
+    fn test_maxpool3d_new() {
+        let pool = MaxPool3d::new((2, 2, 2), None, (0, 0, 0), (1, 1, 1), false);
+        assert_eq!(pool.kernel_size, (2, 2, 2));
+    }
+
+    #[test]
+    fn test_maxpool3d_with_kernel_size() {
+        let pool = MaxPool3d::with_kernel_size(3);
+        assert_eq!(pool.kernel_size, (3, 3, 3));
+    }
+
+    #[test]
+    fn test_maxpool3d_forward() -> Result<()> {
+        let pool = MaxPool3d::with_kernel_size(2);
+        let input = zeros(&[1, 1, 8, 8, 8])?; // batch, channels, depth, height, width
+
+        let output = pool.forward(&input)?;
+        let output_shape = output.shape();
+
+        // Expected: (8 - 2) / 2 + 1 = 4 for each dimension
+        assert_eq!(output_shape.dims(), &[1, 1, 4, 4, 4]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_maxpool3d_forward_invalid_input() {
+        let pool = MaxPool3d::with_kernel_size(2);
+        let input = zeros(&[1, 1, 8, 8]).unwrap(); // 4D input - should fail
+
+        let result = pool.forward(&input);
+        assert!(result.is_err());
+    }
+
+    // ========================================================================
+    // LPPool1d Tests
+    // ========================================================================
+
+    #[test]
+    fn test_lppool1d_new() {
+        let pool = LPPool1d::new(2.0, 3, None, false);
+        assert_eq!(pool.norm_type, 2.0);
+        assert_eq!(pool.kernel_size, 3);
+    }
+
+    #[test]
+    fn test_lppool1d_forward() -> Result<()> {
+        let pool = LPPool1d::new(2.0, 2, None, false);
+        let input = zeros(&[1, 1, 16])?;
+
+        let output = pool.forward(&input)?;
+        let output_shape = output.shape();
+
+        // Expected: (16 - 2) / 2 + 1 = 8
+        assert_eq!(output_shape.dims(), &[1, 1, 8]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_lppool1d_ceil_mode() -> Result<()> {
+        let pool = LPPool1d::new(2.0, 3, Some(2), true);
+        let input = zeros(&[1, 1, 10])?;
+
+        let output = pool.forward(&input)?;
+        let output_shape = output.shape();
+
+        // With ceil_mode: ceil((10 - 3) / 2) + 1 = ceil(3.5) + 1 = 5
+        assert_eq!(output_shape.dims(), &[1, 1, 5]);
+        Ok(())
+    }
+
+    // ========================================================================
+    // LPPool2d Tests
+    // ========================================================================
+
+    #[test]
+    fn test_lppool2d_new() {
+        let pool = LPPool2d::new(2.0, (3, 3), None, false);
+        assert_eq!(pool.norm_type, 2.0);
+        assert_eq!(pool.kernel_size, (3, 3));
+    }
+
+    #[test]
+    fn test_lppool2d_forward() -> Result<()> {
+        let pool = LPPool2d::new(2.0, (2, 2), None, false);
+        let input = zeros(&[1, 1, 8, 8])?;
+
+        let output = pool.forward(&input)?;
+        let output_shape = output.shape();
+
+        // Expected: (8 - 2) / 2 + 1 = 4
+        assert_eq!(output_shape.dims(), &[1, 1, 4, 4]);
+        Ok(())
+    }
+
+    // ========================================================================
+    // FractionalMaxPool1d Tests
+    // ========================================================================
+
+    #[test]
+    fn test_fractional_maxpool1d_new() {
+        let pool = FractionalMaxPool1d::new(2, Some(8), None, false);
+        assert_eq!(pool.kernel_size, 2);
+        assert_eq!(pool.output_size, Some(8));
+        assert_eq!(pool.output_ratio, None);
+    }
+
+    #[test]
+    fn test_fractional_maxpool1d_with_kernel_size() {
+        let pool = FractionalMaxPool1d::with_kernel_size(3);
+        assert_eq!(pool.kernel_size, 3);
+        assert_eq!(pool.output_ratio, Some(0.5));
+    }
+
+    #[test]
+    fn test_fractional_maxpool1d_with_output_ratio() {
+        let pool = FractionalMaxPool1d::with_output_ratio(2, 0.75);
+        assert_eq!(pool.output_ratio, Some(0.75));
+    }
+
+    #[test]
+    fn test_fractional_maxpool1d_forward_with_output_size() -> Result<()> {
+        let pool = FractionalMaxPool1d::new(2, Some(8), None, false);
+        let input = zeros(&[1, 1, 16])?;
+
+        let output = pool.forward(&input)?;
+        let output_shape = output.shape();
+
+        assert_eq!(output_shape.dims(), &[1, 1, 8]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_fractional_maxpool1d_forward_with_output_ratio() -> Result<()> {
+        let pool = FractionalMaxPool1d::new(2, None, Some(0.5), false);
+        let input = zeros(&[1, 1, 16])?;
+
+        let output = pool.forward(&input)?;
+        let output_shape = output.shape();
+
+        // 16 * 0.5 = 8
+        assert_eq!(output_shape.dims(), &[1, 1, 8]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_fractional_maxpool1d_forward_with_indices() -> Result<()> {
+        let pool = FractionalMaxPool1d::new(2, Some(8), None, true);
+        let input = zeros(&[1, 1, 16])?;
+
+        let (output, indices) = pool.forward_with_indices(&input)?;
+        let output_shape = output.shape();
+
+        assert_eq!(output_shape.dims(), &[1, 1, 8]);
+        assert!(indices.is_some());
+        Ok(())
+    }
+
+    #[test]
+    fn test_fractional_maxpool1d_forward_with_indices_disabled() -> Result<()> {
+        let pool = FractionalMaxPool1d::new(2, Some(8), None, false);
+        let input = zeros(&[1, 1, 16])?;
+
+        let (_, indices) = pool.forward_with_indices(&input)?;
+        assert!(indices.is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn test_fractional_maxpool1d_no_output_size_or_ratio() {
+        let pool = FractionalMaxPool1d::new(2, None, None, false);
+        let input = zeros(&[1, 1, 16]).unwrap();
+
+        let result = pool.forward(&input);
+        assert!(result.is_err()); // Should error when neither output_size nor output_ratio is set
+    }
+
+    // ========================================================================
+    // FractionalMaxPool2d Tests
+    // ========================================================================
+
+    #[test]
+    fn test_fractional_maxpool2d_new() {
+        let pool = FractionalMaxPool2d::new((2, 2), Some((4, 4)), None, false);
+        assert_eq!(pool.kernel_size, (2, 2));
+        assert_eq!(pool.output_size, Some((4, 4)));
+    }
+
+    #[test]
+    fn test_fractional_maxpool2d_with_kernel_size() {
+        let pool = FractionalMaxPool2d::with_kernel_size((3, 3));
+        assert_eq!(pool.output_ratio, Some((0.5, 0.5)));
+    }
+
+    #[test]
+    fn test_fractional_maxpool2d_forward_with_output_size() -> Result<()> {
+        let pool = FractionalMaxPool2d::new((2, 2), Some((4, 4)), None, false);
+        let input = zeros(&[1, 1, 8, 8])?;
+
+        let output = pool.forward(&input)?;
+        let output_shape = output.shape();
+
+        assert_eq!(output_shape.dims(), &[1, 1, 4, 4]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_fractional_maxpool2d_forward_with_output_ratio() -> Result<()> {
+        let pool = FractionalMaxPool2d::new((2, 2), None, Some((0.5, 0.5)), false);
+        let input = zeros(&[1, 1, 16, 16])?;
+
+        let output = pool.forward(&input)?;
+        let output_shape = output.shape();
+
+        assert_eq!(output_shape.dims(), &[1, 1, 8, 8]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_fractional_maxpool2d_forward_with_indices() -> Result<()> {
+        let pool = FractionalMaxPool2d::new((2, 2), Some((4, 4)), None, true);
+        let input = zeros(&[1, 1, 8, 8])?;
+
+        let (output, indices) = pool.forward_with_indices(&input)?;
+        assert_eq!(output.shape().dims(), &[1, 1, 4, 4]);
+        assert!(indices.is_some());
+        Ok(())
+    }
+
+    // ========================================================================
+    // FractionalMaxPool3d Tests
+    // ========================================================================
+
+    #[test]
+    fn test_fractional_maxpool3d_new() {
+        let pool = FractionalMaxPool3d::new((2, 2, 2), Some((4, 4, 4)), None, false);
+        assert_eq!(pool.kernel_size, (2, 2, 2));
+    }
+
+    #[test]
+    fn test_fractional_maxpool3d_with_kernel_size() {
+        let pool = FractionalMaxPool3d::with_kernel_size((3, 3, 3));
+        assert_eq!(pool.output_ratio, Some((0.5, 0.5, 0.5)));
+    }
+
+    #[test]
+    fn test_fractional_maxpool3d_forward_with_output_size() -> Result<()> {
+        let pool = FractionalMaxPool3d::new((2, 2, 2), Some((4, 4, 4)), None, false);
+        let input = zeros(&[1, 1, 8, 8, 8])?;
+
+        let output = pool.forward(&input)?;
+        let output_shape = output.shape();
+
+        assert_eq!(output_shape.dims(), &[1, 1, 4, 4, 4]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_fractional_maxpool3d_forward_with_output_ratio() -> Result<()> {
+        let pool = FractionalMaxPool3d::new((2, 2, 2), None, Some((0.5, 0.5, 0.5)), false);
+        let input = zeros(&[1, 1, 16, 16, 16])?;
+
+        let output = pool.forward(&input)?;
+        let output_shape = output.shape();
+
+        assert_eq!(output_shape.dims(), &[1, 1, 8, 8, 8]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_fractional_maxpool3d_forward_with_indices() -> Result<()> {
+        let pool = FractionalMaxPool3d::new((2, 2, 2), Some((4, 4, 4)), None, true);
+        let input = zeros(&[1, 1, 8, 8, 8])?;
+
+        let (output, indices) = pool.forward_with_indices(&input)?;
+        assert_eq!(output.shape().dims(), &[1, 1, 4, 4, 4]);
+        assert!(indices.is_some());
+        Ok(())
+    }
+
+    // ========================================================================
+    // AdaptiveMaxPool2d Tests
+    // ========================================================================
+
+    #[test]
+    fn test_adaptive_maxpool2d_new() {
+        let pool = AdaptiveMaxPool2d::new((Some(4), Some(4)), false);
+        assert_eq!(pool.output_size, (Some(4), Some(4)));
+        assert!(!pool.return_indices);
+    }
+
+    #[test]
+    fn test_adaptive_maxpool2d_with_output_size() {
+        let pool = AdaptiveMaxPool2d::with_output_size(5);
+        assert_eq!(pool.output_size, (Some(5), Some(5)));
+    }
+
+    #[test]
+    fn test_adaptive_maxpool2d_forward() -> Result<()> {
+        let pool = AdaptiveMaxPool2d::with_output_size(4);
+        let input = zeros(&[1, 1, 16, 16])?;
+
+        let output = pool.forward(&input)?;
+        let output_shape = output.shape();
+
+        assert_eq!(output_shape.dims(), &[1, 1, 4, 4]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_adaptive_maxpool2d_forward_with_indices() -> Result<()> {
+        let pool = AdaptiveMaxPool2d::new((Some(4), Some(4)), true);
+        let input = zeros(&[1, 1, 8, 8])?;
+
+        let (output, indices) = pool.forward_with_indices(&input)?;
+        assert_eq!(output.shape().dims(), &[1, 1, 4, 4]);
+        assert!(indices.is_some());
+        Ok(())
+    }
+
+    // ========================================================================
+    // AdaptiveAvgPool1d Tests
+    // ========================================================================
+
+    #[test]
+    fn test_adaptive_avgpool1d_new() {
+        let pool = AdaptiveAvgPool1d::new(8);
+        assert_eq!(pool.output_size, 8);
+    }
+
+    #[test]
+    fn test_adaptive_avgpool1d_forward() -> Result<()> {
+        let pool = AdaptiveAvgPool1d::new(8);
+        let input = zeros(&[2, 3, 16])?;
+
+        let output = pool.forward(&input)?;
+        let output_shape = output.shape();
+
+        assert_eq!(output_shape.dims(), &[2, 3, 8]);
+        Ok(())
+    }
+
+    // ========================================================================
+    // AdaptiveMaxPool1d Tests
+    // ========================================================================
+
+    #[test]
+    fn test_adaptive_maxpool1d_new() {
+        let pool = AdaptiveMaxPool1d::new(8, false);
+        assert_eq!(pool.output_size, 8);
+        assert!(!pool.return_indices);
+    }
+
+    #[test]
+    fn test_adaptive_maxpool1d_forward() -> Result<()> {
+        let pool = AdaptiveMaxPool1d::new(8, false);
+        let input = zeros(&[1, 1, 16])?;
+
+        let output = pool.forward(&input)?;
+        let output_shape = output.shape();
+
+        assert_eq!(output_shape.dims(), &[1, 1, 8]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_adaptive_maxpool1d_forward_with_indices() -> Result<()> {
+        let pool = AdaptiveMaxPool1d::new(8, true);
+        let input = zeros(&[1, 1, 16])?;
+
+        let (output, indices) = pool.forward_with_indices(&input)?;
+        assert_eq!(output.shape().dims(), &[1, 1, 8]);
+        assert!(indices.is_some());
+        Ok(())
+    }
+
+    // ========================================================================
+    // AdaptiveAvgPool3d Tests
+    // ========================================================================
+
+    #[test]
+    fn test_adaptive_avgpool3d_new() {
+        let pool = AdaptiveAvgPool3d::new((Some(4), Some(4), Some(4)));
+        assert_eq!(pool.output_size, (Some(4), Some(4), Some(4)));
+    }
+
+    #[test]
+    fn test_adaptive_avgpool3d_with_output_size() {
+        let pool = AdaptiveAvgPool3d::with_output_size(7);
+        assert_eq!(pool.output_size, (Some(7), Some(7), Some(7)));
+    }
+
+    #[test]
+    fn test_adaptive_avgpool3d_forward() -> Result<()> {
+        let pool = AdaptiveAvgPool3d::with_output_size(4);
+        let input = zeros(&[1, 1, 16, 16, 16])?;
+
+        let output = pool.forward(&input)?;
+        let output_shape = output.shape();
+
+        assert_eq!(output_shape.dims(), &[1, 1, 4, 4, 4]);
+        Ok(())
+    }
+
+    // ========================================================================
+    // AdaptiveMaxPool3d Tests
+    // ========================================================================
+
+    #[test]
+    fn test_adaptive_maxpool3d_new() {
+        let pool = AdaptiveMaxPool3d::new((Some(4), Some(4), Some(4)), false);
+        assert_eq!(pool.output_size, (Some(4), Some(4), Some(4)));
+    }
+
+    #[test]
+    fn test_adaptive_maxpool3d_with_output_size() {
+        let pool = AdaptiveMaxPool3d::with_output_size(5);
+        assert_eq!(pool.output_size, (Some(5), Some(5), Some(5)));
+    }
+
+    #[test]
+    fn test_adaptive_maxpool3d_forward() -> Result<()> {
+        let pool = AdaptiveMaxPool3d::with_output_size(4);
+        let input = zeros(&[1, 1, 16, 16, 16])?;
+
+        let output = pool.forward(&input)?;
+        let output_shape = output.shape();
+
+        assert_eq!(output_shape.dims(), &[1, 1, 4, 4, 4]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_adaptive_maxpool3d_forward_with_indices() -> Result<()> {
+        let pool = AdaptiveMaxPool3d::new((Some(4), Some(4), Some(4)), true);
+        let input = zeros(&[1, 1, 8, 8, 8])?;
+
+        let (output, indices) = pool.forward_with_indices(&input)?;
+        assert_eq!(output.shape().dims(), &[1, 1, 4, 4, 4]);
+        assert!(indices.is_some());
+        Ok(())
+    }
+
+    // ========================================================================
+    // GlobalPool Tests
+    // ========================================================================
+
+    #[test]
+    fn test_global_avg_pool2d() -> Result<()> {
+        let input = zeros(&[2, 3, 8, 8])?;
+        let output = GlobalPool::global_avg_pool2d(&input)?;
+        let output_shape = output.shape();
+
+        assert_eq!(output_shape.dims(), &[2, 3, 1, 1]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_global_max_pool2d() -> Result<()> {
+        let input = zeros(&[2, 3, 8, 8])?;
+        let output = GlobalPool::global_max_pool2d(&input)?;
+        let output_shape = output.shape();
+
+        assert_eq!(output_shape.dims(), &[2, 3, 1, 1]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_global_avg_pool1d() -> Result<()> {
+        let input = zeros(&[2, 3, 16])?;
+        let output = GlobalPool::global_avg_pool1d(&input)?;
+        let output_shape = output.shape();
+
+        assert_eq!(output_shape.dims(), &[2, 3, 1]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_global_max_pool1d() -> Result<()> {
+        let input = zeros(&[2, 3, 16])?;
+        let output = GlobalPool::global_max_pool1d(&input)?;
+        let output_shape = output.shape();
+
+        assert_eq!(output_shape.dims(), &[2, 3, 1]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_global_avg_pool3d() -> Result<()> {
+        let input = zeros(&[1, 1, 8, 8, 8])?;
+        let output = GlobalPool::global_avg_pool3d(&input)?;
+        let output_shape = output.shape();
+
+        assert_eq!(output_shape.dims(), &[1, 1, 1, 1, 1]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_global_max_pool3d() -> Result<()> {
+        let input = zeros(&[1, 1, 8, 8, 8])?;
+        let output = GlobalPool::global_max_pool3d(&input)?;
+        let output_shape = output.shape();
+
+        assert_eq!(output_shape.dims(), &[1, 1, 1, 1, 1]);
+        Ok(())
+    }
+
+    // ========================================================================
+    // Module Trait Tests (Common Behaviors)
+    // ========================================================================
+
+    #[test]
+    fn test_module_training_modes() {
+        let mut pool = MaxPool2d::with_kernel_size(2);
+
+        // Default should be training mode
+        assert!(pool.training());
+
+        // Set to eval mode
+        pool.set_training(false);
+        assert!(!pool.training());
+
+        // Set back to training mode
+        pool.set_training(true);
+        assert!(pool.training());
+    }
+
+    #[test]
+    fn test_module_named_parameters() {
+        let pool = AdaptiveAvgPool2d::with_output_size(4);
+        let named_params = pool.named_parameters();
+
+        // Pooling layers have no trainable parameters
+        assert_eq!(named_params.len(), 0);
+    }
+
+    #[test]
+    fn test_module_to_device() -> Result<()> {
+        let mut pool = MaxPool2d::with_kernel_size(2);
+
+        // Should succeed (no actual parameters to move)
+        pool.to_device(DeviceType::Cpu)?;
+
+        Ok(())
+    }
+}

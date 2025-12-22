@@ -4,14 +4,16 @@
 //! a popular Rust tensor library. These comparisons focus on core tensor operations
 //! including matrix multiplication and element-wise operations.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{core::ComparisonResult, Benchmarkable};
-use criterion::black_box;
 
 // External library imports for ndarray comparisons - SCIRS2 COMPLIANT
 #[cfg(feature = "compare-external")]
-use scirs2_core::ndarray::prelude::*;
+use scirs2_core::ndarray::{Array, Array2}; // Full unified ndarray access
+
 #[cfg(feature = "compare-external")]
-use scirs2_core::ndarray::{Array, Array1, Array2}; // Full unified ndarray access // Full ndarray functionality including all macros
+use std::hint::black_box;
 
 /// ToRSh matrix multiplication benchmark
 ///
@@ -361,7 +363,7 @@ fn add_neural_network_benchmarks(runner: &mut crate::core::ComparisonRunner, siz
         let out_channels = 128;
         let kernel_size = 3;
 
-        let start = std::time::Instant::now();
+        let _start = std::time::Instant::now();
 
         // Simulate convolution operation time
         let conv_flops =
@@ -380,7 +382,7 @@ fn add_neural_network_benchmarks(runner: &mut crate::core::ComparisonRunner, siz
         });
 
         // Activation function benchmark
-        let activation_start = std::time::Instant::now();
+        let _activation_start = std::time::Instant::now();
 
         // Simulate ReLU activation
         let activation_elements = batch_size * size * size * out_channels;

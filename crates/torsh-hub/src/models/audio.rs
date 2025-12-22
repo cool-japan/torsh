@@ -3,6 +3,8 @@
 //! This module contains implementations of popular audio processing models
 //! including Wav2Vec2, Whisper, and audio classification architectures.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use std::collections::HashMap;
 use torsh_core::device::DeviceType;
 use torsh_core::error::Result;
@@ -82,7 +84,7 @@ impl Module for ConvFeatureExtractor {
         state_dict: &HashMap<String, Tensor<f32>>,
         strict: bool,
     ) -> Result<()> {
-        for (i, conv) in self.conv_layers.iter_mut().enumerate() {
+        for conv in self.conv_layers.iter_mut() {
             // Load conv parameters with proper naming
             conv.load_state_dict(state_dict, strict)?;
         }

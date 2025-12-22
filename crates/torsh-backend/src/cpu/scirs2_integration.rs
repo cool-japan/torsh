@@ -3,6 +3,8 @@
 //! This module provides integration with scirs2-core's optimized CPU operations,
 //! BLAS/LAPACK routines, SIMD implementations, and auto-tuning system for the CPU backend.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::cpu::autotuning::{AutoTuner, PerformanceMeasurement};
 use crate::cpu::error::{cpu_errors, CpuResult};
 use crate::error::conversion;
@@ -36,7 +38,8 @@ pub struct KernelConfig {
 impl SciRS2CpuBackend {
     /// Create a new SciRS2 CPU backend with auto-tuning
     pub fn new() -> CpuResult<Self> {
-        let num_threads = rayon::current_num_threads();
+        // Use SciRS2 parallel operations for thread count (SciRS2 POLICY compliance)
+        let num_threads = scirs2_core::parallel_ops::get_num_threads();
 
         Ok(Self {
             num_threads,
@@ -118,7 +121,7 @@ impl SciRS2CpuBackend {
     }
 
     /// Execute operation with performance profiling
-    fn execute_with_profiling<F, R>(&self, operation: &str, f: F) -> CpuResult<R>
+    fn execute_with_profiling<F, R>(&self, _operation: &str, f: F) -> CpuResult<R>
     where
         F: FnOnce() -> CpuResult<R>,
     {
@@ -131,10 +134,10 @@ impl SciRS2CpuBackend {
         let result = f()?;
 
         if let Some(start_time) = start {
-            let elapsed = start_time.elapsed();
+            let _elapsed = start_time.elapsed();
             // Log performance data for future auto-tuning
             #[cfg(feature = "tracing")]
-            tracing::debug!("Operation {} took {:?}", operation, elapsed);
+            tracing::debug!("Operation {} took {:?}", _operation, _elapsed);
         }
 
         Ok(result)

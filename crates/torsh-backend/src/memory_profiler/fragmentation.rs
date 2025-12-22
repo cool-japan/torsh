@@ -7,6 +7,8 @@
 //! - Performance impact assessment and optimization recommendations
 //! - Advanced fragmentation metrics and predictive modeling
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::Device;
 use parking_lot::Mutex;
 use std::collections::{BTreeMap, HashMap, VecDeque};
@@ -831,18 +833,58 @@ impl FragmentationTracker {
     }
 
     /// Create fragmentation context
-    fn create_fragmentation_context(&self, _device: Device) -> FragmentationContext {
+    fn create_fragmentation_context(&self, device: Device) -> FragmentationContext {
+        // Calculate memory pressure from fragmentation score
+        let memory_pressure = self
+            .fragmentation_scores
+            .get(&device)
+            .copied()
+            .unwrap_or(0.5);
+
+        // Estimate concurrent allocations from free blocks count
+        let concurrent_allocations = self
+            .free_blocks
+            .get(&device)
+            .map(|blocks| blocks.len())
+            .unwrap_or(10);
+
+        // Determine workload type from recent fragmentation events
+        let workload_type = if self.fragmentation_events.len() > 10 {
+            WorkloadType::StreamingWorkload
+        } else if self.fragmentation_events.len() > 5 {
+            WorkloadType::BatchProcessing
+        } else {
+            WorkloadType::InteractiveWorkload
+        };
+
+        // Analyze allocation pattern from free blocks distribution
+        let allocation_pattern = self
+            .free_blocks
+            .get(&device)
+            .map(|blocks| {
+                if blocks.len() < 5 {
+                    AllocationPattern::Sequential
+                } else {
+                    AllocationPattern::Random
+                }
+            })
+            .unwrap_or(AllocationPattern::Random);
+
+        // Get system load (use reasonable defaults if not available)
+        let cpu_count = num_cpus::get();
+        let system_load = SystemLoad {
+            cpu_utilization: memory_pressure * 100.0, // Correlate with memory pressure
+            memory_utilization: memory_pressure * 100.0,
+            io_pressure: (memory_pressure * 50.0).min(100.0),
+            active_threads: cpu_count,
+        };
+
         FragmentationContext {
-            memory_pressure: 0.5,       // Placeholder
-            concurrent_allocations: 10, // Placeholder
-            workload_type: WorkloadType::Unknown,
-            allocation_pattern: AllocationPattern::Random,
-            system_load: SystemLoad {
-                cpu_utilization: 50.0,
-                memory_utilization: 70.0,
-                io_pressure: 30.0,
-                active_threads: 8,
-            },
+            memory_pressure,
+            concurrent_allocations,
+            workload_type,
+            allocation_pattern,
+            system_load,
         }
     }
 
@@ -867,17 +909,21 @@ impl FragmentationTracker {
         // Update spatial fragmentation
         metrics.spatial_fragmentation = fragmentation_score;
 
-        // Update predictive metrics
-        metrics.predictive_metrics.fragmentation_velocity = 0.01; // Placeholder
-        metrics.predictive_metrics.risk_assessment = if fragmentation_score > 0.8 {
-            FragmentationRisk::Critical
-        } else if fragmentation_score > 0.6 {
-            FragmentationRisk::High
-        } else if fragmentation_score > 0.4 {
-            FragmentationRisk::Medium
-        } else {
-            FragmentationRisk::Low
-        };
+        // Calculate fragmentation velocity from recent events
+        let fragmentation_velocity = self.calculate_fragmentation_velocity(&device);
+        metrics.predictive_metrics.fragmentation_velocity = fragmentation_velocity;
+
+        // Update risk assessment based on score and velocity
+        metrics.predictive_metrics.risk_assessment =
+            if fragmentation_score > 0.8 || fragmentation_velocity > 0.1 {
+                FragmentationRisk::Critical
+            } else if fragmentation_score > 0.6 || fragmentation_velocity > 0.05 {
+                FragmentationRisk::High
+            } else if fragmentation_score > 0.4 || fragmentation_velocity > 0.02 {
+                FragmentationRisk::Medium
+            } else {
+                FragmentationRisk::Low
+            };
     }
 
     /// Calculate Shannon entropy of free block sizes
@@ -896,6 +942,49 @@ impl FragmentationTracker {
         }
 
         entropy
+    }
+
+    /// Calculate fragmentation velocity from recent events
+    fn calculate_fragmentation_velocity(&self, device: &Device) -> f64 {
+        // Get recent events for this device (last 10 events)
+        let recent_events: Vec<_> = self
+            .fragmentation_events
+            .iter()
+            .filter(|event| event.device == *device)
+            .rev()
+            .take(10)
+            .collect();
+
+        if recent_events.len() < 2 {
+            return 0.0; // Not enough data to calculate velocity
+        }
+
+        // Calculate average rate of change
+        let mut total_change = 0.0;
+        let mut total_time = Duration::from_secs(0);
+
+        for i in 0..recent_events.len() - 1 {
+            let current = recent_events[i];
+            let previous = recent_events[i + 1];
+
+            let fragmentation_change =
+                (current.fragmentation_after - previous.fragmentation_after).abs();
+            let time_diff = current
+                .timestamp
+                .duration_since(previous.timestamp)
+                .as_secs_f64();
+
+            if time_diff > 0.0 {
+                total_change += fragmentation_change;
+                total_time += Duration::from_secs_f64(time_diff);
+            }
+        }
+
+        if total_time.as_secs_f64() > 0.0 {
+            total_change / total_time.as_secs_f64()
+        } else {
+            0.0
+        }
     }
 
     /// Trigger automatic compaction
@@ -929,12 +1018,12 @@ impl FragmentationTracker {
         let mut blocks_moved = 0;
         let mut memory_recovered = 0;
         let mut largest_free_block_before = 0;
-        let mut total_free_memory_before = 0;
+        let mut _total_free_memory_before = 0;
 
         // Analyze current allocation state
         if let Some(device_free_blocks) = self.free_blocks.get(device) {
             for (&size, &count) in device_free_blocks {
-                total_free_memory_before += size * count;
+                _total_free_memory_before += size * count;
                 largest_free_block_before = largest_free_block_before.max(size);
             }
         }
@@ -971,7 +1060,7 @@ impl FragmentationTracker {
     }
 
     /// Check if an allocation can be safely moved during compaction
-    fn can_move_allocation(&self, address: usize, size: usize, device: &Device) -> bool {
+    fn can_move_allocation(&self, _address: usize, size: usize, device: &Device) -> bool {
         use torsh_core::device::DeviceType;
 
         match device.device_type() {
@@ -1026,7 +1115,7 @@ impl FragmentationTracker {
     }
 
     /// Update prediction model
-    fn update_prediction_model(&self, device: Device, fragmentation_level: f64) {
+    fn update_prediction_model(&self, _device: Device, fragmentation_level: f64) {
         let mut model = self.prediction_model.lock();
 
         let data_point = FragmentationDataPoint {

@@ -1,0 +1,36 @@
+[package]
+name = "torsh-quantization-fuzz"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+torsh-quantization = { path = ".." }
+torsh-tensor = { path = "../../torsh-tensor" }
+torsh-core = { path = "../../torsh-core" }
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "fuzz_quantize_per_tensor"
+path = "fuzz_targets/fuzz_quantize_per_tensor.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_observer_update"
+path = "fuzz_targets/fuzz_observer_update.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_specialized_schemes"
+path = "fuzz_targets/fuzz_specialized_schemes.rs"
+test = false
+doc = false

@@ -4,6 +4,8 @@
 //! multiple types of input (vision, text, audio) including CLIP, ALIGN,
 //! and vision-language models.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::models::nlp::MultiHeadAttention;
 use std::collections::HashMap;
 use torsh_core::device::DeviceType;
@@ -25,6 +27,16 @@ pub struct VisionEncoder {
 }
 
 impl VisionEncoder {
+    /// Get image size
+    pub fn image_size(&self) -> usize {
+        self.image_size
+    }
+
+    /// Get patch size
+    pub fn patch_size(&self) -> usize {
+        self.patch_size
+    }
+
     pub fn new(
         image_size: usize,
         patch_size: usize,
@@ -165,6 +177,21 @@ pub struct TextEncoder {
 }
 
 impl TextEncoder {
+    /// Get vocabulary size
+    pub fn vocab_size(&self) -> usize {
+        self.vocab_size
+    }
+
+    /// Get embedding dimension
+    pub fn embed_dim(&self) -> usize {
+        self.embed_dim
+    }
+
+    /// Get context length
+    pub fn context_length(&self) -> usize {
+        self.context_length
+    }
+
     pub fn new(
         vocab_size: usize,
         embed_dim: usize,
@@ -264,6 +291,11 @@ pub struct CLIP {
 }
 
 impl CLIP {
+    /// Get output dimension
+    pub fn output_dim(&self) -> usize {
+        self.output_dim
+    }
+
     pub fn new(
         // Vision parameters
         image_size: usize,
@@ -393,6 +425,16 @@ pub struct VisionLanguageModel {
 }
 
 impl VisionLanguageModel {
+    /// Get vocabulary size
+    pub fn vocab_size(&self) -> usize {
+        self.vocab_size
+    }
+
+    /// Get embedding dimension
+    pub fn embed_dim(&self) -> usize {
+        self.embed_dim
+    }
+
     pub fn new(
         // Vision parameters
         image_size: usize,
@@ -402,7 +444,7 @@ impl VisionLanguageModel {
         vision_heads: usize,
         // Text parameters
         vocab_size: usize,
-        context_length: usize,
+        _context_length: usize,
         text_layers: usize,
         text_width: usize,
         text_heads: usize,
@@ -946,17 +988,13 @@ mod tests {
         let input = torsh_tensor::creation::randn(&[2, 50, 768]).unwrap();
 
         println!("Testing TransformerEncoder directly...");
-        match transformer.forward(&input) {
-            Ok(output) => {
-                println!(
-                    "TransformerEncoder forward succeeded, shape: {:?}",
-                    output.shape().dims()
-                );
-            }
-            Err(e) => {
-                panic!("TransformerEncoder forward failed: {:?}", e);
-            }
-        }
+        let output = transformer
+            .forward(&input)
+            .expect("TransformerEncoder forward should succeed");
+        println!(
+            "TransformerEncoder forward succeeded, shape: {:?}",
+            output.shape().dims()
+        );
     }
 
     #[test]
@@ -967,18 +1005,14 @@ mod tests {
 
         // Test each step individually to isolate the matrix multiplication error
         println!("Testing VisionEncoder forward...");
-        let visual_features = match model.visual.forward(&image) {
-            Ok(features) => {
-                println!(
-                    "VisionEncoder forward succeeded, shape: {:?}",
-                    features.shape().dims()
-                );
-                features
-            }
-            Err(e) => {
-                panic!("VisionEncoder forward failed: {:?}", e);
-            }
-        };
+        let visual_features = model
+            .visual
+            .forward(&image)
+            .expect("VisionEncoder forward should succeed");
+        println!(
+            "VisionEncoder forward succeeded, shape: {:?}",
+            visual_features.shape().dims()
+        );
 
         // Test normalization separately
         println!("Testing normalization...");

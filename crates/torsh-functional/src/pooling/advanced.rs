@@ -134,7 +134,8 @@ pub fn stochastic_pool2d(
 
                         if total > 0.0 && !values.is_empty() {
                             // Sample according to probabilities
-                            let rand_val: f32 = Random::default().gen();
+                            let mut rng = Random::default();
+                            let rand_val: f32 = rng.random();
                             let mut cumsum = 0.0f32;
 
                             for &val in &values {
@@ -403,14 +404,14 @@ pub fn fractional_max_pool2d(
     row_sequence[0] = 0;
     row_sequence[out_height] = height;
     for i in 1..out_height {
-        let u: f64 = rng.gen();
+        let u: f64 = rng.random();
         row_sequence[i] = ((i as f64 - u) * alpha_h) as usize + kernel_size.0 / 2;
     }
 
     col_sequence[0] = 0;
     col_sequence[out_width] = width;
     for i in 1..out_width {
-        let u: f64 = rng.gen();
+        let u: f64 = rng.random();
         col_sequence[i] = ((i as f64 - u) * alpha_w) as usize + kernel_size.1 / 2;
     }
 

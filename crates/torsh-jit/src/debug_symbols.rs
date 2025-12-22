@@ -960,12 +960,120 @@ impl DebugSymbolManager {
     /// Create variable symbol from IR value definition
     fn create_variable_symbol(
         &self,
-        _value_id: &IrValue,
-        _value_def: &crate::ir::ValueDef,
+        value_id: &IrValue,
+        value_def: &crate::ir::ValueDef,
     ) -> JitResult<Option<VariableSymbol>> {
-        // For now, only create symbols for certain kinds of values
-        // TODO: Implement based on value kind
-        Ok(None)
+        use crate::ir::ValueKind;
+
+        // Create symbol based on value kind
+        match &value_def.kind {
+            ValueKind::Parameter { index } => {
+                // Create symbol for function parameter
+                let var_type = self.ir_type_to_type_symbol(&value_def.ty);
+                let name = format!("param_{}", index);
+
+                Ok(Some(VariableSymbol {
+                    name,
+                    var_type,
+                    location: VariableLocation::Unknown,
+                    declaration_location: SourceLocation {
+                        file: "".to_string(),
+                        line: 0,
+                        column: 0,
+                        length: None,
+                    },
+                    scope: Scope {
+                        start_address: 0,
+                        end_address: u64::MAX,
+                        parent: None,
+                        kind: ScopeKind::Function,
+                    },
+                    live_ranges: Vec::new(),
+                }))
+            }
+            ValueKind::Instruction { block, index } => {
+                // Create symbol for instruction result (temporary variable)
+                let var_type = self.ir_type_to_type_symbol(&value_def.ty);
+                let name = format!("tmp_{}_{}", block, index);
+
+                Ok(Some(VariableSymbol {
+                    name,
+                    var_type,
+                    location: VariableLocation::Unknown,
+                    declaration_location: SourceLocation {
+                        file: "".to_string(),
+                        line: 0,
+                        column: 0,
+                        length: None,
+                    },
+                    scope: Scope {
+                        start_address: 0,
+                        end_address: u64::MAX,
+                        parent: None,
+                        kind: ScopeKind::Block,
+                    },
+                    live_ranges: Vec::new(),
+                }))
+            }
+            ValueKind::Constant { data } => {
+                // Create symbol for constant value
+                let var_type = self.ir_type_to_type_symbol(&value_def.ty);
+                let name = format!("const_{:?}", value_id);
+                let const_location = match data {
+                    crate::ir::ConstantData::Int(v) => VariableLocation::Constant {
+                        value: ConstantValue::Int(*v),
+                    },
+                    crate::ir::ConstantData::Float(v) => VariableLocation::Constant {
+                        value: ConstantValue::Float(*v),
+                    },
+                    crate::ir::ConstantData::Bool(v) => VariableLocation::Constant {
+                        value: ConstantValue::Bool(*v),
+                    },
+                    _ => VariableLocation::Unknown,
+                };
+
+                Ok(Some(VariableSymbol {
+                    name,
+                    var_type,
+                    location: const_location,
+                    declaration_location: SourceLocation {
+                        file: "".to_string(),
+                        line: 0,
+                        column: 0,
+                        length: None,
+                    },
+                    scope: Scope {
+                        start_address: 0,
+                        end_address: u64::MAX,
+                        parent: None,
+                        kind: ScopeKind::Block, // Use Block instead of Global
+                    },
+                    live_ranges: Vec::new(),
+                }))
+            }
+            ValueKind::Undef => {
+                // Don't create symbols for undefined values
+                Ok(None)
+            }
+        }
+    }
+
+    /// Helper to convert IrType to TypeSymbol
+    fn ir_type_to_type_symbol(&self, ir_type: &crate::ir::IrType) -> TypeSymbol {
+        use crate::ir::TypeKind;
+
+        // IrType is just a u32 ID. Without access to the IrModule's type registry,
+        // we create a generic type symbol with the ID
+        let type_id = ir_type.0;
+
+        TypeSymbol {
+            name: format!("type_{}", type_id),
+            kind: TypeKind::I32, // Default kind
+            size: 4,             // Default size
+            alignment: 4,        // Default alignment
+            members: Vec::new(),
+            definition_location: None,
+        }
     }
 
     /// Get symbol table for a module

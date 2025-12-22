@@ -3,7 +3,6 @@
 use std::collections::HashMap;
 use tempfile::TempDir;
 use torsh_tensor::Tensor;
-use torsh_utils::*;
 
 #[cfg(test)]
 mod tests {
@@ -12,7 +11,7 @@ mod tests {
     /// Test complete mobile optimization workflow
     #[test]
     fn test_mobile_optimization_workflow() {
-        let temp_dir = TempDir::new().unwrap();
+        let _temp_dir = TempDir::new().unwrap();
 
         // 1. Create a test model
         let test_model = create_test_model();
@@ -33,7 +32,7 @@ mod tests {
     /// Test profiling and optimization integration
     #[test]
     fn test_profiling_optimization_integration() {
-        let temp_dir = TempDir::new().unwrap();
+        let _temp_dir = TempDir::new().unwrap();
 
         // 1. Create test model
         let test_model = create_test_model();
@@ -95,7 +94,7 @@ mod tests {
     /// Test end-to-end mobile deployment workflow
     #[test]
     fn test_mobile_deployment_workflow() {
-        let temp_dir = TempDir::new().unwrap();
+        let _temp_dir = TempDir::new().unwrap();
 
         // 1. Start with a baseline model
         let baseline_model = create_baseline_model();
@@ -185,7 +184,7 @@ mod tests {
     /// Test memory leak detection across utilities
     #[test]
     fn test_memory_leak_detection() {
-        let temp_dir = TempDir::new().unwrap();
+        let _temp_dir = TempDir::new().unwrap();
 
         // Run memory-intensive operations
         let test_model = create_large_test_model();
@@ -595,7 +594,8 @@ mod tests {
 
     fn benchmark_model_performance(model: &TestModel) -> Result<PerformanceMetrics, String> {
         // Return different metrics based on model ID to simulate different optimizations
-        let (accuracy_drop, latency_increase, memory_reduction) = if model.id.contains("quantized") {
+        let (accuracy_drop, latency_increase, memory_reduction) = if model.id.contains("quantized")
+        {
             (0.02, 0.0, 0.1) // Quantization: slight accuracy drop, small memory reduction
         } else if model.id.contains("pruned") {
             (0.01, 0.05, 0.15) // Pruning: minimal accuracy drop, slight latency increase
@@ -714,6 +714,7 @@ mod tests {
     // Test data structures
 
     #[derive(Debug, Clone)]
+    #[allow(dead_code)]
     struct TestModel {
         id: String,
         parameters: HashMap<String, Tensor>,
@@ -722,6 +723,7 @@ mod tests {
     }
 
     #[derive(Debug)]
+    #[allow(dead_code)]
     struct OptimizedTestModel {
         original_model: String,
         optimizations_applied: Vec<String>,
@@ -730,6 +732,7 @@ mod tests {
     }
 
     #[derive(Debug, Clone)]
+    #[allow(dead_code)]
     struct MobileBenchmarkData {
         latency_ms: f32,
         throughput_fps: f32,
@@ -739,6 +742,7 @@ mod tests {
     }
 
     #[derive(Debug)]
+    #[allow(dead_code)]
     struct MobileValidationResult {
         meets_latency_requirements: bool,
         meets_memory_requirements: bool,
@@ -747,6 +751,7 @@ mod tests {
     }
 
     #[derive(Debug)]
+    #[allow(dead_code)]
     struct ProfilingData {
         total_time_ms: f32,
         layer_timings: Vec<LayerProfile>,
@@ -755,6 +760,7 @@ mod tests {
     }
 
     #[derive(Debug)]
+    #[allow(dead_code)]
     struct LayerProfile {
         name: String,
         time_ms: f32,
@@ -762,6 +768,7 @@ mod tests {
     }
 
     #[derive(Debug)]
+    #[allow(dead_code)]
     struct OptimizationSuggestion {
         target: String,
         optimization_type: String,
@@ -770,6 +777,7 @@ mod tests {
     }
 
     #[derive(Debug)]
+    #[allow(dead_code)]
     struct MobileOptimizationData {
         original_size_mb: f32,
         optimized_size_mb: f32,
@@ -778,6 +786,7 @@ mod tests {
     }
 
     #[derive(Debug)]
+    #[allow(dead_code)]
     struct DeploymentReport {
         ready_for_deployment: bool,
         optimization_summary: String,
@@ -786,6 +795,7 @@ mod tests {
     }
 
     #[derive(Debug)]
+    #[allow(dead_code)]
     struct PerformanceMetrics {
         latency_ms: f32,
         throughput_fps: f32,
@@ -796,6 +806,7 @@ mod tests {
     }
 
     #[derive(Debug)]
+    #[allow(dead_code)]
     struct RegressionResult {
         has_critical_regression: bool,
         latency_regression: f32,
@@ -804,12 +815,14 @@ mod tests {
     }
 
     #[derive(Debug)]
+    #[allow(dead_code)]
     struct MockTensorBoardWriter {
         log_dir: std::path::PathBuf,
         entries: Vec<String>,
     }
 
     #[derive(Debug)]
+    #[allow(dead_code)]
     struct MockMemoryTracker {
         start_memory: f32,
         current_memory: f32,
@@ -831,6 +844,7 @@ mod tests {
     }
 
     #[derive(Debug)]
+    #[allow(dead_code)]
     struct MemoryLeakReport {
         total_leaked_mb: f32,
         leak_count: usize,

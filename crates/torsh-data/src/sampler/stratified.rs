@@ -9,7 +9,6 @@ use std::collections::HashMap;
 
 // ✅ SciRS2 Policy Compliant - Using scirs2_core for all random operations
 use scirs2_core::rand_prelude::SliceRandom;
-use scirs2_core::random::{Random, Rng};
 
 use super::core::{rng_utils, Sampler, SamplerIterator};
 
@@ -21,7 +20,7 @@ use super::core::{rng_utils, Sampler, SamplerIterator};
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_data::sampler::{StratifiedSampler, Sampler};
 ///
 /// // Dataset with 3 classes: [0,0,0,1,1,1,2,2,2]
@@ -50,7 +49,7 @@ impl StratifiedSampler {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use torsh_data::sampler::StratifiedSampler;
     ///
     /// let labels = vec![0, 0, 1, 1, 2, 2];

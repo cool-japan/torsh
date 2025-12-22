@@ -12,10 +12,10 @@
 //! - Multi-modal graph pre-training
 //! - Zero-shot graph learning with multi-modal embeddings
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::parameter::Parameter;
 use crate::{GraphData, GraphLayer};
-use scirs2_core::ndarray::{Array1, Array2, ArrayView1, ArrayView2};
-use scirs2_core::random::Random;
 use std::collections::{HashMap, HashSet};
 use torsh_tensor::{
     creation::{from_vec, ones, randn, zeros},
@@ -31,7 +31,7 @@ pub enum Modality {
     Tabular,
     Graph,
     Video,
-    Time_series,
+    TimeSeries,
 }
 
 /// Multi-modal data for a single node
@@ -305,13 +305,13 @@ impl CrossModalGraphAttention {
         // For simplicity, use the first modality as the base
         let first_modality = modality_features.keys().next().unwrap();
         let base_features = &modality_features[first_modality];
-        let num_nodes = base_features.shape().dims()[0];
+        let _num_nodes = base_features.shape().dims()[0];
 
         // Compute queries, keys, and values
         let queries = base_features
             .matmul(&self.query_weights.clone_data())
             .unwrap();
-        let keys = base_features
+        let _keys = base_features
             .matmul(&self.key_weights.clone_data())
             .unwrap();
         let values = base_features
@@ -808,8 +808,8 @@ pub mod utils {
                     Modality::Audio => 128,  // Audio features
                     Modality::Tabular => 64, // Structured data
                     Modality::Graph => base_feature_dim,
-                    Modality::Video => 1024,      // Video features
-                    Modality::Time_series => 256, // Time series features
+                    Modality::Video => 1024,     // Video features
+                    Modality::TimeSeries => 256, // Time series features
                 };
 
                 // Only add modality data with some probability for missing modality simulation

@@ -49,6 +49,7 @@ pub mod signal;
 pub mod sparse;
 pub mod special;
 pub mod spectral;
+pub mod tensor_ops;
 pub mod type_promotion;
 pub mod utils;
 pub mod wavelet;
@@ -64,6 +65,12 @@ pub mod numerical_correctness;
 
 #[cfg(test)]
 pub mod property_based_tests;
+
+#[cfg(test)]
+pub mod edge_case_tests;
+
+#[cfg(test)]
+pub mod platform_tests;
 
 // Re-exports for convenience
 
@@ -155,6 +162,10 @@ pub use manipulation::{
 pub use math::{cdist, einsum};
 pub use reduction::{unique, unique_consecutive, UniqueResult};
 pub use spectral::{istft, stft};
+pub use tensor_ops::{
+    cosine_similarity, embedding, linear, one_hot, pairwise_distance, pixel_shuffle,
+    pixel_unshuffle,
+};
 
 // Image processing operations
 pub use image::{
@@ -360,8 +371,8 @@ pub use profiling::{
 pub use utils::{
     apply_binary_elementwise, apply_conditional_elementwise, apply_elementwise_operation,
     calculate_pooling_output_size, calculate_pooling_output_size_2d,
-    calculate_pooling_output_size_3d, create_tensor_like, function_context,
-    validate_broadcastable_shapes, validate_dimension, validate_elementwise_shapes,
+    calculate_pooling_output_size_3d, create_tensor_like, function_context, safe_for_log, safe_log,
+    safe_log_prob, validate_broadcastable_shapes, validate_dimension, validate_elementwise_shapes,
     validate_loss_params, validate_non_empty, validate_pooling_params, validate_positive,
     validate_range, validate_tensor_dims,
 };

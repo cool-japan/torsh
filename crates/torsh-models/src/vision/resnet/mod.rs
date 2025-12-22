@@ -16,6 +16,7 @@
 //!
 //! # Example Usage
 //! ```rust,no_run
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! use torsh_models::vision::resnet::{ResNet, ResNetBuilder, ResNetVariant};
 //!
 //! // Create ResNet-50 for ImageNet classification
@@ -36,6 +37,8 @@
 //!     .num_classes(1000)
 //!     .resnext(32, 4)
 //!     .build()?;
+//! # Ok(())
+//! # }
 //! ```
 
 pub mod blocks;

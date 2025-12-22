@@ -18,7 +18,7 @@
 
 use std::sync::Arc;
 use torsh_core::{
-    dtype::{ComplexElement, TensorElement},
+    dtype::TensorElement,
     error::{Result, TorshError},
 };
 
@@ -27,8 +27,6 @@ use torsh_core::{
 #[cfg(feature = "simd")]
 mod simd_imports {
     // ✅ SciRS2 Breakthrough SIMD Implementation - 14.17x Performance
-    pub use scirs2_core::simd_aligned::{simd_add_aligned_f32, simd_mul_aligned_f32, AlignedVec};
-    pub use scirs2_core::simd_ops::SimdUnifiedOps;
 
     // 🚀 Hyperoptimized SIMD implementations with breakthrough performance
     pub use scirs2_core::simd::{
@@ -36,7 +34,6 @@ mod simd_imports {
         simd_add_f32,
         simd_div_f32,
         simd_dot_f32,
-        simd_mul_f32,
         // Available hyperoptimized implementations
         simd_mul_f32_hyperoptimized, // Adaptive selection - best overall performance
         // Temporarily unavailable in current SciRS2 version:
@@ -52,24 +49,28 @@ mod simd_imports {
 #[cfg(feature = "simd")]
 use simd_imports::*;
 
+#[cfg(feature = "parallel")]
+// TODO: scirs2_core::gpu module not available yet
+// #[cfg(feature = "gpu")]
+// use scirs2_core::gpu::{GpuBuffer, GpuContext};
+
+// Chunking and parallel processing
+#[cfg(feature = "parallel")]
 use scirs2_core::chunking::{
     CacheAwareness, ChunkConfig, ChunkStrategy, ComputeIntensity, GpuChunkSettings, MemoryPattern,
     NumaStrategy,
 };
-use scirs2_core::parallel::{SchedulingPolicy, TaskPriority};
-#[cfg(feature = "parallel")]
-use scirs2_core::parallel_ops::*;
-
-#[cfg(feature = "gpu")]
-use scirs2_core::gpu::{GpuBuffer, GpuContext};
 
 // Memory optimization features
 // Note: memory_efficient features require enabling the memory_efficient feature flag
 // use scirs2_core::memory_efficient::{MemoryMappedArray, LazyArray};
 
+// TODO: scirs2_core::profiling module not available yet
 // Performance profiling integration
-#[cfg(feature = "profiling")]
-use scirs2_core::profiling::{profile_section, Profiler};
+// #[cfg(feature = "profiling")]
+// use scirs2_core::profiling::Profiler;
+// TODO: profile_section macro not available in scirs2_core yet
+// use scirs2_core::profiling::profile_section;
 
 use crate::core_ops::{Operation, Tensor};
 
@@ -144,8 +145,6 @@ mod adaptive_simd {
 }
 
 #[cfg(feature = "simd")]
-use adaptive_simd::*;
-
 // 🚀 Intelligent Chunking System for Advanced Optimization
 #[cfg(feature = "parallel")]
 mod intelligent_chunking {
@@ -173,6 +172,8 @@ mod intelligent_chunking {
         /// Compute-intensive operations
         ComputeIntensive,
     }
+
+    // Note: GpuChunkSettings is now imported from scirs2_core::chunking
 
     /// Create optimal chunking configuration based on tensor operation characteristics
     pub fn create_optimal_chunk_config(
@@ -220,8 +221,8 @@ mod intelligent_chunking {
                         gpu_memory_ratio: 0.9, // High GPU utilization for linear algebra
                         gpu_min_chunk: 8192,
                         overlap_compute: true,
-                        gpu_bandwidth: None,
-                        transfer_bandwidth: None,
+                        gpu_bandwidth: None,      // Option<u64>
+                        transfer_bandwidth: None, // Option<u64>
                     })
                 } else {
                     None
@@ -258,8 +259,8 @@ mod intelligent_chunking {
                         gpu_memory_ratio: 0.95, // Maximum GPU utilization for convolutions
                         gpu_min_chunk: 16384,
                         overlap_compute: true,
-                        gpu_bandwidth: None,
-                        transfer_bandwidth: None,
+                        gpu_bandwidth: None,      // Option<u64>
+                        transfer_bandwidth: None, // Option<u64>
                     })
                 } else {
                     None
@@ -282,8 +283,8 @@ mod intelligent_chunking {
                         gpu_memory_ratio: 0.8,
                         gpu_min_chunk: 4096,
                         overlap_compute: true,
-                        gpu_bandwidth: None,
-                        transfer_bandwidth: None,
+                        gpu_bandwidth: None,      // Option<u64>
+                        transfer_bandwidth: None, // Option<u64>
                     })
                 } else {
                     None
@@ -320,8 +321,8 @@ mod intelligent_chunking {
                         gpu_memory_ratio: 0.7,
                         gpu_min_chunk: 2048,
                         overlap_compute: true,
-                        gpu_bandwidth: None,
-                        transfer_bandwidth: None,
+                        gpu_bandwidth: None,      // Option<u64>
+                        transfer_bandwidth: None, // Option<u64>
                     })
                 } else {
                     None
@@ -358,8 +359,8 @@ mod intelligent_chunking {
                         gpu_memory_ratio: 0.9,
                         gpu_min_chunk: 1024,
                         overlap_compute: true,
-                        gpu_bandwidth: None,
-                        transfer_bandwidth: None,
+                        gpu_bandwidth: None,      // Option<u64>
+                        transfer_bandwidth: None, // Option<u64>
                     })
                 } else {
                     None
@@ -476,8 +477,19 @@ fn compute_broadcast_index(
     let dims_diff = broadcast_shape.len() - original_shape.len();
 
     for (i, &broadcast_dim) in broadcast_shape.iter().enumerate() {
-        let coord = remaining / broadcast_shape[i + 1..].iter().product::<usize>().max(1);
-        remaining %= broadcast_shape[i + 1..].iter().product::<usize>().max(1);
+        // Calculate stride (product of remaining dimensions)
+        let stride = broadcast_shape[i + 1..].iter().product::<usize>().max(1);
+        let coord = remaining / stride;
+        remaining %= stride;
+
+        // Validate coordinate is within broadcast dimension
+        debug_assert!(
+            coord < broadcast_dim,
+            "Coordinate {} out of bounds for dimension {} of size {}",
+            coord,
+            i,
+            broadcast_dim
+        );
 
         if i >= dims_diff {
             let original_dim = original_shape[i - dims_diff];
@@ -813,7 +825,7 @@ impl<T: TensorElement + Copy> Tensor<T> {
             // For f32, use the breakthrough aligned SIMD operations
             if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
                 let a_f32 = unsafe { std::mem::transmute::<&[T], &[f32]>(data_a) };
-                let b_f32 = unsafe { std::mem::transmute::<&[T], &[f32]>(data_b) };
+                let _b_f32 = unsafe { std::mem::transmute::<&[T], &[f32]>(data_b) };
 
                 // Simplified parallel processing - avoid unsafe transmute for generic types
                 // Direct conversion back to generic processing since we can't safely transmute T
@@ -849,7 +861,7 @@ impl<T: TensorElement + Copy> Tensor<T> {
 // Mathematical functions for floating-point tensors
 impl<T: TensorElement + Copy> Tensor<T>
 where
-    T: num_traits::Float,
+    T: num_traits::Float + torsh_core::dtype::FloatElement,
 {
     /// Square root of all elements
     pub fn sqrt(&self) -> Result<Self> {
@@ -946,31 +958,33 @@ where
     }
 
     /// GPU-accelerated GELU activation function
+    /// TODO: Temporarily disabled - GpuElement trait not yet available in scirs2_core
     #[cfg(feature = "gpu")]
+    #[allow(dead_code)]
     fn gpu_gelu(&self) -> Result<Self>
     where
-        T: scirs2_core::gpu::GpuElement + torsh_core::dtype::FloatElement,
+        T: torsh_core::dtype::FloatElement,
     {
         #[cfg(feature = "profiling")]
-        let _profile = profile_section!("gpu_gelu");
+        // let _profile = profile_section!("gpu_gelu");
 
-        use scirs2_core::gpu::{GpuBuffer, GpuContext, GpuKernel};
-
+        // TODO: GPU support temporarily disabled
+        // use scirs2_core::gpu::{GpuBuffer, GpuContext, GpuKernel};
         // Initialize GPU context
-        let gpu_context = GpuContext::new()?;
-
+        // let gpu_context = GpuContext::new()?;
         // Transfer data to GPU
-        let data = self.data()?;
-        let gpu_input = GpuBuffer::from_slice(&gpu_context, &data)?;
-        let gpu_output = GpuBuffer::zeros(&gpu_context, data.len())?;
-
+        // let data = self.data()?;
+        // let gpu_input = GpuBuffer::from_slice(&gpu_context, &data)?;
+        // let gpu_output = GpuBuffer::zeros(&gpu_context, data.len())?;
         // Launch GELU kernel (optimized with tensor cores if available)
-        let kernel = GpuKernel::gelu_activation(&gpu_context)?;
-        kernel.launch_1d(&gpu_input, &gpu_output, data.len())?;
-
+        // let kernel = GpuKernel::gelu_activation(&gpu_context)?;
+        // kernel.launch_1d(&gpu_input, &gpu_output, data.len())?;
         // Transfer result back to CPU
-        let result_data = gpu_output.to_vec()?;
-        Self::from_data(result_data, self.shape().dims().to_vec(), self.device())
+        // let result_data = gpu_output.to_vec()?;
+        // Self::from_data(result_data, self.shape().dims().to_vec(), self.device())
+        Err(TorshError::InvalidArgument(
+            "GPU GELU temporarily unavailable".to_string(),
+        ))
     }
 
     /// Compute GELU for a single scalar value
@@ -996,7 +1010,7 @@ where
         T: torsh_core::dtype::FloatElement,
     {
         #[cfg(feature = "profiling")]
-        let _profile = profile_section!("simd_gelu");
+        // let _profile = profile_section!("simd_gelu");
 
         // TODO: Implement full SIMD when scirs2_core::simd module is available
         /*
@@ -1044,7 +1058,6 @@ where
 
         Self::from_data(result, self.shape().dims().to_vec(), self.device)
         */
-
         // Temporary fallback until scirs2_core::simd is available
         self.map(|x| self.compute_gelu_scalar(x))
     }
@@ -1231,10 +1244,10 @@ impl<T: TensorElement + Copy> Tensor<T> {
     fn simd_sigmoid(&self) -> Result<Self>
     where
         // TODO: Add scirs2_core::simd::SimdElement constraint when available
-        T: torsh_core::dtype::FloatElement,
+        T: torsh_core::dtype::FloatElement + Copy,
     {
         #[cfg(feature = "profiling")]
-        let _profile = profile_section!("simd_sigmoid");
+        // let _profile = profile_section!("simd_sigmoid");
 
         // TODO: Implement full SIMD when scirs2_core::simd module is available
         /*
@@ -1271,10 +1284,9 @@ impl<T: TensorElement + Copy> Tensor<T> {
 
         Self::from_data(result, self.shape().dims().to_vec(), self.device)
         */
-
         // Temporary fallback until scirs2_core::simd is available
         let one = <T as num_traits::One>::one();
-        self.map(|x| one / (one + (-x).exp()))
+        self.map(move |x| one / (one + (-x).exp()))
     }
 
     /// ReLU activation function (Rectified Linear Unit) with SIMD optimization
@@ -1314,7 +1326,7 @@ impl<T: TensorElement + Copy> Tensor<T> {
         T: std::cmp::PartialOrd,
     {
         #[cfg(feature = "profiling")]
-        let _profile = profile_section!("simd_relu");
+        // let _profile = profile_section!("simd_relu");
 
         // TODO: Implement full SIMD when scirs2_core::simd module is available
         /*
@@ -1344,7 +1356,6 @@ impl<T: TensorElement + Copy> Tensor<T> {
 
         Self::from_data(result, self.shape().dims().to_vec(), self.device)
         */
-
         // Temporary fallback until scirs2_core::simd is available
         self.map(|x| if x > zero { x } else { zero })
     }
@@ -1546,7 +1557,7 @@ impl<T: TensorElement + Copy + num_traits::Float> Tensor<T> {
     #[cfg(feature = "simd")]
     pub fn add_simd(&self, other: &Self) -> Result<Self> {
         #[cfg(feature = "profiling")]
-        let _profile = profile_section!("tensor_add_simd");
+        // let _profile = profile_section!("tensor_add_simd");
 
         // Use SciRS2 SIMD acceleration for large tensors
         if self.numel() > 1000 {
@@ -1565,17 +1576,17 @@ impl<T: TensorElement + Copy + num_traits::Float> Tensor<T> {
         F: Fn(T, T) -> T + Send + Sync,
     {
         #[cfg(feature = "profiling")]
-        let _profile = profile_section!("tensor_reduce_memory_efficient");
+        {
+            // let _profile = profile_section!("tensor_reduce_memory_efficient");
+        }
 
         // Use simple reduction for now to get basic functionality working
-        {
-            // Regular reduction for smaller tensors
-            let data = self.to_vec()?;
-            Ok(data
-                .into_iter()
-                .reduce(func)
-                .unwrap_or_else(|| <T as num_traits::Zero>::zero()))
-        }
+        // Regular reduction for smaller tensors
+        let data = self.to_vec()?;
+        Ok(data
+            .into_iter()
+            .reduce(func)
+            .unwrap_or_else(|| <T as num_traits::Zero>::zero()))
     }
 }
 

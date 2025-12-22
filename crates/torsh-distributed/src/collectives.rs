@@ -1,9 +1,11 @@
 //! Collective communication operations
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::backend::ReduceOp;
 use crate::process_group::ProcessGroup;
 use crate::TorshResult;
-use log::{debug, info, warn};
+use log::info;
 use std::collections::HashMap;
 use std::sync::Arc;
 use torsh_core::dtype::FloatElement;
@@ -40,7 +42,7 @@ impl CommunicationGroup {
         if !ranks.contains(&current_global_rank) {
             return Err(crate::TorshDistributedError::invalid_argument(
                 "current_global_rank",
-                &format!(
+                format!(
                     "Current rank {} not in group {:?}",
                     current_global_rank, ranks
                 ),
@@ -132,7 +134,7 @@ impl GroupManager {
         if self.groups.contains_key(&group_id) {
             return Err(crate::TorshDistributedError::invalid_argument(
                 "group_id",
-                &format!("Group '{}' already exists", group_id),
+                format!("Group '{}' already exists", group_id),
                 "unique group identifier",
             ));
         }
@@ -156,7 +158,7 @@ impl GroupManager {
         if self.groups.contains_key(&group_id) {
             return Err(crate::TorshDistributedError::invalid_argument(
                 "group_id",
-                &format!("Group '{}' already exists", group_id),
+                format!("Group '{}' already exists", group_id),
                 "unique group identifier",
             ));
         }
@@ -197,7 +199,7 @@ impl GroupManager {
             return Err(crate::TorshDistributedError::invalid_argument(
                 "parallelism_configuration",
                 "data_parallel_size * model_parallel_size must equal world_size",
-                &format!(
+                format!(
                     "configuration where {} * {} = {}",
                     data_parallel_size, model_parallel_size, world_size
                 ),
@@ -228,7 +230,7 @@ impl GroupManager {
 
 /// All-reduce: reduce tensor across all processes and distribute result
 pub async fn all_reduce<T>(
-    tensor: &mut Tensor<T>,
+    _tensor: &mut Tensor<T>,
     op: ReduceOp,
     group: &ProcessGroup,
 ) -> TorshResult<()>
@@ -304,7 +306,7 @@ pub async fn broadcast<T: FloatElement>(
 
 /// Reduce: reduce tensor to destination rank
 pub async fn reduce<T>(
-    tensor: &mut Tensor<T>,
+    _tensor: &mut Tensor<T>,
     dst_rank: u32,
     op: ReduceOp,
     group: &ProcessGroup,
@@ -359,12 +361,12 @@ pub async fn scatter<T: FloatElement>(
             if tensors.len() != backend_guard.world_size() as usize {
                 return Err(crate::TorshDistributedError::invalid_argument(
                     "tensors",
-                    &format!(
+                    format!(
                         "Expected {} tensors, got {}",
                         backend_guard.world_size(),
                         tensors.len()
                     ),
-                    &format!("{} tensors (one per rank)", backend_guard.world_size()),
+                    format!("{} tensors (one per rank)", backend_guard.world_size()),
                 ));
             }
 
@@ -375,6 +377,7 @@ pub async fn scatter<T: FloatElement>(
 }
 
 /// Barrier synchronization across all processes
+#[allow(clippy::await_holding_lock)]
 pub async fn barrier(group: &ProcessGroup) -> TorshResult<()> {
     let backend = group.backend();
     let mut backend_guard = backend.write();
@@ -462,7 +465,7 @@ pub async fn irecv<T: FloatElement>(
 
 /// All-reduce within a communication group
 pub async fn all_reduce_group<T>(
-    tensor: &mut Tensor<T>,
+    _tensor: &mut Tensor<T>,
     op: ReduceOp,
     comm_group: &CommunicationGroup,
     process_group: &ProcessGroup,
@@ -531,11 +534,11 @@ pub async fn broadcast_group<T: FloatElement>(
             .ok_or_else(|| {
                 crate::TorshDistributedError::invalid_argument(
                     "src_local_rank",
-                    &format!(
+                    format!(
                         "Invalid local rank {} in group '{}'",
                         src_local_rank, comm_group.group_id
                     ),
-                    &format!("valid local rank in range 0..{}", comm_group.group_size),
+                    format!("valid local rank in range 0..{}", comm_group.group_size),
                 )
             })?;
 
@@ -580,7 +583,7 @@ pub async fn all_gather_group<T: FloatElement>(
 
 /// Reduce within a communication group
 pub async fn reduce_group<T>(
-    tensor: &mut Tensor<T>,
+    _tensor: &mut Tensor<T>,
     dst_local_rank: u32,
     op: ReduceOp,
     comm_group: &CommunicationGroup,
@@ -699,8 +702,7 @@ pub async fn send_group<T: FloatElement>(
                 current_global_rank, comm_group.group_id
             ),
             expected: "rank must be member of the communication group".to_string(),
-        }
-        .into());
+        });
     }
 
     if dst_local_rank >= comm_group.group_size {
@@ -755,8 +757,7 @@ pub async fn recv_group<T: FloatElement>(
                 current_global_rank, comm_group.group_id
             ),
             expected: "rank must be member of the communication group".to_string(),
-        }
-        .into());
+        });
     }
 
     if src_local_rank >= comm_group.group_size {
@@ -771,11 +772,11 @@ pub async fn recv_group<T: FloatElement>(
         .ok_or_else(|| {
             crate::TorshDistributedError::invalid_argument(
                 "src_local_rank",
-                &format!(
+                format!(
                     "Invalid local rank {} in group '{}'",
                     src_local_rank, comm_group.group_id
                 ),
-                &format!("valid local rank in range 0..{}", comm_group.group_size),
+                format!("valid local rank in range 0..{}", comm_group.group_size),
             )
         })?;
 
@@ -869,8 +870,7 @@ pub async fn all_to_all<T: FloatElement>(
                 input.len()
             ),
             expected: format!("{} tensors (one per rank)", world_size),
-        }
-        .into());
+        });
     }
 
     // Mock implementation: simulate all-to-all by copying appropriate input tensors
@@ -896,7 +896,7 @@ pub async fn all_to_all<T: FloatElement>(
 /// Ring all-reduce: more bandwidth-efficient all-reduce for large tensors
 /// Reduces communication volume by using ring topology
 pub async fn ring_all_reduce<T>(
-    tensor: &mut Tensor<T>,
+    _tensor: &mut Tensor<T>,
     op: ReduceOp,
     group: &ProcessGroup,
 ) -> TorshResult<()>
@@ -944,7 +944,7 @@ where
 /// Hierarchical all-reduce: two-level all-reduce for multi-node scenarios
 /// More efficient when there are multiple nodes with fast intra-node communication
 pub async fn hierarchical_all_reduce<T>(
-    tensor: &mut Tensor<T>,
+    _tensor: &mut Tensor<T>,
     op: ReduceOp,
     group: &ProcessGroup,
     ranks_per_node: u32,
@@ -977,8 +977,7 @@ where
                 "world_size divisible by ranks_per_node ({})",
                 ranks_per_node
             ),
-        }
-        .into());
+        });
     }
 
     let node_id = rank / ranks_per_node;
@@ -1148,7 +1147,7 @@ where
         // 2. Perform single all-reduce on fused buffer
         // 3. Unflatten and distribute back to original tensors
 
-        for &tensor_idx in tensor_indices {
+        for &_tensor_idx in tensor_indices {
             if let ReduceOp::Sum = op {
                 let world_size_f = world_size;
                 // For mock implementation, skip the scaling to avoid type issues
@@ -1203,7 +1202,7 @@ pub async fn all_gather_varsize<T: FloatElement>(
     // Mock implementation: simulate variable sizes
     for i in 0..world_size {
         // Simulate different tensor sizes from different ranks
-        let scale_factor = 1.0 + (i as f32 * 0.1);
+        let _scale_factor = 1.0 + (i as f32 * 0.1);
         // For mock implementation, skip the scaling to avoid type issues
         // let scaled_tensor = input.mul_scalar(T::from(scale_factor))?;
         let scaled_tensor = input.clone();
@@ -1221,7 +1220,7 @@ pub async fn all_gather_varsize<T: FloatElement>(
 /// Tree-based broadcast: more efficient for large world sizes
 /// Uses binary tree topology to reduce latency compared to linear broadcast
 pub async fn tree_broadcast<T: FloatElement>(
-    tensor: &mut Tensor<T>,
+    _tensor: &mut Tensor<T>,
     src_rank: u32,
     group: &ProcessGroup,
 ) -> TorshResult<()> {
@@ -1296,8 +1295,7 @@ where
             arg: "rank".to_string(),
             reason: "Pipeline chunks must be greater than 0".to_string(),
             expected: "pipeline_chunks > 0".to_string(),
-        }
-        .into());
+        });
     }
 
     // In real implementation, would:
@@ -1305,7 +1303,7 @@ where
     // 2. Start all-reduce on chunk 0 while chunks 1+ are still being computed
     // 3. Pipeline the communication and computation for optimal overlap
 
-    let chunk_size = (tensor.numel() + pipeline_chunks - 1) / pipeline_chunks;
+    let chunk_size = tensor.numel().div_ceil(pipeline_chunks);
 
     // Mock implementation: apply operation to simulate pipelined processing
     if let ReduceOp::Sum = op {
@@ -1327,8 +1325,8 @@ where
 /// Double-buffered all-reduce: uses double buffering to hide latency
 /// Critical for overlapping gradient computation with communication
 pub async fn double_buffered_all_reduce<T>(
-    current_buffer: &mut Tensor<T>,
-    next_buffer: &mut Tensor<T>,
+    _current_buffer: &mut Tensor<T>,
+    _next_buffer: &mut Tensor<T>,
     op: ReduceOp,
     group: &ProcessGroup,
 ) -> TorshResult<()>

@@ -562,9 +562,11 @@ impl AccessPattern {
         let last = self.access_times.back().unwrap();
         let duration = last.duration_since(*first).as_secs_f64();
 
-        if duration > 0.0 {
-            self.frequency = self.access_times.len() as f64 / duration;
-        }
+        // Use a minimum duration to avoid division by zero and to handle
+        // very fast accesses (e.g., in tests). This represents a minimum
+        // measurable interval of 1 microsecond.
+        let effective_duration = duration.max(1e-6);
+        self.frequency = self.access_times.len() as f64 / effective_duration;
     }
 
     /// Analyze sequential vs random access patterns

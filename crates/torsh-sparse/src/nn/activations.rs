@@ -17,7 +17,7 @@
 //! - Tanh: Hyperbolic tangent mapping to (-1, 1)
 
 use crate::{CooTensor, CsrTensor, CscTensor, SparseTensor, SparseFormat, TorshResult};
-use scirs2_core::random::{Random, rng, Rng};
+use scirs2_core::random::{Random, rng};
 use std::collections::HashMap;
 use torsh_core::{Shape, TorshError};
 use torsh_tensor::{

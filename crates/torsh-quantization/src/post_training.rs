@@ -291,7 +291,7 @@ pub fn get_quantization_stats(ptq_state: &PTQState) -> HashMap<String, (f32, i32
         if let Ok((scale, zero_point)) = observer.calculate_qparams(ptq_state.config.dtype) {
             stats.insert(
                 layer_name.clone(),
-                (scale, zero_point, observer.num_batches),
+                (scale, zero_point, observer.num_batches()),
             );
         }
     }

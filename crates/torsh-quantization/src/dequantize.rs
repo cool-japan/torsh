@@ -1,7 +1,7 @@
 //! Dequantization operations
 
 use crate::TorshResult;
-use rayon::prelude::*;
+use scirs2_core::parallel_ops::*;
 use torsh_core::TorshError;
 use torsh_tensor::Tensor;
 
@@ -115,7 +115,7 @@ pub fn dequantize_auto(
 /// Dequantize module parameters
 // Temporarily disabled: pub fn dequantize_module(_module: &mut dyn torsh_nn::Module) -> TorshResult<()> {
 #[allow(dead_code)]
-pub fn dequantize_module(module: &mut dyn crate::TemporaryModule) -> TorshResult<()> {
+pub fn dequantize_module(module: &mut dyn crate::qat::Module) -> TorshResult<()> {
     // Iterate through quantized module parameters and dequantize them
     // This is a simplified implementation that demonstrates the concept
 

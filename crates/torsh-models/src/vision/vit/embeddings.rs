@@ -2,10 +2,7 @@
 
 use super::config::{PatchEmbedStrategy, ViTConfig};
 use std::collections::HashMap;
-use torsh_core::{
-    error::{Result, TorshError},
-    DeviceType,
-};
+use torsh_core::{error::Result, DeviceType};
 use torsh_nn::prelude::*;
 use torsh_nn::{Module, Parameter};
 use torsh_tensor::{creation, Tensor};

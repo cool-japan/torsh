@@ -303,7 +303,7 @@ impl EvolutionStrategy {
 
             for i in 0..dimension {
                 let (min_bound, max_bound) = bounds[i];
-                genome.push(rng.gen::<f32>() * (max_bound - min_bound) + min_bound);
+                genome.push(rng.random::<f32>() * (max_bound - min_bound) + min_bound);
             }
 
             population.push(Individual::with_strategy_params(genome, strategy_params));
@@ -334,24 +334,24 @@ impl EvolutionStrategy {
 
         // Recombination: intermediate crossover
         for i in 0..dimension {
-            let alpha = rng.gen::<f32>();
+            let alpha = rng.random::<f32>();
             child_genome.push(alpha * parent1.genome[i] + (1.0 - alpha) * parent2.genome[i]);
             child_strategy.push((parent1.strategy_params[i] + parent2.strategy_params[i]) / 2.0);
         }
 
         // Self-adaptation: mutate strategy parameters first
-        let global_factor = (self.tau * rng.gen::<f32>().ln()).exp();
+        let global_factor = (self.tau * rng.random::<f32>().ln()).exp();
         let individual_tau = self.tau / (2.0 * dimension as f32).sqrt();
 
         for i in 0..dimension {
-            let individual_factor = (individual_tau * rng.gen::<f32>().ln()).exp();
+            let individual_factor = (individual_tau * rng.random::<f32>().ln()).exp();
             child_strategy[i] *= global_factor * individual_factor;
             child_strategy[i] = child_strategy[i].max(1e-6); // Lower bound for sigma
         }
 
         // Mutation: add Gaussian noise
         for i in 0..dimension {
-            let mutation = rng.gen::<f32>() * child_strategy[i];
+            let mutation = rng.random::<f32>() * child_strategy[i];
             child_genome[i] += mutation;
 
             // Ensure bounds are respected
@@ -568,7 +568,7 @@ impl CMAES {
 
         // Sample from multivariate normal distribution (simplified - using diagonal covariance)
         for i in 0..self.dimension {
-            let noise = rng.gen::<f32>(); // This should be Gaussian noise, but using uniform for simplicity
+            let noise = rng.random::<f32>(); // This should be Gaussian noise, but using uniform for simplicity
             let sample = self.mean[i] + self.sigma * self.covariance[i][i].sqrt() * noise;
 
             // Ensure bounds are respected
@@ -646,7 +646,7 @@ impl OpenAIES {
                 // Generate random noise
                 let mut noise = Vec::with_capacity(dimension);
                 for _ in 0..dimension {
-                    noise.push(rng.gen::<f32>() * 2.0 - 1.0); // Uniform noise [-1, 1]
+                    noise.push(rng.random::<f32>() * 2.0 - 1.0); // Uniform noise [-1, 1]
                 }
 
                 // Perturb parameters

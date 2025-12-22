@@ -107,10 +107,9 @@ impl MetalDevice {
 
     /// Create a new command buffer
     pub fn new_command_buffer(&self) -> Result<CommandBuffer> {
-        let queue = self
-            .command_queue
-            .lock()
-            .map_err(|e| MetalError::InvalidArgument(format!("Failed to lock command queue: {}", e)))?;
+        let queue = self.command_queue.lock().map_err(|e| {
+            MetalError::InvalidArgument(format!("Failed to lock command queue: {}", e))
+        })?;
 
         let buffer = queue.new_command_buffer();
         Ok(buffer.to_owned())

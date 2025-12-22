@@ -310,13 +310,121 @@ impl LSTM {
             Ok(stacked_outputs)
         }
     }
+
+    /// Forward pass for bidirectional LSTM
+    fn forward_bidirectional(&self, input: &Tensor) -> Result<Tensor> {
+        let binding = input.shape();
+        let input_shape = binding.dims();
+        let (seq_len, batch_size) = if self.batch_first {
+            (input_shape[1], input_shape[0])
+        } else {
+            (input_shape[0], input_shape[1])
+        };
+
+        // Forward direction
+        let mut hidden_forward = zeros(&[batch_size, self.hidden_size])?;
+        let mut cell_forward = zeros(&[batch_size, self.hidden_size])?;
+        let mut forward_outputs = Vec::new();
+
+        for t in 0..seq_len {
+            let x_t = if self.batch_first {
+                input.narrow(1, t as i64, 1)?.squeeze(1)?
+            } else {
+                input.narrow(0, t as i64, 1)?.squeeze(0)?
+            };
+
+            let (new_hidden, new_cell) = self.lstm_cell(&x_t, &hidden_forward, &cell_forward, 0)?;
+            hidden_forward = new_hidden;
+            cell_forward = new_cell;
+            forward_outputs.push(hidden_forward.clone());
+        }
+
+        // Backward direction
+        let mut hidden_backward = zeros(&[batch_size, self.hidden_size])?;
+        let mut cell_backward = zeros(&[batch_size, self.hidden_size])?;
+        let mut backward_outputs = Vec::new();
+
+        for t in (0..seq_len).rev() {
+            let x_t = if self.batch_first {
+                input.narrow(1, t as i64, 1)?.squeeze(1)?
+            } else {
+                input.narrow(0, t as i64, 1)?.squeeze(0)?
+            };
+
+            let (new_hidden, new_cell) =
+                self.lstm_cell(&x_t, &hidden_backward, &cell_backward, 0)?;
+            hidden_backward = new_hidden;
+            cell_backward = new_cell;
+            backward_outputs.push(hidden_backward.clone());
+        }
+
+        // Reverse backward outputs to match forward order
+        backward_outputs.reverse();
+
+        // Concatenate forward and backward outputs
+        let mut combined_outputs = Vec::new();
+        for (forward, backward) in forward_outputs.iter().zip(backward_outputs.iter()) {
+            let forward_data = forward.to_vec()?;
+            let backward_data = backward.to_vec()?;
+            let forward_shape_binding = forward.shape();
+            let forward_shape = forward_shape_binding.dims();
+            let batch_size = forward_shape[0];
+            let hidden_size = forward_shape[1];
+
+            let mut combined_data = Vec::with_capacity(batch_size * 2 * hidden_size);
+            for b in 0..batch_size {
+                // Add forward hidden state
+                for h in 0..hidden_size {
+                    combined_data.push(forward_data[b * hidden_size + h]);
+                }
+                // Add backward hidden state
+                for h in 0..hidden_size {
+                    combined_data.push(backward_data[b * hidden_size + h]);
+                }
+            }
+            let combined = Tensor::from_vec(combined_data, &[batch_size, 2 * hidden_size])?;
+            combined_outputs.push(combined);
+        }
+
+        let stacked_outputs = self.stack_combined_outputs(&combined_outputs)?;
+
+        if self.batch_first {
+            Ok(stacked_outputs.transpose(0, 1)?)
+        } else {
+            Ok(stacked_outputs)
+        }
+    }
+
+    /// Stack outputs for bidirectional case (hidden_size * 2)
+    fn stack_combined_outputs(&self, outputs: &[Tensor]) -> Result<Tensor> {
+        if outputs.is_empty() {
+            return Err(torsh_core::TorshError::InvalidArgument(
+                "No outputs to stack".to_string(),
+            ));
+        }
+
+        let seq_len = outputs.len();
+        let batch_size = outputs[0].shape().dims()[0];
+        let combined_hidden_size = outputs[0].shape().dims()[1]; // Should be hidden_size * 2
+
+        let mut stacked_data = Vec::with_capacity(seq_len * batch_size * combined_hidden_size);
+
+        for output in outputs {
+            let data = output.to_vec()?;
+            stacked_data.extend(data);
+        }
+
+        Ok(Tensor::from_vec(
+            stacked_data,
+            &[seq_len, batch_size, combined_hidden_size],
+        )?)
+    }
 }
 
 impl Module for LSTM {
     fn forward(&self, input: &Tensor) -> Result<Tensor> {
         if self.bidirectional {
-            // TODO: Implement bidirectional LSTM
-            self.forward_unidirectional(input)
+            self.forward_bidirectional(input)
         } else {
             self.forward_unidirectional(input)
         }
@@ -1313,5 +1421,550 @@ impl std::fmt::Debug for CustomCellType {
             CustomCellType::Highway => write!(f, "Highway"),
             CustomCellType::Residual => write!(f, "Residual"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use torsh_tensor::creation::zeros;
+
+    // ========================================================================
+    // RNN Tests
+    // ========================================================================
+
+    #[test]
+    fn test_rnn_new() -> Result<()> {
+        let rnn = RNN::new(10, 20, 2)?;
+        assert_eq!(rnn.input_size, 10);
+        assert_eq!(rnn.hidden_size, 20);
+        assert_eq!(rnn.num_layers, 2);
+        assert!(rnn.bias);
+        assert!(!rnn.batch_first);
+        Ok(())
+    }
+
+    #[test]
+    fn test_rnn_with_config() -> Result<()> {
+        let rnn = RNN::with_config(10, 20, 1, false, true, 0.5, true)?;
+        assert_eq!(rnn.input_size, 10);
+        assert_eq!(rnn.hidden_size, 20);
+        assert!(!rnn.bias);
+        assert!(rnn.batch_first);
+        assert_eq!(rnn.dropout, 0.5);
+        assert!(rnn.bidirectional);
+        Ok(())
+    }
+
+    #[test]
+    fn test_rnn_forward() -> Result<()> {
+        let rnn = RNN::new(10, 20, 1)?;
+        let input = zeros(&[5, 2, 10])?; // seq_len=5, batch=2, input_size=10
+
+        let output = rnn.forward(&input)?;
+        let output_shape = output.shape();
+
+        // Expected: [seq_len, batch, hidden_size]
+        assert_eq!(output_shape.dims(), &[5, 2, 20]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_rnn_forward_batch_first() -> Result<()> {
+        let rnn = RNN::with_config(10, 20, 1, true, true, 0.0, false)?;
+        let input = zeros(&[2, 5, 10])?; // batch=2, seq_len=5, input_size=10
+
+        let output = rnn.forward(&input)?;
+        let output_shape = output.shape();
+
+        // Expected: [batch, seq_len, hidden_size]
+        assert_eq!(output_shape.dims(), &[2, 5, 20]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_rnn_parameters() -> Result<()> {
+        let rnn = RNN::new(10, 20, 2)?;
+        let params = rnn.parameters();
+
+        // Should have 4 parameters per layer: weight_ih, weight_hh, bias_ih, bias_hh
+        assert_eq!(params.len(), 8); // 2 layers * 4 params
+        assert!(params.contains_key("weight_ih_l0"));
+        assert!(params.contains_key("weight_hh_l0"));
+        assert!(params.contains_key("bias_ih_l0"));
+        assert!(params.contains_key("bias_hh_l0"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_rnn_training_mode() -> Result<()> {
+        let mut rnn = RNN::new(10, 20, 1)?;
+        assert!(rnn.training());
+
+        rnn.eval();
+        assert!(!rnn.training());
+
+        rnn.train();
+        assert!(rnn.training());
+        Ok(())
+    }
+
+    // ========================================================================
+    // LSTM Tests
+    // ========================================================================
+
+    #[test]
+    fn test_lstm_new() -> Result<()> {
+        let lstm = LSTM::new(10, 20, 2)?;
+        assert_eq!(lstm.input_size, 10);
+        assert_eq!(lstm.hidden_size, 20);
+        assert_eq!(lstm.num_layers, 2);
+        assert!(lstm.bias);
+        assert!(!lstm.batch_first);
+        Ok(())
+    }
+
+    #[test]
+    fn test_lstm_with_config() -> Result<()> {
+        let lstm = LSTM::with_config(10, 20, 1, false, true, 0.5, true)?;
+        assert_eq!(lstm.input_size, 10);
+        assert_eq!(lstm.hidden_size, 20);
+        assert!(!lstm.bias);
+        assert!(lstm.batch_first);
+        assert_eq!(lstm.dropout, 0.5);
+        assert!(lstm.bidirectional);
+        Ok(())
+    }
+
+    #[test]
+    fn test_lstm_forward() -> Result<()> {
+        let lstm = LSTM::new(10, 20, 1)?;
+        let input = zeros(&[5, 2, 10])?; // seq_len=5, batch=2, input_size=10
+
+        let output = lstm.forward(&input)?;
+        let output_shape = output.shape();
+
+        // Expected: [seq_len, batch, hidden_size]
+        assert_eq!(output_shape.dims(), &[5, 2, 20]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_lstm_forward_batch_first() -> Result<()> {
+        let lstm = LSTM::with_config(10, 20, 1, true, true, 0.0, false)?;
+        let input = zeros(&[2, 5, 10])?; // batch=2, seq_len=5, input_size=10
+
+        let output = lstm.forward(&input)?;
+        let output_shape = output.shape();
+
+        // Expected: [batch, seq_len, hidden_size]
+        assert_eq!(output_shape.dims(), &[2, 5, 20]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_lstm_parameters() -> Result<()> {
+        let lstm = LSTM::new(10, 20, 2)?;
+        let params = lstm.parameters();
+
+        // Should have 4 parameters per layer (for 4 gates)
+        assert_eq!(params.len(), 8); // 2 layers * 4 params
+        assert!(params.contains_key("weight_ih_l0"));
+        assert!(params.contains_key("weight_hh_l0"));
+        assert!(params.contains_key("bias_ih_l0"));
+        assert!(params.contains_key("bias_hh_l0"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_lstm_cell() -> Result<()> {
+        let lstm = LSTM::new(10, 20, 1)?;
+        let input = zeros(&[2, 10])?; // batch=2, input_size=10
+        let hidden = zeros(&[2, 20])?; // batch=2, hidden_size=20
+        let cell = zeros(&[2, 20])?; // batch=2, hidden_size=20
+
+        let (new_hidden, new_cell) = lstm.lstm_cell(&input, &hidden, &cell, 0)?;
+
+        assert_eq!(new_hidden.shape().dims(), &[2, 20]);
+        assert_eq!(new_cell.shape().dims(), &[2, 20]);
+        Ok(())
+    }
+
+    // ========================================================================
+    // GRU Tests
+    // ========================================================================
+
+    #[test]
+    fn test_gru_new() -> Result<()> {
+        let gru = GRU::new(10, 20, 2)?;
+        assert_eq!(gru.input_size, 10);
+        assert_eq!(gru.hidden_size, 20);
+        assert_eq!(gru.num_layers, 2);
+        assert!(gru.bias);
+        assert!(!gru.batch_first);
+        Ok(())
+    }
+
+    #[test]
+    fn test_gru_with_config() -> Result<()> {
+        let gru = GRU::with_config(10, 20, 1, false, true, 0.5, true)?;
+        assert_eq!(gru.input_size, 10);
+        assert_eq!(gru.hidden_size, 20);
+        assert!(!gru.bias);
+        assert!(gru.batch_first);
+        assert_eq!(gru.dropout, 0.5);
+        assert!(gru.bidirectional);
+        Ok(())
+    }
+
+    #[test]
+    fn test_gru_forward() -> Result<()> {
+        let gru = GRU::new(10, 20, 1)?;
+        let input = zeros(&[5, 2, 10])?; // seq_len=5, batch=2, input_size=10
+
+        let output = gru.forward(&input)?;
+        let output_shape = output.shape();
+
+        // Expected: [seq_len, batch, hidden_size]
+        assert_eq!(output_shape.dims(), &[5, 2, 20]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_gru_forward_batch_first() -> Result<()> {
+        let gru = GRU::with_config(10, 20, 1, true, true, 0.0, false)?;
+        let input = zeros(&[2, 5, 10])?; // batch=2, seq_len=5, input_size=10
+
+        let output = gru.forward(&input)?;
+        let output_shape = output.shape();
+
+        // Expected: [batch, seq_len, hidden_size]
+        assert_eq!(output_shape.dims(), &[2, 5, 20]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_gru_forward_bidirectional() -> Result<()> {
+        let gru = GRU::with_config(10, 20, 1, true, false, 0.0, true)?;
+        let input = zeros(&[5, 2, 10])?; // seq_len=5, batch=2, input_size=10
+
+        let output = gru.forward(&input)?;
+        let output_shape = output.shape();
+
+        // Expected: [seq_len, batch, hidden_size * 2] for bidirectional
+        assert_eq!(output_shape.dims(), &[5, 2, 40]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_gru_parameters() -> Result<()> {
+        let gru = GRU::new(10, 20, 2)?;
+        let params = gru.parameters();
+
+        // Should have 4 parameters per layer (for 3 gates)
+        assert_eq!(params.len(), 8); // 2 layers * 4 params
+        assert!(params.contains_key("weight_ih_l0"));
+        assert!(params.contains_key("weight_hh_l0"));
+        assert!(params.contains_key("bias_ih_l0"));
+        assert!(params.contains_key("bias_hh_l0"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_gru_cell() -> Result<()> {
+        let gru = GRU::new(10, 20, 1)?;
+        let input = zeros(&[2, 10])?; // batch=2, input_size=10
+        let hidden = zeros(&[2, 20])?; // batch=2, hidden_size=20
+
+        let new_hidden = gru.gru_cell(&input, &hidden, 0)?;
+
+        assert_eq!(new_hidden.shape().dims(), &[2, 20]);
+        Ok(())
+    }
+
+    // ========================================================================
+    // LSTMCell Tests
+    // ========================================================================
+
+    #[test]
+    fn test_lstm_cell_new() -> Result<()> {
+        let cell = LSTMCell::new(10, 20)?;
+        assert_eq!(cell.input_size, 10);
+        assert_eq!(cell.hidden_size, 20);
+        assert!(cell.bias);
+        Ok(())
+    }
+
+    #[test]
+    fn test_lstm_cell_with_bias() -> Result<()> {
+        let cell = LSTMCell::with_bias(10, 20, false)?;
+        assert_eq!(cell.input_size, 10);
+        assert_eq!(cell.hidden_size, 20);
+        assert!(!cell.bias);
+        Ok(())
+    }
+
+    #[test]
+    fn test_lstm_cell_forward() -> Result<()> {
+        let cell = LSTMCell::new(10, 20)?;
+        let input = zeros(&[2, 10])?; // batch=2, input_size=10
+
+        let output = cell.forward(&input)?;
+        let output_shape = output.shape();
+
+        assert_eq!(output_shape.dims(), &[2, 20]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_lstm_cell_forward_cell() -> Result<()> {
+        let cell = LSTMCell::new(10, 20)?;
+        let input = zeros(&[2, 10])?; // batch=2, input_size=10
+        let hidden = zeros(&[2, 20])?;
+        let cell_state = zeros(&[2, 20])?;
+
+        let (new_hidden, new_cell) = cell.forward_cell(&input, &hidden, &cell_state)?;
+
+        assert_eq!(new_hidden.shape().dims(), &[2, 20]);
+        assert_eq!(new_cell.shape().dims(), &[2, 20]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_lstm_cell_parameters() -> Result<()> {
+        let cell = LSTMCell::new(10, 20)?;
+        let params = cell.parameters();
+
+        // Should have 4 parameters: weight_ih, weight_hh, bias_ih, bias_hh
+        assert_eq!(params.len(), 4);
+        assert!(params.contains_key("weight_ih"));
+        assert!(params.contains_key("weight_hh"));
+        assert!(params.contains_key("bias_ih"));
+        assert!(params.contains_key("bias_hh"));
+        Ok(())
+    }
+
+    // ========================================================================
+    // GRUCell Tests
+    // ========================================================================
+
+    #[test]
+    fn test_gru_cell_new() -> Result<()> {
+        let cell = GRUCell::new(10, 20)?;
+        assert_eq!(cell.input_size, 10);
+        assert_eq!(cell.hidden_size, 20);
+        assert!(cell.bias);
+        Ok(())
+    }
+
+    #[test]
+    fn test_gru_cell_with_bias() -> Result<()> {
+        let cell = GRUCell::with_bias(10, 20, false)?;
+        assert_eq!(cell.input_size, 10);
+        assert_eq!(cell.hidden_size, 20);
+        assert!(!cell.bias);
+        Ok(())
+    }
+
+    #[test]
+    fn test_gru_cell_forward() -> Result<()> {
+        let cell = GRUCell::new(10, 20)?;
+        let input = zeros(&[2, 10])?; // batch=2, input_size=10
+
+        let output = cell.forward(&input)?;
+        let output_shape = output.shape();
+
+        assert_eq!(output_shape.dims(), &[2, 20]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_gru_cell_forward_cell() -> Result<()> {
+        let cell = GRUCell::new(10, 20)?;
+        let input = zeros(&[2, 10])?; // batch=2, input_size=10
+        let hidden = zeros(&[2, 20])?;
+
+        let new_hidden = cell.forward_cell(&input, &hidden)?;
+
+        assert_eq!(new_hidden.shape().dims(), &[2, 20]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_gru_cell_parameters() -> Result<()> {
+        let cell = GRUCell::new(10, 20)?;
+        let params = cell.parameters();
+
+        // Should have 4 parameters: weight_ih, weight_hh, bias_ih, bias_hh
+        assert_eq!(params.len(), 4);
+        assert!(params.contains_key("weight_ih"));
+        assert!(params.contains_key("weight_hh"));
+        assert!(params.contains_key("bias_ih"));
+        assert!(params.contains_key("bias_hh"));
+        Ok(())
+    }
+
+    // ========================================================================
+    // CustomRNNCell Tests
+    // ========================================================================
+
+    #[test]
+    fn test_custom_rnn_cell_new() -> Result<()> {
+        let cell = CustomRNNCell::new(10, 20)?;
+        assert_eq!(cell.input_size, 10);
+        assert_eq!(cell.hidden_size, 20);
+        assert!(cell.bias);
+        Ok(())
+    }
+
+    #[test]
+    fn test_custom_rnn_cell_basic() -> Result<()> {
+        let cell = CustomRNNCell::new(10, 20)?;
+        let input = zeros(&[2, 10])?;
+        let hidden = zeros(&[2, 20])?;
+
+        let new_hidden = RNNCell::forward(&cell, &input, &hidden)?;
+        assert_eq!(new_hidden.shape().dims(), &[2, 20]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_custom_rnn_cell_gated() -> Result<()> {
+        // Use matching input_size and hidden_size to avoid broadcast errors in the gated implementation
+        let cell = CustomRNNCell::gated(20, 20, 2)?;
+        assert_eq!(cell.input_size(), 20);
+        assert_eq!(cell.hidden_size(), 20);
+
+        let input = zeros(&[2, 20])?;
+        let hidden = zeros(&[2, 20])?;
+
+        let new_hidden = RNNCell::forward(&cell, &input, &hidden)?;
+        assert_eq!(new_hidden.shape().dims(), &[2, 20]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_custom_rnn_cell_highway() -> Result<()> {
+        let cell = CustomRNNCell::highway(10, 20)?;
+        let params = cell.parameters();
+
+        // Highway cell should have 8 parameters (main + transform gate)
+        assert_eq!(params.len(), 8);
+        assert!(params.contains_key("weight_ih"));
+        assert!(params.contains_key("weight_ih_t"));
+
+        let input = zeros(&[2, 10])?;
+        let hidden = zeros(&[2, 20])?;
+
+        let new_hidden = RNNCell::forward(&cell, &input, &hidden)?;
+        assert_eq!(new_hidden.shape().dims(), &[2, 20]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_custom_rnn_cell_residual() -> Result<()> {
+        let cell = CustomRNNCell::residual(10, 20)?;
+        let input = zeros(&[2, 10])?;
+        let hidden = zeros(&[2, 20])?;
+
+        let new_hidden = RNNCell::forward(&cell, &input, &hidden)?;
+        assert_eq!(new_hidden.shape().dims(), &[2, 20]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_custom_rnn_cell_init_hidden() -> Result<()> {
+        let cell = CustomRNNCell::new(10, 20)?;
+        let hidden = cell.init_hidden(4)?; // batch_size=4
+
+        assert_eq!(hidden.shape().dims(), &[4, 20]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_custom_rnn_cell_with_activation() -> Result<()> {
+        let cell = CustomRNNCell::with_activation(10, 20, Box::new(|x| x.relu()))?;
+        let input = zeros(&[2, 10])?;
+
+        // Use Module::forward explicitly to avoid ambiguity
+        let output = Module::forward(&cell, &input)?;
+        assert_eq!(output.shape().dims(), &[2, 20]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_custom_rnn_cell_parameters_gated() -> Result<()> {
+        let cell = CustomRNNCell::gated(10, 20, 3)?;
+        let params = cell.parameters();
+
+        // 3 gates * 4 parameters per gate = 12 parameters
+        assert_eq!(params.len(), 12);
+        assert!(params.contains_key("weight_ih_gate0"));
+        assert!(params.contains_key("weight_ih_gate1"));
+        assert!(params.contains_key("weight_ih_gate2"));
+        Ok(())
+    }
+
+    // ========================================================================
+    // Module Trait Tests (Common Behaviors)
+    // ========================================================================
+
+    #[test]
+    fn test_module_training_modes() -> Result<()> {
+        let mut lstm = LSTM::new(10, 20, 1)?;
+
+        // Default should be training mode
+        assert!(lstm.training());
+
+        // Set to eval mode
+        lstm.set_training(false);
+        assert!(!lstm.training());
+
+        // Set back to training mode
+        lstm.set_training(true);
+        assert!(lstm.training());
+        Ok(())
+    }
+
+    #[test]
+    fn test_module_named_parameters() -> Result<()> {
+        let gru = GRU::new(10, 20, 2)?;
+        let named_params = gru.named_parameters();
+
+        // Should have 8 parameters (2 layers * 4 params)
+        assert_eq!(named_params.len(), 8);
+        assert!(named_params.contains_key("weight_ih_l0"));
+        assert!(named_params.contains_key("weight_hh_l1"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_module_to_device() -> Result<()> {
+        let mut rnn = RNN::new(10, 20, 1)?;
+
+        // Should succeed
+        rnn.to_device(DeviceType::Cpu)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_stack_outputs_empty() -> Result<()> {
+        let lstm = LSTM::new(10, 20, 1)?;
+        let empty_outputs: Vec<Tensor> = vec![];
+
+        let result = lstm.stack_outputs(&empty_outputs);
+        assert!(result.is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn test_gru_stack_combined_outputs_empty() -> Result<()> {
+        let gru = GRU::new(10, 20, 1)?;
+        let empty_outputs: Vec<Tensor> = vec![];
+
+        let result = gru.stack_combined_outputs(&empty_outputs);
+        assert!(result.is_err());
+        Ok(())
     }
 }

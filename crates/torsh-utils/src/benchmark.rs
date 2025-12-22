@@ -1,4 +1,120 @@
-//! Benchmarking utilities for models and operations
+//! # Model Performance Benchmarking
+//!
+//! This module provides comprehensive benchmarking utilities for measuring and analyzing
+//! model performance, including inference speed, memory usage, and mobile-specific metrics.
+//!
+//! ## Features
+//!
+//! - **Multi-batch Benchmarking**: Test performance across different batch sizes
+//! - **Memory Profiling**: Track memory allocation and usage
+//! - **Backward Pass Profiling**: Measure training performance
+//! - **Mobile Benchmarking**: Platform-specific performance validation
+//! - **Statistical Analysis**: Mean, std dev, percentiles (p95, p99)
+//! - **Throughput Metrics**: Samples per second calculation
+//!
+//! ## Quick Start
+//!
+//! ```rust,no_run
+//! use torsh_utils::benchmark::{benchmark_model, BenchmarkConfig, print_benchmark_results};
+//! # use torsh_nn::Module;
+//!
+//! # struct MyModel;
+//! # impl Module for MyModel {
+//! #    fn forward(&self, _input: &torsh_tensor::Tensor) -> Result<torsh_tensor::Tensor, torsh_core::TorshError> {
+//! #       unimplemented!()
+//! #    }
+//! # }
+//!
+//! # fn example() -> Result<(), torsh_core::TorshError> {
+//! let model = MyModel;
+//!
+//! // Configure benchmarking
+//! let config = BenchmarkConfig {
+//!     warmup_iterations: 10,
+//!     benchmark_iterations: 100,
+//!     batch_sizes: vec![1, 8, 16, 32],
+//!     input_shapes: vec![vec![3, 224, 224]],
+//!     profile_memory: true,
+//!     profile_backward: true,
+//!     device: torsh_core::DeviceType::Cpu,
+//!     mobile_config: None,
+//! };
+//!
+//! // Run benchmark
+//! let results = benchmark_model(&model, config)?;
+//!
+//! // Print results
+//! print_benchmark_results(&results);
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Mobile Benchmarking
+//!
+//! Test model performance on mobile platforms with specific configurations:
+//!
+//! ```rust,no_run
+//! use torsh_utils::benchmark::{BenchmarkConfig, MobileBenchmarkConfig, PlatformBenchmarkInfo, MobilePlatform};
+//! # use torsh_nn::Module;
+//!
+//! # struct MyModel;
+//! # impl Module for MyModel {
+//! #    fn forward(&self, _input: &torsh_tensor::Tensor) -> Result<torsh_tensor::Tensor, torsh_core::TorshError> {
+//! #       unimplemented!()
+//! #    }
+//! # }
+//! # fn example() -> Result<(), torsh_core::TorshError> {
+//! let mobile_config = MobileBenchmarkConfig {
+//!     platform_info: PlatformBenchmarkInfo {
+//!         platform: MobilePlatform::iOS {
+//!             device: "iPhone 15 Pro".to_string(),
+//!             ios_version: "17.0".to_string(),
+//!         },
+//!         chip: "A17 Pro".to_string(),
+//!         cores: 6,
+//!         gpu_cores: Some(6),
+//!         ram_gb: 8.0,
+//!     },
+//!     monitor_thermal: true,
+//!     measure_power: true,
+//!     test_frequency_scaling: false,
+//!     test_memory_pressure: true,
+//!     stress_test_duration_minutes: Some(5),
+//!     latency_thresholds: Default::default(),
+//!     energy_targets: Some(Default::default()),
+//! };
+//!
+//! let config = BenchmarkConfig {
+//!     mobile_config: Some(mobile_config),
+//!     ..Default::default()
+//! };
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Understanding Results
+//!
+//! Benchmark results include detailed statistics:
+//!
+//! - **Timing Statistics**: Mean, std dev, min, max, median, p95, p99
+//! - **Throughput**: Samples processed per second
+//! - **Memory**: Peak and average memory usage
+//! - **Recommendations**: Automatic performance optimization suggestions
+//!
+//! ## Best Practices
+//!
+//! 1. **Warmup**: Always include warmup iterations to avoid cold start overhead
+//! 2. **Representative Workload**: Use realistic input sizes and batch sizes
+//! 3. **Multiple Runs**: Run benchmarks multiple times for statistical significance
+//! 4. **Isolation**: Minimize background processes during benchmarking
+//! 5. **Mobile Testing**: Test on actual target devices, not just simulators
+//!
+//! ## Performance Tips
+//!
+//! - Use larger batch sizes for higher throughput (up to memory limits)
+//! - Consider batch size impact on latency vs throughput trade-off
+//! - Monitor memory usage to avoid OOM errors
+//! - Profile both forward and backward passes for training workloads
 
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
@@ -6,8 +122,7 @@ use torsh_core::error::Result;
 use torsh_nn::Module;
 
 use crate::mobile_optimizer::{
-    CpuInfo, MemoryInfo, MobileBenchmarkResults, MobilePlatform, OptimizedModel,
-    PlatformBenchmarkInfo, ThermalState,
+    MobileBenchmarkResults, MobilePlatform, OptimizedModel, PlatformBenchmarkInfo, ThermalState,
 };
 
 /// Benchmark configuration
@@ -240,7 +355,7 @@ pub fn benchmark_mobile_model<M: Module>(
     model: &M,
     mobile_config: &MobileBenchmarkConfig,
 ) -> Result<MobileBenchmarkResults> {
-    use crate::mobile_optimizer::{benchmark_mobile_model_advanced, OptimizedModel};
+    use crate::mobile_optimizer::benchmark_mobile_model_advanced;
 
     println!("Running mobile-specific benchmark...");
 

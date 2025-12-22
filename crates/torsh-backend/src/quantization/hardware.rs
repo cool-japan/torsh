@@ -4,6 +4,8 @@
 //! for quantization operations. It includes support for various CPU and GPU
 //! acceleration technologies including SIMD, VNNI, DP4A, and Tensor Cores.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{BackendResult, Device};
 use torsh_core::error::TorshError;
 
@@ -443,7 +445,6 @@ impl QuantizationPerformanceHints {
         use crate::quantization::QuantizedDType;
 
         let mut preferred_dtypes = vec![];
-        let mut preferred_schemes = vec![];
 
         // Order data types by hardware support and performance
         if features.supports_int8_simd {
@@ -464,7 +465,7 @@ impl QuantizationPerformanceHints {
         ]);
 
         // Use hardware-specific scheme ranking
-        preferred_schemes = features.performance_ranking();
+        let preferred_schemes = features.performance_ranking();
 
         Self {
             preferred_dtypes,

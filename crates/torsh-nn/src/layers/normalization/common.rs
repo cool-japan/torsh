@@ -3,14 +3,10 @@
 //! This module provides shared functionality used across different normalization
 //! implementations including configuration types, utility functions, and common patterns.
 
-use crate::{Module, ModuleBase, Parameter};
-use torsh_core::device::DeviceType;
 use torsh_core::error::Result;
 use torsh_tensor::{creation::*, Tensor};
 
 // Conditional imports for std/no_std compatibility
-#[cfg(feature = "std")]
-use std::collections::HashMap;
 
 #[cfg(not(feature = "std"))]
 use hashbrown::HashMap;

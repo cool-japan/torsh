@@ -86,7 +86,6 @@ pub use state::{CallStack, CallStackSummary, MemoryRegion, MemoryState, MemorySt
 pub use watch::{ExpressionEvaluator, WatchManager};
 
 use crate::{ir::IrModule, ComputationGraph, JitError, JitResult};
-use std::io::{self, Write};
 use std::sync::{Arc, Mutex};
 
 /// Interactive JIT debugger

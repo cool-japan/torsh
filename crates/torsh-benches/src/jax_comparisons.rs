@@ -4,14 +4,10 @@
 //! Google's high-performance machine learning research framework featuring
 //! JIT compilation, automatic differentiation, and XLA optimization.
 
-use crate::{
-    core::ComparisonResult,
-    ndarray_comparisons::{TorshElementwiseBench, TorshMatmulBench},
-    Benchmarkable,
-};
+#![allow(deprecated)]
 
-#[cfg(feature = "jax")]
-use pyo3::prelude::*;
+use crate::{core::ComparisonResult, Benchmarkable};
+
 #[cfg(feature = "jax")]
 use std::ffi::CString;
 

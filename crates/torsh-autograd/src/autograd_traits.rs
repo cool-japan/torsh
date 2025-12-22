@@ -105,7 +105,7 @@ pub trait AutogradTensorFactory<T: torsh_core::dtype::TensorElement> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use torsh_core::device::DeviceType;
+
     use torsh_core::dtype::TensorElement;
 
     // Mock implementation for testing

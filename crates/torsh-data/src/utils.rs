@@ -192,7 +192,7 @@ macro_rules! simple_random_transform {
                 use scirs2_core::random::{Random, Rng};
                 let mut rng = Random::seed(42);
 
-                if rng.gen::<f32>() < self.$prob_field {
+                if rng.random::<f32>() < self.$prob_field {
                     $transform_fn(input, &mut rng)
                 } else {
                     Ok(input)
@@ -483,7 +483,8 @@ pub mod memory {
 
 /// Batch processing utilities
 pub mod batch {
-    use rayon::prelude::*;
+    // ✅ SciRS2 POLICY: Use scirs2_core::parallel_ops instead of rayon::prelude
+    use scirs2_core::parallel_ops::*;
     use std::sync::mpsc;
     use std::thread;
 

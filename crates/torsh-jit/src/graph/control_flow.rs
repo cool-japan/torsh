@@ -1,9 +1,8 @@
 //! Control flow analysis for computation graphs
 
 use crate::graph::core::{ComputationGraph, NodeId};
-use crate::graph::operations::{BlockType, Operation};
-use crate::{JitError, JitResult};
-use petgraph::Direction;
+use crate::graph::operations::Operation;
+use crate::JitResult;
 use std::collections::{HashMap, HashSet, VecDeque};
 
 /// Control flow analysis for identifying loops, conditions, and dominance relationships

@@ -273,6 +273,7 @@ pub struct ProfileSummary {
 /// - **Performance Options**: Balance detail vs. overhead
 ///
 /// # Examples
+/// use std::time::Duration;
 ///
 /// ```rust,ignore
 /// use torsh_autograd::profiler::types::ProfilerConfig;

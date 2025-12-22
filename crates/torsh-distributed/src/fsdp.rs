@@ -415,15 +415,13 @@ impl FullyShardedDataParallel {
                 _ => Err(TorshDistributedError::backend_error(
                     "fsdp",
                     format!("Parameter '{}' is not in sharded state", param_name),
-                )
-                .into()),
+                )),
             }
         } else {
             Err(TorshDistributedError::backend_error(
                 "fsdp",
                 format!("Parameter '{}' not found", param_name),
-            )
-            .into())
+            ))
         }
     }
 
@@ -459,10 +457,7 @@ impl FullyShardedDataParallel {
     pub fn num_parameters(&self) -> usize {
         let module_guard = self.module.read();
         let parameters = module_guard.parameters();
-        parameters
-            .iter()
-            .map(|(_, p)| p.tensor().read().numel())
-            .sum()
+        parameters.values().map(|p| p.tensor().read().numel()).sum()
     }
 
     /// Get the local sharding ratio (fraction of parameters stored locally)
@@ -580,7 +575,7 @@ pub fn auto_wrap_modules<M: Module + 'static>(
 mod tests {
     use super::*;
     use crate::{init_process_group, BackendType};
-    use torsh_core::DType;
+
     use torsh_nn::{prelude::Linear, Module};
 
     #[tokio::test]

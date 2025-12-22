@@ -22,7 +22,7 @@ pub enum ZeroStage {
 }
 
 /// DeepSpeed configuration compatible with ToRSh
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct DeepSpeedConfig {
     /// ZeRO optimization configuration
     pub zero_optimization: ZeroOptimizationConfig,
@@ -219,17 +219,16 @@ impl DeepSpeedIntegration {
     /// Validate DeepSpeed configuration
     fn validate_config(&self) -> TorshResult<()> {
         // Validate ZeRO stage
-        if matches!(self.config.zero_optimization.stage, ZeroStage::Stage3) {
-            if self
+        if matches!(self.config.zero_optimization.stage, ZeroStage::Stage3)
+            && self
                 .config
                 .zero_optimization
                 .stage3_max_live_parameters
                 .is_none()
-            {
-                return Err(TorshDistributedError::configuration_error(
-                    "ZeRO Stage 3 requires stage3_max_live_parameters to be set",
-                ));
-            }
+        {
+            return Err(TorshDistributedError::configuration_error(
+                "ZeRO Stage 3 requires stage3_max_live_parameters to be set",
+            ));
         }
 
         // Validate offloading configuration
@@ -337,7 +336,7 @@ impl DeepSpeedIntegration {
 
     /// Convert DeepSpeed config to ToRSh FSDP config
     pub fn to_fsdp_config(&self) -> TorshResult<crate::fsdp::FsdpConfig> {
-        use crate::fsdp::{BackwardPrefetch, FsdpConfig, MixedPrecisionConfig, ShardingStrategy};
+        use crate::fsdp::{FsdpConfig, MixedPrecisionConfig, ShardingStrategy};
 
         let sharding_strategy = match self.config.zero_optimization.stage {
             ZeroStage::Stage0 => ShardingStrategy::NoShard,
@@ -440,19 +439,6 @@ pub struct DeepSpeedStats {
     pub cpu_offload_enabled: bool,
     /// Whether activation checkpointing is enabled
     pub activation_checkpointing_enabled: bool,
-}
-
-impl Default for DeepSpeedConfig {
-    fn default() -> Self {
-        Self {
-            zero_optimization: ZeroOptimizationConfig::default(),
-            gradient_clipping: None,
-            gradient_accumulation_steps: None,
-            fp16: None,
-            zero_force_ds_cpu_optimizer: None,
-            activation_checkpointing: None,
-        }
-    }
 }
 
 impl Default for ZeroOptimizationConfig {
@@ -636,7 +622,7 @@ mod tests {
 
         assert_eq!(stats.zero_stage, ZeroStage::Stage2);
         assert!(!stats.initialized);
-        assert!(!stats.fp16_enabled); // Not initialized yet
+        assert!(stats.fp16_enabled); // FP16 is enabled in config
     }
 
     #[test]

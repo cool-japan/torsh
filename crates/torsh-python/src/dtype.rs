@@ -145,6 +145,142 @@ impl PyDType {
                 | DType::QInt8
         )
     }
+
+    /// Check if this is a complex dtype.
+    ///
+    /// # Returns
+    ///
+    /// True if dtype is complex (complex64, complex128), False otherwise
+    ///
+    /// # Examples
+    ///
+    /// ```python
+    /// float32 = torsh.PyDType("float32")
+    /// print(float32.is_complex)  # False
+    /// ```
+    #[getter]
+    fn is_complex(&self) -> bool {
+        matches!(self.dtype, DType::C64 | DType::C128)
+    }
+
+    /// Check if this is an integer dtype.
+    ///
+    /// # Returns
+    ///
+    /// True if dtype is integer (int8, int16, int32, int64, uint8, etc.), False otherwise
+    ///
+    /// # Examples
+    ///
+    /// ```python
+    /// int32 = torsh.PyDType("int32")
+    /// print(int32.is_integer)  # True
+    ///
+    /// float32 = torsh.PyDType("float32")
+    /// print(float32.is_integer)  # False
+    /// ```
+    #[getter]
+    fn is_integer(&self) -> bool {
+        matches!(
+            self.dtype,
+            DType::I8 | DType::I16 | DType::I32 | DType::I64 | DType::U8 | DType::U32 | DType::U64
+        )
+    }
+
+    /// Get the NumPy-compatible dtype string.
+    ///
+    /// # Returns
+    ///
+    /// NumPy dtype string (e.g., 'float32', 'int64')
+    ///
+    /// # Examples
+    ///
+    /// ```python
+    /// dtype = torsh.PyDType("float32")
+    /// print(dtype.numpy_dtype)  # 'float32'
+    /// ```
+    #[getter]
+    fn numpy_dtype(&self) -> String {
+        match self.dtype {
+            DType::F32 => "float32".to_string(),
+            DType::F64 => "float64".to_string(),
+            DType::F16 => "float16".to_string(),
+            DType::I8 => "int8".to_string(),
+            DType::I16 => "int16".to_string(),
+            DType::I32 => "int32".to_string(),
+            DType::I64 => "int64".to_string(),
+            DType::U8 => "uint8".to_string(),
+            DType::U32 => "uint32".to_string(),
+            DType::U64 => "uint64".to_string(),
+            DType::Bool => "bool".to_string(),
+            DType::C64 => "complex64".to_string(),
+            DType::C128 => "complex128".to_string(),
+            _ => format!("{:?}", self.dtype).to_lowercase(),
+        }
+    }
+
+    /// Check if this dtype can be safely cast to another dtype.
+    ///
+    /// # Arguments
+    ///
+    /// * `other` - Target dtype to check casting compatibility
+    ///
+    /// # Returns
+    ///
+    /// True if safe cast is possible, False otherwise
+    ///
+    /// # Examples
+    ///
+    /// ```python
+    /// int32 = torsh.PyDType("int32")
+    /// int64 = torsh.PyDType("int64")
+    /// float32 = torsh.PyDType("float32")
+    ///
+    /// print(int32.can_cast(int64))    # True (widening)
+    /// print(int64.can_cast(int32))    # False (narrowing)
+    /// print(int32.can_cast(float32))  # True (int to float)
+    /// ```
+    fn can_cast(&self, other: &PyDType) -> bool {
+        // Same type is always safe
+        if self.dtype == other.dtype {
+            return true;
+        }
+
+        // Casting rules based on type promotion
+        match (self.dtype, other.dtype) {
+            // Integer widening is safe
+            (DType::I8, DType::I16 | DType::I32 | DType::I64) => true,
+            (DType::I16, DType::I32 | DType::I64) => true,
+            (DType::I32, DType::I64) => true,
+
+            // Unsigned integer widening is safe
+            (DType::U8, DType::U32 | DType::U64) => true,
+            (DType::U32, DType::U64) => true,
+
+            // Integer to float is generally safe (may lose precision for large integers)
+            (DType::I8 | DType::I16 | DType::I32, DType::F32 | DType::F64) => true,
+            (DType::I64, DType::F64) => true,
+            (DType::U8 | DType::U32, DType::F32 | DType::F64) => true,
+
+            // Float widening is safe
+            (DType::F16, DType::F32 | DType::F64) => true,
+            (DType::F32, DType::F64) => true,
+
+            // Bool can be cast to any numeric type
+            (DType::Bool, DType::I8 | DType::I16 | DType::I32 | DType::I64) => true,
+            (DType::Bool, DType::U8 | DType::U32 | DType::U64) => true,
+            (DType::Bool, DType::F16 | DType::F32 | DType::F64) => true,
+
+            // Float to complex
+            (DType::F32, DType::C64 | DType::C128) => true,
+            (DType::F64, DType::C128) => true,
+
+            // Complex widening
+            (DType::C64, DType::C128) => true,
+
+            // Everything else is not safe
+            _ => false,
+        }
+    }
 }
 
 impl From<DType> for PyDType {
@@ -165,8 +301,15 @@ impl std::fmt::Display for PyDType {
     }
 }
 
-/// Register dtype constants with the module
+/// Register dtype constants and utility functions with the module.
+///
+/// This function adds:
+/// - Dtype constants (float32, int64, etc.)
+/// - PyTorch-style aliases (float, double, long, etc.)
+/// - Utility functions for dtype operations
 pub fn register_dtype_constants(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    use pyo3::wrap_pyfunction;
+
     // Create dtype constants similar to PyTorch
     m.add("float32", PyDType { dtype: DType::F32 })?;
     m.add("float64", PyDType { dtype: DType::F64 })?;
@@ -187,6 +330,126 @@ pub fn register_dtype_constants(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("short", PyDType { dtype: DType::I16 })?;
     m.add("char", PyDType { dtype: DType::I8 })?;
     m.add("byte", PyDType { dtype: DType::U8 })?;
+
+    // Utility functions
+    /// Promote two dtypes to a common dtype for operations.
+    ///
+    /// # Arguments
+    ///
+    /// * `dtype1` - First dtype
+    /// * `dtype2` - Second dtype
+    ///
+    /// # Returns
+    ///
+    /// Promoted dtype that can safely represent both inputs
+    ///
+    /// # Examples
+    ///
+    /// ```python
+    /// result = torsh.promote_types(torsh.int32, torsh.float32)
+    /// print(result)  # float32
+    ///
+    /// result = torsh.promote_types(torsh.int32, torsh.int64)
+    /// print(result)  # int64
+    /// ```
+    #[pyfunction]
+    fn promote_types(dtype1: &PyDType, dtype2: &PyDType) -> PyDType {
+        use DType::*;
+
+        // If same type, return it
+        if dtype1.dtype == dtype2.dtype {
+            return dtype1.clone();
+        }
+
+        // Type promotion rules (similar to NumPy/PyTorch)
+        let promoted = match (dtype1.dtype, dtype2.dtype) {
+            // Bool promotes to anything else
+            (Bool, other) | (other, Bool) => other,
+
+            // Complex types take precedence
+            (C128, _) | (_, C128) => C128,
+            (C64, _) | (_, C64) => C64,
+
+            // Float promotion
+            (F64, _) | (_, F64) => F64,
+            (F32, _) | (_, F32) => F32,
+            (F16, _) | (_, F16) => F16,
+
+            // Integer promotion - signed takes precedence, larger size wins
+            (I64, I8 | I16 | I32 | U8 | U32 | U64) | (I8 | I16 | I32 | U8 | U32 | U64, I64) => I64,
+            (I32, I8 | I16 | U8) | (I8 | I16 | U8, I32) => I32,
+            (I16, I8 | U8) | (I8 | U8, I16) => I16,
+
+            // Unsigned integer promotion
+            (U64, U8 | U32) | (U8 | U32, U64) => U64,
+            (U32, U8) | (U8, U32) => U32,
+
+            // Default to the larger type
+            (a, b) => {
+                let size_a = dtype1.itemsize();
+                let size_b = dtype2.itemsize();
+                if size_a >= size_b {
+                    a
+                } else {
+                    b
+                }
+            }
+        };
+
+        PyDType { dtype: promoted }
+    }
+
+    /// Get the result dtype for a binary operation between two dtypes.
+    ///
+    /// # Arguments
+    ///
+    /// * `dtype1` - First operand dtype
+    /// * `dtype2` - Second operand dtype
+    ///
+    /// # Returns
+    ///
+    /// Result dtype for the operation
+    ///
+    /// # Examples
+    ///
+    /// ```python
+    /// result = torsh.result_type(torsh.int32, torsh.float32)
+    /// print(result)  # float32
+    /// ```
+    #[pyfunction]
+    fn result_type(dtype1: &PyDType, dtype2: &PyDType) -> PyDType {
+        // For now, result_type is the same as promote_types
+        // In the future, this could have different rules for specific operations
+        promote_types(dtype1, dtype2)
+    }
+
+    /// Check if two dtypes are compatible for operations.
+    ///
+    /// # Arguments
+    ///
+    /// * `dtype1` - First dtype
+    /// * `dtype2` - Second dtype
+    ///
+    /// # Returns
+    ///
+    /// True if dtypes can be used together in operations
+    ///
+    /// # Examples
+    ///
+    /// ```python
+    /// print(torsh.can_operate(torsh.int32, torsh.float32))  # True
+    /// print(torsh.can_operate(torsh.bool, torsh.int32))     # True
+    /// ```
+    #[pyfunction]
+    fn can_operate(_dtype1: &PyDType, _dtype2: &PyDType) -> bool {
+        // Most dtypes can operate together (via promotion)
+        // Only complex and non-numeric types might be incompatible
+        true
+    }
+
+    m.add_function(wrap_pyfunction!(promote_types, m)?)?;
+    m.add_function(wrap_pyfunction!(result_type, m)?)?;
+    m.add_function(wrap_pyfunction!(can_operate, m)?)?;
 
     Ok(())
 }

@@ -11,7 +11,7 @@
 //! - **Batch Operations**: Optimized batch processing for multiple tensors
 //! - **Fallback Support**: Automatic fallback to scalar operations when SIMD unavailable
 
-use rayon::prelude::*;
+use scirs2_core::parallel_ops::*;
 use torsh_core::error::{Result as TorshResult, TorshError};
 
 /// SIMD-accelerated per-tensor quantization

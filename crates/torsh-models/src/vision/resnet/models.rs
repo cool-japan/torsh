@@ -1,5 +1,7 @@
 //! ResNet model implementations
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use super::blocks::{BasicBlock, BottleneckBlock};
 use super::config::{ResNetConfig, ResNetVariant};
 use std::collections::HashMap;
@@ -167,7 +169,7 @@ impl ResNet {
         self.inplanes = planes * self.config.expansion();
 
         // Remaining blocks
-        for i in 1..blocks {
+        for _i in 1..blocks {
             if self.config.variant.uses_bottleneck() {
                 let block = BottleneckBlock::new(
                     self.inplanes,
@@ -216,7 +218,8 @@ impl ResNet {
 
     /// Get the feature dimensions
     pub fn feature_dim(&self) -> usize {
-        self.config.stage_channels().last().unwrap() * self.config.expansion()
+        // stage_channels() already includes expansion for bottleneck architectures
+        *self.config.stage_channels().last().unwrap()
     }
 
     /// Get the configuration
@@ -385,7 +388,6 @@ impl ResNetBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use torsh_tensor::creation;
 
     #[test]
     fn test_resnet18_creation() -> Result<()> {

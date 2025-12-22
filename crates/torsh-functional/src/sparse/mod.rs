@@ -104,15 +104,19 @@ mod integration_tests {
         let sparse_b = SparseTensor::from_dense(&dense)?;
 
         // Both should represent the same matrix
-        // TODO: Fix sparse tensor round-trip conversion issues
+        // Sparse tensor round-trip conversion fixed (COO indexing bug resolved)
         let dense_a = sparse_a.to_dense()?.to_vec()?;
         let dense_b = sparse_b.to_dense()?.to_vec()?;
-        println!("Dense A: {:?}", dense_a);
-        println!("Dense B: {:?}", dense_b);
-        // Temporarily skip precise validation
-        // for (a, b) in dense_a.iter().zip(dense_b.iter()) {
-        //     assert!((a - b).abs() < 1e-6);
-        // }
+
+        // Validate round-trip conversion produces identical results
+        for (a, b) in dense_a.iter().zip(dense_b.iter()) {
+            assert!(
+                (a - b).abs() < 1e-6,
+                "Round-trip conversion mismatch: {} vs {}",
+                a,
+                b
+            );
+        }
 
         // 3. Arithmetic operations
         let scaled = sparse_mul(&sparse_a, 2.0)?;

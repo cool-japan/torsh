@@ -9,14 +9,12 @@
 //! - Warp-level primitives and cooperative groups
 //! - Dynamic kernel generation and auto-tuning
 
-use crate::cuda::{CudaError, CudaResult, CudaStream};
-use crate::error::BackendError;
-use scirs2_core::ndarray::{Array1, Array2, ArrayView1, ArrayView2};
-use scirs2_core::random::Random;
-use std::collections::{HashMap, VecDeque};
+use crate::cuda::{CudaResult, CudaStream};
+use scirs2_core::ndarray::{ArrayView1, ArrayView2};
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
-use torsh_core::{DType, TensorElement};
+use torsh_core::TensorElement;
 
 /// High-performance CUDA kernel manager
 #[derive(Debug)]

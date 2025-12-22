@@ -24,15 +24,15 @@ serde_json = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 backtrace = "0.3"
 num_cpus = "1.17"
-scirs2-core = { workspace = true }
+scirs2-core = { workspace = true, features = ["profiling"] }
 anyhow = "1.0"
 log = "0.4"
-tokio = { version = "1.47", features = ["full"] }
+tokio = { version = "1.48", features = ["full"] }
 tokio-tungstenite = "0.28"
 futures-util = "0.3"
-uuid = { version = "1.18", features = ["v4"] }
+uuid = { version = "1.19", features = ["v4"] }
 prometheus = "0.13"
 
 [dev-dependencies]
 criterion = { workspace = true }
-tokio = { version = "1.47", features = ["full"] }
+tokio = { version = "1.48", features = ["full"] }

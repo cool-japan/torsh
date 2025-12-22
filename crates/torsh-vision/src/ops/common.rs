@@ -3,6 +3,8 @@
 //! This module provides shared functionality used across different vision operation
 //! implementations including error types, utility functions, and common patterns.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{Result, VisionError};
 use torsh_tensor::Tensor;
 
@@ -86,8 +88,8 @@ pub mod utils {
         src_y: f32,
         x1: usize,
         y1: usize,
-        x2: usize,
-        y2: usize,
+        _x2: usize,
+        _y2: usize,
     ) -> (f32, f32, f32, f32) {
         let dx = src_x - x1 as f32;
         let dy = src_y - y1 as f32;
@@ -124,7 +126,7 @@ pub mod utils {
     }
 
     /// Clamp a value to be within bounds for image coordinates
-    pub fn clamp_coord(value: i64, min_val: usize, max_val: usize) -> usize {
+    pub fn clamp_coord(value: i64, _min_val: usize, max_val: usize) -> usize {
         if value < 0 {
             0
         } else if value >= max_val as i64 {

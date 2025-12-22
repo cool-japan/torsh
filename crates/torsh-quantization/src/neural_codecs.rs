@@ -14,6 +14,8 @@
 //! - **Progressive Compression**: Multi-resolution compression for different quality levels
 
 use crate::TorshResult;
+// ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
+use scirs2_core::random::Rng;
 use torsh_tensor::Tensor;
 
 /// Neural codec engine for advanced tensor compression
@@ -631,7 +633,7 @@ impl NeuralCodec {
         // Initialize codebook vectors randomly
         for _ in 0..config.codebook_size {
             let vector: Vec<f32> = (0..config.latent_dim)
-                .map(|_| scirs2_core::random::thread_rng().gen::<f32>() * 2.0 - 1.0)
+                .map(|_| scirs2_core::random::thread_rng().random::<f32>() * 2.0 - 1.0)
                 .collect();
             vectors.push(vector);
         }
@@ -651,7 +653,7 @@ impl NeuralCodec {
 
         for _ in 0..output_dim {
             let row: Vec<f32> = (0..input_dim)
-                .map(|_| (scirs2_core::random::thread_rng().gen::<f32>() * 2.0 - 1.0) * scale)
+                .map(|_| (scirs2_core::random::thread_rng().random::<f32>() * 2.0 - 1.0) * scale)
                 .collect();
             weights.push(row);
         }

@@ -3,10 +3,12 @@
 //! This module implements dynamic load balancing strategies for Mixture of Experts (MoE) models,
 //! including routing adjustments, expert migration, and capacity reallocation.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use super::config::ExpertParallelismConfig;
 use super::router::RoutingDecision;
 use crate::TorshResult;
-use log::{debug, info, warn};
+use log::info;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 

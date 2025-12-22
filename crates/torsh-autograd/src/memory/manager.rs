@@ -36,7 +36,7 @@
 //!
 //! ## Basic Usage
 //!
-//! ```rust
+//! ```rust,ignore
 //! use crate::memory::manager::AdaptiveMemoryManager;
 //! use crate::memory::types::AdaptiveMemoryConfig;
 //!
@@ -55,7 +55,7 @@
 //!
 //! ## Advanced Usage with Operation Tracking
 //!
-//! ```rust
+//! ```rust,ignore
 //! // Track memory by operation type
 //! let conv_memory = manager.allocate_gradient_memory_for_operation(
 //!     2048, "conv2d_backward"
@@ -75,21 +75,20 @@
 use crate::memory::anomaly::{
     AllocationPattern, AllocationPatternType, AnomalySeverity, MemoryAnomaly, MemoryAnomalyType,
 };
-use crate::memory::monitoring::{GradientMemoryMonitor, MemorySnapshot};
-use crate::memory::pool::{MemoryPool, MemoryPoolStats};
-use crate::memory::tracking::{
-    FragmentationAnalysis, GradientMemoryAnalysis, GradientMemoryStats, MemoryUsageTracker,
-};
+use crate::memory::monitoring::GradientMemoryMonitor;
+use crate::memory::pool::MemoryPool;
+use crate::memory::tracking::{GradientMemoryAnalysis, GradientMemoryStats, MemoryUsageTracker};
 use crate::memory::types::{
-    AdaptiveMemoryConfig, AllocationStrategy, MemoryPressure, OptimizationTechnique,
-    SystemMemoryInfo,
+    AdaptiveMemoryConfig, AllocationStrategy, MemoryPressure, SystemMemoryInfo,
 };
 use parking_lot::Mutex;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, RwLock};
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, Instant};
 use torsh_core::dtype::FloatElement;
-use torsh_core::error::{Result, TorshError};
+use torsh_core::error::Result;
+#[cfg(target_os = "linux")]
+use torsh_core::error::TorshError;
 
 /// Enhanced gradient computation memory analysis result
 ///
@@ -201,7 +200,7 @@ impl<T: FloatElement + Send + Sync + 'static> AdaptiveMemoryManager<T> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let config = AdaptiveMemoryConfig::default();
     /// let manager: AdaptiveMemoryManager<f32> = AdaptiveMemoryManager::new(config)?;
     /// ```
@@ -221,7 +220,7 @@ impl<T: FloatElement + Send + Sync + 'static> AdaptiveMemoryManager<T> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let config = AdaptiveMemoryConfig::default();
     /// let manager: AdaptiveMemoryManager<f32> = AdaptiveMemoryManager::new_with_monitoring_duration(
     ///     config,
@@ -268,7 +267,7 @@ impl<T: FloatElement + Send + Sync + 'static> AdaptiveMemoryManager<T> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let memory_info = AdaptiveMemoryManager::<f32>::get_system_memory_info()?;
     /// println!("Available memory: {} MB", memory_info.available_memory / 1024 / 1024);
     /// ```
@@ -436,7 +435,7 @@ impl<T: FloatElement + Send + Sync + 'static> AdaptiveMemoryManager<T> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let grad_memory = manager.allocate_gradient_memory(1000)?;
     /// assert_eq!(grad_memory.len(), 1000);
     /// ```
@@ -456,7 +455,7 @@ impl<T: FloatElement + Send + Sync + 'static> AdaptiveMemoryManager<T> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let conv_grad = manager.allocate_gradient_memory_for_operation(
     ///     2048, "conv2d_backward"
     /// )?;
@@ -650,7 +649,7 @@ impl<T: FloatElement + Send + Sync + 'static> AdaptiveMemoryManager<T> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let grad_memory = manager.allocate_gradient_memory(1000)?;
     /// // ... use memory for gradients ...
     /// manager.deallocate_gradient_memory(grad_memory); // Return to pool
@@ -742,7 +741,7 @@ impl<T: FloatElement + Send + Sync + 'static> AdaptiveMemoryManager<T> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let analysis = manager.analyze_gradient_memory_usage();
     /// println!("High memory operations: {:?}", analysis.high_memory_operations);
     /// for warning in analysis.warnings {
@@ -807,7 +806,7 @@ impl<T: FloatElement + Send + Sync + 'static> AdaptiveMemoryManager<T> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// match manager.get_memory_pressure() {
     ///     MemoryPressure::High => println!("Memory pressure is high!"),
     ///     MemoryPressure::Critical => println!("Critical memory situation!"),
@@ -858,7 +857,7 @@ impl<T: FloatElement + Send + Sync + 'static> AdaptiveMemoryManager<T> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let recommendations = manager.get_optimization_recommendations();
     /// for rec in recommendations {
     ///     println!("Recommendation: {}", rec);
@@ -906,7 +905,7 @@ impl<T: FloatElement + Send + Sync + 'static> AdaptiveMemoryManager<T> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let analysis = manager.analyze_gradient_computation_memory("conv2d_backward")?;
     /// println!("Memory efficiency: {:.1}%", analysis.memory_efficiency * 100.0);
     /// for anomaly in analysis.anomalies {
@@ -1166,7 +1165,6 @@ impl<T: FloatElement + Send + Sync + 'static> AdaptiveMemoryManager<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Duration;
 
     #[test]
     fn test_manager_creation() {

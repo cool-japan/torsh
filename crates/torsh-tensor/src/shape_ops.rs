@@ -12,7 +12,7 @@
 //! - **Broadcasting support**: Expand operations for broadcasting compatibility
 //! - **Contiguity checking**: Efficient memory layout validation
 
-use std::sync::{Arc, RwLock, Weak};
+use std::sync::{Arc, RwLock};
 use torsh_core::{
     dtype::TensorElement,
     error::{Result, TorshError},

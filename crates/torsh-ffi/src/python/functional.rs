@@ -1,5 +1,7 @@
 //! Functional operations for PyTorch-style API
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::error::FfiError;
 use crate::python::tensor::PyTensor;
 use pyo3::prelude::*;
@@ -15,7 +17,7 @@ pub fn relu(input: &PyTensor, inplace: bool) -> PyResult<PyTensor> {
         // For now, we'll return a new tensor
     }
 
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let data = pyo3::types::PyList::new(py, &result_data)?;
         PyTensor::new(
             data.as_ref(),
@@ -35,7 +37,7 @@ pub fn sigmoid(input: &PyTensor) -> PyResult<PyTensor> {
         .map(|&x| 1.0 / (1.0 + (-x).exp()))
         .collect();
 
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let data = pyo3::types::PyList::new(py, &result_data)?;
         PyTensor::new(
             data.as_ref(),
@@ -51,7 +53,7 @@ pub fn sigmoid(input: &PyTensor) -> PyResult<PyTensor> {
 pub fn tanh(input: &PyTensor) -> PyResult<PyTensor> {
     let result_data: Vec<f32> = input.data.iter().map(|&x| x.tanh()).collect();
 
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let data = pyo3::types::PyList::new(py, &result_data)?;
         PyTensor::new(
             data.as_ref(),
@@ -76,7 +78,7 @@ pub fn gelu(input: &PyTensor) -> PyResult<PyTensor> {
         })
         .collect();
 
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let data = pyo3::types::PyList::new(py, &result_data)?;
         PyTensor::new(
             data.as_ref(),
@@ -125,7 +127,7 @@ pub fn softmax(input: &PyTensor, _dim: i32) -> PyResult<PyTensor> {
         }
     }
 
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let data = pyo3::types::PyList::new(py, &result_data)?;
         PyTensor::new(
             data.as_ref(),
@@ -144,7 +146,7 @@ pub fn log_softmax(input: &PyTensor, dim: i32) -> PyResult<PyTensor> {
 
     let result_data: Vec<f32> = softmax_result.data.iter().map(|&x| x.ln()).collect();
 
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let data = pyo3::types::PyList::new(py, &result_data)?;
         PyTensor::new(
             data.as_ref(),
@@ -217,7 +219,7 @@ pub fn cross_entropy(input: &PyTensor, target: &PyTensor, reduction: &str) -> Py
         }
     };
 
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let data = pyo3::types::PyList::new(py, &result)?;
         let shape = if reduction == "none" {
             vec![batch_size]
@@ -271,7 +273,7 @@ pub fn mse_loss(input: &PyTensor, target: &PyTensor, reduction: &str) -> PyResul
         }
     };
 
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let data = pyo3::types::PyList::new(py, &result)?;
         let shape = if reduction == "none" {
             input.shape()
@@ -334,7 +336,7 @@ pub fn binary_cross_entropy(
         }
     };
 
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let data = pyo3::types::PyList::new(py, &result)?;
         let shape = if reduction == "none" {
             input.shape()
@@ -354,10 +356,12 @@ pub fn binary_cross_entropy(
 mod tests {
     use super::*;
     use pyo3::types::PyList;
+    use pyo3::Python;
 
     #[test]
     fn test_relu() {
-        Python::with_gil(|py| -> PyResult<()> {
+        Python::initialize();
+        Python::attach(|py| -> PyResult<()> {
             let data = PyList::new(py, vec![-1.0, 0.0, 1.0, 2.0])?;
             let input = PyTensor::new(data.as_ref(), None, None, false).unwrap();
 
@@ -370,7 +374,8 @@ mod tests {
 
     #[test]
     fn test_sigmoid() {
-        Python::with_gil(|py| -> PyResult<()> {
+        Python::initialize();
+        Python::attach(|py| -> PyResult<()> {
             let data = PyList::new(py, vec![0.0])?;
             let input = PyTensor::new(data.as_ref(), None, None, false).unwrap();
 
@@ -383,7 +388,8 @@ mod tests {
 
     #[test]
     fn test_softmax() {
-        Python::with_gil(|py| -> PyResult<()> {
+        Python::initialize();
+        Python::attach(|py| -> PyResult<()> {
             let data = PyList::new(py, vec![1.0, 2.0, 3.0])?;
             let input = PyTensor::new(data.as_ref(), Some(vec![1, 3]), None, false).unwrap();
 
@@ -397,7 +403,8 @@ mod tests {
 
     #[test]
     fn test_mse_loss() {
-        Python::with_gil(|py| -> PyResult<()> {
+        Python::initialize();
+        Python::attach(|py| -> PyResult<()> {
             let input_data = PyList::new(py, vec![1.0, 2.0, 3.0])?;
             let target_data = PyList::new(py, vec![1.5, 2.5, 3.5])?;
 

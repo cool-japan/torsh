@@ -6,9 +6,9 @@
 //! - Compile-time code transformation
 //! - Template-based code specialization
 
-use crate::{ir::IrModule, ComputationGraph, JitError, JitResult, NodeId};
+use crate::{ComputationGraph, JitError, JitResult, NodeId};
 use std::collections::HashMap;
-use std::fmt::Write;
+// use std::fmt::Write; // Reserved for future template string manipulation
 use torsh_core::{DType, Shape};
 
 /// Metaprogramming engine for dynamic code generation
@@ -432,22 +432,36 @@ impl RuntimeReflector {
 
         // Analyze nodes
         for (node_id, node) in graph.nodes() {
+            // Derive input types from incoming edges
+            let input_types: Vec<DType> = graph
+                .get_node_inputs(node_id)
+                .iter()
+                .filter_map(|&input_id| graph.node(input_id).map(|n| n.dtype))
+                .collect();
+
+            // Infer type before moving input_types
+            let inferred_type = if !input_types.is_empty() {
+                // Use the most precise type among inputs
+                input_types[0]
+            } else {
+                node.dtype
+            };
+
             let reflection = NodeReflection {
                 id: node_id,
                 operation: node.operation_type().to_string(),
-                input_types: Vec::new(), // TODO: Derive from edges
+                input_types,
                 output_type: node.dtype,
                 output_shape: node.output_shape.clone(),
                 metadata: self.get_operation_metadata(&node.operation_type()),
             };
             node_info.insert(node_id, reflection);
 
-            // Analyze types
             type_analysis.insert(
                 node_id,
                 TypeAnalysis {
                     declared_type: node.dtype,
-                    inferred_type: node.dtype, // TODO: Add proper type inference
+                    inferred_type,
                     type_constraints: Vec::new(),
                 },
             );
@@ -455,11 +469,17 @@ impl RuntimeReflector {
 
         // Analyze edges
         for (from, to, _edge_data) in graph.edges() {
+            // Get actual edge type and shape from source node
+            let (data_type, tensor_shape) = graph
+                .node(from)
+                .map(|source_node| (source_node.dtype, source_node.output_shape.clone()))
+                .unwrap_or((DType::F32, Shape::new(vec![])));
+
             edge_info.push(EdgeReflection {
                 from,
                 to,
-                data_type: DType::F32,            // TODO: Get actual edge type
-                tensor_shape: Shape::new(vec![]), // TODO: Get actual shape
+                data_type,
+                tensor_shape,
             });
         }
 
@@ -478,11 +498,19 @@ impl RuntimeReflector {
 
     /// Analyze graph properties
     fn analyze_graph_properties(&self, graph: &ComputationGraph) -> GraphProperties {
+        // Detect control flow by checking for control flow operations
+        let has_control_flow = graph.nodes().any(|(_, node)| {
+            matches!(
+                node.operation_type(),
+                "If" | "While" | "For" | "Loop" | "Branch" | "Cond" | "Switch"
+            )
+        });
+
         GraphProperties {
             node_count: graph.node_count(),
             edge_count: graph.edge_count(),
             is_acyclic: graph.is_acyclic(),
-            has_control_flow: false, // TODO: Implement control flow detection
+            has_control_flow,
             complexity_estimate: self.estimate_complexity(graph),
         }
     }
@@ -805,7 +833,6 @@ fn conv2d(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use torsh_core::Shape;
 
     #[test]
     fn test_template_creation() {

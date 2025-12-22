@@ -1,16 +1,17 @@
 //! WebGPU buffer management for ToRSh
 
 #[cfg(feature = "webgpu")]
+#[allow(unused_imports)]
 use bytemuck;
 #[cfg(feature = "webgpu")]
+#[allow(unused_imports)]
 use wgpu;
 
 use crate::webgpu::{WebGpuDevice, WebGpuError, WebGpuResult};
-use crate::{Buffer, BufferDescriptor, BufferHandle, BufferUsage, BufferView, MemoryLocation};
+use crate::{BufferDescriptor, BufferHandle, BufferUsage, MemoryLocation};
 use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::sync::Arc;
-use torsh_core::DType;
 
 /// WebGPU buffer wrapper
 #[derive(Debug, Clone)]
@@ -121,7 +122,7 @@ impl WebGpuBuffer {
     pub fn slice<S: std::ops::RangeBounds<wgpu::BufferAddress>>(
         &self,
         bounds: S,
-    ) -> wgpu::BufferSlice {
+    ) -> wgpu::BufferSlice<'_> {
         self.buffer.slice(bounds)
     }
 
@@ -148,7 +149,7 @@ impl WebGpuBuffer {
         let slice = self.buffer.slice(offset..offset + actual_size);
 
         // Use the newer wgpu API that requires a callback
-        slice.map_async(wgpu::MapMode::Read, |result| {
+        slice.map_async(wgpu::MapMode::Read, |_result| {
             // Callback is handled by wgpu internally
         });
 
@@ -183,7 +184,7 @@ impl WebGpuBuffer {
         let slice = self.buffer.slice(offset..offset + actual_size);
 
         // Use the newer wgpu API that requires a callback
-        slice.map_async(wgpu::MapMode::Write, |result| {
+        slice.map_async(wgpu::MapMode::Write, |_result| {
             // Callback is handled by wgpu internally
         });
 
@@ -196,7 +197,11 @@ impl WebGpuBuffer {
     }
 
     /// Get mapped range for reading
-    pub fn mapped_range(&self, offset: u64, size: Option<u64>) -> WebGpuResult<wgpu::BufferView> {
+    pub fn mapped_range(
+        &self,
+        offset: u64,
+        size: Option<u64>,
+    ) -> WebGpuResult<wgpu::BufferView<'_>> {
         let state = self.mapping_state.read();
         if *state != MappingState::MappedRead {
             return Err(WebGpuError::InvalidBufferUsage(format!(
@@ -215,7 +220,7 @@ impl WebGpuBuffer {
         &self,
         offset: u64,
         size: Option<u64>,
-    ) -> WebGpuResult<wgpu::BufferViewMut> {
+    ) -> WebGpuResult<wgpu::BufferViewMut<'_>> {
         let state = self.mapping_state.read();
         if *state != MappingState::MappedWrite {
             return Err(WebGpuError::InvalidBufferUsage(format!(
@@ -500,7 +505,10 @@ mod tests {
                     zero_init: false,
                 };
 
-                let handle = BufferHandle::WebGpu { buffer_ptr: 1, size: 1024 };
+                let handle = BufferHandle::WebGpu {
+                    buffer_ptr: 1,
+                    size: 1024,
+                };
                 let buffer = WebGpuBuffer::new(device, descriptor, handle);
 
                 assert!(buffer.is_ok());

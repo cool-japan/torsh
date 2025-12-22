@@ -166,7 +166,6 @@ impl Default for MLParameterPredictor {
 impl PredictorNetwork {
     /// Create new neural network
     pub fn new(input_dim: usize, output_dim: usize, learning_rate: f32) -> Self {
-        use scirs2_core::random::DistributionExt;
         let mut rng = scirs2_core::random::thread_rng();
 
         // Create a simple 2-layer network

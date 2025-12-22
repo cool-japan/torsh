@@ -1,4 +1,52 @@
-//! Model registry for tracking and discovering models
+//! # Model Registry - Centralized Model Discovery and Management
+//!
+//! This module provides a comprehensive model registry system for tracking, discovering,
+//! and managing machine learning models in the ToRSh ecosystem.
+//!
+//! ## Features
+//!
+//! - **Model Discovery**: Search and filter models by category, tags, metrics, and hardware
+//! - **Version Management**: Track model versions with semantic versioning
+//! - **Metadata Management**: Rich metadata including metrics, hardware requirements, and licenses
+//! - **Popularity Tracking**: Track downloads and likes for community feedback
+//! - **Hardware Filtering**: Filter models by hardware compatibility and requirements
+//! - **Framework Compatibility**: Track which frameworks support each model
+//!
+//! ## Quick Start
+//!
+//! ```no_run
+//! use torsh_hub::registry::{ModelRegistry, SearchQuery, ModelCategory, SortBy};
+//!
+//! # fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! // Create a new registry
+//! let mut registry = ModelRegistry::new("./models")?;
+//!
+//! // Search for vision models using default SearchQuery and modifying fields
+//! let mut query = SearchQuery::default();
+//! query.category = Some(ModelCategory::Vision);
+//! query.tags = vec!["image-classification".to_string()];
+//! query.limit = 10;
+//! let results = registry.search(&query);
+//!
+//! // Get model details
+//! if let Some(entry) = results.first() {
+//!     println!("Model: {} by {}", entry.name, entry.author);
+//!     println!("Downloads: {}", entry.downloads);
+//!     println!("Category: {:?}", entry.category);
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Registry Entry Structure
+//!
+//! Each model in the registry contains:
+//! - Basic info: name, author, version, description
+//! - Popularity: downloads, likes, timestamps
+//! - Technical: architecture, framework compatibility, hardware requirements
+//! - Performance: model size, inference time, accuracy metrics
+//! - Legal: license, paper URL, demo URL
+//! - Status: active, deprecated, experimental
 
 use crate::model_info::Version;
 use serde::{Deserialize, Serialize};
@@ -422,10 +470,9 @@ impl ModelRegistry {
                 }
 
                 // Tag filter
-                if !query.tags.is_empty() {
-                    if !query.tags.iter().all(|tag| entry.tags.contains(tag)) {
-                        return false;
-                    }
+                if !query.tags.is_empty() && !query.tags.iter().all(|tag| entry.tags.contains(tag))
+                {
+                    return false;
                 }
 
                 // Author filter
@@ -469,14 +516,13 @@ impl ModelRegistry {
                 }
 
                 // Framework compatibility filter
-                if !query.framework_compatibility.is_empty() {
-                    if !query
+                if !query.framework_compatibility.is_empty()
+                    && !query
                         .framework_compatibility
                         .iter()
                         .any(|framework| entry.framework_compatibility.contains(framework))
-                    {
-                        return false;
-                    }
+                {
+                    return false;
                 }
 
                 // Hardware filter
@@ -511,10 +557,10 @@ impl ModelRegistry {
                 }
 
                 // License filter
-                if !query.license_filter.is_empty() {
-                    if !query.license_filter.contains(&entry.license) {
-                        return false;
-                    }
+                if !query.license_filter.is_empty()
+                    && !query.license_filter.contains(&entry.license)
+                {
+                    return false;
                 }
 
                 // Demo filter
@@ -598,24 +644,24 @@ impl ModelRegistry {
     /// Check if a version matches a constraint
     fn matches_version_constraint(&self, version: &Version, constraint: &str) -> bool {
         // Simple version constraint matching (could be more sophisticated)
-        if constraint.starts_with(">=") {
-            if let Ok(min_version) = Version::from_str(&constraint[2..]) {
+        if let Some(stripped) = constraint.strip_prefix(">=") {
+            if let Ok(min_version) = Version::from_str(stripped) {
                 return *version >= min_version;
             }
-        } else if constraint.starts_with("<=") {
-            if let Ok(max_version) = Version::from_str(&constraint[2..]) {
+        } else if let Some(stripped) = constraint.strip_prefix("<=") {
+            if let Ok(max_version) = Version::from_str(stripped) {
                 return *version <= max_version;
             }
-        } else if constraint.starts_with('>') {
-            if let Ok(min_version) = Version::from_str(&constraint[1..]) {
+        } else if let Some(stripped) = constraint.strip_prefix('>') {
+            if let Ok(min_version) = Version::from_str(stripped) {
                 return *version > min_version;
             }
-        } else if constraint.starts_with('<') {
-            if let Ok(max_version) = Version::from_str(&constraint[1..]) {
+        } else if let Some(stripped) = constraint.strip_prefix('<') {
+            if let Ok(max_version) = Version::from_str(stripped) {
                 return *version < max_version;
             }
-        } else if constraint.starts_with('=') {
-            if let Ok(exact_version) = Version::from_str(&constraint[1..]) {
+        } else if let Some(stripped) = constraint.strip_prefix('=') {
+            if let Ok(exact_version) = Version::from_str(stripped) {
                 return *version == exact_version;
             }
         } else if let Ok(exact_version) = Version::from_str(constraint) {
@@ -737,9 +783,11 @@ impl ModelRegistry {
 
     /// Get models compatible with specific hardware constraints
     pub fn list_by_hardware(&self, hw_filter: &HardwareFilter) -> Vec<&RegistryEntry> {
-        let mut query = SearchQuery::default();
-        query.hardware_filter = Some(hw_filter.clone());
-        query.limit = 100;
+        let query = SearchQuery {
+            hardware_filter: Some(hw_filter.clone()),
+            limit: 100,
+            ..Default::default()
+        };
         self.search(&query)
     }
 

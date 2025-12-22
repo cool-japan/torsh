@@ -9,8 +9,8 @@ use std::collections::HashMap;
 
 #[cfg(not(feature = "std"))]
 use hashbrown::HashMap;
-use torsh_core::error::Result;
-use torsh_tensor::{creation::*, Tensor};
+use torsh_core::error::{Result, TorshError};
+use torsh_tensor::Tensor;
 
 /// Embedding layer that maps discrete tokens to continuous vectors
 pub struct Embedding {
@@ -80,19 +80,80 @@ impl Module for Embedding {
         // Input shape: any shape containing indices
         // Output shape: input_shape + [embedding_dim]
 
-        let _weight = self.base.parameters["weight"].tensor().read().clone();
+        let weight = self.base.parameters["weight"].tensor().read().clone();
+        let weight_data = weight.to_vec()?;
 
-        // This is a simplified implementation
-        // Real implementation would perform proper embedding lookup
+        // Get input indices
+        let input_data = input.to_vec()?;
         let binding = input.shape();
         let input_shape = binding.dims();
+
+        // Calculate output shape
         let mut output_shape = input_shape.to_vec();
         output_shape.push(self.embedding_dim);
 
-        // Placeholder - actual implementation would index into weight matrix
-        let output = zeros(&output_shape)?;
+        // Calculate total number of lookups
+        let num_indices: usize = input_shape.iter().product();
+        let total_output_size = num_indices * self.embedding_dim;
 
-        Ok(output)
+        let mut output_data = Vec::with_capacity(total_output_size);
+
+        // Perform embedding lookup for each index
+        for &idx_f32 in input_data.iter() {
+            // Convert f32 index to usize
+            let idx = idx_f32 as usize;
+
+            // Handle padding_idx if set
+            if let Some(padding_idx) = self.padding_idx {
+                if idx == padding_idx {
+                    // Return zeros for padding index
+                    output_data.extend(vec![0.0; self.embedding_dim]);
+                    continue;
+                }
+            }
+
+            // Bounds check
+            if idx >= self.num_embeddings {
+                return Err(torsh_core::error::TorshError::InvalidArgument(format!(
+                    "Index {} out of bounds for embedding with {} embeddings",
+                    idx, self.num_embeddings
+                )));
+            }
+
+            // Lookup embedding vector for this index
+            let start_idx = idx * self.embedding_dim;
+            let end_idx = start_idx + self.embedding_dim;
+
+            // Get the embedding vector
+            let mut embedding_vec = weight_data[start_idx..end_idx].to_vec();
+
+            // Apply max_norm if specified
+            if let Some(max_norm) = self.max_norm {
+                let norm = if self.norm_type == 2.0 {
+                    // L2 norm
+                    embedding_vec.iter().map(|x| x * x).sum::<f32>().sqrt()
+                } else {
+                    // L_p norm
+                    embedding_vec
+                        .iter()
+                        .map(|x| x.abs().powf(self.norm_type))
+                        .sum::<f32>()
+                        .powf(1.0 / self.norm_type)
+                };
+
+                if norm > max_norm {
+                    // Renormalize to max_norm
+                    let scale = max_norm / norm;
+                    for val in &mut embedding_vec {
+                        *val *= scale;
+                    }
+                }
+            }
+
+            output_data.extend(embedding_vec);
+        }
+
+        Tensor::from_vec(output_data, &output_shape)
     }
 
     fn parameters(&self) -> HashMap<String, Parameter> {
@@ -491,9 +552,132 @@ impl RelativePositionalEncoding {
 
 impl Module for RelativePositionalEncoding {
     fn forward(&self, input: &Tensor) -> Result<Tensor> {
-        // For relative encoding, the input is typically the attention scores
-        // This is a placeholder implementation
-        Ok(input.clone())
+        // Implement relative positional encoding as used in Transformer-XL and similar models
+        // The input is typically attention scores or query/key representations
+        // Shape: [batch_size, seq_len, d_model] or [batch_size, num_heads, seq_len, seq_len]
+
+        let input_shape_binding = input.shape();
+        let input_shape = input_shape_binding.dims();
+
+        // Determine if input is attention scores (4D) or representations (3D)
+        match input_shape.len() {
+            3 => {
+                // Input is [batch_size, seq_len, d_model]
+                // Add relative positional bias
+                let batch_size = input_shape[0];
+                let seq_len = input_shape[1];
+                let d_model = input_shape[2];
+
+                // Get positional embeddings for relative positions
+                // Relative positions range from -(seq_len-1) to +(seq_len-1)
+                let max_relative_position = (seq_len - 1) * 2 + 1;
+
+                // Get embedding weights
+                let embeddings = self.base.parameters.get("weight").ok_or_else(|| {
+                    TorshError::InvalidArgument(
+                        "RelativePositionalEncoding missing weight parameter".to_string(),
+                    )
+                })?;
+
+                let embedding_data = embeddings.tensor().read().to_vec()?;
+                let input_data = input.to_vec()?;
+
+                let mut output_data = vec![0.0f32; batch_size * seq_len * d_model];
+
+                // For each position, add relative positional embeddings
+                for b in 0..batch_size {
+                    for i in 0..seq_len {
+                        for j in 0..seq_len {
+                            // Calculate relative position: j - i
+                            let relative_pos = (j as i32 - i as i32) + (seq_len - 1) as i32;
+                            let relative_pos_clamped =
+                                relative_pos.max(0).min(max_relative_position as i32 - 1) as usize;
+
+                            // Get positional embedding for this relative position
+                            let emb_start = relative_pos_clamped * d_model;
+
+                            // Add to output (only once per position i, average over j)
+                            for d in 0..d_model {
+                                let input_idx = b * seq_len * d_model + i * d_model + d;
+                                let output_idx = b * seq_len * d_model + i * d_model + d;
+
+                                if j == 0 {
+                                    // Initialize with input value
+                                    output_data[output_idx] = input_data[input_idx];
+                                }
+
+                                // Add fractional contribution from relative position embedding
+                                output_data[output_idx] +=
+                                    embedding_data[emb_start + d] / seq_len as f32;
+                            }
+                        }
+                    }
+                }
+
+                Tensor::from_vec(output_data, input_shape)
+            }
+            4 => {
+                // Input is attention scores [batch_size, num_heads, seq_len, seq_len]
+                // Add relative position bias to attention scores
+                let batch_size = input_shape[0];
+                let num_heads = input_shape[1];
+                let seq_len_q = input_shape[2];
+                let seq_len_k = input_shape[3];
+
+                // For simplicity, assume seq_len_q == seq_len_k
+                if seq_len_q != seq_len_k {
+                    return Err(TorshError::InvalidArgument(
+                        "RelativePositionalEncoding requires square attention matrices".to_string(),
+                    ));
+                }
+
+                let seq_len = seq_len_q;
+                let max_relative_position = (seq_len - 1) * 2 + 1;
+
+                // Get embedding weights
+                let embeddings = self.base.parameters.get("weight").ok_or_else(|| {
+                    TorshError::InvalidArgument(
+                        "RelativePositionalEncoding missing weight parameter".to_string(),
+                    )
+                })?;
+
+                let embedding_data = embeddings.tensor().read().to_vec()?;
+                let input_data = input.to_vec()?;
+
+                let mut output_data = vec![0.0f32; batch_size * num_heads * seq_len * seq_len];
+
+                // Add relative position bias to each attention score
+                for b in 0..batch_size {
+                    for h in 0..num_heads {
+                        for i in 0..seq_len {
+                            for j in 0..seq_len {
+                                // Calculate relative position: j - i
+                                let relative_pos = (j as i32 - i as i32) + (seq_len - 1) as i32;
+                                let relative_pos_clamped =
+                                    relative_pos.max(0).min(max_relative_position as i32 - 1)
+                                        as usize;
+
+                                // Input and output index
+                                let idx = b * num_heads * seq_len * seq_len
+                                    + h * seq_len * seq_len
+                                    + i * seq_len
+                                    + j;
+
+                                // Add relative position bias (use first dimension of embedding as bias)
+                                output_data[idx] =
+                                    input_data[idx] + embedding_data[relative_pos_clamped];
+                            }
+                        }
+                    }
+                }
+
+                Tensor::from_vec(output_data, input_shape)
+            }
+            _ => {
+                // Unsupported shape, return input unchanged
+                Ok(input.clone())
+            }
+        }
     }
 
     fn parameters(&self) -> HashMap<String, Parameter> {
@@ -650,5 +834,283 @@ impl std::fmt::Debug for RelativePositionalEncoding {
             .field("d_model", &self.d_model)
             .field("max_relative_distance", &self.max_relative_distance)
             .finish()
+    }
+}
+
+// =============================================================================
+// TESTS
+// =============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+
+    #[test]
+    fn test_embedding_basic_lookup() -> Result<()> {
+        // Create a small embedding: 5 tokens, 3-dimensional embeddings
+        let mut embedding = Embedding::new(5, 3);
+
+        // Set deterministic weights for testing
+        let weight_data = vec![
+            1.0, 2.0, 3.0, // Token 0
+            4.0, 5.0, 6.0, // Token 1
+            7.0, 8.0, 9.0, // Token 2
+            10.0, 11.0, 12.0, // Token 3
+            13.0, 14.0, 15.0, // Token 4
+        ];
+        let weight = Tensor::from_vec(weight_data, &[5, 3])?;
+        *embedding
+            .base
+            .parameters
+            .get_mut("weight")
+            .unwrap()
+            .tensor()
+            .write() = weight;
+
+        // Test single index lookup
+        let input = Tensor::from_vec(vec![2.0], &[1])?;
+        let output = embedding.forward(&input)?;
+
+        let output_data = output.to_vec()?;
+        assert_eq!(output.shape().dims(), &[1, 3]);
+        assert_relative_eq!(output_data[0], 7.0, epsilon = 1e-6);
+        assert_relative_eq!(output_data[1], 8.0, epsilon = 1e-6);
+        assert_relative_eq!(output_data[2], 9.0, epsilon = 1e-6);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_embedding_multiple_indices() -> Result<()> {
+        // Create embedding: 4 tokens, 2-dimensional
+        let mut embedding = Embedding::new(4, 2);
+
+        let weight_data = vec![
+            1.0, 2.0, // Token 0
+            3.0, 4.0, // Token 1
+            5.0, 6.0, // Token 2
+            7.0, 8.0, // Token 3
+        ];
+        let weight = Tensor::from_vec(weight_data, &[4, 2])?;
+        *embedding
+            .base
+            .parameters
+            .get_mut("weight")
+            .unwrap()
+            .tensor()
+            .write() = weight;
+
+        // Lookup multiple indices: [0, 2, 1]
+        let input = Tensor::from_vec(vec![0.0, 2.0, 1.0], &[3])?;
+        let output = embedding.forward(&input)?;
+
+        let output_data = output.to_vec()?;
+        assert_eq!(output.shape().dims(), &[3, 2]);
+
+        // Token 0: [1.0, 2.0]
+        assert_relative_eq!(output_data[0], 1.0, epsilon = 1e-6);
+        assert_relative_eq!(output_data[1], 2.0, epsilon = 1e-6);
+
+        // Token 2: [5.0, 6.0]
+        assert_relative_eq!(output_data[2], 5.0, epsilon = 1e-6);
+        assert_relative_eq!(output_data[3], 6.0, epsilon = 1e-6);
+
+        // Token 1: [3.0, 4.0]
+        assert_relative_eq!(output_data[4], 3.0, epsilon = 1e-6);
+        assert_relative_eq!(output_data[5], 4.0, epsilon = 1e-6);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_embedding_2d_indices() -> Result<()> {
+        // Test with 2D input (batch of sequences)
+        let mut embedding = Embedding::new(3, 2);
+
+        let weight_data = vec![
+            1.0, 2.0, // Token 0
+            3.0, 4.0, // Token 1
+            5.0, 6.0, // Token 2
+        ];
+        let weight = Tensor::from_vec(weight_data, &[3, 2])?;
+        *embedding
+            .base
+            .parameters
+            .get_mut("weight")
+            .unwrap()
+            .tensor()
+            .write() = weight;
+
+        // Input: 2 sequences of length 2
+        // [[0, 1],
+        //  [2, 0]]
+        let input = Tensor::from_vec(vec![0.0, 1.0, 2.0, 0.0], &[2, 2])?;
+        let output = embedding.forward(&input)?;
+
+        assert_eq!(output.shape().dims(), &[2, 2, 2]); // [batch, seq_len, embedding_dim]
+
+        let output_data = output.to_vec()?;
+
+        // Sequence 0, Token 0 (index 0): [1.0, 2.0]
+        assert_relative_eq!(output_data[0], 1.0, epsilon = 1e-6);
+        assert_relative_eq!(output_data[1], 2.0, epsilon = 1e-6);
+
+        // Sequence 0, Token 1 (index 1): [3.0, 4.0]
+        assert_relative_eq!(output_data[2], 3.0, epsilon = 1e-6);
+        assert_relative_eq!(output_data[3], 4.0, epsilon = 1e-6);
+
+        // Sequence 1, Token 0 (index 2): [5.0, 6.0]
+        assert_relative_eq!(output_data[4], 5.0, epsilon = 1e-6);
+        assert_relative_eq!(output_data[5], 6.0, epsilon = 1e-6);
+
+        // Sequence 1, Token 1 (index 0): [1.0, 2.0]
+        assert_relative_eq!(output_data[6], 1.0, epsilon = 1e-6);
+        assert_relative_eq!(output_data[7], 2.0, epsilon = 1e-6);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_embedding_with_padding_idx() -> Result<()> {
+        // Test padding index functionality
+        let mut embedding = Embedding::with_padding_idx(4, 3, 0);
+
+        let weight_data = vec![
+            1.0, 2.0, 3.0, // Token 0 (padding - should be ignored)
+            4.0, 5.0, 6.0, // Token 1
+            7.0, 8.0, 9.0, // Token 2
+            10.0, 11.0, 12.0, // Token 3
+        ];
+        let weight = Tensor::from_vec(weight_data, &[4, 3])?;
+        *embedding
+            .base
+            .parameters
+            .get_mut("weight")
+            .unwrap()
+            .tensor()
+            .write() = weight;
+
+        // Lookup including padding index 0
+        let input = Tensor::from_vec(vec![1.0, 0.0, 2.0], &[3])?;
+        let output = embedding.forward(&input)?;
+
+        let output_data = output.to_vec()?;
+
+        // Token 1: [4.0, 5.0, 6.0]
+        assert_relative_eq!(output_data[0], 4.0, epsilon = 1e-6);
+        assert_relative_eq!(output_data[1], 5.0, epsilon = 1e-6);
+        assert_relative_eq!(output_data[2], 6.0, epsilon = 1e-6);
+
+        // Token 0 (padding): [0.0, 0.0, 0.0]
+        assert_relative_eq!(output_data[3], 0.0, epsilon = 1e-6);
+        assert_relative_eq!(output_data[4], 0.0, epsilon = 1e-6);
+        assert_relative_eq!(output_data[5], 0.0, epsilon = 1e-6);
+
+        // Token 2: [7.0, 8.0, 9.0]
+        assert_relative_eq!(output_data[6], 7.0, epsilon = 1e-6);
+        assert_relative_eq!(output_data[7], 8.0, epsilon = 1e-6);
+        assert_relative_eq!(output_data[8], 9.0, epsilon = 1e-6);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_embedding_out_of_bounds() {
+        // Test that out-of-bounds index is rejected
+        let mut embedding = Embedding::new(3, 2);
+
+        let weight_data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+        let weight = Tensor::from_vec(weight_data, &[3, 2]).unwrap();
+        *embedding
+            .base
+            .parameters
+            .get_mut("weight")
+            .unwrap()
+            .tensor()
+            .write() = weight;
+
+        // Try to lookup index 5 (out of bounds for num_embeddings=3)
+        let input = Tensor::from_vec(vec![5.0], &[1]).unwrap();
+        let result = embedding.forward(&input);
+
+        assert!(result.is_err());
+        if let Err(torsh_core::error::TorshError::InvalidArgument(msg)) = result {
+            assert!(msg.contains("out of bounds"));
+        } else {
+            panic!("Expected InvalidArgument error for out-of-bounds index");
+        }
+    }
+
+    #[test]
+    fn test_embedding_with_max_norm() -> Result<()> {
+        // Test max_norm renormalization
+        let mut embedding = Embedding::with_config(
+            3,
+            2,
+            None,      // padding_idx
+            Some(1.0), // max_norm
+            2.0,       // norm_type (L2)
+            false,     // scale_grad_by_freq
+            false,     // sparse
+        );
+
+        // Create embeddings with large norms
+        let weight_data = vec![
+            3.0, 4.0, // Token 0: L2 norm = 5.0 (will be scaled down)
+            1.0, 0.0, // Token 1: L2 norm = 1.0 (already within max_norm)
+            0.6, 0.8, // Token 2: L2 norm = 1.0 (already within max_norm)
+        ];
+        let weight = Tensor::from_vec(weight_data, &[3, 2])?;
+        *embedding
+            .base
+            .parameters
+            .get_mut("weight")
+            .unwrap()
+            .tensor()
+            .write() = weight;
+
+        // Lookup token 0 (should be renormalized)
+        let input = Tensor::from_vec(vec![0.0], &[1])?;
+        let output = embedding.forward(&input)?;
+
+        let output_data = output.to_vec()?;
+
+        // Original: [3.0, 4.0], norm = 5.0
+        // After renormalization to max_norm=1.0: [0.6, 0.8]
+        assert_relative_eq!(output_data[0], 0.6, epsilon = 1e-6);
+        assert_relative_eq!(output_data[1], 0.8, epsilon = 1e-6);
+
+        // Verify the renormalized vector has norm <= max_norm
+        let norm = (output_data[0] * output_data[0] + output_data[1] * output_data[1]).sqrt();
+        assert_relative_eq!(norm, 1.0, epsilon = 1e-6);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_embedding_shape_preservation() -> Result<()> {
+        // Test that output shape is correct for various input shapes
+        let embedding = Embedding::new(10, 5);
+
+        // 1D input: [3] -> [3, 5]
+        let input1d = Tensor::from_vec(vec![0.0, 1.0, 2.0], &[3])?;
+        let output1d = embedding.forward(&input1d)?;
+        assert_eq!(output1d.shape().dims(), &[3, 5]);
+
+        // 2D input: [2, 4] -> [2, 4, 5]
+        let input2d = Tensor::from_vec(vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0], &[2, 4])?;
+        let output2d = embedding.forward(&input2d)?;
+        assert_eq!(output2d.shape().dims(), &[2, 4, 5]);
+
+        // 3D input: [2, 3, 2] -> [2, 3, 2, 5]
+        let input3d = Tensor::from_vec(
+            vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 0.0, 1.0],
+            &[2, 3, 2],
+        )?;
+        let output3d = embedding.forward(&input3d)?;
+        assert_eq!(output3d.shape().dims(), &[2, 3, 2, 5]);
+
+        Ok(())
     }
 }

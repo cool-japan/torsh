@@ -1,6 +1,8 @@
 use crate::error::{FfiError, FfiResult};
 use crate::python::tensor::memory::MEMORY_POOL;
-use std::sync::{Arc, Mutex};
+use parking_lot::Mutex;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use torsh_core::DType;
 
 /// Reference-counted tensor storage for memory management
@@ -14,7 +16,8 @@ pub struct TensorStorage {
     /// Gradient storage (None if no gradient computed yet)
     grad: Arc<Mutex<Option<Vec<f32>>>>,
     /// Version for gradient tracking (incremented on in-place operations)
-    version: Arc<Mutex<usize>>,
+    /// Using AtomicUsize for lock-free version tracking
+    version: Arc<AtomicUsize>,
 }
 
 impl TensorStorage {
@@ -26,7 +29,7 @@ impl TensorStorage {
             dtype,
             is_external: false,
             grad: Arc::new(Mutex::new(None)),
-            version: Arc::new(Mutex::new(0)),
+            version: Arc::new(AtomicUsize::new(0)),
         }
     }
 
@@ -41,7 +44,7 @@ impl TensorStorage {
             dtype,
             is_external: false,
             grad: Arc::new(Mutex::new(None)),
-            version: Arc::new(Mutex::new(0)),
+            version: Arc::new(AtomicUsize::new(0)),
         })
     }
 
@@ -53,18 +56,18 @@ impl TensorStorage {
             dtype,
             is_external: true,
             grad: Arc::new(Mutex::new(None)),
-            version: Arc::new(Mutex::new(0)),
+            version: Arc::new(AtomicUsize::new(0)),
         }
     }
 
     /// Get a reference to the data (read-only)
-    pub fn data(&self) -> std::sync::MutexGuard<Vec<f32>> {
-        self.data.lock().unwrap()
+    pub fn data(&self) -> parking_lot::MutexGuard<'_, Vec<f32>> {
+        self.data.lock()
     }
 
     /// Get a mutable reference to the data
-    pub fn data_mut(&self) -> std::sync::MutexGuard<Vec<f32>> {
-        self.data.lock().unwrap()
+    pub fn data_mut(&self) -> parking_lot::MutexGuard<'_, Vec<f32>> {
+        self.data.lock()
     }
 
     /// Get shape
@@ -110,28 +113,30 @@ impl TensorStorage {
     }
 
     /// Get gradient data (None if no gradient computed)
-    pub fn grad(&self) -> std::sync::MutexGuard<Option<Vec<f32>>> {
-        self.grad.lock().unwrap()
+    pub fn grad(&self) -> parking_lot::MutexGuard<'_, Option<Vec<f32>>> {
+        self.grad.lock()
     }
 
     /// Set gradient data
     pub fn set_grad(&self, grad_data: Option<Vec<f32>>) {
-        *self.grad.lock().unwrap() = grad_data;
+        *self.grad.lock() = grad_data;
     }
 
     /// Clear gradient
     pub fn clear_grad(&self) {
-        *self.grad.lock().unwrap() = None;
+        *self.grad.lock() = None;
     }
 
     /// Get current version (for gradient tracking)
+    /// Uses atomic load for lock-free read access
     pub fn version(&self) -> usize {
-        *self.version.lock().unwrap()
+        self.version.load(Ordering::Relaxed)
     }
 
     /// Increment version (called on in-place operations)
+    /// Uses atomic increment for lock-free update
     pub fn increment_version(&self) {
-        *self.version.lock().unwrap() += 1;
+        self.version.fetch_add(1, Ordering::Relaxed);
     }
 }
 
@@ -143,10 +148,10 @@ impl Drop for TensorStorage {
                 &mut self.data,
                 Arc::new(Mutex::new(Vec::new())),
             )) {
-                if let Ok(data_vec) = data.into_inner() {
-                    // Attempt to return to pool (ignore errors during drop)
-                    let _ = MEMORY_POOL.deallocate(data_vec);
-                }
+                // parking_lot::Mutex::into_inner() returns the value directly (no Result)
+                let data_vec = data.into_inner();
+                // Attempt to return to pool (ignore errors during drop)
+                let _ = MEMORY_POOL.deallocate(data_vec);
             }
         }
     }

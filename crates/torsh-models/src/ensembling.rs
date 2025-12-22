@@ -7,6 +7,8 @@
 //! - Bagging and boosting methods
 //! - Dynamic ensemble selection
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use torsh_core::error::{Result, TorshError};
@@ -46,7 +48,7 @@ pub struct MetaLearnerConfig {
     /// Type of meta-learner
     pub learner_type: MetaLearnerType,
     /// Configuration parameters
-    pub config: HashMap<String, ConfigValue>,
+    pub config: HashMap<String, EnsembleConfigValue>,
     /// Whether to include original features
     pub include_original_features: bool,
 }
@@ -71,9 +73,9 @@ pub enum MetaLearnerType {
     SVM { kernel: String, c: f64 },
 }
 
-/// Configuration value types
+/// Configuration value types for ensemble operations
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ConfigValue {
+pub enum EnsembleConfigValue {
     Float(f64),
     Int(i64),
     Bool(bool),
@@ -126,7 +128,7 @@ pub struct EnsembleConfig {
     /// Ensemble method to use
     pub method: EnsembleMethod,
     /// Model validation strategy
-    pub validation_strategy: ValidationStrategy,
+    pub validation_strategy: EnsembleValidationStrategy,
     /// Diversity regularization
     pub diversity_regularization: Option<DiversityRegularization>,
     /// Performance weighting
@@ -137,7 +139,7 @@ pub struct EnsembleConfig {
 
 /// Validation strategies for ensemble training
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ValidationStrategy {
+pub enum EnsembleValidationStrategy {
     /// K-fold cross-validation
     KFold { k: usize },
     /// Hold-out validation
@@ -441,14 +443,14 @@ impl<M: Module> ModelEnsemble<M> {
             *vote_counts.entry(argmax).or_insert(0) += 1;
         }
 
-        let majority_class = vote_counts
+        let _majority_class = vote_counts
             .into_iter()
             .max_by_key(|(_, count)| *count)
             .map(|(class, _)| class)
             .unwrap_or(0);
 
         // Create one-hot tensor
-        let mut result = Tensor::zeros(predictions[0].shape().dims(), predictions[0].device())?;
+        let result = Tensor::zeros(predictions[0].shape().dims(), predictions[0].device())?;
         // Set the majority class to 1 (simplified implementation)
         Ok(result)
     }
@@ -462,7 +464,7 @@ impl<M: Module> ModelEnsemble<M> {
             *weighted_votes.entry(argmax).or_insert(0.0) += weight;
         }
 
-        let weighted_majority = weighted_votes
+        let _weighted_majority = weighted_votes
             .into_iter()
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
             .map(|(class, _)| class)
@@ -850,14 +852,14 @@ impl Module for SimpleMeta {
 }
 
 /// Utility functions for ensembling
-pub mod utils {
+pub mod ensembling_utils {
     use super::*;
 
     /// Create a simple averaging ensemble config
     pub fn simple_average_config() -> EnsembleConfig {
         EnsembleConfig {
             method: EnsembleMethod::SimpleAverage,
-            validation_strategy: ValidationStrategy::HoldOut { split_ratio: 0.2 },
+            validation_strategy: EnsembleValidationStrategy::HoldOut { split_ratio: 0.2 },
             diversity_regularization: None,
             performance_weighting: false,
             online_adaptation: None,
@@ -868,7 +870,7 @@ pub mod utils {
     pub fn weighted_average_config(weights: Vec<f64>, learnable: bool) -> EnsembleConfig {
         EnsembleConfig {
             method: EnsembleMethod::WeightedAverage { weights, learnable },
-            validation_strategy: ValidationStrategy::KFold { k: 5 },
+            validation_strategy: EnsembleValidationStrategy::KFold { k: 5 },
             diversity_regularization: None,
             performance_weighting: true,
             online_adaptation: None,
@@ -886,7 +888,7 @@ pub mod utils {
                 },
                 use_cross_validation: true,
             },
-            validation_strategy: ValidationStrategy::KFold { k: 5 },
+            validation_strategy: EnsembleValidationStrategy::KFold { k: 5 },
             diversity_regularization: Some(DiversityRegularization {
                 strength: 0.1,
                 metric: DiversityMetric::Disagreement,
@@ -904,7 +906,7 @@ pub mod utils {
                 weights: vec![],
                 learnable: true,
             },
-            validation_strategy: ValidationStrategy::HoldOut { split_ratio: 0.2 },
+            validation_strategy: EnsembleValidationStrategy::HoldOut { split_ratio: 0.2 },
             diversity_regularization: None,
             performance_weighting: true,
             online_adaptation: Some(OnlineAdaptationConfig {
@@ -1030,7 +1032,7 @@ mod tests {
             MockModel::new(0.3),
         ];
 
-        let config = utils::simple_average_config();
+        let config = ensembling_utils::simple_average_config();
         let mut ensemble = ModelEnsemble::new(models, config);
 
         let device = DeviceType::Cpu;
@@ -1045,7 +1047,7 @@ mod tests {
         let models = vec![MockModel::new(0.1), MockModel::new(0.2)];
 
         let weights = vec![0.7, 0.3];
-        let config = utils::weighted_average_config(weights.clone(), false);
+        let config = ensembling_utils::weighted_average_config(weights.clone(), false);
         let mut ensemble = ModelEnsemble::new(models, config);
 
         assert_eq!(ensemble.get_weights(), &weights);
@@ -1060,7 +1062,7 @@ mod tests {
     #[test]
     fn test_ensemble_weight_setting() {
         let models = vec![MockModel::new(0.0), MockModel::new(0.0)];
-        let config = utils::simple_average_config();
+        let config = ensembling_utils::simple_average_config();
         let mut ensemble = ModelEnsemble::new(models, config);
 
         let new_weights = vec![0.8, 0.2];
@@ -1075,7 +1077,7 @@ mod tests {
     fn test_individual_predictions() {
         let models = vec![MockModel::new(1.0), MockModel::new(2.0)];
 
-        let config = utils::simple_average_config();
+        let config = ensembling_utils::simple_average_config();
         let ensemble = ModelEnsemble::new(models, config);
 
         let device = DeviceType::Cpu;
@@ -1089,11 +1091,11 @@ mod tests {
 
     #[test]
     fn test_ensemble_config_creation() {
-        let config = utils::stacking_config(MetaLearnerType::LinearRegression);
+        let config = ensembling_utils::stacking_config(MetaLearnerType::LinearRegression);
         assert!(matches!(config.method, EnsembleMethod::Stacking { .. }));
         assert!(config.diversity_regularization.is_some());
 
-        let online_config = utils::online_adaptive_config(0.01);
+        let online_config = ensembling_utils::online_adaptive_config(0.01);
         assert!(online_config.online_adaptation.is_some());
     }
 
@@ -1102,14 +1104,17 @@ mod tests {
         let accuracies = vec![0.8, 0.82, 0.78, 0.85];
         let diversities = vec![0.3, 0.4, 0.35];
 
-        let optimal_size = utils::calculate_optimal_ensemble_size(&accuracies, &diversities, 0.1);
+        let optimal_size =
+            ensembling_utils::calculate_optimal_ensemble_size(&accuracies, &diversities, 0.1);
         assert!(optimal_size >= 1 && optimal_size <= accuracies.len());
 
-        let improvement =
-            utils::estimate_ensemble_improvement(&accuracies, &EnsembleMethod::SimpleAverage);
+        let improvement = ensembling_utils::estimate_ensemble_improvement(
+            &accuracies,
+            &EnsembleMethod::SimpleAverage,
+        );
         assert!(improvement > 0.0);
 
-        let complexity = utils::calculate_ensemble_complexity(
+        let complexity = ensembling_utils::calculate_ensemble_complexity(
             3,
             &EnsembleMethod::Stacking {
                 meta_learner_config: MetaLearnerConfig {
@@ -1130,7 +1135,7 @@ mod tests {
                 weights: vec![0.5, 0.3, 0.2],
                 learnable: true,
             },
-            validation_strategy: ValidationStrategy::KFold { k: 5 },
+            validation_strategy: EnsembleValidationStrategy::KFold { k: 5 },
             diversity_regularization: Some(DiversityRegularization {
                 strength: 0.1,
                 metric: DiversityMetric::Disagreement,

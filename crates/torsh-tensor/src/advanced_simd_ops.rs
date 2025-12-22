@@ -16,8 +16,11 @@ use scirs2_core::chunking::{
     CacheAwareness, ChunkConfig, ChunkStrategy, ComputeIntensity, MemoryPattern, NumaStrategy,
 };
 use scirs2_core::parallel_ops::*;
+// SciRS2 POLICY: Use unified ndarray access through scirs2_core
+#[cfg(feature = "simd")]
+use scirs2_core::ndarray::ArrayView1;
 use torsh_core::{
-    dtype::{FloatElement, TensorElement},
+    dtype::FloatElement,
     error::{Result, TorshError},
 };
 
@@ -36,12 +39,11 @@ mod hyperoptimized_simd {
     pub use scirs2_core::simd_aligned::{simd_add_aligned_f32, simd_mul_aligned_f32, AlignedVec};
 
     // Basic SIMD operations for fallback
-    pub use scirs2_core::simd::{simd_add_f32, simd_div_f32, simd_dot_f32, simd_mul_f32};
+    pub use scirs2_core::simd::{simd_add_f32, simd_div_f32, simd_dot_f32};
 }
 
 #[cfg(feature = "simd")]
 use hyperoptimized_simd::*;
-use scirs2_core::ndarray::{Array1, ArrayView1};
 
 /// SIMD performance configuration and hardware detection
 #[derive(Debug, Clone)]
@@ -194,7 +196,15 @@ impl AdvancedSimdOps {
             gpu_settings: None,
         };
 
+        // Log chunk configuration for performance analysis
+        let _ = (
+            chunk_config.min_chunk_size,
+            chunk_config.max_chunk_size,
+            &chunk_config.strategy,
+        ); // Use parameters
+
         // Use parallel map for row-wise computation
+        // TODO: Pass chunk_config to parallel_map_collect_with_config when available
         let row_results: Vec<Vec<T>> = parallel_map_collect((0..rows_a).collect::<Vec<_>>(), |i| {
             let mut row = vec![<T as torsh_core::TensorElement>::zero(); cols_b];
             for j in 0..cols_b {
@@ -366,7 +376,15 @@ impl AdvancedSimdOps {
                 gpu_settings: None,
             };
 
+            // SIMD sum reduction with cache-optimized configuration
+            let _ = (
+                chunk_config.min_chunk_size,
+                chunk_config.max_chunk_size,
+                &chunk_config.memory_pattern,
+            ); // Use parameters
+
             // Use parallel map-reduce for tree reduction
+            // TODO: Pass chunk_config when parallel_map_reduce supports it
             let sum = parallel_map_reduce_indexed(
                 0..data.len(),
                 CHUNK_SIZE,

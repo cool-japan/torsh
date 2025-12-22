@@ -281,9 +281,10 @@ impl MemoryMappedStateStorage {
         key: &str,
         data: &T,
     ) -> Result<(), OptimizerError> {
-        let serialized = bincode::serde::encode_to_vec(data, bincode::config::standard()).map_err(|e| {
-            OptimizerError::MemoryMapError(format!("Failed to serialize data: {}", e))
-        })?;
+        let serialized =
+            bincode::serde::encode_to_vec(data, bincode::config::standard()).map_err(|e| {
+                OptimizerError::MemoryMapError(format!("Failed to serialize data: {}", e))
+            })?;
 
         self.store_raw(key, &serialized, std::any::type_name::<T>())
     }
@@ -342,9 +343,12 @@ impl MemoryMappedStateStorage {
         key: &str,
     ) -> Result<Option<T>, OptimizerError> {
         if let Some(data) = self.load_raw(key)? {
-            let (deserialized, _): (T, usize) = bincode::serde::decode_from_slice(&data, bincode::config::standard()).map_err(|e| {
-                OptimizerError::MemoryMapError(format!("Failed to deserialize data: {}", e))
-            })?;
+            let (deserialized, _): (T, usize) =
+                bincode::serde::decode_from_slice(&data, bincode::config::standard()).map_err(
+                    |e| {
+                        OptimizerError::MemoryMapError(format!("Failed to deserialize data: {}", e))
+                    },
+                )?;
             Ok(Some(deserialized))
         } else {
             Ok(None)
@@ -381,9 +385,10 @@ impl MemoryMappedStateStorage {
         key: &str,
         data: &T,
     ) -> Result<(), OptimizerError> {
-        let serialized = bincode::serde::encode_to_vec(data, bincode::config::standard()).map_err(|e| {
-            OptimizerError::MemoryMapError(format!("Failed to serialize data: {}", e))
-        })?;
+        let serialized =
+            bincode::serde::encode_to_vec(data, bincode::config::standard()).map_err(|e| {
+                OptimizerError::MemoryMapError(format!("Failed to serialize data: {}", e))
+            })?;
 
         self.update_raw(key, &serialized)
     }

@@ -5,14 +5,9 @@
 //! optimization, execution pattern analysis, and performance-driven fusion strategies
 //! to maximize CUDA kernel efficiency and minimize memory transactions.
 
-use scirs2_core::ndarray::{array, Array1, Array2, ArrayView1};
-use scirs2_core::random::Random;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
-use std::sync::{
-    atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
-    Arc, Mutex, RwLock,
-};
+use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant, SystemTime};
 
 /// Advanced kernel fusion optimization engine

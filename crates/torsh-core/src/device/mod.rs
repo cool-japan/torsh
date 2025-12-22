@@ -95,9 +95,10 @@ pub use self::sync::{
 
 // Phantom types for compile-time safety
 pub use self::phantom::{
-    DeviceCompatible, DeviceHandle, DeviceOperation, DeviceRequirements, NoRequirements,
-    PhantomCpu, PhantomCuda, PhantomDevice, PhantomDeviceManager, PhantomMetal, PhantomWgpu,
-    RequiresCpu, RequiresCuda, RequiresGpu, SameDevice, TransferCompatible,
+    AllToAllTopology, CrossDeviceOp, DeviceCompatible, DeviceGroup, DeviceHandle, DeviceOperation,
+    DeviceRequirements, DeviceTopology, NoRequirements, PeerToPeerOps, PhantomCpu, PhantomCuda,
+    PhantomDevice, PhantomDeviceManager, PhantomMetal, PhantomWgpu, RequiresCpu, RequiresCuda,
+    RequiresGpu, RingTopology, SameDevice, TransferCompatible, TreeTopology, TypedDeviceAffinity,
 };
 
 // Typed device programming
@@ -213,7 +214,9 @@ pub mod advanced {
 
     // Phantom type programming
     pub use super::phantom::{
-        DeviceCompatible, DeviceOperation, PhantomDeviceManager, SameDevice, TransferCompatible,
+        compile_time, AllToAllTopology, CrossDeviceOp, DeviceCompatible, DeviceGroup,
+        DeviceOperation, DeviceTopology, PeerToPeerOps, PhantomDeviceManager, RingTopology,
+        SameDevice, TransferCompatible, TreeTopology, TypedDeviceAffinity,
     };
 
     // Advanced typed programming

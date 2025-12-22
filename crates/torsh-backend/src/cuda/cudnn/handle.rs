@@ -3,8 +3,8 @@
 //! This module provides the cuDNN handle wrapper for managing cuDNN contexts
 //! and stream operations.
 
-use crate::error::{CudaError, CudaResult};
-use crate::stream::CudaStream;
+use crate::cuda::error::{CudaError, CudaResult};
+use crate::cuda::stream::CudaStream;
 
 #[cfg(feature = "cudnn")]
 use cudnn_sys::*;

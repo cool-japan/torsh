@@ -5,9 +5,7 @@
 use std::collections::HashMap;
 use torsh_core::error::Result;
 use torsh_nn::functional::*;
-use torsh_nn::gradcheck::{
-    fast_gradcheck, fast_gradcheck_function, gradcheck, gradcheck_function, GradCheckConfig,
-};
+use torsh_nn::gradcheck::{fast_gradcheck, gradcheck, gradcheck_function, GradCheckConfig};
 use torsh_nn::layers::*;
 use torsh_nn::{Module, Parameter};
 use torsh_tensor::creation::ones;
@@ -303,7 +301,7 @@ fn test_fast_gradcheck() {
     };
 
     // Fast gradient check with fewer elements
-    let fast_config = GradCheckConfig {
+    let _fast_config = GradCheckConfig {
         eps: 1e-5,
         atol: 1e-3,
         rtol: 1e-2,

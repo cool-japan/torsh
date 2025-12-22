@@ -53,7 +53,7 @@ pub fn export_to_writer<W: Write>(events: &[ProfileEvent], mut writer: W) -> Tor
         "displayTimeUnit": "ms",
         "systemTraceEvents": "SystemTraceData",
         "otherData": {
-            "version": "torsh-profiler 0.1.0-alpha.1"
+            "version": "torsh-profiler 0.1.0-alpha.2"
         }
     });
 

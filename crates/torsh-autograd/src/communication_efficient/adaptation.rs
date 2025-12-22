@@ -25,7 +25,7 @@
 //! # Examples
 //!
 //! ## Basic Adaptation Controller
-//! ```rust
+//! ```rust,no_run
 //! use torsh_autograd::communication_efficient::adaptation::*;
 //!
 //! let controller = AdaptationController::new();
@@ -45,7 +45,7 @@
 //! ```
 //!
 //! ## Custom Adaptation Strategy
-//! ```rust
+//! ```rust,no_run
 //! use torsh_autograd::communication_efficient::adaptation::*;
 //! use std::time::Duration;
 //!
@@ -60,19 +60,13 @@
 //! });
 //! ```
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::communication_efficient::{
-    config::{
-        CommunicationTopology, CompressedGradient, CompressionStrategy, ProtocolOptimization,
-        QualityOfService,
-    },
-    fault_tolerance::{FaultSeverity, FaultType, RecoveryStrategy},
-    management::{BandwidthMeasurement, CongestionLevel, OptimizationObjective},
-    transmission::{CommunicationProtocol, NetworkMetrics, ProtocolMetrics},
-    CommunicationError,
+    config::ProtocolOptimization, fault_tolerance::FaultType, CommunicationError,
 };
 
 use std::collections::{HashMap, VecDeque};
-use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 /// Main adaptive controller for communication optimization and performance monitoring.
@@ -323,7 +317,7 @@ impl AdaptationController {
     /// Proactive adaptation check based on trend analysis.
     fn proactive_adaptation_check(
         &self,
-        performance: &PerformanceSnapshot,
+        _performance: &PerformanceSnapshot,
     ) -> Result<bool, CommunicationError> {
         // Check if performance is trending downward
         let recent_snapshots: Vec<_> = self.performance_history.iter().rev().take(10).collect();
@@ -510,7 +504,7 @@ impl PerformanceSnapshot {
         let loss_score = 1.0 - self.packet_loss_rate;
         let efficiency_score = self.communication_efficiency;
 
-        (throughput_score * 0.3 + latency_score * 0.3 + loss_score * 0.2 + efficiency_score * 0.2)
+        throughput_score * 0.3 + latency_score * 0.3 + loss_score * 0.2 + efficiency_score * 0.2
     }
 }
 

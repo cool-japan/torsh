@@ -136,7 +136,28 @@ impl Optimizer for OnlineGradientDescent {
     }
 
     fn load_state_dict(&mut self, state: OptimizerState) -> OptimizerResult<()> {
-        // TODO: Implement state loading
+        if state.optimizer_type != "OnlineGradientDescent" {
+            return Err(crate::OptimizerError::InvalidParameter(format!(
+                "Expected OnlineGradientDescent, got {}",
+                state.optimizer_type
+            )));
+        }
+
+        // Load hyperparameters from param groups
+        if let Some(param_group) = state.param_groups.first() {
+            self.lr = param_group.lr;
+
+            if let Some(&regularization) = param_group.options.get("regularization") {
+                self.regularization = regularization;
+            }
+            if let Some(&regret_bound) = param_group.options.get("regret_bound") {
+                self.regret_bound = regret_bound;
+            }
+            if let Some(&step_count) = param_group.options.get("step_count") {
+                self.step_count = step_count as usize;
+            }
+        }
+
         Ok(())
     }
 }
@@ -312,7 +333,36 @@ impl Optimizer for SVRG {
     }
 
     fn load_state_dict(&mut self, state: OptimizerState) -> OptimizerResult<()> {
-        // TODO: Implement state loading
+        if state.optimizer_type != "SVRG" {
+            return Err(crate::OptimizerError::InvalidParameter(format!(
+                "Expected SVRG, got {}",
+                state.optimizer_type
+            )));
+        }
+
+        // Load hyperparameters from param groups
+        if let Some(param_group) = state.param_groups.first() {
+            self.lr = param_group.lr;
+
+            if let Some(&epoch_length) = param_group.options.get("epoch_length") {
+                self.epoch_length = epoch_length as usize;
+            }
+            if let Some(&epoch_step) = param_group.options.get("epoch_step") {
+                self.epoch_step = epoch_step as usize;
+            }
+            if let Some(&has_full_gradient) = param_group.options.get("has_full_gradient") {
+                self.has_full_gradient = has_full_gradient > 0.5;
+            }
+        }
+
+        // Note: Full gradients and epoch params are not restored as they should be
+        // recomputed on the next epoch. This is consistent with variance reduction
+        // methods which require fresh gradient computations.
+        if self.has_full_gradient {
+            // Reset to require fresh full gradient computation
+            self.has_full_gradient = false;
+        }
+
         Ok(())
     }
 }

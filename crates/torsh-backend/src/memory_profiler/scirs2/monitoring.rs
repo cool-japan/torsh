@@ -3,6 +3,8 @@
 //! This module provides real-time metrics collection, alert management,
 //! and historical data tracking for comprehensive monitoring.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use super::{
     config::{AlertSeverity, ComparisonType},
     event_system::ScirS2Event,
@@ -404,7 +406,7 @@ impl ScirS2MonitoringSystem {
 
     /// Process monitoring event
     pub fn process_event(&mut self, event: &ScirS2Event) {
-        let now = Instant::now();
+        let _now = Instant::now();
 
         // Extract metrics from event
         match event {

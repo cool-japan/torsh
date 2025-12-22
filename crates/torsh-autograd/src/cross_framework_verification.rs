@@ -4,11 +4,11 @@
 //! machine learning frameworks, ensuring torsh-autograd produces correct and consistent
 //! gradients compared to established frameworks like PyTorch, JAX, and TensorFlow.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::error_handling::{AutogradError, AutogradResult};
-use scirs2_core::error::CoreError;
 use scirs2_core::ndarray::{Array, ArrayView, IxDyn};
 use scirs2_core::random::quick::random_f64;
-use scirs2_core::random::{Random, Rng};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -521,7 +521,7 @@ impl FrameworkAdapter for TorshFrameworkAdapter {
     fn compute_gradient(
         &self,
         operation_name: &str,
-        input_data: &[f64],
+        _input_data: &[f64],
         input_shape: &[usize],
     ) -> AutogradResult<GradientData> {
         // This would integrate with actual torsh autograd computation
@@ -566,7 +566,7 @@ impl FrameworkAdapter for TorshFrameworkAdapter {
     }
 
     fn framework_version(&self) -> String {
-        "torsh-autograd-0.1.0-alpha.1".to_string()
+        "torsh-autograd-0.1.0-alpha.2".to_string()
     }
 }
 
@@ -902,25 +902,22 @@ impl VerificationReport {
 }
 
 /// Global cross-framework verifier instance
-static mut GLOBAL_VERIFIER: Option<CrossFrameworkVerifier> = None;
-static VERIFIER_INIT: std::sync::Once = std::sync::Once::new();
+static GLOBAL_VERIFIER: std::sync::OnceLock<std::sync::Mutex<CrossFrameworkVerifier>> =
+    std::sync::OnceLock::new();
 
-pub fn get_global_verifier() -> &'static mut CrossFrameworkVerifier {
-    unsafe {
-        VERIFIER_INIT.call_once(|| {
-            GLOBAL_VERIFIER = Some(CrossFrameworkVerifier::with_default_tolerance());
-        });
-        GLOBAL_VERIFIER.as_mut().unwrap()
-    }
+pub fn get_global_verifier() -> &'static std::sync::Mutex<CrossFrameworkVerifier> {
+    GLOBAL_VERIFIER
+        .get_or_init(|| std::sync::Mutex::new(CrossFrameworkVerifier::with_default_tolerance()))
 }
 
 pub fn initialize_verification_frameworks() {
     let verifier = get_global_verifier();
-    verifier.register_framework_adapter(
+    let mut verifier_lock = verifier.lock().unwrap();
+    verifier_lock.register_framework_adapter(
         SupportedFramework::Torch,
         Box::new(TorshFrameworkAdapter::new()),
     );
-    verifier.register_framework_adapter(
+    verifier_lock.register_framework_adapter(
         SupportedFramework::PyTorch,
         Box::new(MockPyTorchAdapter::new()),
     );
@@ -1084,11 +1081,12 @@ mod tests {
     fn test_global_verifier() {
         initialize_verification_frameworks();
         let verifier = get_global_verifier();
+        let verifier_lock = verifier.lock().unwrap();
 
-        assert!(verifier
+        assert!(verifier_lock
             .framework_adapters
             .contains_key(&SupportedFramework::Torch));
-        assert!(verifier
+        assert!(verifier_lock
             .framework_adapters
             .contains_key(&SupportedFramework::PyTorch));
     }

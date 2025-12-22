@@ -3,6 +3,8 @@
 //! This module provides a comprehensive fine-tuning system with support for
 //! various training strategies, data loading, and model adaptation techniques.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{model_info::Version, HubConfig, ModelInfo};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -280,6 +282,8 @@ pub struct TrainingHistory {
     pub learning_rates: Vec<f64>,
     /// Training times per epoch
     pub epoch_times: Vec<Duration>,
+    /// Gradient norms per epoch (L2 norm of all gradients)
+    pub gradient_norms: Vec<f64>,
 }
 
 /// Training step result
@@ -291,6 +295,8 @@ pub struct TrainingStepResult {
     pub metrics: HashMap<String, f64>,
     /// Number of samples processed
     pub num_samples: usize,
+    /// Gradient norm (L2 norm of all parameter gradients)
+    pub gradient_norm: f64,
 }
 
 /// Validation result
@@ -375,7 +381,7 @@ impl Default for FineTuningConfig {
 
 impl FineTuner {
     /// Create a new fine-tuner
-    pub fn new(config: FineTuningConfig, model_info: ModelInfo) -> Result<Self> {
+    pub fn new(config: FineTuningConfig, _model_info: ModelInfo) -> Result<Self> {
         // Create a dummy model for now - in real implementation this would load the actual model
         let model = create_dummy_model()?;
         // Create checkpoint directory
@@ -390,6 +396,7 @@ impl FineTuner {
                 metrics: HashMap::new(),
                 learning_rates: Vec::new(),
                 epoch_times: Vec::new(),
+                gradient_norms: Vec::new(),
             },
             current_epoch: 0,
             best_metric: None,
@@ -400,9 +407,9 @@ impl FineTuner {
 
     /// Load a pre-trained model for fine-tuning
     pub fn from_pretrained(
-        model_name: &str,
-        config: FineTuningConfig,
-        hub_config: Option<HubConfig>,
+        _model_name: &str,
+        _config: FineTuningConfig,
+        _hub_config: Option<HubConfig>,
     ) -> Result<Self> {
         // This would integrate with the hub loading system
         // For now, return a placeholder
@@ -422,7 +429,9 @@ impl FineTuner {
                 // Freeze backbone, enable gradients only for classifier
                 self.freeze_backbone()?;
             }
-            FineTuningStrategy::LayerWise { epochs_per_layer } => {
+            FineTuningStrategy::LayerWise {
+                epochs_per_layer: _epochs_per_layer,
+            } => {
                 // Start with frozen backbone
                 self.freeze_backbone()?;
                 // Will unfreeze layers progressively during training
@@ -535,42 +544,51 @@ impl FineTuner {
     }
 
     /// Train for one epoch
-    fn train_epoch<D>(&mut self, dataloader: &D) -> Result<TrainingStepResult>
+    fn train_epoch<D>(&mut self, _dataloader: &D) -> Result<TrainingStepResult>
     where
         D: Iterator,
     {
         self.model.train();
 
-        let mut total_loss = 0.0;
-        let mut total_samples = 0;
         let metrics = HashMap::new();
 
         // This is a placeholder - in reality would iterate over batches
         // For now, simulate training
-        total_loss = 0.5 - (self.current_epoch as f64 * 0.01); // Simulated decreasing loss
-        total_samples = self.config.batch_size * 100; // Simulated batch count
+        let total_loss = 0.5 - (self.current_epoch as f64 * 0.01); // Simulated decreasing loss
+        let total_samples = self.config.batch_size * 100; // Simulated batch count
+
+        // Simulate gradient norm computation
+        // In real implementation, this would be: sqrt(sum(grad^2 for all parameters))
+        // Gradient norms typically start high and decrease during training
+        let gradient_norm = if self.current_epoch == 0 {
+            10.0 // Initial gradients tend to be large
+        } else {
+            // Simulate decreasing gradient norm with some noise
+            let base_norm = 10.0 * (-(self.current_epoch as f64) * 0.15).exp();
+            let noise = (self.current_epoch as f64 * 0.5).sin() * 0.5;
+            (base_norm + noise).max(0.1) // Keep it positive
+        };
 
         Ok(TrainingStepResult {
             loss: total_loss,
             metrics,
             num_samples: total_samples,
+            gradient_norm,
         })
     }
 
     /// Validate for one epoch
-    fn validate_epoch<V>(&mut self, dataloader: &V) -> Result<ValidationResult>
+    fn validate_epoch<V>(&mut self, _dataloader: &V) -> Result<ValidationResult>
     where
         V: Iterator,
     {
         self.model.eval();
 
-        let mut total_loss = 0.0;
-        let mut total_samples = 0;
         let metrics = HashMap::new();
 
-        // Placeholder validation
-        total_loss = 0.6 - (self.current_epoch as f64 * 0.008); // Simulated decreasing val loss
-        total_samples = self.config.batch_size * 20; // Simulated validation batches
+        // Placeholder validation - simulated decreasing validation loss
+        let total_loss = 0.6 - (self.current_epoch as f64 * 0.008);
+        let total_samples = self.config.batch_size * 20;
 
         Ok(ValidationResult {
             loss: total_loss,
@@ -589,6 +607,7 @@ impl FineTuner {
         self.history.loss.push(train_result.loss);
         self.history.learning_rates.push(self.config.learning_rate);
         self.history.epoch_times.push(epoch_time);
+        self.history.gradient_norms.push(train_result.gradient_norm);
 
         if let Some(val) = val_result {
             self.history.val_loss.push(val.loss);
@@ -599,7 +618,7 @@ impl FineTuner {
             self.history
                 .metrics
                 .entry(format!("train_{}", key))
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(value);
         }
 
@@ -608,7 +627,7 @@ impl FineTuner {
                 self.history
                     .metrics
                     .entry(format!("val_{}", key))
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(*value);
             }
         }
@@ -651,7 +670,7 @@ impl FineTuner {
     }
 
     /// Save checkpoint
-    fn save_checkpoint(&self, epoch: usize, val_result: Option<&ValidationResult>) -> Result<()> {
+    fn save_checkpoint(&self, epoch: usize, _val_result: Option<&ValidationResult>) -> Result<()> {
         let checkpoint_path = self
             .config
             .checkpointing
@@ -673,7 +692,7 @@ impl FineTuner {
             match scheduler_config.scheduler_type {
                 SchedulerType::ReduceLROnPlateau => {
                     // Implement reduce on plateau logic
-                    if let Some(val) = val_result {
+                    if let Some(_val) = val_result {
                         let factor = scheduler_config
                             .parameters
                             .get("factor")
@@ -869,18 +888,16 @@ pub mod utils {
 
     /// Create a configuration for LoRA fine-tuning
     pub fn lora_config(rank: usize) -> FineTuningConfig {
-        let mut config = FineTuningConfig::default();
-        config.strategy = FineTuningStrategy::LoRA {
-            rank,
-            alpha: rank as f64,
-            dropout: 0.1,
-        };
-
-        // LoRA typically needs fewer epochs
-        config.epochs = 5;
-        config.learning_rate = 1e-3;
-
-        config
+        FineTuningConfig {
+            strategy: FineTuningStrategy::LoRA {
+                rank,
+                alpha: rank as f64,
+                dropout: 0.1,
+            },
+            epochs: 5,
+            learning_rate: 1e-3,
+            ..Default::default()
+        }
     }
 
     /// Load fine-tuning configuration from file
@@ -925,7 +942,7 @@ pub struct FineTuningFactory;
 impl FineTuningFactory {
     /// Create a FineTuner for image classification
     pub fn image_classification(
-        model: Box<dyn Module>,
+        _model: Box<dyn Module>,
         num_classes: usize,
         learning_rate: f64,
     ) -> Result<FineTuner> {
@@ -942,7 +959,7 @@ impl FineTuningFactory {
 
     /// Create a FineTuner for text classification
     pub fn text_classification(
-        model: Box<dyn Module>,
+        _model: Box<dyn Module>,
         num_classes: usize,
         learning_rate: f64,
     ) -> Result<FineTuner> {
@@ -959,7 +976,7 @@ impl FineTuningFactory {
 
     /// Create a FineTuner with LoRA strategy
     pub fn lora_tuner(
-        model: Box<dyn Module>,
+        _model: Box<dyn Module>,
         rank: usize,
         alpha: f64,
         learning_rate: f64,
@@ -1015,7 +1032,7 @@ impl CheckpointManager {
     /// Save a checkpoint
     pub fn save_checkpoint(
         &mut self,
-        model: &dyn Module,
+        _model: &dyn Module,
         epoch: usize,
         loss: f64,
         val_loss: Option<f64>,

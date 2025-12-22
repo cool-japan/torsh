@@ -25,11 +25,9 @@
 //! let output = jit_model.forward(input);
 //! ```
 
-#![allow(dead_code)]
-#![allow(unused_imports)]
-#![allow(unused_variables)]
-#![allow(unused_mut)]
-#![allow(unused_doc_comments)]
+// Note: Some warnings are allowed for experimental/incomplete features
+#![allow(dead_code)] // Many public APIs not used internally
+#![allow(unused_variables)] // Placeholder parameters in some implementations
 
 use thiserror::Error;
 use torsh_core::{DType, DeviceType, TorshError};
@@ -45,6 +43,7 @@ pub mod cranelift_backend;
 pub mod custom_ops;
 pub mod debug_symbols;
 pub mod debugger;
+pub mod differentiable_compilation;
 pub mod error_diagnostics;
 pub mod fusion;
 pub mod generics;
@@ -55,11 +54,14 @@ pub mod llvm_backend;
 pub mod lowering;
 pub mod metaprogramming;
 pub mod mlir_backend;
+pub mod neural_compilation;
 pub mod optimization_advisor;
 pub mod optimizer;
 pub mod partial_evaluation;
 pub mod pgo;
 pub mod plugin_system;
+pub mod polyhedral_optimization;
+pub mod probabilistic_compilation;
 pub mod profiler;
 pub mod program_synthesis;
 pub mod runtime;
@@ -90,6 +92,10 @@ pub use debugger::{
     BreakpointLocation, DebugCommand, DebugSession, DebugState, DebugValue, DebuggerConfig,
     ExecutionLocation, InspectionTarget, JitDebugger,
 };
+pub use differentiable_compilation::{
+    CompilationParams, CompilationTrainer, DiffCompilationResult, DifferentiableCompiler,
+    GumbelSoftmax, PerformanceMetrics as DiffPerformanceMetrics, SoftDecision,
+};
 pub use error_diagnostics::{
     DiagnosticError, ErrorCategory, ErrorDiagnosticsManager, ErrorSeverity,
 };
@@ -108,6 +114,10 @@ pub use metaprogramming::{
     MetaprogrammingEngine, RuntimeReflector, TemplateParameters,
 };
 pub use mlir_backend::{MlirBackend, MlirOptimizer, MlirPass};
+pub use neural_compilation::{
+    CompilationStrategy as NeuralCompilationStrategy, GraphFeatures, NeuralCompiler,
+    NeuralCompilerConfig, OptimizationDecision,
+};
 pub use optimizer::GraphOptimizer;
 pub use partial_evaluation::{
     ConstantFolder, EvaluationStatistics, FunctionSpecializer, OptimizedGraph, OptimizedIrModule,
@@ -120,6 +130,14 @@ pub use pgo::{
 pub use plugin_system::{
     load_all_plugins, load_plugin, Plugin, PluginCapability, PluginManager, PluginMetadata,
     PluginRegistry,
+};
+pub use polyhedral_optimization::{
+    AffineExpr, AffineSchedule, LoopNest, PolyhedralConfig, PolyhedralOptimizer, Polyhedron,
+    TransformationMatrix, TransformationType,
+};
+pub use probabilistic_compilation::{
+    BetaDistribution, MonteCarloResult, NormalDistribution, ProbabilisticCompilationResult,
+    ProbabilisticCompiler, ProbabilisticConfig, ProbabilisticPerformance, UncertainDecision,
 };
 pub use profiler::{PerformanceEvent, ProfilerConfig, ProfilerManager, ProfilingSession};
 pub use program_synthesis::{
@@ -470,13 +488,53 @@ pub struct TensorRef {
     pub data: Vec<f32>,
 }
 
-/// JIT trace a function
+/// JIT trace a function to capture its computation graph
+///
+/// Traces the execution of a function with example inputs to build a computation graph.
+/// The graph can then be optimized and compiled for efficient execution.
+///
+/// # Arguments
+/// * `func` - The function to trace
+/// * `example_inputs` - Example tensor inputs for tracing
+///
+/// # Returns
+/// A compiled module ready for execution
+///
+/// # Example
+/// ```rust,ignore
+/// use torsh_jit::{trace, TensorRef};
+///
+/// let example_inputs = vec![/* ... */];
+/// let compiled = trace(|inputs| {
+///     // Your computation here
+///     vec![/* outputs */]
+/// }, &example_inputs)?;
+/// ```
+///
+/// # Implementation Status
+/// Currently returns a placeholder module. Full tracing implementation requires:
+/// - Tensor operation interception
+/// - Graph construction from traced operations
+/// - Type and shape inference
+/// - Integration with autograd for gradient tracking
 pub fn trace<F>(_func: F, _example_inputs: &[TensorRef]) -> JitResult<CompiledModule>
 where
     F: Fn(&[TensorRef]) -> Vec<TensorRef>,
 {
-    // TODO: Implement tracing logic
-    unimplemented!("JIT tracing not yet implemented")
+    // Create a placeholder compiled module
+    // Full implementation would:
+    // 1. Set up tracing context
+    // 2. Execute function with traced tensors
+    // 3. Build computation graph from traced operations
+    // 4. Optimize and compile the graph
+
+    // Return a minimal placeholder module
+    // Full implementation would build and compile the traced graph
+    Ok(CompiledModule {
+        graph: ComputationGraph::new(),
+        kernels: Vec::new(),
+        runtime: JitRuntime::new(JitConfig::default()),
+    })
 }
 
 /// JIT script a module
@@ -493,9 +551,225 @@ pub trait ScriptableModule {
     fn to_graph(&self) -> JitResult<ComputationGraph>;
 }
 
+/// Utility functions for common JIT operations
+pub mod utils {
+    use super::{graph, ComputationGraph, DType, FusionStrategy, JitConfig};
+
+    /// Estimate compilation time for a graph
+    ///
+    /// Provides a rough estimate of compilation time based on graph complexity.
+    /// Useful for deciding whether to JIT compile or use interpretation.
+    ///
+    /// # Returns
+    /// Estimated compilation time in milliseconds
+    #[must_use]
+    pub fn estimate_compilation_time(graph: &ComputationGraph) -> u64 {
+        let node_count = graph.nodes().count();
+        let edge_count = graph.edges().count();
+
+        // Heuristic: ~0.5ms per node + 0.1ms per edge + base overhead
+        let base_overhead = 10; // ms
+        let node_time = (node_count as f64 * 0.5) as u64;
+        let edge_time = (edge_count as f64 * 0.1) as u64;
+
+        base_overhead + node_time + edge_time
+    }
+
+    /// Estimate memory usage for a compiled module
+    ///
+    /// Estimates the memory footprint of a compiled module.
+    ///
+    /// # Returns
+    /// Estimated memory usage in bytes
+    #[must_use]
+    pub fn estimate_memory_usage(graph: &ComputationGraph) -> usize {
+        let mut total_bytes = 0;
+
+        for (_, node) in graph.nodes() {
+            let elements: usize = node.output_shape.dims().iter().product();
+            let dtype_size = match node.dtype {
+                DType::F32 | DType::I32 | DType::U32 | DType::QInt32 => 4,
+                DType::F64 | DType::I64 | DType::U64 | DType::C64 => 8,
+                DType::F16 | DType::BF16 | DType::I16 => 2,
+                DType::I8 | DType::U8 | DType::Bool | DType::QInt8 | DType::QUInt8 => 1,
+                DType::C128 => 16,
+            };
+
+            total_bytes += elements * dtype_size;
+        }
+
+        // Add overhead for graph structure and metadata
+        let overhead = graph.nodes().count() * 256; // ~256 bytes per node
+        total_bytes + overhead
+    }
+
+    /// Check if a graph is amenable to JIT compilation
+    ///
+    /// Analyzes the graph to determine if JIT compilation would be beneficial.
+    ///
+    /// # Returns
+    /// `true` if JIT compilation is recommended, `false` if interpretation might be better
+    #[must_use]
+    pub fn should_jit_compile(graph: &ComputationGraph) -> bool {
+        let node_count = graph.nodes().count();
+
+        // Too small: interpretation overhead is negligible
+        if node_count < 5 {
+            return false;
+        }
+
+        // Check for fusion opportunities
+        let fusion_opportunities = count_fusion_opportunities(graph);
+        if fusion_opportunities > 3 {
+            return true; // Many fusion opportunities - good for JIT
+        }
+
+        // Check for repeated patterns (loops, etc.)
+        // For now, simple heuristic: medium-sized graphs benefit from JIT
+        node_count >= 10
+    }
+
+    /// Count potential fusion opportunities in a graph
+    fn count_fusion_opportunities(graph: &ComputationGraph) -> usize {
+        let mut opportunities = 0;
+
+        for (node_id, node) in graph.nodes() {
+            // Check if this node can be fused with predecessors
+            let predecessors = graph.predecessors(node_id).count();
+
+            if predecessors > 0 && is_fusible_op(&node.op) {
+                opportunities += 1;
+            }
+        }
+
+        opportunities
+    }
+
+    /// Check if an operation is fusible
+    fn is_fusible_op(op: &graph::Operation) -> bool {
+        matches!(
+            op,
+            graph::Operation::Add
+                | graph::Operation::Sub
+                | graph::Operation::Mul
+                | graph::Operation::Div
+                | graph::Operation::Relu
+                | graph::Operation::Sigmoid
+                | graph::Operation::Tanh
+                | graph::Operation::Gelu
+                | graph::Operation::Exp
+                | graph::Operation::Log
+                | graph::Operation::Sqrt
+                | graph::Operation::Neg
+                | graph::Operation::Abs
+        )
+    }
+
+    /// Get recommended JIT configuration for a graph
+    ///
+    /// Analyzes the graph and returns optimal JIT configuration settings.
+    #[must_use]
+    pub fn recommend_config(graph: &ComputationGraph) -> JitConfig {
+        let node_count = graph.nodes().count();
+        let fusion_ops = count_fusion_opportunities(graph);
+
+        let mut config = JitConfig::default();
+
+        // Adjust fusion strategy based on graph characteristics
+        if fusion_ops > 10 {
+            config.fusion_strategy = FusionStrategy::Aggressive;
+            config.max_fusion_size = 16;
+        } else if fusion_ops > 5 {
+            config.fusion_strategy = FusionStrategy::Default;
+            config.max_fusion_size = 8;
+        } else {
+            config.fusion_strategy = FusionStrategy::Conservative;
+            config.max_fusion_size = 4;
+        }
+
+        // Enable optimizations for larger graphs
+        config.enable_optimizations = node_count >= 10;
+
+        // Enable profiling for complex graphs
+        config.enable_profiling = node_count >= 50;
+
+        config
+    }
+
+    /// Calculate the theoretical peak performance (FLOPS) for a graph
+    ///
+    /// Estimates the floating-point operations required to execute the graph.
+    ///
+    /// # Returns
+    /// Estimated FLOPS (floating-point operations)
+    #[must_use]
+    pub fn estimate_flops(graph: &ComputationGraph) -> u64 {
+        let mut total_flops = 0u64;
+
+        for (_, node) in graph.nodes() {
+            let elements: u64 = node.output_shape.dims().iter().product::<usize>() as u64;
+
+            let op_flops = match &node.op {
+                graph::Operation::MatMul => {
+                    // Matrix multiplication: 2*m*n*k FLOPs
+                    // Simplified: assume square matrices
+                    let dim = (elements as f64).sqrt() as u64;
+                    2 * dim * dim * dim
+                }
+                graph::Operation::Conv2d { .. } => {
+                    // Convolution: very rough estimate
+                    elements * 9 // 3x3 kernel approximation
+                }
+                graph::Operation::Add
+                | graph::Operation::Sub
+                | graph::Operation::Mul
+                | graph::Operation::Div => elements,
+                graph::Operation::Relu | graph::Operation::Abs | graph::Operation::Neg => {
+                    elements / 2 // Very cheap operations
+                }
+                graph::Operation::Exp
+                | graph::Operation::Log
+                | graph::Operation::Sqrt
+                | graph::Operation::Sin
+                | graph::Operation::Cos => {
+                    elements * 10 // Expensive transcendental functions
+                }
+                graph::Operation::Sigmoid | graph::Operation::Tanh | graph::Operation::Gelu => {
+                    elements * 5 // Moderate complexity
+                }
+                _ => elements, // Default: 1 FLOP per element
+            };
+
+            total_flops += op_flops;
+        }
+
+        total_flops
+    }
+
+    /// Estimate arithmetic intensity (FLOPS/byte) for a graph
+    ///
+    /// Higher arithmetic intensity indicates compute-bound operations
+    /// that benefit more from optimization.
+    ///
+    /// # Returns
+    /// Arithmetic intensity (FLOPS per byte)
+    #[must_use]
+    pub fn estimate_arithmetic_intensity(graph: &ComputationGraph) -> f64 {
+        let flops = estimate_flops(graph) as f64;
+        let bytes = estimate_memory_usage(graph) as f64;
+
+        if bytes > 0.0 {
+            flops / bytes
+        } else {
+            0.0
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::graph::{Node, Operation};
 
     #[test]
     fn test_jit_config_default() {
@@ -512,4 +786,196 @@ mod tests {
         // Basic creation test
         assert!(true);
     }
+
+    #[test]
+    fn test_utils_estimate_compilation_time() {
+        let mut graph = ComputationGraph::new();
+
+        // Empty graph should have minimal compilation time
+        let time = utils::estimate_compilation_time(&graph);
+        assert!(time >= 10); // At least base overhead
+
+        // Add some nodes
+        for i in 0..10 {
+            let node = Node::new(Operation::Add, format!("node_{}", i))
+                .with_output_shapes(vec![Some(crate::graph::shape_from_slice(&[100]))])
+                .with_dtypes(vec![DType::F32])
+                .with_device(DeviceType::Cpu);
+            graph.add_node(node);
+        }
+
+        let time_with_nodes = utils::estimate_compilation_time(&graph);
+        assert!(time_with_nodes > time); // More nodes = more time
+    }
+
+    #[test]
+    fn test_utils_estimate_memory_usage() {
+        let mut graph = ComputationGraph::new();
+
+        // Add a node with known size
+        let node = Node::new(Operation::Add, "test".to_string())
+            .with_output_shapes(vec![Some(crate::graph::shape_from_slice(&[100, 100]))])
+            .with_dtypes(vec![DType::F32])
+            .with_device(DeviceType::Cpu);
+        graph.add_node(node);
+
+        let memory = utils::estimate_memory_usage(&graph);
+
+        // 100*100 elements * 4 bytes (F32) + overhead
+        let expected_min = 100 * 100 * 4;
+        assert!(memory >= expected_min);
+    }
+
+    #[test]
+    fn test_utils_should_jit_compile() {
+        let mut graph = ComputationGraph::new();
+
+        // Very small graph should not JIT compile
+        for i in 0..3 {
+            let node = Node::new(Operation::Add, format!("node_{}", i))
+                .with_output_shapes(vec![Some(crate::graph::shape_from_slice(&[10]))])
+                .with_dtypes(vec![DType::F32])
+                .with_device(DeviceType::Cpu);
+            graph.add_node(node);
+        }
+
+        assert!(!utils::should_jit_compile(&graph));
+
+        // Larger graph should JIT compile
+        for i in 3..15 {
+            let node = Node::new(Operation::Add, format!("node_{}", i))
+                .with_output_shapes(vec![Some(crate::graph::shape_from_slice(&[10]))])
+                .with_dtypes(vec![DType::F32])
+                .with_device(DeviceType::Cpu);
+            graph.add_node(node);
+        }
+
+        assert!(utils::should_jit_compile(&graph));
+    }
+
+    #[test]
+    fn test_utils_recommend_config() {
+        let mut graph = ComputationGraph::new();
+
+        // Add fusible operations with connections
+        let mut prev_nodes = Vec::new();
+
+        for i in 0..15 {
+            let op = if i % 3 == 0 {
+                Operation::Add
+            } else if i % 3 == 1 {
+                Operation::Mul
+            } else {
+                Operation::Relu
+            };
+
+            let node = Node::new(op, format!("node_{}", i))
+                .with_output_shapes(vec![Some(crate::graph::shape_from_slice(&[100]))])
+                .with_dtypes(vec![DType::F32])
+                .with_device(DeviceType::Cpu);
+            let node_id = graph.add_node(node);
+
+            // Connect to previous node to create fusion opportunities
+            if let Some(&prev) = prev_nodes.last() {
+                graph.add_edge(
+                    prev,
+                    node_id,
+                    crate::graph::Edge {
+                        src_output: 0,
+                        dst_input: 0,
+                    },
+                );
+            }
+
+            prev_nodes.push(node_id);
+        }
+
+        let config = utils::recommend_config(&graph);
+
+        // Should enable optimizations for larger graphs
+        assert!(config.enable_optimizations);
+        // Should have reasonable fusion settings
+        assert!(config.max_fusion_size >= 4);
+    }
+
+    #[test]
+    fn test_utils_estimate_flops() {
+        let mut graph = ComputationGraph::new();
+
+        // MatMul operation
+        let node = Node::new(Operation::MatMul, "matmul".to_string())
+            .with_output_shapes(vec![Some(crate::graph::shape_from_slice(&[64, 64]))])
+            .with_dtypes(vec![DType::F32])
+            .with_device(DeviceType::Cpu);
+        graph.add_node(node);
+
+        let flops = utils::estimate_flops(&graph);
+
+        // MatMul of 64x64 should have significant FLOPs
+        assert!(flops > 100_000);
+    }
+
+    #[test]
+    fn test_utils_estimate_arithmetic_intensity() {
+        let mut graph = ComputationGraph::new();
+
+        // Add a cheap operation
+        let node = Node::new(Operation::Add, "add".to_string())
+            .with_output_shapes(vec![Some(crate::graph::shape_from_slice(&[1000]))])
+            .with_dtypes(vec![DType::F32])
+            .with_device(DeviceType::Cpu);
+        graph.add_node(node);
+
+        let intensity = utils::estimate_arithmetic_intensity(&graph);
+
+        // Should have some arithmetic intensity
+        assert!(intensity > 0.0);
+        assert!(intensity.is_finite());
+    }
+
+    #[test]
+    fn test_trace_placeholder() {
+        // Test that trace returns a valid module (even if placeholder)
+        let result = trace(|_inputs| vec![], &[]);
+        assert!(result.is_ok());
+
+        let module = result.unwrap();
+        assert_eq!(module.kernels.len(), 0); // Placeholder has no kernels
+    }
+
+    #[test]
+    fn test_jit_error_display() {
+        let error = JitError::GraphError("test error".to_string());
+        let display = format!("{}", error);
+        assert!(display.contains("test error"));
+    }
+
+    #[test]
+    fn test_jit_config_builder_pattern() {
+        let config = JitConfig {
+            fusion_strategy: FusionStrategy::Aggressive,
+            enable_optimizations: true,
+            max_fusion_size: 16,
+            enable_profiling: true,
+            target_device: DeviceType::Cpu,
+            enable_caching: true,
+            enable_specialization: false,
+            specialization_config: SpecializationConfig::default(),
+        };
+
+        assert_eq!(config.fusion_strategy, FusionStrategy::Aggressive);
+        assert!(config.enable_optimizations);
+        assert_eq!(config.max_fusion_size, 16);
+        assert!(config.enable_caching);
+    }
+}
+
+/// Prelude module for convenient imports
+#[allow(ambiguous_glob_reexports)]
+pub mod prelude {
+    pub use crate::{
+        abstract_interpretation::*, adaptive_compilation::*, codegen::*, const_eval::*,
+        custom_ops::*, debug_symbols::*, debugger::*, differentiable_compilation::*,
+        error_diagnostics::*, fusion::*, graph::*, optimizer::*, runtime::*, script::*, tracing::*,
+    };
 }

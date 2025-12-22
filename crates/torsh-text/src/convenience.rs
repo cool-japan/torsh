@@ -9,10 +9,11 @@ use crate::scirs2_ops::advanced_analytics::{
     compute_advanced_stats, AdvancedTextSampler, ComplexityAnalyzer,
 };
 use crate::scirs2_ops::performance::PerformanceMonitor;
-use crate::tokenization::{BPETokenizer, Tokenizer, WhitespaceTokenizer};
+use crate::tokenization::{Tokenizer, WhitespaceTokenizer};
 use crate::utils::{TextCleaner, TextNormalizer};
-use crate::{Result, TextError};
-use rayon::prelude::*;
+use crate::Result;
+// SciRS2 POLICY compliant - use scirs2_core::parallel_ops instead of direct rayon
+use scirs2_core::parallel_ops::*;
 use std::collections::HashMap;
 
 /// One-stop text processing pipeline for quick text analysis

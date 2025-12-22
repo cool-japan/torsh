@@ -50,17 +50,12 @@
 //! let output = model.forward(&input)?;
 //! ```
 
-use crate::error::{Result, TorshError};
+use torsh_core::error::{Result, TorshError};
+use torsh_core::DeviceType;
 use std::collections::HashMap;
-use torsh_core::{DeviceType, Tensor};
-use torsh_nn::{
-    activations::ReLU,
-    dropout::Dropout,
-    layers::{Conv2d, Linear},
-    normalization::BatchNorm2d,
-    pooling::{AdaptiveAvgPool2d, AvgPool2d, MaxPool2d},
-    module::{Module, Parameter},
-};
+use torsh_tensor::Tensor;
+use torsh_nn::prelude::*;
+use torsh_nn::{Module, Parameter};
 
 /// Dense Layer for DenseNet
 ///
@@ -1082,12 +1077,4 @@ mod tests {
     }
 }
 
-/// Re-export commonly used types
-pub use self::{
-    DenseLayer,
-    DenseBlock,
-    TransitionLayer,
-    DenseNet,
-    DenseNetConfig,
-    DenseNetFactory,
-};
+// Types are already public, no need for re-export

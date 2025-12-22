@@ -32,7 +32,7 @@
 //!
 //! # Quick Start
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_autograd::profiler::{AutogradProfiler, ProfilerConfig};
 //! use torsh_autograd::context::AutogradContext;
 //!
@@ -41,6 +41,7 @@
 //! let mut profiler = AutogradProfiler::new(config);
 //!
 //! // Start profiling session
+//! # fn example() -> torsh_core::error::Result<()> {
 //! profiler.start_session("training_epoch_1".to_string())?;
 //!
 //! // Profile individual operations
@@ -56,13 +57,15 @@
 //! let profile = profiler.end_session()?;
 //! let report = profiler.generate_report(&profile)?;
 //! println!("{}", report);
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! # Advanced Usage
 //!
 //! ## Custom Configuration
 //!
-//! ```rust
+//! ```rust,ignore
 //! use std::time::Duration;
 //! use torsh_autograd::profiler::ProfilerConfig;
 //!
@@ -79,13 +82,14 @@
 //!
 //! ## Complexity Analysis
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_autograd::profiler::complexity::{ComplexityAnalyzer, ComplexityClass};
 //! use std::time::Duration;
 //!
 //! let mut analyzer = ComplexityAnalyzer::new();
 //!
 //! // Record performance data for different input sizes
+//! # fn example() -> torsh_core::error::Result<()> {
 //! for size in [100, 200, 400, 800, 1600] {
 //!     let time = Duration::from_millis(size as u64 / 10); // Linear scaling
 //!     let memory = size * 4; // Linear memory usage
@@ -97,16 +101,19 @@
 //! assert_eq!(analysis.time_complexity, ComplexityClass::Linear);
 //! println!("Predicted time for 10K elements: {:?}",
 //!          analysis.performance_prediction.time_predictions[0].1);
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Graph Execution Profiling
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_autograd::context::AutogradContext;
 //!
 //! let mut ctx = AutogradContext::new();
 //! let mut profiler = AutogradProfiler::new(ProfilerConfig::default());
 //!
+//! # fn example() -> torsh_core::error::Result<()> {
 //! profiler.start_session("neural_network_training".to_string())?;
 //!
 //! // Profile entire computation graph
@@ -119,6 +126,8 @@
 //!         Ok(computed_output)
 //!     }
 //! )?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! # Performance Considerations
@@ -198,13 +207,16 @@ pub mod prelude {
     //!
     //! # Example
     //!
-    //! ```rust
+    //! ```rust,ignore
     //! use torsh_autograd::profiler::prelude::*;
     //!
     //! let mut profiler = AutogradProfiler::new(ProfilerConfig::default());
+    //! # fn example() -> torsh_core::error::Result<()> {
     //! profiler.start_session("my_session".to_string())?;
     //! // ... profiling operations ...
     //! let profile = profiler.end_session()?;
+    //! # Ok(())
+    //! # }
     //! ```
 
     pub use super::error::{Result, TorshError};

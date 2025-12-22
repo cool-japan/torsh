@@ -3,9 +3,10 @@
 //! This module provides robust clustering evaluation metrics that work with
 //! both known ground truth labels and unsupervised clustering results.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::Metric;
-use scirs2_core::ndarray::{Array1, Array2, Axis};
-use scirs2_core::ndarray_ext::stats;
+use scirs2_core::ndarray::{Array1, Array2};
 use std::collections::HashMap;
 use torsh_tensor::Tensor;
 
@@ -801,7 +802,7 @@ impl VMeasure {
         for &nk in pred_counts.values() {
             if nk > 0.0 {
                 let mut h_cluster = 0.0;
-                for (&(true_label, pred_label), &nij) in &contingency {
+                for (&(_true_label, pred_label), &nij) in &contingency {
                     if pred_counts.get(&pred_label) == Some(&nk) && nij > 0.0 {
                         let p = nij / nk;
                         h_cluster -= p * p.ln();
@@ -815,7 +816,7 @@ impl VMeasure {
         for &nc in true_counts.values() {
             if nc > 0.0 {
                 let mut h_cluster = 0.0;
-                for (&(true_label, pred_label), &nij) in &contingency {
+                for (&(true_label, _pred_label), &nij) in &contingency {
                     if true_counts.get(&true_label) == Some(&nc) && nij > 0.0 {
                         let p = nij / nc;
                         h_cluster -= p * p.ln();

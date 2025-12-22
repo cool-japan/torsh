@@ -6,7 +6,7 @@
 
 use crate::{BenchConfig, BenchResult};
 // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::Random;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;

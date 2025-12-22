@@ -3,7 +3,7 @@
 //! This module provides implementations of complex elementary functions including
 //! logarithm, square root, and power functions with proper branch cut handling.
 
-use num_traits::Zero;
+use scirs2_core::numeric::Zero; // SciRS2 POLICY compliant
 use torsh_core::dtype::Complex64;
 use torsh_core::error::TorshError;
 use torsh_tensor::Tensor;

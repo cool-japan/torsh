@@ -4,28 +4,45 @@
 //! in web browsers and native applications through the WebGPU standard.
 
 #[cfg(feature = "webgpu")]
+#[allow(unused_imports)]
 use wgpu;
 
+#[cfg(feature = "webgpu")]
 pub mod backend;
+#[cfg(feature = "webgpu")]
 pub mod buffer;
+#[cfg(feature = "webgpu")]
 pub mod device;
+#[cfg(feature = "webgpu")]
 pub mod error;
+#[cfg(feature = "webgpu")]
 pub mod kernels;
+#[cfg(feature = "webgpu")]
 pub mod memory;
+#[cfg(feature = "webgpu")]
 pub mod multi_device;
+#[cfg(feature = "webgpu")]
 pub mod pipeline;
+#[cfg(feature = "webgpu")]
 pub mod shader;
 
 // Re-exports
+#[cfg(feature = "webgpu")]
 pub use backend::{WebGpuBackend, WebGpuBackendBuilder};
+#[cfg(feature = "webgpu")]
 pub use buffer::{WebGpuBuffer, WebGpuBufferPool};
+#[cfg(feature = "webgpu")]
 pub use device::{
     DeviceMemoryInfo, FeatureCompatibilityReport, WebGpuDevice, WebGpuDeviceBuilder,
     WebGpuDeviceCapabilities,
 };
+#[cfg(feature = "webgpu")]
 pub use error::{WebGpuError, WebGpuResult};
+#[cfg(feature = "webgpu")]
 pub use kernels::{WebGpuComputePipeline, WebGpuKernel, WebGpuKernelCache, WebGpuKernelExecutor};
+#[cfg(feature = "webgpu")]
 pub use memory::{WebGpuMemoryManager, WebGpuMemoryPool};
+#[cfg(feature = "webgpu")]
 pub use multi_device::{
     DeviceAssignment, DeviceFilter, DeviceMetrics, DeviceSelectionContext, LoadBalancingStrategy,
     ManagerStats, MultiDeviceConfig, MultiDeviceWebGpuManager, PerformanceMonitor, SystemMetrics,

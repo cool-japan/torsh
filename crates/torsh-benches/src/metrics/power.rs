@@ -64,6 +64,7 @@ pub struct PowerMonitor {
 /// Single power measurement sample
 #[derive(Debug, Clone)]
 struct PowerSample {
+    #[allow(dead_code)] // Reserved for time-series power analysis
     timestamp: Instant,
     total_power_watts: f64,
     cpu_power_watts: Option<f64>,
@@ -262,6 +263,7 @@ trait PowerSource {
 /// Linux-specific power monitoring using /sys/class/power_supply
 #[cfg(target_os = "linux")]
 struct LinuxPowerSource {
+    #[allow(dead_code)]
     last_reading_time: Option<Instant>,
 }
 

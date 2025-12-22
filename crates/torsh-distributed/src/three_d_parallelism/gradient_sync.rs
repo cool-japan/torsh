@@ -3,6 +3,8 @@
 //! This module manages gradient synchronization across data, tensor,
 //! and pipeline parallelism dimensions with various optimization strategies.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::TorshResult;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -11,7 +13,7 @@ use torsh_tensor::Tensor;
 
 use super::{
     config::{CommunicationStrategy, RankMapping, ThreeDParallelismConfig},
-    model_shards::{LayerShard, ModelShards},
+    model_shards::ModelShards,
 };
 
 /// Gradient synchronization coordinator for 3D parallelism
@@ -95,7 +97,7 @@ impl GradientSynchronizer {
             return Ok(());
         }
 
-        let tp_ranks = self.rank_mapping.tp_group_ranks();
+        let _tp_ranks = self.rank_mapping.tp_group_ranks();
 
         // For each layer in our pipeline stages
         for (stage_idx, stage_layers) in model_shards.pipeline_stages.iter().enumerate() {
@@ -183,26 +185,26 @@ impl GradientSynchronizer {
     }
 
     /// Standard all-reduce for tensor parallel gradients
-    async fn standard_all_reduce_tp(&self, gradient: &Tensor<f32>) -> TorshResult<()> {
+    async fn standard_all_reduce_tp(&self, _gradient: &Tensor<f32>) -> TorshResult<()> {
         // Simplified implementation
         tokio::time::sleep(Duration::from_micros(50)).await;
         Ok(())
     }
 
     /// Hierarchical all-reduce for tensor parallel gradients
-    async fn hierarchical_all_reduce_tp(&self, gradient: &Tensor<f32>) -> TorshResult<()> {
+    async fn hierarchical_all_reduce_tp(&self, _gradient: &Tensor<f32>) -> TorshResult<()> {
         tokio::time::sleep(Duration::from_micros(40)).await;
         Ok(())
     }
 
     /// Ring all-reduce for tensor parallel gradients
-    async fn ring_all_reduce_tp(&self, gradient: &Tensor<f32>) -> TorshResult<()> {
+    async fn ring_all_reduce_tp(&self, _gradient: &Tensor<f32>) -> TorshResult<()> {
         tokio::time::sleep(Duration::from_micros(60)).await;
         Ok(())
     }
 
     /// Tree all-reduce for tensor parallel gradients
-    async fn tree_all_reduce_tp(&self, gradient: &Tensor<f32>) -> TorshResult<()> {
+    async fn tree_all_reduce_tp(&self, _gradient: &Tensor<f32>) -> TorshResult<()> {
         tokio::time::sleep(Duration::from_micros(30)).await;
         Ok(())
     }
@@ -210,7 +212,7 @@ impl GradientSynchronizer {
     /// Synchronize shared embeddings across pipeline stages
     async fn synchronize_shared_embeddings(&self, model_shards: &ModelShards) -> TorshResult<()> {
         // Find embedding layers and synchronize their gradients
-        for (stage_idx, stage_layers) in model_shards.pipeline_stages.iter().enumerate() {
+        for stage_layers in model_shards.pipeline_stages.iter() {
             for layer_shard in stage_layers {
                 if matches!(
                     layer_shard.layer_type,
@@ -226,7 +228,7 @@ impl GradientSynchronizer {
     }
 
     /// All-reduce gradients across pipeline parallel dimension
-    async fn all_reduce_pipeline_parallel(&self, gradient: &Tensor<f32>) -> TorshResult<()> {
+    async fn all_reduce_pipeline_parallel(&self, _gradient: &Tensor<f32>) -> TorshResult<()> {
         // Simplified implementation
         tokio::time::sleep(Duration::from_micros(100)).await;
         Ok(())
@@ -305,7 +307,7 @@ impl GradientSynchronizer {
         };
 
         // Perform all-reduce across data parallel dimension
-        for (name, gradient) in &compressed_gradients {
+        for gradient in compressed_gradients.values() {
             self.all_reduce_data_parallel(gradient).await?;
         }
 
@@ -323,7 +325,7 @@ impl GradientSynchronizer {
     }
 
     /// All-reduce gradients across data parallel dimension
-    async fn all_reduce_data_parallel(&self, gradient: &Tensor<f32>) -> TorshResult<()> {
+    async fn all_reduce_data_parallel(&self, _gradient: &Tensor<f32>) -> TorshResult<()> {
         // Use the configured communication strategy
         match self.config.comm_strategy {
             CommunicationStrategy::AllReduce => {
@@ -371,7 +373,7 @@ impl GradientSynchronizer {
         gradients: &HashMap<String, Tensor<f32>>,
     ) -> TorshResult<()> {
         // Apply error feedback and dequantization
-        for (name, gradient) in gradients {
+        for gradient in gradients.values() {
             self.dequantize_gradient(gradient).await?;
         }
         Ok(())
@@ -385,7 +387,7 @@ impl GradientSynchronizer {
     }
 
     /// Dequantize gradient after communication
-    async fn dequantize_gradient(&self, gradient: &Tensor<f32>) -> TorshResult<()> {
+    async fn dequantize_gradient(&self, _gradient: &Tensor<f32>) -> TorshResult<()> {
         tokio::time::sleep(Duration::from_micros(5)).await;
         Ok(()) // Would apply actual dequantization
     }

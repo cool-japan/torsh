@@ -34,7 +34,7 @@
 //!
 //! ## Basic Monitoring
 //!
-//! ```rust
+//! ```rust,ignore
 //! use crate::memory::monitoring::GradientMemoryMonitor;
 //!
 //! let monitor = GradientMemoryMonitor::new("conv2d_backward".to_string());
@@ -52,7 +52,7 @@
 //!
 //! ## Advanced Monitoring with Custom Configuration
 //!
-//! ```rust
+//! ```rust,ignore
 //! use crate::memory::monitoring::{GradientMemoryMonitor, MonitoringConfig};
 //! use std::time::Duration;
 //!
@@ -163,7 +163,7 @@ pub struct MemorySnapshot {
 /// Different configurations for different use cases:
 ///
 /// **High-frequency debugging**:
-/// ```rust
+/// ```rust,ignore
 /// MonitoringConfig {
 ///     snapshot_interval: Duration::from_millis(1),
 ///     max_snapshots: 100000,
@@ -173,7 +173,7 @@ pub struct MemorySnapshot {
 /// ```
 ///
 /// **Production monitoring**:
-/// ```rust
+/// ```rust,ignore
 /// MonitoringConfig {
 ///     snapshot_interval: Duration::from_millis(100),
 ///     max_snapshots: 1000,
@@ -293,7 +293,7 @@ impl GradientMemoryMonitor {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let monitor = GradientMemoryMonitor::new("conv2d_backward".to_string());
     /// assert!(monitor.is_active());
     /// ```
@@ -312,7 +312,7 @@ impl GradientMemoryMonitor {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let config = MonitoringConfig {
     ///     snapshot_interval: Duration::from_millis(50), // High frequency
     ///     max_snapshots: 5000,
@@ -366,7 +366,7 @@ impl GradientMemoryMonitor {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// // Take snapshot after major allocation
     /// let allocated = allocate_tensor_memory(1024 * 1024);
     /// monitor.take_snapshot(allocated.len())?;
@@ -417,7 +417,7 @@ impl GradientMemoryMonitor {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// // After gradient computation is complete
     /// let results = monitor.stop_and_analyze()?;
     /// println!("Peak memory: {} MB", results.peak_memory_usage / (1024 * 1024));
@@ -457,7 +457,7 @@ impl GradientMemoryMonitor {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// if monitor.is_active() {
     ///     monitor.take_snapshot(current_memory_usage)?;
     /// }

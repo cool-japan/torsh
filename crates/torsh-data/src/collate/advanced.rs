@@ -16,9 +16,6 @@ use alloc::{boxed::Box, vec::Vec};
 #[cfg(feature = "std")]
 use std::sync::Arc;
 
-// ✅ SciRS2 Policy Compliant - Import SliceRandom for shuffle functionality
-use scirs2_core::rand_prelude::SliceRandom;
-
 /// Cached collation function that reuses allocated memory
 pub struct CachedCollate<T: TensorElement> {
     tensor_pool: Arc<parking_lot::Mutex<Vec<Vec<T>>>>,
@@ -583,10 +580,10 @@ pub fn collate_sparse_tensors(tensors: &[CooTensor]) -> Result<CooTensor> {
     let mut all_row_indices = Vec::new();
     let mut all_col_indices = Vec::new();
     let mut all_values = Vec::new();
-    let mut total_nnz = 0;
+    let mut _total_nnz = 0;
 
     for (batch_idx, tensor) in tensors.iter().enumerate() {
-        let row_indices = tensor.row_indices();
+        let _row_indices = tensor.row_indices();
         let col_indices = tensor.col_indices();
         let values = tensor.values();
 
@@ -597,7 +594,7 @@ pub fn collate_sparse_tensors(tensors: &[CooTensor]) -> Result<CooTensor> {
         }
 
         all_values.extend_from_slice(values);
-        total_nnz += tensor.nnz();
+        _total_nnz += tensor.nnz();
     }
 
     // Create new COO tensor

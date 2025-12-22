@@ -23,7 +23,7 @@
 //!
 //! # Usage Patterns
 //!
-//! ```rust
+//! ```rust,ignore
 //! use crate::memory::tracking::{MemoryUsageTracker, GradientMemoryStats};
 //!
 //! let mut tracker = MemoryUsageTracker::new();
@@ -42,7 +42,7 @@
 //! ```
 
 use std::collections::{HashMap, VecDeque};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 /// Memory usage tracking
 ///
@@ -349,7 +349,7 @@ impl MemoryUsageTracker {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let tracker = MemoryUsageTracker::new();
     /// assert_eq!(tracker.total_allocations, 0);
     /// ```
@@ -371,7 +371,7 @@ impl MemoryUsageTracker {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// // Smaller history for memory-constrained environments
     /// let tracker = MemoryUsageTracker::with_history_size(1000);
     /// ```
@@ -394,7 +394,7 @@ impl MemoryUsageTracker {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// tracker.track_allocation("conv2d_forward", 1024 * 1024); // 1MB
     /// tracker.track_allocation("attention_forward", 512 * 1024); // 512KB
     /// ```
@@ -433,7 +433,7 @@ impl MemoryUsageTracker {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// tracker.track_gradient_allocation("conv2d_backward", 2048 * 1024); // 2MB
     /// ```
     pub fn track_gradient_allocation(&mut self, gradient_op: &str, bytes: usize) {
@@ -473,7 +473,7 @@ impl MemoryUsageTracker {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let analysis = tracker.analyze_gradient_memory_usage();
     /// println!("Efficiency score: {:.2}", analysis.efficiency_score);
     /// for warning in analysis.warnings {

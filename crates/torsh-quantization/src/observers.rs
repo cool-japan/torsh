@@ -130,7 +130,7 @@ impl Observer {
         let (batch_min, batch_max) = if data.len() > 10000 {
             #[cfg(feature = "std")]
             {
-                use rayon::prelude::*;
+                use scirs2_core::parallel_ops::*;
                 data.par_iter().map(|&x| (x, x)).reduce(
                     || (f32::INFINITY, f32::NEG_INFINITY),
                     |(min1, max1), (min2, max2)| (min1.min(min2), max1.max(max2)),
@@ -189,7 +189,7 @@ impl Observer {
                     // Use parallel histogram update for large tensors
                     #[cfg(feature = "std")]
                     {
-                        use rayon::prelude::*;
+                        use scirs2_core::parallel_ops::*;
                         let local_histograms: Vec<Vec<usize>> = data
                             .par_chunks(1000)
                             .map(|chunk| {
@@ -570,7 +570,7 @@ impl Observer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use torsh_core::device::DeviceType;
+
     use torsh_tensor::creation::tensor_1d;
 
     #[test]

@@ -8,7 +8,7 @@ use crate::graph_analysis::{
 use crate::memory_optimization::{MemoryAnalyzer, MemoryUsageReport};
 use crate::{FxGraph, TorshResult};
 use petgraph::graph::NodeIndex;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 impl FxGraph {
     /// Validate that the graph is well-formed

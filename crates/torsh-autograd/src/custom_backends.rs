@@ -4,16 +4,16 @@
 //! It allows users to plug in their own gradient computation implementations while maintaining
 //! compatibility with the torsh-autograd API.
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::error_handling::{AutogradError, AutogradResult};
-use scirs2_core::error::CoreError;
-use scirs2_core::ndarray::{Array, ArrayView, ArrayViewMut, Axis, Ix2, IxDyn};
+use scirs2_core::ndarray::{Array, Axis, Ix2, IxDyn};
 use scirs2_core::random::quick::random_f64;
-use scirs2_core::random::{Random, Rng};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex};
 
 /// Backend capabilities that can be supported
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -645,12 +645,16 @@ impl AutogradBackend for ReferenceBackend {
     fn reshape(&self, tensor: &BackendTensor, shape: &[usize]) -> AutogradResult<BackendTensor> {
         let start = std::time::Instant::now();
 
-        let reshaped_data = tensor.data.clone().into_shape(shape).map_err(|e| {
-            AutogradError::gradient_computation(
-                "tensor_reshape",
-                format!("Failed to reshape: {}", e),
-            )
-        })?;
+        let reshaped_data = tensor
+            .data
+            .clone()
+            .into_shape_with_order(shape)
+            .map_err(|e| {
+                AutogradError::gradient_computation(
+                    "tensor_reshape",
+                    format!("Failed to reshape: {}", e),
+                )
+            })?;
 
         let result = BackendTensor::new(reshaped_data, tensor.requires_grad && self.grad_enabled);
 
@@ -735,7 +739,7 @@ impl AutogradBackend for ReferenceBackend {
         outputs: &[&mut BackendTensor],
         gradients: Option<Vec<Array<f64, IxDyn>>>,
     ) -> AutogradResult<()> {
-        for (i, output) in outputs.iter().enumerate() {
+        for (i, _output) in outputs.iter().enumerate() {
             let grad = gradients.as_ref().and_then(|g| g.get(i)).cloned();
             // We need to work around the fact that we have &mut BackendTensor
             // but need to pass it to backward which expects &mut BackendTensor
@@ -881,7 +885,7 @@ impl AddGradFunction {
 }
 
 impl GradFunction for AddGradFunction {
-    fn apply(&self, grad_output: &Array<f64, IxDyn>) -> AutogradResult<()> {
+    fn apply(&self, _grad_output: &Array<f64, IxDyn>) -> AutogradResult<()> {
         // For addition, gradients flow through unchanged
         tracing::debug!(
             "Applied add gradient function for tensors {} and {}",
@@ -925,7 +929,7 @@ impl MulGradFunction {
 }
 
 impl GradFunction for MulGradFunction {
-    fn apply(&self, grad_output: &Array<f64, IxDyn>) -> AutogradResult<()> {
+    fn apply(&self, _grad_output: &Array<f64, IxDyn>) -> AutogradResult<()> {
         // For multiplication: grad_a = grad_output * b, grad_b = grad_output * a
         tracing::debug!(
             "Applied mul gradient function for tensors {} and {}",
@@ -1036,16 +1040,10 @@ pub struct BackendInfo {
 }
 
 /// Global backend registry
-static mut GLOBAL_BACKEND_REGISTRY: Option<BackendRegistry> = None;
-static BACKEND_INIT: std::sync::Once = std::sync::Once::new();
+static GLOBAL_BACKEND_REGISTRY: std::sync::OnceLock<BackendRegistry> = std::sync::OnceLock::new();
 
 pub fn get_global_backend_registry() -> &'static BackendRegistry {
-    unsafe {
-        BACKEND_INIT.call_once(|| {
-            GLOBAL_BACKEND_REGISTRY = Some(BackendRegistry::new());
-        });
-        GLOBAL_BACKEND_REGISTRY.as_ref().unwrap()
-    }
+    GLOBAL_BACKEND_REGISTRY.get_or_init(|| BackendRegistry::new())
 }
 
 pub fn get_active_backend() -> Option<&'static dyn AutogradBackend> {
@@ -1091,7 +1089,7 @@ mod tests {
     #[test]
     fn test_backend_tensor_creation() {
         let data = Array::from_vec(vec![1.0, 2.0, 3.0])
-            .into_shape((3,))
+            .into_shape_with_order((3,))
             .unwrap()
             .into_dyn();
         let tensor = BackendTensor::new(data.clone(), true);
@@ -1106,7 +1104,7 @@ mod tests {
     #[test]
     fn test_backend_tensor_operations() {
         let data = Array::from_vec(vec![1.0, 2.0, 3.0])
-            .into_shape((3,))
+            .into_shape_with_order((3,))
             .unwrap()
             .into_dyn();
         let mut tensor = BackendTensor::new(data, true);
@@ -1116,7 +1114,7 @@ mod tests {
         assert_eq!(tensor.size(), 3);
 
         let grad = Array::from_vec(vec![0.5, 0.5, 0.5])
-            .into_shape((3,))
+            .into_shape_with_order((3,))
             .unwrap()
             .into_dyn();
         tensor.backward(Some(grad.clone())).unwrap();
@@ -1192,7 +1190,7 @@ mod tests {
 
     #[test]
     fn test_backend_registry() {
-        let mut registry = BackendRegistry::new();
+        let registry = BackendRegistry::new();
 
         // Should have reference backend by default
         assert!(!registry.list_backends().is_empty());
@@ -1208,7 +1206,7 @@ mod tests {
         assert_eq!(ctx.operation_name, "test_op");
 
         let data = Array::from_vec(vec![1.0, 2.0, 3.0])
-            .into_shape((3,))
+            .into_shape_with_order((3,))
             .unwrap()
             .into_dyn();
         let tensor = BackendTensor::new(data, false);

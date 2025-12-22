@@ -3,8 +3,8 @@
 use super::{attention::RobertaAttention, config::RobertaConfig};
 use torsh_core::error::Result;
 use torsh_nn::prelude::*;
-use torsh_nn::{Module, Parameter};
-use torsh_tensor::{creation, Tensor};
+use torsh_nn::Module;
+use torsh_tensor::Tensor;
 
 /// RoBERTa Intermediate Layer (Feed-Forward Network)
 pub struct RobertaIntermediate {

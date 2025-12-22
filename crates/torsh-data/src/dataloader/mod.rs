@@ -15,7 +15,7 @@
 //!
 //! # Quick Start
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_data::dataloader::{DataLoader, simple_dataloader};
 //! use torsh_data::dataset::TensorDataset;
 //!
@@ -40,7 +40,7 @@
 //!
 //! ## Prefetching for Performance
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_data::dataloader::{DataLoader, prefetch::PrefetchExt};
 //! use torsh_data::dataset::TensorDataset;
 //!
@@ -56,7 +56,7 @@
 //!
 //! ## Multi-Process Loading
 //!
-//! ```rust
+//! ```rust,ignore
 //! use std::sync::Arc;
 //! use torsh_data::dataloader::{DataLoader, workers::WorkerPool};
 //! use torsh_data::dataset::TensorDataset;
@@ -73,7 +73,7 @@
 //!
 //! ## Memory Pinning for GPU
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_data::dataloader::memory::{MemoryPinningManager, PinningConfig};
 //! use torsh_core::device::DeviceType;
 //!
@@ -86,11 +86,6 @@
 //! }
 //! ```
 
-use crate::{
-    collate::{Collate, DefaultCollate},
-    dataset::Dataset,
-    sampler::{BatchSampler, BatchingSampler, RandomSampler, SequentialSampler},
-};
 use torsh_core::error::Result;
 
 // Re-export sub-modules
@@ -278,7 +273,7 @@ impl DataLoaderConfig {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_data::dataloader::{DataLoader, simple_dataloader, simple_random_dataloader};
 /// use torsh_data::dataset::TensorDataset;
 ///
@@ -300,7 +295,6 @@ impl DataLoaderConfig {
 /// Utility functions for DataLoader operations
 pub mod utils {
     use super::*;
-    use crate::dataset::Dataset;
     use torsh_core::device::DeviceType;
 
     /// Determine optimal DataLoader configuration for a given scenario

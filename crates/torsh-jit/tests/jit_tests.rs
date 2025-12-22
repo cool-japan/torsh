@@ -1,6 +1,5 @@
 //! Integration tests for ToRSh JIT compilation
 
-use std::collections::HashMap;
 use torsh_core::{DType, DeviceType};
 use torsh_jit::{
     analysis::GraphAnalyzer,

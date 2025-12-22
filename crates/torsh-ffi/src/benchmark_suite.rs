@@ -111,8 +111,11 @@ pub struct BenchmarkResult {
 /// Comprehensive benchmark suite
 pub struct BenchmarkSuite {
     config: BenchmarkConfig,
+    #[allow(dead_code)]
     batched_ops: BatchedOperations,
+    #[allow(dead_code)]
     operation_cache: OperationCache,
+    #[allow(dead_code)]
     async_queue: AsyncOperationQueue,
     results: Vec<BenchmarkResult>,
 }
@@ -244,13 +247,13 @@ impl BenchmarkSuite {
         operation: &str,
         language: &str,
         shape: &[usize],
-        data_type: &str,
+        _data_type: &str,
         _thread_count: usize,
     ) {
         // Mock operation execution - in real implementation would call actual FFI
         match operation {
             "tensor_create" => {
-                let size = shape.iter().product::<usize>();
+                let _size = shape.iter().product::<usize>();
                 // let _data = self
                 //     .memory_pool
                 //     .allocate(size * self.get_type_size(data_type));
@@ -375,7 +378,7 @@ impl BenchmarkSuite {
             let total_operations = 1000;
 
             for i in 0..total_operations {
-                let key = match pattern {
+                let _key = match pattern {
                     "sequential" => format!("op_{}", i),
                     "random" => format!("op_{}", i % 100), // 100 unique keys
                     "locality" => format!("op_{}", i % 10), // 10 unique keys, high locality

@@ -1,5 +1,7 @@
 //! Spatial data structures for efficient computer vision operations
 
+// Framework infrastructure - components designed for future use
+#![allow(dead_code)]
 use crate::{Result, VisionError};
 use scirs2_core::ndarray::{arr1, arr2, Array1, Array2, ArrayView2, Axis};
 use scirs2_spatial::kdtree::KDTree;
@@ -269,7 +271,7 @@ impl PointCloudProcessor {
         self.points = points;
 
         // Create bounding box for octree
-        let bbox = BoundingBox::from_points(&self.points)?;
+        let _bbox = BoundingBox::from_points(&self.points)?;
 
         // Build octree (placeholder)
         // let mut octree = Octree::new(bbox);
@@ -319,14 +321,14 @@ impl PointCloudProcessor {
     }
 
     /// Segment point cloud into regions
-    pub fn segment_regions(&self, region_size: f64) -> Result<Vec<Vec<PointId>>> {
+    pub fn segment_regions(&self, _region_size: f64) -> Result<Vec<Vec<PointId>>> {
         // Placeholder for region-based segmentation
         let mut regions = Vec::new();
 
         // Simple grid-based segmentation
         if !self.points.is_empty() {
             let bbox = BoundingBox::from_points(&self.points)?;
-            let dims = bbox.max.len();
+            let _dims = bbox.max.len();
 
             // Create a single region for now (placeholder)
             let all_points: Vec<PointId> = (0..self.points.nrows()).map(PointId).collect();
