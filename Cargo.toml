@@ -267,7 +267,7 @@ memmap2 = "0.9"
 cranelift = "0.111"
 cranelift-module = "0.111"
 cranelift-codegen = "0.111"
-cranelift-frontend = "0.111"
+cranelift-frontend = "0.127"
 
 # FFT operations
 rustfft = "6.4"
