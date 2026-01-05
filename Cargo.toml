@@ -146,7 +146,7 @@ scirs2-neural = { version = "0.1.0-rc.4", default-features = false }
 optirs = { version = "0.1.0-rc.1", default-features = false }
 optirs-core = { version = "0.1.0-rc.1", default-features = false }
 numrs2 = "0.1.0-rc.1"
-polars = { version = "0.48", features = ["lazy"] }
+polars = { version = "0.52", features = ["lazy"] }
 
 # Parallelism and async
 # ⚠️ SciRS2 POLICY: Use scirs2-core::parallel_ops for parallel operations
