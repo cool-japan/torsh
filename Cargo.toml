@@ -271,7 +271,7 @@ cranelift-frontend = "0.111"
 
 # FFT operations
 rustfft = "6.4"
-cranelift-native = "0.111"
+cranelift-native = "0.127"
 cranelift-object = "0.111"
 
 [profile.release]
