@@ -27,7 +27,7 @@ polars = { workspace = true, optional = true }
 
 # Image processing
 image = { version = "0.25", optional = true }
-imageproc = { version = "0.25", optional = true }
+imageproc = { version = "0.26", optional = true }
 
 # Parallel processing
 rayon = { workspace = true }
