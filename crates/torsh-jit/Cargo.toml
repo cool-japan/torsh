@@ -36,7 +36,7 @@ cranelift = { version = "0.126", optional = true }
 cranelift-module = { version = "0.126", optional = true }
 cranelift-codegen = { version = "0.126", optional = true }
 cranelift-frontend = { version = "0.126", optional = true }
-cranelift-native = { version = "0.126", optional = true }
+cranelift-native = { version = "0.127", optional = true }
 cranelift-object = { version = "0.126", optional = true }
 
 # MLIR integration (future)
