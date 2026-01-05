@@ -28,7 +28,7 @@ serde_json = { workspace = true }
 [dev-dependencies]
 approx = { workspace = true }
 scirs2-autograd = { workspace = true }  # For array! macro in tests
-criterion = { version = "0.5", features = ["html_reports"] }
+criterion = { version = "0.8", features = ["html_reports"] }
 
 [features]
 default = []
