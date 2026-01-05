@@ -214,7 +214,7 @@ chrono = { version = "0.4", features = ["serde"] }
 prost = "0.14"
 tonic = "0.14"
 tonic-build = "0.14"
-redis = "0.32"
+redis = "1.0"
 tokio-test = "0.4"
 futures-util = "0.3"
 uuid = { version = "1.19", features = ["v4", "serde"] }
