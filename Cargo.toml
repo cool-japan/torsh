@@ -178,7 +178,7 @@ wide = "0.7"
 packed_simd_2 = "0.3"
 
 # Testing and benchmarking
-criterion = { version = "0.5", features = ["html_reports"] }
+criterion = { version = "0.8", features = ["html_reports"] }
 proptest = "1.8"
 approx = "0.5"
 
