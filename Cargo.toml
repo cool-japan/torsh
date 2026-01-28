@@ -172,7 +172,7 @@ anyhow = "1.0"
 cust = "0.3"
 cuda-sys = "0.2"
 cudnn-sys = "0.0.3"
-wgpu = "24.0.5"
+wgpu = "28.0.0"
 metal = "0.31"
 bytemuck = "1.24"
 
