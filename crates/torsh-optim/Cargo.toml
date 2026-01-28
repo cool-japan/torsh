@@ -36,7 +36,7 @@ anyhow = { workspace = true }
 # Serialization
 serde = { workspace = true, features = ["derive"], optional = true }
 serde_json = { workspace = true, optional = true }
-bincode = { workspace = true }
+oxicode = { workspace = true }
 
 # Half precision types
 half = { workspace = true }
@@ -52,7 +52,7 @@ log = { workspace = true }
 [dev-dependencies]
 approx = { workspace = true }
 # torsh-nn = { path = "../torsh-nn" } # Temporarily disabled due to compilation issues
-tempfile = "3.23"
+tempfile = "3.24"
 
 [features]
 default = ["std", "serialize"]

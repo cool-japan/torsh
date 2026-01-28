@@ -13,8 +13,8 @@
 
 use crate::autograd_traits::AutogradTensor;
 use crate::variable_env::with_variable_env;
-use num_complex::Complex;
-use num_traits::Float;
+use scirs2_core::numeric::Float;
+use scirs2_core::Complex;
 use torsh_core::error::{Result, TorshError};
 
 /// Compute complex gradients using Wirtinger derivatives
@@ -61,7 +61,7 @@ where
         .zip(imag_parts.iter())
         .map(|(&re, &im)| {
             // Wirtinger derivative: (∂f/∂x - i * ∂f/∂y) / 2
-            let half = T::from(0.5).unwrap();
+            let half = T::from(0.5).expect("numeric conversion should succeed");
             num_complex::Complex::new(re * half, -im * half)
         })
         .collect();

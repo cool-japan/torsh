@@ -208,7 +208,7 @@ impl SciRS2CpuBackend {
         transpose_b: bool,
         config: &KernelConfig,
     ) -> CpuResult<()> {
-        use rayon::prelude::*;
+        use scirs2_core::parallel_ops::*;
 
         // Use optimized chunk size from auto-tuning
         let chunk_size = config.optimal_chunk_size.min(m);
@@ -263,7 +263,7 @@ impl SciRS2CpuBackend {
         transpose_b: bool,
         config: &KernelConfig,
     ) -> CpuResult<()> {
-        use rayon::prelude::*;
+        use scirs2_core::parallel_ops::*;
 
         let block_size = config.optimal_block_size.unwrap_or(64);
 
@@ -342,7 +342,7 @@ impl SciRS2CpuBackend {
         result: &mut [f32],
         config: &KernelConfig,
     ) -> CpuResult<()> {
-        use rayon::prelude::*;
+        use scirs2_core::parallel_ops::*;
 
         result
             .par_chunks_mut(config.optimal_chunk_size)
@@ -373,7 +373,7 @@ impl SciRS2CpuBackend {
     ) -> CpuResult<()> {
         #[cfg(feature = "simd")]
         {
-            use rayon::prelude::*;
+            use scirs2_core::parallel_ops::*;
             use wide::f32x4;
 
             let chunk_size = (config.optimal_chunk_size / 4) * 4; // Ensure multiple of 4
@@ -443,7 +443,7 @@ impl SciRS2CpuBackend {
         result: &mut [f32],
         config: &KernelConfig,
     ) -> CpuResult<()> {
-        use rayon::prelude::*;
+        use scirs2_core::parallel_ops::*;
 
         result
             .par_chunks_mut(config.optimal_chunk_size)
@@ -474,7 +474,7 @@ impl SciRS2CpuBackend {
     ) -> CpuResult<()> {
         #[cfg(feature = "simd")]
         {
-            use rayon::prelude::*;
+            use scirs2_core::parallel_ops::*;
             use wide::f32x4;
 
             let chunk_size = (config.optimal_chunk_size / 4) * 4;
@@ -542,7 +542,7 @@ impl SciRS2CpuBackend {
         result: &mut [f32],
         config: &KernelConfig,
     ) -> CpuResult<()> {
-        use rayon::prelude::*;
+        use scirs2_core::parallel_ops::*;
 
         result
             .par_chunks_mut(config.optimal_chunk_size)
@@ -566,7 +566,7 @@ impl SciRS2CpuBackend {
     ) -> CpuResult<()> {
         #[cfg(feature = "simd")]
         {
-            use rayon::prelude::*;
+            use scirs2_core::parallel_ops::*;
             use wide::f32x4;
 
             let chunk_size = (config.optimal_chunk_size / 4) * 4;
@@ -634,7 +634,7 @@ impl SciRS2CpuBackend {
         result: &mut [f32],
         config: &KernelConfig,
     ) -> CpuResult<()> {
-        use rayon::prelude::*;
+        use scirs2_core::parallel_ops::*;
 
         result
             .par_chunks_mut(config.optimal_chunk_size)
@@ -658,7 +658,7 @@ impl SciRS2CpuBackend {
     ) -> CpuResult<()> {
         #[cfg(feature = "simd")]
         {
-            use rayon::prelude::*;
+            use scirs2_core::parallel_ops::*;
             use wide::f32x4;
 
             let chunk_size = (config.optimal_chunk_size / 4) * 4;
@@ -712,7 +712,7 @@ impl SciRS2CpuBackend {
 
     /// Simple reduction sum
     fn sum_simple(&self, a: &[f32], config: &KernelConfig) -> CpuResult<f32> {
-        use rayon::prelude::*;
+        use scirs2_core::parallel_ops::*;
 
         let sum = a
             .par_chunks(config.optimal_chunk_size)
@@ -726,7 +726,7 @@ impl SciRS2CpuBackend {
     fn sum_simd(&self, a: &[f32], config: &KernelConfig) -> CpuResult<f32> {
         #[cfg(feature = "simd")]
         {
-            use rayon::prelude::*;
+            use scirs2_core::parallel_ops::*;
             use wide::f32x4;
 
             let chunk_size = (config.optimal_chunk_size / 4) * 4;

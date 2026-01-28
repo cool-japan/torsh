@@ -212,7 +212,11 @@ pub fn nms(detections: Vec<Detection>, config: NMSConfig) -> Result<Vec<Detectio
     }
 
     // Sort by confidence (descending)
-    filtered.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap());
+    filtered.sort_by(|a, b| {
+        b.confidence
+            .partial_cmp(&a.confidence)
+            .expect("comparison should succeed")
+    });
 
     if config.per_class {
         apply_per_class_nms(filtered, &config)
@@ -521,13 +525,21 @@ fn apply_per_class_nms(detections: Vec<Detection>, config: &NMSConfig) -> Result
 
     // Apply NMS per class
     for (_, mut class_detections) in class_groups {
-        class_detections.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap());
+        class_detections.sort_by(|a, b| {
+            b.confidence
+                .partial_cmp(&a.confidence)
+                .expect("comparison should succeed")
+        });
         let nms_result = apply_nms_to_group(class_detections, config)?;
         result.extend(nms_result);
     }
 
     // Sort final result by confidence and apply global max detections limit
-    result.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap());
+    result.sort_by(|a, b| {
+        b.confidence
+            .partial_cmp(&a.confidence)
+            .expect("comparison should succeed")
+    });
 
     if let Some(max_dets) = config.max_detections {
         result.truncate(max_dets);

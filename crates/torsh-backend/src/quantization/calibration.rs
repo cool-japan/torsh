@@ -267,7 +267,7 @@ impl QuantizationCalibrator {
             ));
         }
 
-        all_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        all_values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         // Calculate percentile bounds
         let lower_percentile = (100.0 - percentile) / 2.0;
@@ -316,7 +316,7 @@ impl QuantizationCalibrator {
         }
 
         // Find reasonable initial bounds
-        all_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        all_values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         let global_min = all_values[0];
         let global_max = all_values[all_values.len() - 1];
 
@@ -375,7 +375,7 @@ impl QuantizationCalibrator {
             ));
         }
 
-        all_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        all_values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         let global_min = all_values[0];
         let global_max = all_values[all_values.len() - 1];
 
@@ -649,7 +649,7 @@ impl PercentileCalibrator {
             ));
         }
 
-        all_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        all_values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         let (min_val, max_val) = if self.symmetric {
             // Symmetric percentile clipping
@@ -738,8 +738,8 @@ impl PercentileCalibrator {
     ) -> BackendResult<f64> {
         // Simplified entropy loss estimation
         // In practice, would compute actual entropy of original vs quantized data
-        let min_val = params.min_val.unwrap();
-        let max_val = params.max_val.unwrap();
+        let min_val = params.min_val.expect("min_val should be set in params");
+        let max_val = params.max_val.expect("max_val should be set in params");
 
         let mut clipped_count = 0;
         let mut total_count = 0;
@@ -803,7 +803,7 @@ impl CalibrationStatistics {
             ));
         }
 
-        all_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        all_values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         let num_values = all_values.len();
         let min_value = all_values[0];

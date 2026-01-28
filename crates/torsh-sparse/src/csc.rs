@@ -220,7 +220,7 @@ impl CscTensor {
             self.values.clone(),
             Shape::new(vec![self.shape.dims()[1], self.shape.dims()[0]]),
         )
-        .unwrap() // Safe because we know the format is valid
+        .expect("CSR construction from valid CSC data should succeed")
     }
 }
 

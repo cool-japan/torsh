@@ -172,7 +172,7 @@ pub unsafe extern "C" fn torsh_tensor_randn(shape: *const usize, ndim: usize) ->
     // Use SciRS2 for high-quality random normal generation
     let mut data = Vec::with_capacity(total_size);
     let mut random_gen = rng();
-    let normal_dist = Normal::new(0.0, 1.0).unwrap();
+    let normal_dist = Normal::new(0.0, 1.0).expect("valid normal distribution parameters");
 
     for _ in 0..total_size {
         data.push(random_gen.sample(&normal_dist) as f32);
@@ -206,7 +206,7 @@ pub unsafe extern "C" fn torsh_tensor_rand(shape: *const usize, ndim: usize) -> 
 
     let mut data = Vec::with_capacity(total_elements);
     let mut random_gen = rng();
-    let uniform_dist = Uniform::new(0.0, 1.0).unwrap();
+    let uniform_dist = Uniform::new(0.0, 1.0).expect("valid uniform distribution parameters");
     for _ in 0..total_elements {
         data.push(random_gen.sample(&uniform_dist) as f32);
     }

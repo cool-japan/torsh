@@ -366,8 +366,10 @@ impl BLIPVisionEmbeddings {
         let num_patches = config.num_patches();
         let num_positions = num_patches + 1; // +1 for CLS token
 
-        let position_embedding = Parameter::new(torsh_tensor::creation::randn(&[1, num_positions, config.hidden_size]).unwrap());
-        let cls_token = Parameter::new(torsh_tensor::creation::randn(&[1, 1, config.hidden_size]).unwrap());
+        let position_embedding = Parameter::new(torsh_tensor::creation::randn(&[1, num_positions, config.hidden_size])
+            .expect("failed to create BLIP position embedding"));
+        let cls_token = Parameter::new(torsh_tensor::creation::randn(&[1, 1, config.hidden_size])
+            .expect("failed to create BLIP cls token"));
         let dropout = Dropout::new(config.hidden_dropout_prob);
 
         Self {

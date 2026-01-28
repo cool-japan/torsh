@@ -308,7 +308,9 @@ impl MetadataManager {
                     && !filename.contains("_info")
                     && !filename.contains("_card")
                 {
-                    let model_id = filename.strip_suffix(".json").unwrap();
+                    let model_id = filename
+                        .strip_suffix(".json")
+                        .expect("filename should end with .json as checked");
                     if let Ok(metadata) = self.load_metadata(model_id) {
                         if self.matches_criteria(&metadata, criteria) {
                             matches.push(model_id.to_string());

@@ -223,7 +223,10 @@ pub fn analyze_tensor_distribution(tensor: &Tensor) -> Result<TensorDistribution
 
     // Calculate percentiles
     let mut sorted_data = data.clone();
-    sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    sorted_data.sort_by(|a, b| {
+        a.partial_cmp(b)
+            .expect("data comparison should not involve NaN")
+    });
 
     let percentiles = calculate_percentiles(&sorted_data);
 

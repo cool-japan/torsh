@@ -275,8 +275,10 @@ impl GradientTracer {
 
         if let Some(mut trace) = active.remove(trace_id) {
             trace.end_time = Some(Utc::now());
-            trace.duration_ms =
-                Some((trace.end_time.unwrap() - trace.start_time).num_milliseconds() as f64);
+            trace.duration_ms = Some(
+                (trace.end_time.expect("end_time was just set") - trace.start_time)
+                    .num_milliseconds() as f64,
+            );
             trace.status = TraceStatus::Completed;
 
             // Add to completed traces
@@ -366,7 +368,7 @@ impl GradientTracer {
             if let Some(span) = trace.spans.get_mut(span_id) {
                 span.end_time = Some(Utc::now());
                 span.duration_us = Some(
-                    (span.end_time.unwrap() - span.start_time)
+                    (span.end_time.expect("end_time was just set") - span.start_time)
                         .num_microseconds()
                         .unwrap_or(0) as u64,
                 );
@@ -520,7 +522,7 @@ impl GradientTracer {
     // Private helper methods
 
     fn should_sample(&self) -> bool {
-        use scirs2_core::random::{thread_rng, Rng};
+        use scirs2_core::random::thread_rng;
         let mut rng = thread_rng();
         rng.random::<f64>() < self.config.sampling_rate
     }

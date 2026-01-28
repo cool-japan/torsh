@@ -43,12 +43,12 @@
 //!
 //! # Modules
 //!
-//! - [`tensor`]: Core tensor type and operations
+//! - [`mod@tensor`]: Core tensor type and operations
 //! - [`autograd`]: Automatic differentiation functionality
 //! - [`nn`]: Neural network modules and layers
 //! - [`optim`]: Optimization algorithms
 //! - [`data`]: Data loading and preprocessing
-//! - [`functional`]: Functional operations API (aliased as `F`)
+//! - `functional`: Functional operations API (aliased as `F`)
 //! - [`core`]: Core types and utilities
 //!
 //! # Design Philosophy
@@ -460,37 +460,48 @@ pub mod prelude {
     pub use crate::functional::{conv2d, gelu, max_pool2d, relu, sigmoid, silu, softmax, tanh};
 
     #[cfg(feature = "text")]
+    #[allow(ambiguous_glob_reexports)]
     pub use crate::text::prelude::*;
 
     #[cfg(feature = "vision")]
+    #[allow(ambiguous_glob_reexports)]
     pub use crate::vision::prelude::*;
 
     // Advanced modules
     #[cfg(feature = "sparse")]
+    #[allow(ambiguous_glob_reexports)]
     pub use crate::sparse::prelude::*;
 
     #[cfg(feature = "quantization")]
+    #[allow(ambiguous_glob_reexports)]
     pub use crate::quantization::prelude::*;
 
     #[cfg(feature = "special")]
+    #[allow(ambiguous_glob_reexports)]
     pub use crate::special::prelude::*;
 
     #[cfg(feature = "linalg")]
+    #[allow(ambiguous_glob_reexports)]
     pub use crate::linalg::prelude::*;
 
     #[cfg(feature = "profiler")]
+    #[allow(ambiguous_glob_reexports)]
     pub use crate::profiler::prelude::*;
 
     #[cfg(feature = "distributed")]
+    #[allow(ambiguous_glob_reexports)]
     pub use crate::distributed::prelude::*;
 
     #[cfg(feature = "jit")]
+    #[allow(ambiguous_glob_reexports)]
     pub use crate::jit::prelude::*;
 
     #[cfg(feature = "fx")]
+    #[allow(ambiguous_glob_reexports)]
     pub use crate::fx::prelude::*;
 
     #[cfg(feature = "hub")]
+    #[allow(ambiguous_glob_reexports)]
     pub use crate::hub::prelude::*;
 
     // Backend prelude
@@ -543,14 +554,13 @@ pub mod F {
     // pub use crate::tensor::ops::*;
 
     // Re-export neural network functional operations
+    // This provides the primary PyTorch-compatible functional API (lowercase functions like relu, sigmoid, etc.)
     #[cfg(feature = "nn")]
     #[allow(ambiguous_glob_reexports)]
     pub use crate::nn::functional::*;
 
-    // Re-export all functional operations when available
-    #[cfg(feature = "functional")]
-    #[allow(ambiguous_glob_reexports)]
-    pub use crate::functional::*;
+    // Note: Explicit imports from functional module are provided below with PascalCase aliases
+    // to avoid ambiguous glob imports. The lowercase versions come from nn::functional.
 
     // Convenient aliases for common operations
     #[cfg(feature = "functional")]
@@ -1035,7 +1045,7 @@ mod tests {
 
     #[test]
     fn test_version() {
-        assert_eq!(VERSION, "0.1.0-alpha.2");
+        assert_eq!(VERSION, "0.1.0-beta.1");
         check_version(0, 1).unwrap();
     }
 }

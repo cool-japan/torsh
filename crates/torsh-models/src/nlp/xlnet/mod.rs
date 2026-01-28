@@ -18,7 +18,7 @@
 //! # Key Differences from BERT
 //!
 //! - Uses permutation LM instead of masked LM
-//! - No [MASK] token corruption
+//! - No \[MASK\] token corruption
 //! - Better at handling long-range dependencies
 //! - More effective for generation tasks
 //!

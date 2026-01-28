@@ -219,7 +219,7 @@ impl MemoryProfiler {
         }
 
         let id = {
-            let mut next_id = self.next_id.lock().unwrap();
+            let mut next_id = self.next_id.lock().expect("lock should not be poisoned");
             let id = *next_id;
             *next_id += 1;
             id
@@ -242,13 +242,16 @@ impl MemoryProfiler {
 
         // Store allocation
         {
-            let mut allocations = self.allocations.write().unwrap();
+            let mut allocations = self
+                .allocations
+                .write()
+                .expect("lock should not be poisoned");
             allocations.insert(id, allocation);
         }
 
         // Update statistics
         {
-            let mut stats = self.stats.write().unwrap();
+            let mut stats = self.stats.write().expect("lock should not be poisoned");
             stats.total_allocated += size as u64;
 
             let current_memory = self.get_current_memory();
@@ -256,7 +259,11 @@ impl MemoryProfiler {
                 stats.peak_memory = current_memory;
             }
 
-            let current_count = self.allocations.read().unwrap().len();
+            let current_count = self
+                .allocations
+                .read()
+                .expect("lock should not be poisoned")
+                .len();
             if current_count > stats.peak_allocations {
                 stats.peak_allocations = current_count;
             }
@@ -278,7 +285,10 @@ impl MemoryProfiler {
     /// Track deallocation
     pub fn track_deallocation(&self, id: u64) {
         let allocation = {
-            let mut allocations = self.allocations.write().unwrap();
+            let mut allocations = self
+                .allocations
+                .write()
+                .expect("lock should not be poisoned");
             allocations.remove(&id)
         };
 
@@ -288,13 +298,13 @@ impl MemoryProfiler {
 
             // Update statistics
             {
-                let mut stats = self.stats.write().unwrap();
+                let mut stats = self.stats.write().expect("lock should not be poisoned");
                 stats.total_deallocated += alloc.size as u64;
             }
 
             // Add to history
             {
-                let mut history = self.history.write().unwrap();
+                let mut history = self.history.write().expect("lock should not be poisoned");
                 history.push_back(alloc);
 
                 // Limit history size
@@ -317,17 +327,26 @@ impl MemoryProfiler {
 
     /// Get peak memory usage
     pub fn get_peak_memory(&self) -> usize {
-        self.stats.read().unwrap().peak_memory
+        self.stats
+            .read()
+            .expect("lock should not be poisoned")
+            .peak_memory
     }
 
     /// Get number of active allocations
     pub fn get_active_count(&self) -> usize {
-        self.allocations.read().unwrap().len()
+        self.allocations
+            .read()
+            .expect("lock should not be poisoned")
+            .len()
     }
 
     /// Take a memory snapshot
     pub fn take_snapshot(&self) {
-        let allocations = self.allocations.read().unwrap();
+        let allocations = self
+            .allocations
+            .read()
+            .expect("lock should not be poisoned");
 
         let mut by_device = HashMap::new();
         let mut by_tag = HashMap::new();
@@ -347,7 +366,7 @@ impl MemoryProfiler {
             by_tag,
         };
 
-        let mut timeline = self.timeline.write().unwrap();
+        let mut timeline = self.timeline.write().expect("lock should not be poisoned");
         timeline.push_back(snapshot);
 
         // Limit timeline size
@@ -359,7 +378,10 @@ impl MemoryProfiler {
     /// Detect potential memory leaks
     pub fn detect_leaks(&self) -> Vec<MemoryLeak> {
         let now = SystemTime::now();
-        let allocations = self.allocations.read().unwrap();
+        let allocations = self
+            .allocations
+            .read()
+            .expect("lock should not be poisoned");
 
         allocations
             .values()
@@ -383,8 +405,11 @@ impl MemoryProfiler {
 
     /// Generate allocation patterns
     pub fn generate_patterns(&self) -> AllocationPattern {
-        let history = self.history.read().unwrap();
-        let allocations = self.allocations.read().unwrap();
+        let history = self.history.read().expect("lock should not be poisoned");
+        let allocations = self
+            .allocations
+            .read()
+            .expect("lock should not be poisoned");
 
         let mut all_sizes: Vec<usize> = history.iter().map(|a| a.size).collect();
         all_sizes.extend(allocations.values().map(|a| a.size));
@@ -435,8 +460,11 @@ impl MemoryProfiler {
 
     /// Generate comprehensive memory report
     pub fn generate_report(&self) -> MemoryReport {
-        let allocations = self.allocations.read().unwrap();
-        let stats = self.stats.read().unwrap();
+        let allocations = self
+            .allocations
+            .read()
+            .expect("lock should not be poisoned");
+        let stats = self.stats.read().expect("lock should not be poisoned");
 
         let mut memory_by_device = HashMap::new();
         let mut memory_by_tag = HashMap::new();
@@ -481,15 +509,29 @@ impl MemoryProfiler {
 
     /// Get timeline snapshots
     pub fn get_timeline(&self) -> Vec<MemorySnapshot> {
-        self.timeline.read().unwrap().iter().cloned().collect()
+        self.timeline
+            .read()
+            .expect("lock should not be poisoned")
+            .iter()
+            .cloned()
+            .collect()
     }
 
     /// Clear all tracking data
     pub fn clear(&self) {
-        self.allocations.write().unwrap().clear();
-        self.history.write().unwrap().clear();
-        self.timeline.write().unwrap().clear();
-        *self.stats.write().unwrap() = ProfilerStats::default();
+        self.allocations
+            .write()
+            .expect("lock should not be poisoned")
+            .clear();
+        self.history
+            .write()
+            .expect("lock should not be poisoned")
+            .clear();
+        self.timeline
+            .write()
+            .expect("lock should not be poisoned")
+            .clear();
+        *self.stats.write().expect("lock should not be poisoned") = ProfilerStats::default();
     }
 
     /// Export report to JSON file
@@ -532,7 +574,7 @@ static GLOBAL_PROFILER: once_cell::sync::Lazy<Mutex<Option<MemoryProfiler>>> =
 
 /// Initialize global memory profiler
 pub fn init_global_profiler(config: ProfilerConfig) {
-    let mut global = GLOBAL_PROFILER.lock().unwrap();
+    let mut global = GLOBAL_PROFILER.lock().expect("lock should not be poisoned");
     *global = Some(MemoryProfiler::new(config));
 }
 

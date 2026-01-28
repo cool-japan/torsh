@@ -530,7 +530,7 @@ pub fn global_io() -> &'static VisionIO {
         INIT.call_once(|| {
             GLOBAL_IO = Some(VisionIO::default());
         });
-        GLOBAL_IO.as_ref().unwrap()
+        GLOBAL_IO.as_ref().expect("value should be present")
     }
 }
 

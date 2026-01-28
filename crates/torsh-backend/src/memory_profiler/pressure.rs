@@ -400,7 +400,7 @@ impl MemorySnapshot {
             .max_by(|(_, a), (_, b)| {
                 a.utilization_percent
                     .partial_cmp(&b.utilization_percent)
-                    .unwrap()
+                    .unwrap_or(std::cmp::Ordering::Equal)
             })
             .map(|(device, usage)| (device.clone(), usage.utilization_percent))
     }

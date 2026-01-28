@@ -144,8 +144,14 @@ impl DynamicShape {
     /// Convert to static shape if all dimensions are static
     pub fn to_static_shape(&self) -> Option<Shape> {
         if self.is_static() {
-            let static_dims: Vec<usize> =
-                self.dims.iter().map(|d| d.static_size().unwrap()).collect();
+            let static_dims: Vec<usize> = self
+                .dims
+                .iter()
+                .map(|d| {
+                    d.static_size()
+                        .expect("all dimensions should be static when is_static() returns true")
+                })
+                .collect();
             Some(Shape::new(static_dims))
         } else {
             None

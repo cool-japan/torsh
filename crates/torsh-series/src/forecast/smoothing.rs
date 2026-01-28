@@ -281,7 +281,8 @@ impl HoltWinters {
             })
             .collect();
 
-        let forecast_tensor = torsh_tensor::Tensor::from_vec(forecast_values, &[steps]).unwrap();
+        let forecast_tensor = torsh_tensor::Tensor::from_vec(forecast_values, &[steps])
+            .expect("tensor creation should succeed");
         TimeSeries::new(forecast_tensor)
     }
 
@@ -343,7 +344,7 @@ impl SimpleExpSmoothing {
         // Fit the model to get the final smoothed level
         let data = series.values.to_vec().unwrap_or_default();
         if data.is_empty() {
-            let values = zeros(&[steps, 1]).unwrap();
+            let values = zeros(&[steps, 1]).expect("tensor creation should succeed");
             return TimeSeries::new(values);
         }
 
@@ -357,7 +358,8 @@ impl SimpleExpSmoothing {
 
         // Forecast: all future values equal the final level (flat forecast)
         let forecast_values: Vec<f32> = vec![level; steps];
-        let forecast_tensor = torsh_tensor::Tensor::from_vec(forecast_values, &[steps]).unwrap();
+        let forecast_tensor = torsh_tensor::Tensor::from_vec(forecast_values, &[steps])
+            .expect("tensor creation should succeed");
         TimeSeries::new(forecast_tensor)
     }
 
@@ -390,7 +392,8 @@ impl SimpleExpSmoothing {
 
         // Simple exponential smoothing produces flat forecasts
         let forecast_values: Vec<f32> = vec![level; steps];
-        let forecast_tensor = torsh_tensor::Tensor::from_vec(forecast_values, &[steps]).unwrap();
+        let forecast_tensor = torsh_tensor::Tensor::from_vec(forecast_values, &[steps])
+            .expect("tensor creation should succeed");
         TimeSeries::new(forecast_tensor)
     }
 }
@@ -469,7 +472,8 @@ impl DoubleExpSmoothing {
         // Generate forecasts: forecast(h) = level + h * trend
         let forecast_values: Vec<f32> = (1..=steps).map(|h| level + (h as f32) * trend).collect();
 
-        let forecast_tensor = torsh_tensor::Tensor::from_vec(forecast_values, &[steps]).unwrap();
+        let forecast_tensor = torsh_tensor::Tensor::from_vec(forecast_values, &[steps])
+            .expect("tensor creation should succeed");
         TimeSeries::new(forecast_tensor)
     }
 }

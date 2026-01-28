@@ -354,8 +354,8 @@ impl PatternOptimizationPass {
         // Check if the transpositions cancel out (would need axis information)
         // For now, assume consecutive transposes cancel out
 
-        let inputs = graph.get_node(first_transpose).unwrap().inputs.clone();
-        let outputs = graph.get_node(second_transpose).unwrap().outputs.clone();
+        let inputs = graph.get_node(first_transpose).expect("first transpose node should exist in graph").inputs.clone();
+        let outputs = graph.get_node(second_transpose).expect("second transpose node should exist in graph").outputs.clone();
 
         // Connect inputs directly to outputs
         for input_id in &inputs {
@@ -387,8 +387,8 @@ impl PatternOptimizationPass {
         let squeeze_node = &pattern_match.matched_node_ids[0];
         let unsqueeze_node = &pattern_match.matched_node_ids[1];
 
-        let inputs = graph.get_node(squeeze_node).unwrap().inputs.clone();
-        let outputs = graph.get_node(unsqueeze_node).unwrap().outputs.clone();
+        let inputs = graph.get_node(squeeze_node).expect("squeeze node should exist in graph").inputs.clone();
+        let outputs = graph.get_node(unsqueeze_node).expect("unsqueeze node should exist in graph").outputs.clone();
 
         // Connect inputs directly to outputs
         for input_id in &inputs {
@@ -420,8 +420,8 @@ impl PatternOptimizationPass {
         let first_reshape = &pattern_match.matched_node_ids[0];
         let second_reshape = &pattern_match.matched_node_ids[1];
 
-        let inputs = graph.get_node(first_reshape).unwrap().inputs.clone();
-        let outputs = graph.get_node(second_reshape).unwrap().outputs.clone();
+        let inputs = graph.get_node(first_reshape).expect("first reshape node should exist in graph").inputs.clone();
+        let outputs = graph.get_node(second_reshape).expect("second reshape node should exist in graph").outputs.clone();
 
         // Check if we can merge the reshapes or eliminate them entirely
         // For now, assume we can eliminate consecutive reshapes
@@ -453,7 +453,7 @@ impl PatternOptimizationPass {
 
         // Get inputs of the first node and outputs of the last node
         let first_node_id = &pattern_match.matched_node_ids[0];
-        let last_node_id = pattern_match.matched_node_ids.last().unwrap();
+        let last_node_id = pattern_match.matched_node_ids.last().expect("matched node ids should not be empty");
 
         let first_inputs = graph
             .get_node(first_node_id)

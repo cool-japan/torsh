@@ -42,7 +42,10 @@ pub fn validate_package_name(name: &str) -> bool {
     }
 
     // Must start with alphanumeric, can contain alphanumeric, hyphens, and underscores
-    let first_char = name.chars().next().unwrap();
+    let first_char = name
+        .chars()
+        .next()
+        .expect("name is not empty after length check");
     if !first_char.is_alphanumeric() {
         return false;
     }

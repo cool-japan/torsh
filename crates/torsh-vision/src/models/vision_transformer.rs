@@ -308,10 +308,13 @@ impl VisionTransformer {
         );
 
         // Learnable parameters (simplified - would need proper initialization)
-        let cls_token =
-            Parameter::new(torsh_tensor::creation::zeros(&[1, 1, vit_config.embed_dim]).unwrap());
+        let cls_token = Parameter::new(
+            torsh_tensor::creation::zeros(&[1, 1, vit_config.embed_dim])
+                .expect("tensor creation should succeed"),
+        );
         let pos_embed = Parameter::new(
-            torsh_tensor::creation::zeros(&[1, seq_len, vit_config.embed_dim]).unwrap(),
+            torsh_tensor::creation::zeros(&[1, seq_len, vit_config.embed_dim])
+                .expect("tensor creation should succeed"),
         );
 
         // Transformer blocks

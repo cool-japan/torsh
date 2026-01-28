@@ -329,7 +329,7 @@ impl AccessPatternsAnalyzer {
         recommendations.extend(self.recommend_for_metrics(&metrics)?);
 
         // Sort by priority
-        recommendations.sort_by(|a, b| a.priority.partial_cmp(&b.priority).unwrap().reverse());
+        recommendations.sort_by(|a, b| a.priority.partial_cmp(&b.priority).unwrap_or(std::cmp::Ordering::Equal).reverse());
 
         self.recommendations = recommendations.clone();
         Ok(recommendations)
@@ -384,7 +384,7 @@ impl AccessPatternsAnalyzer {
                         curr.size = curr.end_addr - curr.start_addr;
                         curr.access_count += region.access_count;
                     } else {
-                        merged.push(current.take().unwrap());
+                        merged.push(current.take().expect("current should be present"));
                         current = Some(region);
                     }
                 }
@@ -641,9 +641,9 @@ impl AccessPatternsAnalyzer {
         let total_bytes: usize = accesses.iter().map(|a| a.size).sum();
         let time_span = accesses
             .last()
-            .unwrap()
+            .expect("accesses should not be empty")
             .timestamp
-            .duration_since(accesses.first().unwrap().timestamp)
+            .duration_since(accesses.first().expect("accesses should not be empty").timestamp)
             .as_secs_f64();
 
         if time_span > 0.0 {

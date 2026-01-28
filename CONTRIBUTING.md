@@ -4,7 +4,7 @@ Thank you for your interest in contributing to ToRSh! This document provides gui
 
 ## 🎯 Project Status
 
-ToRSh is currently in **alpha stage** (v0.1.0-alpha.2). We're actively working towards beta and production releases. Your contributions help us build a production-ready deep learning framework in pure Rust.
+ToRSh is currently in **beta stage** (v0.1.0-beta.1). We're actively working towards production release (v1.0). Your contributions help us build a production-ready deep learning framework in pure Rust.
 
 ## 🚀 Getting Started
 
@@ -299,5 +299,5 @@ Every contribution, no matter how small, helps make ToRSh better. Whether you're
 
 ---
 
-**Last Updated**: December 21, 2025
-**Version**: 0.1.0-alpha.2
+**Last Updated**: December 30, 2025
+**Version**: 0.1.0-beta.1

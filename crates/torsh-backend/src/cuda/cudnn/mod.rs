@@ -165,7 +165,7 @@
 //!
 //! // Create activation descriptor
 //! let mut act_desc = ActivationDescriptor::new()?;
-//! act_desc.set(ActivationMode::Relu, NanPropagation::NotPropagateNan, 0.0)?;
+//! act_desc.set(ActivationMode::Relu, NanPropagation::NotPropagate, 0.0)?;
 //! ```
 //!
 //! # Feature Requirements
@@ -184,6 +184,8 @@
 //! safe use in multi-threaded environments. cuDNN handles are protected by mutexes
 //! to ensure thread-safe access.
 
+#[cfg(feature = "cudnn")]
+pub mod compat;
 pub mod descriptors;
 pub mod handle;
 pub mod operations;
@@ -251,7 +253,7 @@ mod tests {
         let _activation_mode = ActivationMode::Relu;
         let _conv_mode = ConvolutionMode::CrossCorrelation;
         let _pool_mode = PoolingMode::Max;
-        let _nan_prop = NanPropagation::NotPropagateNan;
+        let _nan_prop = NanPropagation::NotPropagate;
 
         // RNN types
         let _rnn_desc_type = std::marker::PhantomData::<RNNDescriptor>;

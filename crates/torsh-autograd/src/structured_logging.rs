@@ -5,7 +5,7 @@
 //! gradient statistics, and debugging information.
 
 use parking_lot::RwLock;
-use scirs2_core::random::{thread_rng, Rng}; // SciRS2 POLICY compliant
+use scirs2_core::random::thread_rng; // SciRS2 POLICY compliant
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{

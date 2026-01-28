@@ -257,12 +257,18 @@ impl CheckpointManager {
 
         // Update internal state
         {
-            let mut latest = self.latest_checkpoint.write().unwrap();
+            let mut latest = self
+                .latest_checkpoint
+                .write()
+                .expect("lock should not be poisoned");
             *latest = Some(checkpoint);
         }
 
         {
-            let mut history = self.checkpoint_history.write().unwrap();
+            let mut history = self
+                .checkpoint_history
+                .write()
+                .expect("lock should not be poisoned");
             history.push(checkpoint_path.clone());
 
             // Clean up old checkpoints
@@ -294,7 +300,7 @@ impl CheckpointManager {
         let latest_file = checkpoint_files
             .iter()
             .max_by_key(|path| self.extract_step_from_filename(path))
-            .unwrap();
+            .expect("checkpoint_files should not be empty");
 
         info!("Loading latest checkpoint from {:?}", latest_file);
         self.load_checkpoint(latest_file).await
@@ -401,7 +407,10 @@ impl CheckpointManager {
 
     /// Get the latest checkpoint metadata without loading the full checkpoint
     pub fn get_latest_checkpoint_info(&self) -> Option<TrainingCheckpoint> {
-        self.latest_checkpoint.read().unwrap().clone()
+        self.latest_checkpoint
+            .read()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Clean up all checkpoints (useful for cleanup)
@@ -415,11 +424,17 @@ impl CheckpointManager {
         }
 
         {
-            let mut history = self.checkpoint_history.write().unwrap();
+            let mut history = self
+                .checkpoint_history
+                .write()
+                .expect("lock should not be poisoned");
             history.clear();
         }
         {
-            let mut latest = self.latest_checkpoint.write().unwrap();
+            let mut latest = self
+                .latest_checkpoint
+                .write()
+                .expect("lock should not be poisoned");
             *latest = None;
         }
 
@@ -464,12 +479,19 @@ impl ElasticTrainingManager {
 
     /// Check if scaling is needed and initiate if necessary
     pub async fn check_scaling_needs(&self) -> TorshResult<Option<ScalingEvent>> {
-        let current_state = self.scaling_state.read().unwrap().clone();
+        let current_state = self
+            .scaling_state
+            .read()
+            .expect("lock should not be poisoned")
+            .clone();
 
         match current_state {
             ScalingState::Stable => {
                 // Check for worker failures or new joins
-                let current_workers = *self.current_world_size.read().unwrap();
+                let current_workers = *self
+                    .current_world_size
+                    .read()
+                    .expect("lock should not be poisoned");
 
                 // Simulate failure detection (in real implementation, this would check actual worker health)
                 let failed_workers = self.detect_failed_workers().await?;
@@ -538,10 +560,18 @@ impl ElasticTrainingManager {
 
         let expected_workers = match &event {
             ScalingEvent::WorkerFailure { failed_ranks } => {
-                *self.current_world_size.read().unwrap() - failed_ranks.len()
+                *self
+                    .current_world_size
+                    .read()
+                    .expect("lock should not be poisoned")
+                    - failed_ranks.len()
             }
             ScalingEvent::WorkerJoin { new_ranks } => {
-                *self.current_world_size.read().unwrap() + new_ranks.len()
+                *self
+                    .current_world_size
+                    .read()
+                    .expect("lock should not be poisoned")
+                    + new_ranks.len()
             }
             ScalingEvent::ManualScale { target_workers }
             | ScalingEvent::AutoScale { target_workers, .. } => *target_workers,
@@ -553,7 +583,10 @@ impl ElasticTrainingManager {
             .min(self.config.max_workers);
 
         {
-            let mut state = self.scaling_state.write().unwrap();
+            let mut state = self
+                .scaling_state
+                .write()
+                .expect("lock should not be poisoned");
             *state = ScalingState::Scaling {
                 event: event.clone(),
                 start_time: SystemTime::now(),
@@ -563,7 +596,10 @@ impl ElasticTrainingManager {
 
         // Add to event history
         {
-            let mut events = self.scaling_events.lock().unwrap();
+            let mut events = self
+                .scaling_events
+                .lock()
+                .expect("lock should not be poisoned");
             events.push(event);
             // Keep only recent events
             if events.len() > 100 {
@@ -577,7 +613,11 @@ impl ElasticTrainingManager {
     /// Check if scaling is complete
     async fn is_scaling_complete(&self) -> TorshResult<bool> {
         // Simplified: check if enough time has passed
-        if let ScalingState::Scaling { start_time, .. } = *self.scaling_state.read().unwrap() {
+        if let ScalingState::Scaling { start_time, .. } = *self
+            .scaling_state
+            .read()
+            .expect("lock should not be poisoned")
+        {
             Ok(start_time.elapsed().unwrap_or(Duration::ZERO) >= self.config.scaling_timeout)
         } else {
             Ok(false)
@@ -590,7 +630,10 @@ impl ElasticTrainingManager {
 
         let expected_workers = if let ScalingState::Scaling {
             expected_workers, ..
-        } = *self.scaling_state.read().unwrap()
+        } = *self
+            .scaling_state
+            .read()
+            .expect("lock should not be poisoned")
         {
             expected_workers
         } else {
@@ -599,9 +642,15 @@ impl ElasticTrainingManager {
 
         // Transition to synchronization state
         {
-            let mut state = self.scaling_state.write().unwrap();
+            let mut state = self
+                .scaling_state
+                .write()
+                .expect("lock should not be poisoned");
             *state = ScalingState::Synchronizing {
-                current_workers: *self.current_world_size.read().unwrap(),
+                current_workers: *self
+                    .current_world_size
+                    .read()
+                    .expect("lock should not be poisoned"),
                 target_workers: expected_workers,
             };
         }
@@ -620,8 +669,10 @@ impl ElasticTrainingManager {
     async fn complete_synchronization(&self) -> TorshResult<()> {
         info!("Completing synchronization process");
 
-        let target_workers = if let ScalingState::Synchronizing { target_workers, .. } =
-            *self.scaling_state.read().unwrap()
+        let target_workers = if let ScalingState::Synchronizing { target_workers, .. } = *self
+            .scaling_state
+            .read()
+            .expect("lock should not be poisoned")
         {
             target_workers
         } else {
@@ -630,13 +681,19 @@ impl ElasticTrainingManager {
 
         // Update world size
         {
-            let mut world_size = self.current_world_size.write().unwrap();
+            let mut world_size = self
+                .current_world_size
+                .write()
+                .expect("lock should not be poisoned");
             *world_size = target_workers;
         }
 
         // Return to stable state
         {
-            let mut state = self.scaling_state.write().unwrap();
+            let mut state = self
+                .scaling_state
+                .write()
+                .expect("lock should not be poisoned");
             *state = ScalingState::Stable;
         }
 
@@ -679,12 +736,18 @@ impl ElasticTrainingManager {
 
     /// Get current scaling state
     pub fn get_scaling_state(&self) -> ScalingState {
-        self.scaling_state.read().unwrap().clone()
+        self.scaling_state
+            .read()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Get current world size
     pub fn get_world_size(&self) -> usize {
-        *self.current_world_size.read().unwrap()
+        *self
+            .current_world_size
+            .read()
+            .expect("lock should not be poisoned")
     }
 
     /// Force manual scaling
@@ -695,12 +758,21 @@ impl ElasticTrainingManager {
 
     /// Get scaling event history
     pub fn get_scaling_history(&self) -> Vec<ScalingEvent> {
-        self.scaling_events.lock().unwrap().clone()
+        self.scaling_events
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Check if training can proceed (not currently scaling)
     pub fn can_proceed_training(&self) -> bool {
-        matches!(*self.scaling_state.read().unwrap(), ScalingState::Stable)
+        matches!(
+            *self
+                .scaling_state
+                .read()
+                .expect("lock should not be poisoned"),
+            ScalingState::Stable
+        )
     }
 
     /// Get checkpoint manager reference
@@ -776,7 +848,7 @@ pub mod checkpoint_utils {
             config: HashMap::new(),
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .expect("time should be after UNIX_EPOCH")
                 .as_secs(),
             version: "1.0.0".to_string(),
             distributed_meta,
@@ -852,7 +924,7 @@ mod tests {
             config: HashMap::new(),
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .expect("time should be after UNIX_EPOCH")
                 .as_secs(),
             version: "1.0.0".to_string(),
             distributed_meta: DistributedMetadata {

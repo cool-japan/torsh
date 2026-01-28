@@ -142,7 +142,10 @@ impl GradientPartitioner {
         };
 
         {
-            let mut meta = self.partition_metadata.lock().unwrap();
+            let mut meta = self
+                .partition_metadata
+                .lock()
+                .expect("lock should not be poisoned");
             meta.insert(layer_name.to_string(), metadata);
         }
 
@@ -162,7 +165,10 @@ impl GradientPartitioner {
 
     /// Get metadata for a layer's gradient partitioning
     pub fn get_layer_metadata(&self, layer_name: &str) -> Option<GradientPartitionMetadata> {
-        let meta = self.partition_metadata.lock().unwrap();
+        let meta = self
+            .partition_metadata
+            .lock()
+            .expect("lock should not be poisoned");
         meta.get(layer_name).cloned()
     }
 
@@ -185,7 +191,10 @@ impl GradientPartitioner {
 
     /// Get partitioner statistics
     pub fn get_statistics(&self) -> GradientPartitionerStats {
-        let meta = self.partition_metadata.lock().unwrap();
+        let meta = self
+            .partition_metadata
+            .lock()
+            .expect("lock should not be poisoned");
         let total_layers = meta.len();
         let total_elements: usize = meta
             .values()
@@ -350,12 +359,18 @@ impl CpuGradientStore {
         }
 
         {
-            let mut grads = self.stored_gradients.write().unwrap();
+            let mut grads = self
+                .stored_gradients
+                .write()
+                .expect("lock should not be poisoned");
             grads.insert(key.clone(), gradient.clone());
         }
 
         {
-            let mut metadata = self.gradient_metadata.lock().unwrap();
+            let mut metadata = self
+                .gradient_metadata
+                .lock()
+                .expect("lock should not be poisoned");
             metadata.insert(
                 key.clone(),
                 GradientStoreMetadata {
@@ -385,13 +400,19 @@ impl CpuGradientStore {
         partition_idx: usize,
     ) -> TorshResult<Option<Tensor<f32>>> {
         let key = format!("{}_{}", layer_name, partition_idx);
-        let grads = self.stored_gradients.read().unwrap();
+        let grads = self
+            .stored_gradients
+            .read()
+            .expect("lock should not be poisoned");
         Ok(grads.get(&key).cloned())
     }
 
     /// Get all gradients
     pub async fn get_all_gradients(&self) -> TorshResult<HashMap<String, Tensor<f32>>> {
-        let grads = self.stored_gradients.read().unwrap();
+        let grads = self
+            .stored_gradients
+            .read()
+            .expect("lock should not be poisoned");
         Ok(grads.clone())
     }
 
@@ -401,7 +422,10 @@ impl CpuGradientStore {
         rank: usize,
         world_size: usize,
     ) -> TorshResult<HashMap<String, Tensor<f32>>> {
-        let grads = self.stored_gradients.read().unwrap();
+        let grads = self
+            .stored_gradients
+            .read()
+            .expect("lock should not be poisoned");
 
         // Filter gradients owned by this rank
         let owned_grads: HashMap<String, Tensor<f32>> = grads
@@ -430,7 +454,10 @@ impl CpuGradientStore {
         let grad_size = gradient.numel() * std::mem::size_of::<f32>();
 
         {
-            let mut grads = self.stored_gradients.write().unwrap();
+            let mut grads = self
+                .stored_gradients
+                .write()
+                .expect("lock should not be poisoned");
             if let Some(old_gradient) = grads.insert(key.to_string(), gradient.clone()) {
                 // Subtract old memory usage
                 let old_size = old_gradient.numel() * std::mem::size_of::<f32>();
@@ -460,7 +487,10 @@ impl CpuGradientStore {
         let key = format!("{}_{}", layer_name, partition_idx);
 
         let removed_gradient = {
-            let mut grads = self.stored_gradients.write().unwrap();
+            let mut grads = self
+                .stored_gradients
+                .write()
+                .expect("lock should not be poisoned");
             grads.remove(&key)
         };
 
@@ -469,7 +499,10 @@ impl CpuGradientStore {
             self.memory_used
                 .fetch_sub(grad_size, std::sync::atomic::Ordering::SeqCst);
 
-            let mut metadata = self.gradient_metadata.lock().unwrap();
+            let mut metadata = self
+                .gradient_metadata
+                .lock()
+                .expect("lock should not be poisoned");
             metadata.remove(&key);
         }
 
@@ -479,12 +512,18 @@ impl CpuGradientStore {
     /// Clear all stored gradients
     pub async fn clear(&self) -> TorshResult<()> {
         {
-            let mut grads = self.stored_gradients.write().unwrap();
+            let mut grads = self
+                .stored_gradients
+                .write()
+                .expect("lock should not be poisoned");
             grads.clear();
         }
 
         {
-            let mut metadata = self.gradient_metadata.lock().unwrap();
+            let mut metadata = self
+                .gradient_metadata
+                .lock()
+                .expect("lock should not be poisoned");
             metadata.clear();
         }
 
@@ -502,7 +541,10 @@ impl CpuGradientStore {
 
     /// Get number of stored gradients
     pub fn gradient_count(&self) -> usize {
-        self.stored_gradients.read().unwrap().len()
+        self.stored_gradients
+            .read()
+            .expect("lock should not be poisoned")
+            .len()
     }
 
     /// Get memory utilization as a percentage
@@ -512,8 +554,14 @@ impl CpuGradientStore {
 
     /// Get CPU gradient store statistics
     pub fn get_statistics(&self) -> CpuGradientStoreStats {
-        let grads = self.stored_gradients.read().unwrap();
-        let metadata = self.gradient_metadata.lock().unwrap();
+        let grads = self
+            .stored_gradients
+            .read()
+            .expect("lock should not be poisoned");
+        let metadata = self
+            .gradient_metadata
+            .lock()
+            .expect("lock should not be poisoned");
 
         let total_elements: usize = metadata.values().map(|m| m.elements).sum();
 
@@ -593,12 +641,18 @@ impl GpuGradientBuffer {
         }
 
         {
-            let mut grads = self.stored_gradients.write().unwrap();
+            let mut grads = self
+                .stored_gradients
+                .write()
+                .expect("lock should not be poisoned");
             grads.insert(key.clone(), gradient.clone());
         }
 
         {
-            let mut metadata = self.buffer_metadata.lock().unwrap();
+            let mut metadata = self
+                .buffer_metadata
+                .lock()
+                .expect("lock should not be poisoned");
             metadata.insert(
                 key.clone(),
                 GradientBufferMetadata {
@@ -628,13 +682,19 @@ impl GpuGradientBuffer {
         partition_idx: usize,
     ) -> TorshResult<Option<Tensor<f32>>> {
         let key = format!("{}_{}", layer_name, partition_idx);
-        let grads = self.stored_gradients.read().unwrap();
+        let grads = self
+            .stored_gradients
+            .read()
+            .expect("lock should not be poisoned");
         Ok(grads.get(&key).cloned())
     }
 
     /// Get all gradients in the buffer
     pub async fn get_all_gradients(&self) -> TorshResult<HashMap<String, Tensor<f32>>> {
-        let grads = self.stored_gradients.read().unwrap();
+        let grads = self
+            .stored_gradients
+            .read()
+            .expect("lock should not be poisoned");
         Ok(grads.clone())
     }
 
@@ -647,7 +707,10 @@ impl GpuGradientBuffer {
         let key = format!("{}_{}", layer_name, partition_idx);
 
         let removed_gradient = {
-            let mut grads = self.stored_gradients.write().unwrap();
+            let mut grads = self
+                .stored_gradients
+                .write()
+                .expect("lock should not be poisoned");
             grads.remove(&key)
         };
 
@@ -656,7 +719,10 @@ impl GpuGradientBuffer {
             self.memory_used
                 .fetch_sub(grad_size, std::sync::atomic::Ordering::SeqCst);
 
-            let mut metadata = self.buffer_metadata.lock().unwrap();
+            let mut metadata = self
+                .buffer_metadata
+                .lock()
+                .expect("lock should not be poisoned");
             metadata.remove(&key);
         }
 
@@ -670,18 +736,27 @@ impl GpuGradientBuffer {
 
     /// Get number of buffered gradients
     pub fn gradient_count(&self) -> usize {
-        self.stored_gradients.read().unwrap().len()
+        self.stored_gradients
+            .read()
+            .expect("lock should not be poisoned")
+            .len()
     }
 
     /// Clear all gradients from the buffer
     pub fn clear(&self) -> TorshResult<()> {
         {
-            let mut grads = self.stored_gradients.write().unwrap();
+            let mut grads = self
+                .stored_gradients
+                .write()
+                .expect("lock should not be poisoned");
             grads.clear();
         }
 
         {
-            let mut metadata = self.buffer_metadata.lock().unwrap();
+            let mut metadata = self
+                .buffer_metadata
+                .lock()
+                .expect("lock should not be poisoned");
             metadata.clear();
         }
 
@@ -700,8 +775,14 @@ impl GpuGradientBuffer {
 
     /// Get GPU gradient buffer statistics
     pub fn get_statistics(&self) -> GpuGradientBufferStats {
-        let grads = self.stored_gradients.read().unwrap();
-        let metadata = self.buffer_metadata.lock().unwrap();
+        let grads = self
+            .stored_gradients
+            .read()
+            .expect("lock should not be poisoned");
+        let metadata = self
+            .buffer_metadata
+            .lock()
+            .expect("lock should not be poisoned");
 
         let total_elements: usize = metadata.values().map(|m| m.elements).sum();
 

@@ -1,12 +1,15 @@
 //! Enhanced neural network operations with cuDNN integration
 
 use crate::cuda::stream::CudaStream;
+use crate::cuda::tensor_cores::TensorCoreContext;
 use crate::error::BackendResult;
-use crate::tensor_cores::TensorCoreContext;
 use cust::prelude::DevicePointer;
 
 #[cfg(feature = "cudnn")]
-use crate::cudnn::CudnnOps;
+use crate::cuda::cudnn::CudnnOps;
+
+#[cfg(feature = "cudnn")]
+use crate::cuda::cudnn::types::{ActivationMode, PoolingMode};
 
 /// Enhanced neural operations that can use cuDNN and Tensor Cores when available
 pub struct EnhancedNeuralOps {
@@ -20,7 +23,7 @@ impl EnhancedNeuralOps {
     pub fn new() -> BackendResult<Self> {
         // Try to initialize Tensor Cores (assuming Compute 7.0+ for now)
         let tensor_cores = {
-            let mut context = TensorCoreContext::new(8, 0); // Ampere as default
+            let context = TensorCoreContext::new(8, 0); // Ampere as default
             if context.is_enabled() {
                 Some(context)
             } else {
@@ -118,6 +121,7 @@ impl EnhancedNeuralOps {
     }
 
     /// Fallback convolution using custom CUDA kernels
+    #[allow(unused_variables)]
     fn conv2d_fallback(
         &self,
         input: DevicePointer<f32>,
@@ -132,30 +136,11 @@ impl EnhancedNeuralOps {
         dilation: (i32, i32),
         stream: &CudaStream,
     ) -> BackendResult<()> {
-        let bias_ptr = bias.map(|b| b.as_raw_mut()).unwrap_or(std::ptr::null_mut());
-
-        crate::kernels::neural_ops::launch_conv2d_f32(
-            input.as_raw_mut(),
-            weight.as_raw_mut(),
-            bias_ptr,
-            output.as_raw_mut(),
-            input_shape.0,  // batch_size
-            input_shape.1,  // in_channels
-            weight_shape.0, // out_channels
-            input_shape.2,  // input_height
-            input_shape.3,  // input_width
-            weight_shape.2, // kernel_height
-            weight_shape.3, // kernel_width
-            padding.0,      // pad_h
-            padding.1,      // pad_w
-            stride.0,       // stride_h
-            stride.1,       // stride_w
-            dilation.0,     // dilation_h
-            dilation.1,     // dilation_w
-            stream.raw() as cuda_sys::CUstream,
-        );
-
-        Ok(())
+        // Fallback convolution kernels not yet implemented
+        // Requires custom CUDA kernel implementation
+        Err(crate::error::BackendError::NotImplemented(
+            "Convolution fallback kernel not implemented (requires cuDNN)".to_string(),
+        ))
     }
 
     /// Perform ReLU activation with optimal backend selection
@@ -178,23 +163,17 @@ impl EnhancedNeuralOps {
     }
 
     /// Fallback ReLU using custom CUDA kernels
+    #[allow(unused_variables)]
     fn relu_fallback(
         &self,
         input: DevicePointer<f32>,
         output: DevicePointer<f32>,
         shape: (i32, i32, i32, i32),
     ) -> BackendResult<()> {
-        let size = (shape.0 * shape.1 * shape.2 * shape.3) as usize;
-
-        // Use tensor operations for element-wise ReLU
-        crate::kernels::tensor_ops::launch_relu_f32(
-            input.as_raw_mut(),
-            output.as_raw_mut(),
-            size,
-            std::ptr::null_mut() as cuda_sys::CUstream,
-        );
-
-        Ok(())
+        // Fallback ReLU kernels not yet implemented
+        Err(crate::error::BackendError::NotImplemented(
+            "ReLU fallback kernel not implemented (requires cuDNN)".to_string(),
+        ))
     }
 
     /// Perform sigmoid activation with optimal backend selection
@@ -217,23 +196,17 @@ impl EnhancedNeuralOps {
     }
 
     /// Fallback sigmoid using custom CUDA kernels
+    #[allow(unused_variables)]
     fn sigmoid_fallback(
         &self,
         input: DevicePointer<f32>,
         output: DevicePointer<f32>,
         shape: (i32, i32, i32, i32),
     ) -> BackendResult<()> {
-        let size = (shape.0 * shape.1 * shape.2 * shape.3) as usize;
-
-        // Use tensor operations for element-wise sigmoid
-        crate::kernels::tensor_ops::launch_sigmoid_f32(
-            input.as_raw_mut(),
-            output.as_raw_mut(),
-            size,
-            std::ptr::null_mut() as cuda_sys::CUstream,
-        );
-
-        Ok(())
+        // Fallback sigmoid kernels not yet implemented
+        Err(crate::error::BackendError::NotImplemented(
+            "Sigmoid fallback kernel not implemented (requires cuDNN)".to_string(),
+        ))
     }
 
     /// Perform tanh activation with optimal backend selection
@@ -256,23 +229,17 @@ impl EnhancedNeuralOps {
     }
 
     /// Fallback tanh using custom CUDA kernels
+    #[allow(unused_variables)]
     fn tanh_fallback(
         &self,
         input: DevicePointer<f32>,
         output: DevicePointer<f32>,
         shape: (i32, i32, i32, i32),
     ) -> BackendResult<()> {
-        let size = (shape.0 * shape.1 * shape.2 * shape.3) as usize;
-
-        // Use tensor operations for element-wise tanh
-        crate::kernels::tensor_ops::launch_tanh_f32(
-            input.as_raw_mut(),
-            output.as_raw_mut(),
-            size,
-            std::ptr::null_mut() as cuda_sys::CUstream,
-        );
-
-        Ok(())
+        // Fallback tanh kernels not yet implemented
+        Err(crate::error::BackendError::NotImplemented(
+            "Tanh fallback kernel not implemented (requires cuDNN)".to_string(),
+        ))
     }
 
     /// Perform 2D max pooling with optimal backend selection
@@ -285,7 +252,7 @@ impl EnhancedNeuralOps {
         kernel_size: (i32, i32),
         padding: (i32, i32),
         stride: (i32, i32),
-        stream: &CudaStream,
+        _stream: &CudaStream,
     ) -> BackendResult<()> {
         #[cfg(feature = "cudnn")]
         {
@@ -304,26 +271,10 @@ impl EnhancedNeuralOps {
             }
         }
 
-        // Fall back to custom CUDA kernels
-        crate::kernels::neural_ops::launch_maxpool2d_f32(
-            input.as_raw_mut(),
-            output.as_raw_mut(),
-            input_shape.0,  // batch_size
-            input_shape.1,  // channels
-            input_shape.2,  // input_height
-            input_shape.3,  // input_width
-            output_shape.2, // output_height
-            output_shape.3, // output_width
-            kernel_size.0,  // kernel_height
-            kernel_size.1,  // kernel_width
-            padding.0,      // pad_h
-            padding.1,      // pad_w
-            stride.0,       // stride_h
-            stride.1,       // stride_w
-            stream.raw() as cuda_sys::CUstream,
-        );
-
-        Ok(())
+        // Fallback maxpool kernels not yet implemented
+        Err(crate::error::BackendError::NotImplemented(
+            "MaxPool2D fallback kernel not implemented (requires cuDNN)".to_string(),
+        ))
     }
 
     /// Perform 2D batch normalization with optimal backend selection
@@ -339,7 +290,7 @@ impl EnhancedNeuralOps {
         eps: f32,
         momentum: f32,
         training: bool,
-        stream: &CudaStream,
+        _stream: &CudaStream,
     ) -> BackendResult<()> {
         #[cfg(feature = "cudnn")]
         {
@@ -360,28 +311,14 @@ impl EnhancedNeuralOps {
             }
         }
 
-        // Fall back to custom CUDA kernels
-        crate::kernels::neural_ops::launch_batchnorm2d_f32(
-            input.as_raw_mut(),
-            output.as_raw_mut(),
-            weight.as_raw_mut(),
-            bias.as_raw_mut(),
-            running_mean.as_raw_mut(),
-            running_var.as_raw_mut(),
-            shape.0, // batch_size
-            shape.1, // channels
-            shape.2, // height
-            shape.3, // width
-            eps,
-            momentum,
-            training,
-            stream.raw() as cuda_sys::CUstream,
-        );
-
-        Ok(())
+        // Fallback batchnorm kernels not yet implemented
+        Err(crate::error::BackendError::NotImplemented(
+            "BatchNorm2D fallback kernel not implemented (requires cuDNN)".to_string(),
+        ))
     }
 
     /// Perform softmax
+    #[allow(unused_variables)]
     pub fn softmax_forward(
         &self,
         input: DevicePointer<f32>,
@@ -390,16 +327,10 @@ impl EnhancedNeuralOps {
         classes: i32,
         stream: &CudaStream,
     ) -> BackendResult<()> {
-        // Softmax uses custom kernels
-        crate::kernels::neural_ops::launch_softmax_f32(
-            input.as_raw_mut(),
-            output.as_raw_mut(),
-            batch_size,
-            classes,
-            stream.raw() as cuda_sys::CUstream,
-        );
-
-        Ok(())
+        // Fallback softmax kernels not yet implemented
+        Err(crate::error::BackendError::NotImplemented(
+            "Softmax fallback kernel not implemented (requires custom kernel)".to_string(),
+        ))
     }
 }
 

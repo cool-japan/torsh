@@ -45,15 +45,27 @@ impl PySGD {
         Python::attach(|py| {
             param_group_data.insert(
                 "momentum".to_string(),
-                momentum.into_pyobject(py).unwrap().into_any().unbind(),
+                momentum
+                    .into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
             param_group_data.insert(
                 "dampening".to_string(),
-                dampening.into_pyobject(py).unwrap().into_any().unbind(),
+                dampening
+                    .into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
             param_group_data.insert(
                 "weight_decay".to_string(),
-                weight_decay.into_pyobject(py).unwrap().into_any().unbind(),
+                weight_decay
+                    .into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
             param_group_data.insert(
                 "nesterov".to_string(),
@@ -155,7 +167,10 @@ impl PySGD {
             if self.momentum != 0.0 {
                 state.insert(
                     "momentum_buffer".to_string(),
-                    "{}".into_pyobject(py).unwrap().into_any().unbind(),
+                    "{}".into_pyobject(py)
+                        .expect("Python object conversion should succeed")
+                        .into_any()
+                        .unbind(),
                 );
             }
         });
@@ -169,9 +184,9 @@ impl PySGD {
             state_dict.insert(
                 "state".to_string(),
                 self.state()
-                    .unwrap()
+                    .expect("Python object conversion should succeed")
                     .into_pyobject(py)
-                    .unwrap()
+                    .expect("Python object conversion should succeed")
                     .into_any()
                     .unbind(),
             );
@@ -189,7 +204,7 @@ impl PySGD {
                 "param_groups".to_string(),
                 param_groups_clone
                     .into_pyobject(py)
-                    .unwrap()
+                    .expect("Python object conversion should succeed")
                     .into_any()
                     .unbind(),
             );
@@ -211,13 +226,21 @@ impl PySGD {
             if !param_group.contains_key("lr") {
                 param_group.insert(
                     "lr".to_string(),
-                    self.lr.into_pyobject(py).unwrap().into_any().unbind(),
+                    self.lr
+                        .into_pyobject(py)
+                        .expect("Python object conversion should succeed")
+                        .into_any()
+                        .unbind(),
                 );
             }
             if !param_group.contains_key("momentum") {
                 param_group.insert(
                     "momentum".to_string(),
-                    self.momentum.into_pyobject(py).unwrap().into_any().unbind(),
+                    self.momentum
+                        .into_pyobject(py)
+                        .expect("Python object conversion should succeed")
+                        .into_any()
+                        .unbind(),
                 );
             }
             if !param_group.contains_key("dampening") {
@@ -225,7 +248,7 @@ impl PySGD {
                     "dampening".to_string(),
                     self.dampening
                         .into_pyobject(py)
-                        .unwrap()
+                        .expect("Python object conversion should succeed")
                         .into_any()
                         .unbind(),
                 );
@@ -235,7 +258,7 @@ impl PySGD {
                     "weight_decay".to_string(),
                     self.weight_decay
                         .into_pyobject(py)
-                        .unwrap()
+                        .expect("Python object conversion should succeed")
                         .into_any()
                         .unbind(),
                 );
@@ -266,17 +289,25 @@ impl PySGD {
         Python::attach(|py| {
             defaults.insert(
                 "lr".to_string(),
-                self.lr.into_pyobject(py).unwrap().into_any().unbind(),
+                self.lr
+                    .into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
             defaults.insert(
                 "momentum".to_string(),
-                self.momentum.into_pyobject(py).unwrap().into_any().unbind(),
+                self.momentum
+                    .into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
             defaults.insert(
                 "dampening".to_string(),
                 self.dampening
                     .into_pyobject(py)
-                    .unwrap()
+                    .expect("Python object conversion should succeed")
                     .into_any()
                     .unbind(),
             );
@@ -284,7 +315,7 @@ impl PySGD {
                 "weight_decay".to_string(),
                 self.weight_decay
                     .into_pyobject(py)
-                    .unwrap()
+                    .expect("Python object conversion should succeed")
                     .into_any()
                     .unbind(),
             );
@@ -311,7 +342,10 @@ impl PySGD {
             for param_group in &mut self.param_groups {
                 param_group.insert(
                     "lr".to_string(),
-                    lr.into_pyobject(py).unwrap().into_any().unbind(),
+                    lr.into_pyobject(py)
+                        .expect("Python object conversion should succeed")
+                        .into_any()
+                        .unbind(),
                 );
             }
         });

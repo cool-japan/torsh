@@ -676,7 +676,10 @@ impl DefragmentationManager {
 
         // Check if defragmentation is needed (unless forced)
         if !force {
-            let memory_manager = self.memory_managers.get(device_id).unwrap();
+            let memory_manager = self
+                .memory_managers
+                .get(device_id)
+                .expect("device_id should exist in memory_managers");
             if !memory_manager.needs_defragmentation() {
                 return Ok(DefragmentationResult {
                     blocks_moved: 0,
@@ -730,7 +733,10 @@ impl DefragmentationManager {
 
     /// Get current defragmentation status for all devices
     pub fn get_status(&self) -> HashMap<String, Option<DefragmentationTask>> {
-        let tasks = self.active_tasks.read().unwrap();
+        let tasks = self
+            .active_tasks
+            .read()
+            .expect("lock should not be poisoned");
         let mut status = HashMap::new();
 
         for device_id in self.memory_managers.keys() {
@@ -742,12 +748,18 @@ impl DefragmentationManager {
 
     /// Get defragmentation statistics
     pub fn get_stats(&self) -> DefragmentationStats {
-        self.stats.lock().unwrap().clone()
+        self.stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Cancel defragmentation for a device
     pub fn cancel_defragmentation(&self, device_id: &str) -> BackendResult<()> {
-        let mut tasks = self.active_tasks.write().unwrap();
+        let mut tasks = self
+            .active_tasks
+            .write()
+            .expect("lock should not be poisoned");
         if let Some(task) = tasks.get_mut(device_id) {
             task.status = TaskStatus::Cancelled;
             Ok(())
@@ -803,7 +815,7 @@ impl DefragmentationManager {
 
             // Add task to active tasks
             {
-                let mut tasks = active_tasks.write().unwrap();
+                let mut tasks = active_tasks.write().expect("lock should not be poisoned");
                 tasks.insert(request.device_id.clone(), task);
             }
 
@@ -832,7 +844,7 @@ impl DefragmentationManager {
 
             // Update task status
             {
-                let mut tasks = active_tasks.write().unwrap();
+                let mut tasks = active_tasks.write().expect("lock should not be poisoned");
                 if let Some(task) = tasks.get_mut(&request.device_id) {
                     task.progress = 1.0;
                     task.status = if success {
@@ -845,7 +857,7 @@ impl DefragmentationManager {
 
             // Update statistics
             {
-                let mut stats = stats.lock().unwrap();
+                let mut stats = stats.lock().expect("lock should not be poisoned");
                 stats.total_operations += 1;
                 stats.total_time += elapsed;
                 stats.total_bytes_moved += bytes_moved;
@@ -868,7 +880,7 @@ impl DefragmentationManager {
             // Remove completed task after a short delay for status visibility
             tokio::time::sleep(Duration::from_millis(1000)).await;
             {
-                let mut tasks = active_tasks.write().unwrap();
+                let mut tasks = active_tasks.write().expect("lock should not be poisoned");
                 tasks.remove(&request.device_id);
             }
         }
@@ -948,7 +960,7 @@ impl DefragmentationManager {
 
             // Update progress
             {
-                let mut tasks = active_tasks.write().unwrap();
+                let mut tasks = active_tasks.write().expect("lock should not be poisoned");
                 if let Some(task) = tasks.get_mut(device_id) {
                     task.progress = progress;
                 }
@@ -974,7 +986,7 @@ impl DefragmentationManager {
 
             // Update progress
             {
-                let mut tasks = active_tasks.write().unwrap();
+                let mut tasks = active_tasks.write().expect("lock should not be poisoned");
                 if let Some(task) = tasks.get_mut(device_id) {
                     task.progress = progress;
                 }
@@ -1018,19 +1030,15 @@ impl DefragmentationManager {
     #[cfg(feature = "cuda")]
     #[allow(unused_unsafe)]
     async fn execute_cuda_block_move(
-        cuda_device: &SciRs2CudaDevice,
-        block_move: &BlockMove,
+        _cuda_device: &SciRs2CudaDevice,
+        _block_move: &BlockMove,
     ) -> BackendResult<()> {
-        unsafe {
-            scirs2_cuda::memory::copy_device_to_device(
-                cuda_device,
-                block_move.from_address as *const u8,
-                block_move.to_address as *mut u8,
-                block_move.size,
-            )
-            .map_err(|e| BackendError::BackendError(format!("CUDA block move failed: {}", e)))?;
-        }
-        Ok(())
+        // TODO: Implement when scirs2_cuda memory operations are available
+        // For now, return an error indicating the feature is not yet implemented
+        Err(BackendError::BackendError(
+            "CUDA block move not yet implemented - requires scirs2_cuda memory operations"
+                .to_string(),
+        ))
     }
 
     /// Execute Metal block move using SciRS2
@@ -1112,7 +1120,10 @@ impl DefragmentationManager {
                 continue;
             }
 
-            let memory_manager = self.memory_managers.get(device_id).unwrap();
+            let memory_manager = self
+                .memory_managers
+                .get(device_id)
+                .expect("device_id should exist in memory_managers");
             let fragmentation_info = memory_manager.fragmentation_info();
 
             // Check if auto-trigger threshold is exceeded

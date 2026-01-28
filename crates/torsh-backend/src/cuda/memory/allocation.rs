@@ -4,8 +4,11 @@
 //! throughout the CUDA memory management system. It defines the basic
 //! interfaces for different types of CUDA memory allocations.
 
+// Allow unused_mut in tests for stub implementations
+#![allow(unused_mut)]
 #[allow(unused_imports)]
 use crate::cuda::error::CudaResult;
+use cust::memory::DevicePointer as CustDevicePointer;
 use std::time::Instant;
 
 /// Thread-safe wrapper for raw pointers used in CUDA allocations.
@@ -33,9 +36,24 @@ impl<T> SendSyncPtr<T> {
         self.0
     }
 
+    /// Get the raw pointer (alias for compatibility)
+    pub fn as_raw(&self) -> *mut T {
+        self.0
+    }
+
     /// Check if the pointer is null
     pub fn is_null(&self) -> bool {
         self.0.is_null()
+    }
+
+    /// Cast to a different type
+    pub fn cast<U>(&self) -> SendSyncPtr<U> {
+        SendSyncPtr(self.0 as *mut U)
+    }
+
+    /// Get the mutable raw pointer (alias for as_raw/as_ptr)
+    pub fn as_mut_ptr(&self) -> *mut T {
+        self.0
     }
 }
 
@@ -57,8 +75,9 @@ impl<T> From<*mut T> for SendSyncPtr<T> {
     }
 }
 
-/// Device pointer wrapper that is thread-safe
-pub type DevicePointer<T> = SendSyncPtr<T>;
+/// Local device pointer type alias for backwards compatibility
+/// Note: For CudaAllocation, use cust::memory::DevicePointer directly
+pub type LocalDevicePointer<T> = SendSyncPtr<T>;
 
 /// CUDA memory allocation trait
 ///
@@ -103,10 +122,10 @@ pub enum AllocationType {
 /// Represents memory allocated on the GPU device using cudaMalloc.
 /// This memory is only accessible from device code unless explicitly
 /// copied to/from host memory.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct CudaAllocation {
     /// Device pointer to allocated memory
-    pub ptr: DevicePointer<u8>,
+    pub ptr: CustDevicePointer<u8>,
 
     /// Size of allocation in bytes
     pub size: usize,
@@ -122,9 +141,6 @@ pub struct CudaAllocation {
 
     /// Device ID where memory was allocated
     pub device_id: usize,
-
-    /// Additional metadata for tracking
-    pub metadata: AllocationMetadata,
 }
 
 /// Unified memory allocation
@@ -177,7 +193,7 @@ pub struct PinnedAllocation {
     pub is_mapped: bool,
 
     /// Device pointer if mapped
-    pub device_ptr: Option<DevicePointer<u8>>,
+    pub device_ptr: Option<CustDevicePointer<u8>>,
 
     /// Mapping flags used during allocation
     pub mapping_flags: PinnedMemoryFlags,
@@ -279,7 +295,7 @@ pub struct PinnedMemoryFlags {
 }
 
 /// General allocation metadata
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct AllocationMetadata {
     /// Unique allocation ID
     pub id: u64,
@@ -305,8 +321,25 @@ pub struct AllocationMetadata {
     /// Expected lifetime hint
     pub expected_lifetime: Option<std::time::Duration>,
 
-    /// Custom user data
+    /// Custom user data (not cloneable - will be None after clone)
     pub user_data: Option<Box<dyn std::any::Any + Send + Sync>>,
+}
+
+impl Clone for AllocationMetadata {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id,
+            tag: self.tag.clone(),
+            stack_trace: self.stack_trace.clone(),
+            thread_id: self.thread_id,
+            process_id: self.process_id,
+            alignment: self.alignment,
+            is_temporary: self.is_temporary,
+            expected_lifetime: self.expected_lifetime,
+            // user_data can't be cloned, so we set it to None
+            user_data: None,
+        }
+    }
 }
 
 /// Allocation request parameters
@@ -387,7 +420,7 @@ pub struct AllocationStats {
 // Implementation for CudaAllocation
 impl CudaAllocation {
     /// Create a new CUDA device memory allocation
-    pub fn new(ptr: DevicePointer<u8>, size: usize, size_class: usize) -> Self {
+    pub fn new(ptr: CustDevicePointer<u8>, size: usize, size_class: usize) -> Self {
         Self {
             ptr,
             size,
@@ -395,13 +428,12 @@ impl CudaAllocation {
             allocation_time: Instant::now(),
             in_use: true,
             device_id: 0, // Default, should be set by allocator
-            metadata: AllocationMetadata::new(),
         }
     }
 
     /// Create allocation with specific device
     pub fn new_on_device(
-        ptr: DevicePointer<u8>,
+        ptr: CustDevicePointer<u8>,
         size: usize,
         size_class: usize,
         device_id: usize,
@@ -413,12 +445,11 @@ impl CudaAllocation {
             allocation_time: Instant::now(),
             in_use: true,
             device_id,
-            metadata: AllocationMetadata::new(),
         }
     }
 
-    /// Get device pointer as raw pointer
-    pub fn as_device_ptr(&self) -> DevicePointer<u8> {
+    /// Get device pointer
+    pub fn as_device_ptr(&self) -> CustDevicePointer<u8> {
         self.ptr
     }
 
@@ -441,11 +472,21 @@ impl CudaAllocation {
     pub fn age(&self) -> std::time::Duration {
         Instant::now().duration_since(self.allocation_time)
     }
+
+    /// Get raw pointer (inherent method for convenience)
+    pub fn as_ptr(&self) -> *mut u8 {
+        self.ptr.as_ptr() as *mut u8
+    }
+
+    /// Get allocation size (inherent method for convenience)
+    pub fn size(&self) -> usize {
+        self.size
+    }
 }
 
 impl CudaMemoryAllocation for CudaAllocation {
     fn as_ptr(&self) -> *mut u8 {
-        self.ptr.as_raw_mut()
+        self.ptr.as_ptr() as *mut u8
     }
 
     fn size(&self) -> usize {
@@ -457,7 +498,7 @@ impl CudaMemoryAllocation for CudaAllocation {
     }
 
     fn is_valid(&self) -> bool {
-        !self.ptr.as_raw().is_null() && self.size > 0
+        !self.ptr.is_null() && self.size > 0
     }
 
     fn allocation_type(&self) -> AllocationType {
@@ -465,12 +506,18 @@ impl CudaMemoryAllocation for CudaAllocation {
     }
 }
 
+// SAFETY: CudaAllocation contains a DevicePointer which represents GPU memory.
+// GPU memory access is synchronized through CUDA streams and events, and the
+// memory management system ensures proper synchronization before any cross-thread access.
+unsafe impl Send for CudaAllocation {}
+unsafe impl Sync for CudaAllocation {}
+
 // Implementation for UnifiedAllocation
 impl UnifiedAllocation {
     /// Create new unified memory allocation
     pub fn new(ptr: *mut u8, size: usize) -> Self {
         Self {
-            ptr,
+            ptr: SendSyncPtr::new(ptr),
             size,
             allocation_time: Instant::now(),
             preferred_location: PreferredLocation::Auto,
@@ -487,7 +534,7 @@ impl UnifiedAllocation {
         preferred_location: PreferredLocation,
     ) -> Self {
         Self {
-            ptr,
+            ptr: SendSyncPtr::new(ptr),
             size,
             allocation_time: Instant::now(),
             preferred_location,
@@ -495,6 +542,21 @@ impl UnifiedAllocation {
             migration_stats: MigrationStats::default(),
             metadata: AllocationMetadata::new(),
         }
+    }
+
+    /// Get raw pointer
+    pub fn ptr(&self) -> *mut u8 {
+        self.ptr.as_ptr()
+    }
+
+    /// Get raw pointer (alias for trait compatibility)
+    pub fn as_ptr(&self) -> *mut u8 {
+        self.ptr.as_ptr()
+    }
+
+    /// Get allocation size
+    pub fn size(&self) -> usize {
+        self.size
     }
 
     /// Get age of allocation
@@ -526,11 +588,55 @@ impl UnifiedAllocation {
 
         self.migration_stats.last_migration = Some(Instant::now());
     }
+
+    /// Copy data from host memory to this unified allocation
+    ///
+    /// For unified memory, this is essentially a memcpy since the memory
+    /// is accessible from both CPU and GPU. The GPU driver handles data
+    /// migration transparently.
+    pub fn copy_from_host<T>(&self, data: &[T]) -> CudaResult<()> {
+        let byte_size = data.len() * std::mem::size_of::<T>();
+        if byte_size > self.size {
+            return Err(crate::cuda::error::CudaError::AllocationError(format!(
+                "Source data ({} bytes) larger than allocation ({} bytes)",
+                byte_size, self.size
+            )));
+        }
+
+        unsafe {
+            std::ptr::copy_nonoverlapping(data.as_ptr() as *const u8, self.ptr.as_ptr(), byte_size);
+        }
+        Ok(())
+    }
+
+    /// Copy data from this unified allocation to host memory
+    ///
+    /// For unified memory, this is essentially a memcpy since the memory
+    /// is accessible from both CPU and GPU. The GPU driver handles data
+    /// migration transparently.
+    pub fn copy_to_host<T>(&self, data: &mut [T]) -> CudaResult<()> {
+        let byte_size = data.len() * std::mem::size_of::<T>();
+        if byte_size > self.size {
+            return Err(crate::cuda::error::CudaError::AllocationError(format!(
+                "Destination buffer ({} bytes) larger than allocation ({} bytes)",
+                byte_size, self.size
+            )));
+        }
+
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                self.ptr.as_ptr() as *const u8,
+                data.as_mut_ptr() as *mut u8,
+                byte_size,
+            );
+        }
+        Ok(())
+    }
 }
 
 impl CudaMemoryAllocation for UnifiedAllocation {
     fn as_ptr(&self) -> *mut u8 {
-        self.ptr
+        self.ptr.as_ptr()
     }
 
     fn size(&self) -> usize {
@@ -555,7 +661,7 @@ impl PinnedAllocation {
     /// Create new pinned memory allocation
     pub fn new(ptr: *mut u8, size: usize) -> Self {
         Self {
-            ptr,
+            ptr: SendSyncPtr::new(ptr),
             size,
             allocation_time: Instant::now(),
             usage_count: 0,
@@ -570,11 +676,11 @@ impl PinnedAllocation {
     pub fn new_with_mapping(
         ptr: *mut u8,
         size: usize,
-        device_ptr: Option<DevicePointer<u8>>,
+        device_ptr: Option<CustDevicePointer<u8>>,
         flags: PinnedMemoryFlags,
     ) -> Self {
         Self {
-            ptr,
+            ptr: SendSyncPtr::new(ptr),
             size,
             allocation_time: Instant::now(),
             usage_count: 0,
@@ -601,14 +707,14 @@ impl PinnedAllocation {
     }
 
     /// Get device pointer if mapped
-    pub fn device_ptr(&self) -> Option<DevicePointer<u8>> {
+    pub fn device_ptr(&self) -> Option<CustDevicePointer<u8>> {
         self.device_ptr
     }
 }
 
 impl CudaMemoryAllocation for PinnedAllocation {
     fn as_ptr(&self) -> *mut u8 {
-        self.ptr
+        self.ptr.as_ptr()
     }
 
     fn size(&self) -> usize {
@@ -627,6 +733,12 @@ impl CudaMemoryAllocation for PinnedAllocation {
         AllocationType::Pinned
     }
 }
+
+// SAFETY: PinnedAllocation contains a SendSyncPtr (which is Send+Sync) and
+// an optional DevicePointer for mapped memory. GPU memory access is synchronized
+// through CUDA streams and events, ensuring safe cross-thread access.
+unsafe impl Send for PinnedAllocation {}
+unsafe impl Sync for PinnedAllocation {}
 
 // Default implementations
 impl Default for AccessHints {
@@ -673,7 +785,13 @@ impl AllocationMetadata {
             id: ALLOCATION_COUNTER.fetch_add(1, Ordering::Relaxed),
             tag: None,
             stack_trace: None,
-            thread_id: std::thread::current().id().as_u64().get(),
+            // Use a hash of the thread ID since as_u64() is unstable
+            thread_id: {
+                use std::hash::{Hash, Hasher};
+                let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                std::thread::current().id().hash(&mut hasher);
+                hasher.finish()
+            },
             process_id: std::process::id(),
             alignment: 1,
             is_temporary: false,
@@ -793,7 +911,7 @@ pub fn size_class(size: usize) -> usize {
     if size <= MIN_SIZE {
         MIN_SIZE
     } else {
-        (size - 1).next_power_of_two().max(MIN_SIZE)
+        size.next_power_of_two().max(MIN_SIZE)
     }
 }
 
@@ -803,7 +921,7 @@ pub fn pinned_size_class(size: usize) -> usize {
     if size <= MIN_SIZE {
         MIN_SIZE
     } else {
-        (size - 1).next_power_of_two().max(MIN_SIZE)
+        size.next_power_of_two().max(MIN_SIZE)
     }
 }
 

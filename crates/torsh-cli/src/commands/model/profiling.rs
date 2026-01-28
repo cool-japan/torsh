@@ -336,7 +336,7 @@ fn simulate_forward_pass(_model: &TorshModel) -> Result<()> {
 fn estimate_current_memory_usage() -> f64 {
     // In real implementation, would query actual memory usage
     // For now, return a simulated value
-    use scirs2_core::random::{thread_rng, Rng};
+    use scirs2_core::random::thread_rng;
     let mut rng = thread_rng();
     50.0 + rng.random::<f64>() * 10.0 // 50-60 MB
 }

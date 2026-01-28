@@ -62,20 +62,29 @@ impl MemoryManager {
         match self.config.memory_strategy {
             MemoryOptimizationStrategy::Basic => {
                 // Store all activations in memory
-                let mut activations = self.stored_activations.lock().unwrap();
+                let mut activations = self
+                    .stored_activations
+                    .lock()
+                    .expect("lock should not be poisoned");
                 activations.insert(key, activation.clone());
             }
             MemoryOptimizationStrategy::Standard => {
                 // Store every 2nd activation
                 if layer_idx % 2 == 0 {
-                    let mut activations = self.stored_activations.lock().unwrap();
+                    let mut activations = self
+                        .stored_activations
+                        .lock()
+                        .expect("lock should not be poisoned");
                     activations.insert(key, activation.clone());
                 }
             }
             MemoryOptimizationStrategy::Aggressive => {
                 // Store every 4th activation
                 if layer_idx % 4 == 0 {
-                    let mut activations = self.stored_activations.lock().unwrap();
+                    let mut activations = self
+                        .stored_activations
+                        .lock()
+                        .expect("lock should not be poisoned");
                     activations.insert(key, activation.clone());
                 }
             }
@@ -107,7 +116,10 @@ impl MemoryManager {
 
         // First check in-memory storage
         {
-            let activations = self.stored_activations.lock().unwrap();
+            let activations = self
+                .stored_activations
+                .lock()
+                .expect("lock should not be poisoned");
             if let Some(activation) = activations.get(&key) {
                 return Ok(activation.clone());
             }
@@ -115,7 +127,10 @@ impl MemoryManager {
 
         // Check cache
         {
-            let cache = self.activation_cache.lock().unwrap();
+            let cache = self
+                .activation_cache
+                .lock()
+                .expect("lock should not be poisoned");
             let cache_key = format!("{}_{}", layer_idx, micro_batch_id);
             if let Some(cached) = cache.get(&cache_key) {
                 if !cached.is_expired() {
@@ -145,7 +160,10 @@ impl MemoryManager {
 
         // Store minimal metadata for retrieval
         let cache_key = format!("disk_{}_{}", key.layer_idx, key.micro_batch_id);
-        let mut cache = self.activation_cache.lock().unwrap();
+        let mut cache = self
+            .activation_cache
+            .lock()
+            .expect("lock should not be poisoned");
         cache.insert(
             cache_key,
             CachedActivation {
@@ -164,7 +182,10 @@ impl MemoryManager {
         tokio::time::sleep(tokio::time::Duration::from_millis(20)).await;
 
         let cache_key = format!("disk_{}_{}", key.layer_idx, key.micro_batch_id);
-        let cache = self.activation_cache.lock().unwrap();
+        let cache = self
+            .activation_cache
+            .lock()
+            .expect("lock should not be poisoned");
         if let Some(cached) = cache.get(&cache_key) {
             Ok(cached.tensor.clone())
         } else {
@@ -186,7 +207,10 @@ impl MemoryManager {
 
         // Cache the recomputed activation
         let cache_key = format!("recomputed_{}_{}", layer_idx, micro_batch_id);
-        let mut cache = self.activation_cache.lock().unwrap();
+        let mut cache = self
+            .activation_cache
+            .lock()
+            .expect("lock should not be poisoned");
         cache.insert(
             cache_key,
             CachedActivation {
@@ -201,7 +225,10 @@ impl MemoryManager {
 
     /// Update memory usage statistics
     fn update_memory_usage(&self, additional_bytes: usize) {
-        let mut stats = self.memory_stats.lock().unwrap();
+        let mut stats = self
+            .memory_stats
+            .lock()
+            .expect("lock should not be poisoned");
         stats.current_usage_bytes += additional_bytes;
         if stats.current_usage_bytes > stats.peak_usage_bytes {
             stats.peak_usage_bytes = stats.current_usage_bytes;
@@ -211,7 +238,10 @@ impl MemoryManager {
 
     /// Free stored activations to release memory
     pub fn free_activations(&self, before_micro_batch: usize) {
-        let mut activations = self.stored_activations.lock().unwrap();
+        let mut activations = self
+            .stored_activations
+            .lock()
+            .expect("lock should not be poisoned");
         let keys_to_remove: Vec<_> = activations
             .keys()
             .filter(|k| k.micro_batch_id < before_micro_batch)
@@ -226,7 +256,10 @@ impl MemoryManager {
         }
 
         // Update statistics
-        let mut stats = self.memory_stats.lock().unwrap();
+        let mut stats = self
+            .memory_stats
+            .lock()
+            .expect("lock should not be poisoned");
         stats.current_usage_bytes = stats.current_usage_bytes.saturating_sub(freed_bytes);
         stats.total_deallocations += 1;
     }
@@ -311,7 +344,11 @@ impl MemoryManager {
     /// Move activations to disk
     async fn move_activations_to_disk(&self, count: usize) -> TorshResult<usize> {
         let mut moved = 0;
-        let activations = self.stored_activations.lock().unwrap().clone();
+        let activations = self
+            .stored_activations
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone();
 
         for (key, tensor) in activations.iter().take(count) {
             self.store_to_disk(key, tensor).await?;
@@ -319,7 +356,10 @@ impl MemoryManager {
         }
 
         // Remove from memory after moving to disk
-        let mut activations = self.stored_activations.lock().unwrap();
+        let mut activations = self
+            .stored_activations
+            .lock()
+            .expect("lock should not be poisoned");
         let keys: Vec<_> = activations.keys().take(count).cloned().collect();
         for key in keys {
             activations.remove(&key);
@@ -330,17 +370,26 @@ impl MemoryManager {
 
     /// Clear activation cache
     async fn clear_activation_cache(&self) -> TorshResult<()> {
-        let mut cache = self.activation_cache.lock().unwrap();
+        let mut cache = self
+            .activation_cache
+            .lock()
+            .expect("lock should not be poisoned");
         cache.clear();
         Ok(())
     }
 
     /// Clear all memory caches
     async fn clear_all_memory_caches(&self) -> TorshResult<()> {
-        let mut activations = self.stored_activations.lock().unwrap();
+        let mut activations = self
+            .stored_activations
+            .lock()
+            .expect("lock should not be poisoned");
         activations.clear();
 
-        let mut cache = self.activation_cache.lock().unwrap();
+        let mut cache = self
+            .activation_cache
+            .lock()
+            .expect("lock should not be poisoned");
         cache.clear();
 
         Ok(())
@@ -348,13 +397,19 @@ impl MemoryManager {
 
     /// Get current memory usage in bytes
     pub fn get_current_memory_usage(&self) -> usize {
-        let stats = self.memory_stats.lock().unwrap();
+        let stats = self
+            .memory_stats
+            .lock()
+            .expect("lock should not be poisoned");
         stats.current_usage_bytes
     }
 
     /// Get memory usage statistics
     pub fn get_memory_stats(&self) -> MemoryUsageStats {
-        self.memory_stats.lock().unwrap().clone()
+        self.memory_stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Get current micro-batch number
@@ -364,13 +419,19 @@ impl MemoryManager {
 
     /// Allocate tensor from memory pool
     pub fn allocate_tensor(&self, shape: &[usize]) -> TorshResult<Tensor<f32>> {
-        let mut pool = self.memory_pool.lock().unwrap();
+        let mut pool = self
+            .memory_pool
+            .lock()
+            .expect("lock should not be poisoned");
         pool.allocate_tensor(shape)
     }
 
     /// Return tensor to memory pool
     pub fn deallocate_tensor(&self, tensor: Tensor<f32>) {
-        let mut pool = self.memory_pool.lock().unwrap();
+        let mut pool = self
+            .memory_pool
+            .lock()
+            .expect("lock should not be poisoned");
         pool.deallocate_tensor(tensor);
     }
 }

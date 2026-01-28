@@ -35,10 +35,10 @@ fn create_clustered_data_2d(
         let center_x = (cluster_id as f32) * 5.0;
         let center_y = (cluster_id as f32) * 5.0;
 
-        for _ in 0..n_samples_per_cluster {
-            // Add some randomness around center
-            let noise_x = (cluster_id as f32 * 0.1) % 1.0;
-            let noise_y = (cluster_id as f32 * 0.2) % 1.0;
+        for sample_idx in 0..n_samples_per_cluster {
+            // Add deterministic per-sample noise around center
+            let noise_x = ((cluster_id * 1000 + sample_idx * 17) as f32 * 0.1) % 1.0;
+            let noise_y = ((cluster_id * 1000 + sample_idx * 23) as f32 * 0.15) % 1.0;
 
             all_data.push(center_x + noise_x);
             all_data.push(center_y + noise_y);

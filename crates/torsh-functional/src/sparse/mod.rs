@@ -8,7 +8,7 @@
 //! - [`core`] - Core SparseTensor struct and basic operations (creation, conversion, coalescing)
 //! - [`arithmetic`] - Basic arithmetic operations (addition, scalar multiplication)
 //! - [`linalg`] - Linear algebra operations (matrix multiplication, transpose, identity)
-//! - [`format`] - Format conversion utilities (COO ↔ CSR conversion)
+//! - [`mod@format`] - Format conversion utilities (COO ↔ CSR conversion)
 //! - [`convolution`] - Convolution operations (1D and 2D sparse convolutions)
 //! - [`reduction`] - Reduction operations (sum, mean, max, min)
 //!

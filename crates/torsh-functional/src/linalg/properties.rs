@@ -17,9 +17,9 @@ use super::decompositions::svd;
 /// Equivalently, it's the number of linearly independent columns (or rows).
 ///
 /// Using SVD, A = UΣV^T, the rank equals the number of non-zero singular values:
-/// ```
+/// ```text
 /// rank(A) = |{i : σᵢ > tolerance}|
-/// ```
+/// ```text
 ///
 /// ## Numerical Considerations
 ///
@@ -63,9 +63,9 @@ pub fn matrix_rank(tensor: &Tensor, tol: Option<f32>) -> TorshResult<Tensor> {
 ///
 /// The condition number measures how sensitive a matrix's inverse is to small
 /// changes in the matrix. For the 2-norm (spectral norm):
-/// ```
+/// ```text
 /// κ(A) = ||A||₂ ||A⁻¹||₂ = σₘₐₓ(A) / σₘᵢₙ(A)
-/// ```
+/// ```text
 ///
 /// where σₘₐₓ and σₘᵢₙ are the largest and smallest singular values.
 ///
@@ -192,9 +192,9 @@ pub fn det(tensor: &Tensor) -> TorshResult<Tensor> {
 /// Matrix Inverse
 ///
 /// Computes the inverse of a square matrix A such that:
-/// ```
+/// ```text
 /// A A⁻¹ = A⁻¹ A = I
-/// ```
+/// ```text
 ///
 /// ## Mathematical Definition
 ///
@@ -214,9 +214,9 @@ pub fn det(tensor: &Tensor) -> TorshResult<Tensor> {
 /// ## Gauss-Jordan Algorithm
 ///
 /// This implementation uses Gauss-Jordan elimination with partial pivoting:
-/// ```
+/// ```text
 /// [A | I] → [I | A⁻¹]
-/// ```
+/// ```text
 ///
 /// 1. **Augment**: Create [A | I] where I is the identity matrix
 /// 2. **Forward elimination**: Reduce A to row echelon form
@@ -361,9 +361,9 @@ pub fn inv(tensor: &Tensor) -> TorshResult<Tensor> {
 /// ## SVD Construction
 ///
 /// Given the SVD A = U Σ V^T, the pseudoinverse is:
-/// ```
+/// ```text
 /// A⁺ = V Σ⁺ U^T
-/// ```
+/// ```text
 /// where Σ⁺ is formed by:
 /// - Transposing Σ
 /// - Taking reciprocal of non-zero singular values

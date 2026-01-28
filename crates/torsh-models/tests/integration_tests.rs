@@ -259,7 +259,7 @@ mod rl_tests {
     fn test_dqn_forward() -> Result<(), Box<dyn std::error::Error>> {
         let config = DQNConfig::default();
 
-        let mut model = DQN::new(config)?;
+        let model = DQN::new(config)?;
         let state = create_test_tensor(&[1, 4], DeviceType::Cpu)?;
 
         let q_values = model.forward(&state)?;
@@ -272,7 +272,7 @@ mod rl_tests {
     fn test_ppo_forward() -> Result<(), Box<dyn std::error::Error>> {
         let config = PPOConfig::default();
 
-        let mut model = PPO::new(config)?;
+        let model = PPO::new(config)?;
         let state = create_test_tensor(&[1, 4], DeviceType::Cpu)?;
 
         // Test actor forward pass
@@ -293,6 +293,7 @@ mod domain_tests {
     use torsh_models::domain::*;
 
     #[test]
+    #[ignore] // Slow test (~367s) - run with --ignored flag if needed
     fn test_unet_forward() -> Result<(), Box<dyn std::error::Error>> {
         let config = UNetConfig {
             in_channels: 1,
@@ -306,7 +307,7 @@ mod domain_tests {
             activation: "relu".to_string(),
         };
 
-        let mut model = UNet::new(config)?;
+        let model = UNet::new(config)?;
         let input = create_test_tensor(&[1, 1, 128, 128], DeviceType::Cpu)?;
 
         let output = model.forward(&input)?;
@@ -328,7 +329,7 @@ mod domain_tests {
             adaptive_weights: false,
         };
 
-        let mut model = PINN::new(config)?;
+        let model = PINN::new(config)?;
         let coords = create_test_tensor(&[100, 2], DeviceType::Cpu)?; // 100 coordinate points
 
         let solution = model.forward(&coords)?;

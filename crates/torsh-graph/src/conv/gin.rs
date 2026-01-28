@@ -33,7 +33,8 @@ impl GINConv {
     ) -> Self {
         let eps_param = if train_eps {
             Some(Parameter::new(
-                torsh_tensor::creation::tensor_scalar(eps as f32).unwrap(),
+                torsh_tensor::creation::tensor_scalar(eps as f32)
+                    .expect("failed to create epsilon scalar"),
             ))
         } else {
             None
@@ -42,12 +43,18 @@ impl GINConv {
         // Create a simple 2-layer MLP
         let hidden_dim = (in_features + out_features) / 2;
         let mlp = vec![
-            Parameter::new(randn(&[in_features, hidden_dim]).unwrap()),
-            Parameter::new(randn(&[hidden_dim, out_features]).unwrap()),
+            Parameter::new(
+                randn(&[in_features, hidden_dim]).expect("failed to create MLP layer 1 weights"),
+            ),
+            Parameter::new(
+                randn(&[hidden_dim, out_features]).expect("failed to create MLP layer 2 weights"),
+            ),
         ];
 
         let bias = if bias {
-            Some(Parameter::new(zeros(&[out_features]).unwrap()))
+            Some(Parameter::new(
+                zeros(&[out_features]).expect("failed to create bias tensor"),
+            ))
         } else {
             None
         };
@@ -66,7 +73,10 @@ impl GINConv {
     /// Apply GIN convolution
     pub fn forward(&self, graph: &GraphData) -> GraphData {
         let num_nodes = graph.num_nodes;
-        let edge_flat = graph.edge_index.to_vec().unwrap();
+        let edge_flat = graph
+            .edge_index
+            .to_vec()
+            .expect("conversion should succeed");
         let num_edges = edge_flat.len() / 2;
         let edge_data = vec![
             edge_flat[0..num_edges].to_vec(),
@@ -84,50 +94,77 @@ impl GINConv {
         }
 
         // Aggregate neighbor features (sum aggregation for GIN)
-        let neighbor_features = zeros(&[num_nodes, self.in_features]).unwrap();
+        let neighbor_features = zeros(&[num_nodes, self.in_features])
+            .expect("failed to create neighbor features tensor");
 
         for node in 0..num_nodes {
-            let mut aggregated = zeros(&[self.in_features]).unwrap();
+            let mut aggregated =
+                zeros(&[self.in_features]).expect("failed to create aggregated features tensor");
 
             // Sum all neighbor features
             for &neighbor in &adjacency_list[node] {
                 let neighbor_feat = graph
                     .x
                     .slice_tensor(0, neighbor, neighbor + 1)
-                    .unwrap()
+                    .expect("failed to slice neighbor features")
                     .squeeze_tensor(0)
-                    .unwrap();
-                aggregated = aggregated.add(&neighbor_feat).unwrap();
+                    .expect("failed to squeeze neighbor features");
+                aggregated = aggregated
+                    .add(&neighbor_feat)
+                    .expect("operation should succeed");
             }
 
-            let mut node_slice = neighbor_features.slice_tensor(0, node, node + 1).unwrap();
-            let _ = node_slice.copy_(&aggregated.unsqueeze_tensor(0).unwrap());
+            let mut node_slice = neighbor_features
+                .slice_tensor(0, node, node + 1)
+                .expect("failed to slice neighbor features");
+            let _ = node_slice.copy_(
+                &aggregated
+                    .unsqueeze_tensor(0)
+                    .expect("failed to unsqueeze aggregated features"),
+            );
         }
 
         // Get epsilon value
         let epsilon = if let Some(ref eps_param) = self.eps_param {
-            eps_param.clone_data().to_vec().unwrap()[0] as f64
+            eps_param
+                .clone_data()
+                .to_vec()
+                .expect("conversion should succeed")[0] as f64
         } else {
             self.eps
         };
 
         // Combine self and neighbor features: (1 + eps) * h_i + sum(h_j)
-        let self_weighted = graph.x.mul_scalar((1.0 + epsilon) as f32).unwrap();
-        let combined_features = self_weighted.add(&neighbor_features).unwrap();
+        let self_weighted = graph
+            .x
+            .mul_scalar((1.0 + epsilon) as f32)
+            .expect("failed to scale self features");
+        let combined_features = self_weighted
+            .add(&neighbor_features)
+            .expect("operation should succeed");
 
         // Apply MLP
-        let mut output = combined_features.matmul(&self.mlp[0].clone_data()).unwrap();
+        let mut output = combined_features
+            .matmul(&self.mlp[0].clone_data())
+            .expect("operation should succeed");
 
         // Apply ReLU activation (using max with zero tensor)
-        let zero_tensor = zeros(output.shape().dims()).unwrap();
-        output = output.maximum(&zero_tensor).unwrap();
+        let zero_tensor =
+            zeros(output.shape().dims()).expect("failed to create zero tensor for ReLU");
+        output = output
+            .maximum(&zero_tensor)
+            .expect("failed to apply ReLU activation");
 
         // Second layer
-        output = output.matmul(&self.mlp[1].clone_data()).unwrap();
+        output = output
+            .matmul(&self.mlp[1].clone_data())
+            .expect("operation should succeed");
 
         // Add bias if present
         if let Some(ref bias) = self.bias {
-            output = output.add(&bias.clone_data()).unwrap();
+            output = output
+                .add(&bias.clone_data())
+                .expect("operation should succeed");
         }
 
         // Create output graph

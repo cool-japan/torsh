@@ -15,7 +15,7 @@
 // Framework infrastructure - components designed for future use
 #![allow(clippy::await_holding_lock)]
 #![allow(dead_code)]
-use scirs2_core::random::{thread_rng, Rng};
+use scirs2_core::random::thread_rng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, RwLock};
@@ -353,7 +353,7 @@ impl RdmaMemoryPool {
 
     /// Allocate a memory region from the pool
     pub fn allocate(&self, size: usize) -> RdmaResult<MemoryRegion> {
-        let mut stats = self.stats.lock().unwrap();
+        let mut stats = self.stats.lock().expect("lock should not be poisoned");
         stats.allocations += 1;
 
         // Find the best fitting region size
@@ -368,7 +368,7 @@ impl RdmaMemoryPool {
                 size.next_power_of_two()
             });
 
-        let mut regions = self.regions.write().unwrap();
+        let mut regions = self.regions.write().expect("lock should not be poisoned");
 
         if let Some(size_regions) = regions.get_mut(&region_size) {
             if let Some(region) = size_regions.pop() {
@@ -385,10 +385,10 @@ impl RdmaMemoryPool {
 
     /// Return a memory region to the pool
     pub fn deallocate(&self, mut region: MemoryRegion) {
-        let mut stats = self.stats.lock().unwrap();
+        let mut stats = self.stats.lock().expect("lock should not be poisoned");
         stats.deallocations += 1;
 
-        let mut regions = self.regions.write().unwrap();
+        let mut regions = self.regions.write().expect("lock should not be poisoned");
         let size_regions = regions.entry(region.size).or_default();
 
         if size_regions.len() < self.config.max_pool_size {
@@ -417,7 +417,7 @@ impl RdmaMemoryPool {
 
     /// Get memory pool statistics
     pub fn statistics(&self) -> MemoryPoolStats {
-        (*self.stats.lock().unwrap()).clone()
+        (*self.stats.lock().expect("lock should not be poisoned")).clone()
     }
 }
 
@@ -508,7 +508,7 @@ impl RdmaConnectionManager {
 
         self.connections
             .write()
-            .unwrap()
+            .expect("lock should not be poisoned")
             .insert(connection_id, connection);
         Ok(connection_id)
     }
@@ -604,7 +604,7 @@ impl RdmaConnectionManager {
         };
 
         // Update statistics
-        let mut stats = self.stats.lock().unwrap();
+        let mut stats = self.stats.lock().expect("lock should not be poisoned");
         stats.total_operations += 1;
         *stats
             .operations_by_type
@@ -617,7 +617,10 @@ impl RdmaConnectionManager {
 
     /// Get connection statistics
     pub fn statistics(&self) -> RdmaStatistics {
-        self.stats.lock().unwrap().clone()
+        self.stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Get memory pool statistics
@@ -695,13 +698,19 @@ impl RdmaTensorScheduler {
 
     /// Schedule a tensor operation for RDMA execution
     pub async fn schedule_operation(&self, operation: TensorOperation) -> RdmaResult<()> {
-        self.operation_queue.lock().unwrap().push(operation);
+        self.operation_queue
+            .lock()
+            .expect("lock should not be poisoned")
+            .push(operation);
         self.optimize_scheduling().await
     }
 
     async fn optimize_scheduling(&self) -> RdmaResult<()> {
         #[allow(clippy::await_holding_lock)]
-        let mut queue = self.operation_queue.lock().unwrap();
+        let mut queue = self
+            .operation_queue
+            .lock()
+            .expect("lock should not be poisoned");
 
         // Sort operations by priority and deadline
         queue.sort_by(|a, b| {

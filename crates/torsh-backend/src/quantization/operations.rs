@@ -731,7 +731,7 @@ impl HardwareQuantizationOps {
                         // Set the output value (we need to access the mutable data)
                         // This is a simplified approach - in practice, we'd need a mutable accessor
                         unsafe {
-                            let output_data = output.data_slice_mut(0, output.data().len()).unwrap();
+                            let output_data = output.data_slice_mut(0, output.data().len()).expect("output data slice should be valid");
                             output_data[output_idx] = quantized_output;
                         }
                     }

@@ -1210,7 +1210,7 @@ mod tests {
         let output = relu.forward(&input).unwrap();
         let expected = vec![0.0, 0.0, 1.0, 2.0];
 
-        assert_eq!(output.to_vec().unwrap(), expected);
+        assert_eq!(output.to_vec().expect("tensor to vec conversion should succeed"), expected);
     }
 
     #[test]
@@ -1220,7 +1220,7 @@ mod tests {
         let output = leaky_relu.forward(&input).unwrap();
         let expected = vec![-0.1, 0.0, 1.0, 2.0];
 
-        for (actual, expected) in output.to_vec().unwrap().iter().zip(expected.iter()) {
+        for (actual, expected) in output.to_vec().expect("tensor to vec conversion should succeed").iter().zip(expected.iter()) {
             assert_relative_eq!(actual, expected, epsilon = 1e-5);
         }
     }
@@ -1232,7 +1232,7 @@ mod tests {
         let output = relu6.forward(&input).unwrap();
         let expected = vec![0.0, 0.0, 3.0, 6.0];
 
-        assert_eq!(output.to_vec().unwrap(), expected);
+        assert_eq!(output.to_vec().expect("tensor to vec conversion should succeed"), expected);
     }
 
     #[test]
@@ -1242,7 +1242,7 @@ mod tests {
         let output = sigmoid.forward(&input).unwrap();
 
         // sigmoid(0) should be 0.5
-        assert_relative_eq!(output.to_vec().unwrap()[0], 0.5, epsilon = 1e-5);
+        assert_relative_eq!(output.to_vec().expect("tensor to vec conversion should succeed")[0], 0.5, epsilon = 1e-5);
     }
 
     #[test]
@@ -1252,7 +1252,7 @@ mod tests {
         let output = tanh.forward(&input).unwrap();
 
         // tanh(0) should be 0.0
-        assert_relative_eq!(output.to_vec().unwrap()[0], 0.0, epsilon = 1e-5);
+        assert_relative_eq!(output.to_vec().expect("tensor to vec conversion should succeed")[0], 0.0, epsilon = 1e-5);
     }
 
     #[test]
@@ -1262,7 +1262,7 @@ mod tests {
         let output = hardtanh.forward(&input).unwrap();
         let expected = vec![-1.0, 0.0, 1.0];
 
-        assert_eq!(output.to_vec().unwrap(), expected);
+        assert_eq!(output.to_vec().expect("tensor to vec conversion should succeed"), expected);
     }
 
     #[test]
@@ -1272,7 +1272,7 @@ mod tests {
         let output = threshold.forward(&input).unwrap();
         let expected = vec![0.0, 0.0, 10.0];
 
-        assert_eq!(output.to_vec().unwrap(), expected);
+        assert_eq!(output.to_vec().expect("tensor to vec conversion should succeed"), expected);
     }
 
     #[test]
@@ -1283,7 +1283,7 @@ mod tests {
         let output = hardshrink.forward(&input).unwrap();
         let expected = vec![-2.0, 0.0, 0.0, 2.0];
 
-        assert_eq!(output.to_vec().unwrap(), expected);
+        assert_eq!(output.to_vec().expect("tensor to vec conversion should succeed"), expected);
     }
 
     #[test]

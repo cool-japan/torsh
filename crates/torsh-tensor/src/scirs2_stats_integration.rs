@@ -15,8 +15,8 @@
 //! - **Survival Analysis**: Kaplan-Meier, Cox regression
 
 use crate::{FloatElement, Tensor, TensorElement};
-use num_traits::ToPrimitive;
 use scirs2_core::ndarray::{Array1, Array2};
+use scirs2_core::numeric::ToPrimitive;
 use std::collections::HashMap;
 use torsh_core::error::{Result, TorshError};
 
@@ -96,14 +96,14 @@ impl SciRS2StatsProcessor {
         let n = data.len() as f64;
         let mean = data
             .iter()
-            .map(|&x| ToPrimitive::to_f64(&x).unwrap())
+            .map(|&x| ToPrimitive::to_f64(&x).expect("f64 conversion should succeed"))
             .sum::<f64>()
             / n;
 
         let variance = data
             .iter()
             .map(|&x| {
-                let diff = ToPrimitive::to_f64(&x).unwrap() - mean;
+                let diff = ToPrimitive::to_f64(&x).expect("f64 conversion should succeed") - mean;
                 diff * diff
             })
             .sum::<f64>()
@@ -115,7 +115,9 @@ impl SciRS2StatsProcessor {
         let skewness = if std_dev > 0.0 {
             data.iter()
                 .map(|&x| {
-                    let z = (ToPrimitive::to_f64(&x).unwrap() - mean) / std_dev;
+                    let z = (ToPrimitive::to_f64(&x).expect("f64 conversion should succeed")
+                        - mean)
+                        / std_dev;
                     z * z * z
                 })
                 .sum::<f64>()
@@ -128,7 +130,9 @@ impl SciRS2StatsProcessor {
         let kurtosis = if std_dev > 0.0 {
             data.iter()
                 .map(|&x| {
-                    let z = (ToPrimitive::to_f64(&x).unwrap() - mean) / std_dev;
+                    let z = (ToPrimitive::to_f64(&x).expect("f64 conversion should succeed")
+                        - mean)
+                        / std_dev;
                     z * z * z * z
                 })
                 .sum::<f64>()
@@ -141,9 +145,9 @@ impl SciRS2StatsProcessor {
         // Quantiles
         let mut sorted_data: Vec<f64> = data
             .iter()
-            .map(|&x| ToPrimitive::to_f64(&x).unwrap())
+            .map(|&x| ToPrimitive::to_f64(&x).expect("f64 conversion should succeed"))
             .collect();
-        sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         let q25 = self.percentile(&sorted_data, 25.0);
         let median = self.percentile(&sorted_data, 50.0);
@@ -151,17 +155,17 @@ impl SciRS2StatsProcessor {
 
         Ok(DescriptiveStats {
             count: n as usize,
-            mean: T::from_f64(mean).unwrap(),
-            std_dev: T::from_f64(std_dev).unwrap(),
-            variance: T::from_f64(variance).unwrap(),
-            skewness: T::from_f64(skewness).unwrap(),
-            kurtosis: T::from_f64(kurtosis).unwrap(),
-            min: T::from_f64(sorted_data[0]).unwrap(),
+            mean: T::from_f64(mean).expect("f64 conversion should succeed"),
+            std_dev: T::from_f64(std_dev).expect("f64 conversion should succeed"),
+            variance: T::from_f64(variance).expect("f64 conversion should succeed"),
+            skewness: T::from_f64(skewness).expect("f64 conversion should succeed"),
+            kurtosis: T::from_f64(kurtosis).expect("f64 conversion should succeed"),
+            min: T::from_f64(sorted_data[0]).expect("f64 conversion should succeed"),
             max: T::from_f64(sorted_data[sorted_data.len() - 1]).unwrap(),
-            q25: T::from_f64(q25).unwrap(),
-            median: T::from_f64(median).unwrap(),
-            q75: T::from_f64(q75).unwrap(),
-            iqr: T::from_f64(q75 - q25).unwrap(),
+            q25: T::from_f64(q25).expect("f64 conversion should succeed"),
+            median: T::from_f64(median).expect("f64 conversion should succeed"),
+            q75: T::from_f64(q75).expect("f64 conversion should succeed"),
+            iqr: T::from_f64(q75 - q25).expect("f64 conversion should succeed"),
         })
     }
 
@@ -180,10 +184,14 @@ impl SciRS2StatsProcessor {
         for i in 0..n_cols {
             for j in 0..n_cols {
                 let col_i: Vec<f64> = (0..n_rows)
-                    .map(|row| ToPrimitive::to_f64(&data[[row, i]]).unwrap())
+                    .map(|row| {
+                        ToPrimitive::to_f64(&data[[row, i]]).expect("f64 conversion should succeed")
+                    })
                     .collect();
                 let col_j: Vec<f64> = (0..n_rows)
-                    .map(|row| ToPrimitive::to_f64(&data[[row, j]]).unwrap())
+                    .map(|row| {
+                        ToPrimitive::to_f64(&data[[row, j]]).expect("f64 conversion should succeed")
+                    })
                     .collect();
 
                 let correlation = self.pearson_correlation(&col_i, &col_j);
@@ -211,19 +219,20 @@ impl SciRS2StatsProcessor {
     ) -> Result<TTestResult<T>> {
         let values = self.tensor_to_array1(data)?;
         let n = values.len() as f64;
-        let expected = ToPrimitive::to_f64(&expected_mean).unwrap();
+        let expected = ToPrimitive::to_f64(&expected_mean).expect("f64 conversion should succeed");
 
         // TODO: Use actual scirs2-stats t-test when API stabilizes
         let sample_mean = values
             .iter()
-            .map(|&x| ToPrimitive::to_f64(&x).unwrap())
+            .map(|&x| ToPrimitive::to_f64(&x).expect("f64 conversion should succeed"))
             .sum::<f64>()
             / n;
 
         let sample_var = values
             .iter()
             .map(|&x| {
-                let diff = ToPrimitive::to_f64(&x).unwrap() - sample_mean;
+                let diff =
+                    ToPrimitive::to_f64(&x).expect("f64 conversion should succeed") - sample_mean;
                 diff * diff
             })
             .sum::<f64>()
@@ -237,9 +246,10 @@ impl SciRS2StatsProcessor {
         let p_value = 2.0 * (1.0 - self.t_cdf(t_statistic.abs(), degrees_of_freedom));
 
         Ok(TTestResult {
-            t_statistic: T::from_f64(t_statistic).unwrap(),
-            p_value: T::from_f64(p_value).unwrap(),
-            degrees_of_freedom: T::from_f64(degrees_of_freedom).unwrap(),
+            t_statistic: T::from_f64(t_statistic).expect("f64 conversion should succeed"),
+            p_value: T::from_f64(p_value).expect("f64 conversion should succeed"),
+            degrees_of_freedom: T::from_f64(degrees_of_freedom)
+                .expect("f64 conversion should succeed"),
             confidence_interval: self.compute_confidence_interval(
                 sample_mean,
                 standard_error,
@@ -265,19 +275,19 @@ impl SciRS2StatsProcessor {
 
         let mean1 = data1
             .iter()
-            .map(|&x| ToPrimitive::to_f64(&x).unwrap())
+            .map(|&x| ToPrimitive::to_f64(&x).expect("f64 conversion should succeed"))
             .sum::<f64>()
             / n1;
         let mean2 = data2
             .iter()
-            .map(|&x| ToPrimitive::to_f64(&x).unwrap())
+            .map(|&x| ToPrimitive::to_f64(&x).expect("f64 conversion should succeed"))
             .sum::<f64>()
             / n2;
 
         let var1 = data1
             .iter()
             .map(|&x| {
-                let diff = ToPrimitive::to_f64(&x).unwrap() - mean1;
+                let diff = ToPrimitive::to_f64(&x).expect("f64 conversion should succeed") - mean1;
                 diff * diff
             })
             .sum::<f64>()
@@ -286,7 +296,7 @@ impl SciRS2StatsProcessor {
         let var2 = data2
             .iter()
             .map(|&x| {
-                let diff = ToPrimitive::to_f64(&x).unwrap() - mean2;
+                let diff = ToPrimitive::to_f64(&x).expect("f64 conversion should succeed") - mean2;
                 diff * diff
             })
             .sum::<f64>()
@@ -311,9 +321,10 @@ impl SciRS2StatsProcessor {
         let p_value = 2.0 * (1.0 - self.t_cdf(t_statistic.abs(), degrees_of_freedom));
 
         Ok(TTestResult {
-            t_statistic: T::from_f64(t_statistic).unwrap(),
-            p_value: T::from_f64(p_value).unwrap(),
-            degrees_of_freedom: T::from_f64(degrees_of_freedom).unwrap(),
+            t_statistic: T::from_f64(t_statistic).expect("f64 conversion should succeed"),
+            p_value: T::from_f64(p_value).expect("f64 conversion should succeed"),
+            degrees_of_freedom: T::from_f64(degrees_of_freedom)
+                .expect("f64 conversion should succeed"),
             confidence_interval: self.compute_confidence_interval(
                 mean1 - mean2,
                 standard_error,
@@ -345,11 +356,11 @@ impl SciRS2StatsProcessor {
 
         let x_vals: Vec<f64> = x_data
             .iter()
-            .map(|&v| ToPrimitive::to_f64(&v).unwrap())
+            .map(|&v| ToPrimitive::to_f64(&v).expect("f64 conversion should succeed"))
             .collect();
         let y_vals: Vec<f64> = y_data
             .iter()
-            .map(|&v| ToPrimitive::to_f64(&v).unwrap())
+            .map(|&v| ToPrimitive::to_f64(&v).expect("f64 conversion should succeed"))
             .collect();
 
         let x_mean = x_vals.iter().sum::<f64>() / n;
@@ -384,12 +395,15 @@ impl SciRS2StatsProcessor {
         let intercept_se = (mse * (1.0 / n + x_mean * x_mean / denominator)).sqrt();
 
         Ok(RegressionResult {
-            coefficients: vec![T::from_f64(intercept).unwrap(), T::from_f64(slope).unwrap()],
-            standard_errors: vec![
-                T::from_f64(intercept_se).unwrap(),
-                T::from_f64(slope_se).unwrap(),
+            coefficients: vec![
+                T::from_f64(intercept).expect("f64 conversion should succeed"),
+                T::from_f64(slope).expect("f64 conversion should succeed"),
             ],
-            r_squared: T::from_f64(r_squared).unwrap(),
+            standard_errors: vec![
+                T::from_f64(intercept_se).expect("f64 conversion should succeed"),
+                T::from_f64(slope_se).expect("f64 conversion should succeed"),
+            ],
+            r_squared: T::from_f64(r_squared).expect("f64 conversion should succeed"),
             adjusted_r_squared: T::from_f64(1.0 - (1.0 - r_squared) * (n - 1.0) / (n - 2.0))
                 .unwrap(),
             f_statistic: T::from_f64(r_squared * (n - 2.0) / (1.0 - r_squared)).unwrap(),
@@ -397,7 +411,9 @@ impl SciRS2StatsProcessor {
                 let residuals_data: Vec<T> = y_vals
                     .iter()
                     .zip(y_pred.iter())
-                    .map(|(&y, &pred)| T::from_f64(y - pred).unwrap())
+                    .map(|(&y, &pred)| {
+                        T::from_f64(y - pred).expect("f64 conversion should succeed")
+                    })
                     .collect();
                 let len = residuals_data.len();
                 Tensor::from_vec(residuals_data, &[len])?
@@ -418,13 +434,13 @@ impl SciRS2StatsProcessor {
         let n = values.len() as f64;
         let mean = values
             .iter()
-            .map(|&x| ToPrimitive::to_f64(&x).unwrap())
+            .map(|&x| ToPrimitive::to_f64(&x).expect("f64 conversion should succeed"))
             .sum::<f64>()
             / n;
         let variance = values
             .iter()
             .map(|&x| {
-                let diff = ToPrimitive::to_f64(&x).unwrap() - mean;
+                let diff = ToPrimitive::to_f64(&x).expect("f64 conversion should succeed") - mean;
                 diff * diff
             })
             .sum::<f64>()
@@ -436,7 +452,8 @@ impl SciRS2StatsProcessor {
         let log_likelihood = values
             .iter()
             .map(|&x| {
-                let z = (ToPrimitive::to_f64(&x).unwrap() - mean) / std_dev;
+                let z = (ToPrimitive::to_f64(&x).expect("f64 conversion should succeed") - mean)
+                    / std_dev;
                 -0.5 * (2.0 * std::f64::consts::PI).ln() - std_dev.ln() - 0.5 * z * z
             })
             .sum::<f64>();
@@ -444,16 +461,23 @@ impl SciRS2StatsProcessor {
         Ok(DistributionFit {
             distribution_type: DistributionType::Normal,
             parameters: HashMap::from([
-                ("mean".to_string(), T::from_f64(mean).unwrap()),
-                ("std_dev".to_string(), T::from_f64(std_dev).unwrap()),
+                (
+                    "mean".to_string(),
+                    T::from_f64(mean).expect("f64 conversion should succeed"),
+                ),
+                (
+                    "std_dev".to_string(),
+                    T::from_f64(std_dev).expect("f64 conversion should succeed"),
+                ),
             ]),
-            log_likelihood: T::from_f64(log_likelihood).unwrap(),
-            aic: T::from_f64(-2.0 * log_likelihood + 2.0 * 2.0).unwrap(), // 2 parameters
+            log_likelihood: T::from_f64(log_likelihood).expect("f64 conversion should succeed"),
+            aic: T::from_f64(-2.0 * log_likelihood + 2.0 * 2.0)
+                .expect("f64 conversion should succeed"), // 2 parameters
             bic: T::from_f64(-2.0 * log_likelihood + 2.0 * n.ln()).unwrap(),
             goodness_of_fit: {
                 let values_f64: Vec<f64> = values
                     .iter()
-                    .map(|&x| ToPrimitive::to_f64(&x).unwrap())
+                    .map(|&x| ToPrimitive::to_f64(&x).expect("f64 conversion should succeed"))
                     .collect();
                 self.kolmogorov_smirnov_test(&values_f64, mean, std_dev)
             },
@@ -486,7 +510,10 @@ impl SciRS2StatsProcessor {
     }
 
     fn array2_to_tensor<T: TensorElement>(&self, array: &Array2<f64>) -> Result<Tensor<T>> {
-        let data: Vec<T> = array.iter().map(|&x| T::from_f64(x).unwrap()).collect();
+        let data: Vec<T> = array
+            .iter()
+            .map(|&x| T::from_f64(x).expect("f64 conversion should succeed"))
+            .collect();
         let shape = vec![array.nrows(), array.ncols()];
         Tensor::from_vec(data, &shape)
     }
@@ -559,8 +586,8 @@ impl SciRS2StatsProcessor {
 
         let margin_of_error = t_critical * standard_error;
         (
-            T::from_f64(estimate - margin_of_error).unwrap(),
-            T::from_f64(estimate + margin_of_error).unwrap(),
+            T::from_f64(estimate - margin_of_error).expect("f64 conversion should succeed"),
+            T::from_f64(estimate + margin_of_error).expect("f64 conversion should succeed"),
         )
     }
 

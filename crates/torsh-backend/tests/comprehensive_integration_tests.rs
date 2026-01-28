@@ -325,6 +325,7 @@ fn test_device_capabilities_consistency() {
 
 /// Test cross-backend validation for mathematical correctness
 #[test]
+#[ignore = "Requires CUDA hardware - run with --ignored flag"]
 fn test_cross_backend_math_correctness() {
     let validator = cross_backend_validation::CrossBackendValidator::new();
 

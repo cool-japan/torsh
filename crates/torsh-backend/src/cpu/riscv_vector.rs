@@ -395,11 +395,17 @@ impl RiscVVectorOps<i32> {
             #[cfg(not(target_arch = "riscv64"))]
             {
                 // Fallback implementation
-                *input.iter().max().unwrap()
+                *input
+                    .iter()
+                    .max()
+                    .expect("input should not be empty after guard")
             }
         } else {
             // Scalar fallback
-            *input.iter().max().unwrap()
+            *input
+                .iter()
+                .max()
+                .expect("input should not be empty after guard")
         }
     }
 
@@ -417,11 +423,17 @@ impl RiscVVectorOps<i32> {
             #[cfg(not(target_arch = "riscv64"))]
             {
                 // Fallback implementation
-                *input.iter().min().unwrap()
+                *input
+                    .iter()
+                    .min()
+                    .expect("input should not be empty after guard")
             }
         } else {
             // Scalar fallback
-            *input.iter().min().unwrap()
+            *input
+                .iter()
+                .min()
+                .expect("input should not be empty after guard")
         }
     }
 }

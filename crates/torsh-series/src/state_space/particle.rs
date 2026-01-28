@@ -24,9 +24,10 @@ pub struct ParticleFilter {
 impl ParticleFilter {
     /// Create a new particle filter
     pub fn new(num_particles: usize, state_dim: usize) -> Self {
-        let particles: Tensor<f32> = randn(&[num_particles, state_dim]).unwrap();
+        let particles: Tensor<f32> =
+            randn(&[num_particles, state_dim]).expect("tensor creation should succeed");
         // TODO: Implement tensor scalar division
-        let weights = ones(&[num_particles]).unwrap(); // / num_particles as f32;
+        let weights = ones(&[num_particles]).expect("tensor creation should succeed"); // / num_particles as f32;
 
         Self {
             num_particles,
@@ -45,7 +46,7 @@ impl ParticleFilter {
 
         let weights = weights.unwrap_or_else(|| {
             // Equal weights if not provided
-            ones(&[num_particles]).unwrap()
+            ones(&[num_particles]).expect("tensor creation should succeed")
         });
 
         Self {
@@ -104,7 +105,8 @@ impl ParticleFilter {
             }
 
             // Create normalized weights tensor
-            self.weights = Tensor::from_vec(weights_vec, &[self.num_particles]).unwrap();
+            self.weights = Tensor::from_vec(weights_vec, &[self.num_particles])
+                .expect("tensor creation should succeed");
         }
     }
 
@@ -157,7 +159,8 @@ impl ParticleFilter {
 
         // Generate systematic sample points
         let mut rng = thread_rng();
-        let dist = Uniform::new(0.0, 1.0 / self.num_particles as f64).unwrap();
+        let dist = Uniform::new(0.0, 1.0 / self.num_particles as f64)
+            .expect("distribution should succeed");
         let u0 = dist.sample(&mut rng);
 
         let mut resampled_indices = Vec::with_capacity(self.num_particles);
@@ -187,7 +190,8 @@ impl ParticleFilter {
 
         // Update particles
         self.particles =
-            Tensor::from_vec(resampled_particles, &[self.num_particles, self.state_dim]).unwrap();
+            Tensor::from_vec(resampled_particles, &[self.num_particles, self.state_dim])
+                .expect("tensor creation should succeed");
     }
 
     /// Multinomial resampling
@@ -221,7 +225,7 @@ impl ParticleFilter {
 
         // Sample particles
         let mut rng = thread_rng();
-        let dist = Uniform::new(0.0, 1.0).unwrap();
+        let dist = Uniform::new(0.0, 1.0).expect("distribution should succeed");
 
         let mut resampled_indices = Vec::with_capacity(self.num_particles);
         for _ in 0..self.num_particles {
@@ -247,7 +251,8 @@ impl ParticleFilter {
 
         // Update particles
         self.particles =
-            Tensor::from_vec(resampled_particles, &[self.num_particles, self.state_dim]).unwrap();
+            Tensor::from_vec(resampled_particles, &[self.num_particles, self.state_dim])
+                .expect("tensor creation should succeed");
     }
 
     /// Resample particles based on weights
@@ -262,7 +267,7 @@ impl ParticleFilter {
             }
 
             // Reset weights to uniform after resampling
-            self.weights = ones(&[self.num_particles]).unwrap();
+            self.weights = ones(&[self.num_particles]).expect("tensor creation should succeed");
             self.normalize_weights();
         }
     }
@@ -271,7 +276,10 @@ impl ParticleFilter {
     pub fn predict(&mut self, transition_fn: &dyn Fn(&Tensor) -> Tensor) {
         // Apply transition to each particle
         for i in 0..self.num_particles {
-            let particle = self.particles.slice_tensor(0, i, i + 1).unwrap();
+            let particle = self
+                .particles
+                .slice_tensor(0, i, i + 1)
+                .expect("slice should succeed");
             let _predicted = transition_fn(&particle);
             // TODO: Update particle in place when tensor operations are available
         }
@@ -285,11 +293,15 @@ impl ParticleFilter {
     ) {
         // Apply transition and add noise to each particle
         for i in 0..self.num_particles {
-            let particle = self.particles.slice_tensor(0, i, i + 1).unwrap();
+            let particle = self
+                .particles
+                .slice_tensor(0, i, i + 1)
+                .expect("slice should succeed");
             let _predicted = transition_fn(&particle);
 
             // Add noise
-            let _noise: Tensor<f32> = randn(&[1, self.state_dim]).unwrap();
+            let _noise: Tensor<f32> =
+                randn(&[1, self.state_dim]).expect("tensor creation should succeed");
             // TODO: Implement scalar multiplication and addition
             // let noisy_predicted = &predicted + &(&noise * noise_std);
 
@@ -305,7 +317,10 @@ impl ParticleFilter {
     ) {
         // Update particle weights based on likelihood
         for i in 0..self.num_particles {
-            let particle = self.particles.slice_tensor(0, i, i + 1).unwrap();
+            let particle = self
+                .particles
+                .slice_tensor(0, i, i + 1)
+                .expect("slice should succeed");
             let _likelihood = likelihood_fn(&particle, observation);
 
             // TODO: Update weight in place when tensor indexing is available
@@ -323,14 +338,14 @@ impl ParticleFilter {
         // weighted_sum
 
         // For now, return simple mean
-        zeros(&[self.state_dim]).unwrap()
+        zeros(&[self.state_dim]).expect("tensor creation should succeed")
     }
 
     /// Get state covariance estimate
     pub fn covariance(&self) -> Tensor {
         // Weighted covariance of particles
         // TODO: Implement when tensor operations are available
-        zeros(&[self.state_dim, self.state_dim]).unwrap()
+        zeros(&[self.state_dim, self.state_dim]).expect("tensor creation should succeed")
     }
 
     /// Run particle filter on time series
@@ -347,7 +362,10 @@ impl ParticleFilter {
             self.predict(transition_fn);
 
             // Update
-            let obs = series.values.slice_tensor(0, t, t + 1).unwrap();
+            let obs = series
+                .values
+                .slice_tensor(0, t, t + 1)
+                .expect("slice should succeed");
             self.update(&obs, likelihood_fn);
 
             // Resample
@@ -358,7 +376,8 @@ impl ParticleFilter {
         }
 
         // TODO: Stack estimates into tensor
-        let values = zeros(&[series.len(), self.state_dim]).unwrap();
+        let values =
+            zeros(&[series.len(), self.state_dim]).expect("tensor creation should succeed");
         TimeSeries::new(values)
     }
 
@@ -378,8 +397,9 @@ impl ParticleFilter {
 
     /// Reset filter
     pub fn reset(&mut self) {
-        self.particles = randn::<f32>(&[self.num_particles, self.state_dim]).unwrap();
-        self.weights = ones(&[self.num_particles]).unwrap();
+        self.particles = randn::<f32>(&[self.num_particles, self.state_dim])
+            .expect("tensor creation should succeed");
+        self.weights = ones(&[self.num_particles]).expect("tensor creation should succeed");
         self.normalize_weights();
     }
 

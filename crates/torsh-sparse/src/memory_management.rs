@@ -483,39 +483,55 @@ impl SparseMemoryManager {
     pub fn allocate(size: usize, allocation_type: &str) -> TorshResult<SparseMemoryHandle> {
         get_memory_pool()
             .write()
-            .unwrap()
+            .expect("lock should not be poisoned")
             .allocate(size, allocation_type)
     }
 
     /// Get global memory statistics
     pub fn global_statistics() -> MemoryStatistics {
-        get_memory_pool().read().unwrap().statistics()
+        get_memory_pool()
+            .read()
+            .expect("lock should not be poisoned")
+            .statistics()
     }
 
     /// Force global garbage collection
     pub fn force_garbage_collect() {
-        get_memory_pool().write().unwrap().force_garbage_collect();
+        get_memory_pool()
+            .write()
+            .expect("lock should not be poisoned")
+            .force_garbage_collect();
     }
 
     /// Check if global memory pool is healthy
     pub fn is_healthy() -> bool {
-        get_memory_pool().read().unwrap().is_healthy()
+        get_memory_pool()
+            .read()
+            .expect("lock should not be poisoned")
+            .is_healthy()
     }
 
     /// Get global memory efficiency score
     pub fn efficiency_score() -> f64 {
-        get_memory_pool().read().unwrap().efficiency_score()
+        get_memory_pool()
+            .read()
+            .expect("lock should not be poisoned")
+            .efficiency_score()
     }
 
     /// Configure the global memory pool
     pub fn configure(config: MemoryPoolConfig) {
-        let mut pool = get_memory_pool().write().unwrap();
+        let mut pool = get_memory_pool()
+            .write()
+            .expect("lock should not be poisoned");
         *pool = SparseMemoryPool::with_config(config);
     }
 
     /// Generate memory usage report
     pub fn generate_report() -> MemoryReport {
-        let pool = get_memory_pool().read().unwrap();
+        let pool = get_memory_pool()
+            .read()
+            .expect("lock should not be poisoned");
         let stats = pool.statistics();
         let usage_by_type = pool.usage_by_type();
         let is_healthy = pool.is_healthy();

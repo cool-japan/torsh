@@ -291,7 +291,10 @@ impl PerformanceDashboard {
                 is_regression: true,
                 performance_change: change,
                 confidence,
-                baseline: baseline_points.last().unwrap().clone(),
+                baseline: baseline_points
+                    .last()
+                    .expect("baseline_points should not be empty")
+                    .clone(),
                 current: current.clone(),
                 severity,
             })
@@ -615,8 +618,12 @@ fn calculate_trend(points: &[PerformancePoint]) -> f64 {
         return 0.0;
     }
 
-    let first = points.first().unwrap();
-    let last = points.last().unwrap();
+    let first = points
+        .first()
+        .expect("points should have at least 2 elements");
+    let last = points
+        .last()
+        .expect("points should have at least 2 elements");
 
     // Negative trend means performance is getting worse (higher execution time)
     ((first.mean_time_ns - last.mean_time_ns) / first.mean_time_ns) * 100.0

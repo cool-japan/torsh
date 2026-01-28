@@ -125,6 +125,9 @@ pub async fn enumerate_adapters() -> WebGpuResult<Vec<wgpu::Adapter>> {
         return Err(WebGpuError::NotAvailable);
     }
 
+    // Ensure WebGPU is initialized
+    init().await?;
+
     let instance = instance();
     let adapters = instance.enumerate_adapters(wgpu::Backends::all());
     Ok(adapters)
@@ -136,10 +139,13 @@ pub async fn get_best_adapter() -> WebGpuResult<wgpu::Adapter> {
         return Err(WebGpuError::NotAvailable);
     }
 
+    // Ensure WebGPU is initialized
+    init().await?;
+
     let instance = instance();
 
     // Try to get a high-performance adapter first
-    if let Ok(adapter) = instance
+    if let Some(adapter) = instance
         .request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::HighPerformance,
             compatible_surface: None,
@@ -151,7 +157,7 @@ pub async fn get_best_adapter() -> WebGpuResult<wgpu::Adapter> {
     }
 
     // Fall back to any available adapter
-    if let Ok(adapter) = instance
+    if let Some(adapter) = instance
         .request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::None,
             compatible_surface: None,

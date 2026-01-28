@@ -8,7 +8,7 @@ use crate::algorithms::kmeans::{KMeans, KMeansAlgorithm};
 use crate::error::{ClusterError, ClusterResult};
 use crate::traits::Fit;
 use scirs2_core::ndarray::{Array1, Array2};
-use scirs2_core::random::{seeded_rng, CoreRandom, Rng};
+use scirs2_core::random::{seeded_rng, CoreRandom};
 // Using SciRS2 re-exported StdRng to avoid direct rand dependency (SciRS2 POLICY)
 use scirs2_core::random::rngs::StdRng;
 use std::collections::HashMap;
@@ -138,7 +138,7 @@ impl GapStatistic {
                 use std::time::{SystemTime, UNIX_EPOCH};
                 SystemTime::now()
                     .duration_since(UNIX_EPOCH)
-                    .unwrap()
+                    .expect("system time should be after UNIX_EPOCH")
                     .as_secs()
             }
         };

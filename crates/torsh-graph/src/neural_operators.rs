@@ -59,18 +59,28 @@ impl GraphFNO {
         // Initialize Fourier weights for each layer
         for _ in 0..num_layers {
             fourier_weights.push(Parameter::new(
-                randn(&[hidden_features, hidden_features, num_modes]).unwrap(),
+                randn(&[hidden_features, hidden_features, num_modes])
+                    .expect("failed to create fourier_weights tensor"),
             ));
             conv_weights.push(Parameter::new(
-                randn(&[hidden_features, hidden_features]).unwrap(),
+                randn(&[hidden_features, hidden_features])
+                    .expect("failed to create conv_weights tensor"),
             ));
         }
 
-        let input_projection = Parameter::new(randn(&[in_features, hidden_features]).unwrap());
-        let output_projection = Parameter::new(randn(&[hidden_features, out_features]).unwrap());
+        let input_projection = Parameter::new(
+            randn(&[in_features, hidden_features])
+                .expect("failed to create input_projection tensor"),
+        );
+        let output_projection = Parameter::new(
+            randn(&[hidden_features, out_features])
+                .expect("failed to create output_projection tensor"),
+        );
 
         let bias = if bias {
-            Some(Parameter::new(zeros::<f32>(&[out_features]).unwrap()))
+            Some(Parameter::new(
+                zeros::<f32>(&[out_features]).expect("failed to create bias tensor"),
+            ))
         } else {
             None
         };
@@ -94,7 +104,10 @@ impl GraphFNO {
         let _num_nodes = graph.num_nodes;
 
         // Input projection
-        let mut x = graph.x.matmul(&self.input_projection.clone_data()).unwrap();
+        let mut x = graph
+            .x
+            .matmul(&self.input_projection.clone_data())
+            .expect("operation should succeed");
 
         // Apply Fourier layers
         for layer in 0..self.num_layers {
@@ -102,11 +115,15 @@ impl GraphFNO {
         }
 
         // Output projection
-        let mut output = x.matmul(&self.output_projection.clone_data()).unwrap();
+        let mut output = x
+            .matmul(&self.output_projection.clone_data())
+            .expect("operation should succeed");
 
         // Add bias if present
         if let Some(ref bias) = self.bias {
-            output = output.add(&bias.clone_data()).unwrap();
+            output = output
+                .add(&bias.clone_data())
+                .expect("operation should succeed");
         }
 
         // Create output graph
@@ -129,10 +146,12 @@ impl GraphFNO {
 
         // Step 4: Apply spatial convolution
         let conv_weights = &self.conv_weights[layer];
-        let conv_output = spatial_features.matmul(&conv_weights.clone_data()).unwrap();
+        let conv_output = spatial_features
+            .matmul(&conv_weights.clone_data())
+            .expect("operation should succeed");
 
         // Step 5: Residual connection and activation
-        let residual = x.add(&conv_output).unwrap();
+        let residual = x.add(&conv_output).expect("operation should succeed");
 
         // Apply ReLU activation (simplified)
         self.relu(&residual)
@@ -159,10 +178,14 @@ impl GraphFNO {
             &[num_nodes, self.num_modes],
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("GFT transform matrix creation should succeed");
 
         // Project to spectral domain
-        transform_matrix.t().unwrap().matmul(x).unwrap()
+        transform_matrix
+            .t()
+            .expect("operation should succeed")
+            .matmul(x)
+            .expect("operation should succeed")
     }
 
     /// Inverse Graph Fourier Transform
@@ -184,10 +207,12 @@ impl GraphFNO {
             &[num_nodes, self.num_modes],
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("inverse GFT transform matrix creation should succeed");
 
         // Project back to spatial domain
-        inv_transform_matrix.matmul(fourier_x).unwrap()
+        inv_transform_matrix
+            .matmul(fourier_x)
+            .expect("operation should succeed")
     }
 
     /// Spectral convolution in Fourier domain
@@ -199,17 +224,19 @@ impl GraphFNO {
         // In practice, this would involve complex multiplication across all modes
         let weight_2d = weight_data
             .slice_tensor(2, 0, 1)
-            .unwrap()
+            .expect("spectral weight slice should succeed")
             .squeeze_tensor(2)
-            .unwrap();
+            .expect("spectral weight squeeze should succeed");
 
-        fourier_x.matmul(&weight_2d).unwrap()
+        fourier_x
+            .matmul(&weight_2d)
+            .expect("operation should succeed")
     }
 
     /// ReLU activation function
     fn relu(&self, x: &Tensor) -> Tensor {
         // Simplified ReLU - clamp negative values to 0
-        let data = x.to_vec().unwrap();
+        let data = x.to_vec().expect("conversion should succeed");
         let activated_data: Vec<f32> = data.iter().map(|&val| val.max(0.0)).collect();
 
         from_vec(
@@ -217,7 +244,7 @@ impl GraphFNO {
             x.shape().dims(),
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap()
+        .expect("GraphFNO relu tensor creation should succeed")
     }
 }
 
@@ -289,7 +316,9 @@ impl GraphDeepONet {
             } else {
                 hidden_features
             };
-            branch_layers.push(Parameter::new(randn(&[in_dim, out_dim]).unwrap()));
+            branch_layers.push(Parameter::new(
+                randn(&[in_dim, out_dim]).expect("failed to create branch layer tensor"),
+            ));
         }
 
         // Initialize trunk network layers
@@ -304,11 +333,15 @@ impl GraphDeepONet {
             } else {
                 hidden_features
             };
-            trunk_layers.push(Parameter::new(randn(&[in_dim, out_dim]).unwrap()));
+            trunk_layers.push(Parameter::new(
+                randn(&[in_dim, out_dim]).expect("failed to create trunk layer tensor"),
+            ));
         }
 
         let bias = if bias {
-            Some(Parameter::new(zeros::<f32>(&[output_features]).unwrap()))
+            Some(Parameter::new(
+                zeros::<f32>(&[output_features]).expect("failed to create DeepONet bias tensor"),
+            ))
         } else {
             None
         };
@@ -344,7 +377,9 @@ impl GraphDeepONet {
         // Add bias if present
         let mut output = combined;
         if let Some(ref bias) = self.bias {
-            output = output.add(&bias.clone_data()).unwrap();
+            output = output
+                .add(&bias.clone_data())
+                .expect("operation should succeed");
         }
 
         // Create output graph
@@ -358,7 +393,9 @@ impl GraphDeepONet {
         let mut x = sensor_data.clone();
 
         for (i, layer) in self.branch_layers.iter().enumerate() {
-            x = x.matmul(&layer.clone_data()).unwrap();
+            x = x
+                .matmul(&layer.clone_data())
+                .expect("operation should succeed");
 
             // Apply activation function except for last layer
             if i < self.branch_layers.len() - 1 {
@@ -374,7 +411,9 @@ impl GraphDeepONet {
         let mut x = locations.clone();
 
         for (i, layer) in self.trunk_layers.iter().enumerate() {
-            x = x.matmul(&layer.clone_data()).unwrap();
+            x = x
+                .matmul(&layer.clone_data())
+                .expect("operation should succeed");
 
             // Apply activation function except for last layer
             if i < self.trunk_layers.len() - 1 {
@@ -388,12 +427,14 @@ impl GraphDeepONet {
     /// Combine branch and trunk network outputs
     fn combine_outputs(&self, branch_output: &Tensor, trunk_output: &Tensor) -> Tensor {
         // Element-wise multiplication and sum
-        branch_output.mul(trunk_output).unwrap()
+        branch_output
+            .mul(trunk_output)
+            .expect("operation should succeed")
     }
 
     /// Tanh activation function
     fn tanh(&self, x: &Tensor) -> Tensor {
-        let data = x.to_vec().unwrap();
+        let data = x.to_vec().expect("conversion should succeed");
         let activated_data: Vec<f32> = data.iter().map(|&val| val.tanh()).collect();
 
         from_vec(
@@ -401,7 +442,7 @@ impl GraphDeepONet {
             x.shape().dims(),
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap()
+        .expect("DeepONet tanh tensor creation should succeed")
     }
 }
 
@@ -411,7 +452,7 @@ impl GraphLayer for GraphDeepONet {
         let sensor_data = graph
             .x
             .slice_tensor(1, 0, self.num_sensors.min(graph.x.shape().dims()[1]))
-            .unwrap();
+            .expect("sensor data slice should succeed");
         let locations = graph.x.clone();
 
         self.forward(graph, &sensor_data, &locations)
@@ -474,11 +515,15 @@ impl PhysicsInformedGNN {
             } else {
                 hidden_features
             };
-            layers.push(Parameter::new(randn(&[in_dim, out_dim]).unwrap()));
+            layers.push(Parameter::new(
+                randn(&[in_dim, out_dim]).expect("failed to create PIGNN layer tensor"),
+            ));
         }
 
         let bias = if bias {
-            Some(Parameter::new(zeros::<f32>(&[out_features]).unwrap()))
+            Some(Parameter::new(
+                zeros::<f32>(&[out_features]).expect("failed to create PIGNN bias tensor"),
+            ))
         } else {
             None
         };
@@ -500,7 +545,9 @@ impl PhysicsInformedGNN {
         let mut x = graph.x.clone();
 
         for (i, layer) in self.layers.iter().enumerate() {
-            x = x.matmul(&layer.clone_data()).unwrap();
+            x = x
+                .matmul(&layer.clone_data())
+                .expect("operation should succeed");
 
             // Apply activation except for last layer
             if i < self.layers.len() - 1 {
@@ -514,7 +561,9 @@ impl PhysicsInformedGNN {
         // Add bias if present
         let mut output = physics_constrained;
         if let Some(ref bias) = self.bias {
-            output = output.add(&bias.clone_data()).unwrap();
+            output = output
+                .add(&bias.clone_data())
+                .expect("operation should succeed");
         }
 
         // Create output graph
@@ -531,19 +580,21 @@ impl PhysicsInformedGNN {
         // Diffusion term: D * L * u
         let diffusion_term = laplacian
             .matmul(prediction)
-            .unwrap()
+            .expect("operation should succeed")
             .mul_scalar(self.diffusion_coefficient)
-            .unwrap();
+            .expect("operation should succeed");
 
         // Reaction term: r * u
-        let reaction_term = prediction.mul_scalar(self.reaction_rate).unwrap();
+        let reaction_term = prediction
+            .mul_scalar(self.reaction_rate)
+            .expect("operation should succeed");
 
         // Combine terms (simplified physics equation)
         prediction
             .add(&diffusion_term)
-            .unwrap()
+            .expect("operation should succeed")
             .add(&reaction_term)
-            .unwrap()
+            .expect("operation should succeed")
     }
 
     /// Compute graph Laplacian matrix
@@ -555,7 +606,10 @@ impl PhysicsInformedGNN {
         let mut adj_data = vec![0.0f32; num_nodes * num_nodes];
 
         // Fill adjacency matrix from edge_index
-        let edge_data = graph.edge_index.to_vec().unwrap();
+        let edge_data = graph
+            .edge_index
+            .to_vec()
+            .expect("conversion should succeed");
         for i in (0..edge_data.len()).step_by(2) {
             if i + 1 < edge_data.len() {
                 let src = edge_data[i] as usize;
@@ -589,12 +643,12 @@ impl PhysicsInformedGNN {
             &[num_nodes, num_nodes],
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap()
+        .expect("graph Laplacian tensor creation should succeed")
     }
 
     /// Swish activation function (x * sigmoid(x))
     fn swish(&self, x: &Tensor) -> Tensor {
-        let data = x.to_vec().unwrap();
+        let data = x.to_vec().expect("conversion should succeed");
         let activated_data: Vec<f32> = data
             .iter()
             .map(|&val| val * (1.0 / (1.0 + (-val).exp())))
@@ -605,7 +659,7 @@ impl PhysicsInformedGNN {
             x.shape().dims(),
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap()
+        .expect("PIGNN swish tensor creation should succeed")
     }
 }
 
@@ -663,17 +717,25 @@ impl MultiScaleGNO {
         // Initialize scale-specific operators
         for _ in 0..num_scales {
             scale_operators.push(Parameter::new(
-                randn(&[in_features, hidden_features]).unwrap(),
+                randn(&[in_features, hidden_features])
+                    .expect("failed to create scale operator tensor"),
             ));
         }
 
-        let fusion_weights =
-            Parameter::new(randn(&[num_scales * hidden_features, hidden_features]).unwrap());
+        let fusion_weights = Parameter::new(
+            randn(&[num_scales * hidden_features, hidden_features])
+                .expect("failed to create fusion_weights tensor"),
+        );
 
-        let output_projection = Parameter::new(randn(&[hidden_features, out_features]).unwrap());
+        let output_projection = Parameter::new(
+            randn(&[hidden_features, out_features])
+                .expect("failed to create MultiScaleGNO output_projection tensor"),
+        );
 
         let bias = if bias {
-            Some(Parameter::new(zeros::<f32>(&[out_features]).unwrap()))
+            Some(Parameter::new(
+                zeros::<f32>(&[out_features]).expect("failed to create MultiScaleGNO bias tensor"),
+            ))
         } else {
             None
         };
@@ -708,11 +770,13 @@ impl MultiScaleGNO {
         // Output projection
         let mut output = fused_features
             .matmul(&self.output_projection.clone_data())
-            .unwrap();
+            .expect("operation should succeed");
 
         // Add bias if present
         if let Some(ref bias) = self.bias {
-            output = output.add(&bias.clone_data()).unwrap();
+            output = output
+                .add(&bias.clone_data())
+                .expect("operation should succeed");
         }
 
         // Create output graph
@@ -738,8 +802,11 @@ impl MultiScaleGNO {
             let mut count = 0;
 
             for node_id in start_node..end_node {
-                let features = graph.x.slice_tensor(0, node_id, node_id + 1).unwrap();
-                let feature_data = features.to_vec().unwrap();
+                let features = graph
+                    .x
+                    .slice_tensor(0, node_id, node_id + 1)
+                    .expect("node feature slice should succeed");
+                let feature_data = features.to_vec().expect("conversion should succeed");
 
                 for (i, &val) in feature_data.iter().enumerate() {
                     if i < sum_features.len() {
@@ -764,7 +831,7 @@ impl MultiScaleGNO {
             &[coarse_nodes, graph.x.shape().dims()[1]],
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("coarse node features tensor creation should succeed");
 
         // Simplified edge index (connect sequential nodes)
         let mut coarse_edges = Vec::new();
@@ -778,7 +845,7 @@ impl MultiScaleGNO {
             &[2, coarse_nodes.saturating_sub(1)],
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("coarse edge index tensor creation should succeed");
 
         GraphData::new(coarse_x, coarse_edge_index)
     }
@@ -786,7 +853,10 @@ impl MultiScaleGNO {
     /// Process features at a specific scale
     fn process_scale(&self, graph: &GraphData, scale: usize) -> Tensor {
         let operator = &self.scale_operators[scale];
-        graph.x.matmul(&operator.clone_data()).unwrap()
+        graph
+            .x
+            .matmul(&operator.clone_data())
+            .expect("operation should succeed")
     }
 
     /// Upsample features to original graph size
@@ -796,11 +866,13 @@ impl MultiScaleGNO {
 
         if current_nodes >= target_nodes {
             // Truncate if necessary
-            return features.slice_tensor(0, 0, target_nodes).unwrap();
+            return features
+                .slice_tensor(0, 0, target_nodes)
+                .expect("feature truncation should succeed");
         }
 
         // Simple upsampling by repetition
-        let feature_data = features.to_vec().unwrap();
+        let feature_data = features.to_vec().expect("conversion should succeed");
         let mut upsampled_data = Vec::new();
 
         for target_id in 0..target_nodes {
@@ -821,7 +893,7 @@ impl MultiScaleGNO {
             &[target_nodes, feature_dim],
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap()
+        .expect("upsampled features tensor creation should succeed")
     }
 
     /// Fuse multi-scale features
@@ -832,8 +904,10 @@ impl MultiScaleGNO {
 
         for node_id in 0..num_nodes {
             for scale_feature in scale_features {
-                let node_features = scale_feature.slice_tensor(0, node_id, node_id + 1).unwrap();
-                let feature_data = node_features.to_vec().unwrap();
+                let node_features = scale_feature
+                    .slice_tensor(0, node_id, node_id + 1)
+                    .expect("scale feature slice should succeed");
+                let feature_data = node_features.to_vec().expect("conversion should succeed");
                 concatenated_data.extend(feature_data);
             }
         }
@@ -843,12 +917,12 @@ impl MultiScaleGNO {
             &[num_nodes, self.num_scales * self.hidden_features],
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("concatenated scale features tensor creation should succeed");
 
         // Apply fusion weights
         concatenated
             .matmul(&self.fusion_weights.clone_data())
-            .unwrap()
+            .expect("operation should succeed")
     }
 }
 
@@ -900,7 +974,7 @@ pub mod utils {
             &[num_nodes, num_eigenvalues],
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap()
+        .expect("spectral features tensor creation should succeed")
     }
 
     /// Generate synthetic operator learning data
@@ -914,7 +988,8 @@ pub mod utils {
 
         for _ in 0..num_graphs {
             // Generate input graph
-            let input_features = randn(&[num_nodes, feature_dim]).unwrap();
+            let input_features = randn(&[num_nodes, feature_dim])
+                .expect("input features tensor creation should succeed");
             let mut edge_data = Vec::new();
 
             // Create random edges
@@ -930,12 +1005,15 @@ pub mod utils {
                 &[2, num_nodes * 2],
                 torsh_core::device::DeviceType::Cpu,
             )
-            .unwrap();
+            .expect("edge index tensor creation should succeed");
 
             let input_graph = GraphData::new(input_features, edge_index);
 
             // Generate corresponding output (apply some transformation)
-            let output_features = input_graph.x.mul_scalar(2.0).unwrap();
+            let output_features = input_graph
+                .x
+                .mul_scalar(2.0)
+                .expect("output transformation should succeed");
             let output_graph = GraphData::new(output_features, input_graph.edge_index.clone());
 
             data_pairs.push((input_graph, output_graph));
@@ -946,8 +1024,8 @@ pub mod utils {
 
     /// Evaluate operator approximation error
     pub fn compute_operator_error(predicted: &GraphData, target: &GraphData) -> f32 {
-        let pred_data = predicted.x.to_vec().unwrap();
-        let target_data = target.x.to_vec().unwrap();
+        let pred_data = predicted.x.to_vec().expect("conversion should succeed");
+        let target_data = target.x.to_vec().expect("conversion should succeed");
 
         let mut mse = 0.0;
         let mut count = 0;

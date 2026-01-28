@@ -172,7 +172,10 @@ where
             // Track worst points
             if worst_points.len() < 5 || rel_error > worst_points[4].2 {
                 worst_points.push((x_values[i], error, rel_error));
-                worst_points.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap());
+                worst_points.sort_by(|a, b| {
+                    b.2.partial_cmp(&a.2)
+                        .expect("relative error comparison should succeed for finite floats")
+                });
                 worst_points.truncate(5);
             }
         }

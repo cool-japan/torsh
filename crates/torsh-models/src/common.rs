@@ -48,7 +48,8 @@ impl SinusoidalPositionalEncoding {
         }
 
         let encoding_tensor =
-            Tensor::from_data(pe, vec![max_length, d_model], torsh_core::DeviceType::Cpu).unwrap();
+            Tensor::from_data(pe, vec![max_length, d_model], torsh_core::DeviceType::Cpu)
+                .expect("tensor creation should succeed");
 
         Self {
             d_model,
@@ -94,7 +95,7 @@ impl LearnedPositionalEmbedding {
 
         let embedding_tensor =
             Tensor::from_data(data, vec![max_length, d_model], torsh_core::DeviceType::Cpu)
-                .unwrap();
+                .expect("failed to create positional embedding tensor");
 
         Self {
             max_length,
@@ -154,7 +155,8 @@ impl RelativePositionalEncoding {
             .collect();
 
         let embedding_tensor =
-            Tensor::from_data(data, vec![num_embeddings, d_model], DeviceType::Cpu).unwrap();
+            Tensor::from_data(data, vec![num_embeddings, d_model], DeviceType::Cpu)
+                .expect("tensor creation should succeed");
 
         Self {
             d_model,
@@ -249,7 +251,8 @@ impl RMSNorm {
         let num_features = normalized_shape.iter().product();
         let weight_data = vec![1.0f32; num_features];
         let weight_tensor =
-            Tensor::from_data(weight_data, normalized_shape.to_vec(), DeviceType::Cpu).unwrap();
+            Tensor::from_data(weight_data, normalized_shape.to_vec(), DeviceType::Cpu)
+                .expect("failed to create RMSNorm weight tensor");
 
         Self {
             normalized_shape,
@@ -331,15 +334,19 @@ impl GroupNorm {
         };
 
         let weight_tensor = if affine {
-            Tensor::from_data(weight_data, vec![num_channels], DeviceType::Cpu).unwrap()
+            Tensor::from_data(weight_data, vec![num_channels], DeviceType::Cpu)
+                .expect("tensor creation should succeed")
         } else {
-            torsh_tensor::creation::zeros(&[num_channels]).unwrap()
+            torsh_tensor::creation::zeros(&[num_channels])
+                .expect("failed to create GroupNorm weight tensor")
         };
 
         let bias_tensor = if affine {
-            Tensor::from_data(bias_data, vec![num_channels], DeviceType::Cpu).unwrap()
+            Tensor::from_data(bias_data, vec![num_channels], DeviceType::Cpu)
+                .expect("tensor creation should succeed")
         } else {
-            torsh_tensor::creation::zeros(&[num_channels]).unwrap()
+            torsh_tensor::creation::zeros(&[num_channels])
+                .expect("failed to create GroupNorm bias tensor")
         };
 
         Self {

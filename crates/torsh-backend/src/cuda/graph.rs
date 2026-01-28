@@ -1,6 +1,7 @@
 //! CUDA graph support for optimized execution
 
 use super::stream::CudaStream;
+use crate::cuda::cudaSuccess;
 use crate::error::{BackendError, BackendResult};
 use cuda_sys::cudart::*;
 use std::collections::HashMap;
@@ -31,7 +32,7 @@ impl CudaGraph {
         let mut graph: cudaGraph_t = ptr::null_mut();
         unsafe {
             let result = cudaGraphCreate(&mut graph as *mut _, 0);
-            if result != cudaError_t::cudaSuccess {
+            if result != cudaSuccess {
                 return Err(BackendError::CudaError(format!(
                     "Failed to create CUDA graph: {:?}",
                     result
@@ -53,7 +54,7 @@ impl CudaGraph {
                 stream.stream(),
                 cudaStreamCaptureMode::cudaStreamCaptureModeGlobal,
             );
-            if result != cudaError_t::cudaSuccess {
+            if result != cudaSuccess {
                 return Err(BackendError::CudaError(format!(
                     "Failed to begin CUDA graph capture: {:?}",
                     result
@@ -68,7 +69,7 @@ impl CudaGraph {
         let mut graph: cudaGraph_t = ptr::null_mut();
         unsafe {
             let result = cudaStreamEndCapture(stream.stream(), &mut graph as *mut _);
-            if result != cudaError_t::cudaSuccess {
+            if result != cudaSuccess {
                 return Err(BackendError::CudaError(format!(
                     "Failed to end CUDA graph capture: {:?}",
                     result
@@ -80,7 +81,7 @@ impl CudaGraph {
         let mut num_nodes: usize = 0;
         unsafe {
             let result = cudaGraphGetNodes(graph, ptr::null_mut(), &mut num_nodes as *mut _);
-            if result != cudaError_t::cudaSuccess {
+            if result != cudaSuccess {
                 return Err(BackendError::CudaError(format!(
                     "Failed to get graph node count: {:?}",
                     result
@@ -110,7 +111,7 @@ impl CudaGraph {
                 ptr::null_mut(),
                 0,
             );
-            if result != cudaError_t::cudaSuccess {
+            if result != cudaSuccess {
                 return Err(BackendError::CudaError(format!(
                     "Failed to instantiate CUDA graph: {:?}",
                     result
@@ -130,7 +131,7 @@ impl CudaGraph {
 
         unsafe {
             let result = cudaGraphLaunch(instance, stream.stream());
-            if result != cudaError_t::cudaSuccess {
+            if result != cudaSuccess {
                 return Err(BackendError::CudaError(format!(
                     "Failed to launch CUDA graph: {:?}",
                     result
@@ -158,7 +159,7 @@ impl CudaGraph {
         let mut cloned_graph: cudaGraph_t = ptr::null_mut();
         unsafe {
             let result = cudaGraphClone(&mut cloned_graph as *mut _, self.graph);
-            if result != cudaError_t::cudaSuccess {
+            if result != cudaSuccess {
                 return Err(BackendError::CudaError(format!(
                     "Failed to clone CUDA graph: {:?}",
                     result
@@ -256,7 +257,7 @@ impl GraphCache {
     where
         F: FnOnce() -> BackendResult<CudaGraph>,
     {
-        let mut cache = self.cache.lock().unwrap();
+        let mut cache = self.cache.lock().expect("lock should not be poisoned");
 
         if let Some(graph) = cache.get(key) {
             return Ok(graph.clone());
@@ -270,19 +271,19 @@ impl GraphCache {
 
     /// Remove a graph from the cache
     pub fn remove(&self, key: &str) {
-        let mut cache = self.cache.lock().unwrap();
+        let mut cache = self.cache.lock().expect("lock should not be poisoned");
         cache.remove(key);
     }
 
     /// Clear all cached graphs
     pub fn clear(&self) {
-        let mut cache = self.cache.lock().unwrap();
+        let mut cache = self.cache.lock().expect("lock should not be poisoned");
         cache.clear();
     }
 
     /// Get the number of cached graphs
     pub fn size(&self) -> usize {
-        let cache = self.cache.lock().unwrap();
+        let cache = self.cache.lock().expect("lock should not be poisoned");
         cache.len()
     }
 }
@@ -357,7 +358,7 @@ mod tests {
         unsafe {
             let mut device_count: i32 = 0;
             let result = cudaGetDeviceCount(&mut device_count as *mut _);
-            result == cudaError_t::cudaSuccess && device_count > 0
+            result == cudaSuccess && device_count > 0
         }
     }
 }

@@ -17,8 +17,8 @@ use scirs2_core::ndarray::Array1;
 use scirs2_core::random::{thread_rng, Distribution, Normal, Uniform};
 
 // ToRSh integration
-use torsh_core::device::DeviceType;
-use torsh_tensor::Tensor;
+use torsh::core::device::DeviceType;
+use torsh::tensor::Tensor;
 
 use super::types::{LayerInfo, TorshModel};
 

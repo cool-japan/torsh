@@ -20,7 +20,7 @@ use torsh_core::{
 };
 use torsh_tensor::Tensor;
 // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
-use scirs2_core::random::{thread_rng, Rng};
+use scirs2_core::random::thread_rng;
 
 /// Random horizontal flip transformation
 ///

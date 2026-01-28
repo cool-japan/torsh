@@ -19,7 +19,7 @@ use torsh_tensor::{creation::zeros, Tensor};
 ///
 /// # Mathematical Formulation
 /// For standard attention: Attention(Q,K,V) = softmax(QK^T / √d_k)V
-/// For sparse attention: Only compute attention scores where mask[i,j] ≠ 0
+/// For sparse attention: Only compute attention scores where `mask[i,j]` ≠ 0
 ///
 /// # Benefits
 /// - Reduces O(n²) complexity to O(s) where s is the number of sparse connections

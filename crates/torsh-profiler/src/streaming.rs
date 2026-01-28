@@ -619,14 +619,20 @@ impl EnhancedStreamingEngine {
             category,
         };
 
-        let mut buffer = self.event_buffer.lock().unwrap();
+        let mut buffer = self
+            .event_buffer
+            .lock()
+            .expect("lock should not be poisoned");
         buffer.add_event(buffered_event);
     }
 
     /// Stream events to all connected clients with adaptive quality
     pub async fn stream_events(&self) -> Result<(), Box<dyn std::error::Error>> {
         let events = {
-            let mut buffer = self.event_buffer.lock().unwrap();
+            let mut buffer = self
+                .event_buffer
+                .lock()
+                .expect("lock should not be poisoned");
             buffer.get_events_for_streaming()
         };
 
@@ -902,7 +908,7 @@ impl Clone for EnhancedStreamingEngine {
 }
 
 impl EventBuffer {
-    fn new(max_size: usize) -> Self {
+    pub fn new(max_size: usize) -> Self {
         Self {
             events: VecDeque::new(),
             categories: BTreeMap::new(),
@@ -911,7 +917,7 @@ impl EventBuffer {
         }
     }
 
-    fn add_event(&mut self, event: BufferedEvent) {
+    pub fn add_event(&mut self, event: BufferedEvent) {
         // Remove old events if buffer is full
         while self.events.len() >= self.max_size {
             if let Some(old_event) = self.events.pop_front() {
@@ -939,7 +945,7 @@ impl EventBuffer {
 }
 
 impl AdaptiveRateController {
-    fn new(config: AdaptiveBitrateConfig) -> Self {
+    pub fn new(config: AdaptiveBitrateConfig) -> Self {
         Self {
             current_bitrate: AtomicUsize::new(config.initial_bitrate),
             target_bitrate: AtomicUsize::new(config.initial_bitrate),
@@ -986,7 +992,10 @@ impl AdaptiveRateController {
                 },
             };
 
-            let mut history = self.adjustment_history.lock().unwrap();
+            let mut history = self
+                .adjustment_history
+                .lock()
+                .expect("lock should not be poisoned");
             if history.len() >= 100 {
                 history.pop_front();
             }
@@ -996,7 +1005,7 @@ impl AdaptiveRateController {
 }
 
 impl CompressionManager {
-    fn new(config: CompressionConfig) -> Self {
+    pub fn new(config: CompressionConfig) -> Self {
         Self {
             config,
             stats: CompressionStats::default(),

@@ -192,7 +192,11 @@ impl EvolutionStrategy {
         }
 
         // Sort population by fitness (descending - higher is better)
-        population.sort_by(|a, b| b.fitness.partial_cmp(&a.fitness).unwrap());
+        population.sort_by(|a, b| {
+            b.fitness
+                .partial_cmp(&a.fitness)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         let mut generations = 0;
         let mut history = Vec::new();
@@ -239,14 +243,22 @@ impl EvolutionStrategy {
                 // (μ + λ) strategy: parents and offspring compete
                 let mut combined = parents;
                 combined.extend(offspring);
-                combined.sort_by(|a, b| b.fitness.partial_cmp(&a.fitness).unwrap());
+                combined.sort_by(|a, b| {
+                    b.fitness
+                        .partial_cmp(&a.fitness)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
                 combined
                     .into_iter()
                     .take(self.config.population_size)
                     .collect()
             } else {
                 // (μ, λ) strategy: only offspring survive
-                offspring.sort_by(|a, b| b.fitness.partial_cmp(&a.fitness).unwrap());
+                offspring.sort_by(|a, b| {
+                    b.fitness
+                        .partial_cmp(&a.fitness)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
                 offspring
                     .into_iter()
                     .take(self.config.population_size)
@@ -470,7 +482,11 @@ impl CMAES {
             }
 
             // Sort by fitness (descending)
-            population.sort_by(|a, b| b.fitness.partial_cmp(&a.fitness).unwrap());
+            population.sort_by(|a, b| {
+                b.fitness
+                    .partial_cmp(&a.fitness)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
 
             // Update distribution parameters
             let old_mean = self.mean.clone();

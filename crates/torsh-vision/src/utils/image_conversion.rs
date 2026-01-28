@@ -5,7 +5,7 @@
 
 use crate::{Result, VisionError};
 use image::{DynamicImage, GenericImageView};
-use torsh_tensor::{creation, Tensor};
+use torsh_tensor::{creation, creation::zeros_mut, Tensor};
 
 /// Convert tensor to image
 ///
@@ -127,7 +127,7 @@ pub fn image_to_tensor(image: &DynamicImage) -> Result<Tensor<f32>> {
 
     match image {
         DynamicImage::ImageRgb8(rgb_img) => {
-            let tensor = creation::zeros(&[3, height as usize, width as usize]).unwrap();
+            let tensor = zeros_mut(&[3, height as usize, width as usize]);
 
             for y in 0..height {
                 for x in 0..width {
@@ -145,7 +145,7 @@ pub fn image_to_tensor(image: &DynamicImage) -> Result<Tensor<f32>> {
             Ok(tensor)
         }
         DynamicImage::ImageLuma8(gray_img) => {
-            let tensor = creation::zeros(&[1, height as usize, width as usize]).unwrap();
+            let tensor = zeros_mut(&[1, height as usize, width as usize]);
 
             for y in 0..height {
                 for x in 0..width {
@@ -161,7 +161,7 @@ pub fn image_to_tensor(image: &DynamicImage) -> Result<Tensor<f32>> {
         _ => {
             // Convert to RGB first
             let rgb_image = image.to_rgb8();
-            let tensor = creation::zeros(&[3, height as usize, width as usize]).unwrap();
+            let tensor = zeros_mut(&[3, height as usize, width as usize]);
 
             for y in 0..height {
                 for x in 0..width {

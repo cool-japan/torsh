@@ -311,8 +311,9 @@ impl PrometheusExporter {
             "# HELP {}_compute_forward_time_ms Forward pass computation time in milliseconds",
             namespace
         )
-        .unwrap();
-        writeln!(output, "# TYPE {}_compute_forward_time_ms gauge", namespace).unwrap();
+        .expect("writeln to String should not fail");
+        writeln!(output, "# TYPE {}_compute_forward_time_ms gauge", namespace)
+            .expect("writeln to String should not fail");
 
         for (rank, metric) in &metrics {
             writeln!(
@@ -322,7 +323,7 @@ impl PrometheusExporter {
                 format_labels(*rank),
                 metric.compute.forward_time_ms
             )
-            .unwrap();
+            .expect("writeln to String should not fail");
         }
 
         writeln!(
@@ -330,13 +331,13 @@ impl PrometheusExporter {
             "# HELP {}_compute_backward_time_ms Backward pass computation time in milliseconds",
             namespace
         )
-        .unwrap();
+        .expect("writeln to String should not fail");
         writeln!(
             output,
             "# TYPE {}_compute_backward_time_ms gauge",
             namespace
         )
-        .unwrap();
+        .expect("writeln to String should not fail");
 
         for (rank, metric) in &metrics {
             writeln!(
@@ -346,7 +347,7 @@ impl PrometheusExporter {
                 format_labels(*rank),
                 metric.compute.backward_time_ms
             )
-            .unwrap();
+            .expect("writeln to String should not fail");
         }
 
         // Export communication metrics
@@ -355,13 +356,13 @@ impl PrometheusExporter {
             "# HELP {}_communication_allreduce_time_ms All-reduce operation time in milliseconds",
             namespace
         )
-        .unwrap();
+        .expect("writeln to String should not fail");
         writeln!(
             output,
             "# TYPE {}_communication_allreduce_time_ms gauge",
             namespace
         )
-        .unwrap();
+        .expect("writeln to String should not fail");
 
         for (rank, metric) in &metrics {
             writeln!(
@@ -371,7 +372,7 @@ impl PrometheusExporter {
                 format_labels(*rank),
                 metric.communication.all_reduce_time_ms
             )
-            .unwrap();
+            .expect("writeln to String should not fail");
         }
 
         writeln!(
@@ -379,13 +380,13 @@ impl PrometheusExporter {
             "# HELP {}_communication_broadcast_time_ms Broadcast operation time in milliseconds",
             namespace
         )
-        .unwrap();
+        .expect("writeln to String should not fail");
         writeln!(
             output,
             "# TYPE {}_communication_broadcast_time_ms gauge",
             namespace
         )
-        .unwrap();
+        .expect("writeln to String should not fail");
 
         for (rank, metric) in &metrics {
             writeln!(
@@ -395,7 +396,7 @@ impl PrometheusExporter {
                 format_labels(*rank),
                 metric.communication.broadcast_time_ms
             )
-            .unwrap();
+            .expect("writeln to String should not fail");
         }
 
         // Export memory metrics
@@ -404,8 +405,9 @@ impl PrometheusExporter {
             "# HELP {}_memory_gpu_used_mb GPU memory used in megabytes",
             namespace
         )
-        .unwrap();
-        writeln!(output, "# TYPE {}_memory_gpu_used_mb gauge", namespace).unwrap();
+        .expect("writeln to String should not fail");
+        writeln!(output, "# TYPE {}_memory_gpu_used_mb gauge", namespace)
+            .expect("writeln to String should not fail");
 
         for (rank, metric) in &metrics {
             writeln!(
@@ -415,7 +417,7 @@ impl PrometheusExporter {
                 format_labels(*rank),
                 metric.memory.gpu_memory_used_mb
             )
-            .unwrap();
+            .expect("writeln to String should not fail");
         }
 
         writeln!(
@@ -423,8 +425,9 @@ impl PrometheusExporter {
             "# HELP {}_memory_peak_mb Peak memory usage in megabytes",
             namespace
         )
-        .unwrap();
-        writeln!(output, "# TYPE {}_memory_peak_mb gauge", namespace).unwrap();
+        .expect("writeln to String should not fail");
+        writeln!(output, "# TYPE {}_memory_peak_mb gauge", namespace)
+            .expect("writeln to String should not fail");
 
         for (rank, metric) in &metrics {
             writeln!(
@@ -434,7 +437,7 @@ impl PrometheusExporter {
                 format_labels(*rank),
                 metric.memory.peak_memory_mb
             )
-            .unwrap();
+            .expect("writeln to String should not fail");
         }
 
         // Export I/O metrics
@@ -443,8 +446,9 @@ impl PrometheusExporter {
             "# HELP {}_io_data_load_time_ms Data loading time in milliseconds",
             namespace
         )
-        .unwrap();
-        writeln!(output, "# TYPE {}_io_data_load_time_ms gauge", namespace).unwrap();
+        .expect("writeln to String should not fail");
+        writeln!(output, "# TYPE {}_io_data_load_time_ms gauge", namespace)
+            .expect("writeln to String should not fail");
 
         for (rank, metric) in &metrics {
             writeln!(
@@ -454,7 +458,7 @@ impl PrometheusExporter {
                 format_labels(*rank),
                 metric.io.data_load_time_ms
             )
-            .unwrap();
+            .expect("writeln to String should not fail");
         }
 
         writeln!(
@@ -462,8 +466,9 @@ impl PrometheusExporter {
             "# HELP {}_io_disk_read_mbps Disk read throughput in MB/s",
             namespace
         )
-        .unwrap();
-        writeln!(output, "# TYPE {}_io_disk_read_mbps gauge", namespace).unwrap();
+        .expect("writeln to String should not fail");
+        writeln!(output, "# TYPE {}_io_disk_read_mbps gauge", namespace)
+            .expect("writeln to String should not fail");
 
         for (rank, metric) in &metrics {
             writeln!(
@@ -473,7 +478,7 @@ impl PrometheusExporter {
                 format_labels(*rank),
                 metric.io.disk_read_mbps
             )
-            .unwrap();
+            .expect("writeln to String should not fail");
         }
 
         writeln!(
@@ -481,8 +486,9 @@ impl PrometheusExporter {
             "# HELP {}_io_disk_write_mbps Disk write throughput in MB/s",
             namespace
         )
-        .unwrap();
-        writeln!(output, "# TYPE {}_io_disk_write_mbps gauge", namespace).unwrap();
+        .expect("writeln to String should not fail");
+        writeln!(output, "# TYPE {}_io_disk_write_mbps gauge", namespace)
+            .expect("writeln to String should not fail");
 
         for (rank, metric) in &metrics {
             writeln!(
@@ -492,7 +498,7 @@ impl PrometheusExporter {
                 format_labels(*rank),
                 metric.io.disk_write_mbps
             )
-            .unwrap();
+            .expect("writeln to String should not fail");
         }
 
         // Export histograms if enabled
@@ -523,13 +529,13 @@ impl PrometheusExporter {
             "# HELP {}_compute_forward_time_histogram_ms Forward pass time distribution",
             namespace
         )
-        .unwrap();
+        .expect("writeln to String should not fail");
         writeln!(
             output,
             "# TYPE {}_compute_forward_time_histogram_ms histogram",
             namespace
         )
-        .unwrap();
+        .expect("writeln to String should not fail");
 
         for (bucket, count) in &histogram_data.compute_forward_buckets {
             writeln!(
@@ -537,7 +543,7 @@ impl PrometheusExporter {
                 "{}_compute_forward_time_histogram_ms_bucket{{le=\"{}\"}} {}",
                 namespace, bucket, count
             )
-            .unwrap();
+            .expect("writeln to String should not fail");
         }
 
         // Export backward pass histogram
@@ -546,13 +552,13 @@ impl PrometheusExporter {
             "# HELP {}_compute_backward_time_histogram_ms Backward pass time distribution",
             namespace
         )
-        .unwrap();
+        .expect("writeln to String should not fail");
         writeln!(
             output,
             "# TYPE {}_compute_backward_time_histogram_ms histogram",
             namespace
         )
-        .unwrap();
+        .expect("writeln to String should not fail");
 
         for (bucket, count) in &histogram_data.compute_backward_buckets {
             writeln!(
@@ -560,7 +566,7 @@ impl PrometheusExporter {
                 "{}_compute_backward_time_histogram_ms_bucket{{le=\"{}\"}} {}",
                 namespace, bucket, count
             )
-            .unwrap();
+            .expect("writeln to String should not fail");
         }
 
         Ok(())
@@ -634,7 +640,7 @@ mod tests {
     async fn test_prometheus_exporter_creation() {
         let pg = init_process_group(BackendType::Gloo, 0, 1, "127.0.0.1", 29500)
             .await
-            .unwrap();
+            .expect("writeln to String should not fail");
         let monitor = Arc::new(AdvancedMonitor::new(Arc::new(pg)));
 
         let config = PrometheusConfig::default();
@@ -647,7 +653,7 @@ mod tests {
     async fn test_metrics_export_format() {
         let pg = init_process_group(BackendType::Gloo, 0, 2, "127.0.0.1", 29500)
             .await
-            .unwrap();
+            .expect("writeln to String should not fail");
         let monitor = Arc::new(AdvancedMonitor::new(Arc::new(pg)));
 
         // Record some test metrics
@@ -688,15 +694,21 @@ mod tests {
             custom: HashMap::new(),
         };
 
-        monitor.record_metrics(test_metrics).unwrap();
+        monitor
+            .record_metrics(test_metrics)
+            .expect("writeln to String should not fail");
 
         let config = PrometheusConfig::builder()
             .namespace("test")
             .enable_histograms(false)
             .build();
 
-        let exporter = PrometheusExporter::new(monitor, config).unwrap();
-        let output = exporter.export_metrics().await.unwrap();
+        let exporter =
+            PrometheusExporter::new(monitor, config).expect("writeln to String should not fail");
+        let output = exporter
+            .export_metrics()
+            .await
+            .expect("writeln to String should not fail");
 
         // Verify output format
         assert!(output.contains("# HELP test_compute_forward_time_ms"));
@@ -711,7 +723,7 @@ mod tests {
     async fn test_custom_labels() {
         let pg = init_process_group(BackendType::Gloo, 0, 1, "127.0.0.1", 29500)
             .await
-            .unwrap();
+            .expect("writeln to String should not fail");
         let monitor = Arc::new(AdvancedMonitor::new(Arc::new(pg)));
 
         // Record some test metrics
@@ -751,7 +763,9 @@ mod tests {
             },
             custom: HashMap::new(),
         };
-        monitor.record_metrics(test_metrics).unwrap();
+        monitor
+            .record_metrics(test_metrics)
+            .expect("writeln to String should not fail");
 
         let config = PrometheusConfig::builder()
             .label("environment", "production")
@@ -759,8 +773,12 @@ mod tests {
             .enable_histograms(false)
             .build();
 
-        let exporter = PrometheusExporter::new(monitor, config).unwrap();
-        let output = exporter.export_metrics().await.unwrap();
+        let exporter =
+            PrometheusExporter::new(monitor, config).expect("writeln to String should not fail");
+        let output = exporter
+            .export_metrics()
+            .await
+            .expect("writeln to String should not fail");
 
         // Verify custom labels are present
         assert!(output.contains("environment=\"production\""));

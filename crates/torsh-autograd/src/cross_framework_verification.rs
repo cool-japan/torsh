@@ -912,7 +912,7 @@ pub fn get_global_verifier() -> &'static std::sync::Mutex<CrossFrameworkVerifier
 
 pub fn initialize_verification_frameworks() {
     let verifier = get_global_verifier();
-    let mut verifier_lock = verifier.lock().unwrap();
+    let mut verifier_lock = verifier.lock().expect("lock should not be poisoned");
     verifier_lock.register_framework_adapter(
         SupportedFramework::Torch,
         Box::new(TorshFrameworkAdapter::new()),
@@ -1081,7 +1081,7 @@ mod tests {
     fn test_global_verifier() {
         initialize_verification_frameworks();
         let verifier = get_global_verifier();
-        let verifier_lock = verifier.lock().unwrap();
+        let verifier_lock = verifier.lock().expect("lock should not be poisoned");
 
         assert!(verifier_lock
             .framework_adapters

@@ -141,9 +141,19 @@ impl ConvNeXt {
             stages.push(stage);
         }
 
-        let norm = LayerNorm::new(config.dims.last().unwrap().clone());
+        let norm = LayerNorm::new(
+            config
+                .dims
+                .last()
+                .expect("dims should not be empty")
+                .clone(),
+        );
         let head = Linear::new(
-            config.dims.last().unwrap().clone(),
+            config
+                .dims
+                .last()
+                .expect("dims should not be empty")
+                .clone(),
             config.num_classes,
             true,
         );
@@ -427,8 +437,12 @@ pub struct LayerNorm2d {
 
 impl LayerNorm2d {
     pub fn new(num_channels: usize) -> Self {
-        let weight = Parameter::new(creation::ones(&[num_channels]).unwrap());
-        let bias = Parameter::new(creation::zeros(&[num_channels]).unwrap());
+        let weight = Parameter::new(
+            creation::ones(&[num_channels]).expect("tensor creation should succeed"),
+        );
+        let bias = Parameter::new(
+            creation::zeros(&[num_channels]).expect("tensor creation should succeed"),
+        );
 
         Self {
             weight,

@@ -258,13 +258,19 @@ impl InteractiveViewer {
     where
         F: Fn(&ViewerEvent) + Send + Sync + 'static,
     {
-        let mut handlers = self.event_handlers.lock().unwrap();
+        let mut handlers = self
+            .event_handlers
+            .lock()
+            .expect("lock should not be poisoned");
         handlers.insert(event_name, Box::new(handler));
     }
 
     /// Emit an event to all registered handlers
     fn emit_event(&self, event: ViewerEvent) {
-        let handlers = self.event_handlers.lock().unwrap();
+        let handlers = self
+            .event_handlers
+            .lock()
+            .expect("lock should not be poisoned");
         for handler in handlers.values() {
             handler(&event);
         }
@@ -754,8 +760,13 @@ impl FpsCounter {
         let elapsed = self
             .frame_times
             .back()
-            .unwrap()
-            .duration_since(*self.frame_times.front().unwrap());
+            .expect("frame_times should have back element")
+            .duration_since(
+                *self
+                    .frame_times
+                    .front()
+                    .expect("frame_times should have front element"),
+            );
 
         let num_frames = self.frame_times.len() - 1;
         num_frames as f32 / elapsed.as_secs_f32()

@@ -78,7 +78,11 @@ where
                 }
 
                 // Check if error is retryable
-                if !is_retryable_error(last_error.as_ref().unwrap()) {
+                if !is_retryable_error(
+                    last_error
+                        .as_ref()
+                        .expect("error should be present after failed attempt"),
+                ) {
                     break;
                 }
 
@@ -135,7 +139,11 @@ where
                 }
 
                 // Check if error is retryable
-                if !is_retryable_error(last_error.as_ref().unwrap()) {
+                if !is_retryable_error(
+                    last_error
+                        .as_ref()
+                        .expect("error should be present after failed attempt"),
+                ) {
                     break;
                 }
 

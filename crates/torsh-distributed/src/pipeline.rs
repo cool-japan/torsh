@@ -354,7 +354,10 @@ impl PipelineParallel {
                 Some(Tensor::ones_like(&activation)?)
             } else {
                 // Receive gradient from next stage
-                let next_rank = self.stage.next_rank().unwrap();
+                let next_rank = self
+                    .stage
+                    .next_rank()
+                    .expect("non-last stage should have next rank");
                 let tag = self.config.base_tag + 10000 + self.current_micro_batch as u32;
                 let mut grad = Tensor::zeros_like(&activation)?;
                 recv(&mut grad, next_rank, tag, &self.process_group).await?;

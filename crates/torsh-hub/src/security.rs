@@ -121,20 +121,32 @@ impl SecurityManager {
 
         // Create signature
         let signature = match key_pair.algorithm {
-            SignatureAlgorithm::RsaSha256 => {
-                sign_with_rsa_sha256(&file_hash, key_pair.private_key.as_ref().unwrap())?
-            }
-            SignatureAlgorithm::Ed25519 => {
-                sign_with_ed25519(&file_hash, key_pair.private_key.as_ref().unwrap())?
-            }
-            SignatureAlgorithm::EcdsaP256 => {
-                sign_with_ecdsa_p256(&file_hash, key_pair.private_key.as_ref().unwrap())?
-            }
+            SignatureAlgorithm::RsaSha256 => sign_with_rsa_sha256(
+                &file_hash,
+                key_pair
+                    .private_key
+                    .as_ref()
+                    .expect("RSA private key required for signing"),
+            )?,
+            SignatureAlgorithm::Ed25519 => sign_with_ed25519(
+                &file_hash,
+                key_pair
+                    .private_key
+                    .as_ref()
+                    .expect("Ed25519 private key required for signing"),
+            )?,
+            SignatureAlgorithm::EcdsaP256 => sign_with_ecdsa_p256(
+                &file_hash,
+                key_pair
+                    .private_key
+                    .as_ref()
+                    .expect("ECDSA P256 private key required for signing"),
+            )?,
         };
 
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after UNIX epoch")
             .as_secs();
 
         Ok(ModelSignature {
@@ -411,7 +423,7 @@ pub fn validate_signature_age(signature: &ModelSignature, max_age: Option<u64>) 
     if let Some(max_age_secs) = max_age {
         let current_time = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after UNIX epoch")
             .as_secs();
 
         let age = current_time.saturating_sub(signature.timestamp);
@@ -493,7 +505,7 @@ impl ModelSandbox {
 
     /// Enter the sandbox environment
     pub fn enter(&self) -> Result<SandboxGuard<'_>> {
-        let mut is_active = self.is_active.lock().unwrap();
+        let mut is_active = self.is_active.lock().expect("lock should not be poisoned");
         if *is_active {
             return Err(TorshError::General(GeneralError::RuntimeError(
                 "Sandbox is already active".to_string(),
@@ -504,7 +516,7 @@ impl ModelSandbox {
 
         // Initialize resource tracking
         {
-            let mut usage = self.usage.lock().unwrap();
+            let mut usage = self.usage.lock().expect("lock should not be poisoned");
             *usage = ResourceUsage {
                 start_time: Some(SystemTime::now()),
                 ..Default::default()
@@ -525,7 +537,7 @@ impl ModelSandbox {
 
     /// Check if resource limits are exceeded
     pub fn check_limits(&self) -> Result<()> {
-        let usage = self.usage.lock().unwrap();
+        let usage = self.usage.lock().expect("lock should not be poisoned");
 
         // Check memory limit
         if usage.memory_used > self.config.max_memory {
@@ -539,7 +551,7 @@ impl ModelSandbox {
         if let Some(start_time) = usage.start_time {
             let elapsed = SystemTime::now()
                 .duration_since(start_time)
-                .unwrap()
+                .expect("current time should be after start_time")
                 .as_secs();
             if elapsed > self.config.max_execution_time {
                 return Err(TorshError::General(GeneralError::RuntimeError(format!(
@@ -562,13 +574,13 @@ impl ModelSandbox {
 
     /// Record memory usage
     pub fn record_memory_usage(&self, bytes: usize) {
-        let mut usage = self.usage.lock().unwrap();
+        let mut usage = self.usage.lock().expect("lock should not be poisoned");
         usage.memory_used = usage.memory_used.saturating_add(bytes);
     }
 
     /// Record thread creation
     pub fn record_thread_creation(&self) {
-        let mut usage = self.usage.lock().unwrap();
+        let mut usage = self.usage.lock().expect("lock should not be poisoned");
         usage.threads_created += 1;
     }
 
@@ -580,7 +592,7 @@ impl ModelSandbox {
             )));
         }
 
-        let mut usage = self.usage.lock().unwrap();
+        let mut usage = self.usage.lock().expect("lock should not be poisoned");
         usage.network_requests += 1;
         Ok(())
     }
@@ -613,7 +625,7 @@ impl ModelSandbox {
             }
         }
 
-        let mut usage = self.usage.lock().unwrap();
+        let mut usage = self.usage.lock().expect("lock should not be poisoned");
         if is_write {
             usage.file_writes += 1;
         } else {
@@ -625,12 +637,15 @@ impl ModelSandbox {
 
     /// Get current resource usage
     pub fn get_usage(&self) -> ResourceUsage {
-        self.usage.lock().unwrap().clone()
+        self.usage
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Exit the sandbox (private, called by SandboxGuard)
     fn exit(&self) {
-        let mut is_active = self.is_active.lock().unwrap();
+        let mut is_active = self.is_active.lock().expect("lock should not be poisoned");
         *is_active = false;
 
         // Clean up resource limits
@@ -709,7 +724,7 @@ impl SandboxedModel {
         input: &torsh_tensor::Tensor<f32>,
     ) -> Result<torsh_tensor::Tensor<f32>> {
         {
-            let sandbox = self.sandbox.read().unwrap();
+            let sandbox = self.sandbox.read().expect("lock should not be poisoned");
             let _guard = sandbox.enter()?;
 
             // Record memory usage for input tensor
@@ -726,7 +741,7 @@ impl SandboxedModel {
 
         // Record memory usage for output tensor
         {
-            let sandbox = self.sandbox.read().unwrap();
+            let sandbox = self.sandbox.read().expect("lock should not be poisoned");
             let output_elements = result.shape().dims().iter().product::<usize>();
             let output_memory = output_elements * std::mem::size_of::<f32>();
             sandbox.record_memory_usage(output_memory);
@@ -740,7 +755,10 @@ impl SandboxedModel {
 
     /// Get sandbox resource usage
     pub fn get_sandbox_usage(&self) -> ResourceUsage {
-        self.sandbox.read().unwrap().get_usage()
+        self.sandbox
+            .read()
+            .expect("lock should not be poisoned")
+            .get_usage()
     }
 }
 
@@ -993,14 +1011,20 @@ impl VulnerabilityScanner {
         let risk_level = self.assess_risk_level(&vulnerabilities);
 
         let end_time = SystemTime::now();
-        let scan_duration = end_time.duration_since(start_time).unwrap().as_millis() as u64;
+        let scan_duration = end_time
+            .duration_since(start_time)
+            .expect("end_time should be after start_time")
+            .as_millis() as u64;
 
         Ok(VulnerabilityScanResult {
             success: true,
             vulnerabilities,
             risk_level,
             scan_metadata: ScanMetadata {
-                scan_time: start_time.duration_since(UNIX_EPOCH).unwrap().as_secs(),
+                scan_time: start_time
+                    .duration_since(UNIX_EPOCH)
+                    .expect("start_time should be after UNIX epoch")
+                    .as_secs(),
                 scan_duration,
                 files_scanned: 1,
                 bytes_scanned: metadata.len() as usize,
@@ -1153,10 +1177,16 @@ impl VulnerabilityScanner {
         bytes_scanned: usize,
     ) -> ScanMetadata {
         let end_time = SystemTime::now();
-        let scan_duration = end_time.duration_since(start_time).unwrap().as_millis() as u64;
+        let scan_duration = end_time
+            .duration_since(start_time)
+            .expect("end_time should be after start_time")
+            .as_millis() as u64;
 
         ScanMetadata {
-            scan_time: start_time.duration_since(UNIX_EPOCH).unwrap().as_secs(),
+            scan_time: start_time
+                .duration_since(UNIX_EPOCH)
+                .expect("start_time should be after UNIX epoch")
+                .as_secs(),
             scan_duration,
             files_scanned,
             bytes_scanned,

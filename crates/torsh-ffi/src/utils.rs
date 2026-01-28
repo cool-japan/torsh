@@ -3,7 +3,7 @@
 // Framework infrastructure - components designed for future use
 #![allow(dead_code)]
 use crate::error::FfiError;
-use crate::python::tensor::PyTensor;
+use crate::tensor::PyTensor;
 use numpy::{PyReadonlyArrayDyn, PyUntypedArrayMethods};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList};
@@ -327,7 +327,7 @@ pub fn cat(tensors: Vec<PyTensor>, dim: i32) -> PyResult<PyTensor> {
 #[pyfunction]
 pub fn cuda_is_available() -> bool {
     // In a real implementation, this would check for CUDA availability
-    cfg!(feature = "cuda")
+    cfg!(feature = "gpu")
 }
 
 /// Get number of CUDA devices

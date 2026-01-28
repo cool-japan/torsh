@@ -151,6 +151,31 @@ pub enum TorshError {
 
     #[error("Other error: {0}")]
     Other(String),
+
+    // CUDA/GPU Backend compatibility variants
+    #[error("Context error: {message}")]
+    Context { message: String },
+
+    #[error("Invalid device: device {device_id}")]
+    InvalidDevice { device_id: usize },
+
+    #[error("Backend operation failed: {0}")]
+    Backend(String),
+
+    #[error("Invalid value: {0}")]
+    InvalidValue(String),
+
+    #[error("Memory error: {message}")]
+    Memory { message: String },
+
+    #[error("cuDNN error: {0}")]
+    CudnnError(String),
+
+    #[error("Unimplemented: {0}")]
+    Unimplemented(String),
+
+    #[error("Initialization error: {0}")]
+    InitializationError(String),
 }
 
 /// Result type alias for ToRSh operations
@@ -271,6 +296,15 @@ impl TorshError {
             Self::InvalidDimension { .. } => ErrorCategory::UserInput,
             Self::IterationError(_) => ErrorCategory::Internal,
             Self::Other(_) => ErrorCategory::Internal,
+            // CUDA/GPU Backend compatibility variants
+            Self::Context { .. } => ErrorCategory::Device,
+            Self::InvalidDevice { .. } => ErrorCategory::Device,
+            Self::Backend(_) => ErrorCategory::Device,
+            Self::InvalidValue(_) => ErrorCategory::UserInput,
+            Self::Memory { .. } => ErrorCategory::Memory,
+            Self::CudnnError(_) => ErrorCategory::Device,
+            Self::Unimplemented(_) => ErrorCategory::Internal,
+            Self::InitializationError(_) => ErrorCategory::Internal,
         }
     }
 

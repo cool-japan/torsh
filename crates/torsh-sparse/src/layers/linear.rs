@@ -4,7 +4,7 @@
 //! sparse fully connected layers and embedding layers optimized for sparse tensors.
 
 use crate::{CooTensor, CsrTensor, SparseTensor, TorshResult};
-use scirs2_core::random::Rng;
+
 use torsh_core::{Shape, TorshError};
 use torsh_tensor::{
     creation::{randn, zeros},

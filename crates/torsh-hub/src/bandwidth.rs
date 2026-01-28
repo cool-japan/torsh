@@ -72,7 +72,7 @@ impl BandwidthLimiter {
 
             // Try to consume tokens
             {
-                let mut tokens = self.tokens.lock().unwrap();
+                let mut tokens = self.tokens.lock().expect("lock should not be poisoned");
                 if *tokens >= bytes_f64 {
                     *tokens -= bytes_f64;
                     return Ok(());
@@ -90,14 +90,17 @@ impl BandwidthLimiter {
     /// Refill tokens based on elapsed time
     fn refill_tokens(&self) {
         let now = Instant::now();
-        let mut last_refill = self.last_refill.lock().unwrap();
+        let mut last_refill = self
+            .last_refill
+            .lock()
+            .expect("lock should not be poisoned");
         let elapsed = now.duration_since(*last_refill);
 
         if elapsed >= Duration::from_millis(10) {
             // Minimum refill interval
             let tokens_to_add = elapsed.as_secs_f64() * self.max_bytes_per_sec as f64;
 
-            let mut tokens = self.tokens.lock().unwrap();
+            let mut tokens = self.tokens.lock().expect("lock should not be poisoned");
             *tokens = (*tokens + tokens_to_add).min(self.bucket_capacity);
             *last_refill = now;
         }
@@ -105,7 +108,7 @@ impl BandwidthLimiter {
 
     /// Calculate how long to wait for specified bytes
     fn calculate_wait_time(&self, bytes: f64) -> Duration {
-        let tokens = *self.tokens.lock().unwrap();
+        let tokens = *self.tokens.lock().expect("lock should not be poisoned");
         let deficit = bytes - tokens;
 
         if deficit <= 0.0 {
@@ -118,14 +121,14 @@ impl BandwidthLimiter {
 
     /// Get current bandwidth utilization (0.0 to 1.0)
     pub fn utilization(&self) -> f64 {
-        let tokens = *self.tokens.lock().unwrap();
+        let tokens = *self.tokens.lock().expect("lock should not be poisoned");
         1.0 - (tokens / self.bucket_capacity)
     }
 
     /// Get available bytes without waiting
     pub fn available_bytes(&self) -> u64 {
         self.refill_tokens();
-        *self.tokens.lock().unwrap() as u64
+        *self.tokens.lock().expect("lock should not be poisoned") as u64
     }
 
     /// Update bandwidth limit
@@ -134,7 +137,7 @@ impl BandwidthLimiter {
         self.bucket_capacity = bytes_per_sec as f64 * 2.0;
 
         // Reset tokens to not exceed new capacity
-        let mut tokens = self.tokens.lock().unwrap();
+        let mut tokens = self.tokens.lock().expect("lock should not be poisoned");
         *tokens = (*tokens).min(self.bucket_capacity);
     }
 }
@@ -169,13 +172,16 @@ impl BandwidthMonitor {
 
         // Update total
         {
-            let mut total = self.total_bytes.lock().unwrap();
+            let mut total = self
+                .total_bytes
+                .lock()
+                .expect("lock should not be poisoned");
             *total += bytes;
         }
 
         // Add sample
         {
-            let mut samples = self.samples.lock().unwrap();
+            let mut samples = self.samples.lock().expect("lock should not be poisoned");
             samples.push((now, bytes));
 
             // Keep only recent samples
@@ -188,7 +194,10 @@ impl BandwidthMonitor {
 
     /// Get average transfer rate in bytes per second
     pub fn average_rate(&self) -> f64 {
-        let total = *self.total_bytes.lock().unwrap();
+        let total = *self
+            .total_bytes
+            .lock()
+            .expect("lock should not be poisoned");
         let elapsed = self.start_time.elapsed().as_secs_f64();
 
         if elapsed > 0.0 {
@@ -200,7 +209,7 @@ impl BandwidthMonitor {
 
     /// Get current transfer rate (last few seconds)
     pub fn current_rate(&self) -> f64 {
-        let samples = self.samples.lock().unwrap();
+        let samples = self.samples.lock().expect("lock should not be poisoned");
         let now = Instant::now();
         let cutoff = now - Duration::from_secs(5); // Last 5 seconds
 
@@ -226,7 +235,10 @@ impl BandwidthMonitor {
 
     /// Get total bytes transferred
     pub fn total_bytes(&self) -> u64 {
-        *self.total_bytes.lock().unwrap()
+        *self
+            .total_bytes
+            .lock()
+            .expect("lock should not be poisoned")
     }
 
     /// Get elapsed time since monitoring started

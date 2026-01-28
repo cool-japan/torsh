@@ -9,6 +9,10 @@ use crate::cuda::stream::CudaStream;
 #[cfg(feature = "cudnn")]
 use cudnn_sys::*;
 
+// Import compatibility layer for missing cudnn-sys functions
+#[cfg(feature = "cudnn")]
+use super::compat::{cudnnGetMathType, cudnnMathType_t, cudnnSetMathType};
+
 /// cuDNN handle wrapper
 ///
 /// Provides a safe wrapper around the cuDNN handle with automatic resource management.
@@ -115,7 +119,7 @@ impl CudnnHandle {
     pub fn set_stream(&mut self, stream: &CudaStream) -> CudaResult<()> {
         #[cfg(feature = "cudnn")]
         {
-            let status = unsafe { cudnnSetStream(self.handle, stream.raw() as cudaStream_t) };
+            let status = unsafe { cudnnSetStream(self.handle, stream.stream() as cudaStream_t) };
             if status != cudnnStatus_t::CUDNN_STATUS_SUCCESS {
                 return Err(CudaError::CudnnError(format!(
                     "Failed to set cuDNN stream: {:?}",

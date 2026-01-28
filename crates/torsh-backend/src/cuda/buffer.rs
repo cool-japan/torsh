@@ -1,13 +1,18 @@
 //! CUDA buffer implementation
 
+use crate::cuda::cuda_sys_compat as cuda_sys;
 use crate::cuda::device::CudaDevice;
 use crate::cuda::error::{CudaError, CudaResult};
-use crate::cuda::memory::CudaAllocation;
+use crate::cuda::memory::{CudaAllocation, SendSyncPtr};
 use crate::cuda::stream::CudaStream;
+#[allow(unused_imports)]
 use crate::{Buffer, BufferError};
-use cust::prelude::DevicePointer;
+use std::ffi::c_void;
 use std::sync::Arc;
 use torsh_core::DType;
+
+/// Device pointer type alias using our thread-safe wrapper
+pub type BufferDevicePtr<T> = SendSyncPtr<T>;
 
 /// CUDA buffer implementation
 #[derive(Debug, Clone)]
@@ -50,8 +55,14 @@ impl<T: Clone + Send + Sync + 'static> CudaBuffer<T> {
         }
     }
 
-    /// Get device pointer
-    pub fn device_ptr(&self) -> DevicePointer<T> {
+    /// Get device pointer as typed SendSyncPtr
+    pub fn device_ptr(&self) -> BufferDevicePtr<T> {
+        // Cast the u8 pointer to T pointer
+        SendSyncPtr::new(self.allocation.as_ptr() as *mut T)
+    }
+
+    /// Get raw device pointer
+    pub fn raw_ptr(&self) -> *mut u8 {
         self.allocation.as_ptr()
     }
 
@@ -68,8 +79,20 @@ impl<T: Clone + Send + Sync + 'static> CudaBuffer<T> {
         }
 
         unsafe {
-            cust::memory::dtoh_sync(&mut self.allocation.as_ptr(), data)?;
+            let result = cuda_sys::cudaMemcpy(
+                self.allocation.as_ptr() as *mut c_void,
+                data.as_ptr() as *const c_void,
+                data.len() * std::mem::size_of::<T>(),
+                cuda_sys::cudaMemcpyKind_cudaMemcpyHostToDevice,
+            );
+
+            if result != crate::cuda::cudaSuccess {
+                return Err(CudaError::Memory {
+                    message: format!("Host-to-device copy failed: {:?}", result),
+                });
+            }
         }
+
         Ok(())
     }
 
@@ -86,8 +109,21 @@ impl<T: Clone + Send + Sync + 'static> CudaBuffer<T> {
         }
 
         unsafe {
-            cust::memory::dtoh_async(&mut self.allocation.as_ptr(), data, stream.raw())?;
+            let result = cuda_sys::cudaMemcpyAsync(
+                self.allocation.as_ptr() as *mut c_void,
+                data.as_ptr() as *const c_void,
+                data.len() * std::mem::size_of::<T>(),
+                cuda_sys::cudaMemcpyKind_cudaMemcpyHostToDevice,
+                stream.stream(),
+            );
+
+            if result != crate::cuda::cudaSuccess {
+                return Err(CudaError::Memory {
+                    message: format!("Async host-to-device copy failed: {:?}", result),
+                });
+            }
         }
+
         Ok(())
     }
 
@@ -104,8 +140,20 @@ impl<T: Clone + Send + Sync + 'static> CudaBuffer<T> {
         }
 
         unsafe {
-            cust::memory::htod_sync(data, &self.allocation.as_ptr())?;
+            let result = cuda_sys::cudaMemcpy(
+                data.as_mut_ptr() as *mut c_void,
+                self.allocation.as_ptr() as *const c_void,
+                data.len() * std::mem::size_of::<T>(),
+                cuda_sys::cudaMemcpyKind_cudaMemcpyDeviceToHost,
+            );
+
+            if result != crate::cuda::cudaSuccess {
+                return Err(CudaError::Memory {
+                    message: format!("Device-to-host copy failed: {:?}", result),
+                });
+            }
         }
+
         Ok(())
     }
 
@@ -122,8 +170,21 @@ impl<T: Clone + Send + Sync + 'static> CudaBuffer<T> {
         }
 
         unsafe {
-            cust::memory::htod_async(data, &self.allocation.as_ptr(), stream.raw())?;
+            let result = cuda_sys::cudaMemcpyAsync(
+                data.as_mut_ptr() as *mut c_void,
+                self.allocation.as_ptr() as *const c_void,
+                data.len() * std::mem::size_of::<T>(),
+                cuda_sys::cudaMemcpyKind_cudaMemcpyDeviceToHost,
+                stream.stream(),
+            );
+
+            if result != crate::cuda::cudaSuccess {
+                return Err(CudaError::Memory {
+                    message: format!("Async device-to-host copy failed: {:?}", result),
+                });
+            }
         }
+
         Ok(())
     }
 
@@ -138,15 +199,27 @@ impl<T: Clone + Send + Sync + 'static> CudaBuffer<T> {
             });
         }
 
-        let size = self.length * std::mem::size_of::<T>();
         unsafe {
-            cust::memory::dtod_sync(
-                &mut self.allocation.as_ptr(),
-                &src.allocation.as_ptr(),
-                size,
-            )?;
+            let result = cuda_sys::cudaMemcpy(
+                self.allocation.as_ptr() as *mut c_void,
+                src.allocation.as_ptr() as *const c_void,
+                self.length * std::mem::size_of::<T>(),
+                cuda_sys::cudaMemcpyKind_cudaMemcpyDeviceToDevice,
+            );
+
+            if result != crate::cuda::cudaSuccess {
+                return Err(CudaError::Memory {
+                    message: format!("Device-to-device copy failed: {:?}", result),
+                });
+            }
         }
+
         Ok(())
+    }
+
+    /// Copy from another CUDA buffer (alias for copy_from_buffer)
+    pub fn copy_from(&mut self, src: &CudaBuffer<T>) -> CudaResult<()> {
+        self.copy_from_buffer(src)
     }
 
     /// Copy from another CUDA buffer asynchronously
@@ -164,15 +237,22 @@ impl<T: Clone + Send + Sync + 'static> CudaBuffer<T> {
             });
         }
 
-        let size = self.length * std::mem::size_of::<T>();
         unsafe {
-            cust::memory::dtod_async(
-                &mut self.allocation.as_ptr(),
-                &src.allocation.as_ptr(),
-                size,
-                stream.raw(),
-            )?;
+            let result = cuda_sys::cudaMemcpyAsync(
+                self.allocation.as_ptr() as *mut c_void,
+                src.allocation.as_ptr() as *const c_void,
+                self.length * std::mem::size_of::<T>(),
+                cuda_sys::cudaMemcpyKind_cudaMemcpyDeviceToDevice,
+                stream.stream(),
+            );
+
+            if result != crate::cuda::cudaSuccess {
+                return Err(CudaError::Memory {
+                    message: format!("Async device-to-device copy failed: {:?}", result),
+                });
+            }
         }
+
         Ok(())
     }
 
@@ -212,6 +292,9 @@ impl<T: Clone + Send + Sync + 'static> CudaBuffer<T> {
     }
 }
 
+// TODO: Implement Buffer trait when it's defined in the codebase
+// Currently Buffer is a struct, not a trait, so this implementation is commented out
+/*
 impl<T: Clone + Send + Sync + 'static> Buffer<T> for CudaBuffer<T> {
     fn len(&self) -> usize {
         self.length
@@ -276,6 +359,7 @@ impl<T: Clone + Send + Sync + 'static> Buffer<T> for CudaBuffer<T> {
         self
     }
 }
+*/
 
 impl<T> Drop for CudaBuffer<T> {
     fn drop(&mut self) {

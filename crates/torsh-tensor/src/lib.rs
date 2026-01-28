@@ -68,6 +68,7 @@ pub mod data_ops;
 pub mod expression_optimizer;
 pub mod expression_templates;
 pub mod hardware_accelerators;
+pub mod manipulation;
 pub mod math_ops;
 pub mod memory_optimization;
 pub mod optimization_cli;
@@ -99,7 +100,7 @@ pub mod memory_profiler;
 pub mod nan_inf_detection;
 #[cfg(feature = "operation-logging")]
 pub mod operation_logging;
-// pub mod ops; // Functionality extracted to specialized modules
+// pub mod ops; // Disabled due to duplicate definitions with core modules (all, any, sum, mean, matmul, cat, etc.)
 pub mod fft;
 pub mod scirs2_backend;
 pub mod scirs2_stats_integration;
@@ -109,6 +110,7 @@ pub mod stats;
 pub mod tensor_comprehension;
 pub mod tensor_tracker;
 pub mod tensor_utils;
+pub mod tensor_view; // Zero-copy tensor views (CRITICAL #1)
 pub mod tensor_views;
 pub mod type_conversions;
 
@@ -146,6 +148,9 @@ pub use custom_ops::{
 
 // Re-export storage types for advanced usage
 pub use storage::{MemoryMappedStorage, TensorStorage};
+
+// Re-export zero-copy view types (CRITICAL #1)
+pub use tensor_view::{TensorView, TensorViewMut};
 
 // Version information
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -206,6 +211,8 @@ impl<T: TensorElement> Tensor<T> {
             TensorStorage::MemoryMapped(storage) => Arc::strong_count(storage),
             #[cfg(feature = "simd")]
             TensorStorage::Aligned(data) => Arc::strong_count(data),
+            #[cfg(feature = "simd")]
+            TensorStorage::SimdOptimized(storage) => Arc::strong_count(storage),
         }
     }
 

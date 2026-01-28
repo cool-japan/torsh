@@ -5,7 +5,7 @@
 //! ecosystem integration.
 
 use crate::{BenchConfig, BenchResult, Benchmarkable};
-use criterion::black_box;
+use std::hint::black_box;
 use std::time::Instant;
 use torsh_core::device::DeviceType;
 use torsh_tensor::{creation::*, Tensor};
@@ -238,7 +238,7 @@ impl Benchmarkable for SpatialVisionBench {
             }
             "geometric_transform" => {
                 // Simplified geometric transformation
-                input.transpose(1, 2).unwrap()
+                input.transpose(1, 2).expect("transpose should succeed")
             }
             "interpolation" => {
                 // Spatial interpolation
@@ -389,7 +389,8 @@ impl Benchmarkable for AdvancedOptimizerBench {
                 let lr = 0.001f32;
                 let norm_params = params.norm().unwrap();
                 let norm_grads = grads.norm().unwrap();
-                let adaptive_lr = lr * norm_params.item().unwrap() / norm_grads.item().unwrap();
+                let adaptive_lr = lr * norm_params.item().expect("tensor should have single item")
+                    / norm_grads.item().expect("tensor should have single item");
                 params - &(grads.mul_scalar(adaptive_lr).unwrap())
             }
             "lookahead" => {
@@ -541,28 +542,31 @@ impl Benchmarkable for EnhancedLinalgBench {
             "lu_decomposition" => {
                 // Benchmark enhanced LU decomposition through basic matrix ops
                 let l = input.clone();
-                let u = input.transpose(0, 1).unwrap();
+                let u = input.transpose(0, 1).expect("transpose should succeed");
                 l.matmul(&u).unwrap() // Simulate LU reconstruction
             }
             "qr_decomposition" => {
                 // Benchmark QR-like operations
-                input.transpose(0, 1).unwrap()
+                input.transpose(0, 1).expect("transpose should succeed")
             }
             "svd" => {
                 // Benchmark SVD-like operations
                 let u = input.clone();
-                u.matmul(&input.transpose(0, 1).unwrap()).unwrap()
+                u.matmul(&input.transpose(0, 1).expect("transpose should succeed"))
+                    .expect("matmul should succeed")
             }
             "cholesky" => {
                 // Create positive definite matrix for Cholesky
-                let a_t = input.transpose(0, 1).unwrap();
+                let a_t = input.transpose(0, 1).expect("transpose should succeed");
                 input.matmul(&a_t).unwrap()
             }
             "condition_number" => {
                 // Compute condition number estimate
                 let norm = input.norm().unwrap();
                 let mut result = zeros(&[1]).unwrap();
-                result.set_1d(0, norm.item().unwrap()).unwrap();
+                result
+                    .set_1d(0, norm.item().expect("tensor should have single item"))
+                    .unwrap();
                 result
             }
             _ => input.clone(),
@@ -643,16 +647,16 @@ impl Benchmarkable for EnhancedSparseBench {
             }
             "optimize_format" => {
                 // Simulate format optimization by transposing (CSR -> CSC)
-                input.transpose(0, 1).unwrap()
+                input.transpose(0, 1).expect("transpose should succeed")
             }
             "sparse_multiply" => {
                 // Benchmark sparse matrix-vector multiplication
                 let vector = randn(&[self.matrix_size]).unwrap();
                 input
-                    .matmul(&vector.unsqueeze(1).unwrap())
-                    .unwrap()
+                    .matmul(&vector.unsqueeze(1).expect("unsqueeze should succeed"))
+                    .expect("matmul should succeed")
                     .squeeze(1)
-                    .unwrap()
+                    .expect("squeeze should succeed")
             }
             "memory_optimization" => {
                 // Simulate memory optimization by creating a compressed representation

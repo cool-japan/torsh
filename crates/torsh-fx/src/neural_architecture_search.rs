@@ -16,7 +16,7 @@
 use crate::{FxGraph, Node};
 use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
-use scirs2_core::random::{thread_rng, Rng}; // SciRS2 POLICY compliant
+use scirs2_core::random::thread_rng; // SciRS2 POLICY compliant
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
@@ -721,7 +721,10 @@ impl NeuralArchitectureSearch {
 
     /// Apply the best found architecture to a graph
     pub fn apply_best_architecture(&self, target_graph: &mut FxGraph) -> Result<()> {
-        let history = self.search_history.lock().unwrap();
+        let history = self
+            .search_history
+            .lock()
+            .expect("lock should not be poisoned");
         if let Some(best) = history.best_per_objective.get("accuracy") {
             // Replace target graph with best architecture
             *target_graph = best.graph.clone();
@@ -735,7 +738,10 @@ impl NeuralArchitectureSearch {
 
     /// Get current search progress
     pub fn get_search_progress(&self) -> SearchProgressMetrics {
-        let history = self.search_history.lock().unwrap();
+        let history = self
+            .search_history
+            .lock()
+            .expect("lock should not be poisoned");
         history.progress_metrics.clone()
     }
 
@@ -908,7 +914,10 @@ impl NeuralArchitectureSearch {
     }
 
     async fn run_evolutionary_search(&self, max_iterations: usize) -> Result<SearchResults> {
-        let mut population_manager = self.population_manager.lock().unwrap();
+        let mut population_manager = self
+            .population_manager
+            .lock()
+            .expect("lock should not be poisoned");
 
         // Initialize population
         population_manager.initialize_population(&self.search_space, 50)?;
@@ -1934,7 +1943,10 @@ impl NeuralArchitectureSearch {
         generation: usize,
         population_manager: &PopulationManager,
     ) -> Result<()> {
-        let mut history = self.search_history.lock().unwrap();
+        let mut history = self
+            .search_history
+            .lock()
+            .expect("lock should not be poisoned");
 
         // Update progress metrics
         history.progress_metrics.architectures_evaluated += population_manager.population.len();
@@ -1994,7 +2006,10 @@ impl NeuralArchitectureSearch {
     }
 
     fn create_search_results(&self, population_manager: &PopulationManager) -> SearchResults {
-        let history = self.search_history.lock().unwrap();
+        let history = self
+            .search_history
+            .lock()
+            .expect("lock should not be poisoned");
 
         // Find best architecture
         let best_architecture = population_manager

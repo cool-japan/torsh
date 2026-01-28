@@ -33,7 +33,7 @@ pub use ops::*;
 use crate::{FloatElement, Tensor, TensorElement};
 use torsh_core::error::{Result, TorshError};
 use torsh_core::dtype::DType;
-use num_traits::ToPrimitive;
+use scirs2_core::numeric::ToPrimitive;
 
 // Import SIMD operations for performance optimization
 #[cfg(feature = "simd")]
@@ -3358,7 +3358,7 @@ impl Tensor<f32> {
     /// Fill tensor with random values from uniform distribution [0, 1)
     pub fn uniform_(&mut self, low: f32, high: f32) -> Result<()> {
         // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
-        use scirs2_core::random::{Random, Rng};
+        use scirs2_core::random::{Random};
         let mut data = self.data()?;
         let mut rng = Random::new();
 
@@ -3372,7 +3372,7 @@ impl Tensor<f32> {
     /// Fill tensor with random values from normal distribution
     pub fn normal_(&mut self, mean: f32, std: f32) -> Result<()> {
         // ✅ SciRS2 Policy Compliant - Using scirs2_core::random with Box-Muller transform
-        use scirs2_core::random::{Random, Rng};
+        use scirs2_core::random::{Random};
 
         let mut rng = Random::new();
         let normal = Normal::new(mean, std).map_err(|_| {
@@ -3393,7 +3393,7 @@ impl Tensor<f32> {
         replacement: bool,
     ) -> Result<Tensor<i64>> {
         // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
-        use scirs2_core::random::{Random, Rng};
+        use scirs2_core::random::{Random};
 
         let weights_data = weights.data()?;
         let total: f32 = weights_data.iter().sum();
@@ -6710,7 +6710,7 @@ impl Tensor<f32> {
     /// Fill tensor with random values from exponential distribution (in-place)
     pub fn exponential_(&mut self, lambd: f32) -> Result<()> {
         // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
-        use scirs2_core::random::{Random, Rng};
+        use scirs2_core::random::{Random};
 
         let exp = Exp::new(lambd).map_err(|e| {
             TorshError::ComputeError(format!("Invalid exponential distribution parameter: {e}"))
@@ -6728,7 +6728,7 @@ impl Tensor<f32> {
     /// Fill tensor with random values from geometric distribution (in-place)
     pub fn geometric_(&mut self, p: f32) -> Result<()> {
         // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
-        use scirs2_core::random::{Random, Rng};
+        use scirs2_core::random::{Random};
 
         if p <= 0.0 || p > 1.0 {
             return Err(TorshError::ComputeError(

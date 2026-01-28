@@ -531,8 +531,8 @@ impl LexicalChain {
             (0, 0)
         } else {
             (
-                *all_positions.iter().min().unwrap(),
-                *all_positions.iter().max().unwrap(),
+                *all_positions.iter().min().expect("reduction should succeed"),
+                *all_positions.iter().max().expect("reduction should succeed"),
             )
         }
     }

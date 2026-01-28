@@ -558,8 +558,14 @@ impl AccessPattern {
             return;
         }
 
-        let first = self.access_times.front().unwrap();
-        let last = self.access_times.back().unwrap();
+        let first = self
+            .access_times
+            .front()
+            .expect("access_times should not be empty after guard");
+        let last = self
+            .access_times
+            .back()
+            .expect("access_times should not be empty after guard");
         let duration = last.duration_since(*first).as_secs_f64();
 
         // Use a minimum duration to avoid division by zero and to handle

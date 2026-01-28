@@ -4,7 +4,10 @@
 //! - Core audio data types and utilities
 //! - Dataset implementations for audio classification and speech tasks
 //! - Transform implementations for preprocessing and augmentation
-//!
+
+// Allow unused imports for conditional features
+#![allow(unused_imports)]
+
 //! # Examples
 //!
 //! ```no_run
@@ -37,7 +40,6 @@ pub use transforms::transforms::*;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dataset::Dataset;
     use crate::transforms::Transform;
 
     #[test]

@@ -13,10 +13,10 @@ use torsh_tensor::Tensor;
 /// ## Mathematical Background
 ///
 /// The uniform distribution U(a,b) has probability density function:
-/// ```
+/// ```text
 /// f(x) = 1/(b-a)  for a ≤ x ≤ b
 ///      = 0        otherwise
-/// ```
+/// ```text
 ///
 /// Properties:
 /// - **Mean**: μ = (a+b)/2
@@ -38,7 +38,7 @@ use torsh_tensor::Tensor;
 /// let tensor = rand(&[3, 4], None, None, Some(42))?; // [3, 4] tensor with values in [0, 1)
 /// let custom = rand(&[2, 2], Some(-1.0), Some(1.0), None)?; // Values in [-1, 1)
 /// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
+/// ```text
 pub fn rand(
     shape: &[usize],
     low: Option<f32>,
@@ -56,11 +56,11 @@ pub fn rand(
 /// ## Mathematical Implementation
 ///
 /// Uses the linear congruential generator method:
-/// ```
+/// ```text
 /// X_n+1 = (a × X_n + c) mod m
 /// U = X_n / m  ∈ [0, 1)
 /// Y = low + U × (high - low)  ∈ [low, high)
-/// ```
+/// ```text
 ///
 /// ## Parameters
 /// * `shape` - Shape of the tensor
@@ -109,9 +109,9 @@ pub fn uniform_(
 /// ## Mathematical Background
 ///
 /// The normal (Gaussian) distribution N(μ, σ²) has probability density function:
-/// ```
+/// ```text
 /// f(x) = (1/(σ√(2π))) × exp(-½((x-μ)/σ)²)
-/// ```
+/// ```text
 ///
 /// Properties:
 /// - **Mean**: μ
@@ -123,13 +123,13 @@ pub fn uniform_(
 /// ## Box-Muller Transformation
 ///
 /// Converts uniform random variables to normal:
-/// ```
+/// ```text
 /// U₁, U₂ ~ Uniform(0,1)
 /// Z₀ = √(-2 ln U₁) × cos(2π U₂)
 /// Z₁ = √(-2 ln U₁) × sin(2π U₂)
 /// Z₀, Z₁ ~ N(0,1)
 /// X = μ + σZ  ~ N(μ, σ²)
-/// ```
+/// ```text
 ///
 /// ## Parameters
 /// * `shape` - Shape of the tensor
@@ -186,9 +186,9 @@ pub fn normal_(
 /// - **Standard deviation**: 1
 ///
 /// Any normal distribution can be derived from standard normal:
-/// ```
+/// ```text
 /// X ~ N(μ, σ²)  ⟺  X = μ + σZ where Z ~ N(0,1)
-/// ```
+/// ```text
 ///
 /// ## Parameters
 /// * `shape` - Shape of the output tensor
@@ -214,11 +214,11 @@ pub fn randn(
 ///
 /// ## Discrete Uniform Distribution
 ///
-/// For integers in range [a, b), each value has equal probability:
-/// ```
+/// For integers in range \[a, b), each value has equal probability:
+/// ```text
 /// P(X = k) = 1/(b-a)  for k ∈ {a, a+1, ..., b-1}
 ///          = 0        otherwise
-/// ```
+/// ```text
 ///
 /// Properties:
 /// - **Mean**: μ = (a+b-1)/2
@@ -291,11 +291,11 @@ pub fn randint(shape: &[usize], high: i32, generator: Option<u64>) -> TorshResul
 /// ## Fisher-Yates Shuffle Algorithm
 ///
 /// Modern implementation uses the Fisher-Yates shuffle for O(n) efficiency:
-/// ```
+/// ```text
 /// for i = n-1 down to 1:
 ///     j = random(0, i+1)
 ///     swap(array[i], array[j])
-/// ```
+/// ```text
 ///
 /// This algorithm ensures:
 /// - **Unbiased**: Each permutation has probability 1/n!

@@ -113,12 +113,12 @@ impl GradientScaler {
         stream: &CudaStream,
     ) -> CudaResult<()> {
         // Use tensor operations to scale
-        crate::kernels::tensor_ops::launch_scalar_mul_f32(
-            tensor.as_raw_mut(),
-            tensor.as_raw_mut(),
+        crate::cuda::kernels::tensor_ops::launch_scalar_mul_f32(
+            tensor.as_raw() as *mut f32,
+            tensor.as_raw() as *mut f32,
             scale,
             1, // Assume size 1 for now - in real implementation, would need actual size
-            stream.raw() as cuda_sys::CUstream,
+            stream.stream(),
         );
         Ok(())
     }
@@ -138,7 +138,7 @@ impl GradientScaler {
 
         // Reset infinity flag
         {
-            let mut found_inf = self.found_inf.lock().unwrap();
+            let mut found_inf = self.found_inf.lock().expect("lock should not be poisoned");
             *found_inf = false;
         }
 
@@ -149,7 +149,7 @@ impl GradientScaler {
 
         // Check if infinities were found
         let found_inf = {
-            let found_inf = self.found_inf.lock().unwrap();
+            let found_inf = self.found_inf.lock().expect("lock should not be poisoned");
             *found_inf
         };
 
@@ -164,19 +164,19 @@ impl GradientScaler {
         stream: &CudaStream,
     ) -> CudaResult<()> {
         // Scale by inverse
-        crate::kernels::tensor_ops::launch_scalar_mul_f32(
-            tensor.as_raw_mut(),
-            tensor.as_raw_mut(),
+        crate::cuda::kernels::tensor_ops::launch_scalar_mul_f32(
+            tensor.as_raw() as *mut f32,
+            tensor.as_raw() as *mut f32,
             inv_scale,
             1, // Assume size 1 for now
-            stream.raw() as cuda_sys::CUstream,
+            stream.stream(),
         );
 
         // Check for infinities using reduction operation
         // This would launch a custom kernel to check for inf/nan values
         // For now we'll use a placeholder that sets the flag if any value is problematic
         if self.check_tensor_validity(tensor, stream)? {
-            let mut found_inf = self.found_inf.lock().unwrap();
+            let mut found_inf = self.found_inf.lock().expect("lock should not be poisoned");
             *found_inf = true;
         }
 
@@ -344,10 +344,11 @@ impl AmpContext {
     }
 
     /// Convert tensor to appropriate precision
+    /// Uses raw pointers since half::f16 doesn't implement DeviceCopy
     pub fn autocast(
         &self,
         input: DevicePointer<f32>,
-        output: DevicePointer<f16>,
+        output: *mut f16,
         size: usize,
         stream: &CudaStream,
     ) -> CudaResult<()> {
@@ -363,10 +364,11 @@ impl AmpContext {
     }
 
     /// Convert tensor to FP16 with saturation to prevent overflow
+    /// Uses raw pointers since half::f16 doesn't implement DeviceCopy
     pub fn autocast_with_saturation(
         &self,
         input: DevicePointer<f32>,
-        output: DevicePointer<f16>,
+        output: *mut f16,
         size: usize,
         stream: &CudaStream,
     ) -> CudaResult<()> {
@@ -380,9 +382,10 @@ impl AmpContext {
     }
 
     /// Convert tensor back to F32
+    /// Uses raw pointers since half::f16 doesn't implement DeviceCopy
     pub fn uncast(
         &self,
-        input: DevicePointer<f16>,
+        input: *const f16,
         output: DevicePointer<f32>,
         size: usize,
         stream: &CudaStream,

@@ -6,7 +6,7 @@
 //! functions like ReLU, or in specialized applications like medical imaging and satellite data.
 
 use crate::{CooTensor, CsrTensor, SparseTensor, TorshResult};
-use scirs2_core::random::Rng;
+
 use torsh_core::{Shape, TorshError};
 use torsh_tensor::{creation::zeros, Tensor};
 
@@ -16,8 +16,8 @@ use torsh_tensor::{creation::zeros, Tensor};
 /// This can significantly reduce computation when either the input or kernel has many zeros.
 ///
 /// # Mathematical Formulation
-/// For standard convolution: y[i,j] = Σ_m Σ_n w[m,n] * x[i+m, j+n]
-/// For sparse convolution: Only compute terms where w[m,n] ≠ 0
+/// For standard convolution: `y[i,j] = Σ_m Σ_n w[m,n] * x[i+m, j+n]`
+/// For sparse convolution: Only compute terms where `w[m,n] ≠ 0`
 ///
 /// # Use Cases
 /// - Computer vision with sparse activations (post-ReLU)

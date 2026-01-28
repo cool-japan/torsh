@@ -511,7 +511,10 @@ impl Optimizer for TrustRegionMethod {
             radius = self.update_radius(radius, reduction_ratio);
 
             // Store updated radius
-            let param_state = self.state.get_mut(&state_id).unwrap();
+            let param_state = self
+                .state
+                .get_mut(&state_id)
+                .expect("state should exist for state_id");
             param_state.insert("radius".to_string(), Tensor::scalar(radius)?);
 
             // Break if step was accepted and radius is reasonable

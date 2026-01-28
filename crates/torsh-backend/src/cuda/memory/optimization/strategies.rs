@@ -7,6 +7,73 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
+// ============================================================================
+// Stub implementations for missing types
+// ============================================================================
+
+#[derive(Debug, Clone, Default)]
+pub struct OptimizationObjective {}
+#[derive(Debug, Clone, Default)]
+pub struct SelectionAlgorithm {}
+#[derive(Debug, Clone, Default)]
+pub struct ContextAnalyzer {}
+#[derive(Debug, Clone, Default)]
+pub struct StrategyPerformancePredictor {}
+#[derive(Debug, Clone, Default)]
+pub struct MultiCriteriaDecisionMaking {}
+#[derive(Debug, Clone, Default)]
+pub struct StrategyRLAgent {}
+#[derive(Debug, Clone, Default)]
+pub struct BayesianStrategyOptimizer {}
+#[derive(Debug, Clone, Default)]
+pub struct EnsembleStrategySelector {}
+#[derive(Debug, Clone, Default)]
+pub struct ConstraintBasedSelector {}
+#[derive(Debug, Clone, Default)]
+pub struct HistoricalPerformanceAnalyzer {}
+#[derive(Debug, Clone, Default)]
+pub struct RealTimeAdaptationEngine {}
+#[derive(Debug, Clone, Default)]
+pub struct PerformanceHistoryDatabase {}
+#[derive(Debug, Clone, Default)]
+pub struct RealTimePerformanceMonitor {}
+#[derive(Debug, Clone, Default)]
+pub struct PerformanceComparisonEngine {}
+#[derive(Debug, Clone, Default)]
+pub struct StatisticalPerformanceAnalyzer {}
+#[derive(Debug, Clone, Default)]
+pub struct PerformanceTrendAnalyzer {}
+#[derive(Debug, Clone, Default)]
+pub struct PerformanceAnomalyDetector {}
+#[derive(Debug, Clone, Default)]
+pub struct PerformanceRegressionDetector {}
+#[derive(Debug, Clone, Default)]
+pub struct StrategyBenchmarkingFramework {}
+#[derive(Debug, Clone, Default)]
+pub struct PerformanceReportingSystem {}
+#[derive(Debug, Clone, Default)]
+pub struct StrategyEvolutionEngine {}
+#[derive(Debug, Clone, Default)]
+pub struct StrategyGeneticAlgorithm {}
+#[derive(Debug, Clone, Default)]
+pub struct ParameterAutoTuningSystem {}
+#[derive(Debug, Clone, Default)]
+pub struct StrategyMutationSystem {}
+#[derive(Debug, Clone, Default)]
+pub struct StrategyCrossoverSystem {}
+#[derive(Debug, Clone, Default)]
+pub struct StrategyFitnessEvaluator {}
+#[derive(Debug, Clone, Default)]
+pub struct StrategyPopulationManager {}
+#[derive(Debug, Clone, Default)]
+pub struct StrategyDiversityMaintainer {}
+#[derive(Debug, Clone, Default)]
+pub struct EliteStrategyPreservation {}
+#[derive(Debug, Clone, Default)]
+pub struct OnlineStrategyLearning {}
+
+// ============================================================================
+
 /// Comprehensive optimization strategy registry and management system
 #[derive(Debug)]
 pub struct OptimizationStrategyManager {
@@ -1096,7 +1163,7 @@ impl StrategyRegistry {
 
     /// Get all strategies
     pub fn get_all_strategies(&self) -> Vec<OptimizationStrategy> {
-        let strategies = self.strategies.read().unwrap();
+        let strategies = self.strategies.read().expect("lock should not be poisoned");
         strategies.values().cloned().collect()
     }
 
@@ -1139,7 +1206,7 @@ impl StrategyRegistry {
 
     /// Get registry statistics
     pub fn get_statistics(&self) -> RegistryStatistics {
-        let strategies = self.strategies.read().unwrap();
+        let strategies = self.strategies.read().expect("lock should not be poisoned");
         RegistryStatistics {
             total_strategies: strategies.len(),
             strategies_by_category: self.get_category_counts(),

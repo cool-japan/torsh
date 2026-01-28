@@ -21,7 +21,7 @@ use crate::utils::progress;
 
 // ✅ UNIFIED ACCESS (v0.1.0-RC.1+): Complete ndarray/random functionality through scirs2-core
 use scirs2_core::ndarray::Array2;
-use scirs2_core::random::{thread_rng, Rng};
+use scirs2_core::random::thread_rng;
 
 /// Quantization configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -308,7 +308,10 @@ async fn static_quantization(
     let calib_start = std::time::Instant::now();
     let activation_ranges = collect_activation_statistics(
         model,
-        config.calibration_data.as_ref().unwrap(),
+        config
+            .calibration_data
+            .as_ref()
+            .expect("calibration data should be present after is_none check"),
         config.calibration_samples,
     )
     .await?;
@@ -597,7 +600,8 @@ async fn collect_activation_statistics(
 fn generate_calibration_sample() -> Array2<f32> {
     let mut rng = thread_rng();
     let data: Vec<f32> = (0..3 * 224 * 224).map(|_| rng.random::<f32>()).collect();
-    Array2::from_shape_vec((3, 224 * 224), data).unwrap()
+    Array2::from_shape_vec((3, 224 * 224), data)
+        .expect("shape should match data length for calibration sample")
 }
 
 /// Simulate forward pass

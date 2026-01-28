@@ -751,8 +751,8 @@ fn generate_summary(results: &HashMap<usize, BatchResult>) -> BenchmarkSummary {
     // Scaling recommendation
     let batch_sizes: Vec<usize> = results.keys().copied().collect();
     if batch_sizes.len() >= 2 {
-        let min_batch = *batch_sizes.iter().min().unwrap();
-        let max_batch = *batch_sizes.iter().max().unwrap();
+        let min_batch = *batch_sizes.iter().min().expect("reduction should succeed");
+        let max_batch = *batch_sizes.iter().max().expect("reduction should succeed");
 
         let min_result = &results[&min_batch];
         let max_result = &results[&max_batch];

@@ -522,7 +522,10 @@ impl FineTuner {
             self.handle_layerwise_unfreezing(epoch)?;
         }
 
-        let total_time = self.start_time.unwrap().elapsed();
+        let total_time = self
+            .start_time
+            .expect("fine-tuning start_time should be set before training completes")
+            .elapsed();
         println!("Fine-tuning completed in {:?}", total_time);
 
         // Save final model

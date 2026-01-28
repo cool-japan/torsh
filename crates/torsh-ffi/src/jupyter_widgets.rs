@@ -6,7 +6,7 @@
 
 use crate::pandas_support::PandasSupport;
 use crate::plotting_utilities::{PlotResult, PlottingUtilities};
-use crate::python::tensor::PyTensor;
+use crate::tensor::PyTensor;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyModule};
 use pyo3::Bound;

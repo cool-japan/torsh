@@ -19,7 +19,7 @@ impl<T> CommunicationMessage for T where T: Serialize + for<'de> Deserialize<'de
 
 /// Serialize a message for communication
 pub fn serialize_message<T: CommunicationMessage>(msg: &T) -> TorshResult<Vec<u8>> {
-    bincode::serde::encode_to_vec(msg, bincode::config::standard()).map_err(|e| {
+    oxicode::serde::encode_to_vec(msg, oxicode::config::standard()).map_err(|e| {
         TorshDistributedError::SerializationError(format!("Message serialization failed: {}", e))
     })
 }
@@ -27,7 +27,7 @@ pub fn serialize_message<T: CommunicationMessage>(msg: &T) -> TorshResult<Vec<u8
 /// Deserialize a message from communication
 pub fn deserialize_message<T: CommunicationMessage>(data: &[u8]) -> TorshResult<T> {
     let (value, _): (T, usize) =
-        bincode::serde::decode_from_slice(data, bincode::config::standard()).map_err(|e| {
+        oxicode::serde::decode_from_slice(data, oxicode::config::standard()).map_err(|e| {
             TorshDistributedError::SerializationError(format!(
                 "Message deserialization failed: {}",
                 e
@@ -142,7 +142,6 @@ pub fn compress_tensor_data(data: Vec<u8>) -> TorshResult<Vec<u8>> {
 
     encoder.finish().map_err(|e| {
         TorshDistributedError::SerializationError(format!("Compression finalization failed: {}", e))
-            .into()
     })
 }
 

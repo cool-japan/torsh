@@ -81,10 +81,10 @@ pub enum ParameterKind {
 /// Variance of type parameters
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Variance {
-    /// Covariant (T is subtype of U => F<T> is subtype of F<U>)
+    /// Covariant (T is subtype of U => `F<T>` is subtype of `F<U>`)
     Covariant,
 
-    /// Contravariant (T is subtype of U => F<U> is subtype of F<T>)
+    /// Contravariant (T is subtype of U => `F<U>` is subtype of `F<T>`)
     Contravariant,
 
     /// Invariant (no subtyping relationship)
@@ -473,7 +473,7 @@ impl GenericFunctionManager {
                         .type_params
                         .iter()
                         .position(|p| p.name == *param)
-                        .unwrap();
+                        .expect("param should exist in type_params");
 
                     if !self.check_trait_constraint(&type_args[param_index], trait_name) {
                         return Err(JitError::CompilationError(format!(
@@ -490,7 +490,7 @@ impl GenericFunctionManager {
                         .type_params
                         .iter()
                         .position(|p| p.name == *param)
-                        .unwrap();
+                        .expect("param should exist in type_params");
 
                     if param_index < shape_args.len() {
                         if !self.check_shape_constraint(&shape_args[param_index], shape_constraint)

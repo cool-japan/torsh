@@ -707,7 +707,11 @@ impl PretrainedWeights {
         let cached_path = self.ensure_cached(model_name)?;
 
         // Load model state from file
+        // Use safetensors if available, otherwise try other formats
+        #[cfg(feature = "safetensors")]
         let model_state = ModelState::load_from_safetensors(&cached_path)?;
+        #[cfg(not(feature = "safetensors"))]
+        let model_state = ModelState::load_from_file(&cached_path)?;
 
         // Apply weights to model
         self.apply_weights_to_model(model, &model_state)?;
@@ -775,9 +779,20 @@ impl PretrainedWeights {
         // Add metadata
         model_state.metadata.tags.push("user_trained".to_string());
 
-        // Save to file
+        // Save to file based on extension
+        #[cfg(feature = "safetensors")]
         if path.ends_with(".safetensors") {
             model_state.save_to_safetensors(path)?;
+        } else if path.ends_with(".json") {
+            model_state.save_to_file(path)?;
+        } else {
+            model_state.save_to_binary(path)?;
+        }
+        #[cfg(not(feature = "safetensors"))]
+        if path.ends_with(".safetensors") {
+            return Err(TorshError::InvalidArgument(
+                "Safetensors format requires 'safetensors' feature".to_string(),
+            ));
         } else if path.ends_with(".json") {
             model_state.save_to_file(path)?;
         } else {
@@ -802,11 +817,16 @@ static PRETRAINED_WEIGHTS: std::sync::Mutex<Option<PretrainedWeights>> =
 
 /// Get the global pretrained weights registry
 pub fn get_pretrained_weights() -> PretrainedWeights {
-    let mut weights = PRETRAINED_WEIGHTS.lock().unwrap();
+    let mut weights = PRETRAINED_WEIGHTS
+        .lock()
+        .expect("lock should not be poisoned");
     if weights.is_none() {
         *weights = Some(PretrainedWeights::new());
     }
-    weights.as_ref().unwrap().clone()
+    weights
+        .as_ref()
+        .expect("pretrained weights should be initialized")
+        .clone()
 }
 
 /// Convenient function to check if pretrained weights are available
@@ -905,7 +925,9 @@ mod tests {
         assert_eq!(output.shape().dims(), &[1, 784]);
 
         // Output should be in [0, 1] range due to sigmoid activation
-        let output_data = output.to_vec().unwrap();
+        let output_data = output
+            .to_vec()
+            .expect("tensor to vec conversion should succeed");
         for &val in &output_data {
             assert!(
                 val >= 0.0 && val <= 1.0,

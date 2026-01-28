@@ -20,9 +20,6 @@ use crate::utils::{output, progress, time, validation};
 use scirs2_core::ndarray::{Array1, Array2, Array3};
 use scirs2_core::random::thread_rng;
 
-// NumRS2 for numerical operations
-use numrs2::prelude::*;
-
 // ToRSh dependencies for real training operations
 
 #[derive(Subcommand)]
@@ -1063,8 +1060,9 @@ async fn forward_pass_batch(
 
         // Simple forward pass simulation using SciRS2
         let flattened_size = std::cmp::min(input.len(), 1000);
-        let mut activations =
-            Array1::from_vec(input.as_slice().unwrap()[..flattened_size].to_vec());
+        let mut activations = Array1::from_vec(
+            input.as_slice().expect("input array should be contiguous")[..flattened_size].to_vec(),
+        );
 
         for param in &model.parameters {
             if activations.len() == param.ncols() {
@@ -1213,8 +1211,9 @@ async fn validate_batch(
 
         // Forward pass (same as training but without gradients)
         let flattened_size = std::cmp::min(input.len(), 1000);
-        let mut activations =
-            Array1::from_vec(input.as_slice().unwrap()[..flattened_size].to_vec());
+        let mut activations = Array1::from_vec(
+            input.as_slice().expect("input array should be contiguous")[..flattened_size].to_vec(),
+        );
 
         for param in &model.parameters {
             if activations.len() == param.ncols() {
@@ -1346,7 +1345,9 @@ fn serialize_model_state(model: &TrainingModel) -> Result<Vec<u8>> {
     let mut serialized = Vec::new();
 
     for param in &model.parameters {
-        let param_bytes = param.as_slice().unwrap();
+        let param_bytes = param
+            .as_slice()
+            .expect("parameter array should be contiguous");
         let bytes: Vec<u8> = param_bytes
             .iter()
             .flat_map(|&f| f.to_le_bytes().to_vec())

@@ -154,11 +154,17 @@ impl OptimizerNetwork {
         let hidden_state = self
             .hidden_states
             .entry(param_id.to_string())
-            .or_insert_with(|| Tensor::zeros(&hidden_shape, DeviceType::Cpu).unwrap());
+            .or_insert_with(|| {
+                Tensor::zeros(&hidden_shape, DeviceType::Cpu)
+                    .expect("tensor creation should succeed")
+            });
         let cell_state = self
             .cell_states
             .entry(param_id.to_string())
-            .or_insert_with(|| Tensor::zeros(&hidden_shape, DeviceType::Cpu).unwrap())
+            .or_insert_with(|| {
+                Tensor::zeros(&hidden_shape, DeviceType::Cpu)
+                    .expect("tensor creation should succeed")
+            })
             .clone();
 
         // LSTM-like computation
@@ -202,15 +208,21 @@ impl OptimizerNetwork {
         // Apply update to parameter shape
         let update = if self.config.coordinate_wise {
             // Scale the gradient by the learned magnitude
-            gradient.mul_op(&update_magnitude.broadcast_to(&gradient.shape())?)?
+            gradient.mul_op(&update_magnitude.broadcast_to(gradient.shape().dims())?)?
         } else {
             // For non-coordinate-wise, we need more sophisticated reshaping
             gradient.mul_scalar(update_magnitude.item()?)?
         };
 
         // Update states
-        *self.hidden_states.get_mut(param_id).unwrap() = new_hidden_state;
-        *self.cell_states.get_mut(param_id).unwrap() = new_cell_state;
+        *self
+            .hidden_states
+            .get_mut(param_id)
+            .expect("hidden_states should exist for param_id") = new_hidden_state;
+        *self
+            .cell_states
+            .get_mut(param_id)
+            .expect("cell_states should exist for param_id") = new_cell_state;
 
         Ok(update)
     }

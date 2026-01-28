@@ -506,7 +506,10 @@ pub mod utils {
         }
 
         if handles.len() == 1 {
-            return Ok(handles.into_iter().next().unwrap());
+            return Ok(handles
+                .into_iter()
+                .next()
+                .expect("handles has exactly one element after len check"));
         }
 
         // Check if all handles are adjacent and have the same alignment

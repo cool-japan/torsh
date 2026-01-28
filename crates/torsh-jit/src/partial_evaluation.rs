@@ -808,7 +808,11 @@ impl LoopOptimizer {
 
     fn should_unroll(&self, loop_info: &LoopInfo) -> bool {
         // Heuristics for loop unrolling
-        loop_info.iteration_count.is_some() && loop_info.iteration_count.unwrap() <= 8
+        loop_info.iteration_count.is_some()
+            && loop_info
+                .iteration_count
+                .expect("iteration count should be Some based on check")
+                <= 8
     }
 
     fn unroll_loop(&mut self, graph: &mut ComputationGraph, loop_info: &LoopInfo) -> JitResult<()> {

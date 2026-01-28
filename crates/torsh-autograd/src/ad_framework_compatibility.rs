@@ -1018,7 +1018,12 @@ impl ADFrameworkCompatibilityManager {
     ) -> AutogradResult<MigrationPlan> {
         let cache_key = format!("{}_{}", source, target);
 
-        if let Some(cached_plan) = self.migration_cache.lock().unwrap().get(&cache_key) {
+        if let Some(cached_plan) = self
+            .migration_cache
+            .lock()
+            .expect("lock should not be poisoned")
+            .get(&cache_key)
+        {
             return Ok(cached_plan.clone());
         }
 
@@ -1143,7 +1148,7 @@ pub fn convert_tensor(
     target_framework: ADFramework,
 ) -> AutogradResult<Box<dyn FrameworkTensor>> {
     let manager = get_global_compatibility_manager();
-    let manager_lock = manager.lock().unwrap();
+    let manager_lock = manager.lock().expect("lock should not be poisoned");
     let adapter = manager_lock.get_adapter(&target_framework).ok_or_else(|| {
         AutogradError::gradient_computation(
             "adapter_lookup",
@@ -1159,7 +1164,7 @@ pub fn migrate_model(
     data: &MigrationData,
 ) -> AutogradResult<MigrationResult> {
     let manager = get_global_compatibility_manager();
-    let manager_lock = manager.lock().unwrap();
+    let manager_lock = manager.lock().expect("lock should not be poisoned");
     manager_lock.execute_migration(source, target, data)
 }
 
@@ -1168,7 +1173,7 @@ pub fn check_framework_compatibility(
     target: ADFramework,
 ) -> AutogradResult<CompatibilityLevel> {
     let manager = get_global_compatibility_manager();
-    let manager_lock = manager.lock().unwrap();
+    let manager_lock = manager.lock().expect("lock should not be poisoned");
     manager_lock.check_compatibility(&source, &target)
 }
 

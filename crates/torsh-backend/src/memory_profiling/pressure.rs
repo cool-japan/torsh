@@ -85,7 +85,7 @@ impl MemorySnapshot {
     pub fn most_constrained_device(&self) -> Option<(&Device, &DeviceMemoryUsage)> {
         self.device_usage
             .iter()
-            .max_by(|(_, a), (_, b)| a.utilization_percent.partial_cmp(&b.utilization_percent).unwrap())
+            .max_by(|(_, a), (_, b)| a.utilization_percent.partial_cmp(&b.utilization_percent).unwrap_or(std::cmp::Ordering::Equal))
     }
 
     /// Calculates total system memory utilization
@@ -629,8 +629,8 @@ impl BandwidthUtilization {
         // Calculate trend over recent samples
         let recent: Vec<_> = self.history.iter().rev().take(10).collect();
         let trend = if recent.len() >= 2 {
-            let first = recent.last().unwrap().usage;
-            let last = recent.first().unwrap().usage;
+            let first = recent.last().expect("recent should not be empty after len check").usage;
+            let last = recent.first().expect("recent should not be empty after len check").usage;
             last - first
         } else {
             0.0

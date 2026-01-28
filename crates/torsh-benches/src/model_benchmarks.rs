@@ -4,7 +4,7 @@
 //! including ResNet, Transformer, and other popular models.
 
 use crate::Benchmarkable;
-use criterion::black_box;
+use std::hint::black_box;
 // Removed unused imports: BenchConfig, BenchResult, torsh_core::dtype::DType
 use std::time::Instant;
 use torsh_tensor::{creation::*, Tensor};
@@ -44,23 +44,32 @@ impl Benchmarkable for ResNetBlockBench {
             self.image_size,
             self.image_size,
         ])
-        .unwrap();
+        .expect("failed to create ResNet input tensor");
 
         let weights = ResNetBlockWeights {
-            conv1_weight: rand(&[self.output_channels, self.input_channels, 3, 3]).unwrap(),
-            conv1_bias: rand(&[self.output_channels]).unwrap(),
-            bn1_weight: rand(&[self.output_channels]).unwrap(),
-            bn1_bias: rand(&[self.output_channels]).unwrap(),
-            bn1_running_mean: zeros::<f32>(&[self.output_channels]).unwrap(),
-            bn1_running_var: ones::<f32>(&[self.output_channels]).unwrap(),
-            conv2_weight: rand(&[self.output_channels, self.output_channels, 3, 3]).unwrap(),
-            conv2_bias: rand(&[self.output_channels]).unwrap(),
-            bn2_weight: rand(&[self.output_channels]).unwrap(),
-            bn2_bias: rand(&[self.output_channels]).unwrap(),
-            bn2_running_mean: zeros::<f32>(&[self.output_channels]).unwrap(),
-            bn2_running_var: ones::<f32>(&[self.output_channels]).unwrap(),
+            conv1_weight: rand(&[self.output_channels, self.input_channels, 3, 3])
+                .expect("failed to create conv1 weight"),
+            conv1_bias: rand(&[self.output_channels]).expect("failed to create conv1 bias"),
+            bn1_weight: rand(&[self.output_channels]).expect("failed to create bn1 weight"),
+            bn1_bias: rand(&[self.output_channels]).expect("failed to create bn1 bias"),
+            bn1_running_mean: zeros::<f32>(&[self.output_channels])
+                .expect("failed to create bn1 running mean"),
+            bn1_running_var: ones::<f32>(&[self.output_channels])
+                .expect("failed to create bn1 running var"),
+            conv2_weight: rand(&[self.output_channels, self.output_channels, 3, 3])
+                .expect("failed to create conv2 weight"),
+            conv2_bias: rand(&[self.output_channels]).expect("failed to create conv2 bias"),
+            bn2_weight: rand(&[self.output_channels]).expect("failed to create bn2 weight"),
+            bn2_bias: rand(&[self.output_channels]).expect("failed to create bn2 bias"),
+            bn2_running_mean: zeros::<f32>(&[self.output_channels])
+                .expect("failed to create bn2 running mean"),
+            bn2_running_var: ones::<f32>(&[self.output_channels])
+                .expect("failed to create bn2 running var"),
             downsample_weight: if self.input_channels != self.output_channels {
-                Some(rand(&[self.output_channels, self.input_channels, 1, 1]).unwrap())
+                Some(
+                    rand(&[self.output_channels, self.input_channels, 1, 1])
+                        .expect("failed to create downsample weight"),
+                )
             } else {
                 None
             },
@@ -88,7 +97,9 @@ impl Benchmarkable for ResNetBlockBench {
             x.clone()
         };
 
-        let output = bn2_out.add(&residual).unwrap();
+        let output = bn2_out
+            .add(&residual)
+            .expect("failed to add residual connection");
         black_box(mock_relu(&output))
     }
 
@@ -176,21 +187,26 @@ impl Benchmarkable for TransformerBlockBench {
     type Output = Tensor<f32>;
 
     fn setup(&mut self, _size: usize) -> Self::Input {
-        let input = rand(&[self.batch_size, self.seq_len, self.d_model]).unwrap();
+        let input = rand(&[self.batch_size, self.seq_len, self.d_model])
+            .expect("failed to create transformer input tensor");
 
         let weights = TransformerBlockWeights {
-            attention_qkv_weight: rand(&[self.d_model, 3 * self.d_model]).unwrap(),
-            attention_qkv_bias: rand(&[3 * self.d_model]).unwrap(),
-            attention_proj_weight: rand(&[self.d_model, self.d_model]).unwrap(),
-            attention_proj_bias: rand(&[self.d_model]).unwrap(),
-            ln1_weight: ones::<f32>(&[self.d_model]).unwrap(),
-            ln1_bias: zeros::<f32>(&[self.d_model]).unwrap(),
-            mlp_fc1_weight: rand(&[self.d_model, 4 * self.d_model]).unwrap(),
-            mlp_fc1_bias: rand(&[4 * self.d_model]).unwrap(),
-            mlp_fc2_weight: rand(&[4 * self.d_model, self.d_model]).unwrap(),
-            mlp_fc2_bias: rand(&[self.d_model]).unwrap(),
-            ln2_weight: ones::<f32>(&[self.d_model]).unwrap(),
-            ln2_bias: zeros::<f32>(&[self.d_model]).unwrap(),
+            attention_qkv_weight: rand(&[self.d_model, 3 * self.d_model])
+                .expect("failed to create QKV weight"),
+            attention_qkv_bias: rand(&[3 * self.d_model]).expect("failed to create QKV bias"),
+            attention_proj_weight: rand(&[self.d_model, self.d_model])
+                .expect("failed to create projection weight"),
+            attention_proj_bias: rand(&[self.d_model]).expect("failed to create projection bias"),
+            ln1_weight: ones::<f32>(&[self.d_model]).expect("failed to create ln1 weight"),
+            ln1_bias: zeros::<f32>(&[self.d_model]).expect("failed to create ln1 bias"),
+            mlp_fc1_weight: rand(&[self.d_model, 4 * self.d_model])
+                .expect("failed to create mlp fc1 weight"),
+            mlp_fc1_bias: rand(&[4 * self.d_model]).expect("failed to create mlp fc1 bias"),
+            mlp_fc2_weight: rand(&[4 * self.d_model, self.d_model])
+                .expect("failed to create mlp fc2 weight"),
+            mlp_fc2_bias: rand(&[self.d_model]).expect("failed to create mlp fc2 bias"),
+            ln2_weight: ones::<f32>(&[self.d_model]).expect("failed to create ln2 weight"),
+            ln2_bias: zeros::<f32>(&[self.d_model]).expect("failed to create ln2 bias"),
         };
 
         (input, weights)
@@ -216,7 +232,9 @@ impl Benchmarkable for TransformerBlockBench {
         );
 
         // Residual connection 1
-        let residual1 = x.add(&attention_proj).unwrap();
+        let residual1 = x
+            .add(&attention_proj)
+            .expect("failed to add attention residual");
 
         // Layer norm 2
         let ln2_out = mock_layer_norm(&residual1, &weights.ln2_weight, &weights.ln2_bias);
@@ -235,7 +253,11 @@ impl Benchmarkable for TransformerBlockBench {
         );
 
         // Residual connection 2
-        black_box(residual1.add(&mlp2_out).unwrap())
+        black_box(
+            residual1
+                .add(&mlp2_out)
+                .expect("failed to add MLP residual"),
+        )
     }
 
     fn flops(&self, _size: usize) -> usize {
@@ -624,7 +646,7 @@ fn mock_conv2d(input: &Tensor<f32>, weight: &Tensor<f32>) -> Tensor<f32> {
     let height = input_shape[2];
     let width = input_shape[3];
 
-    rand::<f32>(&[batch, out_channels, height, width]).unwrap()
+    rand::<f32>(&[batch, out_channels, height, width]).expect("failed to create mock conv2d output")
 }
 
 fn mock_conv2d_downsample(input: &Tensor<f32>, weight: &Tensor<f32>) -> Tensor<f32> {
@@ -640,7 +662,8 @@ fn mock_conv2d_downsample(input: &Tensor<f32>, weight: &Tensor<f32>) -> Tensor<f
     let height = (input_shape[2] + 1) / 2; // Downsample by 2
     let width = (input_shape[3] + 1) / 2; // Downsample by 2
 
-    rand::<f32>(&[batch, out_channels, height, width]).unwrap()
+    rand::<f32>(&[batch, out_channels, height, width])
+        .expect("failed to create mock conv2d downsample output")
 }
 
 fn mock_batch_norm(input: &Tensor<f32>, _weight: &Tensor<f32>, bias: &Tensor<f32>) -> Tensor<f32> {
@@ -711,23 +734,26 @@ impl Benchmarkable for GANGeneratorBench {
     type Output = Tensor<f32>;
 
     fn setup(&mut self, _size: usize) -> Self::Input {
-        let noise = rand(&[self.batch_size, self.latent_dim]).unwrap();
+        let noise =
+            rand(&[self.batch_size, self.latent_dim]).expect("failed to create GAN noise tensor");
 
         let weights = GANGeneratorWeights {
-            fc1_weight: rand(&[self.latent_dim, 128 * 4 * 4]).unwrap(),
-            fc1_bias: rand(&[128 * 4 * 4]).unwrap(),
-            bn1_weight: ones::<f32>(&[128]).unwrap(),
-            bn1_bias: zeros::<f32>(&[128]).unwrap(),
-            deconv1_weight: rand(&[128, 64, 4, 4]).unwrap(),
-            deconv1_bias: rand(&[64]).unwrap(),
-            bn2_weight: ones::<f32>(&[64]).unwrap(),
-            bn2_bias: zeros::<f32>(&[64]).unwrap(),
-            deconv2_weight: rand(&[64, 32, 4, 4]).unwrap(),
-            deconv2_bias: rand(&[32]).unwrap(),
-            bn3_weight: ones::<f32>(&[32]).unwrap(),
-            bn3_bias: zeros::<f32>(&[32]).unwrap(),
-            deconv3_weight: rand(&[32, self.output_channels, 4, 4]).unwrap(),
-            deconv3_bias: rand(&[self.output_channels]).unwrap(),
+            fc1_weight: rand(&[self.latent_dim, 128 * 4 * 4])
+                .expect("failed to create GAN fc1 weight"),
+            fc1_bias: rand(&[128 * 4 * 4]).expect("failed to create GAN fc1 bias"),
+            bn1_weight: ones::<f32>(&[128]).expect("failed to create GAN bn1 weight"),
+            bn1_bias: zeros::<f32>(&[128]).expect("failed to create GAN bn1 bias"),
+            deconv1_weight: rand(&[128, 64, 4, 4]).expect("failed to create GAN deconv1 weight"),
+            deconv1_bias: rand(&[64]).expect("failed to create GAN deconv1 bias"),
+            bn2_weight: ones::<f32>(&[64]).expect("failed to create GAN bn2 weight"),
+            bn2_bias: zeros::<f32>(&[64]).expect("failed to create GAN bn2 bias"),
+            deconv2_weight: rand(&[64, 32, 4, 4]).expect("failed to create GAN deconv2 weight"),
+            deconv2_bias: rand(&[32]).expect("failed to create GAN deconv2 bias"),
+            bn3_weight: ones::<f32>(&[32]).expect("failed to create GAN bn3 weight"),
+            bn3_bias: zeros::<f32>(&[32]).expect("failed to create GAN bn3 bias"),
+            deconv3_weight: rand(&[32, self.output_channels, 4, 4])
+                .expect("failed to create GAN deconv3 weight"),
+            deconv3_bias: rand(&[self.output_channels]).expect("failed to create GAN deconv3 bias"),
         };
 
         (noise, weights)
@@ -819,21 +845,24 @@ impl Benchmarkable for GANDiscriminatorBench {
             self.input_size,
             self.input_size,
         ])
-        .unwrap();
+        .expect("failed to create discriminator input tensor");
 
         let weights = GANDiscriminatorWeights {
-            conv1_weight: rand(&[64, self.input_channels, 4, 4]).unwrap(),
-            conv1_bias: rand(&[64]).unwrap(),
-            conv2_weight: rand(&[128, 64, 4, 4]).unwrap(),
-            conv2_bias: rand(&[128]).unwrap(),
-            bn2_weight: ones::<f32>(&[128]).unwrap(),
-            bn2_bias: zeros::<f32>(&[128]).unwrap(),
-            conv3_weight: rand(&[256, 128, 4, 4]).unwrap(),
-            conv3_bias: rand(&[256]).unwrap(),
-            bn3_weight: ones::<f32>(&[256]).unwrap(),
-            bn3_bias: zeros::<f32>(&[256]).unwrap(),
-            fc_weight: rand(&[256 * 4 * 4, 1]).unwrap(),
-            fc_bias: rand(&[1]).unwrap(),
+            conv1_weight: rand(&[64, self.input_channels, 4, 4])
+                .expect("failed to create discriminator conv1 weight"),
+            conv1_bias: rand(&[64]).expect("failed to create discriminator conv1 bias"),
+            conv2_weight: rand(&[128, 64, 4, 4])
+                .expect("failed to create discriminator conv2 weight"),
+            conv2_bias: rand(&[128]).expect("failed to create discriminator conv2 bias"),
+            bn2_weight: ones::<f32>(&[128]).expect("failed to create discriminator bn2 weight"),
+            bn2_bias: zeros::<f32>(&[128]).expect("failed to create discriminator bn2 bias"),
+            conv3_weight: rand(&[256, 128, 4, 4])
+                .expect("failed to create discriminator conv3 weight"),
+            conv3_bias: rand(&[256]).expect("failed to create discriminator conv3 bias"),
+            bn3_weight: ones::<f32>(&[256]).expect("failed to create discriminator bn3 weight"),
+            bn3_bias: zeros::<f32>(&[256]).expect("failed to create discriminator bn3 bias"),
+            fc_weight: rand(&[256 * 4 * 4, 1]).expect("failed to create discriminator fc weight"),
+            fc_bias: rand(&[1]).expect("failed to create discriminator fc bias"),
         };
 
         (input, weights)
@@ -945,12 +974,12 @@ fn mock_deconv2d(input: &Tensor<f32>, weight: &Tensor<f32>) -> Tensor<f32> {
     let height = input_shape.dims()[2] * 2; // Assuming stride=2
     let width = input_shape.dims()[3] * 2;
 
-    rand(&[batch, out_channels, height, width]).unwrap()
+    rand(&[batch, out_channels, height, width]).expect("failed to create mock deconv2d output")
 }
 
 fn mock_reshape(_input: &Tensor<f32>, new_shape: &[usize]) -> Tensor<f32> {
     // Mock reshape - just return tensor with new shape
-    rand(new_shape).unwrap()
+    rand(new_shape).expect("failed to create mock reshape output")
 }
 
 fn mock_tanh(input: &Tensor<f32>) -> Tensor<f32> {
@@ -974,7 +1003,7 @@ fn mock_flatten(input: &Tensor<f32>) -> Tensor<f32> {
         .reshape(&[batch as i32, total_size as i32])
         .unwrap_or_else(|_| {
             // Fallback: create tensor with correct shape if reshape fails
-            rand(&[batch, total_size]).unwrap()
+            rand(&[batch, total_size]).expect("failed to create fallback flatten tensor")
         })
 }
 

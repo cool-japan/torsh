@@ -9,6 +9,539 @@ use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
+// ============================================================================
+// Stub implementations for missing types
+// ============================================================================
+
+/// Machine learning change detectors (stub implementation)
+#[derive(Debug)]
+struct MLChangeDetectors {}
+
+impl MLChangeDetectors {
+    fn new() -> Self {
+        Self {}
+    }
+
+    fn start(&mut self) -> Result<(), MonitoringError> {
+        Ok(())
+    }
+
+    fn stop(&mut self) -> Result<(), MonitoringError> {
+        Ok(())
+    }
+}
+
+/// Threshold adapter (stub implementation)
+#[derive(Debug)]
+struct ThresholdAdapter {}
+
+impl ThresholdAdapter {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// Change classifier (stub implementation)
+#[derive(Debug)]
+struct ChangeClassifier {}
+
+impl ChangeClassifier {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// False positive reducer (stub implementation)
+#[derive(Debug)]
+struct FalsePositiveReducer {}
+
+impl FalsePositiveReducer {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// Change impact assessor (stub implementation)
+#[derive(Debug)]
+struct ChangeImpactAssessor {}
+
+impl ChangeImpactAssessor {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// Change classification type (stub implementation)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ChangeClassification {
+    Unclassified,
+}
+
+/// Change impact type (stub implementation)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ChangeImpact {
+    Unknown,
+}
+
+/// Log analyzer (stub implementation)
+#[derive(Debug)]
+struct LogAnalyzer {}
+
+impl LogAnalyzer {
+    fn new(_config: LogConfig) -> Self {
+        Self {}
+    }
+}
+
+/// Anomaly detection system (stub implementation)
+#[derive(Debug)]
+struct AnomalyDetectionSystem {}
+
+impl AnomalyDetectionSystem {
+    fn new(_config: AnomalyConfig) -> Self {
+        Self {}
+    }
+}
+
+/// Health check system (stub implementation)
+#[derive(Debug)]
+struct HealthCheckSystem {}
+
+impl HealthCheckSystem {
+    fn new(_config: HealthConfig) -> Self {
+        Self {}
+    }
+}
+
+/// Resource usage tracker (stub implementation)
+#[derive(Debug)]
+pub struct ResourceUsageTracker {}
+
+impl ResourceUsageTracker {
+    fn new(_config: ResourceConfig) -> Self {
+        Self {}
+    }
+}
+
+/// Event correlation engine (stub implementation)
+#[derive(Debug)]
+struct EventCorrelationEngine {}
+
+impl EventCorrelationEngine {
+    fn new(_config: CorrelationConfig) -> Self {
+        Self {}
+    }
+}
+
+/// Distributed tracing system (stub implementation)
+#[derive(Debug)]
+struct DistributedTracingSystem {}
+
+impl DistributedTracingSystem {
+    fn new(_config: TracingConfig) -> Self {
+        Self {}
+    }
+}
+
+/// Monitoring export data (stub implementation)
+#[derive(Debug)]
+struct MonitoringExportData {}
+
+impl MonitoringExportData {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// State validator (stub implementation)
+#[derive(Debug)]
+struct StateValidator {}
+
+impl StateValidator {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// State aggregation engine (stub implementation)
+#[derive(Debug)]
+struct StateAggregationEngine {}
+
+impl StateAggregationEngine {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// State comparison system (stub implementation)
+#[derive(Debug)]
+struct StateComparisonSystem {}
+
+impl StateComparisonSystem {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// State export system (stub implementation)
+#[derive(Debug)]
+struct StateExportSystem {}
+
+impl StateExportSystem {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// System import result (stub implementation)
+#[derive(Debug)]
+struct SystemImportResult {}
+
+impl SystemImportResult {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// Statistical change models (stub implementation)
+#[derive(Debug)]
+struct StatisticalChangeModels {}
+
+impl StatisticalChangeModels {
+    fn new() -> Self {
+        Self {}
+    }
+
+    fn initialize(&mut self) -> Result<(), MonitoringError> {
+        Ok(())
+    }
+}
+
+/// State predictor (stub implementation)
+#[derive(Debug)]
+struct StatePredictor {}
+
+impl StatePredictor {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// Performance trend analyzer (stub implementation)
+#[derive(Debug)]
+struct PerformanceTrendAnalyzer {}
+
+impl PerformanceTrendAnalyzer {
+    fn new(_config: TrendConfig) -> Self {
+        Self {}
+    }
+}
+
+/// State change (stub implementation)
+#[derive(Debug, Clone, Default)]
+struct StateChange {
+    metric_name: String,
+    old_value: f64,
+    new_value: f64,
+    timestamp: std::time::Instant,
+}
+
+/// Change detection event (stub implementation)
+#[derive(Debug, Clone)]
+struct ChangeDetectionEvent {
+    timestamp: std::time::Instant,
+    changes: Vec<StateChange>,
+    confidence: f32,
+}
+
+/// Archive criteria (stub implementation)
+#[derive(Debug, Clone, Default)]
+struct ArchiveCriteria {}
+
+/// Monitoring statistics (stub implementation)
+#[derive(Debug, Clone, Default)]
+struct MonitoringStatistics {}
+
+/// Export metadata (stub implementation)
+#[derive(Debug, Clone, Default)]
+struct ExportMetadata {}
+
+/// Performance stats (stub implementation)
+#[derive(Debug, Clone, Default)]
+struct PerformanceStats {}
+
+/// System state export data (stub implementation)
+#[derive(Debug, Clone, Default)]
+struct SystemStateExportData {}
+
+/// System monitor statistics (stub implementation)
+#[derive(Debug, Clone, Default)]
+struct SystemMonitorStatistics {}
+
+/// Export result (stub implementation)
+#[derive(Debug, Clone, Default)]
+struct ExportResult {}
+
+// Stub configuration types (internal to monitoring module)
+#[derive(Debug, Clone, Default)]
+struct LogConfig {}
+#[derive(Debug, Clone, Default)]
+struct AnomalyConfig {}
+#[derive(Debug, Clone, Default)]
+struct HealthConfig {}
+#[derive(Debug, Clone, Default)]
+struct ResourceConfig {}
+#[derive(Debug, Clone, Default)]
+struct CorrelationConfig {}
+#[derive(Debug, Clone, Default)]
+struct TracingConfig {}
+#[derive(Debug, Clone, Default)]
+struct TrendConfig {}
+#[derive(Debug, Clone, Default)]
+pub struct AlertSystemConfig {}
+#[derive(Debug, Clone, Default)]
+pub struct DashboardConfig {}
+#[derive(Debug, Clone, Default)]
+pub struct AuditConfig {}
+#[derive(Debug, Clone, Default)]
+pub struct GpuConfig {}
+#[derive(Debug, Clone, Default)]
+pub struct ThermalConfig {}
+#[derive(Debug, Clone, Default)]
+struct StateMonitorConfig {}
+#[derive(Debug, Clone, Default)]
+struct OptimizationMonitorConfig {}
+
+// Stub data structure types
+#[derive(Debug, Clone, Default)]
+pub struct OptimizationSession {}
+#[derive(Debug, Clone, Default)]
+pub struct ParameterTuningRecord {}
+#[derive(Debug, Clone, Default)]
+pub struct ErrorRecord {}
+#[derive(Debug, Clone, Default)]
+pub struct HistoryStorageConfig {}
+#[derive(Debug, Clone, Default)]
+pub struct HistoryQualityMetrics {}
+#[derive(Debug, Clone, Default)]
+pub struct StorageStatistics {}
+#[derive(Debug, Clone, Default)]
+pub struct RetentionStatus {}
+#[derive(Debug, Clone, Default)]
+pub struct HistoryIndex {}
+#[derive(Debug, Clone, Default)]
+pub struct BackupInformation {}
+#[derive(Debug, Clone, Default)]
+pub struct OptimizationResults {}
+#[derive(Debug, Clone, Default)]
+pub struct ExecutionContext {}
+#[derive(Debug, Clone, Default)]
+pub struct ResourceUsage {}
+#[derive(Debug, Clone, Default)]
+pub struct ExecutionStatus {}
+#[derive(Debug, Clone, Default)]
+pub struct ErrorInfo {}
+#[derive(Debug, Clone, Default)]
+pub struct ExecutionQualityMetrics {}
+#[derive(Debug, Clone, Default)]
+pub struct ExecutionBenchmarks {}
+#[derive(Debug, Clone, Default)]
+pub struct UserFeedback {}
+#[derive(Debug, Clone, Default)]
+pub struct ExecutionMetadata {}
+#[derive(Debug, Clone, Default)]
+pub struct AnomalyIndicator {}
+#[derive(Debug, Clone, Default)]
+pub struct TrendAnalysis {}
+#[derive(Debug, Clone, Default)]
+pub struct BaselineComparison {}
+#[derive(Debug, Clone, Default)]
+pub struct ResourceUtilization {}
+#[derive(Debug, Clone, Default)]
+pub struct QualityOfServiceMetrics {}
+#[derive(Debug, Clone, Default)]
+pub struct DataCollectionMethod {}
+#[derive(Debug, Clone, Default)]
+pub struct DataSource {}
+#[derive(Debug, Clone, Default)]
+pub struct MeasurementUncertainty {}
+#[derive(Debug, Clone, Default)]
+pub struct ValidationStatus {}
+#[derive(Debug, Clone, Default)]
+pub struct EnrichmentData {}
+#[derive(Debug, Clone, Default)]
+pub struct CorrelationData {}
+#[derive(Debug, Clone, Default)]
+pub struct ChangeReason {}
+#[derive(Debug, Clone, Default)]
+pub struct ImpactAssessment {}
+#[derive(Debug, Clone, Default)]
+pub struct RollbackInfo {}
+#[derive(Debug, Clone, Default)]
+pub struct ApprovalStatus {}
+#[derive(Debug, Clone, Default)]
+pub struct ChangeValidationResults {}
+#[derive(Debug, Clone, Default)]
+pub struct ChangeMetadata {}
+#[derive(Debug, Clone, Default)]
+pub struct MilestoneValidationMetrics {}
+#[derive(Debug, Clone, Default)]
+pub struct ReproducibilityInfo {}
+#[derive(Debug, Clone, Default)]
+pub struct KnowledgeGained {}
+#[derive(Debug, Clone, Default)]
+pub struct FutureImplications {}
+#[derive(Debug, Clone, Default)]
+pub struct ResourceUtilizationPatterns {}
+#[derive(Debug, Clone, Default)]
+pub struct FrequencyPatterns {}
+#[derive(Debug, Clone, Default)]
+pub struct ErrorPatterns {}
+#[derive(Debug, Clone, Default)]
+pub struct SeasonalPatterns {}
+#[derive(Debug, Clone, Default)]
+pub struct PredictiveInsights {}
+#[derive(Debug, Clone, Default)]
+pub struct BenchmarkComparisons {}
+#[derive(Debug, Clone, Default)]
+pub struct ROIAnalysis {}
+#[derive(Debug, Clone, Default)]
+pub struct CorrelationAnalysis {}
+#[derive(Debug, Clone, Default)]
+pub struct AnomalyAnalysis {}
+
+// Additional stub types for monitoring module
+#[derive(Debug, Clone, Default)]
+pub struct MonitoringConfig {}
+#[derive(Debug, Clone, Default)]
+pub struct PerformanceBenchmarks {}
+#[derive(Debug, Clone, Default)]
+pub struct OptimizationSessionTracker {}
+#[derive(Debug, Clone, Default)]
+pub struct QualityMetricsTracker {}
+#[derive(Debug, Clone, Default)]
+pub struct WorkflowMonitor {}
+#[derive(Debug, Clone, Default)]
+pub struct AllocationMonitor {}
+#[derive(Debug, Clone, Default)]
+pub struct MetricsStorage {}
+#[derive(Debug, Clone, Default)]
+pub struct MetricsAggregator {}
+#[derive(Debug, Clone, Default)]
+pub struct MetricsStreamer {}
+#[derive(Debug, Clone, Default)]
+pub struct MetricsValidator {}
+#[derive(Debug, Clone, Default)]
+pub struct MetricsCompressor {}
+#[derive(Debug, Clone, Default)]
+pub struct MetricsRetentionManager {}
+#[derive(Debug, Clone, Default)]
+pub struct MetricsQueryEngine {}
+#[derive(Debug, Clone, Default)]
+pub struct MetricsExportSystem {}
+#[derive(Debug, Clone, Default)]
+pub struct RealtimeMetricsProcessor {}
+#[derive(Debug, Clone, Default)]
+pub struct MetricsCorrelationAnalyzer {}
+#[derive(Debug, Clone, Default)]
+pub struct AlertRuleEngine {}
+#[derive(Debug, Clone, Default)]
+pub struct AlertNotificationSystem {}
+#[derive(Debug, Clone, Default)]
+pub struct AlertEscalationManager {}
+#[derive(Debug, Clone, Default)]
+pub struct AlertSuppressionSystem {}
+#[derive(Debug, Clone, Default)]
+pub struct AlertCorrelationEngine {}
+#[derive(Debug, Clone, Default)]
+pub struct AlertHistoryTracker {}
+#[derive(Debug, Clone, Default)]
+pub struct AlertAnalyticsSystem {}
+#[derive(Debug, Clone, Default)]
+pub struct AlertTemplateManager {}
+#[derive(Debug, Clone, Default)]
+pub struct AlertRoutingSystem {}
+#[derive(Debug, Clone, Default)]
+pub struct AlertEnrichmentSystem {}
+#[derive(Debug, Clone, Default)]
+pub struct AlertFeedbackSystem {}
+#[derive(Debug, Clone, Default)]
+pub struct ComparisonOperator {}
+#[derive(Debug, Clone, Default)]
+pub struct SuppressionRule {}
+#[derive(Debug, Clone, Default)]
+pub struct NotificationChannel {}
+#[derive(Debug, Clone, Default)]
+pub struct RecoveryCondition {}
+#[derive(Debug, Clone, Default)]
+pub struct AlertContext {}
+#[derive(Debug, Clone, Default)]
+pub struct AlertHistoryEntry {}
+#[derive(Debug, Clone, Default)]
+pub struct DashboardWidget {}
+#[derive(Debug, Clone, Default)]
+pub struct DashboardLayout {}
+#[derive(Debug, Clone, Default)]
+pub struct DataFeed {}
+#[derive(Debug, Clone, Default)]
+pub struct DashboardTemplate {}
+#[derive(Debug, Clone, Default)]
+pub struct UserCustomization {}
+#[derive(Debug, Clone, Default)]
+pub struct DashboardTheme {}
+#[derive(Debug, Clone, Default)]
+pub struct InteractiveComponent {}
+#[derive(Debug, Clone, Default)]
+pub struct DashboardExportSystem {}
+#[derive(Debug, Clone, Default)]
+pub struct DashboardSharingSystem {}
+#[derive(Debug, Clone, Default)]
+pub struct DashboardAnalytics {}
+#[derive(Debug, Clone, Default)]
+pub struct AlertAcknowledgment {}
+#[derive(Debug, Clone, Default)]
+pub struct Dashboard {}
+#[derive(Debug, Clone, Default)]
+pub struct MetricsQuery {}
+#[derive(Debug, Clone, Default)]
+pub struct MetricsResult {}
+#[derive(Debug, Clone, Default)]
+pub struct AnomalyDetectionConfig {}
+#[derive(Debug, Clone, Default)]
+pub struct Anomaly {}
+#[derive(Debug, Clone, Default)]
+pub struct TrendAnalysisConfig {}
+#[derive(Debug, Clone, Default)]
+pub struct TrendAnalysisResult {}
+#[derive(Debug, Clone, Default)]
+pub struct HealthCheckResult {}
+#[derive(Debug, Clone, Default)]
+pub struct ResourceUsageReport {}
+#[derive(Debug, Clone, Default)]
+pub struct EventCorrelationConfig {}
+#[derive(Debug, Clone, Default)]
+pub struct EventCorrelation {}
+#[derive(Debug, Clone, Default)]
+pub struct TraceConfig {}
+#[derive(Debug, Clone, Default)]
+pub struct TraceId {}
+#[derive(Debug, Clone, Default)]
+pub struct MonitoringExportConfig {}
+#[derive(Debug, Clone, Default)]
+pub struct MonitoringImportData {}
+#[derive(Debug, Clone, Default)]
+pub struct ImportResult {}
+#[derive(Debug, Clone, Default)]
+pub struct SystemExportConfig {}
+#[derive(Debug, Clone, Default)]
+pub struct SystemStateImportData {}
+#[derive(Debug, Clone, Default)]
+pub struct ChangeType {}
+#[derive(Debug, Clone, Default)]
+pub struct Metric {}
+
+// ============================================================================
+
 /// Comprehensive real-time monitoring system
 #[derive(Debug)]
 pub struct OptimizationMonitoringSystem {
@@ -884,7 +1417,7 @@ impl SystemStateMonitor {
 
     /// Get monitoring statistics
     pub fn get_statistics(&self) -> SystemMonitorStatistics {
-        let state_count = self.state_history.read().unwrap().len();
+        let state_count = self.state_history.read().expect("lock should not be poisoned").len();
         SystemMonitorStatistics {
             total_snapshots: state_count,
             average_state_quality: self.calculate_average_state_quality(),
@@ -932,7 +1465,7 @@ impl SystemStateMonitor {
     }
 
     fn calculate_average_state_quality(&self) -> f32 {
-        let history = self.state_history.read().unwrap();
+        let history = self.state_history.read().expect("lock should not be poisoned");
         if history.is_empty() {
             return 0.0;
         }

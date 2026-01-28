@@ -2,7 +2,7 @@
 
 // Framework infrastructure - components designed for future use
 #![allow(dead_code)]
-use crate::python::tensor::PyTensor;
+use crate::tensor::PyTensor;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList};
 use pyo3::{Bound, Py};
@@ -364,7 +364,7 @@ impl PyDataLoaderBuilder {
                     Some(self.num_workers),
                     Some(self.drop_last),
                 )
-                .unwrap()
+                .expect("PyDataLoader::new should succeed with valid parameters")
             })
         } else {
             PyDataLoader::new(

@@ -221,7 +221,10 @@ impl ParameterServer {
 
     pub fn start(&self) -> Result<(), ParameterServerError> {
         {
-            let mut running = self.server_running.lock().unwrap();
+            let mut running = self
+                .server_running
+                .lock()
+                .expect("lock should not be poisoned");
             *running = true;
         }
 
@@ -236,7 +239,10 @@ impl ParameterServer {
 
     pub fn stop(&self) -> Result<(), ParameterServerError> {
         {
-            let mut running = self.server_running.lock().unwrap();
+            let mut running = self
+                .server_running
+                .lock()
+                .expect("lock should not be poisoned");
             *running = false;
         }
 
@@ -261,7 +267,7 @@ impl ParameterServer {
                         println!("Parameter server listening on {}", addr);
 
                         for stream in listener.incoming() {
-                            if !*server_running.lock().unwrap() {
+                            if !*server_running.lock().expect("lock should not be poisoned") {
                                 break;
                             }
 
@@ -316,7 +322,10 @@ impl ParameterServer {
             match stream.read(&mut buffer) {
                 Ok(0) => break,
                 Ok(bytes_read) => {
-                    metrics.lock().unwrap().network_bytes_received += bytes_read as u64;
+                    metrics
+                        .lock()
+                        .expect("lock should not be poisoned")
+                        .network_bytes_received += bytes_read as u64;
 
                     let message = String::from_utf8_lossy(&buffer[..bytes_read]);
                     let response = Self::process_worker_message(
@@ -329,7 +338,10 @@ impl ParameterServer {
                     stream.write_all(response.as_bytes())?;
                     stream.flush()?;
 
-                    metrics.lock().unwrap().network_bytes_sent += response.len() as u64;
+                    metrics
+                        .lock()
+                        .expect("lock should not be poisoned")
+                        .network_bytes_sent += response.len() as u64;
                 }
                 Err(e) => {
                     eprintln!("Error reading from worker: {}", e);
@@ -352,7 +364,7 @@ impl ParameterServer {
         match parts.get(0) {
             Some(&"GET_PARAMS") => {
                 if let Some(param_id) = parts.get(1) {
-                    let params = parameters.read().unwrap();
+                    let params = parameters.read().expect("lock should not be poisoned");
                     if let Some(param_state) = params.get(*param_id) {
                         let serialized = Self::serialize_parameter_state(param_state)?;
                         Ok(format!("PARAMS|{}|{}", param_id, serialized))
@@ -380,7 +392,10 @@ impl ParameterServer {
                         priority: UpdatePriority::Normal,
                     };
 
-                    pending_updates.lock().unwrap().push_back(update);
+                    pending_updates
+                        .lock()
+                        .expect("lock should not be poisoned")
+                        .push_back(update);
                     Ok("ACK|Update queued".to_string())
                 } else {
                     Ok("ERROR|Invalid UPDATE_PARAMS format".to_string())
@@ -437,9 +452,9 @@ impl ParameterServer {
         let metrics = self.metrics.clone();
 
         thread::spawn(move || {
-            while *server_running.lock().unwrap() {
+            while *server_running.lock().expect("lock should not be poisoned") {
                 let update = {
-                    let mut queue = pending_updates.lock().unwrap();
+                    let mut queue = pending_updates.lock().expect("lock should not be poisoned");
                     queue.pop_front()
                 };
 
@@ -448,7 +463,8 @@ impl ParameterServer {
 
                     match Self::apply_parameter_update(&update, &parameters, &config) {
                         Ok(()) => {
-                            let mut metrics_guard = metrics.lock().unwrap();
+                            let mut metrics_guard =
+                                metrics.lock().expect("lock should not be poisoned");
                             metrics_guard.successful_updates += 1;
                             metrics_guard.total_updates += 1;
 
@@ -461,7 +477,8 @@ impl ParameterServer {
                         }
                         Err(e) => {
                             eprintln!("Error applying update: {}", e);
-                            let mut metrics_guard = metrics.lock().unwrap();
+                            let mut metrics_guard =
+                                metrics.lock().expect("lock should not be poisoned");
                             metrics_guard.failed_updates += 1;
                         }
                     }
@@ -492,7 +509,7 @@ impl ParameterServer {
         let now = Instant::now();
 
         // Quick write operation with minimal computation in critical section
-        let mut params = parameters.write().unwrap();
+        let mut params = parameters.write().expect("lock should not be poisoned");
 
         let param_state = params
             .entry(update.parameter_id.clone())
@@ -550,9 +567,9 @@ impl ParameterServer {
         let heartbeat_interval = self.config.heartbeat_interval;
 
         thread::spawn(move || {
-            while *server_running.lock().unwrap() {
+            while *server_running.lock().expect("lock should not be poisoned") {
                 {
-                    let mut detector = fault_detector.lock().unwrap();
+                    let mut detector = fault_detector.lock().expect("lock should not be poisoned");
                     detector.check_worker_health();
                 }
 
@@ -570,16 +587,16 @@ impl ParameterServer {
         let metrics = self.metrics.clone();
 
         thread::spawn(move || {
-            while *server_running.lock().unwrap() {
+            while *server_running.lock().expect("lock should not be poisoned") {
                 let should_backup = {
-                    let manager = backup_manager.lock().unwrap();
+                    let manager = backup_manager.lock().expect("lock should not be poisoned");
                     manager.should_create_backup()
                 };
 
                 if should_backup {
                     // Create snapshot to avoid holding locks simultaneously
                     let params_snapshot = {
-                        let params = parameters.read().unwrap();
+                        let params = parameters.read().expect("lock should not be poisoned");
                         params.clone()
                     };
 
@@ -611,9 +628,9 @@ impl ParameterServer {
         let metrics = self.metrics.clone();
 
         thread::spawn(move || {
-            while *server_running.lock().unwrap() {
+            while *server_running.lock().expect("lock should not be poisoned") {
                 let recovery_actions = {
-                    let mut detector = fault_detector.lock().unwrap();
+                    let mut detector = fault_detector.lock().expect("lock should not be poisoned");
                     detector.detect_and_recover_faults()
                 };
 
@@ -621,7 +638,10 @@ impl ParameterServer {
                     if let Err(e) = Self::execute_recovery_action(&action) {
                         eprintln!("Error executing recovery action: {}", e);
                     } else {
-                        metrics.lock().unwrap().fault_recoveries += 1;
+                        metrics
+                            .lock()
+                            .expect("lock should not be poisoned")
+                            .fault_recoveries += 1;
                     }
                 }
 
@@ -657,7 +677,10 @@ impl ParameterServer {
     }
 
     fn close_all_connections(&self) -> Result<(), ParameterServerError> {
-        let mut connections = self.worker_connections.lock().unwrap();
+        let mut connections = self
+            .worker_connections
+            .lock()
+            .expect("lock should not be poisoned");
 
         for (worker_id, stream) in connections.drain() {
             if let Err(e) = stream.shutdown(std::net::Shutdown::Both) {
@@ -671,12 +694,15 @@ impl ParameterServer {
     fn save_final_backup(&self) -> Result<(), ParameterServerError> {
         // Create snapshot to avoid holding both locks simultaneously
         let params_snapshot = {
-            let params = self.parameters.read().unwrap();
+            let params = self.parameters.read().expect("lock should not be poisoned");
             params.clone()
         };
 
         // Now safely acquire backup manager lock
-        let mut manager = self.backup_manager.lock().unwrap();
+        let mut manager = self
+            .backup_manager
+            .lock()
+            .expect("lock should not be poisoned");
         manager.create_backup(&params_snapshot)?;
         manager.save_to_disk()?;
 
@@ -687,18 +713,21 @@ impl ParameterServer {
         &self,
         parameter_id: &str,
     ) -> Result<Option<ParameterState>, ParameterServerError> {
-        let params = self.parameters.read().unwrap();
+        let params = self.parameters.read().expect("lock should not be poisoned");
         Ok(params.get(parameter_id).cloned())
     }
 
     pub fn update_parameters(&self, update: ParameterUpdate) -> Result<(), ParameterServerError> {
-        let mut queue = self.pending_updates.lock().unwrap();
+        let mut queue = self
+            .pending_updates
+            .lock()
+            .expect("lock should not be poisoned");
         queue.push_back(update);
         Ok(())
     }
 
     pub fn get_metrics(&self) -> ParameterServerMetrics {
-        (*self.metrics.lock().unwrap()).clone()
+        (*self.metrics.lock().expect("lock should not be poisoned")).clone()
     }
 
     pub fn register_parameter(
@@ -706,7 +735,10 @@ impl ParameterServer {
         parameter_id: String,
         initial_values: Vec<f32>,
     ) -> Result<(), ParameterServerError> {
-        let mut params = self.parameters.write().unwrap();
+        let mut params = self
+            .parameters
+            .write()
+            .expect("lock should not be poisoned");
 
         let param_state = ParameterState {
             parameter_id: parameter_id.clone(),
@@ -1390,8 +1422,16 @@ mod tests {
         let config = ParameterServerConfig::default();
         let server = ParameterServer::new(config);
 
-        assert!(server.parameters.read().unwrap().is_empty());
-        assert!(server.pending_updates.lock().unwrap().is_empty());
+        assert!(server
+            .parameters
+            .read()
+            .expect("lock should not be poisoned")
+            .is_empty());
+        assert!(server
+            .pending_updates
+            .lock()
+            .expect("lock should not be poisoned")
+            .is_empty());
     }
 
     #[test]
@@ -1402,7 +1442,10 @@ mod tests {
         let result = server.register_parameter("test_param".to_string(), vec![1.0, 2.0, 3.0]);
         assert!(result.is_ok());
 
-        let params = server.parameters.read().unwrap();
+        let params = server
+            .parameters
+            .read()
+            .expect("lock should not be poisoned");
         assert!(params.contains_key("test_param"));
         assert_eq!(params["test_param"].values, vec![1.0, 2.0, 3.0]);
     }

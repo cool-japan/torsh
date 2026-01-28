@@ -256,7 +256,7 @@ impl<
 }
 
 /// Wrapper for DynamicBatchCollate that only returns padded sequences (not lengths)
-/// This allows compatibility with the CollateBuilder which expects Tensor<T> output
+/// This allows compatibility with the CollateBuilder which expects `Tensor<T>` output
 pub struct DynamicBatchCollateWrapper<T: TensorElement> {
     inner: DynamicBatchCollate<T>,
 }

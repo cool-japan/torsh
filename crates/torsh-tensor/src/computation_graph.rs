@@ -288,7 +288,11 @@ impl<T: TensorElement + Copy> ComputationGraph<T> {
         let sorted = self.topological_sort()?;
 
         for &node_id in &sorted {
-            let node = self.nodes.get(&node_id).unwrap().clone();
+            let node = self
+                .nodes
+                .get(&node_id)
+                .expect("node_id should exist in nodes after topological sort")
+                .clone();
 
             // Check if all inputs are constants
             let all_constant = node.inputs.iter().all(|&input_id| {
@@ -434,12 +438,15 @@ impl<T: TensorElement + Copy> ComputationGraph<T> {
             + torsh_core::FloatElement,
     {
         let sorted = self.topological_sort()?;
-        let mut cache = self.cache.lock().unwrap();
+        let mut cache = self.cache.lock().expect("lock should not be poisoned");
         cache.clear();
 
         // Evaluate nodes in topological order
         for &node_id in &sorted {
-            let node = self.nodes.get(&node_id).unwrap();
+            let node = self
+                .nodes
+                .get(&node_id)
+                .expect("node_id should exist in nodes after topological sort");
 
             // Skip if already cached
             if cache.contains_key(&node_id) {

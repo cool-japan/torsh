@@ -75,14 +75,14 @@ default-members = [
     # PyO3-based crates excluded from default testing (see CHANGELOG.md Known Limitations)
     # "crates/torsh-python",  # PyO3 bindings - test executables have symbol resolution issues
     # "crates/torsh-ffi",     # PyO3 bindings - test executables have symbol resolution issues
+    # "crates/torsh-benches", # PyO3 optional features - test executables have symbol resolution issues with --all-features
     "crates/torsh-models",
-    "crates/torsh-benches",
 ]
 
 [workspace.package]
-version = "0.1.0-alpha.2"
+version = "0.1.0-beta.1"
 edition = "2021"
-authors = ["Team KitaSan (cool-japan)"]
+authors = ["COOLJAPAN OU (Team KitaSan)"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/cool-japan/torsh/"
 homepage = "https://github.com/cool-japan/torsh/"
@@ -90,75 +90,78 @@ rust-version = "1.76"
 
 [workspace.dependencies]
 # Internal ToRSh crates - workspace management
-torsh-core = { version = "0.1.0-alpha.2", path = "crates/torsh-core" }
-torsh-backend = { version = "0.1.0-alpha.2", path = "crates/torsh-backend" }
-torsh-tensor = { version = "0.1.0-alpha.2", path = "crates/torsh-tensor" }
-torsh-autograd = { version = "0.1.0-alpha.2", path = "crates/torsh-autograd" }
-torsh-linalg = { version = "0.1.0-alpha.2", path = "crates/torsh-linalg" }
-torsh-optim = { version = "0.1.0-alpha.2", path = "crates/torsh-optim" }
-torsh-sparse = { version = "0.1.0-alpha.2", path = "crates/torsh-sparse" }
-torsh-special = { version = "0.1.0-alpha.2", path = "crates/torsh-special" }
-torsh-functional = { version = "0.1.0-alpha.2", path = "crates/torsh-functional" }
-torsh-data = { version = "0.1.0-alpha.2", path = "crates/torsh-data" }
-torsh-nn = { version = "0.1.0-alpha.2", path = "crates/torsh-nn" }
-torsh-vision = { version = "0.1.0-alpha.2", path = "crates/torsh-vision" }
-torsh-text = { version = "0.1.0-alpha.2", path = "crates/torsh-text" }
-torsh-graph = { version = "0.1.0-alpha.2", path = "crates/torsh-graph" }
-torsh-series = { version = "0.1.0-alpha.2", path = "crates/torsh-series" }
-torsh-signal = { version = "0.1.0-alpha.2", path = "crates/torsh-signal" }
-torsh-cluster = { version = "0.1.0-alpha.2", path = "crates/torsh-cluster" }
-torsh-metrics = { version = "0.1.0-alpha.2", path = "crates/torsh-metrics" }
-torsh-jit = { version = "0.1.0-alpha.2", path = "crates/torsh-jit" }
-torsh-distributed = { version = "0.1.0-alpha.2", path = "crates/torsh-distributed" }
-torsh-quantization = { version = "0.1.0-alpha.2", path = "crates/torsh-quantization" }
-torsh-fx = { version = "0.1.0-alpha.2", path = "crates/torsh-fx" }
-torsh-hub = { version = "0.1.0-alpha.2", path = "crates/torsh-hub" }
-torsh-utils = { version = "0.1.0-alpha.2", path = "crates/torsh-utils" }
-torsh-package = { version = "0.1.0-alpha.2", path = "crates/torsh-package" }
-torsh-profiler = { version = "0.1.0-alpha.2", path = "crates/torsh-profiler" }
-torsh-python = { version = "0.1.0-alpha.2", path = "crates/torsh-python" }
-torsh-ffi = { version = "0.1.0-alpha.2", path = "crates/torsh-ffi" }
-torsh-models = { version = "0.1.0-alpha.2", path = "crates/torsh-models" }
-torsh-benches = { version = "0.1.0-alpha.2", path = "crates/torsh-benches" }
+torsh = { version = "0.1.0-beta.1", path = "crates/torsh" }
+torsh-core = { version = "0.1.0-beta.1", path = "crates/torsh-core" }
+torsh-backend = { version = "0.1.0-beta.1", path = "crates/torsh-backend" }
+torsh-tensor = { version = "0.1.0-beta.1", path = "crates/torsh-tensor" }
+torsh-autograd = { version = "0.1.0-beta.1", path = "crates/torsh-autograd" }
+torsh-linalg = { version = "0.1.0-beta.1", path = "crates/torsh-linalg" }
+torsh-optim = { version = "0.1.0-beta.1", path = "crates/torsh-optim" }
+torsh-sparse = { version = "0.1.0-beta.1", path = "crates/torsh-sparse" }
+torsh-special = { version = "0.1.0-beta.1", path = "crates/torsh-special" }
+torsh-functional = { version = "0.1.0-beta.1", path = "crates/torsh-functional" }
+torsh-data = { version = "0.1.0-beta.1", path = "crates/torsh-data" }
+torsh-nn = { version = "0.1.0-beta.1", path = "crates/torsh-nn" }
+torsh-vision = { version = "0.1.0-beta.1", path = "crates/torsh-vision" }
+torsh-text = { version = "0.1.0-beta.1", path = "crates/torsh-text" }
+torsh-graph = { version = "0.1.0-beta.1", path = "crates/torsh-graph" }
+torsh-series = { version = "0.1.0-beta.1", path = "crates/torsh-series" }
+torsh-signal = { version = "0.1.0-beta.1", path = "crates/torsh-signal" }
+torsh-cluster = { version = "0.1.0-beta.1", path = "crates/torsh-cluster" }
+torsh-metrics = { version = "0.1.0-beta.1", path = "crates/torsh-metrics" }
+torsh-jit = { version = "0.1.0-beta.1", path = "crates/torsh-jit" }
+torsh-distributed = { version = "0.1.0-beta.1", path = "crates/torsh-distributed" }
+torsh-quantization = { version = "0.1.0-beta.1", path = "crates/torsh-quantization" }
+torsh-fx = { version = "0.1.0-beta.1", path = "crates/torsh-fx" }
+torsh-hub = { version = "0.1.0-beta.1", path = "crates/torsh-hub" }
+torsh-utils = { version = "0.1.0-beta.1", path = "crates/torsh-utils" }
+torsh-package = { version = "0.1.0-beta.1", path = "crates/torsh-package" }
+torsh-profiler = { version = "0.1.0-beta.1", path = "crates/torsh-profiler" }
+torsh-python = { version = "0.1.0-beta.1", path = "crates/torsh-python" }
+torsh-ffi = { version = "0.1.0-beta.1", path = "crates/torsh-ffi" }
+torsh-models = { version = "0.1.0-beta.1", path = "crates/torsh-models" }
+torsh-benches = { version = "0.1.0-beta.1", path = "crates/torsh-benches" }
 
-# Core dependencies - CRATES.IO VERSION RC.2 (Release Candidate) with SIMD support
+# Core dependencies - CRATES.IO VERSION 0.1.1 (Stable) with SIMD, OxiBLAS 0.1.2, and OxiCode support
 # NOTE: scirs2 meta crate removed to speed up compilation - use specific sub-crates instead
-scirs2-core = { version = "0.1.0-rc.4", features = ["simd", "parallel", "memory_management"], default-features = false }
-scirs2-autograd = { version = "0.1.0-rc.4", default-features = false }
-scirs2-special = { version = "0.1.0-rc.4", default-features = false }
-scirs2-sparse = { version = "0.1.0-rc.4", default-features = false }
-scirs2-optimize = { version = "0.1.0-rc.4", default-features = false }
-scirs2-signal = { version = "0.1.0-rc.4", default-features = false }
-scirs2-fft = { version = "0.1.0-rc.4", default-features = false }
+# NOTE: SciRS2 0.1.1 now includes OxiBLAS 0.1.2 (optimized BLAS/LAPACK) and OxiCode (modern serialization)
+scirs2-core = { version = "0.1.3", features = ["simd", "parallel", "memory_management", "serialization", "oxicode", "oxiblas-blas", "oxiblas-lapack", "oxiblas-ndarray", "validation", "types", "random"] }
+scirs2-autograd = { version = "0.1.3" }
+scirs2-special = { version = "0.1.3" }
+scirs2-sparse = { version = "0.1.3" }
+scirs2-optimize = { version = "0.1.3" }
+scirs2-signal = { version = "0.1.3" }
+scirs2-fft = { version = "0.1.3" }
 # Additional SciRS2 crates for comprehensive integration
-scirs2-cluster = { version = "0.1.0-rc.4", default-features = false }
-scirs2-datasets = { version = "0.1.0-rc.4", default-features = false }
-scirs2-graph = { version = "0.1.0-rc.4", default-features = false }
-scirs2-metrics = { version = "0.1.0-rc.4", default-features = false }
-scirs2-series = { version = "0.1.0-rc.4", default-features = false }
-scirs2-spatial = { version = "0.1.0-rc.4", default-features = false }
-scirs2-stats = { version = "0.1.0-rc.4", default-features = false }
-scirs2-text = { version = "0.1.0-rc.4", default-features = false }
-scirs2-vision = { version = "0.1.0-rc.4", default-features = false }
-scirs2-linalg = { version = "0.1.0-rc.4", default-features = false }
-scirs2-neural = { version = "0.1.0-rc.4", default-features = false }
-# OptiRS - Advanced ML optimization (now available on crates.io at beta.3)
-optirs = { version = "0.1.0-rc.1", default-features = false }
-optirs-core = { version = "0.1.0-rc.1", default-features = false }
-numrs2 = "0.1.0-rc.1"
+scirs2-cluster = { version = "0.1.3" }
+scirs2-datasets = { version = "0.1.3" }
+scirs2-graph = { version = "0.1.3" }
+scirs2-metrics = { version = "0.1.3" }
+scirs2-series = { version = "0.1.3" }
+scirs2-spatial = { version = "0.1.3" }
+scirs2-stats = { version = "0.1.3" }
+scirs2-text = { version = "0.1.3" }
+scirs2-vision = { version = "0.1.3" }
+scirs2-linalg = { version = "0.1.3" }
+scirs2-neural = { version = "0.1.3" }
+# OptiRS - Advanced ML optimization (now available on crates.io - still in RC)
+optirs = { version = "0.1.0", default-features = false }
+optirs-core = { version = "0.1.0", default-features = false }
+# polars 0.52 has a bug in polars-expr datetime dispatch (missing DataType import)
+# Using 0.48 until the bug is fixed upstream
 polars = { version = "0.48", features = ["lazy"] }
 
 # Parallelism and async
 # ⚠️ SciRS2 POLICY: Use scirs2-core::parallel_ops for parallel operations
 # rayon is kept for LEGACY compatibility only - NEW code should use scirs2-core::parallel_ops
 rayon = "1.10"  # LEGACY ONLY - prefer scirs2-core::parallel_ops
-tokio = { version = "1.48", features = ["full"] }
+tokio = { version = "1.49", features = ["full"] }
 crossbeam = "0.8"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-bincode = "2.0"  # Updated to 2.x - serde support is built-in
+oxicode = { version = "0.1", features = ["serde"] }  # Modern binary serialization - successor to bincode (now on crates.io)
 safetensors = "0.5.3"
 
 # Error handling
@@ -178,8 +181,8 @@ wide = "0.7"
 packed_simd_2 = "0.3"
 
 # Testing and benchmarking
-criterion = { version = "0.5", features = ["html_reports"] }
-proptest = "1.8"
+criterion = { version = "0.8", features = ["html_reports"] }
+proptest = "1.9"
 approx = "0.5"
 
 # Async traits
@@ -198,16 +201,17 @@ petgraph = "0.8"
 indexmap = { version = "2.11", features = ["serde"] }
 
 # FFI
-libc = "0.2"
-pyo3 = "0.27"
+# libc = "0.2"  # REMOVED: Pure Rust (SciRS2 ecosystem) - replaced with sysinfo
+pyo3 = { version = "0.27", features = ["auto-initialize"] }
 numpy = "0.27"
+scirs2-numpy = { version = "0.1.3", default-features = false }  # SciRS2-compatible numpy bindings
 
 # Additional utilities
 hostname = "0.4"
 rustc-version = "0.4"
 which = "8.0"
 sysinfo = "0.36"
-zip = "6.0"
+zip = { version = "4", default-features = false, features = ["deflate", "bzip2", "time", "zstd"] }
 chrono = { version = "0.4", features = ["serde"] }
 
 # Distributed computing dependencies
@@ -217,11 +221,11 @@ tonic-build = "0.14"
 redis = "0.32"
 tokio-test = "0.4"
 futures-util = "0.3"
-uuid = { version = "1.19", features = ["v4", "serde"] }
+uuid = { version = "1.20", features = ["v4", "serde"] }
 
 # Updated dependencies to fix security issues
 cached = "0.56"  # Replace 0.48.1 to fix instant dependency
-tempfile = "3.23"  # Updated version
+tempfile = "3.24"  # Updated version
 
 # Build dependencies
 bindgen = "0.72"
@@ -264,15 +268,15 @@ ed25519-dalek = "2.1"
 memmap2 = "0.9"
 
 # JIT compilation
-cranelift = "0.111"
-cranelift-module = "0.111"
-cranelift-codegen = "0.111"
-cranelift-frontend = "0.111"
+cranelift = "0.128"
+cranelift-module = "0.128"
+cranelift-codegen = "0.128"
+cranelift-frontend = "0.128"
 
 # FFT operations
 rustfft = "6.4"
-cranelift-native = "0.111"
-cranelift-object = "0.111"
+cranelift-native = "0.128"
+cranelift-object = "0.128"
 
 [profile.release]
 lto = true
@@ -287,7 +291,18 @@ debug = true
 
 [profile.dev]
 opt-level = 0
-debug = true
+incremental = true
+debug = 1              # Reduced from 2 to 1 for faster compilation
+split-debuginfo = "packed"  # Separate debug info for better performance
+
+# Disable debug info for dependencies to speed up builds
+[profile.dev.package."*"]
+debug = 0
+
+# Build script optimizations for CUDA and other build-time compilation
+[profile.dev.build-override]
+opt-level = 0
+debug = false
 
 [profile.test]
 opt-level = 2
@@ -329,4 +344,5 @@ panic = "allow"        # Allow but should be used carefully
 # Performance-critical warnings (not denials to allow flexibility)
 large_stack_arrays = "warn"
 large_types_passed_by_value = "warn"
+
 

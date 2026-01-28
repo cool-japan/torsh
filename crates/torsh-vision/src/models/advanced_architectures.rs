@@ -662,8 +662,12 @@ pub struct LayerNorm {
 
 impl LayerNorm {
     pub fn new(normalized_shape: usize) -> Self {
-        let weight = Parameter::new(creation::ones(&[normalized_shape]).unwrap());
-        let bias = Parameter::new(creation::zeros(&[normalized_shape]).unwrap());
+        let weight = Parameter::new(
+            creation::ones(&[normalized_shape]).expect("tensor creation should succeed"),
+        );
+        let bias = Parameter::new(
+            creation::zeros(&[normalized_shape]).expect("tensor creation should succeed"),
+        );
 
         Self {
             normalized_shape: vec![normalized_shape],

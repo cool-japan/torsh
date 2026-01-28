@@ -577,7 +577,11 @@ impl ParallelCompressor {
         let start_time = std::time::Instant::now();
 
         // Read number of chunks
-        let num_chunks = u64::from_le_bytes(compressed_data[0..8].try_into().unwrap()) as usize;
+        let num_chunks = u64::from_le_bytes(
+            compressed_data[0..8]
+                .try_into()
+                .expect("slice of 8 bytes should convert to [u8; 8]"),
+        ) as usize;
         let mut offset = 8;
 
         // Read chunk sizes and data
@@ -589,9 +593,11 @@ impl ParallelCompressor {
                 ));
             }
 
-            let chunk_size =
-                u64::from_le_bytes(compressed_data[offset..offset + 8].try_into().unwrap())
-                    as usize;
+            let chunk_size = u64::from_le_bytes(
+                compressed_data[offset..offset + 8]
+                    .try_into()
+                    .expect("slice of 8 bytes should convert to [u8; 8]"),
+            ) as usize;
             offset += 8;
 
             if offset + chunk_size > compressed_data.len() {

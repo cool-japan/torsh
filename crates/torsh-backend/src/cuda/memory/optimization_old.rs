@@ -761,7 +761,7 @@ impl CudaMemoryOptimizationEngine {
     /// Get optimization recommendations
     pub fn get_recommendations(&self) -> Vec<OptimizationRecommendation> {
         // Generate recommendations based on registered strategies and historical performance
-        let strategies = self.strategies.read().unwrap();
+        let strategies = self.strategies.read().expect("lock should not be poisoned");
         let mut recommendations = Vec::new();
 
         for (id, strategy) in strategies.iter() {
@@ -802,7 +802,7 @@ impl CudaMemoryOptimizationEngine {
             engine.get_metrics().await
         });
 
-        let strategies_count = self.strategies.read().unwrap().len();
+        let strategies_count = self.strategies.read().expect("lock should not be poisoned").len();
 
         match metrics_result {
             Ok(metrics) => OptimizationEngineStatus {

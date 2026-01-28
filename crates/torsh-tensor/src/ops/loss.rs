@@ -164,7 +164,7 @@ impl<T: FloatElement> Tensor<T> {
         let target_data = target.data()?;
 
         let one = <T as TensorElement>::one();
-        let eps = T::from_f64(1e-8).unwrap_or_else(|| T::from_f64(1e-7).unwrap());
+        let eps = T::from_f64(1e-8).unwrap_or_else(|| T::from_f64(1e-7).expect("f64 conversion should succeed"));
 
         let bce_losses: Vec<T> = self_data
             .iter()

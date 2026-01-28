@@ -896,7 +896,7 @@ impl FragmentationManager {
         // Sort by priority and estimated benefit
         hotspots.sort_by(|a, b| {
             a.defragmentation_priority.cmp(&b.defragmentation_priority).reverse()
-                .then_with(|| b.estimated_benefit.partial_cmp(&a.estimated_benefit).unwrap())
+                .then_with(|| b.estimated_benefit.partial_cmp(&a.estimated_benefit).unwrap_or(std::cmp::Ordering::Equal))
         });
 
         hotspots

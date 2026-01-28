@@ -353,7 +353,7 @@ impl PatternMatcher {
         for &from_pattern_index in &incoming_edges {
             if from_pattern_index < matched_nodes.len() {
                 let from_node_id = &matched_nodes[from_pattern_index];
-                let from_node = graph.get_node(from_node_id).unwrap();
+                let from_node = graph.get_node(from_node_id).expect("from_node should exist in graph");
 
                 // Check all output nodes of the current matched node
                 for output_id in &from_node.outputs {
@@ -361,7 +361,7 @@ impl PatternMatcher {
                         continue;
                     }
 
-                    let output_node = graph.get_node(output_id).unwrap();
+                    let output_node = graph.get_node(output_id).expect("output node should exist in graph");
 
                     if self.node_matches_pattern(output_node, current_pattern_node) {
                         matched_nodes.push(output_id.clone());

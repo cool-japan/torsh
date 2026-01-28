@@ -478,8 +478,12 @@ impl AlertManager {
                     .collect();
 
                 if recent_values.len() >= 2 {
-                    let oldest = recent_values.last().unwrap();
-                    let newest = recent_values.first().unwrap();
+                    let oldest = recent_values
+                        .last()
+                        .expect("recent_values should have at least 2 elements");
+                    let newest = recent_values
+                        .first()
+                        .expect("recent_values should have at least 2 elements");
                     let time_diff = (newest.0.as_secs_f64() - oldest.0.as_secs_f64()).max(1.0);
                     let value_diff = newest.1 - oldest.1;
                     let rate = value_diff / time_diff;

@@ -185,7 +185,11 @@ impl PerformanceAnalyzer {
         // Find best performing library
         let best_library = library_stats
             .iter()
-            .min_by(|a, b| a.1.mean_time_ns.partial_cmp(&b.1.mean_time_ns).unwrap())
+            .min_by(|a, b| {
+                a.1.mean_time_ns
+                    .partial_cmp(&b.1.mean_time_ns)
+                    .expect("NaN values in mean_time_ns")
+            })
             .map(|(name, _)| name.clone());
 
         AnalysisResult {

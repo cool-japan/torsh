@@ -300,7 +300,10 @@ impl Optimizer for LBFGS {
 
         // Update L-BFGS history for next iteration
         {
-            let param_state = self.state.get_mut(&state_id).unwrap();
+            let param_state = self
+                .state
+                .get_mut(&state_id)
+                .expect("state should exist for state_id");
 
             if self.step_count > 1 {
                 let s = new_params.sub(&prev_params)?; // Parameter step

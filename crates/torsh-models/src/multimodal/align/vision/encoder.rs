@@ -49,7 +49,7 @@ impl ALIGNVisionEncoder {
                         block_args.se_ratio,
                         config.drop_connect_rate,
                     )
-                    .unwrap(),
+                    .expect("failed to create MBConvBlock for EfficientNet encoder"),
                 );
 
                 in_channels = block_args.output_filters;

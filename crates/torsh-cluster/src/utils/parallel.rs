@@ -126,7 +126,7 @@ pub fn parallel_squared_distances_to_centroids_f32(
 /// * `centroids` - Cluster centroids (n_clusters x n_features)
 ///
 /// # Returns
-/// Tuple of (labels, distances) where labels[i] is the nearest centroid for point i
+/// Tuple of (labels, distances) where `labels[i]` is the nearest centroid for point i
 pub fn parallel_nearest_centroids_f32(
     data: &Array2<f32>,
     centroids: &Array2<f32>,

@@ -21,18 +21,19 @@ scirs2-core = { workspace = true, optional = true }
 scirs2-autograd = { workspace = true, optional = true }
 scirs2-linalg = { workspace = true, optional = true }
 
-# Optional high-performance backends
-ndarray-linalg = { version = "0.18", optional = true }
-lapack = { version = "0.20", optional = true }
-blas = { version = "0.23", optional = true }
+# ✅ Pure Rust: C/Fortran BLAS/LAPACK backends removed (use OxiBLAS via scirs2-linalg)
+# ndarray-linalg = { version = "0.18", optional = true }  # REMOVED: OpenBLAS/MKL dependency
+# lapack = { version = "0.20", optional = true }          # REMOVED: Fortran LAPACK
+# blas = { version = "0.23", optional = true }            # REMOVED: Fortran BLAS
 
 # Error handling
 thiserror = { workspace = true }
 
 [features]
 default = ["scirs2-integration"]
+# ✅ Pure Rust: scirs2-integration uses OxiBLAS 0.1.2 (100% Rust BLAS/LAPACK)
 scirs2-integration = ["scirs2-core", "scirs2-autograd", "scirs2-linalg"]
-lapack-backend = ["ndarray-linalg", "lapack", "blas"]
+# lapack-backend = ["ndarray-linalg", "lapack", "blas"]  # REMOVED: Fortran/C backends
 advanced = ["scirs2-linalg"]
 gpu-acceleration = ["scirs2-core", "scirs2-linalg"]
 

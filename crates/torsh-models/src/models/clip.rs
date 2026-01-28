@@ -329,8 +329,10 @@ impl CLIPVisionEmbeddings {
         let num_patches = config.num_patches();
         let num_positions = num_patches + 1; // +1 for class token
 
-        let position_embedding = Parameter::new(torsh_tensor::creation::randn(&[num_positions, config.hidden_size]).unwrap());
-        let class_embedding = Parameter::new(torsh_tensor::creation::randn(&[config.hidden_size]).unwrap());
+        let position_embedding = Parameter::new(torsh_tensor::creation::randn(&[num_positions, config.hidden_size])
+            .expect("failed to create CLIP position embedding"));
+        let class_embedding = Parameter::new(torsh_tensor::creation::randn(&[config.hidden_size])
+            .expect("failed to create CLIP class embedding"));
 
         Self {
             patch_embedding,
@@ -734,7 +736,8 @@ pub struct CLIPTextEmbeddings {
 impl CLIPTextEmbeddings {
     pub fn new(config: CLIPTextConfig) -> Self {
         let token_embedding = Embedding::new(config.vocab_size, config.hidden_size);
-        let position_embedding = Parameter::new(torsh_tensor::creation::randn(&[config.max_position_embeddings, config.hidden_size]).unwrap());
+        let position_embedding = Parameter::new(torsh_tensor::creation::randn(&[config.max_position_embeddings, config.hidden_size])
+            .expect("failed to create CLIP text position embedding"));
 
         Self {
             token_embedding,
@@ -844,7 +847,8 @@ impl CLIPModel {
         let visual_projection = Linear::new(config.vision_config.hidden_size, config.projection_dim, false);
         let text_projection = Linear::new(config.text_config.hidden_size, config.projection_dim, false);
 
-        let logit_scale = Parameter::new(Tensor::scalar(config.logit_scale_init_value).unwrap());
+        let logit_scale = Parameter::new(Tensor::scalar(config.logit_scale_init_value)
+            .expect("failed to create CLIP logit scale parameter"));
 
         Self {
             config,

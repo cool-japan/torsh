@@ -583,7 +583,7 @@ impl MemoryProfiler {
         let events = timeline.clone();
         let total_duration = timeline
             .last()
-            .unwrap()
+            .expect("timeline should not be empty after early return check")
             .timestamp
             .duration_since(self.start_time)
             .as_secs_f64();

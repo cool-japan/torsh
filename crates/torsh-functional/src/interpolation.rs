@@ -490,7 +490,7 @@ mod tests {
         let x_new = tensor_1d(&[0.5, 1.5, 2.5]).unwrap();
 
         let result = interp1d(&x, &y, &x_new, false).unwrap();
-        let result_data = result.data().unwrap();
+        let result_data = result.data().expect("tensor should have data");
 
         // Expected values: [0.5, 2.5, 6.5]
         assert!((result_data[0] - 0.5).abs() < 1e-6);

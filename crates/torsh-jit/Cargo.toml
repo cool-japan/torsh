@@ -20,38 +20,38 @@ torsh-tensor = { workspace = true }
 torsh-backend = { workspace = true }
 
 # Core dependencies
-thiserror = "2.0"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-bincode = { workspace = true }
-lazy_static = "1.5"
-log = "0.4"
+thiserror = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+oxicode = { workspace = true }
+lazy_static = { workspace = true }
+log = { workspace = true }
 
 # Graph and IR representation
-petgraph = "0.8"
-indexmap = "2.12"
+petgraph = { workspace = true }
+indexmap = { workspace = true }
 
 # Code generation backends
-cranelift = { version = "0.126", optional = true }
-cranelift-module = { version = "0.126", optional = true }
-cranelift-codegen = { version = "0.126", optional = true }
-cranelift-frontend = { version = "0.126", optional = true }
-cranelift-native = { version = "0.126", optional = true }
-cranelift-object = { version = "0.126", optional = true }
+cranelift = { version = "0.128", optional = true }
+cranelift-module = { version = "0.128", optional = true }
+cranelift-codegen = { version = "0.128", optional = true }
+cranelift-frontend = { version = "0.128", optional = true }
+cranelift-native = { version = "0.128", optional = true }
+cranelift-object = { version = "0.128", optional = true }
 
 # MLIR integration (future)
 # mlir = { version = "0.1", optional = true }
 
 # Profiling and analysis
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", optional = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, optional = true }
 num_cpus = "1.17"
 
 [dev-dependencies]
-# torsh-nn = { path = "../torsh-nn", version = "0.1.0-alpha.2" }
-approx = "0.5"
+# torsh-nn = { path = "../torsh-nn", version = "0.1.0-alpha.3" }
+approx = { workspace = true }
 criterion = { version = "0.8", features = ["html_reports"] }
-proptest = "1.9"
+proptest = { workspace = true }
 
 [features]
 default = ["cranelift-backend"]

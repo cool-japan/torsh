@@ -229,7 +229,7 @@ impl MetaOptimizer {
                 // Accumulate meta-gradients
                 for (param_name, gradient) in query_gradients {
                     meta_gradients.entry(param_name)
-                        .and_modify(|g| *g = g.add(&gradient).unwrap())
+                        .and_modify(|g| *g = g.add(&gradient).expect("tensor add should succeed"))
                         .or_insert(gradient);
                 }
             }
@@ -486,7 +486,7 @@ impl MetaOptimizer {
         }
         
         for (_, group) in characteristic_groups {
-            if let Some(best_performance) = group.iter().min_by(|a, b| a.final_loss.partial_cmp(&b.final_loss).unwrap()) {
+            if let Some(best_performance) = group.iter().min_by(|a, b| a.final_loss.partial_cmp(&b.final_loss).unwrap_or(std::cmp::Ordering::Equal)) {
                 let matcher = TaskMatcher {
                     dimension_range: Some((best_performance.characteristics.dimension.saturating_sub(100), best_performance.characteristics.dimension + 100)),
                     problem_type: Some(best_performance.characteristics.problem_type.clone()),

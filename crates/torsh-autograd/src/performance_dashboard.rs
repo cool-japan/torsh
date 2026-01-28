@@ -597,7 +597,11 @@ impl PerformanceDashboard {
             })
             .collect();
 
-        operations.sort_by(|a, b| b.total_time_ms.partial_cmp(&a.total_time_ms).unwrap());
+        operations.sort_by(|a, b| {
+            b.total_time_ms
+                .partial_cmp(&a.total_time_ms)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         operations.truncate(10);
 
         operations

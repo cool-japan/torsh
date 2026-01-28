@@ -117,7 +117,7 @@ impl ImageNet {
     pub fn new(_root: &str, _train: bool) -> Result<Self> {
         eprintln!("Warning: ImageNet placeholder implementation. Use OptimizedImageDataset for real datasets.");
         Ok(Self {
-            data: vec![creation::zeros(&[3, 224, 224]).unwrap()],
+            data: vec![creation::zeros(&[3, 224, 224]).expect("tensor creation should succeed")],
             labels: vec![0],
         })
     }
@@ -256,7 +256,7 @@ impl CIFAR10 {
             labels.push(label);
 
             // Next 3072 bytes are the image data (R, G, B channels in that order)
-            let tensor = creation::zeros(&[3, 32, 32]).unwrap();
+            let tensor = creation::zeros(&[3, 32, 32]).expect("tensor creation should succeed");
 
             // CIFAR-10 format: first 1024 bytes are red channel, next 1024 green, last 1024 blue
             for channel in 0..3 {
@@ -391,7 +391,7 @@ impl MNIST {
                 break;
             }
 
-            let tensor = creation::zeros(&[1, rows, cols]).unwrap();
+            let tensor = creation::zeros(&[1, rows, cols]).expect("tensor creation should succeed");
 
             for (pixel_idx, &pixel_val) in data[start_idx..end_idx].iter().enumerate() {
                 let y = pixel_idx / cols;
@@ -491,7 +491,8 @@ impl CocoDataset {
     pub fn new<P: AsRef<Path>>(_root: P, _train: bool) -> Result<Self> {
         eprintln!("Warning: CocoDataset is a placeholder implementation");
         Ok(Self {
-            data: vec![torsh_tensor::creation::zeros(&[3, 224, 224]).unwrap()],
+            data: vec![torsh_tensor::creation::zeros(&[3, 224, 224])
+                .expect("tensor creation should succeed")],
             labels: vec![0],
         })
     }
@@ -523,7 +524,8 @@ impl VocDataset {
     pub fn new<P: AsRef<Path>>(_root: P, _train: bool) -> Result<Self> {
         eprintln!("Warning: VocDataset is a placeholder implementation");
         Ok(Self {
-            data: vec![torsh_tensor::creation::zeros(&[3, 224, 224]).unwrap()],
+            data: vec![torsh_tensor::creation::zeros(&[3, 224, 224])
+                .expect("tensor creation should succeed")],
             labels: vec![0],
         })
     }

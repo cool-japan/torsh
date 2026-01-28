@@ -885,7 +885,7 @@ impl TraceVisualizationManager {
         }
 
         let mut sorted_data = data.to_vec();
-        sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         let min = sorted_data[0];
         let max = sorted_data[sorted_data.len() - 1];

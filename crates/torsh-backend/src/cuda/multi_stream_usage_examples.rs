@@ -3,8 +3,12 @@
 //! This module provides comprehensive examples of how to use the multi-stream
 //! execution system for various deep learning workloads and scenarios.
 
+// Allow unused imports for examples module
+#![allow(unused_imports)]
+
 #[cfg(feature = "cuda")]
 mod examples {
+    use crate::cuda::CudaResult;
     use crate::cuda::{
         intelligent_scheduler::{
             MemoryAccessPattern, SchedulingStrategy, SynchronizationRequirements,
@@ -14,7 +18,6 @@ mod examples {
         stream_advanced::WorkloadType,
         CudaStream,
     };
-    use crate::error::CudaResult;
     use std::time::Duration;
 
     /// Example: Training a neural network with multi-stream execution
@@ -77,8 +80,9 @@ mod examples {
         ];
 
         let results = orchestrator.execute_batch(operations, |op_name| {
+            let op_name = op_name.to_string();
             Box::new(move |stream: &CudaStream| {
-                match op_name {
+                match op_name.as_str() {
                     "conv_forward" => {
                         // Simulate convolution kernel launch
                         simulate_kernel_launch(stream, "conv2d_kernel", Duration::from_millis(15))
@@ -119,7 +123,7 @@ mod examples {
 
     /// Example: Matrix multiplication with different strategies
     pub fn matrix_multiplication_comparison() -> CudaResult<()> {
-        let mut orchestrators = vec![
+        let orchestrators = vec![
             ("latency_optimized", SchedulingStrategy::MinimizeLatency),
             (
                 "throughput_optimized",
@@ -129,7 +133,7 @@ mod examples {
             ("load_balanced", SchedulingStrategy::LoadBalance),
         ];
 
-        for (name, strategy) in orchestrators.iter() {
+        for (name, _strategy) in orchestrators.iter() {
             println!("\n=== Testing {} strategy ===", name);
 
             let config = OrchestratorConfig {
@@ -295,6 +299,7 @@ mod examples {
         println!("Executing multi-GPU data parallel training step...");
 
         let results = orchestrator.execute_batch(operations, |op_name| {
+            let op_name = op_name.to_string();
             Box::new(move |stream: &CudaStream| {
                 if op_name.starts_with("forward_") {
                     simulate_kernel_launch(stream, "forward_kernel", Duration::from_millis(20))
@@ -402,7 +407,8 @@ mod examples {
                 .map(|(name, chars)| (name.to_string(), chars))
                 .collect(),
             |op_name| {
-                Box::new(move |stream: &CudaStream| match op_name {
+                let op_name = op_name.to_string();
+                Box::new(move |stream: &CudaStream| match op_name.as_str() {
                     "large_tensor_copy" => {
                         simulate_kernel_launch(stream, "memcpy_kernel", Duration::from_millis(30))
                     }
@@ -489,10 +495,12 @@ mod examples {
                 },
             };
 
-            let _result =
-                orchestrator.execute_operation(name.to_string(), characteristics, |stream| {
-                    simulate_kernel_launch(stream, name, duration)
-                })?;
+            let name_owned = name.to_string();
+            let _result = orchestrator.execute_operation(
+                name.to_string(),
+                characteristics,
+                move |stream| simulate_kernel_launch(stream, &name_owned, duration),
+            )?;
         }
 
         // Optimize configuration based on collected data

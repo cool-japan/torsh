@@ -76,7 +76,7 @@ impl ModelSandbox {
 
     /// Enter the sandbox environment
     pub fn enter(&self) -> Result<SandboxGuard> {
-        let mut is_active = self.is_active.lock().unwrap();
+        let mut is_active = self.is_active.lock().expect("lock should not be poisoned");
         if *is_active {
             return Err(TorshError::SecurityError(
                 "Sandbox is already active".to_string(),
@@ -87,7 +87,7 @@ impl ModelSandbox {
 
         // Initialize resource tracking
         {
-            let mut usage = self.usage.lock().unwrap();
+            let mut usage = self.usage.lock().expect("lock should not be poisoned");
             *usage = ResourceUsage {
                 start_time: Some(SystemTime::now()),
                 ..Default::default()
@@ -108,7 +108,7 @@ impl ModelSandbox {
 
     /// Check if resource limits are exceeded
     pub fn check_limits(&self) -> Result<()> {
-        let usage = self.usage.lock().unwrap();
+        let usage = self.usage.lock().expect("lock should not be poisoned");
 
         // Check memory limit
         if usage.memory_used > self.config.max_memory {
@@ -122,7 +122,7 @@ impl ModelSandbox {
         if let Some(start_time) = usage.start_time {
             let elapsed = SystemTime::now()
                 .duration_since(start_time)
-                .unwrap()
+                .expect("current time should be after start_time")
                 .as_secs();
             if elapsed > self.config.max_execution_time {
                 return Err(TorshError::SecurityError(format!(
@@ -145,13 +145,13 @@ impl ModelSandbox {
 
     /// Record memory usage
     pub fn record_memory_usage(&self, bytes: usize) {
-        let mut usage = self.usage.lock().unwrap();
+        let mut usage = self.usage.lock().expect("lock should not be poisoned");
         usage.memory_used = usage.memory_used.saturating_add(bytes);
     }
 
     /// Record thread creation
     pub fn record_thread_creation(&self) {
-        let mut usage = self.usage.lock().unwrap();
+        let mut usage = self.usage.lock().expect("lock should not be poisoned");
         usage.threads_created += 1;
     }
 
@@ -163,7 +163,7 @@ impl ModelSandbox {
             ));
         }
 
-        let mut usage = self.usage.lock().unwrap();
+        let mut usage = self.usage.lock().expect("lock should not be poisoned");
         usage.network_requests += 1;
         Ok(())
     }
@@ -196,7 +196,7 @@ impl ModelSandbox {
             }
         }
 
-        let mut usage = self.usage.lock().unwrap();
+        let mut usage = self.usage.lock().expect("lock should not be poisoned");
         if is_write {
             usage.file_writes += 1;
         } else {
@@ -208,12 +208,12 @@ impl ModelSandbox {
 
     /// Get current resource usage
     pub fn get_usage(&self) -> ResourceUsage {
-        self.usage.lock().unwrap().clone()
+        self.usage.lock().expect("lock should not be poisoned").clone()
     }
 
     /// Exit the sandbox (private, called by SandboxGuard)
     fn exit(&self) {
-        let mut is_active = self.is_active.lock().unwrap();
+        let mut is_active = self.is_active.lock().expect("lock should not be poisoned");
         *is_active = false;
 
         // Clean up resource limits

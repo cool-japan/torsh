@@ -627,7 +627,7 @@ impl Default for MirrorBenchmarkResult {
             success: false,
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .expect("system time should be after UNIX epoch")
                 .as_secs(),
             additional_metrics: HashMap::new(),
         }

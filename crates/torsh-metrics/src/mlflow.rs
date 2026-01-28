@@ -121,7 +121,7 @@ impl MLflowClient {
             timestamp: timestamp.unwrap_or_else(|| {
                 std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .expect("system time should be after UNIX_EPOCH")
                     .as_millis() as u64
             }),
         };
@@ -298,7 +298,7 @@ fn generate_run_id() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .expect("system time should be after UNIX_EPOCH")
         .as_millis();
     format!("run_{}", timestamp)
 }

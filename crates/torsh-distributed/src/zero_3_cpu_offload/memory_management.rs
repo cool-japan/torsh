@@ -57,12 +57,19 @@ impl Zero3MemoryManager {
         // Update current memory statistics
         self.update_memory_statistics().await?;
 
-        let current_stats = self.memory_stats.lock().unwrap().clone();
+        let current_stats = self
+            .memory_stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone();
         let memory_pressure = self.calculate_memory_pressure(&current_stats);
 
         // Record pressure history for trend analysis
         {
-            let mut history = self.pressure_history.lock().unwrap();
+            let mut history = self
+                .pressure_history
+                .lock()
+                .expect("lock should not be poisoned");
             history.push(memory_pressure);
             if history.len() > 100 {
                 history.remove(0); // Keep only last 100 measurements
@@ -91,7 +98,10 @@ impl Zero3MemoryManager {
         // Record optimization performance
         let optimization_time = start_time.elapsed();
         {
-            let mut metrics = self.perf_metrics.lock().unwrap();
+            let mut metrics = self
+                .perf_metrics
+                .lock()
+                .expect("lock should not be poisoned");
             metrics.record_optimization_cycle(optimization_time, memory_pressure);
         }
 
@@ -243,7 +253,10 @@ impl Zero3MemoryManager {
 
     /// Calculate memory pressure trend from history
     fn calculate_pressure_trend(&self) -> f32 {
-        let history = self.pressure_history.lock().unwrap();
+        let history = self
+            .pressure_history
+            .lock()
+            .expect("lock should not be poisoned");
         if history.len() < 5 {
             return 0.0;
         }
@@ -264,7 +277,10 @@ impl Zero3MemoryManager {
         // - Parameter counts from storage managers
         // - Compression ratios from compression statistics
 
-        let mut stats = self.memory_stats.lock().unwrap();
+        let mut stats = self
+            .memory_stats
+            .lock()
+            .expect("lock should not be poisoned");
 
         // Mock update - in practice would gather real statistics
         stats.gpu_memory_used = self.estimate_gpu_memory_usage();
@@ -291,7 +307,11 @@ impl Zero3MemoryManager {
         // 5. Update GPU memory allocator state
 
         // Mock implementation: estimate garbage collection effectiveness
-        let current_stats = self.memory_stats.lock().unwrap().clone();
+        let current_stats = self
+            .memory_stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone();
         let estimated_unused = (current_stats.gpu_memory_used as f32 * 0.1) as usize; // Assume 10% is garbage
         freed_bytes = estimated_unused;
 
@@ -306,7 +326,10 @@ impl Zero3MemoryManager {
             );
 
             // Update statistics
-            let mut stats = self.memory_stats.lock().unwrap();
+            let mut stats = self
+                .memory_stats
+                .lock()
+                .expect("lock should not be poisoned");
             stats.gpu_memory_used = stats.gpu_memory_used.saturating_sub(freed_bytes);
         }
 
@@ -330,7 +353,11 @@ impl Zero3MemoryManager {
         // 5. Update GPU cache to reflect changes
 
         // Mock aggressive offloading
-        let current_stats = self.memory_stats.lock().unwrap().clone();
+        let current_stats = self
+            .memory_stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone();
         let target_offload_bytes = (current_stats.gpu_memory_used as f32 * offload_ratio) as usize;
 
         // Simulate offloading work
@@ -339,7 +366,10 @@ impl Zero3MemoryManager {
 
         // Update statistics
         {
-            let mut stats = self.memory_stats.lock().unwrap();
+            let mut stats = self
+                .memory_stats
+                .lock()
+                .expect("lock should not be poisoned");
             stats.gpu_memory_used = stats.gpu_memory_used.saturating_sub(target_offload_bytes);
             stats.cpu_memory_used += target_offload_bytes;
             stats.parameters_on_gpu =
@@ -372,7 +402,11 @@ impl Zero3MemoryManager {
         // 4. Use historical data to predict future access
         // 5. Implement smart caching strategies
 
-        let current_stats = self.memory_stats.lock().unwrap().clone();
+        let current_stats = self
+            .memory_stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone();
         let target_offload_bytes = (current_stats.gpu_memory_used as f32 * offload_ratio) as usize;
 
         // Simulate selective offloading (more efficient than aggressive)
@@ -381,7 +415,10 @@ impl Zero3MemoryManager {
 
         // Update statistics
         {
-            let mut stats = self.memory_stats.lock().unwrap();
+            let mut stats = self
+                .memory_stats
+                .lock()
+                .expect("lock should not be poisoned");
             stats.gpu_memory_used = stats.gpu_memory_used.saturating_sub(target_offload_bytes);
             stats.cpu_memory_used += target_offload_bytes;
             stats.parameters_on_gpu =
@@ -412,7 +449,10 @@ impl Zero3MemoryManager {
         let optimal_buffer_size = self.config.prefetch_buffer_size * 2;
 
         {
-            let mut strategy_state = self.strategy_state.lock().unwrap();
+            let mut strategy_state = self
+                .strategy_state
+                .lock()
+                .expect("lock should not be poisoned");
             strategy_state.current_prefetch_multiplier = 2.0;
             strategy_state.prefetch_optimization_active = true;
         }
@@ -443,7 +483,10 @@ impl Zero3MemoryManager {
             ((self.config.prefetch_buffer_size as f32 * reduction_factor) as usize).max(1);
 
         {
-            let mut strategy_state = self.strategy_state.lock().unwrap();
+            let mut strategy_state = self
+                .strategy_state
+                .lock()
+                .expect("lock should not be poisoned");
             strategy_state.current_prefetch_multiplier = reduction_factor;
             strategy_state.prefetch_optimization_active = false;
         }
@@ -484,7 +527,10 @@ impl Zero3MemoryManager {
         };
 
         {
-            let mut strategy_state = self.strategy_state.lock().unwrap();
+            let mut strategy_state = self
+                .strategy_state
+                .lock()
+                .expect("lock should not be poisoned");
             strategy_state.dynamic_compression_level = target_compression;
             strategy_state.compression_upgrade_active = true;
         }
@@ -508,12 +554,19 @@ impl Zero3MemoryManager {
         // Simulate defragmentation work
         tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
 
-        let current_stats = self.memory_stats.lock().unwrap().clone();
+        let current_stats = self
+            .memory_stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone();
         let estimated_savings = (current_stats.gpu_memory_used as f32 * 0.05) as usize; // 5% savings
 
         if estimated_savings > 0 {
             // Update statistics to reflect defragmentation savings
-            let mut stats = self.memory_stats.lock().unwrap();
+            let mut stats = self
+                .memory_stats
+                .lock()
+                .expect("lock should not be poisoned");
             stats.gpu_memory_used = stats.gpu_memory_used.saturating_sub(estimated_savings);
         }
 
@@ -528,17 +581,26 @@ impl Zero3MemoryManager {
 
     /// Get current memory statistics
     pub fn get_memory_stats(&self) -> Zero3MemoryStats {
-        self.memory_stats.lock().unwrap().clone()
+        self.memory_stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Get memory management performance metrics
     pub fn get_performance_metrics(&self) -> MemoryPerformanceMetrics {
-        self.perf_metrics.lock().unwrap().clone()
+        self.perf_metrics
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Get current strategy state
     pub fn get_strategy_state(&self) -> MemoryStrategyState {
-        self.strategy_state.lock().unwrap().clone()
+        self.strategy_state
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Force immediate memory optimization regardless of pressure

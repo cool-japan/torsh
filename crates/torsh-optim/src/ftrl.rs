@@ -118,7 +118,9 @@ impl Optimizer for FTRL {
                     continue;
                 }
 
-                let grad = param.grad().unwrap();
+                let grad = param
+                    .grad()
+                    .expect("gradient should exist after has_grad check");
                 let param_id = format!("{:p}", param_arc.as_ref());
 
                 // Get or initialize optimizer state
@@ -136,8 +138,8 @@ impl Optimizer for FTRL {
                     state.insert("n".to_string(), n_init); // Accumulated squared gradients
                 }
 
-                let mut z = state.get("z").unwrap().clone();
-                let mut n = state.get("n").unwrap().clone();
+                let mut z = state.get("z").expect("z state should exist").clone();
+                let mut n = state.get("n").expect("n state should exist").clone();
 
                 // Current parameter value
                 let w = param.clone();

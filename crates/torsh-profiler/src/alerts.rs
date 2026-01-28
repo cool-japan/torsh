@@ -352,7 +352,7 @@ impl AlertManager {
                     rule.id,
                     SystemTime::now()
                         .duration_since(SystemTime::UNIX_EPOCH)
-                        .unwrap()
+                        .expect("SystemTime should be after UNIX_EPOCH")
                         .as_nanos()
                 ),
                 rule_id: rule.id.clone(),
@@ -770,7 +770,7 @@ impl AlertManager {
             // Update mean time to resolution
             if let Ok(resolution_time) = resolved_alert
                 .resolved_at
-                .unwrap()
+                .expect("resolved_at should be set when resolving an alert")
                 .duration_since(resolved_alert.timestamp)
             {
                 let total_resolution_time = self.stats.mean_time_to_resolution.as_secs()

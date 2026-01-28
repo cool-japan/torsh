@@ -546,7 +546,10 @@ impl OperationScheduler {
         dependencies: Vec<DeviceType>,
     ) -> Result<u64> {
         // Generate unique operation ID
-        let mut counter = self.operation_counter.write().unwrap();
+        let mut counter = self
+            .operation_counter
+            .write()
+            .expect("lock should not be poisoned");
         *counter += 1;
         let op_id = *counter;
         drop(counter);
@@ -681,7 +684,7 @@ pub fn initialize_global_scheduler() -> Result<()> {
 #[cfg(feature = "gpu")]
 impl<T: TensorElement + Copy + Default> Tensor<T> {
     /// 🚀 Enhanced GPU kernel execution with automatic optimization
-    pub fn execute_gpu_kernel(&self, kernel_name: &str, params: Vec<T>) -> Result<Self> {
+    pub fn execute_gpu_kernel(&self, kernel_name: &str, _params: Vec<T>) -> Result<Self> {
         let gpu_opt = match self.get_device_optimization(self.device) {
             DeviceOptimization::Gpu(opt) => opt,
             _ => {
@@ -932,7 +935,7 @@ impl<T: TensorElement + Copy + Default> Tensor<T> {
         let chunk_size = (feature_size + gpu_count - 1) / gpu_count;
 
         let mut distributed_tensors = Vec::with_capacity(gpu_count);
-        let data = self.to_vec()?;
+        let _data = self.to_vec()?;
 
         for gpu_id in 0..gpu_count {
             let start_feature = gpu_id * chunk_size;

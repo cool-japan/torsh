@@ -36,11 +36,11 @@ torsh-optim = { workspace = true }
 scirs2-core = { workspace = true }
 
 # Error handling
-thiserror = "2.0"
-anyhow = "1.0"
+thiserror = { workspace = true }
+anyhow = { workspace = true }
 
 # Utilities
-parking_lot = "0.12"
+parking_lot = { workspace = true }
 
 [features]
 default = []

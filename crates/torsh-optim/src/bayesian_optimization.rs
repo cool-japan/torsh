@@ -480,13 +480,19 @@ impl BayesianOptimizer {
                     evaluations,
                     point.parameters,
                     point.value,
-                    self.best_point.as_ref().unwrap().value
+                    self.best_point
+                        .as_ref()
+                        .expect("best_point should exist after add_observation")
+                        .value
                 );
             }
         }
 
         Ok(BayesianOptResult {
-            best_point: self.best_point.clone().unwrap(),
+            best_point: self
+                .best_point
+                .clone()
+                .expect("best_point should exist after optimization"),
             history: self.history.clone(),
             evaluations,
             converged: false, // Could implement convergence criteria
@@ -496,7 +502,14 @@ impl BayesianOptimizer {
     }
 
     fn add_observation(&mut self, point: DataPoint) {
-        if self.best_point.is_none() || point.value < self.best_point.as_ref().unwrap().value {
+        if self.best_point.is_none()
+            || point.value
+                < self
+                    .best_point
+                    .as_ref()
+                    .expect("best_point should exist after is_none check")
+                    .value
+        {
             self.best_point = Some(point.clone());
         }
         self.history.push(point);
@@ -579,7 +592,11 @@ impl BayesianOptimizer {
 
     fn compute_acquisition(&self, point: &[f32]) -> OptimizerResult<f32> {
         let (mean, std) = self.gp.predict(point)?;
-        let best_value = self.best_point.as_ref().unwrap().value;
+        let best_value = self
+            .best_point
+            .as_ref()
+            .expect("best_point should exist for acquisition computation")
+            .value;
 
         match &self.config.acquisition_function {
             AcquisitionFunction::ExpectedImprovement { xi } => {

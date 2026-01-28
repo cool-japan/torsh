@@ -755,56 +755,61 @@ fn build_for_platform(
     _jit_info: &Option<JitBuildInfo>,
 ) -> Result<PathBuf, String> {
     // Determine compiler based on platform
-    let (compiler, extra_flags) = match target_platform {
-        Some(TargetPlatform::WindowsX64) | Some(TargetPlatform::WindowsX86) => {
-            if config.cross_platform.windows.use_clang {
+    let (compiler, extra_flags) =
+        match target_platform {
+            Some(TargetPlatform::WindowsX64) | Some(TargetPlatform::WindowsX86) => {
+                if config.cross_platform.windows.use_clang {
+                    (
+                        "clang++".to_string(),
+                        vec![
+                            "-target".to_string(),
+                            get_windows_target(target_platform.expect(
+                                "target_platform should be Some for Windows platform branch",
+                            )),
+                        ],
+                    )
+                } else {
+                    ("cl.exe".to_string(), vec!["/std:c++17".to_string()])
+                }
+            }
+            Some(TargetPlatform::MacOsX64) | Some(TargetPlatform::MacOsArm64) => {
+                let target = match target_platform
+                    .expect("target_platform should be Some for macOS platform branch")
+                {
+                    TargetPlatform::MacOsX64 => "x86_64-apple-darwin",
+                    TargetPlatform::MacOsArm64 => "arm64-apple-darwin",
+                    _ => unreachable!(),
+                };
                 (
                     "clang++".to_string(),
-                    vec![
-                        "-target".to_string(),
-                        get_windows_target(target_platform.unwrap()),
-                    ],
-                )
-            } else {
-                ("cl.exe".to_string(), vec!["/std:c++17".to_string()])
-            }
-        }
-        Some(TargetPlatform::MacOsX64) | Some(TargetPlatform::MacOsArm64) => {
-            let target = match target_platform.unwrap() {
-                TargetPlatform::MacOsX64 => "x86_64-apple-darwin",
-                TargetPlatform::MacOsArm64 => "arm64-apple-darwin",
-                _ => unreachable!(),
-            };
-            (
-                "clang++".to_string(),
-                vec!["-target".to_string(), target.to_string()],
-            )
-        }
-        Some(TargetPlatform::LinuxX64)
-        | Some(TargetPlatform::LinuxArm64)
-        | Some(TargetPlatform::LinuxAarch64) => {
-            match config.cross_platform.linux.compiler_preference {
-                CompilerPreference::Clang => ("clang++".to_string(), vec![]),
-                CompilerPreference::Gcc => ("g++".to_string(), vec![]),
-                CompilerPreference::Intel => ("icpc".to_string(), vec![]),
-                CompilerPreference::Auto => (
-                    env::var("CXX").unwrap_or_else(|_| "g++".to_string()),
-                    vec![],
-                ),
-            }
-        }
-        None => {
-            // Current platform
-            if config.with_cuda {
-                ("nvcc".to_string(), vec![])
-            } else {
-                (
-                    env::var("CXX").unwrap_or_else(|_| "c++".to_string()),
-                    vec![],
+                    vec!["-target".to_string(), target.to_string()],
                 )
             }
-        }
-    };
+            Some(TargetPlatform::LinuxX64)
+            | Some(TargetPlatform::LinuxArm64)
+            | Some(TargetPlatform::LinuxAarch64) => {
+                match config.cross_platform.linux.compiler_preference {
+                    CompilerPreference::Clang => ("clang++".to_string(), vec![]),
+                    CompilerPreference::Gcc => ("g++".to_string(), vec![]),
+                    CompilerPreference::Intel => ("icpc".to_string(), vec![]),
+                    CompilerPreference::Auto => (
+                        env::var("CXX").unwrap_or_else(|_| "g++".to_string()),
+                        vec![],
+                    ),
+                }
+            }
+            None => {
+                // Current platform
+                if config.with_cuda {
+                    ("nvcc".to_string(), vec![])
+                } else {
+                    (
+                        env::var("CXX").unwrap_or_else(|_| "c++".to_string()),
+                        vec![],
+                    )
+                }
+            }
+        };
 
     // Build compile command
     let mut cmd = Command::new(&compiler);

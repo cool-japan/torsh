@@ -12,10 +12,6 @@ use torsh_core::Result as TorshResult;
 use torsh_tensor::Tensor;
 // use std::sync::Arc;
 
-// Import error type that's not re-exported by scirs2_core::parallel_ops
-// This is a necessary exception for the init_thread_pool function
-use rayon::ThreadPoolBuildError;
-
 /// Configuration for parallel execution
 #[derive(Clone, Debug)]
 pub struct ParallelConfig {
@@ -44,7 +40,7 @@ impl Default for ParallelConfig {
 ///
 /// **SciRS2 POLICY**: Uses re-exported types from scirs2_core::parallel_ops
 #[allow(dead_code)]
-pub fn init_thread_pool(config: &ParallelConfig) -> Result<(), ThreadPoolBuildError> {
+pub fn init_thread_pool(config: &ParallelConfig) -> Result<(), Box<dyn std::error::Error>> {
     let mut builder = ThreadPoolBuilder::new();
 
     if let Some(max_threads) = config.max_threads {
@@ -52,7 +48,7 @@ pub fn init_thread_pool(config: &ParallelConfig) -> Result<(), ThreadPoolBuildEr
     }
 
     let pool = builder.build_global();
-    pool
+    pool.map_err(|e| Box::new(e) as Box<dyn std::error::Error>)
 }
 
 /// Determine optimal chunk size based on data size and thread count

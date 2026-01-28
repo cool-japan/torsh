@@ -50,26 +50,39 @@ impl LazyLinear {
             .register_parameter("weight".to_string(), Parameter::new(weight));
 
         if self.use_bias {
-            let bias_tensor = zeros(&[self.out_features]).unwrap();
+            let bias_tensor =
+                zeros(&[self.out_features]).expect("zeros tensor creation should succeed");
             self.base
                 .register_parameter("bias".to_string(), Parameter::new(bias_tensor));
         }
 
         // Store the inferred in_features
-        *self.in_features.lock().unwrap() = Some(in_features);
-        *self.initialized.lock().unwrap() = true;
+        *self
+            .in_features
+            .lock()
+            .expect("lock should not be poisoned") = Some(in_features);
+        *self
+            .initialized
+            .lock()
+            .expect("lock should not be poisoned") = true;
 
         Ok(())
     }
 
     /// Check if the layer is initialized
     pub fn is_initialized(&self) -> bool {
-        *self.initialized.lock().unwrap()
+        *self
+            .initialized
+            .lock()
+            .expect("lock should not be poisoned")
     }
 
     /// Get the inferred input features (None if not initialized)
     pub fn in_features(&self) -> Option<usize> {
-        *self.in_features.lock().unwrap()
+        *self
+            .in_features
+            .lock()
+            .expect("lock should not be poisoned")
     }
 }
 
@@ -198,18 +211,30 @@ impl LazyConv1d {
                 .register_parameter("bias".to_string(), Parameter::new(bias));
         }
 
-        *self.in_channels.lock().unwrap() = Some(in_channels);
-        *self.initialized.lock().unwrap() = true;
+        *self
+            .in_channels
+            .lock()
+            .expect("lock should not be poisoned") = Some(in_channels);
+        *self
+            .initialized
+            .lock()
+            .expect("lock should not be poisoned") = true;
 
         Ok(())
     }
 
     pub fn is_initialized(&self) -> bool {
-        *self.initialized.lock().unwrap()
+        *self
+            .initialized
+            .lock()
+            .expect("lock should not be poisoned")
     }
 
     pub fn in_channels(&self) -> Option<usize> {
-        *self.in_channels.lock().unwrap()
+        *self
+            .in_channels
+            .lock()
+            .expect("lock should not be poisoned")
     }
 }
 
@@ -348,18 +373,30 @@ impl LazyConv2d {
                 .register_parameter("bias".to_string(), Parameter::new(bias));
         }
 
-        *self.in_channels.lock().unwrap() = Some(in_channels);
-        *self.initialized.lock().unwrap() = true;
+        *self
+            .in_channels
+            .lock()
+            .expect("lock should not be poisoned") = Some(in_channels);
+        *self
+            .initialized
+            .lock()
+            .expect("lock should not be poisoned") = true;
 
         Ok(())
     }
 
     pub fn is_initialized(&self) -> bool {
-        *self.initialized.lock().unwrap()
+        *self
+            .initialized
+            .lock()
+            .expect("lock should not be poisoned")
     }
 
     pub fn in_channels(&self) -> Option<usize> {
-        *self.in_channels.lock().unwrap()
+        *self
+            .in_channels
+            .lock()
+            .expect("lock should not be poisoned")
     }
 }
 

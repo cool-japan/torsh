@@ -199,16 +199,19 @@ impl DeviceLifecycle {
 
     /// Get the current device state
     pub fn state(&self) -> DeviceState {
-        *self.state.lock().unwrap()
+        *self.state.lock().expect("lock should not be poisoned")
     }
 
     /// Set the device state
     pub fn set_state(&self, new_state: DeviceState) -> Result<()> {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock().expect("lock should not be poisoned");
         match (*state, new_state) {
             // Valid transitions
             (DeviceState::Uninitialized, DeviceState::Initializing) => {
-                *self.initialization_time.lock().unwrap() = Some(std::time::Instant::now());
+                *self
+                    .initialization_time
+                    .lock()
+                    .expect("lock should not be poisoned") = Some(std::time::Instant::now());
             }
             (DeviceState::Uninitialized, DeviceState::Ready) => {} // Allow direct transition to ready
             (DeviceState::Initializing, DeviceState::Ready) => {}
@@ -234,20 +237,23 @@ impl DeviceLifecycle {
 
     /// Set error state with error information
     pub fn set_error(&self, error_info: String) -> Result<()> {
-        *self.error_info.lock().unwrap() = Some(error_info);
+        *self.error_info.lock().expect("lock should not be poisoned") = Some(error_info);
         self.set_state(DeviceState::Error)
     }
 
     /// Get error information if in error state
     pub fn error_info(&self) -> Option<String> {
-        self.error_info.lock().unwrap().clone()
+        self.error_info
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Get initialization time if available
     pub fn initialization_time(&self) -> Option<std::time::Duration> {
         self.initialization_time
             .lock()
-            .unwrap()
+            .expect("lock should not be poisoned")
             .map(|start| start.elapsed())
     }
 
@@ -264,8 +270,11 @@ impl DeviceLifecycle {
     /// Reset to uninitialized state
     pub fn reset(&self) -> Result<()> {
         self.set_state(DeviceState::Resetting)?;
-        *self.error_info.lock().unwrap() = None;
-        *self.initialization_time.lock().unwrap() = None;
+        *self.error_info.lock().expect("lock should not be poisoned") = None;
+        *self
+            .initialization_time
+            .lock()
+            .expect("lock should not be poisoned") = None;
         self.set_state(DeviceState::Uninitialized)
     }
 }
@@ -308,36 +317,48 @@ impl DeviceContext {
 
     /// Set a device property
     pub fn set_property(&self, key: String, value: String) {
-        let mut props = self.properties.lock().unwrap();
+        let mut props = self.properties.lock().expect("lock should not be poisoned");
         props.insert(key, value);
     }
 
     /// Get a device property
     pub fn get_property(&self, key: &str) -> Option<String> {
-        let props = self.properties.lock().unwrap();
+        let props = self.properties.lock().expect("lock should not be poisoned");
         props.get(key).cloned()
     }
 
     /// Get all device properties
     pub fn properties(&self) -> HashMap<String, String> {
-        self.properties.lock().unwrap().clone()
+        self.properties
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Add a resource handle
     pub fn add_resource<T: Any + Send + Sync + 'static>(&self, resource: T) {
-        let mut handles = self.resource_handles.lock().unwrap();
+        let mut handles = self
+            .resource_handles
+            .lock()
+            .expect("lock should not be poisoned");
         handles.push(Box::new(resource));
     }
 
     /// Clear all resources
     pub fn clear_resources(&self) {
-        let mut handles = self.resource_handles.lock().unwrap();
+        let mut handles = self
+            .resource_handles
+            .lock()
+            .expect("lock should not be poisoned");
         handles.clear();
     }
 
     /// Get the number of managed resources
     pub fn resource_count(&self) -> usize {
-        let handles = self.resource_handles.lock().unwrap();
+        let handles = self
+            .resource_handles
+            .lock()
+            .expect("lock should not be poisoned");
         handles.len()
     }
 }
@@ -375,7 +396,7 @@ impl DeviceRegistry {
 
     /// Register a device factory
     pub fn register_factory<F: DeviceFactory + 'static>(&self, factory: F) -> Result<()> {
-        let mut factories = self.factories.lock().unwrap();
+        let mut factories = self.factories.lock().expect("lock should not be poisoned");
         let device_types = factory.supported_device_types();
 
         for device_type in device_types {
@@ -398,7 +419,7 @@ impl DeviceRegistry {
 
     /// Create a device using registered factories
     pub fn create_device(&self, device_type: DeviceType) -> Result<Box<dyn Device>> {
-        let factories = self.factories.lock().unwrap();
+        let factories = self.factories.lock().expect("lock should not be poisoned");
 
         match factories.get(&device_type) {
             Some(factory) => factory.create_device(device_type),
@@ -416,7 +437,7 @@ impl DeviceRegistry {
         let device_id = format!("{:?}", device_type);
 
         {
-            let devices = self.devices.lock().unwrap();
+            let devices = self.devices.lock().expect("lock should not be poisoned");
             if let Some(device) = devices.get(&device_id) {
                 return Ok(device.clone());
             }
@@ -427,7 +448,7 @@ impl DeviceRegistry {
         let arc_device: Arc<dyn Device> = unsafe { Arc::from_raw(Box::into_raw(device)) };
 
         {
-            let mut devices = self.devices.lock().unwrap();
+            let mut devices = self.devices.lock().expect("lock should not be poisoned");
             devices.insert(device_id, arc_device.clone());
         }
 
@@ -436,20 +457,20 @@ impl DeviceRegistry {
 
     /// Get all registered device types
     pub fn registered_device_types(&self) -> Vec<DeviceType> {
-        let factories = self.factories.lock().unwrap();
+        let factories = self.factories.lock().expect("lock should not be poisoned");
         factories.keys().copied().collect()
     }
 
     /// Clear all cached devices
     pub fn clear_devices(&self) {
-        let mut devices = self.devices.lock().unwrap();
+        let mut devices = self.devices.lock().expect("lock should not be poisoned");
         devices.clear();
     }
 
     /// Get registry statistics
     pub fn statistics(&self) -> RegistryStatistics {
-        let factories = self.factories.lock().unwrap();
-        let devices = self.devices.lock().unwrap();
+        let factories = self.factories.lock().expect("lock should not be poisoned");
+        let devices = self.devices.lock().expect("lock should not be poisoned");
 
         RegistryStatistics {
             registered_factories: factories.len(),

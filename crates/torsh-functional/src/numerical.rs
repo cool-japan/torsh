@@ -539,7 +539,7 @@ mod tests {
         let tensor = from_vec(y, &[11], DeviceType::Cpu).unwrap();
 
         let result = trapz(&tensor, Some(0.1)).unwrap();
-        let result_val = result.data().unwrap()[0];
+        let result_val = result.data().expect("tensor should have data")[0];
 
         // Analytical result for integral of x^2 from 0 to 1 is 1/3
         assert_relative_eq!(result_val, 1.0 / 3.0, epsilon = 0.01);
@@ -553,7 +553,7 @@ mod tests {
         let tensor = from_vec(y, &[11], DeviceType::Cpu).unwrap();
 
         let grad = gradient(&tensor, Some(0.1), Some(DifferentiationMethod::Central)).unwrap();
-        let grad_data = grad.data().unwrap();
+        let grad_data = grad.data().expect("tensor should have data");
 
         // Analytical gradient of x^2 is 2x
         // Check a few points
@@ -571,7 +571,7 @@ mod tests {
         let tensor = from_vec(y, &[11], DeviceType::Cpu).unwrap();
 
         let result = simps(&tensor, Some(0.1)).unwrap();
-        let result_val = result.data().unwrap()[0];
+        let result_val = result.data().expect("tensor should have data")[0];
 
         // Should be more accurate than trapezoidal rule
         assert_relative_eq!(result_val, 1.0 / 3.0, epsilon = 0.001);

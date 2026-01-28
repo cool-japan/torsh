@@ -19,8 +19,8 @@ torsh-linalg = { workspace = true }
 # SciRS2 ecosystem for signal processing (following SCIRS2 POLICY)
 # All numeric types and traits accessed through scirs2-core (POLICY compliant)
 scirs2-core = { workspace = true }
-scirs2-signal = { version = "0.1.0-rc.4", optional = true }
-scirs2-fft = { version = "0.1.0-rc.4", optional = true }
+scirs2-signal = { workspace = true, optional = true }
+scirs2-fft = { workspace = true, optional = true }
 thiserror = { workspace = true }
 approx = { workspace = true }
 

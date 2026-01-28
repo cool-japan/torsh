@@ -8,7 +8,7 @@
 
 use crate::{QuantConfig, TorshResult};
 // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
-use scirs2_core::random::Rng;
+
 use std::collections::HashMap;
 use torsh_core::TorshError;
 use torsh_tensor::Tensor;

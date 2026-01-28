@@ -345,7 +345,7 @@ impl ReportGenerator {
                 "report_{}",
                 SystemTime::now()
                     .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap()
+                    .expect("SystemTime should be after UNIX_EPOCH")
                     .as_nanos()
             ),
             name: self.config.name.clone(),
@@ -515,10 +515,20 @@ impl ReportGenerator {
         };
 
         let allocation_rate = if events.len() > 1 {
-            let last_time =
-                SystemTime::UNIX_EPOCH + Duration::from_micros(events.last().unwrap().start_us);
-            let first_time =
-                SystemTime::UNIX_EPOCH + Duration::from_micros(events.first().unwrap().start_us);
+            let last_time = SystemTime::UNIX_EPOCH
+                + Duration::from_micros(
+                    events
+                        .last()
+                        .expect("events should not be empty after length check")
+                        .start_us,
+                );
+            let first_time = SystemTime::UNIX_EPOCH
+                + Duration::from_micros(
+                    events
+                        .first()
+                        .expect("events should not be empty after length check")
+                        .start_us,
+                );
             let time_range = last_time
                 .duration_since(first_time)
                 .unwrap_or(Duration::from_secs(1));
@@ -644,7 +654,7 @@ impl ReportGenerator {
                     .map(|t| ChartPoint {
                         x: t.timestamp
                             .duration_since(SystemTime::UNIX_EPOCH)
-                            .unwrap()
+                            .expect("timestamp should be after UNIX_EPOCH")
                             .as_secs_f64(),
                         y: t.value,
                         label: Some(t.label.clone()),

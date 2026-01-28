@@ -14,7 +14,7 @@
 
 use crate::{Result, TextError};
 use scirs2_core::ndarray::{Array1, Array2};
-use scirs2_core::random::{thread_rng, Rng};
+use scirs2_core::random::thread_rng;
 use torsh_tensor::Tensor;
 
 /// Comprehensive NLP processor using scirs2-text

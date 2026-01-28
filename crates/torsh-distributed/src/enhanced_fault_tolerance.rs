@@ -692,7 +692,7 @@ impl EnhancedFaultTolerance {
                     node_id: metrics.node_id.clone(),
                     last_seen: SystemTime::now()
                         .duration_since(UNIX_EPOCH)
-                        .unwrap()
+                        .expect("time should be after UNIX_EPOCH")
                         .as_millis() as u64,
                 });
             }
@@ -788,11 +788,11 @@ impl EnhancedFaultTolerance {
             "incident_{}_{}",
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .expect("system time should be after UNIX_EPOCH")
                 .as_millis(),
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .expect("system time should be after UNIX_EPOCH")
                 .as_nanos()
                 % 100000
         );
@@ -806,7 +806,7 @@ impl EnhancedFaultTolerance {
             failure_type: failure.clone(),
             detected_at: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .expect("system time should be after UNIX_EPOCH")
                 .as_millis() as u64,
             severity: self.determine_failure_severity(&failure),
             recovery_strategy: recovery_strategy.clone(),
@@ -996,7 +996,7 @@ impl EnhancedFaultTolerance {
                 incident.recovery_started_at = Some(
                     SystemTime::now()
                         .duration_since(UNIX_EPOCH)
-                        .unwrap()
+                        .expect("time should be after UNIX_EPOCH")
                         .as_millis() as u64,
                 );
             }
@@ -1061,7 +1061,7 @@ impl EnhancedFaultTolerance {
         // Complete recovery (simulate 90% success rate)
         let success = (SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after UNIX_EPOCH")
             .as_nanos()
             % 10)
             != 0;
@@ -1089,7 +1089,7 @@ impl EnhancedFaultTolerance {
                 incident.recovery_completed_at = Some(
                     SystemTime::now()
                         .duration_since(UNIX_EPOCH)
-                        .unwrap()
+                        .expect("time should be after UNIX_EPOCH")
                         .as_millis() as u64,
                 );
 
@@ -1200,7 +1200,7 @@ impl EnhancedFaultTolerance {
             last_incident_time: active_incidents.values().map(|i| i.detected_at).max(),
             timestamp_ms: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .expect("system time should be after UNIX_EPOCH")
                 .as_millis() as u64,
         })
     }
@@ -1257,7 +1257,7 @@ impl EnhancedFaultTolerance {
             config: self.config.clone(),
             export_timestamp_ms: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .expect("system time should be after UNIX_EPOCH")
                 .as_millis() as u64,
         })
     }
@@ -1352,13 +1352,13 @@ mod tests {
 
         // Feed normal values
         for i in 0..20 {
-            model.update(50.0 + (i as f32 % 5.0) as f32);
+            model.update(50.0 + (i as f32 % 5.0));
         }
 
         let normal_risk = model.predict_failure_risk();
         // Note: Initial risk prediction may vary based on model implementation
         assert!(
-            normal_risk >= 0.0 && normal_risk <= 1.0,
+            (0.0..=1.0).contains(&normal_risk),
             "Risk should be normalized"
         );
 
@@ -1370,7 +1370,7 @@ mod tests {
         let high_risk = model.predict_failure_risk();
         // After feeding trending data, risk might change
         assert!(
-            high_risk >= 0.0 && high_risk <= 1.0,
+            (0.0..=1.0).contains(&high_risk),
             "Risk should be normalized"
         );
 

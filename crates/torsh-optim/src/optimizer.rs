@@ -61,7 +61,7 @@ impl BaseOptimizer {
     ) -> Tensor {
         self.state
             .get_mut(param_id)
-            .unwrap()
+            .expect("state should exist for param_id")
             .entry(state_name.to_string())
             .or_insert_with(init_fn)
             .clone()
@@ -72,7 +72,7 @@ impl BaseOptimizer {
     pub(crate) fn update_state(&mut self, param_id: &str, state_name: &str, value: Tensor) {
         self.state
             .get_mut(param_id)
-            .unwrap()
+            .expect("state should exist for param_id")
             .insert(state_name.to_string(), value);
     }
 
@@ -158,8 +158,11 @@ impl BaseOptimizer {
         param_id: &str,
         increment: bool,
     ) -> OptimizerResult<i32> {
-        let state = self.state.get_mut(param_id).unwrap();
-        let step_tensor = state.get_mut("step").unwrap();
+        let state = self
+            .state
+            .get_mut(param_id)
+            .expect("state should exist for param_id");
+        let step_tensor = state.get_mut("step").expect("step state should exist");
 
         if increment {
             step_tensor

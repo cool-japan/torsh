@@ -65,25 +65,51 @@ impl GraphVAE {
         use_bias: bool,
     ) -> Self {
         // Encoder layers
-        let encoder_layer1 = Parameter::new(randn(&[in_features, hidden_features]).unwrap());
-        let encoder_layer2 = Parameter::new(randn(&[hidden_features, hidden_features]).unwrap());
+        let encoder_layer1 = Parameter::new(
+            randn(&[in_features, hidden_features]).expect("failed to create encoder_layer1 tensor"),
+        );
+        let encoder_layer2 = Parameter::new(
+            randn(&[hidden_features, hidden_features])
+                .expect("failed to create encoder_layer2 tensor"),
+        );
 
         // Variational layers
-        let mu_layer = Parameter::new(randn(&[hidden_features, latent_dim]).unwrap());
-        let logvar_layer = Parameter::new(randn(&[hidden_features, latent_dim]).unwrap());
+        let mu_layer = Parameter::new(
+            randn(&[hidden_features, latent_dim]).expect("failed to create mu_layer tensor"),
+        );
+        let logvar_layer = Parameter::new(
+            randn(&[hidden_features, latent_dim]).expect("failed to create logvar_layer tensor"),
+        );
 
         // Decoder layers
-        let decoder_layer1 = Parameter::new(randn(&[latent_dim, hidden_features]).unwrap());
-        let decoder_layer2 = Parameter::new(randn(&[hidden_features, hidden_features]).unwrap());
-        let node_decoder = Parameter::new(randn(&[hidden_features, in_features]).unwrap());
-        let edge_decoder = Parameter::new(randn(&[hidden_features, 1]).unwrap());
+        let decoder_layer1 = Parameter::new(
+            randn(&[latent_dim, hidden_features]).expect("failed to create decoder_layer1 tensor"),
+        );
+        let decoder_layer2 = Parameter::new(
+            randn(&[hidden_features, hidden_features])
+                .expect("failed to create decoder_layer2 tensor"),
+        );
+        let node_decoder = Parameter::new(
+            randn(&[hidden_features, in_features]).expect("failed to create node_decoder tensor"),
+        );
+        let edge_decoder = Parameter::new(
+            randn(&[hidden_features, 1]).expect("failed to create edge_decoder tensor"),
+        );
 
         let (encoder_bias1, encoder_bias2, decoder_bias1, decoder_bias2) = if use_bias {
             (
-                Some(Parameter::new(zeros(&[hidden_features]).unwrap())),
-                Some(Parameter::new(zeros(&[hidden_features]).unwrap())),
-                Some(Parameter::new(zeros(&[hidden_features]).unwrap())),
-                Some(Parameter::new(zeros(&[hidden_features]).unwrap())),
+                Some(Parameter::new(
+                    zeros(&[hidden_features]).expect("failed to create encoder_bias1 tensor"),
+                )),
+                Some(Parameter::new(
+                    zeros(&[hidden_features]).expect("failed to create encoder_bias2 tensor"),
+                )),
+                Some(Parameter::new(
+                    zeros(&[hidden_features]).expect("failed to create decoder_bias1 tensor"),
+                )),
+                Some(Parameter::new(
+                    zeros(&[hidden_features]).expect("failed to create decoder_bias2 tensor"),
+                )),
             )
         } else {
             (None, None, None, None)
@@ -112,29 +138,38 @@ impl GraphVAE {
     /// Encode graph to latent distribution parameters
     pub fn encode(&self, graph: &GraphData) -> (Tensor, Tensor) {
         // Forward through encoder
-        let mut h = graph.x.matmul(&self.encoder_layer1.clone_data()).unwrap();
+        let mut h = graph
+            .x
+            .matmul(&self.encoder_layer1.clone_data())
+            .expect("operation should succeed");
         if let Some(ref bias) = self.encoder_bias1 {
-            h = h.add(&bias.clone_data()).unwrap();
+            h = h.add(&bias.clone_data()).expect("operation should succeed");
         }
         h = self.relu(&h);
 
-        h = h.matmul(&self.encoder_layer2.clone_data()).unwrap();
+        h = h
+            .matmul(&self.encoder_layer2.clone_data())
+            .expect("operation should succeed");
         if let Some(ref bias) = self.encoder_bias2 {
-            h = h.add(&bias.clone_data()).unwrap();
+            h = h.add(&bias.clone_data()).expect("operation should succeed");
         }
         h = self.relu(&h);
 
         // Global mean pooling
-        let graph_embedding = h.mean(Some(&[0]), false).unwrap();
-        let graph_embedding_2d = graph_embedding.unsqueeze(0).unwrap(); // Make 2D for matmul
+        let graph_embedding = h
+            .mean(Some(&[0]), false)
+            .expect("mean pooling should succeed");
+        let graph_embedding_2d = graph_embedding
+            .unsqueeze(0)
+            .expect("unsqueeze should succeed"); // Make 2D for matmul
 
         // Compute mu and logvar
         let mu = graph_embedding_2d
             .matmul(&self.mu_layer.clone_data())
-            .unwrap();
+            .expect("mu layer matmul should succeed");
         let logvar = graph_embedding_2d
             .matmul(&self.logvar_layer.clone_data())
-            .unwrap();
+            .expect("logvar layer matmul should succeed");
 
         (mu, logvar)
     }
@@ -142,27 +177,36 @@ impl GraphVAE {
     /// Reparameterization trick for sampling from latent distribution
     pub fn reparameterize(&self, mu: &Tensor, logvar: &Tensor) -> Tensor {
         // std = exp(0.5 * logvar)
-        let std = logvar.mul_scalar(0.5).unwrap().exp().unwrap();
+        let std = logvar
+            .mul_scalar(0.5)
+            .expect("logvar scaling should succeed")
+            .exp()
+            .expect("exp should succeed");
 
         // Sample epsilon from N(0, 1)
-        let epsilon = randn(mu.shape().dims()).unwrap();
+        let epsilon = randn(mu.shape().dims()).expect("epsilon sampling should succeed");
 
         // z = mu + std * epsilon
-        mu.add(&std.mul(&epsilon).unwrap()).unwrap()
+        mu.add(&std.mul(&epsilon).expect("operation should succeed"))
+            .expect("operation should succeed")
     }
 
     /// Decode latent representation to graph
     pub fn decode(&self, z: &Tensor, num_nodes: usize) -> GraphData {
         // Forward through decoder
-        let mut h = z.matmul(&self.decoder_layer1.clone_data()).unwrap();
+        let mut h = z
+            .matmul(&self.decoder_layer1.clone_data())
+            .expect("operation should succeed");
         if let Some(ref bias) = self.decoder_bias1 {
-            h = h.add(&bias.clone_data()).unwrap();
+            h = h.add(&bias.clone_data()).expect("operation should succeed");
         }
         h = self.relu(&h);
 
-        h = h.matmul(&self.decoder_layer2.clone_data()).unwrap();
+        h = h
+            .matmul(&self.decoder_layer2.clone_data())
+            .expect("operation should succeed");
         if let Some(ref bias) = self.decoder_bias2 {
-            h = h.add(&bias.clone_data()).unwrap();
+            h = h.add(&bias.clone_data()).expect("operation should succeed");
         }
         h = self.relu(&h);
 
@@ -170,7 +214,9 @@ impl GraphVAE {
         let h_expanded = self.expand_to_nodes(&h, num_nodes);
 
         // Decode node features
-        let node_features = h_expanded.matmul(&self.node_decoder.clone_data()).unwrap();
+        let node_features = h_expanded
+            .matmul(&self.node_decoder.clone_data())
+            .expect("operation should succeed");
 
         // Decode edge probabilities
         let edge_logits = self.decode_edges(&h_expanded, num_nodes);
@@ -213,8 +259,8 @@ impl GraphVAE {
 
     /// Reconstruction loss (MSE)
     fn reconstruction_loss(&self, original: &GraphData, reconstructed: &GraphData) -> f32 {
-        let orig_data = original.x.to_vec().unwrap();
-        let recon_data = reconstructed.x.to_vec().unwrap();
+        let orig_data = original.x.to_vec().expect("conversion should succeed");
+        let recon_data = reconstructed.x.to_vec().expect("conversion should succeed");
 
         let mut mse = 0.0;
         let len = orig_data.len().min(recon_data.len());
@@ -228,8 +274,8 @@ impl GraphVAE {
 
     /// KL divergence loss
     fn kl_divergence(&self, mu: &Tensor, logvar: &Tensor) -> f32 {
-        let mu_data = mu.to_vec().unwrap();
-        let logvar_data = logvar.to_vec().unwrap();
+        let mu_data = mu.to_vec().expect("conversion should succeed");
+        let logvar_data = logvar.to_vec().expect("conversion should succeed");
 
         let mut kl = 0.0;
         for i in 0..mu_data.len() {
@@ -242,7 +288,7 @@ impl GraphVAE {
     /// Generate new graph from random latent vector
     pub fn generate(&self, num_nodes: usize) -> GraphData {
         // Sample from standard normal
-        let z = randn(&[1, self.latent_dim]).unwrap();
+        let z = randn(&[1, self.latent_dim]).expect("latent vector sampling should succeed");
 
         // Decode to graph
         self.decode(&z, num_nodes)
@@ -262,9 +308,9 @@ impl GraphVAE {
         // Linear interpolation
         let z_interp = mu1
             .mul_scalar(1.0 - alpha)
-            .unwrap()
-            .add(&mu2.mul_scalar(alpha).unwrap())
-            .unwrap();
+            .expect("mu1 scaling should succeed")
+            .add(&mu2.mul_scalar(alpha).expect("operation should succeed"))
+            .expect("interpolation addition should succeed");
 
         // Decode interpolated latent
         self.decode(&z_interp, num_nodes)
@@ -273,19 +319,19 @@ impl GraphVAE {
     // Helper methods
 
     fn relu(&self, x: &Tensor) -> Tensor {
-        let data = x.to_vec().unwrap();
+        let data = x.to_vec().expect("conversion should succeed");
         let activated: Vec<f32> = data.iter().map(|&v| v.max(0.0)).collect();
         from_vec(
             activated,
             x.shape().dims(),
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap()
+        .expect("relu tensor creation should succeed")
     }
 
     fn expand_to_nodes(&self, h: &Tensor, num_nodes: usize) -> Tensor {
         // Repeat graph-level embedding for each node
-        let h_data = h.to_vec().unwrap();
+        let h_data = h.to_vec().expect("conversion should succeed");
         let feat_dim = h_data.len();
 
         let mut expanded_data = Vec::new();
@@ -298,7 +344,7 @@ impl GraphVAE {
             &[num_nodes, feat_dim],
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap()
+        .expect("expanded nodes tensor creation should succeed")
     }
 
     fn decode_edges(&self, h: &Tensor, num_nodes: usize) -> Tensor {
@@ -309,10 +355,18 @@ impl GraphVAE {
             for j in 0..num_nodes {
                 if i != j {
                     // Simplified: use dot product of node embeddings as edge logit
-                    let h_i = h.slice_tensor(0, i, i + 1).unwrap();
-                    let h_j = h.slice_tensor(0, j, j + 1).unwrap();
+                    let h_i = h
+                        .slice_tensor(0, i, i + 1)
+                        .expect("node i slice should succeed");
+                    let h_j = h
+                        .slice_tensor(0, j, j + 1)
+                        .expect("node j slice should succeed");
 
-                    let logit = h_i.dot(&h_j.t().unwrap()).unwrap().item().unwrap();
+                    let logit = h_i
+                        .dot(&h_j.t().expect("transpose should succeed"))
+                        .expect("dot product should succeed")
+                        .item()
+                        .expect("tensor should have single item");
                     edge_logits_data.push(logit);
                 } else {
                     edge_logits_data.push(-1000.0); // No self-loops
@@ -325,11 +379,11 @@ impl GraphVAE {
             &[num_nodes, num_nodes],
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap()
+        .expect("edge logits tensor creation should succeed")
     }
 
     fn sample_edges(&self, edge_logits: &Tensor, num_nodes: usize) -> Tensor {
-        let logits_data = edge_logits.to_vec().unwrap();
+        let logits_data = edge_logits.to_vec().expect("conversion should succeed");
         let mut edges = Vec::new();
 
         // Sample edges based on probabilities (threshold at 0.5)
@@ -349,11 +403,12 @@ impl GraphVAE {
 
         if edges.is_empty() {
             // Return empty edge index
-            return zeros(&[2, 0]).unwrap();
+            return zeros(&[2, 0]).expect("empty edge index creation should succeed");
         }
 
         let num_edges = edges.len() / 2;
-        from_vec(edges, &[2, num_edges], torsh_core::device::DeviceType::Cpu).unwrap()
+        from_vec(edges, &[2, num_edges], torsh_core::device::DeviceType::Cpu)
+            .expect("edge index tensor creation should succeed")
     }
 }
 
@@ -429,7 +484,7 @@ impl GraphGAN {
 
     /// Generate fake graph from random noise
     pub fn generate(&self, num_nodes: usize) -> GraphData {
-        let z = randn(&[1, self.latent_dim]).unwrap();
+        let z = randn(&[1, self.latent_dim]).expect("latent vector sampling should succeed");
         self.generator.generate(&z, num_nodes)
     }
 
@@ -489,15 +544,28 @@ struct GraphGANGenerator {
 
 impl GraphGANGenerator {
     fn new(latent_dim: usize, hidden_dim: usize, output_features: usize, use_bias: bool) -> Self {
-        let layer1 = Parameter::new(randn(&[latent_dim, hidden_dim]).unwrap());
-        let layer2 = Parameter::new(randn(&[hidden_dim, hidden_dim]).unwrap());
-        let node_layer = Parameter::new(randn(&[hidden_dim, output_features]).unwrap());
-        let edge_layer = Parameter::new(randn(&[hidden_dim, 1]).unwrap());
+        let layer1 = Parameter::new(
+            randn(&[latent_dim, hidden_dim]).expect("failed to create generator layer1 tensor"),
+        );
+        let layer2 = Parameter::new(
+            randn(&[hidden_dim, hidden_dim]).expect("failed to create generator layer2 tensor"),
+        );
+        let node_layer = Parameter::new(
+            randn(&[hidden_dim, output_features])
+                .expect("failed to create generator node_layer tensor"),
+        );
+        let edge_layer = Parameter::new(
+            randn(&[hidden_dim, 1]).expect("failed to create generator edge_layer tensor"),
+        );
 
         let (bias1, bias2) = if use_bias {
             (
-                Some(Parameter::new(zeros(&[hidden_dim]).unwrap())),
-                Some(Parameter::new(zeros(&[hidden_dim]).unwrap())),
+                Some(Parameter::new(
+                    zeros(&[hidden_dim]).expect("failed to create generator bias1 tensor"),
+                )),
+                Some(Parameter::new(
+                    zeros(&[hidden_dim]).expect("failed to create generator bias2 tensor"),
+                )),
             )
         } else {
             (None, None)
@@ -518,15 +586,19 @@ impl GraphGANGenerator {
 
     fn generate(&self, z: &Tensor, num_nodes: usize) -> GraphData {
         // Forward through generator
-        let mut h = z.matmul(&self.layer1.clone_data()).unwrap();
+        let mut h = z
+            .matmul(&self.layer1.clone_data())
+            .expect("operation should succeed");
         if let Some(ref bias) = self.bias1 {
-            h = h.add(&bias.clone_data()).unwrap();
+            h = h.add(&bias.clone_data()).expect("operation should succeed");
         }
         h = self.leaky_relu(&h, 0.2);
 
-        h = h.matmul(&self.layer2.clone_data()).unwrap();
+        h = h
+            .matmul(&self.layer2.clone_data())
+            .expect("operation should succeed");
         if let Some(ref bias) = self.bias2 {
-            h = h.add(&bias.clone_data()).unwrap();
+            h = h.add(&bias.clone_data()).expect("operation should succeed");
         }
         h = self.leaky_relu(&h, 0.2);
 
@@ -534,7 +606,9 @@ impl GraphGANGenerator {
         let h_expanded = self.expand_to_nodes(&h, num_nodes);
 
         // Generate node features
-        let node_features = h_expanded.matmul(&self.node_layer.clone_data()).unwrap();
+        let node_features = h_expanded
+            .matmul(&self.node_layer.clone_data())
+            .expect("operation should succeed");
         let node_features = self.tanh(&node_features);
 
         // Generate edges
@@ -544,7 +618,7 @@ impl GraphGANGenerator {
     }
 
     fn leaky_relu(&self, x: &Tensor, alpha: f32) -> Tensor {
-        let data = x.to_vec().unwrap();
+        let data = x.to_vec().expect("conversion should succeed");
         let activated: Vec<f32> = data
             .iter()
             .map(|&v| if v > 0.0 { v } else { alpha * v })
@@ -554,22 +628,22 @@ impl GraphGANGenerator {
             x.shape().dims(),
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap()
+        .expect("leaky_relu tensor creation should succeed")
     }
 
     fn tanh(&self, x: &Tensor) -> Tensor {
-        let data = x.to_vec().unwrap();
+        let data = x.to_vec().expect("conversion should succeed");
         let activated: Vec<f32> = data.iter().map(|&v| v.tanh()).collect();
         from_vec(
             activated,
             x.shape().dims(),
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap()
+        .expect("tanh tensor creation should succeed")
     }
 
     fn expand_to_nodes(&self, h: &Tensor, num_nodes: usize) -> Tensor {
-        let h_data = h.to_vec().unwrap();
+        let h_data = h.to_vec().expect("conversion should succeed");
         let feat_dim = h_data.len();
 
         let mut expanded_data = Vec::new();
@@ -582,7 +656,7 @@ impl GraphGANGenerator {
             &[num_nodes, feat_dim],
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap()
+        .expect("expanded nodes tensor creation should succeed")
     }
 
     fn generate_edges(&self, _h: &Tensor, num_nodes: usize) -> Tensor {
@@ -603,11 +677,12 @@ impl GraphGANGenerator {
         }
 
         if edges.is_empty() {
-            return zeros(&[2, 0]).unwrap();
+            return zeros(&[2, 0]).expect("empty edge index creation should succeed");
         }
 
         let num_edges = edges.len() / 2;
-        from_vec(edges, &[2, num_edges], torsh_core::device::DeviceType::Cpu).unwrap()
+        from_vec(edges, &[2, num_edges], torsh_core::device::DeviceType::Cpu)
+            .expect("edge index tensor creation should succeed")
     }
 
     fn parameters(&self) -> Vec<Tensor> {
@@ -646,15 +721,28 @@ struct GraphGANDiscriminator {
 
 impl GraphGANDiscriminator {
     fn new(input_features: usize, hidden_dim: usize, use_bias: bool) -> Self {
-        let layer1 = Parameter::new(randn(&[input_features, hidden_dim]).unwrap());
-        let layer2 = Parameter::new(randn(&[hidden_dim, hidden_dim]).unwrap());
-        let output_layer = Parameter::new(randn(&[hidden_dim, 1]).unwrap());
+        let layer1 = Parameter::new(
+            randn(&[input_features, hidden_dim])
+                .expect("failed to create discriminator layer1 tensor"),
+        );
+        let layer2 = Parameter::new(
+            randn(&[hidden_dim, hidden_dim]).expect("failed to create discriminator layer2 tensor"),
+        );
+        let output_layer = Parameter::new(
+            randn(&[hidden_dim, 1]).expect("failed to create discriminator output_layer tensor"),
+        );
 
         let (bias1, bias2, bias_out) = if use_bias {
             (
-                Some(Parameter::new(zeros(&[hidden_dim]).unwrap())),
-                Some(Parameter::new(zeros(&[hidden_dim]).unwrap())),
-                Some(Parameter::new(zeros(&[1]).unwrap())),
+                Some(Parameter::new(
+                    zeros(&[hidden_dim]).expect("failed to create discriminator bias1 tensor"),
+                )),
+                Some(Parameter::new(
+                    zeros(&[hidden_dim]).expect("failed to create discriminator bias2 tensor"),
+                )),
+                Some(Parameter::new(
+                    zeros(&[1]).expect("failed to create discriminator bias_out tensor"),
+                )),
             )
         } else {
             (None, None, None)
@@ -674,37 +762,46 @@ impl GraphGANDiscriminator {
 
     fn forward(&self, graph: &GraphData) -> f32 {
         // Forward through discriminator
-        let mut h = graph.x.matmul(&self.layer1.clone_data()).unwrap();
+        let mut h = graph
+            .x
+            .matmul(&self.layer1.clone_data())
+            .expect("operation should succeed");
         if let Some(ref bias) = self.bias1 {
-            h = h.add(&bias.clone_data()).unwrap();
+            h = h.add(&bias.clone_data()).expect("operation should succeed");
         }
         h = self.leaky_relu(&h, 0.2);
 
-        h = h.matmul(&self.layer2.clone_data()).unwrap();
+        h = h
+            .matmul(&self.layer2.clone_data())
+            .expect("operation should succeed");
         if let Some(ref bias) = self.bias2 {
-            h = h.add(&bias.clone_data()).unwrap();
+            h = h.add(&bias.clone_data()).expect("operation should succeed");
         }
         h = self.leaky_relu(&h, 0.2);
 
         // Global mean pooling
-        let graph_repr = h.mean(Some(&[0]), false).unwrap();
-        let graph_repr_2d = graph_repr.unsqueeze(0).unwrap(); // Make 2D for matmul
+        let graph_repr = h
+            .mean(Some(&[0]), false)
+            .expect("mean pooling should succeed");
+        let graph_repr_2d = graph_repr.unsqueeze(0).expect("unsqueeze should succeed"); // Make 2D for matmul
 
         // Output layer
         let mut logit = graph_repr_2d
             .matmul(&self.output_layer.clone_data())
-            .unwrap();
+            .expect("operation should succeed");
         if let Some(ref bias) = self.bias_out {
-            logit = logit.add(&bias.clone_data()).unwrap();
+            logit = logit
+                .add(&bias.clone_data())
+                .expect("operation should succeed");
         }
 
         // Sigmoid activation
-        let logit_val = logit.item().unwrap();
+        let logit_val = logit.item().expect("tensor should have single item");
         1.0 / (1.0 + (-logit_val).exp())
     }
 
     fn leaky_relu(&self, x: &Tensor, alpha: f32) -> Tensor {
-        let data = x.to_vec().unwrap();
+        let data = x.to_vec().expect("conversion should succeed");
         let activated: Vec<f32> = data
             .iter()
             .map(|&v| if v > 0.0 { v } else { alpha * v })
@@ -714,7 +811,7 @@ impl GraphGANDiscriminator {
             x.shape().dims(),
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap()
+        .expect("discriminator leaky_relu tensor creation should succeed")
     }
 
     fn parameters(&self) -> Vec<Tensor> {
@@ -756,7 +853,9 @@ impl ConditionalGraphGenerator {
         beta: f32,
     ) -> Self {
         let vae = GraphVAE::new(in_features, hidden_features, latent_dim, beta, true);
-        let condition_layer = Parameter::new(randn(&[condition_dim, latent_dim]).unwrap());
+        let condition_layer = Parameter::new(
+            randn(&[condition_dim, latent_dim]).expect("failed to create condition_layer tensor"),
+        );
 
         Self {
             vae,
@@ -770,13 +869,16 @@ impl ConditionalGraphGenerator {
         // Map condition to latent space bias
         let condition_bias = condition
             .matmul(&self.condition_layer.clone_data())
-            .unwrap();
+            .expect("condition matmul should succeed");
 
         // Sample base latent vector
-        let z_base = randn(&[1, self.vae.latent_dim]).unwrap();
+        let z_base =
+            randn(&[1, self.vae.latent_dim]).expect("latent vector sampling should succeed");
 
         // Add conditional bias
-        let z = z_base.add(&condition_bias).unwrap();
+        let z = z_base
+            .add(&condition_bias)
+            .expect("operation should succeed");
 
         // Decode to graph
         self.vae.decode(&z, num_nodes)

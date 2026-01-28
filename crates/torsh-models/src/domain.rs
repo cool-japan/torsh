@@ -1151,7 +1151,10 @@ impl Module for PINN {
         }
 
         // Output layer
-        let output_layer = self.layers.last().unwrap();
+        let output_layer = self
+            .layers
+            .last()
+            .expect("PINN should have at least one layer");
         output_layer.forward(&x)
     }
 

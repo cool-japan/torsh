@@ -709,8 +709,8 @@ impl DebugExecutionEngine {
         let count = timings.len();
         let total_time: Duration = timings.iter().sum();
         let average_time = total_time / count as u32;
-        let min_time = *timings.iter().min().unwrap();
-        let max_time = *timings.iter().max().unwrap();
+        let min_time = *timings.iter().min().expect("timings should not be empty");
+        let max_time = *timings.iter().max().expect("timings should not be empty");
 
         self.operation_stats.insert(
             operation.to_string(),

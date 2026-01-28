@@ -778,8 +778,10 @@ mod tests {
 
     #[test]
     fn test_carbon_footprint_calculation() {
-        let mut carbon = CarbonFootprintData::default();
-        carbon.grid_carbon_intensity = 400.0; // g CO2/kWh
+        let mut carbon = CarbonFootprintData {
+            grid_carbon_intensity: 400.0, // g CO2/kWh
+            ..Default::default()
+        };
 
         // Simulate 1 kWh consumption
         let co2_emissions = 1.0 * carbon.grid_carbon_intensity / 1000.0; // Convert to kg

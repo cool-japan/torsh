@@ -1,8 +1,9 @@
 // Framework infrastructure - components designed for future use
 #![allow(dead_code)]
 use crate::error::FfiError;
-use crate::python::tensor::{device::DeviceType, storage::TensorStorage, types::TYPE_MAPPER};
-use numpy::{IntoPyArray, PyArrayDyn, PyArrayMethods, PyUntypedArrayMethods};
+use crate::tensor::{device::DeviceType, storage::TensorStorage, types::TYPE_MAPPER};
+// Note: Using numpy's direct API for type compatibility (numpy uses ndarray 0.15.x)
+use numpy::{IxDyn as NpIxDyn, PyArray1, PyArrayDyn, PyArrayMethods, PyUntypedArrayMethods};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyType};
 use pyo3::Py;
@@ -39,7 +40,10 @@ impl PyTensor {
                 let readonly = array.readonly();
                 let data_vec = if readonly.is_c_contiguous() {
                     // Zero-copy path for contiguous arrays
-                    readonly.as_slice().unwrap().to_vec()
+                    readonly
+                        .as_slice()
+                        .expect("contiguous array should be sliceable")
+                        .to_vec()
                 } else {
                     // Fallback for non-contiguous arrays
                     readonly.as_array().iter().cloned().collect()
@@ -71,7 +75,9 @@ impl PyTensor {
             None => DType::F32, // Default
             _ => {
                 // Try using the type mapper for more comprehensive parsing
-                if let Ok(parsed_dtype) = TYPE_MAPPER.numpy_to_torsh(dtype.unwrap()) {
+                if let Ok(parsed_dtype) =
+                    TYPE_MAPPER.numpy_to_torsh(dtype.expect("dtype should be Some in this branch"))
+                {
                     parsed_dtype
                 } else {
                     return Err(FfiError::DTypeMismatch {
@@ -119,16 +125,13 @@ impl PyTensor {
 
     /// Convert tensor to NumPy array
     fn to_numpy(&self, py: Python) -> PyResult<Py<PyAny>> {
-        // Create numpy array with correct shape
-        use scirs2_core::ndarray_ext::Array;
-        let array_nd = Array::from_shape_vec(
-            scirs2_core::ndarray_ext::IxDyn(&self.shape),
-            self.data.clone(),
-        )
-        .map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Shape error: {:?}", e))
+        // Create 1D numpy array and reshape to target dimensions
+        // This approach avoids ndarray version mismatches (numpy uses 0.15.x)
+        let array_1d = PyArray1::from_vec(py, self.data.clone());
+        let array_nd = array_1d.reshape(NpIxDyn(&self.shape)).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Reshape error: {}", e))
         })?;
-        Ok(array_nd.into_pyarray(py).into())
+        Ok(array_nd.into_pyobject(py)?.into_any().unbind())
     }
 
     /// Convert tensor to PyTorch tensor (if available)
@@ -377,7 +380,7 @@ impl PyTensor {
         let size: usize = shape.iter().product();
         // Use SciRS2 for high-quality random normal generation
         let mut random_gen = rng();
-        let normal_dist = Normal::new(0.0, 1.0).unwrap();
+        let normal_dist = Normal::new(0.0, 1.0).expect("valid normal distribution parameters");
         let data: Vec<f32> = (0..size)
             .map(|_| random_gen.sample(&normal_dist) as f32)
             .collect();
@@ -624,16 +627,13 @@ impl PyTensor {
 
     /// Convert to numpy array (internal Rust access)
     pub fn to_numpy_internal(&self, py: Python) -> PyResult<Py<PyAny>> {
-        // Create numpy array with correct shape
-        use scirs2_core::ndarray_ext::Array;
-        let array_nd = Array::from_shape_vec(
-            scirs2_core::ndarray_ext::IxDyn(&self.shape),
-            self.data.clone(),
-        )
-        .map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Shape error: {:?}", e))
+        // Create 1D numpy array and reshape to target dimensions
+        // This approach avoids ndarray version mismatches (numpy uses 0.15.x)
+        let array_1d = PyArray1::from_vec(py, self.data.clone());
+        let array_nd = array_1d.reshape(NpIxDyn(&self.shape)).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Reshape error: {}", e))
         })?;
-        Ok(array_nd.into_pyarray(py).into())
+        Ok(array_nd.into_pyobject(py)?.into_any().unbind())
     }
 
     /// Matrix multiplication (internal Rust access)

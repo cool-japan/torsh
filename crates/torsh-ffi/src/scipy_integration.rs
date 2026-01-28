@@ -5,7 +5,7 @@
 //! functionality including optimization, linear algebra, signal processing, and statistics.
 
 use crate::numpy_compatibility::NumpyCompat;
-use crate::python::tensor::PyTensor;
+use crate::tensor::PyTensor;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyModule};

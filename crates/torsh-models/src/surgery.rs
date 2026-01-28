@@ -631,8 +631,12 @@ struct SimpleLinearLayer {
 impl SimpleLinearLayer {
     fn new(in_features: usize, out_features: usize) -> Self {
         // Simplified weight initialization
-        let weight = torsh_tensor::creation::randn(&[out_features, in_features]).unwrap();
-        let bias = Some(torsh_tensor::creation::zeros(&[out_features]).unwrap());
+        let weight = torsh_tensor::creation::randn(&[out_features, in_features])
+            .expect("failed to create SimpleLinearLayer weight");
+        let bias = Some(
+            torsh_tensor::creation::zeros(&[out_features])
+                .expect("failed to create SimpleLinearLayer bias"),
+        );
 
         Self {
             in_features,
@@ -692,7 +696,7 @@ impl SimpleConv2dLayer {
     fn new(in_channels: usize, out_channels: usize, kernel_size: usize) -> Self {
         let weight =
             torsh_tensor::creation::randn(&[out_channels, in_channels, kernel_size, kernel_size])
-                .unwrap();
+                .expect("failed to create SimpleConv2dLayer weight");
         Self {
             in_channels,
             out_channels,
@@ -852,8 +856,10 @@ struct LoRALayer {
 
 impl LoRALayer {
     fn new(in_features: usize, out_features: usize, rank: usize) -> Self {
-        let lora_a = torsh_tensor::creation::randn(&[rank, in_features]).unwrap();
-        let lora_b = torsh_tensor::creation::zeros(&[out_features, rank]).unwrap();
+        let lora_a = torsh_tensor::creation::randn(&[rank, in_features])
+            .expect("failed to create LoRALayer lora_a");
+        let lora_b = torsh_tensor::creation::zeros(&[out_features, rank])
+            .expect("failed to create LoRALayer lora_b");
         let scaling = 1.0 / rank as f32;
 
         Self {

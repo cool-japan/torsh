@@ -748,8 +748,8 @@ impl BenchmarkResults {
             self.pipelined_time,
             self.hyperoptimized_time,
         ];
-        let max_time = times.iter().max().unwrap();
-        let min_time = times.iter().min().unwrap();
+        let max_time = times.iter().max().expect("reduction should succeed");
+        let min_time = times.iter().min().expect("reduction should succeed");
 
         max_time.as_nanos() as f64 / min_time.as_nanos() as f64
     }

@@ -4,7 +4,7 @@
 //! including ARM optimization, mobile GPU acceleration, and platform-specific features.
 
 use crate::{BenchConfig, BenchRunner, Benchmarkable};
-use criterion::black_box;
+use std::hint::black_box;
 use std::time::{Duration, Instant};
 use torsh_core::dtype::DType;
 use torsh_tensor::{creation::*, Tensor};

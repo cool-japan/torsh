@@ -634,8 +634,8 @@ impl HierarchicalAnalyzer {
             return 1.0;
         }
 
-        let max_count = *child_counts.iter().max().unwrap() as f64;
-        let min_count = *child_counts.iter().min().unwrap() as f64;
+        let max_count = *child_counts.iter().max().expect("reduction should succeed") as f64;
+        let min_count = *child_counts.iter().min().expect("reduction should succeed") as f64;
 
         // Balance score is how evenly distributed the children are
         let balance = if max_count > 0.0 {

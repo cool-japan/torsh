@@ -66,7 +66,7 @@ impl VectorizedPerplexity {
                     (rows, cols),
                     logits_vec.iter().map(|&x| x as f64).collect(),
                 )
-                .unwrap();
+                .expect("logits array should have valid shape");
                 let targets_array =
                     Array1::from_vec(targets_vec.iter().map(|&x| x as usize).collect());
 
@@ -185,7 +185,7 @@ impl VectorizedInceptionScore {
                     (rows, cols),
                     pred_vec.iter().map(|&x| x as f64).collect(),
                 )
-                .unwrap();
+                .expect("prediction array should have valid shape");
 
                 self.compute_inception_score_vectorized(&pred_array)
             }
@@ -378,12 +378,12 @@ impl VectorizedFidScore {
                     (n_real, n_features),
                     real_vec.iter().map(|&x| x as f64).collect(),
                 )
-                .unwrap();
+                .expect("real array should have valid shape");
                 let fake_array = Array2::from_shape_vec(
                     (n_fake, n_features),
                     fake_vec.iter().map(|&x| x as f64).collect(),
                 )
-                .unwrap();
+                .expect("fake array should have valid shape");
 
                 self.compute_fid_vectorized(&real_array, &fake_array)
             }

@@ -57,7 +57,7 @@ impl ARIMA {
 
     /// Forecast future values
     pub fn forecast(&self, steps: usize) -> TimeSeries {
-        let values = zeros(&[steps, 1]).unwrap();
+        let values = zeros(&[steps, 1]).expect("tensor creation should succeed");
         TimeSeries::new(values)
     }
 

@@ -46,7 +46,7 @@ impl Conv1d {
         base.register_parameter("weight".to_string(), Parameter::new(weight));
 
         if bias {
-            let bias_tensor = zeros(&[out_channels]).unwrap();
+            let bias_tensor = zeros(&[out_channels]).expect("zeros tensor for bias should succeed");
             base.register_parameter("bias".to_string(), Parameter::new(bias_tensor));
         }
 
@@ -225,7 +225,7 @@ impl Conv2d {
         base.register_parameter("weight".to_string(), Parameter::new(weight));
 
         if bias {
-            let bias_tensor = zeros(&[out_channels]).unwrap();
+            let bias_tensor = zeros(&[out_channels]).expect("zeros tensor for bias should succeed");
             base.register_parameter("bias".to_string(), Parameter::new(bias_tensor));
         }
 
@@ -492,7 +492,7 @@ impl Conv3d {
         base.register_parameter("weight".to_string(), Parameter::new(weight));
 
         if bias {
-            let bias_tensor = zeros(&[out_channels]).unwrap();
+            let bias_tensor = zeros(&[out_channels]).expect("zeros tensor for bias should succeed");
             base.register_parameter("bias".to_string(), Parameter::new(bias_tensor));
         }
 
@@ -749,7 +749,7 @@ impl ConvTranspose1d {
         base.register_parameter("weight".to_string(), Parameter::new(weight));
 
         if bias {
-            let bias_tensor = zeros(&[out_channels]).unwrap();
+            let bias_tensor = zeros(&[out_channels]).expect("zeros tensor for bias should succeed");
             base.register_parameter("bias".to_string(), Parameter::new(bias_tensor));
         }
 
@@ -922,7 +922,7 @@ impl ConvTranspose2d {
         base.register_parameter("weight".to_string(), Parameter::new(weight));
 
         if bias {
-            let bias_tensor = zeros(&[out_channels]).unwrap();
+            let bias_tensor = zeros(&[out_channels]).expect("zeros tensor for bias should succeed");
             base.register_parameter("bias".to_string(), Parameter::new(bias_tensor));
         }
 
@@ -1128,7 +1128,7 @@ impl ConvTranspose3d {
         base.register_parameter("weight".to_string(), Parameter::new(weight));
 
         if bias {
-            let bias_tensor = zeros(&[out_channels]).unwrap();
+            let bias_tensor = zeros(&[out_channels]).expect("zeros tensor for bias should succeed");
             base.register_parameter("bias".to_string(), Parameter::new(bias_tensor));
         }
 

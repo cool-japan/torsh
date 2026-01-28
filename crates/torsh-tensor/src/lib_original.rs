@@ -116,8 +116,8 @@ impl<T: TensorElement + Copy> TensorStorage<T> {
     /// Get the number of elements
     pub fn len(&self) -> usize {
         match self {
-            Self::InMemory(data) => data.read().unwrap().len(),
-            Self::MemoryMapped(storage) => storage.read().unwrap().num_elements,
+            Self::InMemory(data) => data.read().expect("lock should not be poisoned").len(),
+            Self::MemoryMapped(storage) => storage.read().expect("lock should not be poisoned").num_elements,
         }
     }
 
@@ -133,7 +133,7 @@ impl<T: TensorElement + Copy> TensorStorage<T> {
     {
         match self {
             Self::InMemory(data) => {
-                let data_guard = data.read().unwrap();
+                let data_guard = data.read().expect("lock should not be poisoned");
                 data_guard.get(index)
                     .copied()
                     .ok_or_else(|| TorshError::IndexOutOfBounds { 
@@ -142,7 +142,7 @@ impl<T: TensorElement + Copy> TensorStorage<T> {
                     })
             }
             Self::MemoryMapped(storage) => {
-                storage.write().unwrap().get(index)
+                storage.write().expect("lock should not be poisoned").get(index)
             }
         }
     }
@@ -154,7 +154,7 @@ impl<T: TensorElement + Copy> TensorStorage<T> {
     {
         match self {
             Self::InMemory(data) => {
-                let mut data_guard = data.write().unwrap();
+                let mut data_guard = data.write().expect("lock should not be poisoned");
                 if index >= data_guard.len() {
                     return Err(TorshError::IndexOutOfBounds { 
                         index, 
@@ -165,7 +165,7 @@ impl<T: TensorElement + Copy> TensorStorage<T> {
                 Ok(())
             }
             Self::MemoryMapped(storage) => {
-                storage.write().unwrap().set(index, value)
+                storage.write().expect("lock should not be poisoned").set(index, value)
             }
         }
     }
@@ -177,7 +177,7 @@ impl<T: TensorElement + Copy> TensorStorage<T> {
     {
         match self {
             Self::InMemory(data) => {
-                let data_guard = data.read().unwrap();
+                let data_guard = data.read().expect("lock should not be poisoned");
                 if start + len > data_guard.len() {
                     return Err(TorshError::IndexOutOfBounds { 
                         index: start + len - 1, 
@@ -187,7 +187,7 @@ impl<T: TensorElement + Copy> TensorStorage<T> {
                 Ok(data_guard[start..start + len].to_vec())
             }
             Self::MemoryMapped(storage) => {
-                storage.write().unwrap().get_slice(start, len)
+                storage.write().expect("lock should not be poisoned").get_slice(start, len)
             }
         }
     }
@@ -199,7 +199,7 @@ impl<T: TensorElement + Copy> TensorStorage<T> {
     {
         match self {
             Self::InMemory(data) => {
-                let mut data_guard = data.write().unwrap();
+                let mut data_guard = data.write().expect("lock should not be poisoned");
                 if start + values.len() > data_guard.len() {
                     return Err(TorshError::IndexOutOfBounds { 
                         index: start + values.len() - 1, 
@@ -210,7 +210,7 @@ impl<T: TensorElement + Copy> TensorStorage<T> {
                 Ok(())
             }
             Self::MemoryMapped(storage) => {
-                storage.write().unwrap().set_slice(start, values)
+                storage.write().expect("lock should not be poisoned").set_slice(start, values)
             }
         }
     }
@@ -222,10 +222,10 @@ impl<T: TensorElement + Copy> TensorStorage<T> {
     {
         match self {
             Self::InMemory(data) => {
-                Ok(data.read().unwrap().clone())
+                Ok(data.read().expect("lock should not be poisoned").clone())
             }
             Self::MemoryMapped(storage) => {
-                storage.write().unwrap().to_vec()
+                storage.write().expect("lock should not be poisoned").to_vec()
             }
         }
     }
@@ -242,10 +242,10 @@ impl<T: TensorElement + Copy> TensorStorage<T> {
     pub fn memory_usage(&self) -> usize {
         match self {
             Self::InMemory(data) => {
-                data.read().unwrap().len() * std::mem::size_of::<T>()
+                data.read().expect("lock should not be poisoned").len() * std::mem::size_of::<T>()
             }
             Self::MemoryMapped(storage) => {
-                let storage_guard = storage.read().unwrap();
+                let storage_guard = storage.read().expect("lock should not be poisoned");
                 // Memory usage is just the cache size plus metadata
                 storage_guard.cache.len() * std::mem::size_of::<T>() + 
                 std::mem::size_of::<MemoryMappedStorage<T>>()
@@ -572,7 +572,7 @@ impl<T: TensorElement + Copy> Tensor<T> {
                 if Arc::strong_count(data) > 1 {
                     // Data is shared, need to clone it to get exclusive access
                     let cloned_data = {
-                        let data_guard = data.read().unwrap();
+                        let data_guard = data.read().expect("lock should not be poisoned");
                         data_guard.clone()
                     };
                     self.storage = TensorStorage::in_memory(cloned_data);
@@ -884,7 +884,7 @@ impl<T: TensorElement + Copy> Tensor<T> {
     /// Set gradient tensor
     #[allow(dead_code)]
     pub fn set_grad(&self, grad: Option<Tensor<T>>) {
-        let mut grad_lock = self.grad.write().unwrap();
+        let mut grad_lock = self.grad.write().expect("lock should not be poisoned");
         *grad_lock = grad;
     }
 
@@ -917,19 +917,19 @@ impl<T: TensorElement + Copy> Tensor<T> {
 
     /// Get the gradient of this tensor (if it exists)
     pub fn grad(&self) -> Option<Self> {
-        let grad_lock = self.grad.read().unwrap();
+        let grad_lock = self.grad.read().expect("lock should not be poisoned");
         grad_lock.as_ref().cloned()
     }
 
     /// Check if this tensor has a gradient
     pub fn has_grad(&self) -> bool {
-        let grad_lock = self.grad.read().unwrap();
+        let grad_lock = self.grad.read().expect("lock should not be poisoned");
         grad_lock.is_some()
     }
 
     /// Zero the gradient
     pub fn zero_grad(&mut self) {
-        let mut grad_lock = self.grad.write().unwrap();
+        let mut grad_lock = self.grad.write().expect("lock should not be poisoned");
         *grad_lock = None;
     }
 
@@ -1004,7 +1004,7 @@ impl<T: TensorElement + Copy> Tensor<T> {
         match &self.operation {
             Operation::Leaf => {
                 // Accumulate gradient for leaf nodes
-                let mut grad_lock = self.grad.write().unwrap();
+                let mut grad_lock = self.grad.write().expect("lock should not be poisoned");
                 if let Some(existing_grad) = grad_lock.as_ref() {
                     // Add gradients if they exist
                     let new_grad = existing_grad.add_op(grad_output)?;
@@ -1150,7 +1150,7 @@ impl<T: torsh_core::dtype::ComplexElement> Tensor<T> {
         match &self.operation {
             Operation::Leaf => {
                 // Accumulate gradient for leaf nodes
-                let mut grad_lock = self.grad.write().unwrap();
+                let mut grad_lock = self.grad.write().expect("lock should not be poisoned");
                 if let Some(existing_grad) = grad_lock.as_ref() {
                     // Add gradients if they exist
                     let new_grad = existing_grad.add_op(grad_output)?;
@@ -2213,7 +2213,7 @@ impl<T: TensorElement + Copy> Tensor<T> {
         
         match &mut self.storage {
             TensorStorage::InMemory(data) => {
-                let mut data_guard = data.write().unwrap();
+                let mut data_guard = data.write().expect("lock should not be poisoned");
                 for item in data_guard.iter_mut() {
                     func(item);
                 }
@@ -2238,8 +2238,8 @@ impl<T: TensorElement + Copy> Tensor<T> {
     where
         T: Copy,
     {
-        let data = self.to_vec().unwrap();
-        Self::from_data(data.clone(), self.shape().dims().to_vec(), self.device).unwrap()
+        let data = self.to_vec().expect("tensor to vec conversion should succeed");
+        Self::from_data(data.clone(), self.shape().dims().to_vec(), self.device).expect("tensor from_data should succeed")
     }
 
     /// Ensure tensor has unique data (copy-on-write semantics)

@@ -759,7 +759,10 @@ impl Module for GraphAttentionLayer {
 
         // Concatenate or average multi-head outputs
         if head_outputs.len() == 1 {
-            Ok(head_outputs.into_iter().next().unwrap())
+            Ok(head_outputs
+                .into_iter()
+                .next()
+                .expect("head_outputs should have at least one element"))
         } else {
             // Average the heads
             let mut sum = head_outputs[0].clone();

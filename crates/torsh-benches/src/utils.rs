@@ -543,7 +543,8 @@ impl ParallelBenchRunner {
                     results.push((chunk_idx, bench_idx, result));
                 }
                 for result in results {
-                    tx.send(result).unwrap();
+                    tx.send(result)
+                        .expect("failed to send benchmark result through channel");
                 }
             });
             handles.push(handle);
@@ -564,7 +565,7 @@ impl ParallelBenchRunner {
 
         // Wait for all threads to complete
         for handle in handles {
-            handle.join().unwrap();
+            handle.join().expect("failed to join benchmark thread");
         }
 
         // Return only the valid results

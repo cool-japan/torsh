@@ -165,24 +165,38 @@ impl Optimizer for AdaHessian {
                     continue;
                 }
 
-                let grad = param.grad().unwrap();
+                let grad = param
+                    .grad()
+                    .expect("gradient should exist after has_grad check");
                 let param_id = format!("{:p}", param_arc.as_ref());
 
                 // Get or initialize optimizer state
                 let state = self.base.state.entry(param_id.clone()).or_insert_with(|| {
                     let mut state = HashMap::new();
-                    state.insert("step".to_string(), zeros_like(&param).unwrap());
-                    state.insert("exp_avg".to_string(), zeros_like(&param).unwrap());
+                    state.insert(
+                        "step".to_string(),
+                        zeros_like(&param).expect("tensor creation should succeed"),
+                    );
+                    state.insert(
+                        "exp_avg".to_string(),
+                        zeros_like(&param).expect("tensor creation should succeed"),
+                    );
                     state.insert(
                         "exp_hessian_diag_sq".to_string(),
-                        zeros_like(&param).unwrap(),
+                        zeros_like(&param).expect("tensor creation should succeed"),
                     );
                     state
                 });
 
-                let mut step_tensor = state.get("step").unwrap().clone();
-                let mut exp_avg = state.get("exp_avg").unwrap().clone();
-                let mut exp_hessian_diag_sq = state.get("exp_hessian_diag_sq").unwrap().clone();
+                let mut step_tensor = state.get("step").expect("step state should exist").clone();
+                let mut exp_avg = state
+                    .get("exp_avg")
+                    .expect("exp_avg state should exist")
+                    .clone();
+                let mut exp_hessian_diag_sq = state
+                    .get("exp_hessian_diag_sq")
+                    .expect("exp_hessian_diag_sq state should exist")
+                    .clone();
 
                 // Increment step count
                 step_tensor.add_scalar_(1.0)?;

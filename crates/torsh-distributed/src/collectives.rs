@@ -845,7 +845,7 @@ where
 }
 
 /// All-to-all: each rank sends unique data to every other rank
-/// output[i] receives data from rank i
+/// output\[i\] receives data from rank i
 pub async fn all_to_all<T: FloatElement>(
     output: &mut Vec<Tensor<T>>,
     input: &[Tensor<T>],

@@ -944,7 +944,11 @@ impl VisualizationEngine {
     fn create_popular_models_chart(&self, stats: &[ModelUsageStats]) -> Result<ChartData> {
         // Sort models by popularity score (descending) and take top 10
         let mut sorted_stats: Vec<_> = stats.iter().collect();
-        sorted_stats.sort_by(|a, b| b.popularity_score.partial_cmp(&a.popularity_score).unwrap());
+        sorted_stats.sort_by(|a, b| {
+            b.popularity_score
+                .partial_cmp(&a.popularity_score)
+                .expect("popularity_score should be comparable")
+        });
         let top_models = sorted_stats.iter().take(10);
 
         let dataset = Dataset {

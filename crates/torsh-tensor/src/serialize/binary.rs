@@ -103,6 +103,7 @@ impl BinaryHeader {
     ///
     /// # Returns
     /// * `Self` - New header instance
+    #[allow(dead_code)]
     fn new(metadata_size: u64, data_size: u64) -> Self {
         Self {
             magic: *b"TRSH",
@@ -257,7 +258,7 @@ pub fn serialize_binary<T: TensorElement, W: Write>(
 
     // Serialize metadata
     #[cfg(feature = "serialize")]
-    let metadata_bytes = bincode::serde::encode_to_vec(&metadata, bincode::config::standard())
+    let _metadata_bytes = oxicode::serde::encode_to_vec(&metadata, oxicode::config::standard())
         .map_err(|e| {
             TorshError::SerializationError(format!("Failed to serialize metadata: {}", e))
         })?;
@@ -294,7 +295,7 @@ pub fn serialize_binary<T: TensorElement, W: Write>(
     // Re-serialize metadata with updated compression info
     #[cfg(feature = "serialize")]
     let final_metadata_bytes =
-        bincode::serde::encode_to_vec(&metadata, bincode::config::standard()).map_err(|e| {
+        oxicode::serde::encode_to_vec(&metadata, oxicode::config::standard()).map_err(|e| {
             TorshError::SerializationError(format!("Failed to serialize updated metadata: {}", e))
         })?;
 
@@ -366,7 +367,7 @@ pub fn deserialize_binary<T: TensorElement, R: Read>(reader: &mut R) -> Result<T
 
     #[cfg(feature = "serialize")]
     let (metadata, _): (TensorMetadata, usize) =
-        bincode::serde::decode_from_slice(&metadata_bytes, bincode::config::standard()).map_err(
+        oxicode::serde::decode_from_slice(&metadata_bytes, oxicode::config::standard()).map_err(
             |e| TorshError::SerializationError(format!("Failed to deserialize metadata: {}", e)),
         )?;
 
@@ -492,7 +493,7 @@ pub fn validate_binary_format<R: Read>(reader: &mut R) -> Result<TensorMetadata>
 
     #[cfg(feature = "serialize")]
     let (metadata, _): (TensorMetadata, usize) =
-        bincode::serde::decode_from_slice(&metadata_bytes, bincode::config::standard()).map_err(
+        oxicode::serde::decode_from_slice(&metadata_bytes, oxicode::config::standard()).map_err(
             |e| {
                 TorshError::SerializationError(format!(
                     "Failed to deserialize metadata for validation: {}",

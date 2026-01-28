@@ -363,7 +363,7 @@ impl DistributedMonitor {
         // For now, we'll simulate realistic metrics
         let timestamp_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("time should be after UNIX_EPOCH")
             .as_millis() as u64;
 
         // Simulate realistic system metrics with some variation
@@ -393,7 +393,7 @@ impl DistributedMonitor {
     ) -> TorshResult<TrainingMetrics> {
         let timestamp_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("time should be after UNIX_EPOCH")
             .as_millis() as u64;
 
         // Calculate derived metrics
@@ -419,7 +419,7 @@ impl DistributedMonitor {
     pub fn collect_communication_metrics(&self) -> TorshResult<CommunicationMetrics> {
         let timestamp_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("time should be after UNIX_EPOCH")
             .as_millis() as u64;
 
         // Simulate realistic communication patterns
@@ -576,7 +576,7 @@ impl DistributedMonitor {
         let thresholds = &self.config.alert_thresholds;
         let timestamp_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("time should be after UNIX_EPOCH")
             .as_millis() as u64;
 
         let mut new_alerts = Vec::new();
@@ -749,7 +749,7 @@ impl DistributedMonitor {
                 // Generate anomaly alert
                 let timestamp_ms = SystemTime::now()
                     .duration_since(UNIX_EPOCH)
-                    .unwrap()
+                    .expect("time should be after UNIX_EPOCH")
                     .as_millis() as u64;
 
                 let alert = Alert {
@@ -896,7 +896,7 @@ impl DistributedMonitor {
             avg_communication_latency_us: avg_comm_latency,
             timestamp_ms: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .expect("time should be after UNIX_EPOCH")
                 .as_millis() as u64,
         })
     }
@@ -934,7 +934,7 @@ impl DistributedMonitor {
             cluster_summary,
             export_timestamp_ms: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .expect("time should be after UNIX_EPOCH")
                 .as_millis() as u64,
         })
     }
@@ -1052,7 +1052,7 @@ mod tests {
 
         // Feed normal values
         for i in 0..50 {
-            detector.update_metric("test_metric", 50.0 + (i as f64 % 10.0) as f64);
+            detector.update_metric("test_metric", 50.0 + (i as f64 % 10.0));
         }
 
         // Test normal value

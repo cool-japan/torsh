@@ -964,7 +964,9 @@ impl HDBSCAN {
 
         // Build MST using Prim's algorithm
         while mst.len() < n_samples - 1 && !min_edge_heap.is_empty() {
-            let edge = min_edge_heap.pop().unwrap();
+            let edge = min_edge_heap
+                .pop()
+                .expect("heap should not be empty due to loop condition");
 
             // Skip if both vertices are already in the tree
             if in_tree[edge.to] {

@@ -155,7 +155,7 @@ impl BenchmarkAnalyzer {
         }
 
         let mut sorted_data = data.to_vec();
-        sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted_data.sort_by(|a, b| a.partial_cmp(b).expect("NaN values in benchmark data"));
 
         let mean = data.iter().sum::<f64>() / data.len() as f64;
         let median = self.calculate_percentile(&sorted_data, 0.5);
@@ -617,8 +617,12 @@ pub fn analyze_performance_trends(history: &[PerformanceAnalysis]) -> Vec<String
         let mut sorted_history = benchmark_history;
         sorted_history.sort_by_key(|a| a.timestamp);
 
-        let first = sorted_history.first().unwrap();
-        let last = sorted_history.last().unwrap();
+        let first = sorted_history
+            .first()
+            .expect("sorted_history should have at least 2 elements");
+        let last = sorted_history
+            .last()
+            .expect("sorted_history should have at least 2 elements");
 
         let performance_change =
             (last.statistics.mean - first.statistics.mean) / first.statistics.mean;

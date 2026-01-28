@@ -121,8 +121,8 @@ impl X11Decomposition {
             // Not enough data for decomposition
             return STLResult {
                 trend: series.values.clone(),
-                seasonal: zeros(&[n]).unwrap(),
-                residual: zeros(&[n]).unwrap(),
+                seasonal: zeros(&[n]).expect("tensor creation should succeed"),
+                residual: zeros(&[n]).expect("tensor creation should succeed"),
             };
         }
 
@@ -175,9 +175,12 @@ impl X11Decomposition {
             .collect();
 
         STLResult {
-            trend: torsh_tensor::Tensor::from_vec(trend_data, &[n]).unwrap(),
-            seasonal: torsh_tensor::Tensor::from_vec(seasonal_data, &[n]).unwrap(),
-            residual: torsh_tensor::Tensor::from_vec(residual_data, &[n]).unwrap(),
+            trend: torsh_tensor::Tensor::from_vec(trend_data, &[n])
+                .expect("tensor creation should succeed"),
+            seasonal: torsh_tensor::Tensor::from_vec(seasonal_data, &[n])
+                .expect("tensor creation should succeed"),
+            residual: torsh_tensor::Tensor::from_vec(residual_data, &[n])
+                .expect("tensor creation should succeed"),
         }
     }
 }
@@ -208,8 +211,8 @@ impl AdditiveDecomposition {
             // Not enough data for decomposition
             return STLResult {
                 trend: series.values.clone(),
-                seasonal: zeros(&[n]).unwrap(),
-                residual: zeros(&[n]).unwrap(),
+                seasonal: zeros(&[n]).expect("tensor creation should succeed"),
+                residual: zeros(&[n]).expect("tensor creation should succeed"),
             };
         }
 
@@ -258,9 +261,12 @@ impl AdditiveDecomposition {
             .collect();
 
         STLResult {
-            trend: torsh_tensor::Tensor::from_vec(trend_data, &[n]).unwrap(),
-            seasonal: torsh_tensor::Tensor::from_vec(seasonal_data, &[n]).unwrap(),
-            residual: torsh_tensor::Tensor::from_vec(residual_data, &[n]).unwrap(),
+            trend: torsh_tensor::Tensor::from_vec(trend_data, &[n])
+                .expect("tensor creation should succeed"),
+            seasonal: torsh_tensor::Tensor::from_vec(seasonal_data, &[n])
+                .expect("tensor creation should succeed"),
+            residual: torsh_tensor::Tensor::from_vec(residual_data, &[n])
+                .expect("tensor creation should succeed"),
         }
     }
 }
@@ -295,8 +301,8 @@ impl MultiplicativeDecomposition {
             // Not enough data for decomposition
             return STLResult {
                 trend: series.values.clone(),
-                seasonal: ones(&[n]).unwrap(), // All ones for multiplicative
-                residual: ones(&[n]).unwrap(),
+                seasonal: ones(&[n]).expect("tensor creation should succeed"), // All ones for multiplicative
+                residual: ones(&[n]).expect("tensor creation should succeed"),
             };
         }
 
@@ -356,9 +362,12 @@ impl MultiplicativeDecomposition {
             .collect();
 
         STLResult {
-            trend: torsh_tensor::Tensor::from_vec(trend_data, &[n]).unwrap(),
-            seasonal: torsh_tensor::Tensor::from_vec(seasonal_data, &[n]).unwrap(),
-            residual: torsh_tensor::Tensor::from_vec(residual_data, &[n]).unwrap(),
+            trend: torsh_tensor::Tensor::from_vec(trend_data, &[n])
+                .expect("tensor creation should succeed"),
+            seasonal: torsh_tensor::Tensor::from_vec(seasonal_data, &[n])
+                .expect("tensor creation should succeed"),
+            residual: torsh_tensor::Tensor::from_vec(residual_data, &[n])
+                .expect("tensor creation should succeed"),
         }
     }
 }

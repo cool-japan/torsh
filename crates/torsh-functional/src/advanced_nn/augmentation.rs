@@ -19,7 +19,7 @@ use torsh_tensor::{
 /// ## Mathematical Definition
 ///
 /// Given two samples (x₁, y₁) and (x₂, y₂), mixup creates a virtual sample:
-/// ```
+/// ```text
 /// x̃ = λx₁ + (1-λ)x₂
 /// ỹ = λy₁ + (1-λ)y₂
 /// ```
@@ -74,7 +74,7 @@ pub fn mixup(
 /// ## Mathematical Definition
 ///
 /// Given two samples (x₁, y₁) and (x₂, y₂), CutMix creates:
-/// ```
+/// ```text
 /// x̃ = M ⊙ x₁ + (1-M) ⊙ x₂
 /// ỹ = λy₁ + (1-λ)y₂
 /// ```
@@ -86,7 +86,7 @@ pub fn mixup(
 /// ## Bounding Box Sampling
 ///
 /// The cut region is sampled as:
-/// ```
+/// ```text
 /// r_x, r_y ~ Uniform(0, W), Uniform(0, H)
 /// r_w, r_h = W√(1-λ), H√(1-λ)
 /// ```

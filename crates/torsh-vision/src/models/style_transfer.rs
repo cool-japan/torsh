@@ -301,8 +301,12 @@ pub struct InstanceNorm2d {
 
 impl InstanceNorm2d {
     pub fn new(num_features: usize) -> Result<Self> {
-        let weight = Some(Parameter::new(ones(&[num_features]).unwrap()));
-        let bias = Some(Parameter::new(zeros(&[num_features]).unwrap()));
+        let weight = Some(Parameter::new(
+            ones(&[num_features]).expect("tensor creation should succeed"),
+        ));
+        let bias = Some(Parameter::new(
+            zeros(&[num_features]).expect("tensor creation should succeed"),
+        ));
 
         Ok(Self {
             eps: 1e-5,

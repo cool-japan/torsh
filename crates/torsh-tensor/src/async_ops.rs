@@ -41,8 +41,8 @@ impl<T: TensorElement> Future for AsyncTensorOp<T> {
 pub struct AsyncOperationScheduler {
     /// Thread pool for executing operations
     thread_pool: Arc<rayon::ThreadPool>,
-    /// Maximum concurrent operations
-    max_concurrent_ops: usize,
+    /// Maximum concurrent operations (reserved for future rate limiting)
+    _max_concurrent_ops: usize,
     /// Currently running operations count
     active_operations: Arc<Mutex<usize>>,
 }
@@ -57,13 +57,13 @@ impl AsyncOperationScheduler {
 
         Self {
             thread_pool: Arc::new(thread_pool),
-            max_concurrent_ops: rayon::current_num_threads() * 2,
+            _max_concurrent_ops: rayon::current_num_threads() * 2,
             active_operations: Arc::new(Mutex::new(0)),
         }
     }
 
     /// Create a scheduler with custom configuration
-    pub fn with_config(num_threads: usize, max_concurrent_ops: usize) -> Self {
+    pub fn with_config(num_threads: usize, _max_concurrent_ops: usize) -> Self {
         let thread_pool = rayon::ThreadPoolBuilder::new()
             .num_threads(num_threads)
             .build()
@@ -71,7 +71,7 @@ impl AsyncOperationScheduler {
 
         Self {
             thread_pool: Arc::new(thread_pool),
-            max_concurrent_ops,
+            _max_concurrent_ops,
             active_operations: Arc::new(Mutex::new(0)),
         }
     }
@@ -89,7 +89,7 @@ impl AsyncOperationScheduler {
             // Wait for available slot
             loop {
                 {
-                    let mut active = active_ops.lock().unwrap();
+                    let mut active = active_ops.lock().expect("lock should not be poisoned");
                     if *active < 8 {
                         // Simple rate limiting
                         *active += 1;
@@ -105,7 +105,7 @@ impl AsyncOperationScheduler {
 
             // Decrement active operations count
             {
-                let mut active = active_ops.lock().unwrap();
+                let mut active = active_ops.lock().expect("lock should not be poisoned");
                 *active -= 1;
             }
 
@@ -117,7 +117,10 @@ impl AsyncOperationScheduler {
 
     /// Get current active operations count
     pub fn active_operations(&self) -> usize {
-        *self.active_operations.lock().unwrap()
+        *self
+            .active_operations
+            .lock()
+            .expect("lock should not be poisoned")
     }
 }
 
@@ -303,7 +306,7 @@ pub mod convenience {
             return Ok(tensors[0].clone());
         }
 
-        let mut result = tensors[0].clone();
+        let result = tensors[0].clone();
         let mut batch = AsyncBatch::new();
 
         for tensor in &tensors[1..] {
@@ -312,7 +315,10 @@ pub mod convenience {
         }
 
         let results = batch.execute_all().await?;
-        Ok(results.into_iter().last().unwrap())
+        Ok(results
+            .into_iter()
+            .last()
+            .expect("results should not be empty after batch execution"))
     }
 
     /// Perform matrix chain multiplication asynchronously

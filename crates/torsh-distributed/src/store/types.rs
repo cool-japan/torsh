@@ -19,7 +19,7 @@ impl StoreValue {
             data,
             timestamp: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .expect("time should be after UNIX_EPOCH")
                 .as_secs(),
         }
     }

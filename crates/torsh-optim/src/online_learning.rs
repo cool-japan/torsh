@@ -210,9 +210,10 @@ impl SVRG {
             .iter()
             .map(|p| {
                 let param = p.read();
-                param
-                    .grad()
-                    .unwrap_or_else(|| Tensor::zeros(param.shape().dims(), param.device()).unwrap())
+                param.grad().unwrap_or_else(|| {
+                    Tensor::zeros(param.shape().dims(), param.device())
+                        .expect("tensor creation should succeed")
+                })
             })
             .collect();
 
@@ -405,7 +406,10 @@ impl SAGA {
         self.gradient_sum = self
             .params
             .iter()
-            .map(|p| Tensor::zeros(p.read().shape().dims(), p.read().device()).unwrap())
+            .map(|p| {
+                Tensor::zeros(p.read().shape().dims(), p.read().device())
+                    .expect("tensor creation should succeed")
+            })
             .collect();
 
         // Initialize gradient table with zeros for each data point
@@ -413,7 +417,10 @@ impl SAGA {
             let grad_for_point: Vec<Tensor> = self
                 .params
                 .iter()
-                .map(|p| Tensor::zeros(p.read().shape().dims(), p.read().device()).unwrap())
+                .map(|p| {
+                    Tensor::zeros(p.read().shape().dims(), p.read().device())
+                        .expect("tensor creation should succeed")
+                })
                 .collect();
             self.gradient_table.insert(data_idx, grad_for_point);
         }

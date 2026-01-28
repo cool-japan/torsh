@@ -8,7 +8,7 @@
 use crate::{Result, VisionError};
 use scirs2_core::legacy::rng;
 use scirs2_core::random::Random;
-use torsh_tensor::{creation::zeros, Tensor};
+use torsh_tensor::{creation::zeros_mut, Tensor};
 
 use super::common::{utils, InterpolationMode, PaddingMode, VisionOpConfig};
 
@@ -145,7 +145,7 @@ fn resize_bilinear(
     target_width: usize,
     target_height: usize,
 ) -> Result<Tensor<f32>> {
-    let output = zeros(&[channels, target_height, target_width]).unwrap();
+    let output = zeros_mut(&[channels, target_height, target_width]);
 
     let scale_x = width as f32 / target_width as f32;
     let scale_y = height as f32 / target_height as f32;
@@ -187,7 +187,7 @@ fn resize_nearest(
     target_width: usize,
     target_height: usize,
 ) -> Result<Tensor<f32>> {
-    let output = zeros(&[channels, target_height, target_width]).unwrap();
+    let output = zeros_mut(&[channels, target_height, target_width]);
 
     let scale_x = width as f32 / target_width as f32;
     let scale_y = height as f32 / target_height as f32;
@@ -281,7 +281,7 @@ pub fn crop_region(
 pub fn horizontal_flip(image: &Tensor<f32>) -> Result<Tensor<f32>> {
     let (channels, height, width) = utils::validate_image_tensor_3d(image)?;
 
-    let output = zeros(&[channels, height, width]).unwrap();
+    let output = zeros_mut(&[channels, height, width]);
 
     for c in 0..channels {
         for y in 0..height {
@@ -300,7 +300,7 @@ pub fn horizontal_flip(image: &Tensor<f32>) -> Result<Tensor<f32>> {
 pub fn vertical_flip(image: &Tensor<f32>) -> Result<Tensor<f32>> {
     let (channels, height, width) = utils::validate_image_tensor_3d(image)?;
 
-    let output = zeros(&[channels, height, width]).unwrap();
+    let output = zeros_mut(&[channels, height, width]);
 
     for c in 0..channels {
         for y in 0..height {
@@ -319,7 +319,7 @@ pub fn vertical_flip(image: &Tensor<f32>) -> Result<Tensor<f32>> {
 pub fn rotate(image: &Tensor<f32>, angle: f32) -> Result<Tensor<f32>> {
     let (channels, height, width) = utils::validate_image_tensor_3d(image)?;
 
-    let output = zeros(&[channels, height, width]).unwrap();
+    let output = zeros_mut(&[channels, height, width]);
 
     let center_x = width as f32 / 2.0;
     let center_y = height as f32 / 2.0;
@@ -373,7 +373,7 @@ pub fn pad(
     let new_width = width + pad_left + pad_right;
     let new_height = height + pad_top + pad_bottom;
 
-    let mut output = zeros(&[channels, new_height, new_width]).unwrap();
+    let mut output = zeros_mut(&[channels, new_height, new_width]);
 
     // Fill with the specified fill value first
     if mode == PaddingMode::Zero && fill_value != 0.0 {

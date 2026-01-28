@@ -3,8 +3,8 @@
 //! This module provides sophisticated compression algorithms for gradients that can
 //! significantly reduce memory usage and communication overhead in distributed training.
 
-use num_traits::{FromPrimitive, ToPrimitive};
 use parking_lot::Mutex;
+use scirs2_core::numeric::{FromPrimitive, ToPrimitive};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use torsh_core::dtype::FloatElement;
@@ -129,9 +129,16 @@ impl<T: FloatElement> std::fmt::Debug for GradientCompressor<T> {
             .field("config", &self.config)
             .field(
                 "error_feedback_size",
-                &self.error_feedback.read().unwrap().len(),
+                &self
+                    .error_feedback
+                    .read()
+                    .expect("lock should not be poisoned")
+                    .len(),
             )
-            .field("stats", &self.stats.read().unwrap())
+            .field(
+                "stats",
+                &self.stats.read().expect("lock should not be poisoned"),
+            )
             .finish()
     }
 }
@@ -208,7 +215,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
 
         // Update statistics
         let compression_time = start_time.elapsed().as_millis() as u64;
-        let mut stats = self.stats.write().unwrap();
+        let mut stats = self.stats.write().expect("lock should not be poisoned");
         stats.total_compressions += 1;
         stats.total_bytes_original += std::mem::size_of_val(gradients);
         stats.total_bytes_compressed += compressed.data.len();
@@ -262,7 +269,10 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
 
         // Update decompression statistics
         let decompression_time = start_time.elapsed().as_millis() as u64;
-        self.stats.write().unwrap().total_decompression_time_ms += decompression_time;
+        self.stats
+            .write()
+            .expect("lock should not be poisoned")
+            .total_decompression_time_ms += decompression_time;
 
         Ok(decompressed)
     }
@@ -290,7 +300,8 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
 
     /// Calculate sparsity (fraction of near-zero elements)
     fn calculate_sparsity(&self, gradients: &[T]) -> f64 {
-        let threshold = <T as torsh_core::dtype::TensorElement>::from_f64(1e-8).unwrap();
+        let threshold = <T as torsh_core::dtype::TensorElement>::from_f64(1e-8)
+            .expect("f64 conversion should succeed");
         let near_zero_count = gradients.iter().filter(|&&x| x.abs() < threshold).count();
         near_zero_count as f64 / gradients.len() as f64
     }
@@ -303,14 +314,14 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
 
         let mean = gradients
             .iter()
-            .map(|x| ToPrimitive::to_f64(x).unwrap())
+            .map(|x| ToPrimitive::to_f64(x).expect("f64 conversion should succeed"))
             .sum::<f64>()
             / gradients.len() as f64;
 
         let variance = gradients
             .iter()
             .map(|x| {
-                let val = ToPrimitive::to_f64(x).unwrap();
+                let val = ToPrimitive::to_f64(x).expect("f64 conversion should succeed");
                 (val - mean).powi(2)
             })
             .sum::<f64>()
@@ -327,7 +338,11 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
 
         let sum_squares = gradients
             .iter()
-            .map(|x| ToPrimitive::to_f64(x).unwrap().powi(2))
+            .map(|x| {
+                ToPrimitive::to_f64(x)
+                    .expect("f64 conversion should succeed")
+                    .powi(2)
+            })
             .sum::<f64>();
 
         (sum_squares / gradients.len() as f64).sqrt()
@@ -358,7 +373,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
         let mut max_val = f64::NEG_INFINITY;
 
         for &grad in gradients {
-            let val = ToPrimitive::to_f64(&grad).unwrap();
+            let val = ToPrimitive::to_f64(&grad).expect("f64 conversion should succeed");
             min_val = min_val.min(val);
             max_val = max_val.max(val);
         }
@@ -370,7 +385,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
         // Quantize gradients
         let mut quantized = Vec::with_capacity(gradients.len());
         for &grad in gradients {
-            let val = ToPrimitive::to_f64(&grad).unwrap();
+            let val = ToPrimitive::to_f64(&grad).expect("f64 conversion should succeed");
             let quantized_val = ((val / scale) + zero_point as f64).round() as u8;
             quantized.push(quantized_val);
         }
@@ -396,7 +411,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
         let mut max_val = f64::NEG_INFINITY;
 
         for &grad in gradients {
-            let val = ToPrimitive::to_f64(&grad).unwrap();
+            let val = ToPrimitive::to_f64(&grad).expect("f64 conversion should succeed");
             min_val = min_val.min(val);
             max_val = max_val.max(val);
         }
@@ -408,14 +423,14 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
         let mut quantized = Vec::with_capacity(gradients.len().div_ceil(2));
         for chunk in gradients.chunks(2) {
             let first = if !chunk.is_empty() {
-                let val = ToPrimitive::to_f64(&chunk[0]).unwrap();
+                let val = ToPrimitive::to_f64(&chunk[0]).expect("f64 conversion should succeed");
                 ((val / scale) + zero_point as f64).round().clamp(0.0, 15.0) as u8
             } else {
                 0
             };
 
             let second = if chunk.len() > 1 {
-                let val = ToPrimitive::to_f64(&chunk[1]).unwrap();
+                let val = ToPrimitive::to_f64(&chunk[1]).expect("f64 conversion should succeed");
                 ((val / scale) + zero_point as f64).round().clamp(0.0, 15.0) as u8
             } else {
                 0
@@ -444,7 +459,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
         let mut max_val = f64::NEG_INFINITY;
 
         for &grad in gradients {
-            let val = ToPrimitive::to_f64(&grad).unwrap();
+            let val = ToPrimitive::to_f64(&grad).expect("f64 conversion should succeed");
             min_val = min_val.min(val);
             max_val = max_val.max(val);
         }
@@ -457,7 +472,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
         for chunk in gradients.chunks(4) {
             let mut byte_val = 0u8;
             for (i, &val) in chunk.iter().enumerate() {
-                let val_f64 = ToPrimitive::to_f64(&val).unwrap();
+                let val_f64 = ToPrimitive::to_f64(&val).expect("f64 conversion should succeed");
                 let quantized_val = ((val_f64 / scale) + zero_point as f64)
                     .round()
                     .clamp(0.0, 3.0) as u8;
@@ -490,7 +505,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
         for chunk in gradients.chunks(8) {
             let mut byte_val = 0u8;
             for (i, &val) in chunk.iter().enumerate() {
-                let val_f64 = ToPrimitive::to_f64(&val).unwrap();
+                let val_f64 = ToPrimitive::to_f64(&val).expect("f64 conversion should succeed");
                 if val_f64 >= 0.0 {
                     byte_val |= 1 << i;
                 }
@@ -519,7 +534,14 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
         let mut value_index_pairs: Vec<(f64, usize)> = gradients
             .iter()
             .enumerate()
-            .map(|(i, &val)| (ToPrimitive::to_f64(&val).unwrap().abs(), i))
+            .map(|(i, &val)| {
+                (
+                    ToPrimitive::to_f64(&val)
+                        .expect("f64 conversion should succeed")
+                        .abs(),
+                    i,
+                )
+            })
             .collect();
 
         value_index_pairs.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
@@ -536,7 +558,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
         let mut indices = Vec::new();
 
         for &idx in &top_k_indices {
-            let val = ToPrimitive::to_f64(&gradients[idx]).unwrap();
+            let val = ToPrimitive::to_f64(&gradients[idx]).expect("f64 conversion should succeed");
             let bytes = val.to_le_bytes();
             compressed_data.extend_from_slice(&bytes);
             indices.push(idx);
@@ -569,7 +591,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
             let random_val = *rng_state as f64 / (1u64 << 31) as f64;
 
             if random_val < keep_prob {
-                let val_f64 = ToPrimitive::to_f64(&val).unwrap();
+                let val_f64 = ToPrimitive::to_f64(&val).expect("f64 conversion should succeed");
                 let bytes = val_f64.to_le_bytes();
                 compressed_data.extend_from_slice(&bytes);
                 indices.push(i);
@@ -600,7 +622,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
         let mut sketch = vec![0.0; sketch_size];
 
         for &grad in gradients {
-            let val = ToPrimitive::to_f64(&grad).unwrap();
+            let val = ToPrimitive::to_f64(&grad).expect("f64 conversion should succeed");
 
             // Apply random projections
             for j in 0..sketch_size {
@@ -646,7 +668,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
 
         // Store first 'rank' values as the low-rank approximation
         for i in 0..rank.min(gradients.len()) {
-            let val = ToPrimitive::to_f64(&gradients[i]).unwrap();
+            let val = ToPrimitive::to_f64(&gradients[i]).expect("f64 conversion should succeed");
             let bytes = val.to_le_bytes();
             compressed_data.extend_from_slice(&bytes);
         }
@@ -671,7 +693,10 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
         parameter_name: &str,
     ) -> Result<CompressedGradient> {
         // Get or create error feedback buffer
-        let mut error_feedback = self.error_feedback.write().unwrap();
+        let mut error_feedback = self
+            .error_feedback
+            .write()
+            .expect("lock should not be poisoned");
         let error_buffer = error_feedback
             .entry(parameter_name.to_string())
             .or_insert_with(|| {
@@ -731,7 +756,10 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
         let mut gradients = Vec::with_capacity(compressed.data.len());
         for &quantized_val in &compressed.data {
             let dequantized = (quantized_val as f64 - zero_point as f64) * scale;
-            gradients.push(<T as torsh_core::dtype::TensorElement>::from_f64(dequantized).unwrap());
+            gradients.push(
+                <T as torsh_core::dtype::TensorElement>::from_f64(dequantized)
+                    .expect("f64 conversion should succeed"),
+            );
         }
 
         Ok(gradients)
@@ -748,7 +776,8 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
             let first = (byte_val >> 4) & 0x0F;
             let dequantized_first = (first as f64 - zero_point as f64) * scale;
             gradients.push(
-                <T as torsh_core::dtype::TensorElement>::from_f64(dequantized_first).unwrap(),
+                <T as torsh_core::dtype::TensorElement>::from_f64(dequantized_first)
+                    .expect("f64 conversion should succeed"),
             );
 
             if gradients.len() < original_size {
@@ -756,7 +785,8 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
                 let second = byte_val & 0x0F;
                 let dequantized_second = (second as f64 - zero_point as f64) * scale;
                 gradients.push(
-                    <T as torsh_core::dtype::TensorElement>::from_f64(dequantized_second).unwrap(),
+                    <T as torsh_core::dtype::TensorElement>::from_f64(dequantized_second)
+                        .expect("f64 conversion should succeed"),
                 );
             }
         }
@@ -778,8 +808,10 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
                 }
                 let quantized_val = (byte_val >> (i * 2)) & 0x03;
                 let dequantized = (quantized_val as f64 - zero_point as f64) * scale;
-                gradients
-                    .push(<T as torsh_core::dtype::TensorElement>::from_f64(dequantized).unwrap());
+                gradients.push(
+                    <T as torsh_core::dtype::TensorElement>::from_f64(dequantized)
+                        .expect("f64 conversion should succeed"),
+                );
             }
         }
 
@@ -799,7 +831,10 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
                 }
                 let sign_bit = (byte_val >> i) & 1;
                 let value = if sign_bit == 1 { magnitude } else { -magnitude };
-                gradients.push(<T as torsh_core::dtype::TensorElement>::from_f64(value).unwrap());
+                gradients.push(
+                    <T as torsh_core::dtype::TensorElement>::from_f64(value)
+                        .expect("f64 conversion should succeed"),
+                );
             }
         }
 
@@ -826,7 +861,8 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
             if end <= compressed.data.len() && idx < original_size {
                 let bytes = &compressed.data[start..end];
                 let value = f64::from_le_bytes(bytes.try_into().unwrap());
-                gradients[idx] = <T as torsh_core::dtype::TensorElement>::from_f64(value).unwrap();
+                gradients[idx] = <T as torsh_core::dtype::TensorElement>::from_f64(value)
+                    .expect("f64 conversion should succeed");
             }
         }
 
@@ -852,7 +888,8 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
             if end <= compressed.data.len() && idx < original_size {
                 let bytes = &compressed.data[start..end];
                 let value = f64::from_le_bytes(bytes.try_into().unwrap());
-                gradients[idx] = <T as torsh_core::dtype::TensorElement>::from_f64(value).unwrap();
+                gradients[idx] = <T as torsh_core::dtype::TensorElement>::from_f64(value)
+                    .expect("f64 conversion should succeed");
             }
         }
 
@@ -882,7 +919,8 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
             let end = start + values_per_element;
             let bytes = &compressed.data[start..end];
             let value = f64::from_le_bytes(bytes.try_into().unwrap());
-            gradients[i] = <T as torsh_core::dtype::TensorElement>::from_f64(value).unwrap();
+            gradients[i] = <T as torsh_core::dtype::TensorElement>::from_f64(value)
+                .expect("f64 conversion should succeed");
         }
 
         Ok(gradients)
@@ -895,12 +933,15 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
 
     /// Get compression statistics
     pub fn get_stats(&self) -> CompressionStats {
-        self.stats.read().unwrap().clone()
+        self.stats
+            .read()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Reset compression statistics
     pub fn reset_stats(&mut self) {
-        *self.stats.write().unwrap() = CompressionStats::default();
+        *self.stats.write().expect("lock should not be poisoned") = CompressionStats::default();
     }
 
     /// Update configuration
@@ -926,7 +967,7 @@ pub mod utils {
         let mut zero_count = 0;
 
         for &val in gradients {
-            let val_f64 = ToPrimitive::to_f64(&val).unwrap();
+            let val_f64 = ToPrimitive::to_f64(&val).expect("f64 conversion should succeed");
             min_val = min_val.min(val_f64);
             max_val = max_val.max(val_f64);
             sum += val_f64;
@@ -1020,7 +1061,8 @@ pub mod utils {
             .iter()
             .zip(reconstructed.iter())
             .map(|(&a, &b)| {
-                let diff = ToPrimitive::to_f64(&a).unwrap() - ToPrimitive::to_f64(&b).unwrap();
+                let diff = ToPrimitive::to_f64(&a).expect("f64 conversion should succeed")
+                    - ToPrimitive::to_f64(&b).expect("f64 conversion should succeed");
                 diff * diff
             })
             .sum::<f64>()

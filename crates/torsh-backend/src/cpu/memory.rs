@@ -664,7 +664,9 @@ impl MemoryManager for CpuMemoryManager {
                 TorshError::AllocationError("Failed to acquire pools lock".to_string())
             })?;
 
-            let pool = pools.get_mut(&size_class).unwrap();
+            let pool = pools
+                .get_mut(&size_class)
+                .expect("size_class should exist in pools");
             pool.allocate(size, alignment)
                 .map_err(|e| TorshError::AllocationError(e.to_string()))?
         };
@@ -731,7 +733,10 @@ impl MemoryManager for CpuMemoryManager {
     }
 
     fn stats(&self) -> MemoryStats {
-        self.stats.lock().unwrap().clone()
+        self.stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     fn garbage_collect(&mut self) -> Result<usize> {
@@ -809,7 +814,9 @@ impl MemoryManager for CpuMemoryManager {
             .lock()
             .map_err(|_| TorshError::AllocationError("Failed to acquire pools lock".to_string()))?;
 
-        let pool = pools.get_mut(&size_class).unwrap();
+        let pool = pools
+            .get_mut(&size_class)
+            .expect("size_class should exist in pools");
         pool.allocate(size, alignment)
             .map_err(|e| TorshError::AllocationError(e.to_string()))
     }
@@ -1155,14 +1162,16 @@ impl MemoryPool for CpuMemoryPool {
 
         // Deallocate all blocks
         for (&ptr, &(size, alignment)) in allocated_blocks.iter() {
-            let layout = std::alloc::Layout::from_size_align(size, alignment).unwrap();
+            let layout = std::alloc::Layout::from_size_align(size, alignment)
+                .expect("layout should be valid for previously allocated block");
             unsafe {
                 std::alloc::dealloc(ptr, layout);
             }
         }
 
         for &ptr in free_blocks.iter() {
-            let layout = std::alloc::Layout::from_size_align(self.size_class, 1).unwrap();
+            let layout = std::alloc::Layout::from_size_align(self.size_class, 1)
+                .expect("layout should be valid for size_class");
             unsafe {
                 std::alloc::dealloc(ptr, layout);
             }
@@ -1213,8 +1222,16 @@ impl MemoryPool for CpuMemoryPool {
     }
 
     fn fragmentation_info(&self) -> crate::memory::FragmentationInfo {
-        let allocated_count = self.allocated_blocks.lock().unwrap().len();
-        let free_count = self.free_blocks.lock().unwrap().len();
+        let allocated_count = self
+            .allocated_blocks
+            .lock()
+            .expect("lock should not be poisoned")
+            .len();
+        let free_count = self
+            .free_blocks
+            .lock()
+            .expect("lock should not be poisoned")
+            .len();
 
         crate::memory::FragmentationInfo {
             overall_fragmentation: 0.1,
@@ -1240,8 +1257,16 @@ impl MemoryPool for CpuMemoryPool {
             duration_ms: 0.0,
             largest_free_before: self.size_class,
             largest_free_after: self.size_class,
-            free_blocks_before: self.free_blocks.lock().unwrap().len(),
-            free_blocks_after: self.free_blocks.lock().unwrap().len(),
+            free_blocks_before: self
+                .free_blocks
+                .lock()
+                .expect("lock should not be poisoned")
+                .len(),
+            free_blocks_after: self
+                .free_blocks
+                .lock()
+                .expect("lock should not be poisoned")
+                .len(),
             success: true,
         })
     }
@@ -1253,7 +1278,8 @@ impl Drop for CpuMemoryPool {
         // Clean up any remaining allocated blocks (still in use)
         if let Ok(allocated_blocks) = self.allocated_blocks.lock() {
             for (&ptr, &(size, alignment)) in allocated_blocks.iter() {
-                let layout = std::alloc::Layout::from_size_align(size, alignment).unwrap();
+                let layout = std::alloc::Layout::from_size_align(size, alignment)
+                    .expect("layout should be valid for previously allocated block");
                 unsafe {
                     std::alloc::dealloc(ptr, layout);
                 }
@@ -1264,7 +1290,8 @@ impl Drop for CpuMemoryPool {
         if let Ok(free_blocks) = self.free_blocks.lock() {
             for &ptr in free_blocks.iter() {
                 // Use consistent alignment for size_class allocations
-                let layout = std::alloc::Layout::from_size_align(self.size_class, 8).unwrap();
+                let layout = std::alloc::Layout::from_size_align(self.size_class, 8)
+                    .expect("layout should be valid for size_class");
                 unsafe {
                     std::alloc::dealloc(ptr, layout);
                 }

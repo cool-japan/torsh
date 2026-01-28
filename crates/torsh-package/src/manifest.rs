@@ -134,7 +134,8 @@ impl PackageManifest {
         }
 
         // Check format version compatibility
-        let current_version = semver::Version::parse(crate::PACKAGE_FORMAT_VERSION).unwrap();
+        let current_version = semver::Version::parse(crate::PACKAGE_FORMAT_VERSION)
+            .expect("PACKAGE_FORMAT_VERSION constant should be valid semver");
         let manifest_version = semver::Version::parse(&self.format_version)
             .map_err(|_| "Invalid format version in manifest")?;
 

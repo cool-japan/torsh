@@ -24,10 +24,10 @@ use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
 #[cfg(feature = "std")]
-use scirs2_core::random::{thread_rng, Rng};
+use scirs2_core::random::thread_rng;
 
 #[cfg(not(feature = "std"))]
-use scirs2_core::random::{thread_rng, Rng};
+use scirs2_core::random::thread_rng;
 
 /// Online augmentation engine that applies transforms in real-time during data loading
 pub struct OnlineAugmentationEngine<T> {
@@ -86,7 +86,7 @@ impl<T: Clone + Send + Sync + 'static> OnlineAugmentationEngine<T> {
         // Check cache first if enabled
         if self.cache_enabled {
             if let Some(key) = cache_key {
-                let cache = self.cache.read().unwrap();
+                let cache = self.cache.read().expect("lock should not be poisoned");
                 if let Some(cached_result) = cache.get(key) {
                     self.update_stats(start_time, true);
                     return Ok(cached_result.clone());
@@ -100,7 +100,7 @@ impl<T: Clone + Send + Sync + 'static> OnlineAugmentationEngine<T> {
         // Cache result if enabled
         if self.cache_enabled {
             if let Some(key) = cache_key {
-                let mut cache = self.cache.write().unwrap();
+                let mut cache = self.cache.write().expect("lock should not be poisoned");
                 if cache.len() < self.max_cache_size {
                     cache.insert(key.to_string(), result.clone());
                 }
@@ -122,14 +122,20 @@ impl<T: Clone + Send + Sync + 'static> OnlineAugmentationEngine<T> {
     /// Clear the cache
     pub fn clear_cache(&self) {
         if self.cache_enabled {
-            self.cache.write().unwrap().clear();
+            self.cache
+                .write()
+                .expect("lock should not be poisoned")
+                .clear();
         }
     }
 
     /// Get cache size
     pub fn cache_size(&self) -> usize {
         if self.cache_enabled {
-            self.cache.read().unwrap().len()
+            self.cache
+                .read()
+                .expect("lock should not be poisoned")
+                .len()
         } else {
             0
         }
@@ -137,17 +143,20 @@ impl<T: Clone + Send + Sync + 'static> OnlineAugmentationEngine<T> {
 
     /// Get augmentation statistics
     pub fn stats(&self) -> AugmentationStats {
-        self.stats.read().unwrap().clone()
+        self.stats
+            .read()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Reset statistics
     pub fn reset_stats(&self) {
-        *self.stats.write().unwrap() = AugmentationStats::default();
+        *self.stats.write().expect("lock should not be poisoned") = AugmentationStats::default();
     }
 
     fn update_stats(&self, start_time: Instant, was_cache_hit: bool) {
         let duration = start_time.elapsed().as_secs_f64() * 1000.0;
-        let mut stats = self.stats.write().unwrap();
+        let mut stats = self.stats.write().expect("lock should not be poisoned");
 
         stats.total_transforms += 1;
         stats.total_time_ms += duration;
@@ -482,7 +491,7 @@ impl<T: Clone + Send + Sync + 'static> AugmentationQueue<T> {
 
     /// Submit an augmentation task (simplified version)
     pub fn submit(&self, input: T, cache_key: Option<String>) -> Result<T> {
-        let tasks = self.tasks.read().unwrap();
+        let tasks = self.tasks.read().expect("lock should not be poisoned");
         if tasks.len() >= self.max_queue_size {
             return Err(TorshError::InvalidArgument(
                 "Augmentation queue is full".to_string(),
@@ -496,7 +505,7 @@ impl<T: Clone + Send + Sync + 'static> AugmentationQueue<T> {
 
     /// Process pending tasks (placeholder for worker thread processing)
     pub fn process_tasks(&self) -> usize {
-        let mut tasks = self.tasks.write().unwrap();
+        let mut tasks = self.tasks.write().expect("lock should not be poisoned");
         let processed_count = tasks.len();
 
         // In a real implementation, this would process tasks asynchronously
@@ -508,7 +517,10 @@ impl<T: Clone + Send + Sync + 'static> AugmentationQueue<T> {
 
     /// Get queue length
     pub fn queue_length(&self) -> usize {
-        self.tasks.read().unwrap().len()
+        self.tasks
+            .read()
+            .expect("lock should not be poisoned")
+            .len()
     }
 }
 

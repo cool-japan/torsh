@@ -149,9 +149,10 @@ impl ParameterUpdater {
 
         for (name, param) in parameters {
             if let Some(grad) = gradients.get(name) {
-                let velocity = velocities
-                    .entry(name.clone())
-                    .or_insert_with(|| zeros_like(&param.tensor().read()).unwrap());
+                let velocity = velocities.entry(name.clone()).or_insert_with(|| {
+                    zeros_like(&param.tensor().read())
+                        .expect("zeros_like should succeed for valid tensor")
+                });
 
                 if self.config.use_inplace_updates {
                     // v = momentum * v + learning_rate * grad
@@ -201,9 +202,10 @@ impl ParameterUpdater {
 
         for (name, param) in parameters {
             if let Some(grad) = gradients.get(name) {
-                let sq_grad = squared_gradients
-                    .entry(name.clone())
-                    .or_insert_with(|| zeros_like(&param.tensor().read()).unwrap());
+                let sq_grad = squared_gradients.entry(name.clone()).or_insert_with(|| {
+                    zeros_like(&param.tensor().read())
+                        .expect("zeros_like should succeed for valid tensor")
+                });
 
                 // Update squared gradients: sq_grad = alpha * sq_grad + (1 - alpha) * grad^2
                 let grad_squared = grad.mul_op(grad)?;
@@ -405,12 +407,14 @@ impl ParameterUpdater {
 
         for (name, param) in parameters {
             if let Some(grad) = gradients.get(name) {
-                let m = m_t
-                    .entry(name.clone())
-                    .or_insert_with(|| zeros_like(&param.tensor().read()).unwrap());
-                let v = v_t
-                    .entry(name.clone())
-                    .or_insert_with(|| zeros_like(&param.tensor().read()).unwrap());
+                let m = m_t.entry(name.clone()).or_insert_with(|| {
+                    zeros_like(&param.tensor().read())
+                        .expect("zeros_like should succeed for valid tensor")
+                });
+                let v = v_t.entry(name.clone()).or_insert_with(|| {
+                    zeros_like(&param.tensor().read())
+                        .expect("zeros_like should succeed for valid tensor")
+                });
 
                 // Update biased first moment estimate: m_t = beta1 * m_t + (1 - beta1) * grad
                 *m = m

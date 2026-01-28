@@ -16,28 +16,28 @@ use torsh_tensor::{creation::zeros, Tensor};
 /// multi-dimensional coordinates. Given a flat index k, computes coordinates
 /// (i₁, i₂, ..., iₙ) such that:
 ///
-/// ```
+/// ```text
 /// k = i₁ × (d₂ × d₃ × ... × dₙ) + i₂ × (d₃ × ... × dₙ) + ... + iₙ
-/// ```
+/// ```text
 ///
 /// ## Algorithm: Row-Major Index Unraveling
 ///
 /// The conversion uses row-major (C-style) ordering with strides:
-/// ```
+/// ```text
 /// stride[i] = ∏ⱼ₌ᵢ₊₁ⁿ dⱼ  (product of dimensions after i)
 /// stride[n-1] = 1           (last dimension has stride 1)
-/// ```
+/// ```text
 ///
 /// For each dimension i:
-/// ```
+/// ```text
 /// coordinate[i] = (k mod stride[i-1]) / stride[i]
-/// ```
+/// ```text
 ///
 /// ## Inverse Operation
 /// The inverse operation (ravel_multi_index) would be:
-/// ```
+/// ```text
 /// flat_index = Σᵢ coordinate[i] × stride[i]
-/// ```
+/// ```text
 ///
 /// ## Memory Layout Considerations
 ///
@@ -79,7 +79,7 @@ use torsh_tensor::{creation::zeros, Tensor};
 /// // coords[0] = [0, 0, 1, 1] (row coordinates)
 /// // coords[1] = [0, 1, 0, 1] (column coordinates)
 /// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
+/// ```text
 ///
 /// ## Advanced Example: 3D Volume Indexing
 /// ```rust
@@ -94,7 +94,7 @@ use torsh_tensor::{creation::zeros, Tensor};
 /// // For index 7 in shape [3,4,2]:
 /// // 7 = 0×(4×2) + 3×2 + 1 → coordinates (0, 3, 1)
 /// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
+/// ```text
 pub fn unravel_index(indices: &Tensor, shape: &[usize]) -> TorshResult<Vec<Tensor>> {
     // Validate inputs
     let indices_shape = indices.shape();
@@ -162,9 +162,9 @@ pub fn unravel_index(indices: &Tensor, shape: &[usize]) -> TorshResult<Vec<Tenso
 /// Computes the strides (step sizes) for each dimension in row-major order.
 /// For shape [d₁, d₂, ..., dₙ], the stride for dimension i is:
 ///
-/// ```
+/// ```text
 /// stride[i] = ∏ⱼ₌ᵢ₊₁ⁿ dⱼ
-/// ```
+/// ```text
 ///
 /// This represents how many elements to skip to move by one unit in dimension i.
 ///
@@ -183,7 +183,7 @@ pub fn unravel_index(indices: &Tensor, shape: &[usize]) -> TorshResult<Vec<Tenso
 /// // - Moving in dim 0: skip 4×2 = 8 elements
 /// // - Moving in dim 1: skip 2 elements
 /// // - Moving in dim 2: skip 1 element
-/// ```
+/// ```text
 pub fn compute_strides(shape: &[usize]) -> Vec<usize> {
     if shape.is_empty() {
         return vec![];
@@ -203,9 +203,9 @@ pub fn compute_strides(shape: &[usize]) -> Vec<usize> {
 /// The inverse operation of `unravel_index`. Converts multi-dimensional
 /// coordinates to flat (linear) indices using row-major ordering:
 ///
-/// ```
+/// ```text
 /// flat_index = Σᵢ coordinate[i] × stride[i]
-/// ```
+/// ```text
 ///
 /// Where stride[i] = ∏ⱼ₌ᵢ₊₁ⁿ shape[j]
 ///
@@ -229,7 +229,7 @@ pub fn compute_strides(shape: &[usize]) -> Vec<usize> {
 /// let flat_indices = ravel_multi_index(&coords, &shape)?;
 /// // Returns [0, 1, 2, 3]
 /// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
+/// ```text
 pub fn ravel_multi_index(coords: &[Tensor], shape: &[usize]) -> TorshResult<Tensor> {
     if coords.len() != shape.len() {
         return Err(torsh_core::TorshError::invalid_argument_with_context(

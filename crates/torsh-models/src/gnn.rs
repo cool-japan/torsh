@@ -564,7 +564,8 @@ impl GATLayer {
         Self {
             linear: Linear::new(input_dim, linear_output_dim, false),
             attention_weights: Parameter::new(
-                torsh_tensor::creation::randn(&[2 * head_dim, 1]).unwrap(),
+                torsh_tensor::creation::randn(&[2 * head_dim, 1])
+                    .expect("failed to create GAT attention weights"),
             ),
             dropout: Dropout::new(dropout_rate as f32),
             num_heads,
@@ -861,9 +862,15 @@ impl GINLayer {
         ];
 
         let eps_param = if learn_eps {
-            Parameter::new(torsh_tensor::creation::full(&[1], eps as f32).unwrap())
+            Parameter::new(
+                torsh_tensor::creation::full(&[1], eps as f32)
+                    .expect("failed to create GIN epsilon parameter"),
+            )
         } else {
-            Parameter::new(torsh_tensor::creation::full(&[1], eps as f32).unwrap())
+            Parameter::new(
+                torsh_tensor::creation::full(&[1], eps as f32)
+                    .expect("failed to create GIN epsilon parameter"),
+            )
         };
 
         Self {

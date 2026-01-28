@@ -245,7 +245,11 @@ impl DistributedGNN {
 
         Ok(summed_params
             .into_iter()
-            .map(|param| param.div_scalar(num_workers).unwrap())
+            .map(|param| {
+                param
+                    .div_scalar(num_workers)
+                    .expect("parameter division should succeed")
+            })
             .collect())
     }
 
@@ -279,14 +283,22 @@ impl DistributedGNN {
 
         let weighted_params = parameters
             .iter()
-            .map(|param| param.mul_scalar(local_weight).unwrap())
+            .map(|param| {
+                param
+                    .mul_scalar(local_weight)
+                    .expect("parameter weighting should succeed")
+            })
             .collect::<Vec<_>>();
 
         let summed_params = self.sum_parameters(&weighted_params)?;
 
         Ok(summed_params
             .into_iter()
-            .map(|param| param.div_scalar(total_weight).unwrap())
+            .map(|param| {
+                param
+                    .div_scalar(total_weight)
+                    .expect("weighted parameter division should succeed")
+            })
             .collect())
     }
 
@@ -316,7 +328,9 @@ impl DistributedGNN {
             // Accumulate updates (simplified)
             for (i, update) in worker_updates.iter().enumerate() {
                 if i < accumulated_updates.len() {
-                    accumulated_updates[i] = accumulated_updates[i].add(update).unwrap();
+                    accumulated_updates[i] = accumulated_updates[i]
+                        .add(update)
+                        .expect("operation should succeed");
                 }
             }
         }
@@ -325,7 +339,11 @@ impl DistributedGNN {
         let num_workers = self.config.num_workers as f32;
         let averaged_params: Vec<Tensor> = accumulated_updates
             .into_iter()
-            .map(|param| param.div_scalar(num_workers).unwrap())
+            .map(|param| {
+                param
+                    .div_scalar(num_workers)
+                    .expect("parameter server division should succeed")
+            })
             .collect();
 
         // Broadcast to all workers
@@ -485,8 +503,10 @@ impl DistributedGNN {
 
         if nodes.is_empty() {
             return Ok(GraphData::new(
-                torsh_tensor::creation::zeros(&[0, graph.x.shape().dims()[1]]).unwrap(),
-                torsh_tensor::creation::zeros(&[2, 0]).unwrap(),
+                torsh_tensor::creation::zeros(&[0, graph.x.shape().dims()[1]])
+                    .expect("empty features tensor creation should succeed"),
+                torsh_tensor::creation::zeros(&[2, 0])
+                    .expect("empty edge index tensor creation should succeed"),
             ));
         }
 
@@ -513,7 +533,8 @@ impl DistributedGNN {
         })?;
 
         // Create minimal edge index (simplified)
-        let edge_index = torsh_tensor::creation::zeros(&[2, 0]).unwrap();
+        let edge_index = torsh_tensor::creation::zeros(&[2, 0])
+            .expect("minimal edge index creation should succeed");
 
         Ok(GraphData::new(x, edge_index))
     }

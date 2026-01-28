@@ -590,7 +590,10 @@ impl Module for PReLU {
         // Apply PReLU: max(alpha * x, x)
         let alpha_expanded = if self.num_parameters == 1 {
             // Broadcast single parameter to input shape
-            self.alpha.tensor().read().broadcast_to(&input.shape())?
+            self.alpha
+                .tensor()
+                .read()
+                .broadcast_to(input.shape().dims())?
         } else {
             // Expand alpha to match input dimensions
             let mut alpha_shape = vec![1i32; input.shape().ndim()];
@@ -599,7 +602,7 @@ impl Module for PReLU {
                 .tensor()
                 .read()
                 .reshape(&alpha_shape)?
-                .broadcast_to(&input.shape())?
+                .broadcast_to(input.shape().dims())?
         };
 
         let negative_part = input.mul(&alpha_expanded)?;

@@ -282,7 +282,7 @@ impl MemoryMappedStateStorage {
         data: &T,
     ) -> Result<(), OptimizerError> {
         let serialized =
-            bincode::serde::encode_to_vec(data, bincode::config::standard()).map_err(|e| {
+            oxicode::serde::encode_to_vec(data, oxicode::config::standard()).map_err(|e| {
                 OptimizerError::MemoryMapError(format!("Failed to serialize data: {}", e))
             })?;
 
@@ -311,7 +311,7 @@ impl MemoryMappedStateStorage {
 
         // Write data to the file
         let offset = {
-            let mut file = file_mutex.lock().unwrap();
+            let mut file = file_mutex.lock().expect("lock should not be poisoned");
             let offset = file.size();
             file.write(data)?;
             offset
@@ -320,7 +320,7 @@ impl MemoryMappedStateStorage {
         // Update metadata
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after UNIX epoch")
             .as_secs();
 
         let entry = StateEntry {
@@ -331,7 +331,7 @@ impl MemoryMappedStateStorage {
             timestamp,
         };
 
-        let mut metadata = self.metadata.write().unwrap();
+        let mut metadata = self.metadata.write().expect("lock should not be poisoned");
         metadata.entries.insert(key.to_string(), entry);
 
         Ok(())
@@ -344,7 +344,7 @@ impl MemoryMappedStateStorage {
     ) -> Result<Option<T>, OptimizerError> {
         if let Some(data) = self.load_raw(key)? {
             let (deserialized, _): (T, usize) =
-                bincode::serde::decode_from_slice(&data, bincode::config::standard()).map_err(
+                oxicode::serde::decode_from_slice(&data, oxicode::config::standard()).map_err(
                     |e| {
                         OptimizerError::MemoryMapError(format!("Failed to deserialize data: {}", e))
                     },
@@ -357,7 +357,7 @@ impl MemoryMappedStateStorage {
 
     /// Load raw bytes
     pub fn load_raw(&mut self, key: &str) -> Result<Option<Vec<u8>>, OptimizerError> {
-        let metadata = self.metadata.read().unwrap();
+        let metadata = self.metadata.read().expect("lock should not be poisoned");
         let entry = if let Some(entry) = metadata.entries.get(key) {
             entry.clone()
         } else {
@@ -373,7 +373,7 @@ impl MemoryMappedStateStorage {
             .clone();
 
         // Read data from the file
-        let mut file = file_mutex.lock().unwrap();
+        let mut file = file_mutex.lock().expect("lock should not be poisoned");
         let data = file.read(entry.offset, entry.length)?;
 
         Ok(Some(data))
@@ -386,7 +386,7 @@ impl MemoryMappedStateStorage {
         data: &T,
     ) -> Result<(), OptimizerError> {
         let serialized =
-            bincode::serde::encode_to_vec(data, bincode::config::standard()).map_err(|e| {
+            oxicode::serde::encode_to_vec(data, oxicode::config::standard()).map_err(|e| {
                 OptimizerError::MemoryMapError(format!("Failed to serialize data: {}", e))
             })?;
 
@@ -395,7 +395,7 @@ impl MemoryMappedStateStorage {
 
     /// Update raw bytes
     pub fn update_raw(&mut self, key: &str, data: &[u8]) -> Result<(), OptimizerError> {
-        let metadata = self.metadata.read().unwrap();
+        let metadata = self.metadata.read().expect("lock should not be poisoned");
         let mut entry = if let Some(entry) = metadata.entries.get(key) {
             entry.clone()
         } else {
@@ -412,11 +412,11 @@ impl MemoryMappedStateStorage {
 
         // If new data fits in the existing space, overwrite
         if data.len() <= entry.length {
-            let mut file = file_mutex.lock().unwrap();
+            let mut file = file_mutex.lock().expect("lock should not be poisoned");
             file.write_at(entry.offset, data)?;
         } else {
             // Otherwise, append new data and update metadata
-            let mut file = file_mutex.lock().unwrap();
+            let mut file = file_mutex.lock().expect("lock should not be poisoned");
             entry.offset = file.size();
             entry.length = data.len();
             file.write(data)?;
@@ -425,10 +425,10 @@ impl MemoryMappedStateStorage {
         // Update timestamp
         entry.timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after UNIX epoch")
             .as_secs();
 
-        let mut metadata = self.metadata.write().unwrap();
+        let mut metadata = self.metadata.write().expect("lock should not be poisoned");
         metadata.entries.insert(key.to_string(), entry);
 
         Ok(())
@@ -436,32 +436,32 @@ impl MemoryMappedStateStorage {
 
     /// Remove state data
     pub fn remove(&mut self, key: &str) -> Result<bool, OptimizerError> {
-        let mut metadata = self.metadata.write().unwrap();
+        let mut metadata = self.metadata.write().expect("lock should not be poisoned");
         Ok(metadata.entries.remove(key).is_some())
     }
 
     /// List all stored keys
     pub fn keys(&self) -> Vec<String> {
-        let metadata = self.metadata.read().unwrap();
+        let metadata = self.metadata.read().expect("lock should not be poisoned");
         metadata.entries.keys().cloned().collect()
     }
 
     /// Check if a key exists
     pub fn contains_key(&self, key: &str) -> bool {
-        let metadata = self.metadata.read().unwrap();
+        let metadata = self.metadata.read().expect("lock should not be poisoned");
         metadata.entries.contains_key(key)
     }
 
     /// Get storage statistics
     pub fn statistics(&self) -> StorageStatistics {
-        let metadata = self.metadata.read().unwrap();
+        let metadata = self.metadata.read().expect("lock should not be poisoned");
         let total_entries = metadata.entries.len();
 
         let total_size: usize = self
             .files
             .values()
             .map(|file_mutex| {
-                let file = file_mutex.lock().unwrap();
+                let file = file_mutex.lock().expect("lock should not be poisoned");
                 file.size()
             })
             .sum();
@@ -470,7 +470,7 @@ impl MemoryMappedStateStorage {
             .files
             .values()
             .map(|file_mutex| {
-                let file = file_mutex.lock().unwrap();
+                let file = file_mutex.lock().expect("lock should not be poisoned");
                 file.capacity()
             })
             .sum();
@@ -491,7 +491,7 @@ impl MemoryMappedStateStorage {
     /// Sync all files to disk
     pub fn sync_all(&mut self) -> Result<(), OptimizerError> {
         for file_mutex in self.files.values() {
-            let mut file = file_mutex.lock().unwrap();
+            let mut file = file_mutex.lock().expect("lock should not be poisoned");
             file.sync()?;
         }
         Ok(())

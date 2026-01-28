@@ -39,6 +39,12 @@
 //! - **DIA**: Memory-efficient for diagonal-dominant matrices
 //! - **ELL**: SIMD-friendly format for GPU operations
 
+// Version information
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const VERSION_MAJOR: u32 = 0;
+pub const VERSION_MINOR: u32 = 1;
+pub const VERSION_PATCH: u32 = 0;
+
 use std::collections::HashMap;
 use torsh_core::{DType, DeviceType, Result, Shape, TorshError};
 use torsh_tensor::Tensor;

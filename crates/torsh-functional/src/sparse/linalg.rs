@@ -14,7 +14,7 @@ use torsh_tensor::Tensor;
 ///
 /// # Mathematical Formula
 /// For sparse matrix A (m×k) and dense matrix B (k×n):
-/// C[i,j] = Σ(A[i,l] * B[l,j]) for all l where A[i,l] ≠ 0
+/// `C[i,j] = Σ(A[i,l] * B[l,j])` for all l where `A[i,l]` ≠ 0
 ///
 /// # Arguments
 /// * `sparse` - The sparse matrix (2D SparseTensor)

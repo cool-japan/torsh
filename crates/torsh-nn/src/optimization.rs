@@ -129,8 +129,15 @@ impl ComputationGraph {
             ));
         }
 
-        self.adjacency.get_mut(&from).unwrap().push(to);
-        self.nodes.get_mut(&to).unwrap().inputs.push(from);
+        self.adjacency
+            .get_mut(&from)
+            .expect("from node should exist in adjacency")
+            .push(to);
+        self.nodes
+            .get_mut(&to)
+            .expect("to node should exist in nodes")
+            .inputs
+            .push(from);
 
         Ok(())
     }
@@ -160,7 +167,9 @@ impl ComputationGraph {
             // Process neighbors
             if let Some(neighbors) = self.adjacency.get(&node_id) {
                 for &neighbor in neighbors {
-                    let degree = in_degree.get_mut(&neighbor).unwrap();
+                    let degree = in_degree
+                        .get_mut(&neighbor)
+                        .expect("neighbor should exist in in_degree");
                     *degree -= 1;
                     if *degree == 0 {
                         queue.push_back(neighbor);
@@ -209,7 +218,10 @@ impl ComputationGraph {
             sequence.push(current);
 
             // Check if we can continue the sequence
-            let successors = self.adjacency.get(&current).unwrap();
+            let successors = self
+                .adjacency
+                .get(&current)
+                .expect("current node should exist in adjacency");
             if successors.len() != 1 {
                 break; // Multiple outputs, can't fuse
             }

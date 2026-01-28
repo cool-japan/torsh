@@ -381,7 +381,7 @@ impl Zero3PerformanceMonitor {
 
         // Update current statistics
         {
-            let mut stats = self.current_stats.lock().unwrap();
+            let mut stats = self.current_stats.lock().expect("lock should not be poisoned");
 
             if let Some(forward_time) = step_stats.forward_time {
                 stats.record_forward_pass(forward_time, step_stats.num_tokens);
@@ -419,7 +419,7 @@ impl Zero3PerformanceMonitor {
         }
 
         {
-            let mut stats = self.memory_stats.lock().unwrap();
+            let mut stats = self.memory_stats.lock().expect("lock should not be poisoned");
             *stats = memory_stats;
         }
 
@@ -428,15 +428,15 @@ impl Zero3PerformanceMonitor {
 
     /// Sample current statistics into historical data
     fn maybe_sample_historical_data(&self) {
-        let mut last_sample = self.last_sample_time.lock().unwrap();
+        let mut last_sample = self.last_sample_time.lock().expect("lock should not be poisoned");
         let now = Instant::now();
 
         if now.duration_since(*last_sample) >= self.sample_interval {
-            let current_perf = self.current_stats.lock().unwrap().clone();
-            let current_mem = self.memory_stats.lock().unwrap().clone();
+            let current_perf = self.current_stats.lock().expect("lock should not be poisoned").clone();
+            let current_mem = self.memory_stats.lock().expect("lock should not be poisoned").clone();
 
             {
-                let mut historical = self.historical_data.lock().unwrap();
+                let mut historical = self.historical_data.lock().expect("lock should not be poisoned");
                 historical.add_sample(HistoricalSample {
                     timestamp: now,
                     performance_stats: current_perf,
@@ -450,17 +450,17 @@ impl Zero3PerformanceMonitor {
 
     /// Get current performance statistics
     pub fn get_current_stats(&self) -> Zero3PerformanceStats {
-        self.current_stats.lock().unwrap().clone()
+        self.current_stats.lock().expect("lock should not be poisoned").clone()
     }
 
     /// Get current memory statistics
     pub fn get_current_memory_stats(&self) -> Zero3MemoryStats {
-        self.memory_stats.lock().unwrap().clone()
+        self.memory_stats.lock().expect("lock should not be poisoned").clone()
     }
 
     /// Get performance trends over time
     pub fn get_performance_trends(&self, duration: Duration) -> PerformanceTrends {
-        let historical = self.historical_data.lock().unwrap();
+        let historical = self.historical_data.lock().expect("lock should not be poisoned");
         historical.analyze_trends(duration)
     }
 
@@ -484,17 +484,17 @@ impl Zero3PerformanceMonitor {
     pub fn reset_stats(&self) {
         if self.monitoring_enabled {
             {
-                let mut stats = self.current_stats.lock().unwrap();
+                let mut stats = self.current_stats.lock().expect("lock should not be poisoned");
                 *stats = Zero3PerformanceStats::new();
             }
 
             {
-                let mut stats = self.memory_stats.lock().unwrap();
+                let mut stats = self.memory_stats.lock().expect("lock should not be poisoned");
                 *stats = Zero3MemoryStats::new();
             }
 
             {
-                let mut historical = self.historical_data.lock().unwrap();
+                let mut historical = self.historical_data.lock().expect("lock should not be poisoned");
                 historical.clear();
             }
 
@@ -504,7 +504,7 @@ impl Zero3PerformanceMonitor {
 
     /// Get monitoring statistics
     pub fn get_monitor_stats(&self) -> MonitorStats {
-        let historical = self.historical_data.lock().unwrap();
+        let historical = self.historical_data.lock().expect("lock should not be poisoned");
 
         MonitorStats {
             monitoring_enabled: self.monitoring_enabled,

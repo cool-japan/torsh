@@ -524,7 +524,9 @@ mod tests {
         .unwrap();
         let mean = utils::compute_channel_mean(&input).unwrap();
         let expected_mean = vec![2.5, 3.5, 4.5]; // Channel-wise means
-        let mean_data = mean.to_vec().unwrap();
+        let mean_data = mean
+            .to_vec()
+            .expect("tensor to vec conversion should succeed");
 
         for (i, &expected) in expected_mean.iter().enumerate() {
             assert!((mean_data[i] - expected).abs() < 1e-6);

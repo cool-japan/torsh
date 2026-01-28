@@ -283,7 +283,10 @@ impl ModelBenchmark {
         device: DeviceType,
         dtype: String,
     ) -> PerformanceMetrics {
-        execution_times.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        execution_times.sort_by(|a, b| {
+            a.partial_cmp(b)
+                .expect("execution times should be comparable")
+        });
 
         let avg_time = execution_times.iter().sum::<f64>() / execution_times.len() as f64;
         let min_time = execution_times[0];
@@ -575,7 +578,7 @@ pub mod benchmark_utils {
             let best_config = result.performance_metrics.iter().max_by(|a, b| {
                 a.1.throughput_samples_per_sec
                     .partial_cmp(&b.1.throughput_samples_per_sec)
-                    .unwrap()
+                    .expect("throughput values should be comparable")
             });
 
             if let Some((config_name, metrics)) = best_config {

@@ -662,9 +662,11 @@ impl BenchmarkResults {
 
     /// Get fastest kernel
     pub fn get_fastest_kernel(&self) -> Option<&KernelBenchmark> {
-        self.results
-            .iter()
-            .min_by(|a, b| a.execution_time.partial_cmp(&b.execution_time).unwrap())
+        self.results.iter().min_by(|a, b| {
+            a.execution_time
+                .partial_cmp(&b.execution_time)
+                .expect("execution times should be comparable")
+        })
     }
 
     /// Generate benchmark report

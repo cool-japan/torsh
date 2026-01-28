@@ -1464,7 +1464,9 @@ mod tests {
         let alpha = rezero_alpha_init().unwrap();
         assert_eq!(alpha.shape().dims(), &[1]);
         // Alpha should be initialized to 0
-        let alpha_val: Vec<f32> = alpha.to_vec().unwrap();
+        let alpha_val: Vec<f32> = alpha
+            .to_vec()
+            .expect("tensor to vec conversion should succeed");
         assert_eq!(alpha_val[0], 0.0);
     }
 
@@ -1489,7 +1491,9 @@ mod tests {
         assert_eq!(tensor.shape().dims(), &[10, 10]);
 
         // Verify sparsity is roughly correct
-        let values: Vec<f32> = tensor.to_vec().unwrap();
+        let values: Vec<f32> = tensor
+            .to_vec()
+            .expect("tensor to vec conversion should succeed");
         let zero_count = values.iter().filter(|&&v| v == 0.0).count();
         let sparsity_ratio = zero_count as f32 / values.len() as f32;
         // Allow generous tolerance in sparsity (60-95% for 80% target)

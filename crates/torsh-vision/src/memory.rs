@@ -12,7 +12,7 @@ use crate::{Result, VisionError};
 use parking_lot::RwLock;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
-use torsh_tensor::{creation, Tensor};
+use torsh_tensor::{creation, creation::zeros_mut, Tensor};
 
 /// Memory pool for tensor reuse to reduce allocations
 pub struct TensorPool {
@@ -41,14 +41,20 @@ impl TensorPool {
 
         if let Some(pool) = self.pools.get_mut(&shape_key) {
             if let Some(tensor) = pool.pop_front() {
-                *self.reuse_count.lock().unwrap() += 1;
+                *self
+                    .reuse_count
+                    .lock()
+                    .expect("lock should not be poisoned") += 1;
                 return Ok(tensor);
             }
         }
 
-        // Create new tensor
-        *self.allocation_count.lock().unwrap() += 1;
-        let tensor = creation::zeros(shape)?;
+        // Create new tensor with mutable storage for pool reuse
+        *self
+            .allocation_count
+            .lock()
+            .expect("lock should not be poisoned") += 1;
+        let tensor = zeros_mut(shape);
         Ok(tensor)
     }
 
@@ -71,8 +77,14 @@ impl TensorPool {
 
     /// Get pool statistics
     pub fn stats(&self) -> PoolStats {
-        let allocation_count = *self.allocation_count.lock().unwrap();
-        let reuse_count = *self.reuse_count.lock().unwrap();
+        let allocation_count = *self
+            .allocation_count
+            .lock()
+            .expect("lock should not be poisoned");
+        let reuse_count = *self
+            .reuse_count
+            .lock()
+            .expect("lock should not be poisoned");
         let total_operations = allocation_count + reuse_count;
 
         PoolStats {
@@ -273,10 +285,13 @@ impl MemoryProfiler {
 
         // Update current usage
         {
-            let mut current_usage = self.current_usage.lock().unwrap();
+            let mut current_usage = self
+                .current_usage
+                .lock()
+                .expect("lock should not be poisoned");
             *current_usage += size_bytes;
 
-            let mut peak_usage = self.peak_usage.lock().unwrap();
+            let mut peak_usage = self.peak_usage.lock().expect("lock should not be poisoned");
             if *current_usage > *peak_usage {
                 *peak_usage = *current_usage;
             }
@@ -285,15 +300,21 @@ impl MemoryProfiler {
 
     /// Record a deallocation
     pub fn record_deallocation(&self, size_bytes: usize) {
-        let mut current_usage = self.current_usage.lock().unwrap();
+        let mut current_usage = self
+            .current_usage
+            .lock()
+            .expect("lock should not be poisoned");
         *current_usage = current_usage.saturating_sub(size_bytes);
     }
 
     /// Get profiling summary
     pub fn summary(&self) -> ProfilingSummary {
         let allocations = self.allocations.read();
-        let peak_usage = *self.peak_usage.lock().unwrap();
-        let current_usage = *self.current_usage.lock().unwrap();
+        let peak_usage = *self.peak_usage.lock().expect("lock should not be poisoned");
+        let current_usage = *self
+            .current_usage
+            .lock()
+            .expect("lock should not be poisoned");
 
         let total_allocations = allocations.len();
         let total_allocated: usize = allocations.iter().map(|a| a.size_bytes).sum();
@@ -346,8 +367,11 @@ impl MemoryProfiler {
         let mut allocations = self.allocations.write();
         allocations.clear();
 
-        let mut peak_usage = self.peak_usage.lock().unwrap();
-        let mut current_usage = self.current_usage.lock().unwrap();
+        let mut peak_usage = self.peak_usage.lock().expect("lock should not be poisoned");
+        let mut current_usage = self
+            .current_usage
+            .lock()
+            .expect("lock should not be poisoned");
         *peak_usage = 0;
         *current_usage = 0;
     }
@@ -563,17 +587,24 @@ impl GlobalMemoryManager {
     /// Get a tensor from the global pool
     pub fn get_tensor(&self, shape: &[usize]) -> Result<Tensor<f32>> {
         if self.settings.enable_pooling {
-            let mut pool = self.tensor_pool.lock().unwrap();
+            let mut pool = self
+                .tensor_pool
+                .lock()
+                .expect("lock should not be poisoned");
             pool.get_tensor(shape)
         } else {
-            creation::zeros(shape).map_err(|e| VisionError::TensorError(e))
+            // Use mutable storage for consistency with pooled tensors
+            Ok(zeros_mut(shape))
         }
     }
 
     /// Return a tensor to the global pool
     pub fn return_tensor(&self, tensor: Tensor<f32>) -> Result<()> {
         if self.settings.enable_pooling {
-            let mut pool = self.tensor_pool.lock().unwrap();
+            let mut pool = self
+                .tensor_pool
+                .lock()
+                .expect("lock should not be poisoned");
             pool.return_tensor(tensor)
         } else {
             Ok(())
@@ -583,7 +614,12 @@ impl GlobalMemoryManager {
     /// Get global memory statistics
     pub fn global_stats(&self) -> GlobalMemoryStats {
         let pool_stats = if self.settings.enable_pooling {
-            Some(self.tensor_pool.lock().unwrap().stats())
+            Some(
+                self.tensor_pool
+                    .lock()
+                    .expect("lock should not be poisoned")
+                    .stats(),
+            )
         } else {
             None
         };

@@ -449,7 +449,7 @@ impl FeatureImportancePlot {
         indices.sort_by(|&a, &b| {
             self.importances[b]
                 .partial_cmp(&self.importances[a])
-                .unwrap()
+                .expect("importance values should be comparable")
         });
 
         let sorted_names: Vec<String> = indices
@@ -478,7 +478,10 @@ impl FeatureImportancePlot {
 
         if self.std.is_some() {
             csv.push_str("feature,importance,std\n");
-            let std = self.std.as_ref().unwrap();
+            let std = self
+                .std
+                .as_ref()
+                .expect("std should be present when exporting to CSV with std");
             for i in 0..self.feature_names.len() {
                 csv.push_str(&format!(
                     "{},{:.6},{:.6}\n",

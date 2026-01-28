@@ -661,7 +661,7 @@ impl PerformanceProfiler {
             model_id,
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .expect("system time should be after UNIX epoch")
                 .as_secs()
         );
         // Implementation would start actual profiling
@@ -721,7 +721,7 @@ impl ABTestingFramework {
             "test_{}",
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .expect("system time should be after UNIX epoch")
                 .as_secs()
         );
 

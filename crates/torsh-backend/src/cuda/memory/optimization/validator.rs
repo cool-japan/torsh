@@ -7,6 +7,45 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
+// ============================================================================
+// Stub implementations for missing types
+// ============================================================================
+
+#[derive(Debug, Clone, Default)]
+pub struct StatisticalTestRegistry {}
+#[derive(Debug, Clone, Default)]
+pub struct HypothesisTestingFramework {}
+#[derive(Debug, Clone, Default)]
+pub struct ConfidenceIntervalCalculator {}
+#[derive(Debug, Clone, Default)]
+pub struct EffectSizeAnalyzer {}
+#[derive(Debug, Clone, Default)]
+pub struct PowerAnalysisSystem {}
+#[derive(Debug, Clone, Default)]
+pub struct MultipleComparisonCorrection {}
+#[derive(Debug, Clone, Default)]
+pub struct BayesianAnalysisFramework {}
+#[derive(Debug, Clone, Default)]
+pub struct NonParametricTestingFramework {}
+#[derive(Debug, Clone, Default)]
+pub struct ABExperiment {}
+#[derive(Debug, Clone, Default)]
+pub struct ExperimentDesigner {}
+#[derive(Debug, Clone, Default)]
+pub struct ABTestAnalysisEngine {}
+#[derive(Debug, Clone, Default)]
+pub struct TrafficSplitter {}
+#[derive(Debug, Clone, Default)]
+pub struct ABTestResultInterpreter {}
+#[derive(Debug, Clone, Default)]
+pub struct ExperimentScheduler {}
+#[derive(Debug, Clone, Default)]
+pub struct BiasDetectionSystem {}
+#[derive(Debug, Clone, Default)]
+pub struct ABTestPowerCalculator {}
+
+// ============================================================================
+
 /// Comprehensive optimization validator with enterprise-grade validation capabilities
 #[derive(Debug)]
 pub struct OptimizationValidator {
@@ -1028,7 +1067,7 @@ impl OptimizationValidator {
     }
 
     fn get_cached_result(&self, cache_key: &str) -> Option<CachedValidationResult> {
-        let cache = self.result_cache.read().unwrap();
+        let cache = self.result_cache.read().expect("lock should not be poisoned");
         cache.get(cache_key).cloned()
     }
 
@@ -1203,7 +1242,7 @@ impl OptimizationValidator {
             context: HashMap::new(),
         };
 
-        let mut cache = self.result_cache.write().unwrap();
+        let mut cache = self.result_cache.write().expect("lock should not be poisoned");
         cache.insert(cache_key.to_string(), cached_result);
 
         Ok(())

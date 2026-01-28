@@ -948,8 +948,16 @@ impl BlasManager {
     }
 
     pub fn get_performance_report(&self) -> BlasPerformanceReport {
-        let stats = self.operation_stats.lock().unwrap().clone();
-        let cache = self.performance_cache.read().unwrap().clone();
+        let stats = self
+            .operation_stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone();
+        let cache = self
+            .performance_cache
+            .read()
+            .expect("lock should not be poisoned")
+            .clone();
 
         BlasPerformanceReport {
             active_implementation: self.get_active_implementation(),
@@ -1172,7 +1180,10 @@ mod tests {
 
         // Pre-populate performance cache with test data
         {
-            let mut cache = manager.performance_cache.write().unwrap();
+            let mut cache = manager
+                .performance_cache
+                .write()
+                .expect("lock should not be poisoned");
             cache.insert((BlasOperation::DOT, 10), 0.5); // Below threshold
             cache.insert((BlasOperation::GEMM, 1000), 3.0); // Above threshold
         }

@@ -5,7 +5,7 @@
 //! and extensibility features.
 
 use crate::{BenchConfig, BenchRunner, Benchmarkable};
-use criterion::black_box;
+use std::hint::black_box;
 use std::time::{Duration, Instant};
 use torsh_core::dtype::DType;
 use torsh_tensor::{creation::*, Tensor};
@@ -169,7 +169,7 @@ impl CustomOperation for FFTOperation {
 
     fn setup_input(&self, size: usize) -> Self::Input {
         // Create complex data as interleaved real/imag
-        rand::<f32>(&[size, 2]).unwrap()
+        rand::<f32>(&[size, 2]).expect("failed to create FFT input tensor")
     }
 
     fn execute(&self, input: &Self::Input) -> Self::Output {
@@ -182,7 +182,7 @@ impl CustomOperation for FFTOperation {
         // Mock FFT result (in practice, would call actual FFT implementation)
         let shape_obj = input.shape();
         let shape = shape_obj.dims();
-        rand::<f32>(shape).unwrap()
+        rand::<f32>(shape).expect("failed to create FFT output tensor")
     }
 
     fn estimate_flops(&self, size: usize) -> usize {
@@ -225,8 +225,10 @@ impl CustomOperation for ConvolutionOperation {
     }
 
     fn setup_input(&self, size: usize) -> Self::Input {
-        let input = rand::<f32>(&[1, 64, size, size]).unwrap(); // NCHW format
-        let kernel = rand::<f32>(&[128, 64, self.kernel_size, self.kernel_size]).unwrap();
+        let input =
+            rand::<f32>(&[1, 64, size, size]).expect("failed to create convolution input tensor"); // NCHW format
+        let kernel = rand::<f32>(&[128, 64, self.kernel_size, self.kernel_size])
+            .expect("failed to create convolution kernel tensor");
         (input, kernel)
     }
 
@@ -243,7 +245,7 @@ impl CustomOperation for ConvolutionOperation {
         let h_out = (input_shape[2] + 2 * self.padding - self.kernel_size) / self.stride + 1;
         let w_out = (input_shape[3] + 2 * self.padding - self.kernel_size) / self.stride + 1;
 
-        rand::<f32>(&[1, 128, h_out, w_out]).unwrap()
+        rand::<f32>(&[1, 128, h_out, w_out]).expect("failed to create convolution output tensor")
     }
 
     fn estimate_flops(&self, size: usize) -> usize {
@@ -300,13 +302,14 @@ impl CustomOperation for MatrixDecompositionOperation {
         match self.decomposition_type {
             DecompositionType::Cholesky => {
                 // Need positive definite matrix for Cholesky
-                let a = rand::<f32>(&[size, size]).unwrap();
+                let a = rand::<f32>(&[size, size])
+                    .expect("failed to create matrix for Cholesky decomposition");
                 // Simulate A^T * A to make it positive definite
                 a
             }
             _ => {
                 // General square matrix
-                rand::<f32>(&[size, size]).unwrap()
+                rand::<f32>(&[size, size]).expect("failed to create matrix for decomposition")
             }
         }
     }
@@ -330,32 +333,32 @@ impl CustomOperation for MatrixDecompositionOperation {
         match self.decomposition_type {
             DecompositionType::LU => {
                 vec![
-                    rand::<f32>(&[size, size]).unwrap(), // L matrix
-                    rand::<f32>(&[size, size]).unwrap(), // U matrix
+                    rand::<f32>(&[size, size]).expect("failed to create L matrix"), // L matrix
+                    rand::<f32>(&[size, size]).expect("failed to create U matrix"), // U matrix
                 ]
             }
             DecompositionType::QR => {
                 vec![
-                    rand::<f32>(&[size, size]).unwrap(), // Q matrix
-                    rand::<f32>(&[size, size]).unwrap(), // R matrix
+                    rand::<f32>(&[size, size]).expect("failed to create Q matrix"), // Q matrix
+                    rand::<f32>(&[size, size]).expect("failed to create R matrix"), // R matrix
                 ]
             }
             DecompositionType::SVD => {
                 vec![
-                    rand::<f32>(&[size, size]).unwrap(), // U matrix
-                    rand::<f32>(&[size]).unwrap(),       // Singular values
-                    rand::<f32>(&[size, size]).unwrap(), // V^T matrix
+                    rand::<f32>(&[size, size]).expect("failed to create U matrix"), // U matrix
+                    rand::<f32>(&[size]).expect("failed to create singular values vector"), // Singular values
+                    rand::<f32>(&[size, size]).expect("failed to create V^T matrix"), // V^T matrix
                 ]
             }
             DecompositionType::Cholesky => {
                 vec![
-                    rand::<f32>(&[size, size]).unwrap(), // L matrix
+                    rand::<f32>(&[size, size]).expect("failed to create L matrix"), // L matrix
                 ]
             }
             DecompositionType::Eigenvalue => {
                 vec![
-                    rand::<f32>(&[size]).unwrap(),       // Eigenvalues
-                    rand::<f32>(&[size, size]).unwrap(), // Eigenvectors
+                    rand::<f32>(&[size]).expect("failed to create eigenvalues vector"), // Eigenvalues
+                    rand::<f32>(&[size, size]).expect("failed to create eigenvectors matrix"), // Eigenvectors
                 ]
             }
         }
@@ -430,7 +433,7 @@ impl CustomOperation for ImageProcessingOperation {
 
     fn setup_input(&self, size: usize) -> Self::Input {
         // Create image tensor [batch, channels, height, width]
-        rand::<f32>(&[1, self.channels, size, size]).unwrap()
+        rand::<f32>(&[1, self.channels, size, size]).expect("failed to create image tensor")
     }
 
     fn execute(&self, input: &Self::Input) -> Self::Output {
@@ -455,19 +458,21 @@ impl CustomOperation for ImageProcessingOperation {
         match self.operation_type {
             ImageOperationType::Histogram => {
                 // Histogram output is different shape
-                rand::<f32>(&[1, self.channels, 256]).unwrap()
+                rand::<f32>(&[1, self.channels, 256]).expect("failed to create histogram tensor")
             }
             ImageOperationType::ImageResize => {
                 // Resize to half the original size
-                rand::<f32>(&[shape[0], shape[1], shape[2] / 2, shape[3] / 2]).unwrap()
+                rand::<f32>(&[shape[0], shape[1], shape[2] / 2, shape[3] / 2])
+                    .expect("failed to create resized image tensor")
             }
             ImageOperationType::FeatureExtraction => {
                 // Feature maps
-                rand::<f32>(&[shape[0], 512, shape[2] / 4, shape[3] / 4]).unwrap()
+                rand::<f32>(&[shape[0], 512, shape[2] / 4, shape[3] / 4])
+                    .expect("failed to create feature maps tensor")
             }
             _ => {
                 // Same shape as input
-                rand::<f32>(shape).unwrap()
+                rand::<f32>(shape).expect("failed to create image output tensor")
             }
         }
     }
@@ -552,14 +557,30 @@ impl CustomOperation for ScientificOperation {
 
     fn setup_input(&self, size: usize) -> Self::Input {
         let data = match self.operation_type {
-            ScientificOperationType::ODESolver => rand::<f32>(&[size]), // Initial conditions
-            ScientificOperationType::PDESolver => rand::<f32>(&[size, size]), // Grid data
-            ScientificOperationType::MonteCarlo => rand::<f32>(&[size]), // Random samples
-            ScientificOperationType::Optimization => rand::<f32>(&[size]), // Parameter vector
-            ScientificOperationType::Integration => rand::<f32>(&[size]), // Function values
-            ScientificOperationType::RootFinding => rand::<f32>(&[size]), // Polynomial coefficients
-            ScientificOperationType::Interpolation => rand::<f32>(&[size, 2]), // (x, y) pairs
-            ScientificOperationType::Regression => rand::<f32>(&[size, 2]), // (x, y) data
+            ScientificOperationType::ODESolver => {
+                rand::<f32>(&[size]).expect("failed to create ODE initial conditions")
+            } // Initial conditions
+            ScientificOperationType::PDESolver => {
+                rand::<f32>(&[size, size]).expect("failed to create PDE grid data")
+            } // Grid data
+            ScientificOperationType::MonteCarlo => {
+                rand::<f32>(&[size]).expect("failed to create Monte Carlo samples")
+            } // Random samples
+            ScientificOperationType::Optimization => {
+                rand::<f32>(&[size]).expect("failed to create optimization parameters")
+            } // Parameter vector
+            ScientificOperationType::Integration => {
+                rand::<f32>(&[size]).expect("failed to create integration values")
+            } // Function values
+            ScientificOperationType::RootFinding => {
+                rand::<f32>(&[size]).expect("failed to create root finding coefficients")
+            } // Polynomial coefficients
+            ScientificOperationType::Interpolation => {
+                rand::<f32>(&[size, 2]).expect("failed to create interpolation data")
+            } // (x, y) pairs
+            ScientificOperationType::Regression => {
+                rand::<f32>(&[size, 2]).expect("failed to create regression data")
+            } // (x, y) data
         };
 
         let params = ScientificParams {
@@ -569,7 +590,7 @@ impl CustomOperation for ScientificOperation {
             convergence_criteria: 1e-8,
         };
 
-        (data.unwrap(), params)
+        (data, params)
     }
 
     fn execute(&self, input: &Self::Input) -> Self::Output {
@@ -592,14 +613,28 @@ impl CustomOperation for ScientificOperation {
 
         // Generate appropriate results
         let result_data = match self.operation_type {
-            ScientificOperationType::ODESolver => rand::<f32>(&[size]).unwrap(), // Solution trajectory
-            ScientificOperationType::PDESolver => data.clone(),                  // Updated grid
-            ScientificOperationType::MonteCarlo => rand::<f32>(&[1]).unwrap(),   // Estimated value
-            ScientificOperationType::Optimization => rand::<f32>(&[size]).unwrap(), // Optimal parameters
-            ScientificOperationType::Integration => rand::<f32>(&[1]).unwrap(), // Integral value
-            ScientificOperationType::RootFinding => rand::<f32>(&[size - 1]).unwrap(), // Roots
-            ScientificOperationType::Interpolation => rand::<f32>(&[size * 2]).unwrap(), // Interpolated values
-            ScientificOperationType::Regression => rand::<f32>(&[2]).unwrap(), // Coefficients
+            ScientificOperationType::ODESolver => {
+                rand::<f32>(&[size]).expect("failed to create ODE solution")
+            } // Solution trajectory
+            ScientificOperationType::PDESolver => data.clone(), // Updated grid
+            ScientificOperationType::MonteCarlo => {
+                rand::<f32>(&[1]).expect("failed to create Monte Carlo result")
+            } // Estimated value
+            ScientificOperationType::Optimization => {
+                rand::<f32>(&[size]).expect("failed to create optimization result")
+            } // Optimal parameters
+            ScientificOperationType::Integration => {
+                rand::<f32>(&[1]).expect("failed to create integration result")
+            } // Integral value
+            ScientificOperationType::RootFinding => {
+                rand::<f32>(&[size - 1]).expect("failed to create roots result")
+            } // Roots
+            ScientificOperationType::Interpolation => {
+                rand::<f32>(&[size * 2]).expect("failed to create interpolation result")
+            } // Interpolated values
+            ScientificOperationType::Regression => {
+                rand::<f32>(&[2]).expect("failed to create regression coefficients")
+            } // Coefficients
         };
 
         let results = ScientificResults {
@@ -895,8 +930,12 @@ pub fn run_custom_ops_benchmarks() {
     }
 
     // Generate custom operations report
-    runner.generate_report("target/custom_ops_reports").unwrap();
-    runner.export_csv("target/custom_ops_results.csv").unwrap();
+    runner
+        .generate_report("target/custom_ops_reports")
+        .expect("failed to generate custom ops report");
+    runner
+        .export_csv("target/custom_ops_results.csv")
+        .expect("failed to export custom ops CSV");
 }
 
 #[cfg(test)]

@@ -12,7 +12,7 @@ use crate::ops::common::{
     PaddingMode,
 };
 use crate::{Result, VisionError};
-use torsh_tensor::creation::{full, ones, zeros};
+use torsh_tensor::creation::{full, ones, zeros, zeros_mut};
 use torsh_tensor::Tensor;
 
 /// Configuration for filtering operations
@@ -565,7 +565,7 @@ fn apply_horizontal_convolution(
     width: usize,
     padding: PaddingMode,
 ) -> Result<Tensor<f32>> {
-    let result = zeros(&[channels, height, width])?;
+    let result = zeros_mut(&[channels, height, width]);
     let kernel_size = kernel.len();
     let kernel_radius = kernel_size / 2;
 
@@ -598,7 +598,7 @@ fn apply_vertical_convolution(
     width: usize,
     padding: PaddingMode,
 ) -> Result<Tensor<f32>> {
-    let result = zeros(&[channels, height, width])?;
+    let result = zeros_mut(&[channels, height, width]);
     let kernel_size = kernel.len();
     let kernel_radius = kernel_size / 2;
 
@@ -633,7 +633,7 @@ fn apply_2d_convolution(
     kernel_width: usize,
     config: FilteringConfig,
 ) -> Result<Tensor<f32>> {
-    let result = zeros(&[channels, height, width])?;
+    let result = zeros_mut(&[channels, height, width]);
     let kernel_radius_y = kernel_height / 2;
     let kernel_radius_x = kernel_width / 2;
 
@@ -679,7 +679,7 @@ fn apply_erosion(
     height: usize,
     width: usize,
 ) -> Result<Tensor<f32>> {
-    let result = zeros(&[1, height, width])?;
+    let result = zeros_mut(&[1, height, width]);
     let kernel_size = structuring_element.len();
     let kernel_radius = kernel_size / 2;
 
@@ -715,7 +715,7 @@ fn apply_dilation(
     height: usize,
     width: usize,
 ) -> Result<Tensor<f32>> {
-    let result = zeros(&[1, height, width])?;
+    let result = zeros_mut(&[1, height, width]);
     let kernel_size = structuring_element.len();
     let kernel_radius = kernel_size / 2;
 
@@ -752,7 +752,7 @@ fn apply_median_filter(
     width: usize,
     kernel_size: usize,
 ) -> Result<Tensor<f32>> {
-    let result = zeros(&[channels, height, width])?;
+    let result = zeros_mut(&[channels, height, width]);
     let kernel_radius = kernel_size / 2;
 
     for c in 0..channels {
@@ -773,7 +773,7 @@ fn apply_median_filter(
                     }
                 }
 
-                values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                values.sort_by(|a, b| a.partial_cmp(b).expect("comparison should succeed"));
                 let median = values[values.len() / 2];
                 result.set(&[c, y, x], median.into())?;
             }
@@ -792,7 +792,7 @@ fn apply_bilateral_filter(
     sigma_spatial: f32,
     sigma_color: f32,
 ) -> Result<Tensor<f32>> {
-    let result = zeros(&[channels, height, width])?;
+    let result = zeros_mut(&[channels, height, width]);
     let kernel_radius = kernel_size / 2;
     let spatial_coeff = -1.0 / (2.0 * sigma_spatial * sigma_spatial);
     let color_coeff = -1.0 / (2.0 * sigma_color * sigma_color);
@@ -868,7 +868,7 @@ fn apply_padding_1d(coord: i64, size: usize, padding: PaddingMode) -> usize {
 }
 
 fn tensor_from_2d_array(array: &[[f32; 3]; 3]) -> Result<Tensor<f32>> {
-    let result = zeros(&[3, 3])?;
+    let result = zeros_mut(&[3, 3]);
     for i in 0..3 {
         for j in 0..3 {
             result.set(&[i, j], array[i][j].into())?;

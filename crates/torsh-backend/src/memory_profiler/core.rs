@@ -71,7 +71,7 @@ use super::scirs2::{ScirS2Integration, ScirS2IntegrationConfig};
 /// # Thread Safety
 ///
 /// The MemoryProfiler is designed to be thread-safe and can be safely shared across
-/// multiple threads using Arc<MemoryProfiler>.
+/// multiple threads using `Arc<MemoryProfiler>`.
 ///
 /// # Example
 ///

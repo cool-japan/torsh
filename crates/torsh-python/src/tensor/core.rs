@@ -1,11 +1,13 @@
 //! Core tensor implementation - PyTensor struct and fundamental operations
 
 use crate::{device::PyDevice, dtype::PyDType, error::PyResult, py_result};
-// ✅ SCIRS2 Policy: Use scirs2_core::ndarray instead of direct ndarray
-use numpy::{PyArray1, PyArray2, PyArrayDyn, PyArrayMethods, PyUntypedArrayMethods, ToPyArray};
+// Note: For Python bindings, we use numpy's PyArray API directly
+// which handles type conversions internally (numpy uses ndarray 0.15.x)
+use numpy::{
+    IxDyn as NpIxDyn, PyArray1, PyArray2, PyArrayDyn, PyArrayMethods, PyUntypedArrayMethods,
+};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList};
-use scirs2_core::ndarray::{Array, IxDyn};
 use torsh_core::device::DeviceType;
 use torsh_tensor::Tensor;
 
@@ -132,7 +134,7 @@ impl PyTensor {
             let binding = self.tensor.shape();
             let shape = binding.dims();
 
-            // Convert shape from usize to PyArrayDyn compatible format
+            // Convert shape from usize to Vec for reshape
             let shape_vec: Vec<usize> = shape.iter().copied().collect();
 
             match shape.len() {
@@ -141,40 +143,33 @@ impl PyTensor {
                     Ok(data[0].into_pyobject(py)?.into_any().unbind())
                 }
                 1 => {
-                    // 1D array
-                    let array = data.to_pyarray(py);
+                    // 1D array - direct creation
+                    let array = PyArray1::from_vec(py, data);
                     Ok(array.into_pyobject(py)?.into_any().unbind())
                 }
                 2 => {
-                    // 2D array - properly reshape
-                    // Create ndarray and convert to PyArrayDyn
-                    let ndarray = Array::from_vec(data)
-                        .into_dyn()
-                        .to_shape(IxDyn(&shape_vec))
+                    // 2D array - create 1D and reshape
+                    let array_1d = PyArray1::from_vec(py, data);
+                    let array_2d = array_1d
+                        .reshape([shape_vec[0], shape_vec[1]])
                         .map_err(|e| {
                             PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                                "Shape error: {}",
+                                "Reshape error: {}",
                                 e
                             ))
-                        })?
-                        .into_owned();
-                    let array = ndarray.to_pyarray(py);
-                    Ok(array.into_pyobject(py)?.into_any().unbind())
+                        })?;
+                    Ok(array_2d.into_pyobject(py)?.into_any().unbind())
                 }
                 _ => {
-                    // N-D array - properly reshape for arbitrary dimensions
-                    let ndarray = Array::from_vec(data)
-                        .into_dyn()
-                        .to_shape(IxDyn(&shape_vec))
-                        .map_err(|e| {
-                            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                                "Shape error: {}",
-                                e
-                            ))
-                        })?
-                        .into_owned();
-                    let array = ndarray.to_pyarray(py);
-                    Ok(array.into_pyobject(py)?.into_any().unbind())
+                    // N-D array - create 1D and reshape to dynamic dimension
+                    let array_1d = PyArray1::from_vec(py, data);
+                    let array_nd = array_1d.reshape(NpIxDyn(&shape_vec)).map_err(|e| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                            "Reshape error: {}",
+                            e
+                        ))
+                    })?;
+                    Ok(array_nd.into_pyobject(py)?.into_any().unbind())
                 }
             }
         })

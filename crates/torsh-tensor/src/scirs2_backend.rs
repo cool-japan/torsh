@@ -4,7 +4,7 @@
 //! tensor operations, automatic differentiation, and scientific computing primitives.
 
 use crate::{Tensor, TensorElement};
-use num_traits::{Float, One, Zero};
+use scirs2_core::numeric::{Float, One, Zero};
 use torsh_core::{
     device::DeviceType,
     error::{Result, TorshError},

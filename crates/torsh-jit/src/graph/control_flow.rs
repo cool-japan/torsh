@@ -77,7 +77,12 @@ impl ControlFlowAnalysis {
                     dominates.insert(other_node);
 
                     // Set immediate dominator if none exists or this is closer
-                    if self.dominators.get(&other_node).unwrap().is_none() {
+                    if self
+                        .dominators
+                        .get(&other_node)
+                        .expect("dominator entry should exist")
+                        .is_none()
+                    {
                         self.dominators.insert(other_node, Some(node));
                     }
                 }

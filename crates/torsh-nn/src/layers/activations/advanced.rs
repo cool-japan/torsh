@@ -944,7 +944,7 @@ mod tests {
         let output = gelu.forward(&input).unwrap();
 
         // GELU(0) should be 0
-        assert_relative_eq!(output.to_vec().unwrap()[0], 0.0, epsilon = 1e-5);
+        assert_relative_eq!(output.to_vec().expect("tensor to vec conversion should succeed")[0], 0.0, epsilon = 1e-5);
     }
 
     #[test]
@@ -958,7 +958,7 @@ mod tests {
         let output_approx = gelu_approx.forward(&input).unwrap();
 
         // They should be close but not identical
-        let diff = (output_exact.to_vec().unwrap()[0] - output_approx.to_vec().unwrap()[0]).abs();
+        let diff = (output_exact.to_vec().expect("tensor to vec conversion should succeed")[0] - output_approx.to_vec().expect("tensor to vec conversion should succeed")[0]).abs();
         assert!(diff < 0.1); // Should be reasonably close
     }
 
@@ -967,7 +967,7 @@ mod tests {
         let silu = SiLU::new();
         let input = Tensor::from_data(vec![0.0, 1.0], vec![2], DeviceType::Cpu).unwrap();
         let output = silu.forward(&input).unwrap();
-        let output_vec = output.to_vec().unwrap();
+        let output_vec = output.to_vec().expect("tensor to vec conversion should succeed");
 
         // SiLU(0) = 0 * sigmoid(0) = 0 * 0.5 = 0
         assert_relative_eq!(output_vec[0], 0.0, epsilon = 1e-5);
@@ -981,7 +981,7 @@ mod tests {
         let mish = Mish::new();
         let input = Tensor::from_data(vec![0.0, 1.0], vec![2], DeviceType::Cpu).unwrap();
         let output = mish.forward(&input).unwrap();
-        let output_vec = output.to_vec().unwrap();
+        let output_vec = output.to_vec().expect("tensor to vec conversion should succeed");
 
         // Mish(0) should be approximately 0
         assert_relative_eq!(output_vec[0], 0.0, epsilon = 1e-2);
@@ -995,7 +995,7 @@ mod tests {
         let hardswish = Hardswish::new();
         let input = Tensor::from_data(vec![-3.0, 0.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
         let output = hardswish.forward(&input).unwrap();
-        let output_vec = output.to_vec().unwrap();
+        let output_vec = output.to_vec().expect("tensor to vec conversion should succeed");
 
         // Hardswish(-3) should be 0 (since hardsigmoid(-3) = 0)
         assert_relative_eq!(output_vec[0], 0.0, epsilon = 1e-5);
@@ -1027,7 +1027,7 @@ mod tests {
 
         // GLU splits [1,2,0,1] into [1,2] and [0,1], then [1,2] * sigmoid([0,1])
         // GLU splits [3,4,-1,2] into [3,4] and [-1,2], then [3,4] * sigmoid([-1,2])
-        let output_vec = output.to_vec().unwrap();
+        let output_vec = output.to_vec().expect("tensor to vec conversion should succeed");
         assert_eq!(output_vec.len(), 4);
     }
 
@@ -1060,7 +1060,7 @@ mod tests {
         assert_eq!(output.shape().dims(), &[2]);
 
         // ReGLU([1,2,-1,1]) -> [1,2] * ReLU([-1,1]) = [1,2] * [0,1] = [0,2]
-        let output_vec = output.to_vec().unwrap();
+        let output_vec = output.to_vec().expect("tensor to vec conversion should succeed");
         assert_relative_eq!(output_vec[0], 0.0, epsilon = 1e-5); // 1 * ReLU(-1) = 1 * 0 = 0
         assert_relative_eq!(output_vec[1], 2.0, epsilon = 1e-5); // 2 * ReLU(1) = 2 * 1 = 2
     }
@@ -1103,8 +1103,8 @@ mod tests {
 
         // They should be identical
         assert_eq!(
-            silu_output.to_vec().unwrap(),
-            swish_output.to_vec().unwrap()
+            silu_output.to_vec().expect("tensor to vec conversion should succeed"),
+            swish_output.to_vec().expect("tensor to vec conversion should succeed")
         );
     }
 }

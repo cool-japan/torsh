@@ -216,11 +216,14 @@ where
 
         // Check cache
         {
-            let mut cache = self.cache.write().unwrap();
+            let mut cache = self.cache.write().expect("lock should not be poisoned");
             if let Some(entry) = cache.get_mut(&hash) {
                 entry.hit_count += 1;
                 entry.last_access = std::time::Instant::now();
-                self.metadata.write().unwrap().increment_count();
+                self.metadata
+                    .write()
+                    .expect("lock should not be poisoned")
+                    .increment_count();
                 return entry.output.clone();
             }
         }
@@ -230,7 +233,7 @@ where
 
         // Store in cache
         {
-            let mut cache = self.cache.write().unwrap();
+            let mut cache = self.cache.write().expect("lock should not be poisoned");
 
             // Evict oldest entry if cache is full
             if self.max_cache_size > 0 && cache.len() >= self.max_cache_size {
@@ -251,31 +254,45 @@ where
             );
         }
 
-        self.metadata.write().unwrap().increment_count();
+        self.metadata
+            .write()
+            .expect("lock should not be poisoned")
+            .increment_count();
         output
     }
 
     /// Get cache statistics
     pub fn cache_stats(&self) -> CacheStats {
-        let cache = self.cache.read().unwrap();
+        let cache = self.cache.read().expect("lock should not be poisoned");
         let total_hits: usize = cache.values().map(|entry| entry.hit_count).sum();
 
         CacheStats {
             size: cache.len(),
             total_hits,
-            total_misses: self.metadata.read().unwrap().application_count - total_hits,
+            total_misses: self
+                .metadata
+                .read()
+                .expect("lock should not be poisoned")
+                .application_count
+                - total_hits,
             max_size: self.max_cache_size,
         }
     }
 
     /// Clear the JIT cache
     pub fn clear_cache(&mut self) {
-        self.cache.write().unwrap().clear();
+        self.cache
+            .write()
+            .expect("lock should not be poisoned")
+            .clear();
     }
 
     /// Get transformation metadata
     pub fn metadata(&self) -> TransformMetadata {
-        self.metadata.read().unwrap().clone()
+        self.metadata
+            .read()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 }
 
@@ -367,7 +384,10 @@ where
 
     /// Get transformation metadata
     pub fn metadata(&self) -> TransformMetadata {
-        self.metadata.read().unwrap().clone()
+        self.metadata
+            .read()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Apply the vectorization (must be implemented for specific types)
@@ -423,7 +443,10 @@ where
 
     /// Get transformation metadata
     pub fn metadata(&self) -> TransformMetadata {
-        self.metadata.read().unwrap().clone()
+        self.metadata
+            .read()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Get the function reference
@@ -475,7 +498,10 @@ where
 
     /// Get transformation metadata
     pub fn metadata(&self) -> TransformMetadata {
-        self.metadata.read().unwrap().clone()
+        self.metadata
+            .read()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Get the function reference
@@ -530,7 +556,10 @@ where
 
     /// Get transformation metadata
     pub fn metadata(&self) -> TransformMetadata {
-        self.metadata.read().unwrap().clone()
+        self.metadata
+            .read()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 }
 
@@ -552,20 +581,24 @@ impl TransformRegistry {
     pub fn register(&self, metadata: TransformMetadata) {
         self.transforms
             .write()
-            .unwrap()
+            .expect("transforms lock should not be poisoned")
             .insert(metadata.id, metadata);
     }
 
     /// Get transformation metadata
     pub fn get(&self, id: TransformId) -> Option<TransformMetadata> {
-        self.transforms.read().unwrap().get(&id).cloned()
+        self.transforms
+            .read()
+            .expect("lock should not be poisoned")
+            .get(&id)
+            .cloned()
     }
 
     /// Get all transformations of a specific type
     pub fn get_by_type(&self, transform_type: TransformType) -> Vec<TransformMetadata> {
         self.transforms
             .read()
-            .unwrap()
+            .expect("transforms lock should not be poisoned")
             .values()
             .filter(|m| m.transform_type == transform_type)
             .cloned()
@@ -574,17 +607,26 @@ impl TransformRegistry {
 
     /// Get total number of registered transformations
     pub fn len(&self) -> usize {
-        self.transforms.read().unwrap().len()
+        self.transforms
+            .read()
+            .expect("lock should not be poisoned")
+            .len()
     }
 
     /// Check if registry is empty
     pub fn is_empty(&self) -> bool {
-        self.transforms.read().unwrap().is_empty()
+        self.transforms
+            .read()
+            .expect("lock should not be poisoned")
+            .is_empty()
     }
 
     /// Clear all registered transformations
     pub fn clear(&self) {
-        self.transforms.write().unwrap().clear();
+        self.transforms
+            .write()
+            .expect("lock should not be poisoned")
+            .clear();
     }
 }
 

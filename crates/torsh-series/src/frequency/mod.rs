@@ -313,7 +313,7 @@ impl PeriodogramAnalyzer {
                 .power
                 .iter()
                 .enumerate()
-                .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
                 .map(|(idx, _)| idx)
                 .unwrap_or(0);
             Ok(periodogram.frequencies[max_idx])
@@ -322,7 +322,7 @@ impl PeriodogramAnalyzer {
             Ok(periodogram
                 .peaks
                 .iter()
-                .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
                 .map(|(freq, _)| *freq)
                 .unwrap_or(0.0))
         }

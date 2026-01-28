@@ -16,15 +16,15 @@ use torsh_tensor::Tensor;
 /// Differenced time series with length reduced by `order`
 ///
 /// # Formula
-/// - Order 1: diff[t] = y[t] - y[t-1]
+/// - Order 1: `diff[t]` = `y[t]` - `y[t-1]`
 /// - Order 2: Apply first difference twice
 /// - Order n: Apply first difference n times
 ///
 /// # Examples
-/// ```
+/// ```text
 /// // First difference of [1, 3, 6, 10]:
 /// // Result: [2, 3, 4] (differences between consecutive values)
-/// ```
+/// ```text
 pub fn diff(series: &TimeSeries, order: usize) -> TimeSeries {
     if order == 0 {
         return TimeSeries::new(series.values.clone());
@@ -39,7 +39,7 @@ pub fn diff(series: &TimeSeries, order: usize) -> TimeSeries {
             break;
         }
 
-        // Compute first-order difference: y[t] - y[t-1]
+        // Compute first-order difference: `y[t]` - `y[t-1]`
         let mut diff_data = Vec::with_capacity(data.len() - 1);
         for i in 1..data.len() {
             diff_data.push(data[i] - data[i - 1]);
@@ -50,10 +50,10 @@ pub fn diff(series: &TimeSeries, order: usize) -> TimeSeries {
 
     let n = data.len();
     let tensor = if n > 0 {
-        Tensor::from_vec(data, &[n]).unwrap()
+        Tensor::from_vec(data, &[n]).expect("tensor creation should succeed")
     } else {
         // Return empty tensor if all data was consumed
-        Tensor::from_vec(vec![0.0f32], &[1]).unwrap()
+        Tensor::from_vec(vec![0.0f32], &[1]).expect("tensor creation should succeed")
     };
 
     TimeSeries::new(tensor)
@@ -94,7 +94,7 @@ pub fn detrend(series: &TimeSeries, method: &str) -> TimeSeries {
             // Mean detrending: subtract the mean from all values
             let mean = data.iter().sum::<f32>() / n as f32;
             let detrended: Vec<f32> = data.iter().map(|&x| x - mean).collect();
-            let tensor = Tensor::from_vec(detrended, &[n]).unwrap();
+            let tensor = Tensor::from_vec(detrended, &[n]).expect("tensor creation should succeed");
             TimeSeries::new(tensor)
         }
         _ => {
@@ -136,7 +136,7 @@ pub fn detrend(series: &TimeSeries, method: &str) -> TimeSeries {
                 })
                 .collect();
 
-            let tensor = Tensor::from_vec(detrended, &[n]).unwrap();
+            let tensor = Tensor::from_vec(detrended, &[n]).expect("tensor creation should succeed");
             TimeSeries::new(tensor)
         }
     }
@@ -177,14 +177,14 @@ pub fn normalize(series: &TimeSeries) -> TimeSeries {
 /// Early values (where full window isn't available) use smaller windows.
 ///
 /// # Examples
-/// ```
+/// ```text
 /// // For series [1, 2, 3, 4, 5] with window=3:
 /// // Position 0: mean([1]) = 1.0
 /// // Position 1: mean([1, 2]) = 1.5
 /// // Position 2: mean([1, 2, 3]) = 2.0
 /// // Position 3: mean([2, 3, 4]) = 3.0
 /// // Position 4: mean([3, 4, 5]) = 4.0
-/// ```
+/// ```text
 pub fn moving_average(series: &TimeSeries, window: usize) -> TimeSeries {
     if window == 0 {
         return TimeSeries::new(series.values.clone());
@@ -210,21 +210,21 @@ pub fn moving_average(series: &TimeSeries, window: usize) -> TimeSeries {
         result.push(mean);
     }
 
-    let tensor = Tensor::from_vec(result, &[n]).unwrap();
+    let tensor = Tensor::from_vec(result, &[n]).expect("tensor creation should succeed");
     TimeSeries::new(tensor)
 }
 
 /// Apply exponential moving average
 pub fn ema(series: &TimeSeries, alpha: f64) -> TimeSeries {
     let mut result = vec![0.0f32; series.len()];
-    let values = series.values.to_vec().unwrap();
+    let values = series.values.to_vec().expect("conversion should succeed");
 
     result[0] = values[0];
     for i in 1..values.len() {
         result[i] = (alpha as f32) * values[i] + ((1.0 - alpha) as f32) * result[i - 1];
     }
 
-    let tensor = Tensor::from_vec(result, &[series.len()]).unwrap();
+    let tensor = Tensor::from_vec(result, &[series.len()]).expect("tensor creation should succeed");
     TimeSeries::new(tensor)
 }
 
@@ -268,7 +268,8 @@ pub fn box_cox(series: &TimeSeries, lambda: f32) -> TimeSeries {
         })
         .collect();
 
-    let tensor = Tensor::from_vec(transformed, &[series.len()]).unwrap();
+    let tensor =
+        Tensor::from_vec(transformed, &[series.len()]).expect("tensor creation should succeed");
     TimeSeries::new(tensor)
 }
 
@@ -308,7 +309,8 @@ pub fn inv_box_cox(series: &TimeSeries, lambda: f32) -> TimeSeries {
         })
         .collect();
 
-    let tensor = Tensor::from_vec(inv_transformed, &[series.len()]).unwrap();
+    let tensor =
+        Tensor::from_vec(inv_transformed, &[series.len()]).expect("tensor creation should succeed");
     TimeSeries::new(tensor)
 }
 
@@ -342,14 +344,16 @@ pub fn standard_scale(series: &TimeSeries) -> TimeSeries {
     if std < 1e-10 {
         // All values are the same, return zeros
         let zeros_vec = vec![0.0f32; data.len()];
-        let tensor = Tensor::from_vec(zeros_vec, &[series.len()]).unwrap();
+        let tensor =
+            Tensor::from_vec(zeros_vec, &[series.len()]).expect("tensor creation should succeed");
         return TimeSeries::new(tensor);
     }
 
     // Standardize: z = (x - mean) / std
     let standardized: Vec<f32> = data.iter().map(|&x| (x - mean) / std).collect();
 
-    let tensor = Tensor::from_vec(standardized, &[series.len()]).unwrap();
+    let tensor =
+        Tensor::from_vec(standardized, &[series.len()]).expect("tensor creation should succeed");
     TimeSeries::new(tensor)
 }
 
@@ -380,14 +384,15 @@ pub fn min_max_scale(series: &TimeSeries) -> TimeSeries {
     if range < 1e-10 {
         // All values are the same, return zeros (or could return 0.5)
         let zeros_vec = vec![0.0f32; data.len()];
-        let tensor = Tensor::from_vec(zeros_vec, &[series.len()]).unwrap();
+        let tensor =
+            Tensor::from_vec(zeros_vec, &[series.len()]).expect("tensor creation should succeed");
         return TimeSeries::new(tensor);
     }
 
     // Scale to [0, 1]: x_scaled = (x - min) / (max - min)
     let scaled: Vec<f32> = data.iter().map(|&x| (x - min_val) / range).collect();
 
-    let tensor = Tensor::from_vec(scaled, &[series.len()]).unwrap();
+    let tensor = Tensor::from_vec(scaled, &[series.len()]).expect("tensor creation should succeed");
     TimeSeries::new(tensor)
 }
 

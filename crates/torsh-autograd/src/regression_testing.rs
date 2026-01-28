@@ -295,7 +295,7 @@ impl GradientRegressionTester {
     /// Run a specific test case
     pub fn run_test(&self, test_id: &str) -> AutogradResult<RegressionTestResult> {
         let test_case = {
-            let test_cases = self.test_cases.lock().unwrap();
+            let test_cases = self.test_cases.lock().expect("lock should not be poisoned");
             test_cases
                 .get(test_id)
                 .ok_or_else(|| {
@@ -313,7 +313,7 @@ impl GradientRegressionTester {
     /// Run all registered test cases
     pub fn run_all_tests(&self) -> AutogradResult<Vec<RegressionTestResult>> {
         let test_cases: Vec<GradientTestCase> = {
-            let test_cases = self.test_cases.lock().unwrap();
+            let test_cases = self.test_cases.lock().expect("lock should not be poisoned");
             test_cases.values().cloned().collect()
         };
 
@@ -349,7 +349,7 @@ impl GradientRegressionTester {
         tags: &[String],
     ) -> AutogradResult<Vec<RegressionTestResult>> {
         let test_cases: Vec<GradientTestCase> = {
-            let test_cases = self.test_cases.lock().unwrap();
+            let test_cases = self.test_cases.lock().expect("lock should not be poisoned");
             test_cases
                 .values()
                 .filter(|test_case| tags.iter().any(|tag| test_case.tags.contains(tag)))
@@ -592,7 +592,7 @@ impl GradientRegressionTester {
     /// Save test case to disk
     fn save_test_case_to_disk(&self, test_id: &str) -> AutogradResult<()> {
         let test_case = {
-            let test_cases = self.test_cases.lock().unwrap();
+            let test_cases = self.test_cases.lock().expect("lock should not be poisoned");
             test_cases
                 .get(test_id)
                 .ok_or_else(|| {
@@ -723,12 +723,15 @@ impl GradientRegressionTester {
 
     /// Get test case count
     pub fn test_case_count(&self) -> usize {
-        self.test_cases.lock().unwrap().len()
+        self.test_cases
+            .lock()
+            .expect("lock should not be poisoned")
+            .len()
     }
 
     /// Get test cases by tag
     pub fn get_test_cases_by_tag(&self, tag: &str) -> Vec<GradientTestCase> {
-        let test_cases = self.test_cases.lock().unwrap();
+        let test_cases = self.test_cases.lock().expect("lock should not be poisoned");
         test_cases
             .values()
             .filter(|test_case| test_case.tags.contains(&tag.to_string()))

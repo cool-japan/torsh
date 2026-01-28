@@ -701,7 +701,9 @@ pub fn get_optimized_profiler() -> &'static mut OptimizedProfiler {
         PROFILER_INIT.call_once(|| {
             OPTIMIZED_PROFILER = Some(OptimizedProfiler::new());
         });
-        OPTIMIZED_PROFILER.as_mut().unwrap()
+        OPTIMIZED_PROFILER
+            .as_mut()
+            .expect("OPTIMIZED_PROFILER should be initialized by call_once")
     }
 }
 

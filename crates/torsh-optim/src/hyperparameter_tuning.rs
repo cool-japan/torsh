@@ -421,7 +421,7 @@ impl HyperparameterTuner {
             // Update best trial
             if let Some((best_config, best_value)) = population
                 .iter()
-                .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+                .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
             {
                 let trial = Trial {
                     config: best_config.clone(),

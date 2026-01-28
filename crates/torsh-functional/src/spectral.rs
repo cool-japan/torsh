@@ -528,8 +528,8 @@ mod tests {
         assert_eq!(ifft_result.shape().dims(), input.shape().dims());
 
         // Check that values are approximately equal
-        let input_data = input.data().unwrap();
-        let ifft_data = ifft_result.data().unwrap();
+        let input_data = input.data().expect("tensor should have data");
+        let ifft_data = ifft_result.data().expect("tensor should have data");
 
         for (_i, (orig, reconstructed)) in input_data.iter().zip(ifft_data.iter()).enumerate() {
             assert_relative_eq!(

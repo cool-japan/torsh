@@ -322,25 +322,25 @@ impl AdvancedMemoryOptimizer {
     pub fn initialize(&self) -> Result<(), MemoryOptimizationError> {
         // Initialize predictive memory pools
         {
-            let mut pool = self.predictive_pool.lock().unwrap();
+            let mut pool = self.predictive_pool.lock().expect("lock should not be poisoned");
             pool.initialize_pools()?;
         }
 
         // Start memory pattern analysis
         {
-            let mut analyzer = self.pattern_analyzer.lock().unwrap();
+            let mut analyzer = self.pattern_analyzer.lock().expect("lock should not be poisoned");
             analyzer.start_analysis()?;
         }
 
         // Initialize bandwidth optimization
         {
-            let mut optimizer = self.bandwidth_optimizer.lock().unwrap();
+            let mut optimizer = self.bandwidth_optimizer.lock().expect("lock should not be poisoned");
             optimizer.initialize_optimization()?;
         }
 
         // Start pressure monitoring
         {
-            let mut monitor = self.pressure_monitor.lock().unwrap();
+            let mut monitor = self.pressure_monitor.lock().expect("lock should not be poisoned");
             monitor.start_monitoring()?;
         }
 
@@ -353,20 +353,20 @@ impl AdvancedMemoryOptimizer {
 
         // Get allocation strategy recommendation
         let strategy = {
-            let strategy_mgr = self.allocation_strategy.lock().unwrap();
+            let strategy_mgr = self.allocation_strategy.lock().expect("lock should not be poisoned");
             strategy_mgr.get_optimal_strategy(size, alignment)?
         };
 
         // Perform predictive allocation
         let ptr = {
-            let mut pool = self.predictive_pool.lock().unwrap();
+            let mut pool = self.predictive_pool.lock().expect("lock should not be poisoned");
             pool.allocate_with_prediction(size, alignment, lifetime_hint, strategy)?
         };
 
         // Update performance statistics
         let allocation_time = start_time.elapsed();
         {
-            let mut stats = self.statistics.lock().unwrap();
+            let mut stats = self.statistics.lock().expect("lock should not be poisoned");
             stats.total_optimizations_performed += 1;
             if allocation_time < stats.average_allocation_time {
                 stats.average_allocation_time = allocation_time;
@@ -382,13 +382,13 @@ impl AdvancedMemoryOptimizer {
 
         // Perform intelligent deallocation
         {
-            let mut pool = self.predictive_pool.lock().unwrap();
+            let mut pool = self.predictive_pool.lock().expect("lock should not be poisoned");
             pool.deallocate_with_optimization(ptr, size)?;
         }
 
         // Update memory patterns
         {
-            let mut analyzer = self.pattern_analyzer.lock().unwrap();
+            let mut analyzer = self.pattern_analyzer.lock().expect("lock should not be poisoned");
             analyzer.record_deallocation(ptr, size, start_time.elapsed())?;
         }
 
@@ -401,37 +401,37 @@ impl AdvancedMemoryOptimizer {
 
         // 1. Analyze current memory patterns
         let patterns = {
-            let mut analyzer = self.pattern_analyzer.lock().unwrap();
+            let mut analyzer = self.pattern_analyzer.lock().expect("lock should not be poisoned");
             analyzer.analyze_current_patterns()?
         };
 
         // 2. Optimize bandwidth utilization
         let bandwidth_improvements = {
-            let mut optimizer = self.bandwidth_optimizer.lock().unwrap();
+            let mut optimizer = self.bandwidth_optimizer.lock().expect("lock should not be poisoned");
             optimizer.optimize_bandwidth_utilization(&patterns)?
         };
 
         // 3. Perform intelligent prefetching optimization
         let prefetch_optimizations = {
-            let mut prefetch_engine = self.prefetch_engine.lock().unwrap();
+            let mut prefetch_engine = self.prefetch_engine.lock().expect("lock should not be poisoned");
             prefetch_engine.optimize_prefetch_strategies(&patterns)?
         };
 
         // 4. Optimize cache hierarchy
         let cache_optimizations = {
-            let mut cache_optimizer = self.cache_optimizer.lock().unwrap();
+            let mut cache_optimizer = self.cache_optimizer.lock().expect("lock should not be poisoned");
             cache_optimizer.optimize_cache_utilization(&patterns)?
         };
 
         // 5. Perform memory compaction if needed
         let compaction_results = {
-            let mut compaction_engine = self.compaction_engine.lock().unwrap();
+            let mut compaction_engine = self.compaction_engine.lock().expect("lock should not be poisoned");
             compaction_engine.perform_intelligent_compaction()?
         };
 
         // 6. Update allocation strategies
         let strategy_optimizations = {
-            let mut strategy = self.allocation_strategy.lock().unwrap();
+            let mut strategy = self.allocation_strategy.lock().expect("lock should not be poisoned");
             strategy.optimize_strategies(&patterns)?
         };
 
@@ -455,7 +455,7 @@ impl AdvancedMemoryOptimizer {
 
         // Update performance history
         {
-            let mut history = self.performance_history.lock().unwrap();
+            let mut history = self.performance_history.lock().expect("lock should not be poisoned");
             let record = MemoryPerformanceRecord {
                 timestamp: SystemTime::now(),
                 allocation_time: Duration::from_nanos(100), // Placeholder
@@ -479,9 +479,9 @@ impl AdvancedMemoryOptimizer {
 
     /// Get real-time memory optimization status
     pub fn get_optimization_status(&self) -> MemoryOptimizationStatus {
-        let stats = self.statistics.lock().unwrap().clone();
+        let stats = self.statistics.lock().expect("lock should not be poisoned").clone();
         let pressure_status = {
-            let monitor = self.pressure_monitor.lock().unwrap();
+            let monitor = self.pressure_monitor.lock().expect("lock should not be poisoned");
             monitor.get_current_pressure_status()
         };
 
@@ -619,7 +619,7 @@ pub enum MemoryOptimizationError {
 
 macro_rules! default_placeholder_type {
     ($name:ident) => {
-        #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+        #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
         pub struct $name {
             pub placeholder: bool,
         }

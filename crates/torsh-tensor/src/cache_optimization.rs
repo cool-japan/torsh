@@ -1,5 +1,7 @@
 // Cache optimization module for improving memory layout and access patterns
 
+#[cfg(feature = "simd")]
+use crate::storage::SimdStorage;
 use crate::{Tensor, TensorStorage};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -292,6 +294,11 @@ impl<T: TensorElement + Copy> Tensor<T> {
                 // Arc + RwLock + AlignedVec overhead
                 std::mem::size_of::<std::sync::Arc<std::sync::RwLock<AlignedVec<T>>>>()
             }
+            #[cfg(feature = "simd")]
+            TensorStorage::SimdOptimized(_) => {
+                // Arc + SimdStorage overhead (no RwLock, so less overhead)
+                std::mem::size_of::<std::sync::Arc<SimdStorage<T>>>()
+            }
         };
 
         MemoryStats {
@@ -366,8 +373,8 @@ impl TensorMemoryPool {
 
     /// Allocate memory from pool or create new
     pub fn allocate(&self, size_bytes: usize) -> Vec<u8> {
-        let mut pool = self.pool.lock().unwrap();
-        let mut stats = self.stats.lock().unwrap();
+        let mut pool = self.pool.lock().expect("lock should not be poisoned");
+        let mut stats = self.stats.lock().expect("lock should not be poisoned");
 
         stats.allocations += 1;
 
@@ -377,7 +384,10 @@ impl TensorMemoryPool {
         if let Some(pool_vec) = pool.get_mut(&rounded_size) {
             if let Some(memory) = pool_vec.pop() {
                 stats.cache_hits += 1;
-                let mut current_size = self.current_pool_size.lock().unwrap();
+                let mut current_size = self
+                    .current_pool_size
+                    .lock()
+                    .expect("lock should not be poisoned");
                 *current_size -= rounded_size;
                 return memory;
             }
@@ -390,9 +400,12 @@ impl TensorMemoryPool {
     /// Return memory to pool
     pub fn deallocate(&self, mut memory: Vec<u8>) {
         let size = memory.len();
-        let mut pool = self.pool.lock().unwrap();
-        let mut stats = self.stats.lock().unwrap();
-        let mut current_size = self.current_pool_size.lock().unwrap();
+        let mut pool = self.pool.lock().expect("lock should not be poisoned");
+        let mut stats = self.stats.lock().expect("lock should not be poisoned");
+        let mut current_size = self
+            .current_pool_size
+            .lock()
+            .expect("lock should not be poisoned");
 
         stats.deallocations += 1;
 
@@ -411,13 +424,19 @@ impl TensorMemoryPool {
 
     /// Get pool statistics
     pub fn get_statistics(&self) -> PoolStatistics {
-        self.stats.lock().unwrap().clone()
+        self.stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Clear the entire pool
     pub fn clear(&self) {
-        let mut pool = self.pool.lock().unwrap();
-        let mut current_size = self.current_pool_size.lock().unwrap();
+        let mut pool = self.pool.lock().expect("lock should not be poisoned");
+        let mut current_size = self
+            .current_pool_size
+            .lock()
+            .expect("lock should not be poisoned");
 
         pool.clear();
         *current_size = 0;
@@ -445,8 +464,11 @@ impl MemoryPressureMonitor {
 
     /// Record memory usage sample
     pub fn record_usage(&self, bytes_used: usize) {
-        let mut samples = self.samples.lock().unwrap();
-        let mut pressure = self.pressure_level.lock().unwrap();
+        let mut samples = self.samples.lock().expect("lock should not be poisoned");
+        let mut pressure = self
+            .pressure_level
+            .lock()
+            .expect("lock should not be poisoned");
 
         let now = Instant::now();
         samples.push((now, bytes_used));
@@ -466,7 +488,10 @@ impl MemoryPressureMonitor {
 
     /// Get current memory pressure level
     pub fn get_pressure_level(&self) -> f64 {
-        *self.pressure_level.lock().unwrap()
+        *self
+            .pressure_level
+            .lock()
+            .expect("lock should not be poisoned")
     }
 
     /// Check if system is under high memory pressure

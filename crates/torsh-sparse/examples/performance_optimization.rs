@@ -5,7 +5,7 @@
  * including format selection, memory management, and profiling.
  */
 
-use scirs2_core::random::{thread_rng, Rng};
+use scirs2_core::random::thread_rng;
 use std::time::Instant;
 use torsh_core::TorshError;
 use torsh_sparse::*;

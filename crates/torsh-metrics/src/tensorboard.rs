@@ -270,7 +270,10 @@ fn compute_histogram(values: &[f64]) -> HistogramData {
     }
 
     let mut sorted = values.to_vec();
-    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    sorted.sort_by(|a, b| {
+        a.partial_cmp(b)
+            .expect("values should be comparable for histogram")
+    });
 
     let min = sorted[0];
     let max = sorted[sorted.len() - 1];
@@ -313,7 +316,7 @@ fn current_timestamp() -> f64 {
     use std::time::{SystemTime, UNIX_EPOCH};
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .expect("system time should be after UNIX_EPOCH")
         .as_secs_f64()
 }
 

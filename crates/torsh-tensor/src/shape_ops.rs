@@ -602,6 +602,223 @@ impl<T: TensorElement + Copy> Tensor<T> {
 
         Ok(())
     }
+
+    /// Move dimensions from source positions to destination positions
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to `torch.movedim(tensor, source, destination)`
+    ///
+    /// # Arguments
+    /// * `source` - Original positions of dimensions to move
+    /// * `destination` - Target positions for the dimensions
+    ///
+    /// # Examples
+    /// ```ignore
+    /// let x = Tensor::from_data(vec![1.0; 24], vec![2, 3, 4], DeviceType::Cpu)?;
+    /// let y = x.movedim(&[0, 1], &[2, 0])?; // [2,3,4] -> [3,4,2]
+    /// ```
+    pub fn movedim(&self, source: &[isize], destination: &[isize]) -> Result<Self> {
+        if source.len() != destination.len() {
+            return Err(TorshError::InvalidArgument(
+                "source and destination must have the same length".to_string(),
+            ));
+        }
+
+        let ndim = self.ndim();
+
+        // Normalize source and destination dimensions
+        let norm_source: Result<Vec<usize>> = source
+            .iter()
+            .map(|&d| {
+                let dim = if d < 0 {
+                    (ndim as isize + d) as usize
+                } else {
+                    d as usize
+                };
+                if dim >= ndim {
+                    Err(TorshError::InvalidArgument(format!(
+                        "Dimension {} out of range for {}-D tensor",
+                        d, ndim
+                    )))
+                } else {
+                    Ok(dim)
+                }
+            })
+            .collect();
+        let norm_source = norm_source?;
+
+        let norm_dest: Result<Vec<usize>> = destination
+            .iter()
+            .map(|&d| {
+                let dim = if d < 0 {
+                    (ndim as isize + d) as usize
+                } else {
+                    d as usize
+                };
+                if dim >= ndim {
+                    Err(TorshError::InvalidArgument(format!(
+                        "Dimension {} out of range for {}-D tensor",
+                        d, ndim
+                    )))
+                } else {
+                    Ok(dim)
+                }
+            })
+            .collect();
+        let norm_dest = norm_dest?;
+
+        // Check for duplicates in source
+        for i in 0..norm_source.len() {
+            for j in i + 1..norm_source.len() {
+                if norm_source[i] == norm_source[j] {
+                    return Err(TorshError::InvalidArgument(
+                        "repeated dim in source".to_string(),
+                    ));
+                }
+            }
+        }
+
+        // Check for duplicates in destination
+        for i in 0..norm_dest.len() {
+            for j in i + 1..norm_dest.len() {
+                if norm_dest[i] == norm_dest[j] {
+                    return Err(TorshError::InvalidArgument(
+                        "repeated dim in destination".to_string(),
+                    ));
+                }
+            }
+        }
+
+        // Build permutation array by placing dims in final positions
+        let mut result_perm = vec![0; ndim];
+        let mut used = vec![false; ndim];
+
+        // Place source dims at destination positions
+        for (&src, &dst) in norm_source.iter().zip(norm_dest.iter()) {
+            result_perm[dst] = src;
+            used[dst] = true;
+        }
+
+        // Fill remaining positions with remaining dims in order
+        let remaining_dims: Vec<usize> = (0..ndim).filter(|d| !norm_source.contains(d)).collect();
+
+        let mut remaining_idx = 0;
+        for i in 0..ndim {
+            if !used[i] {
+                result_perm[i] = remaining_dims[remaining_idx];
+                remaining_idx += 1;
+            }
+        }
+
+        // Convert usize to i32 for permute
+        let perm_i32: Vec<i32> = result_perm.iter().map(|&d| d as i32).collect();
+        self.permute(&perm_i32)
+    }
+
+    /// Move axis from source position to destination position (alias for movedim)
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to `torch.moveaxis(tensor, source, destination)`
+    ///
+    /// # Arguments
+    /// * `source` - Original positions of axes to move
+    /// * `destination` - Target positions for the axes
+    pub fn moveaxis(&self, source: &[isize], destination: &[isize]) -> Result<Self> {
+        self.movedim(source, destination)
+    }
+
+    /// Swap two dimensions
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to `torch.swapaxes(tensor, axis0, axis1)` or `torch.swapdims(tensor, dim0, dim1)`
+    ///
+    /// # Arguments
+    /// * `axis0` - First dimension
+    /// * `axis1` - Second dimension
+    ///
+    /// # Examples
+    /// ```ignore
+    /// let x = Tensor::from_data(vec![1.0; 12], vec![2, 3, 2], DeviceType::Cpu)?;
+    /// let y = x.swapaxes(0, 2)?; // [2,3,2] -> [2,3,2] with dims 0 and 2 swapped
+    /// ```
+    pub fn swapaxes(&self, axis0: isize, axis1: isize) -> Result<Self> {
+        let ndim = self.ndim();
+
+        // Normalize dimensions
+        let dim0 = if axis0 < 0 {
+            (ndim as isize + axis0) as usize
+        } else {
+            axis0 as usize
+        };
+        let dim1 = if axis1 < 0 {
+            (ndim as isize + axis1) as usize
+        } else {
+            axis1 as usize
+        };
+
+        if dim0 >= ndim {
+            return Err(TorshError::InvalidArgument(format!(
+                "Dimension {} out of range for {}-D tensor",
+                axis0, ndim
+            )));
+        }
+        if dim1 >= ndim {
+            return Err(TorshError::InvalidArgument(format!(
+                "Dimension {} out of range for {}-D tensor",
+                axis1, ndim
+            )));
+        }
+
+        // Build permutation: swap dim0 and dim1
+        let mut perm: Vec<i32> = (0..ndim as i32).collect();
+        perm.swap(dim0, dim1);
+
+        self.permute(&perm)
+    }
+
+    /// Swap two dimensions (alias for swapaxes)
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to `torch.swapdims(tensor, dim0, dim1)`
+    pub fn swapdims(&self, dim0: isize, dim1: isize) -> Result<Self> {
+        self.swapaxes(dim0, dim1)
+    }
+
+    /// Broadcast tensor to a new shape
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to `torch.broadcast_to(tensor, shape)`
+    ///
+    /// # Arguments
+    /// * `shape` - Target shape for broadcasting
+    ///
+    /// # Examples
+    /// ```ignore
+    /// let x = Tensor::from_data(vec![1.0, 2.0], vec![2], DeviceType::Cpu)?;
+    /// let y = x.broadcast_to(&[3, 2])?; // Broadcast [2] to [3, 2]
+    /// ```
+    pub fn broadcast_to(&self, shape: &[usize]) -> Result<Self> {
+        // Use the existing expand method which handles broadcasting
+        self.expand(shape)
+    }
+
+    /// Expand tensor to match another tensor's shape
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to `torch.expand_as(tensor, other)`
+    ///
+    /// # Arguments
+    /// * `other` - Target tensor whose shape to match
+    ///
+    /// # Examples
+    /// ```ignore
+    /// let x = Tensor::from_data(vec![1.0, 2.0], vec![2], DeviceType::Cpu)?;
+    /// let y = Tensor::from_data(vec![0.0; 6], vec![3, 2], DeviceType::Cpu)?;
+    /// let z = x.expand_as(&y)?; // Expand x to match y's shape [3, 2]
+    /// ```
+    pub fn expand_as(&self, other: &Self) -> Result<Self> {
+        self.broadcast_to(other.shape().dims())
+    }
 }
 
 #[cfg(test)]
@@ -702,5 +919,111 @@ mod tests {
 
         // Should fail - multiple -1
         assert!(tensor.view(&[-1, -1]).is_err());
+    }
+
+    #[test]
+    fn test_movedim_single() {
+        let tensor = Tensor::from_data(vec![1.0f32; 24], vec![2, 3, 4], DeviceType::Cpu).unwrap();
+
+        // Move dim 0 to position 2: [2,3,4] -> [3,4,2]
+        let result = tensor.movedim(&[0], &[2]).unwrap();
+        assert_eq!(result.shape().dims(), &[3, 4, 2]);
+    }
+
+    #[test]
+    fn test_movedim_multiple() {
+        let tensor = Tensor::from_data(vec![1.0f32; 24], vec![2, 3, 4], DeviceType::Cpu).unwrap();
+
+        // Move dims [0, 1] to positions [2, 0]: [2,3,4] -> [3,4,2]
+        let result = tensor.movedim(&[0, 1], &[2, 0]).unwrap();
+        assert_eq!(result.shape().dims(), &[3, 4, 2]);
+    }
+
+    #[test]
+    fn test_movedim_negative_indices() {
+        let tensor = Tensor::from_data(vec![1.0f32; 24], vec![2, 3, 4], DeviceType::Cpu).unwrap();
+
+        // Move last dim to first position: [2,3,4] -> [4,2,3]
+        let result = tensor.movedim(&[-1], &[0]).unwrap();
+        assert_eq!(result.shape().dims(), &[4, 2, 3]);
+    }
+
+    #[test]
+    fn test_moveaxis_alias() {
+        let tensor = Tensor::from_data(vec![1.0f32; 24], vec![2, 3, 4], DeviceType::Cpu).unwrap();
+
+        let result1 = tensor.movedim(&[0], &[2]).unwrap();
+        let result2 = tensor.moveaxis(&[0], &[2]).unwrap();
+        assert_eq!(result1.shape().dims(), result2.shape().dims());
+    }
+
+    #[test]
+    fn test_swapaxes_simple() {
+        let tensor = Tensor::from_data(
+            vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0],
+            vec![2, 3],
+            DeviceType::Cpu,
+        )
+        .unwrap();
+
+        // Swap dims 0 and 1: [2,3] -> [3,2]
+        let result = tensor.swapaxes(0, 1).unwrap();
+        assert_eq!(result.shape().dims(), &[3, 2]);
+    }
+
+    #[test]
+    fn test_swapaxes_3d() {
+        let tensor = Tensor::from_data(vec![1.0f32; 24], vec![2, 3, 4], DeviceType::Cpu).unwrap();
+
+        // Swap dims 0 and 2: [2,3,4] -> [4,3,2]
+        let result = tensor.swapaxes(0, 2).unwrap();
+        assert_eq!(result.shape().dims(), &[4, 3, 2]);
+    }
+
+    #[test]
+    fn test_swapaxes_negative_indices() {
+        let tensor = Tensor::from_data(vec![1.0f32; 24], vec![2, 3, 4], DeviceType::Cpu).unwrap();
+
+        // Swap last two dims: [2,3,4] -> [2,4,3]
+        let result = tensor.swapaxes(-1, -2).unwrap();
+        assert_eq!(result.shape().dims(), &[2, 4, 3]);
+    }
+
+    #[test]
+    fn test_swapdims_alias() {
+        let tensor = Tensor::from_data(vec![1.0f32; 24], vec![2, 3, 4], DeviceType::Cpu).unwrap();
+
+        let result1 = tensor.swapaxes(0, 2).unwrap();
+        let result2 = tensor.swapdims(0, 2).unwrap();
+        assert_eq!(result1.shape().dims(), result2.shape().dims());
+    }
+
+    #[test]
+    fn test_broadcast_to_same_shape() {
+        let tensor =
+            Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu).unwrap();
+
+        let result = tensor.broadcast_to(&[2, 2]).unwrap();
+        assert_eq!(result.shape().dims(), &[2, 2]);
+    }
+
+    #[test]
+    fn test_broadcast_to_expand_dim() {
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0], vec![1, 2], DeviceType::Cpu).unwrap();
+
+        // Broadcast [1, 2] to [3, 2]
+        let result = tensor.broadcast_to(&[3, 2]).unwrap();
+        assert_eq!(result.shape().dims(), &[3, 2]);
+    }
+
+    #[test]
+    fn test_expand_as_basic() {
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0], vec![1, 2], DeviceType::Cpu).unwrap();
+
+        let target = Tensor::from_data(vec![0.0f32; 6], vec![3, 2], DeviceType::Cpu).unwrap();
+
+        let result = tensor.expand_as(&target).unwrap();
+        assert_eq!(result.shape().dims(), target.shape().dims());
+        assert_eq!(result.shape().dims(), &[3, 2]);
     }
 }

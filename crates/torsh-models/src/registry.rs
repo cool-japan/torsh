@@ -140,7 +140,7 @@ impl ModelRegistry {
 
     /// Register a new model
     pub fn register_model(&self, info: ModelInfo) -> ModelResult<()> {
-        let mut models = self.models.lock().unwrap();
+        let mut models = self.models.lock().expect("lock should not be poisoned");
         let key = format!("{}:{}", info.name, info.version);
         models.insert(key, info);
         Ok(())
@@ -148,7 +148,7 @@ impl ModelRegistry {
 
     /// Get model information by name and version
     pub fn get_model_info(&self, name: &str, version: Option<&str>) -> ModelResult<ModelInfo> {
-        let models = self.models.lock().unwrap();
+        let models = self.models.lock().expect("lock should not be poisoned");
 
         if let Some(version) = version {
             let key = format!("{}:{}", name, version);
@@ -171,19 +171,22 @@ impl ModelRegistry {
             let mut sorted = matching_models;
             sorted.sort_by(|a, b| a.version.cmp(&b.version));
 
-            Ok((*sorted.last().unwrap()).clone())
+            Ok((*sorted
+                .last()
+                .expect("matching models list should not be empty"))
+            .clone())
         }
     }
 
     /// List all registered models
     pub fn list_models(&self) -> Vec<ModelInfo> {
-        let models = self.models.lock().unwrap();
+        let models = self.models.lock().expect("lock should not be poisoned");
         models.values().cloned().collect()
     }
 
     /// Search models by domain
     pub fn search_by_domain(&self, domain: &str) -> Vec<ModelInfo> {
-        let models = self.models.lock().unwrap();
+        let models = self.models.lock().expect("lock should not be poisoned");
         models
             .values()
             .filter(|info| info.domain == domain)
@@ -193,7 +196,7 @@ impl ModelRegistry {
 
     /// Search models by tags
     pub fn search_by_tags(&self, tags: &[&str]) -> Vec<ModelInfo> {
-        let models = self.models.lock().unwrap();
+        let models = self.models.lock().expect("lock should not be poisoned");
         models
             .values()
             .filter(|info| tags.iter().any(|tag| info.tags.contains(&tag.to_string())))
@@ -208,7 +211,7 @@ impl ModelRegistry {
 
         // Check if handle already exists
         {
-            let handles = self.handles.lock().unwrap();
+            let handles = self.handles.lock().expect("lock should not be poisoned");
             if let Some(handle) = handles.get(&key) {
                 return Ok(ModelHandle {
                     info: handle.info.clone(),
@@ -224,7 +227,7 @@ impl ModelRegistry {
 
         // Cache the handle
         {
-            let mut handles = self.handles.lock().unwrap();
+            let mut handles = self.handles.lock().expect("lock should not be poisoned");
             handles.insert(
                 key,
                 ModelHandle {

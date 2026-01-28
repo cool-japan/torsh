@@ -44,7 +44,7 @@ pub struct DownloadArgs {
     #[arg(short, long)]
     pub revision: Option<String>,
 
-    /// Hub URL (default: https://huggingface.co)
+    /// Hub URL (default: <https://huggingface.co>)
     #[arg(long, default_value = "https://huggingface.co")]
     pub hub_url: String,
 }

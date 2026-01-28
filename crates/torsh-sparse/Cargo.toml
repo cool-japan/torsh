@@ -17,8 +17,8 @@ torsh-core = { workspace = true }
 torsh-tensor = { workspace = true }
 
 # SciRS2 ecosystem for sparse operations (required by SCIRS2 policy)
-scirs2-core = { version = "0.1.0-rc.4" }
-scirs2-sparse = { version = "0.1.0-rc.4", optional = true }
+scirs2-core = { workspace = true }
+scirs2-sparse = { workspace = true, optional = true }
 
 # Sparse matrix libraries
 sprs = "0.11"
@@ -30,7 +30,7 @@ thiserror = { workspace = true }
 num-traits = { workspace = true }
 
 # Optional CUDA support
-cudarc = { version = "0.18", optional = true, features = ["cuda-12000"] }
+cudarc = { version = "0.19", optional = true, features = ["cuda-12000"] }
 # cusparse = { version = "0.3", optional = true }  # Currently not available on crates.io
 
 # Optional Python interoperability
@@ -39,12 +39,12 @@ numpy = { version = "0.27", optional = true }
 
 # Optional MATLAB compatibility
 matfile = { version = "0.5", optional = true }
-serde = { version = "1.0", optional = true }
-serde_json = { version = "1.0", optional = true }
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
 
 # Optional HDF5 support
 hdf5 = { version = "0.8", optional = true }
-chrono = { version = "0.4", optional = true }
+chrono = { workspace = true, optional = true }
 # ndarray-hdf5 = { version = "0.7", optional = true }  # Temporarily disabled - version not available
 
 [dev-dependencies]

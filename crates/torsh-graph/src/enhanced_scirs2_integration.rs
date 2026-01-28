@@ -32,7 +32,10 @@ impl SciRS2GraphAlgorithms {
         tolerance: f64,
     ) -> Vec<f64> {
         let num_nodes = graph.num_nodes;
-        let edge_data = graph.edge_index.to_vec().unwrap();
+        let edge_data = graph
+            .edge_index
+            .to_vec()
+            .expect("conversion should succeed");
 
         // Build adjacency list
         let mut adj_list: HashMap<usize, Vec<usize>> = HashMap::new();
@@ -90,7 +93,10 @@ impl SciRS2GraphAlgorithms {
     /// Compute betweenness centrality
     pub fn betweenness_centrality(graph: &GraphData) -> Vec<f64> {
         let num_nodes = graph.num_nodes;
-        let edge_data = graph.edge_index.to_vec().unwrap();
+        let edge_data = graph
+            .edge_index
+            .to_vec()
+            .expect("conversion should succeed");
 
         // Build adjacency list
         let mut adj_list: HashMap<usize, Vec<usize>> = HashMap::new();
@@ -168,7 +174,10 @@ impl SciRS2GraphAlgorithms {
     /// Compute closeness centrality
     pub fn closeness_centrality(graph: &GraphData) -> Vec<f64> {
         let num_nodes = graph.num_nodes;
-        let edge_data = graph.edge_index.to_vec().unwrap();
+        let edge_data = graph
+            .edge_index
+            .to_vec()
+            .expect("conversion should succeed");
 
         // Build adjacency list
         let mut adj_list: HashMap<usize, Vec<usize>> = HashMap::new();
@@ -218,7 +227,10 @@ impl SciRS2GraphAlgorithms {
     /// Detect communities using Louvain algorithm
     pub fn louvain_communities(graph: &GraphData, resolution: f64) -> Vec<usize> {
         let num_nodes = graph.num_nodes;
-        let edge_data = graph.edge_index.to_vec().unwrap();
+        let edge_data = graph
+            .edge_index
+            .to_vec()
+            .expect("conversion should succeed");
 
         // Build weighted adjacency
         let mut adj: HashMap<(usize, usize), f64> = HashMap::new();
@@ -329,7 +341,10 @@ impl SciRS2GraphAlgorithms {
     /// Compute k-core decomposition
     pub fn k_core_decomposition(graph: &GraphData) -> Vec<usize> {
         let num_nodes = graph.num_nodes;
-        let edge_data = graph.edge_index.to_vec().unwrap();
+        let edge_data = graph
+            .edge_index
+            .to_vec()
+            .expect("conversion should succeed");
 
         // Build adjacency list
         let mut adj_list: HashMap<usize, HashSet<usize>> = HashMap::new();
@@ -398,7 +413,10 @@ impl SciRS2GraphAlgorithms {
     /// Triangle counting
     pub fn count_triangles(graph: &GraphData) -> usize {
         let num_nodes = graph.num_nodes;
-        let edge_data = graph.edge_index.to_vec().unwrap();
+        let edge_data = graph
+            .edge_index
+            .to_vec()
+            .expect("conversion should succeed");
 
         // Build adjacency list
         let mut adj_list: HashMap<usize, HashSet<usize>> = HashMap::new();
@@ -444,7 +462,10 @@ impl SciRS2GraphAlgorithms {
     /// Compute clustering coefficient for each node
     pub fn clustering_coefficients(graph: &GraphData) -> Vec<f64> {
         let num_nodes = graph.num_nodes;
-        let edge_data = graph.edge_index.to_vec().unwrap();
+        let edge_data = graph
+            .edge_index
+            .to_vec()
+            .expect("conversion should succeed");
 
         // Build adjacency list
         let mut adj_list: HashMap<usize, HashSet<usize>> = HashMap::new();
@@ -529,7 +550,7 @@ impl GraphSampler {
         // Sample features
         let mut sampled_features = Vec::new();
         let feature_dim = graph.x.shape().dims()[1];
-        let all_features = graph.x.to_vec().unwrap();
+        let all_features = graph.x.to_vec().expect("conversion should succeed");
 
         for &node in &sampled_nodes {
             let start = node * feature_dim;
@@ -545,7 +566,10 @@ impl GraphSampler {
         .unwrap();
 
         // Sample edges
-        let edge_data = graph.edge_index.to_vec().unwrap();
+        let edge_data = graph
+            .edge_index
+            .to_vec()
+            .expect("conversion should succeed");
         let mut sampled_edges = Vec::new();
 
         for i in (0..edge_data.len()).step_by(2) {
@@ -578,7 +602,10 @@ impl GraphSampler {
         walk_length: usize,
     ) -> Vec<Vec<usize>> {
         let mut rng = thread_rng();
-        let edge_data = graph.edge_index.to_vec().unwrap();
+        let edge_data = graph
+            .edge_index
+            .to_vec()
+            .expect("conversion should succeed");
 
         // Build adjacency list
         let mut adj_list: HashMap<usize, Vec<usize>> = HashMap::new();
@@ -618,7 +645,10 @@ impl GraphSampler {
 
     /// Subgraph sampling based on k-hop neighborhood
     pub fn k_hop_subgraph(graph: &GraphData, center_nodes: &[usize], k: usize) -> GraphData {
-        let edge_data = graph.edge_index.to_vec().unwrap();
+        let edge_data = graph
+            .edge_index
+            .to_vec()
+            .expect("conversion should succeed");
 
         // Build adjacency list
         let mut adj_list: HashMap<usize, Vec<usize>> = HashMap::new();
@@ -665,7 +695,7 @@ impl GraphSampler {
         // Extract features
         let mut sampled_features = Vec::new();
         let feature_dim = graph.x.shape().dims()[1];
-        let all_features = graph.x.to_vec().unwrap();
+        let all_features = graph.x.to_vec().expect("conversion should succeed");
 
         for &node in &subgraph_nodes_vec {
             let start = node * feature_dim;

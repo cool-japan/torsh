@@ -242,7 +242,10 @@ impl Pruner {
 
         // Calculate threshold for desired sparsity
         let mut sorted_values: Vec<f32> = abs_values.data().unwrap_or_else(|_| vec![]);
-        sorted_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted_values.sort_by(|a, b| {
+            a.partial_cmp(b)
+                .expect("value comparison should not involve NaN")
+        });
 
         let threshold_idx = (sorted_values.len() as f32 * self.config.sparsity) as usize;
         let threshold = sorted_values[threshold_idx.min(sorted_values.len() - 1)];
@@ -256,7 +259,8 @@ impl Pruner {
             .map(|&b| if b { 1.0 } else { 0.0 })
             .collect();
         let f32_mask =
-            Tensor::from_data(f32_mask_data, mask.shape().dims().to_vec(), mask.device()).unwrap();
+            Tensor::from_data(f32_mask_data, mask.shape().dims().to_vec(), mask.device())
+                .expect("tensor creation should succeed");
         Ok(f32_mask)
     }
 
@@ -304,7 +308,10 @@ impl Pruner {
         }
 
         // Sort by norm
-        channel_norms.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+        channel_norms.sort_by(|a, b| {
+            a.1.partial_cmp(&b.1)
+                .expect("norm comparison should not involve NaN")
+        });
 
         // Determine channels to prune
         let channels_to_prune = (out_channels as f32 * self.config.sparsity) as usize;
@@ -327,7 +334,8 @@ impl Pruner {
             })
             .collect();
 
-        Ok(Tensor::from_data(mask_data, dims.to_vec(), data.device()).unwrap())
+        Ok(Tensor::from_data(mask_data, dims.to_vec(), data.device())
+            .expect("mask tensor creation should succeed"))
     }
 
     /// Create magnitude-based mask with specific sparsity
@@ -338,7 +346,10 @@ impl Pruner {
     ) -> Result<Tensor<f32>, Box<dyn std::error::Error>> {
         let abs_values = data.abs()?;
         let mut sorted_values: Vec<f32> = abs_values.to_vec()?;
-        sorted_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted_values.sort_by(|a, b| {
+            a.partial_cmp(b)
+                .expect("value comparison should not involve NaN")
+        });
 
         let threshold_idx = (sorted_values.len() as f32 * sparsity) as usize;
         let threshold = sorted_values[threshold_idx.min(sorted_values.len() - 1)];

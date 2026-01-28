@@ -1,7 +1,7 @@
 //! Matrix decomposition algorithms
 
 use crate::TorshResult;
-use torsh_core::TorshError;
+use torsh_core::{DeviceType, TorshError};
 use torsh_tensor::{
     creation::{eye, zeros},
     Tensor,
@@ -24,10 +24,26 @@ pub fn lu(tensor: &Tensor) -> TorshResult<(Tensor, Tensor, Tensor)> {
         ));
     }
 
-    // Initialize matrices
-    let a = tensor.clone(); // Working matrix
-    let l = eye::<f32>(m)?; // Lower triangular
-    let p = eye::<f32>(m)?; // Permutation matrix
+    // Initialize matrices as mutable vectors (avoids SimdOptimized storage issues)
+    // Copy input tensor data to working matrix A
+    let mut a_data = vec![0.0f32; m * n];
+    for i in 0..m {
+        for j in 0..n {
+            a_data[i * n + j] = tensor.get(&[i, j])?;
+        }
+    }
+
+    // L = identity matrix (lower triangular)
+    let mut l_data = vec![0.0f32; m * m];
+    for i in 0..m {
+        l_data[i * m + i] = 1.0;
+    }
+
+    // P = identity matrix (permutation matrix)
+    let mut p_data = vec![0.0f32; m * m];
+    for i in 0..m {
+        p_data[i * m + i] = 1.0;
+    }
 
     // Gaussian elimination with partial pivoting
     for k in 0..m {
@@ -36,7 +52,7 @@ pub fn lu(tensor: &Tensor) -> TorshResult<(Tensor, Tensor, Tensor)> {
         let mut pivot_row = k;
 
         for i in k..m {
-            let val = a.get(&[i, k])?.abs();
+            let val = a_data[i * n + k].abs();
             if val > max_val {
                 max_val = val;
                 pivot_row = i;
@@ -47,27 +63,27 @@ pub fn lu(tensor: &Tensor) -> TorshResult<(Tensor, Tensor, Tensor)> {
         if pivot_row != k {
             // Swap rows in A
             for j in 0..n {
-                let temp = a.get(&[k, j])?;
-                a.set(&[k, j], a.get(&[pivot_row, j])?)?;
-                a.set(&[pivot_row, j], temp)?;
+                let temp = a_data[k * n + j];
+                a_data[k * n + j] = a_data[pivot_row * n + j];
+                a_data[pivot_row * n + j] = temp;
             }
 
             // Swap rows in P
             for j in 0..m {
-                let temp = p.get(&[k, j])?;
-                p.set(&[k, j], p.get(&[pivot_row, j])?)?;
-                p.set(&[pivot_row, j], temp)?;
+                let temp = p_data[k * m + j];
+                p_data[k * m + j] = p_data[pivot_row * m + j];
+                p_data[pivot_row * m + j] = temp;
             }
 
             // Swap rows in L (only for already computed part)
             for j in 0..k {
-                let temp = l.get(&[k, j])?;
-                l.set(&[k, j], l.get(&[pivot_row, j])?)?;
-                l.set(&[pivot_row, j], temp)?;
+                let temp = l_data[k * m + j];
+                l_data[k * m + j] = l_data[pivot_row * m + j];
+                l_data[pivot_row * m + j] = temp;
             }
         }
 
-        let pivot = a.get(&[k, k])?;
+        let pivot = a_data[k * n + k];
         if pivot.abs() < 1e-12 {
             return Err(TorshError::InvalidArgument(
                 format!("Matrix is singular: pivot element at ({k}, {k}) = {pivot} is too small for numerical stability")
@@ -76,18 +92,19 @@ pub fn lu(tensor: &Tensor) -> TorshResult<(Tensor, Tensor, Tensor)> {
 
         // Eliminate column
         for i in (k + 1)..m {
-            let factor = a.get(&[i, k])? / pivot;
-            l.set(&[i, k], factor)?;
+            let factor = a_data[i * n + k] / pivot;
+            l_data[i * m + k] = factor;
 
             for j in k..n {
-                let new_val = a.get(&[i, j])? - factor * a.get(&[k, j])?;
-                a.set(&[i, j], new_val)?;
+                a_data[i * n + j] -= factor * a_data[k * n + j];
             }
         }
     }
 
-    // A now contains U (upper triangular)
-    let u = a;
+    // Create output tensors
+    let p = Tensor::from_data(p_data, vec![m, m], DeviceType::Cpu)?;
+    let l = Tensor::from_data(l_data, vec![m, m], DeviceType::Cpu)?;
+    let u = Tensor::from_data(a_data, vec![m, n], DeviceType::Cpu)?;
 
     Ok((p, l, u))
 }
@@ -104,9 +121,9 @@ pub fn qr(tensor: &Tensor) -> TorshResult<(Tensor, Tensor)> {
 
     let (m, n) = (tensor.shape().dims()[0], tensor.shape().dims()[1]);
 
-    // Initialize Q and R
-    let q = zeros::<f32>(&[m, n])?;
-    let r = zeros::<f32>(&[n, n])?;
+    // Initialize Q and R data as mutable vectors (avoids SimdOptimized storage issues)
+    let mut q_data = vec![0.0f32; m * n];
+    let mut r_data = vec![0.0f32; n * n];
 
     // Gram-Schmidt process
     for j in 0..n {
@@ -121,15 +138,14 @@ pub fn qr(tensor: &Tensor) -> TorshResult<(Tensor, Tensor)> {
             // Compute dot product <q_k, a_j> in a single pass
             let mut dot_product = 0.0;
             for i in 0..m {
-                dot_product += q.get(&[i, k])? * v[i];
+                dot_product += q_data[i * n + k] * v[i];
             }
 
-            r.set(&[k, j], dot_product)?;
+            r_data[k * n + j] = dot_product;
 
             // Subtract projection: v = v - r_kj * q_k
-            // Cache q_k values to avoid repeated tensor access
             for i in 0..m {
-                let q_ki = q.get(&[i, k])?;
+                let q_ki = q_data[i * n + k];
                 v[i] -= dot_product * q_ki;
             }
         }
@@ -147,14 +163,17 @@ pub fn qr(tensor: &Tensor) -> TorshResult<(Tensor, Tensor)> {
             )));
         }
 
-        r.set(&[j, j], norm)?;
+        r_data[j * n + j] = norm;
 
         // Normalize and store in Q
         let inv_norm = 1.0 / norm;
         for (i, &v_item) in v.iter().enumerate().take(m) {
-            q.set(&[i, j], v_item * inv_norm)?;
+            q_data[i * n + j] = v_item * inv_norm;
         }
     }
+
+    let q = Tensor::from_data(q_data, vec![m, n], DeviceType::Cpu)?;
+    let r = Tensor::from_data(r_data, vec![n, n], DeviceType::Cpu)?;
 
     Ok((q, r))
 }
@@ -529,8 +548,8 @@ pub fn cholesky(tensor: &Tensor, upper: bool) -> TorshResult<Tensor> {
         ));
     }
 
-    // Initialize result matrix
-    let result = zeros::<f32>(&[n, n])?;
+    // Initialize result matrix as mutable vector (avoids SimdOptimized storage issues)
+    let mut result_data = vec![0.0f32; n * n];
 
     if upper {
         // Compute upper triangular: A = U^T * U
@@ -540,7 +559,7 @@ pub fn cholesky(tensor: &Tensor, upper: bool) -> TorshResult<Tensor> {
 
                 // Subtract contributions from already computed elements
                 for k in 0..i {
-                    sum -= result.get(&[k, i])? * result.get(&[k, j])?;
+                    sum -= result_data[k * n + i] * result_data[k * n + j];
                 }
 
                 if i == j {
@@ -550,16 +569,16 @@ pub fn cholesky(tensor: &Tensor, upper: bool) -> TorshResult<Tensor> {
                             "Matrix is not positive definite".to_string(),
                         ));
                     }
-                    result.set(&[i, j], sum.sqrt())?;
+                    result_data[i * n + j] = sum.sqrt();
                 } else {
                     // Off-diagonal element
-                    let diag = result.get(&[i, i])?;
+                    let diag = result_data[i * n + i];
                     if diag.abs() < 1e-12 {
                         return Err(TorshError::InvalidArgument(
                             "Matrix is singular".to_string(),
                         ));
                     }
-                    result.set(&[i, j], sum / diag)?;
+                    result_data[i * n + j] = sum / diag;
                 }
             }
         }
@@ -571,7 +590,7 @@ pub fn cholesky(tensor: &Tensor, upper: bool) -> TorshResult<Tensor> {
 
                 // Subtract contributions from already computed elements
                 for k in 0..j {
-                    sum -= result.get(&[i, k])? * result.get(&[j, k])?;
+                    sum -= result_data[i * n + k] * result_data[j * n + k];
                 }
 
                 if i == j {
@@ -581,22 +600,22 @@ pub fn cholesky(tensor: &Tensor, upper: bool) -> TorshResult<Tensor> {
                             "Matrix is not positive definite".to_string(),
                         ));
                     }
-                    result.set(&[i, j], sum.sqrt())?;
+                    result_data[i * n + j] = sum.sqrt();
                 } else {
                     // Off-diagonal element
-                    let diag = result.get(&[j, j])?;
+                    let diag = result_data[j * n + j];
                     if diag.abs() < 1e-12 {
                         return Err(TorshError::InvalidArgument(
                             "Matrix is singular".to_string(),
                         ));
                     }
-                    result.set(&[i, j], sum / diag)?;
+                    result_data[i * n + j] = sum / diag;
                 }
             }
         }
     }
 
-    Ok(result)
+    Tensor::from_data(result_data, vec![n, n], DeviceType::Cpu)
 }
 
 /// Polar decomposition

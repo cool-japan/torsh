@@ -8,6 +8,404 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
+// Import types from config module
+use super::config::{HistoryStorageConfig, TrendAnalysisConfig};
+
+// Import types from monitoring module
+use super::monitoring::{
+    AnomalyAnalysis, AnomalyIndicator, ApprovalStatus, BackupInformation, BaselineComparison,
+    BenchmarkComparisons, ChangeMetadata, ChangeReason, ChangeValidationResults, CorrelationAnalysis,
+    CorrelationData, DataCollectionMethod, DataSource, EnrichmentData, ErrorInfo, ErrorPatterns,
+    ErrorRecord, ExecutionBenchmarks, ExecutionContext, ExecutionMetadata, ExecutionQualityMetrics,
+    ExecutionStatus, FrequencyPatterns, FutureImplications, HistoryIndex, HistoryQualityMetrics,
+    ImpactAssessment, KnowledgeGained, MeasurementUncertainty, MilestoneValidationMetrics,
+    OptimizationResults, OptimizationSession, ParameterTuningRecord, PerformanceImpact,
+    PredictiveInsights, QualityOfServiceMetrics, ReproducibilityInfo, ResourceUsage,
+    ResourceUtilization, ResourceUtilizationPatterns, RetentionStatus, ROIAnalysis, RollbackInfo,
+    SeasonalPatterns, StorageStatistics, SystemState, TrendAnalysis, UserFeedback,
+    ValidationResults, ValidationStatus,
+};
+
+// ============================================================================
+// Stub implementations for missing types
+// ============================================================================
+
+/// Data compression system (stub implementation)
+#[derive(Debug)]
+pub struct DataCompressionSystem {}
+
+impl DataCompressionSystem {
+    fn new(_config: CompressionConfig) -> Self {
+        Self {}
+    }
+}
+
+/// History query system (stub implementation)
+#[derive(Debug)]
+pub struct HistoryQuerySystem {}
+
+impl HistoryQuerySystem {
+    fn new(_config: QueryConfig) -> Self {
+        Self {}
+    }
+}
+
+/// Data migration system (stub implementation)
+#[derive(Debug)]
+pub struct DataMigrationSystem {}
+
+impl DataMigrationSystem {
+    fn new(_config: MigrationConfig) -> Self {
+        Self {}
+    }
+}
+
+/// Data retention manager (stub implementation)
+#[derive(Debug)]
+pub struct DataRetentionManager {}
+
+impl DataRetentionManager {
+    fn new(_config: RetentionConfig) -> Self {
+        Self {}
+    }
+}
+
+/// History validation system (stub implementation)
+#[derive(Debug)]
+pub struct HistoryValidationSystem {}
+
+impl HistoryValidationSystem {
+    fn new(_config: ValidationConfig) -> Self {
+        Self {}
+    }
+}
+
+/// History export import system (stub implementation)
+#[derive(Debug)]
+pub struct HistoryExportImportSystem {}
+
+impl HistoryExportImportSystem {
+    fn new(_config: ExportImportConfig) -> Self {
+        Self {}
+    }
+}
+
+/// Historical trend analyzer (stub implementation)
+#[derive(Debug)]
+pub struct HistoricalTrendAnalyzer {}
+
+impl HistoricalTrendAnalyzer {
+    fn new(_config: TrendConfig) -> Self {
+        Self {}
+    }
+}
+
+/// History visualization system (stub implementation)
+#[derive(Debug)]
+pub struct HistoryVisualizationSystem {}
+
+impl HistoryVisualizationSystem {
+    fn new(_config: VisualizationConfig) -> Self {
+        Self {}
+    }
+}
+
+/// History performance tracker (stub implementation)
+#[derive(Debug)]
+pub struct HistoryPerformanceTracker {}
+
+impl HistoryPerformanceTracker {
+    fn new(_config: PerformanceConfig) -> Self {
+        Self {}
+    }
+}
+
+/// Archival candidates (stub implementation)
+#[derive(Debug, Default)]
+pub struct ArchivalCandidates {}
+
+/// History query (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct HistoryQuery {}
+
+/// History query result (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct HistoryQueryResult {}
+
+/// Trend analysis result (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct TrendAnalysisResult {}
+
+/// Archive result (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct ArchiveResult {}
+
+/// History export result (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct HistoryExportResult {}
+
+/// History import data (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct HistoryImportData {}
+
+/// History import result (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct HistoryImportResult {}
+
+/// Compression result (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct CompressionResult {}
+
+/// Retention result (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct RetentionResult {}
+
+/// Integrity validation result (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct IntegrityValidationResult {}
+
+/// Visualization result (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct VisualizationResult {}
+
+/// Performance impact report (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct PerformanceImpactReport {}
+
+/// Archival policy (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct ArchivalPolicy {}
+
+/// Archival scheduler (stub implementation)
+#[derive(Debug, Default)]
+pub struct ArchivalScheduler {}
+
+impl ArchivalScheduler {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// Data lifecycle manager (stub implementation)
+#[derive(Debug, Default)]
+pub struct DataLifecycleManager {}
+
+impl DataLifecycleManager {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// Archive integrity checker (stub implementation)
+#[derive(Debug, Default)]
+pub struct ArchiveIntegrityChecker {}
+
+impl ArchiveIntegrityChecker {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// Archive optimization engine (stub implementation)
+#[derive(Debug, Default)]
+pub struct ArchiveOptimizationEngine {}
+
+impl ArchiveOptimizationEngine {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// Archive search index (stub implementation)
+#[derive(Debug, Default)]
+pub struct ArchiveSearchIndex {}
+
+impl ArchiveSearchIndex {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// Archive recovery system (stub implementation)
+#[derive(Debug, Default)]
+pub struct ArchiveRecoverySystem {}
+
+impl ArchiveRecoverySystem {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// Archive monitoring system (stub implementation)
+#[derive(Debug, Default)]
+pub struct ArchiveMonitoringSystem {}
+
+impl ArchiveMonitoringSystem {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// Archive cost optimizer (stub implementation)
+#[derive(Debug, Default)]
+pub struct ArchiveCostOptimizer {}
+
+impl ArchiveCostOptimizer {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// Time series analyzer (stub implementation)
+#[derive(Debug, Default)]
+pub struct TimeSeriesAnalyzer {}
+
+impl TimeSeriesAnalyzer {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// Statistical analysis engine (stub implementation)
+#[derive(Debug, Default)]
+pub struct StatisticalAnalysisEngine {}
+
+impl StatisticalAnalysisEngine {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// ML analytics engine (stub implementation)
+#[derive(Debug, Default)]
+pub struct MLAnalyticsEngine {}
+
+impl MLAnalyticsEngine {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// Pattern recognition system (stub implementation)
+#[derive(Debug, Default)]
+pub struct PatternRecognitionSystem {}
+
+impl PatternRecognitionSystem {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// Correlation analysis engine (stub implementation)
+#[derive(Debug, Default)]
+pub struct CorrelationAnalysisEngine {}
+
+impl CorrelationAnalysisEngine {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// Predictive modeler (stub implementation)
+#[derive(Debug, Default)]
+pub struct PredictiveModeler {}
+
+impl PredictiveModeler {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// Anomaly detection engine (stub implementation)
+#[derive(Debug, Default)]
+pub struct AnomalyDetectionEngine {}
+
+impl AnomalyDetectionEngine {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// Trend analysis engine (stub implementation)
+#[derive(Debug, Default)]
+pub struct TrendAnalysisEngine {}
+
+impl TrendAnalysisEngine {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// Cohort analysis engine (stub implementation)
+#[derive(Debug, Default)]
+pub struct CohortAnalysisEngine {}
+
+impl CohortAnalysisEngine {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// AB test analysis engine (stub implementation)
+#[derive(Debug, Default)]
+pub struct ABTestAnalysisEngine {}
+
+impl ABTestAnalysisEngine {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// History manager config (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct HistoryManagerConfig {}
+
+// Stub configuration types
+#[derive(Debug, Clone)]
+pub struct CompressionConfig {}
+#[derive(Debug, Clone)]
+pub struct QueryConfig {}
+#[derive(Debug, Clone)]
+pub struct MigrationConfig {}
+#[derive(Debug, Clone)]
+pub struct RetentionConfig {}
+#[derive(Debug, Clone)]
+pub struct ValidationConfig {}
+#[derive(Debug, Clone)]
+pub struct ExportImportConfig {}
+#[derive(Debug, Clone)]
+pub struct TrendConfig {}
+#[derive(Debug, Clone)]
+pub struct VisualizationConfig {}
+#[derive(Debug, Clone)]
+pub struct PerformanceConfig {}
+
+/// Archive criteria (stub implementation)
+#[derive(Debug, Clone)]
+pub struct ArchiveCriteria {
+    pub age_threshold: Duration,
+    pub size_threshold: u64,
+    pub access_frequency_threshold: f64,
+}
+
+/// Archive location (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct ArchiveLocation {}
+
+/// Archived item (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct ArchivedItem {}
+
+/// Archive metadata (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct ArchiveMetadata {}
+
+/// History export config (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct HistoryExportConfig {}
+
+// ============================================================================
+
 /// Comprehensive historical data management system
 #[derive(Debug)]
 pub struct OptimizationHistoryManager {
@@ -982,10 +1380,10 @@ impl HistoryStorage {
 
     /// Get storage statistics
     pub fn get_statistics(&self) -> StorageStatistics {
-        let strategy_history = self.strategy_history.read().unwrap();
-        let performance_evolution = self.performance_evolution.read().unwrap();
-        let configuration_changes = self.configuration_changes.read().unwrap();
-        let learning_milestones = self.learning_milestones.read().unwrap();
+        let strategy_history = self.strategy_history.read().expect("lock should not be poisoned");
+        let performance_evolution = self.performance_evolution.read().expect("lock should not be poisoned");
+        let configuration_changes = self.configuration_changes.read().expect("lock should not be poisoned");
+        let learning_milestones = self.learning_milestones.read().expect("lock should not be poisoned");
 
         StorageStatistics {
             total_strategy_executions: strategy_history.values().map(|v| v.len()).sum(),

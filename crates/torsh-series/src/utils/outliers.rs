@@ -298,7 +298,7 @@ impl OutlierDetector {
 
         for _ in 0..num_trees {
             // Create random subsample
-            let dist = Uniform::new(0, n).unwrap();
+            let dist = Uniform::new(0, n).expect("distribution should succeed");
             let subsample_indices: Vec<usize> =
                 (0..subsample_size).map(|_| dist.sample(&mut rng)).collect();
 
@@ -387,7 +387,7 @@ impl OutlierDetector {
 
         // Random split point
         let mut rng = thread_rng();
-        let dist = Uniform::new(min_val, max_val).unwrap();
+        let dist = Uniform::new(min_val, max_val).expect("distribution should succeed");
         let split_point = dist.sample(&mut rng);
 
         // Recurse based on which side of split the value is on

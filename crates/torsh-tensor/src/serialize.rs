@@ -19,9 +19,6 @@
 //! - **Arrow**: Columnar format optimized for analytics
 //! - **Parquet**: Compressed columnar storage for big data
 //!
-//! ## Machine Learning (Feature: `serialize-onnx`)
-//! - **ONNX**: Open Neural Network Exchange format
-//!
 //! # Usage Examples
 //!
 //! ```rust

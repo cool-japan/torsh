@@ -265,16 +265,19 @@ impl GeometricConv {
 
         // Get edge distances if available
         let edge_distances = if let Some(ref edge_attr) = graph.edge_attr {
-            edge_attr.to_vec().unwrap()
+            edge_attr.to_vec().expect("conversion should succeed")
         } else {
             vec![1.0; num_edges]
         };
 
         // Aggregate messages
-        let edge_data = graph.edge_index.to_vec().unwrap();
+        let edge_data = graph
+            .edge_index
+            .to_vec()
+            .expect("conversion should succeed");
         let mut aggregated = vec![0.0; num_nodes * self.hidden_dim];
 
-        let node_features = graph.x.to_vec().unwrap();
+        let node_features = graph.x.to_vec().expect("conversion should succeed");
 
         for edge_idx in 0..num_edges {
             let src = edge_data[edge_idx * 2] as usize;
@@ -311,7 +314,11 @@ impl GeometricConv {
 
         for node in 0..num_nodes {
             let agg_features = &aggregated[node * self.hidden_dim..(node + 1) * self.hidden_dim];
-            let output_proj = self.output_weight.clone_data().to_vec().unwrap();
+            let output_proj = self
+                .output_weight
+                .clone_data()
+                .to_vec()
+                .expect("conversion should succeed");
 
             for out_idx in 0..self.out_features {
                 let mut sum = 0.0;
@@ -321,7 +328,10 @@ impl GeometricConv {
                 }
 
                 if let Some(ref bias) = self.bias {
-                    let bias_data = bias.clone_data().to_vec().unwrap();
+                    let bias_data = bias
+                        .clone_data()
+                        .to_vec()
+                        .expect("conversion should succeed");
                     if out_idx < bias_data.len() {
                         sum += bias_data[out_idx];
                     }
@@ -346,7 +356,10 @@ impl GeometricConv {
     /// Compute message from concatenated features and distance
     fn compute_message(&self, input: &[f32]) -> Vec<f32> {
         // Layer 1
-        let layer1_weights = self.message_mlp[0].clone_data().to_vec().unwrap();
+        let layer1_weights = self.message_mlp[0]
+            .clone_data()
+            .to_vec()
+            .expect("conversion should succeed");
         let input_dim = self.in_features * 2 + 1;
         let mut hidden = vec![0.0; self.hidden_dim];
 
@@ -359,7 +372,10 @@ impl GeometricConv {
         }
 
         // Layer 2
-        let layer2_weights = self.message_mlp[1].clone_data().to_vec().unwrap();
+        let layer2_weights = self.message_mlp[1]
+            .clone_data()
+            .to_vec()
+            .expect("conversion should succeed");
         let mut output = vec![0.0; self.hidden_dim];
 
         for h in 0..self.hidden_dim {
@@ -499,7 +515,7 @@ impl GeometricPooling {
         features: &Tensor,
         voxel_size: f32,
     ) -> (Vec<Point3D>, Tensor) {
-        let feature_data = features.to_vec().unwrap();
+        let feature_data = features.to_vec().expect("conversion should succeed");
         let feature_dim = features.shape().dims()[1];
 
         // Compute voxel indices
@@ -570,7 +586,7 @@ impl GeometricPooling {
     ) -> (Vec<Point3D>, Tensor) {
         let num_points = points.len();
         let feature_dim = features.shape().dims()[1];
-        let feature_data = features.to_vec().unwrap();
+        let feature_data = features.to_vec().expect("conversion should succeed");
 
         if num_samples >= num_points {
             return (points.to_vec(), features.clone());

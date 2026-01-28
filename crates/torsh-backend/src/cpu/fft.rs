@@ -31,7 +31,10 @@ impl CpuFftOps {
 
     /// Get or create an FFT executor for the given plan
     fn get_or_create_executor(&self, plan: &FftPlan) -> BackendResult<Arc<CpuFftExecutor>> {
-        let mut cache = self.executor_cache.lock().unwrap();
+        let mut cache = self
+            .executor_cache
+            .lock()
+            .expect("lock should not be poisoned");
 
         if let Some(executor) = cache.get(&plan.id) {
             return Ok(executor.clone());

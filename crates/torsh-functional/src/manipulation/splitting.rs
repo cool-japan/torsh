@@ -15,9 +15,9 @@ use torsh_tensor::Tensor;
 /// Tensor splitting partitions a tensor A ∈ ℝ^(d₁×d₂×...×dₙ) along dimension k into
 /// multiple sub-tensors {B₁, B₂, ..., Bₘ} such that:
 ///
-/// ```
+/// ```text
 /// concatenate([B₁, B₂, ..., Bₘ], dim=k) = A
-/// ```
+/// ```text
 ///
 /// ## Splitting Modes
 ///
@@ -66,7 +66,7 @@ use torsh_tensor::Tensor;
 /// // Split at specific indices
 /// let splits = split(&tensor, SplitArg::Indices(vec![3, 8]), 0)?; // [3,4], [5,4], [4,4]
 /// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
+/// ```text
 pub fn split(
     tensor: &Tensor,
     split_size_or_sections: SplitArg,
@@ -189,10 +189,10 @@ pub enum SplitArg {
 /// Chunks a tensor into approximately equal pieces along the specified dimension.
 /// For tensor with dimension size d and n chunks:
 ///
-/// ```
+/// ```text
 /// chunk_size = ⌈d/n⌉
 /// num_full_chunks = n - (n * chunk_size - d)
-/// ```
+/// ```text
 ///
 /// The first `num_full_chunks` will have size `chunk_size`, and remaining chunks
 /// will have size `chunk_size - 1`.
@@ -217,7 +217,7 @@ pub enum SplitArg {
 /// // Split into 4 chunks along second dimension
 /// let chunks = chunk(&tensor, 4, 1)?; // [10,1], [10,1], [10,1], [10,0] (empty)
 /// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
+/// ```text
 pub fn chunk(tensor: &Tensor, chunks: usize, dim: isize) -> TorshResult<Vec<Tensor>> {
     let shape = tensor.shape();
     let ndim = shape.ndim() as isize;
@@ -246,9 +246,9 @@ pub fn chunk(tensor: &Tensor, chunks: usize, dim: isize) -> TorshResult<Vec<Tens
 /// Performs tensor splitting at explicitly specified indices along a dimension.
 /// For tensor A with dimension size d and indices [i₁, i₂, ..., iₘ]:
 ///
-/// ```
+/// ```text
 /// Result = [A[..., :i₁, ...], A[..., i₁:i₂, ...], ..., A[..., iₘ:, ...]]
-/// ```
+/// ```text
 ///
 /// Where the ellipsis represents all other dimensions.
 ///
@@ -284,7 +284,7 @@ pub fn chunk(tensor: &Tensor, chunks: usize, dim: isize) -> TorshResult<Vec<Tens
 /// let splits = tensor_split(&tensor, TensorSplitArg::Indices(vec![2, 5]), 0)?;
 /// // Results: [2,4], [3,4], [3,4]
 /// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
+/// ```text
 pub fn tensor_split(
     tensor: &Tensor,
     indices_or_sections: TensorSplitArg,
@@ -372,9 +372,9 @@ pub enum TensorSplitArg {
 /// Horizontal splitting divides a tensor along its second dimension (columns for 2D matrices).
 /// For tensor A ∈ ℝ^(m×n×...), hsplit creates sub-tensors along dimension 1:
 ///
-/// ```
+/// ```text
 /// A = [A₁ | A₂ | ... | Aₖ]  (column-wise concatenation)
-/// ```
+/// ```text
 ///
 /// ## Requirements
 /// - Input tensor must have at least 2 dimensions
@@ -406,7 +406,7 @@ pub enum TensorSplitArg {
 /// let splits = hsplit(&image, TensorSplitArg::Indices(vec![50, 150]))?;
 /// // Results: [100,50,3], [100,100,3], [100,50,3]
 /// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
+/// ```text
 pub fn hsplit(tensor: &Tensor, indices_or_sections: TensorSplitArg) -> TorshResult<Vec<Tensor>> {
     let shape = tensor.shape();
     if shape.ndim() < 2 {
@@ -426,9 +426,9 @@ pub fn hsplit(tensor: &Tensor, indices_or_sections: TensorSplitArg) -> TorshResu
 /// Vertical splitting divides a tensor along its first dimension (rows for 2D matrices).
 /// For tensor A ∈ ℝ^(m×n×...), vsplit creates sub-tensors along dimension 0:
 ///
-/// ```
+/// ```text
 /// A = [A₁; A₂; ...; Aₖ]  (row-wise concatenation)
-/// ```
+/// ```text
 ///
 /// ## Requirements
 /// - Input tensor must have at least 2 dimensions
@@ -460,7 +460,7 @@ pub fn hsplit(tensor: &Tensor, indices_or_sections: TensorSplitArg) -> TorshResu
 /// let splits = vsplit(&batch, TensorSplitArg::Indices(vec![16, 48]))?;
 /// // Results: [16,784], [32,784], [16,784]
 /// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
+/// ```text
 pub fn vsplit(tensor: &Tensor, indices_or_sections: TensorSplitArg) -> TorshResult<Vec<Tensor>> {
     let shape = tensor.shape();
     if shape.ndim() < 2 {
@@ -480,9 +480,9 @@ pub fn vsplit(tensor: &Tensor, indices_or_sections: TensorSplitArg) -> TorshResu
 /// Depth splitting divides a tensor along its third dimension (depth for 3D tensors).
 /// For tensor A ∈ ℝ^(m×n×d×...), dsplit creates sub-tensors along dimension 2:
 ///
-/// ```
+/// ```text
 /// A[:,:,k₁:k₂,:] for each split k₁:k₂
-/// ```
+/// ```text
 ///
 /// ## Requirements
 /// - Input tensor must have at least 3 dimensions
@@ -515,7 +515,7 @@ pub fn vsplit(tensor: &Tensor, indices_or_sections: TensorSplitArg) -> TorshResu
 /// let splits = dsplit(&volume, TensorSplitArg::Indices(vec![8, 24]))?;
 /// // Results: [64,64,8], [64,64,16], [64,64,8]
 /// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
+/// ```text
 pub fn dsplit(tensor: &Tensor, indices_or_sections: TensorSplitArg) -> TorshResult<Vec<Tensor>> {
     let shape = tensor.shape();
     if shape.ndim() < 3 {

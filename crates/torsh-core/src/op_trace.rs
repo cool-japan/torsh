@@ -684,14 +684,14 @@ mod tests {
 
         // Manually start/complete trace
         let trace_id = {
-            let mut inner = tracer.inner.lock().unwrap();
+            let mut inner = tracer.inner.lock().expect("lock should not be poisoned");
             inner.start_trace("test_op".to_string()).unwrap()
         };
 
         assert!(tracer.get_trace(trace_id).is_some());
 
         {
-            let mut inner = tracer.inner.lock().unwrap();
+            let mut inner = tracer.inner.lock().expect("lock should not be poisoned");
             inner.complete_trace(trace_id);
         }
 
@@ -706,13 +706,13 @@ mod tests {
         tracer.set_enabled(true);
 
         let trace_id = {
-            let mut inner = tracer.inner.lock().unwrap();
+            let mut inner = tracer.inner.lock().expect("lock should not be poisoned");
             inner.start_trace("matmul".to_string()).unwrap()
         };
 
         // Record inputs/outputs by directly accessing the tracer
         {
-            let mut inner = tracer.inner.lock().unwrap();
+            let mut inner = tracer.inner.lock().expect("lock should not be poisoned");
             if let Some(trace) = inner.traces.get_mut(&trace_id) {
                 trace.add_input(TensorMetadata::new("lhs", vec![10, 20]).with_dtype(DType::F32));
                 trace.add_input(TensorMetadata::new("rhs", vec![20, 30]).with_dtype(DType::F32));
@@ -722,7 +722,7 @@ mod tests {
         }
 
         {
-            let mut inner = tracer.inner.lock().unwrap();
+            let mut inner = tracer.inner.lock().expect("lock should not be poisoned");
             inner.complete_trace(trace_id);
         }
 
@@ -741,14 +741,14 @@ mod tests {
 
         // This should be traced
         let trace_id1 = {
-            let mut inner = tracer.inner.lock().unwrap();
+            let mut inner = tracer.inner.lock().expect("lock should not be poisoned");
             inner.start_trace("matmul".to_string())
         };
         assert!(trace_id1.is_some());
 
         // This should not be traced
         let trace_id2 = {
-            let mut inner = tracer.inner.lock().unwrap();
+            let mut inner = tracer.inner.lock().expect("lock should not be poisoned");
             inner.start_trace("add".to_string())
         };
         assert!(trace_id2.is_none());
@@ -760,17 +760,17 @@ mod tests {
         tracer.set_enabled(true);
 
         let parent_id = {
-            let mut inner = tracer.inner.lock().unwrap();
+            let mut inner = tracer.inner.lock().expect("lock should not be poisoned");
             inner.start_trace("parent_op".to_string()).unwrap()
         };
 
         let child_id = {
-            let mut inner = tracer.inner.lock().unwrap();
+            let mut inner = tracer.inner.lock().expect("lock should not be poisoned");
             inner.start_trace("child_op".to_string()).unwrap()
         };
 
         {
-            let mut inner = tracer.inner.lock().unwrap();
+            let mut inner = tracer.inner.lock().expect("lock should not be poisoned");
             inner.complete_trace(child_id);
             inner.complete_trace(parent_id);
         }
@@ -802,11 +802,11 @@ mod tests {
         // Create some traces
         for i in 0..5 {
             let trace_id = {
-                let mut inner = tracer.inner.lock().unwrap();
+                let mut inner = tracer.inner.lock().expect("lock should not be poisoned");
                 inner.start_trace(format!("op_{}", i)).unwrap()
             };
 
-            let mut inner = tracer.inner.lock().unwrap();
+            let mut inner = tracer.inner.lock().expect("lock should not be poisoned");
             inner.complete_trace(trace_id);
         }
 
@@ -821,12 +821,12 @@ mod tests {
         tracer.set_enabled(true);
 
         let trace_id = {
-            let mut inner = tracer.inner.lock().unwrap();
+            let mut inner = tracer.inner.lock().expect("lock should not be poisoned");
             inner.start_trace("failing_op".to_string()).unwrap()
         };
 
         {
-            let mut inner = tracer.inner.lock().unwrap();
+            let mut inner = tracer.inner.lock().expect("lock should not be poisoned");
             inner.mark_error(trace_id, "Test error".to_string());
         }
 
@@ -849,11 +849,11 @@ mod tests {
         // Create more traces than the limit
         for i in 0..10 {
             let trace_id = {
-                let mut inner = tracer.inner.lock().unwrap();
+                let mut inner = tracer.inner.lock().expect("lock should not be poisoned");
                 inner.start_trace(format!("op_{}", i)).unwrap()
             };
 
-            let mut inner = tracer.inner.lock().unwrap();
+            let mut inner = tracer.inner.lock().expect("lock should not be poisoned");
             inner.complete_trace(trace_id);
         }
 
@@ -867,7 +867,7 @@ mod tests {
         tracer.set_enabled(true);
 
         let trace_id = {
-            let mut inner = tracer.inner.lock().unwrap();
+            let mut inner = tracer.inner.lock().expect("lock should not be poisoned");
             inner.start_trace("test_op".to_string()).unwrap()
         };
 

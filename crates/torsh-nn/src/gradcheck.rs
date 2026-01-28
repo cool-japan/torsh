@@ -87,9 +87,11 @@ impl GradCheckResult {
 
     /// Get the worst parameter (highest error)
     pub fn worst_parameter(&self) -> Option<&ParameterGradCheckResult> {
-        self.parameter_results
-            .iter()
-            .max_by(|a, b| a.max_abs_diff.partial_cmp(&b.max_abs_diff).unwrap())
+        self.parameter_results.iter().max_by(|a, b| {
+            a.max_abs_diff
+                .partial_cmp(&b.max_abs_diff)
+                .expect("max_abs_diff comparison should not involve NaN")
+        })
     }
 }
 
@@ -296,7 +298,10 @@ impl GradChecker {
             grad_data[idx] = grad;
         }
 
-        Ok(Tensor::from_data(grad_data, param_shape, param_data.device()).unwrap())
+        Ok(
+            Tensor::from_data(grad_data, param_shape, param_data.device())
+                .expect("tensor creation from grad_data should succeed"),
+        )
     }
 
     /// Compute finite difference for a single parameter element
@@ -377,7 +382,8 @@ impl GradChecker {
             grad_data[idx] = grad;
         }
 
-        Ok(Tensor::from_data(grad_data, input_shape, input.device()).unwrap())
+        Ok(Tensor::from_data(grad_data, input_shape, input.device())
+            .expect("tensor creation from grad_data should succeed"))
     }
 
     /// Get indices to check (sampling for large tensors)

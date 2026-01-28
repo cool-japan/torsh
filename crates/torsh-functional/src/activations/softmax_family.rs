@@ -24,7 +24,7 @@ use torsh_tensor::Tensor;
 /// Subtracting the maximum prevents overflow in exponential computation.
 ///
 /// **Properties:**
-/// - **Probability distribution**: Outputs sum to 1, all values in [0,1]
+/// - **Probability distribution**: Outputs sum to 1, all values in \[0,1\]
 /// - **Monotonic**: Preserves relative ordering of inputs
 /// - **Differentiable**: Smooth everywhere
 /// - **Temperature**: Can be scaled as softmax(x/T) for temperature T
@@ -56,7 +56,7 @@ use torsh_tensor::Tensor;
 /// - **Probabilistic interpretation**: Natural for classification tasks
 /// - **Differentiable**: Good gradient flow for optimization
 /// - **Relative comparison**: Emphasizes differences between inputs
-/// - **Bounded output**: All outputs in [0,1] and sum to 1
+/// - **Bounded output**: All outputs in \[0,1\] and sum to 1
 ///
 /// **Disadvantages:**
 /// - **Computational expensive**: Requires exponentials and normalization
@@ -148,7 +148,7 @@ pub fn log_softmax<T: FloatElement>(
 ///
 /// **Properties:**
 /// - **Inverse of softmax**: Gives higher probabilities to smaller inputs
-/// - **Probability distribution**: Outputs sum to 1, all values in [0,1]
+/// - **Probability distribution**: Outputs sum to 1, all values in \[0,1\]
 /// - **Monotonic decreasing**: Higher input values get lower probabilities
 /// - **Minimum amplification**: Smallest input gets highest probability
 ///
@@ -496,7 +496,7 @@ mod tests {
         let max_idx = output_data
             .iter()
             .enumerate()
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).expect("numeric comparison should succeed"))
             .map(|(i, _)| i)
             .unwrap();
         assert_eq!(

@@ -125,11 +125,11 @@ impl SparseProfiler {
         let mut metrics = HashMap::new();
         metrics.insert(
             "min_time_ns".to_string(),
-            durations.iter().min().unwrap().as_nanos() as f64,
+            durations.iter().min().expect("durations should not be empty").as_nanos() as f64,
         );
         metrics.insert(
             "max_time_ns".to_string(),
-            durations.iter().max().unwrap().as_nanos() as f64,
+            durations.iter().max().expect("durations should not be empty").as_nanos() as f64,
         );
         metrics.insert("std_dev_ns".to_string(), self.compute_std_dev(&durations));
         metrics.insert("nnz".to_string(), sparse.nnz() as f64);
@@ -200,11 +200,11 @@ impl SparseProfiler {
         metrics.insert("flops_estimate".to_string(), (2 * a.nnz() * b.nnz()) as f64);
         metrics.insert(
             "min_time_ns".to_string(),
-            durations.iter().min().unwrap().as_nanos() as f64,
+            durations.iter().min().expect("durations should not be empty").as_nanos() as f64,
         );
         metrics.insert(
             "max_time_ns".to_string(),
-            durations.iter().max().unwrap().as_nanos() as f64,
+            durations.iter().max().expect("durations should not be empty").as_nanos() as f64,
         );
 
         let measurement = PerformanceMeasurement {

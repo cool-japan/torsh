@@ -7,32 +7,41 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 rust-version.workspace = true
-description = "Foreign Function Interface bindings for ToRSh"
-keywords = ["tensor", "deep-learning", "python", "ffi", "bindings"]
+description = "Python bindings for ToRSh (deep learning framework)"
+keywords = ["tensor", "deep-learning", "python", "pytorch", "bindings"]
 categories = ["science", "mathematics", "api-bindings"]
+# Exclude from standard publishing - this should be published through Maturin/PyPI
+publish = false
+build = "build.rs"
 
 [lints]
 workspace = true
 
 [lib]
-name = "torsh_ffi"
-crate-type = ["cdylib", "rlib"]
+name = "torsh"
+crate-type = ["cdylib"]
+doc = false  # Exclude from rustdoc to avoid collision with main torsh crate
 
 [features]
-default = ["python"]
-python = ["pyo3", "numpy"]
-extension-module = ["pyo3/extension-module"]
-cuda = []
-wasm = []
-_disabled = []
+# Python extension module - following QuantRS2-py architecture
+# This crate is dedicated to Python bindings only (no Pure Rust mode)
+default = ["nn", "optim", "data"]
+nn = ["torsh-nn"]
+optim = ["torsh-optim"]
+data = ["torsh-data"]
+gpu = []  # GPU acceleration support
+minimal = []  # Minimal bindings (core + tensor only)
+full = ["nn", "optim", "data", "gpu"]
 
 [dependencies]
-# Core dependencies
+# Core dependencies (always included)
 torsh-core = { workspace = true }
 torsh-tensor = { workspace = true }
-torsh-nn = { workspace = true }
-torsh-optim = { workspace = true }
-torsh-data = { workspace = true }
+
+# Optional modules (feature-gated)
+torsh-nn = { workspace = true, optional = true }
+torsh-optim = { workspace = true, optional = true }
+torsh-data = { workspace = true, optional = true }
 
 # SciRS2 dependencies (required for ToRSh SciRS2 policy compliance)
 scirs2-core.workspace = true
@@ -41,41 +50,43 @@ scirs2-core.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 
-# Python bindings
-# Note: auto-initialize removed to fix test linking issues
-# Users should call Python::with_gil() or use extension-module feature
-pyo3 = { workspace = true, optional = true }
-numpy = { workspace = true, optional = true }
+# Python bindings - REQUIRED (this is a Python extension module)
+# Following QuantRS2-py approach: extension-module + abi3 for compatibility
+pyo3 = { workspace = true, features = ["extension-module", "abi3-py38"] }
+numpy = { workspace = true }  # NumPy integration for tensor interop
+scirs2-numpy = { workspace = true, default-features = false }  # SciRS2-compatible numpy bindings (no auto-initialize)
 
 # Serialization
 serde = { workspace = true, features = ["derive"] }
-serde_json = "1.0"
+serde_json = { workspace = true }
 
 # Logging
 tracing.workspace = true
 
 # Utilities
 once_cell.workspace = true
-parking_lot = "0.12"
+parking_lot = { workspace = true }
 num_cpus = "1.17"
-chrono = { version = "0.4", features = ["serde"] }
+chrono = { workspace = true }
 walkdir = "2.5"
-uuid = { version = "1.19", features = ["v4", "serde"] }
+uuid = { workspace = true }
 fastrand = "2.3"
-bincode = { workspace = true }
+oxicode = { workspace = true }
 # rand_distr = "0.5.1"    # REMOVED: Use scirs2_core::random::prelude instead (SciRS2 POLICY)
 
 [dev-dependencies]
-tempfile = "3.23"
+tempfile = { workspace = true }
 
-[build-dependencies]
-pyo3-build-config = { version = "0.27" }
+# No build-dependencies needed - maturin handles everything
 
-# Temporarily exclude examples that need API updates
-[[example]]
-name = "rust_integration_example"
-required-features = ["_disabled"]
+# Examples temporarily disabled - need API updates after refactoring
+# [[example]]
+# name = "python_usage"
 
-[[example]]
-name = "python_usage"
-required-features = ["python"]
+# [[example]]
+# name = "rust_integration_example"
+
+# Maturin configuration for Python package building
+[package.metadata.maturin]
+python-source = "python"
+module-name = "torsh"

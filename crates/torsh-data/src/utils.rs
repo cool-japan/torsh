@@ -824,7 +824,10 @@ pub mod config {
         pub fn load_from_env(&mut self) {
             for (key, value) in env::vars() {
                 if key.starts_with(&self.env_prefix) {
-                    let config_key = key.strip_prefix(&self.env_prefix).unwrap().to_lowercase();
+                    let config_key = key
+                        .strip_prefix(&self.env_prefix)
+                        .expect("prefix exists as checked in starts_with")
+                        .to_lowercase();
                     self.set_from_string(&config_key, &value);
                 }
             }

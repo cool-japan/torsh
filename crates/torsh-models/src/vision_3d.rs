@@ -929,7 +929,8 @@ impl Module for PointNetPlusPlus {
         }
 
         // Global feature should be [batch_size, feature_dim]
-        let mut global_feat = features.unwrap();
+        let mut global_feat =
+            features.expect("features should be computed by set abstraction layers");
         if global_feat.shape().dims().len() == 3 {
             global_feat = global_feat.squeeze(1)?;
         }

@@ -16,7 +16,7 @@ pub fn broadcast_tensors(tensors: &[Tensor]) -> TorshResult<Vec<Tensor>> {
     // Broadcast each tensor
     tensors
         .iter()
-        .map(|t| t.broadcast_to(&broadcast_shape))
+        .map(|t| t.broadcast_to(broadcast_shape.dims()))
         .collect()
 }
 

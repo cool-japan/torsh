@@ -9,6 +9,297 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
+// ============================================================================
+// Stub implementations for missing types
+// ============================================================================
+
+/// Dependency condition type (stub implementation)
+#[derive(Debug, Clone)]
+pub enum DependencyCondition {
+    ValueEquals(f64),
+    ValueInRange { min: f64, max: f64 },
+}
+
+/// Convergence analysis result (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct ConvergenceAnalysis {}
+
+/// Parameter space representation (stub implementation)
+#[derive(Debug)]
+pub struct ParameterSpace {}
+
+impl ParameterSpace {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+/// Parameter selection strategy (stub implementation)
+#[derive(Debug, Clone)]
+pub enum ParameterSelectionStrategy {
+    All,
+    ByType(ParameterType),
+    ByCategory(String),
+    Explicit(Vec<String>),
+    HighSensitivity,
+}
+
+/// Space analysis result (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct SpaceAnalysis {}
+
+/// Parameter state (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct ParameterState {}
+
+/// Optimization history summary (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct OptimizationHistorySummary {}
+
+/// Tuning step result (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct TuningStepResult {}
+
+/// Bayesian optimization result (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct BayesianOptimizationResult {}
+
+/// Space exploration result (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct SpaceExplorationResult {}
+
+/// Parameter analytics dashboard (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct ParameterAnalyticsDashboard {}
+
+/// Auto tuning session config (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct AutoTuningSessionConfig {}
+
+/// Resource usage (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct ResourceUsage {}
+
+/// Parameter registry statistics (stub implementation)
+#[derive(Debug, Clone, Default)]
+pub struct ParameterRegistryStatistics {}
+
+// Additional stub types for parameters module
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub enum ParameterCategory {
+    #[default]
+    General,
+    Memory,
+    Performance,
+    Algorithm,
+    Numerical,
+    Hardware,
+    Scheduling,
+    Custom(String),
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ParameterDependency {}
+#[derive(Debug, Clone, Default)]
+pub struct ParameterValidationRule {}
+#[derive(Debug, Clone, Default)]
+pub struct AutoTuningConfig {
+    pub enabled: bool,
+}
+#[derive(Debug, Clone, Default)]
+pub struct SearchSpace {}
+#[derive(Debug, Clone, Default)]
+pub struct OptimizationRecord {}
+#[derive(Debug, Clone, Default)]
+pub struct ParameterQualityMetrics {}
+#[derive(Debug, Clone, Default)]
+pub struct StabilityAnalysis {}
+#[derive(Debug, Clone, Default)]
+pub struct CorrelationData {}
+#[derive(Debug, Clone, Default)]
+pub struct ParameterMetadata {}
+#[derive(Debug, Clone, Default)]
+pub struct ParameterLifecycle {}
+#[derive(Debug, Clone, Default)]
+pub struct DistributionType {}
+#[derive(Debug, Clone, Default)]
+pub struct FunctionType {}
+#[derive(Debug, Clone, Default)]
+pub struct ComplexParameterValue {}
+#[derive(Debug, Clone, Default)]
+pub struct DynamicParameterValue {}
+#[derive(Debug, Clone, Default)]
+pub struct ParameterCondition {}
+#[derive(Debug, Clone, Default)]
+pub struct ParameterConstraint {}
+#[derive(Debug, Clone, Default)]
+pub struct ParameterValidator {}
+#[derive(Debug, Clone, Default)]
+pub struct BoundsType {}
+#[derive(Debug, Clone, Default)]
+pub struct BoundsAdaptationRule {}
+#[derive(Debug, Clone, Default)]
+pub struct ViolationPenaltyConfig {}
+#[derive(Debug, Clone, Default)]
+pub struct TuningContext {}
+#[derive(Debug, Clone, Default)]
+pub struct ResourceCost {}
+#[derive(Debug, Clone, Default)]
+pub struct TuningMetadata {}
+#[derive(Debug, Clone, Default)]
+pub struct CrossValidationResults {}
+#[derive(Debug, Clone, Default)]
+pub struct StatisticalSignificance {}
+#[derive(Debug, Clone, Default)]
+pub struct ConvergenceInfo {}
+#[derive(Debug, Clone, Default)]
+pub struct ExplorationInfo {}
+#[derive(Debug, Clone, Default)]
+pub struct MultiObjectiveResults {}
+#[derive(Debug, Clone, Default)]
+pub struct UncertaintyQuantification {}
+#[derive(Debug, Clone, Default)]
+pub struct TuningScheduler {}
+#[derive(Debug, Clone, Default)]
+pub struct TuningPerformanceTracker {}
+#[derive(Debug, Clone, Default)]
+pub struct TuningResourceManager {}
+#[derive(Debug, Clone, Default)]
+pub struct EarlyStoppingSystem {}
+#[derive(Debug, Clone, Default)]
+pub struct MultiObjectiveTuning {}
+#[derive(Debug, Clone, Default)]
+pub struct DistributedTuningCoordinator {}
+#[derive(Debug, Clone, Default)]
+pub struct TuningResultAnalyzer {}
+#[derive(Debug, Clone, Default)]
+pub struct AdaptiveTuningController {}
+#[derive(Debug, Clone, Default)]
+pub struct TuningRecommendationEngine {}
+#[derive(Debug, Clone, Default)]
+pub struct BayesianOptimizationEngine {}
+#[derive(Debug, Clone, Default)]
+pub struct GridSearchOptimizer {}
+#[derive(Debug, Clone, Default)]
+pub struct RandomSearchOptimizer {}
+#[derive(Debug, Clone, Default)]
+pub struct EvolutionaryOptimizer {}
+#[derive(Debug, Clone, Default)]
+pub struct ParticleSwarmOptimizer {}
+#[derive(Debug, Clone, Default)]
+pub struct DifferentialEvolution {}
+#[derive(Debug, Clone, Default)]
+pub struct HyperbandOptimizer {}
+#[derive(Debug, Clone, Default)]
+pub struct PopulationBasedTraining {}
+#[derive(Debug, Clone, Default)]
+pub struct MultiFidelityOptimizer {}
+#[derive(Debug, Clone, Default)]
+pub struct NeuralArchitectureSearch {}
+#[derive(Debug, Clone, Default)]
+pub struct MetaLearningOptimizer {}
+#[derive(Debug, Clone, Default)]
+pub struct GaussianProcessModel {}
+#[derive(Debug, Clone, Default)]
+pub struct AcquisitionFunction {}
+#[derive(Debug, Clone, Default)]
+pub struct AcquisitionOptimizer {}
+#[derive(Debug, Clone, Default)]
+pub struct PriorDistribution {}
+#[derive(Debug, Clone, Default)]
+pub struct KernelFunction {}
+#[derive(Debug, Clone, Default)]
+pub struct HyperparameterLearning {}
+#[derive(Debug, Clone, Default)]
+pub struct MultiObjectiveAcquisition {}
+#[derive(Debug, Clone, Default)]
+pub struct ConstraintHandler {}
+#[derive(Debug, Clone, Default)]
+pub struct UncertaintyEstimator {}
+#[derive(Debug, Clone, Default)]
+pub struct ActiveLearning {}
+#[derive(Debug, Clone, Default)]
+pub struct ThompsonSampling {}
+#[derive(Debug, Clone, Default)]
+pub struct SpaceVisualization {}
+#[derive(Debug, Clone, Default)]
+pub struct DimensionalityReduction {}
+#[derive(Debug, Clone, Default)]
+pub struct SpacePartitioning {}
+#[derive(Debug, Clone, Default)]
+pub struct CoverageAnalyzer {}
+#[derive(Debug, Clone, Default)]
+pub struct SensitivityAnalyzer {}
+#[derive(Debug, Clone, Default)]
+pub struct FeatureImportanceAnalyzer {}
+#[derive(Debug, Clone, Default)]
+pub struct TopologyAnalyzer {}
+#[derive(Debug, Clone, Default)]
+pub struct ManifoldLearning {}
+#[derive(Debug, Clone, Default)]
+pub struct ClusteringAnalyzer {}
+#[derive(Debug, Clone, Default)]
+pub struct SpaceAnomalyDetector {}
+#[derive(Debug, Clone, Default)]
+pub struct TuningAlgorithmConfig {}
+#[derive(Debug, Clone, Default)]
+pub struct TuningRecord {}
+#[derive(Debug, Clone, Default)]
+pub struct ParameterExportConfig {}
+#[derive(Debug, Clone, Default)]
+pub struct ParameterExportData {}
+#[derive(Debug, Clone, Default)]
+pub struct ParameterImportData {}
+#[derive(Debug, Clone, Default)]
+pub struct ParameterImportResult {}
+
+/// Array3 type alias for 3D arrays
+pub type Array3<T> = scirs2_core::ndarray::Array<T, scirs2_core::ndarray::Ix3>;
+
+// More stub types
+#[derive(Debug, Clone, Default)]
+pub struct BayesianOptimizationConfig {}
+#[derive(Debug, Clone, Default)]
+pub struct HyperparameterOptimizationConfig {}
+#[derive(Debug, Clone, Default)]
+pub struct HyperparameterOptimizationResult {}
+#[derive(Debug, Clone, Default)]
+pub struct SpaceExplorationConfig {}
+#[derive(Debug, Clone, Default)]
+pub struct ParameterCorrelationAnalysis {}
+#[derive(Debug, Clone, Default)]
+pub struct RecommendationContext {}
+#[derive(Debug, Clone, Default)]
+pub struct ParameterRecommendation {}
+#[derive(Debug, Clone, Default)]
+pub struct ValidationResult {}
+#[derive(Debug, Clone, Default)]
+pub struct ResourceBudget {}
+#[derive(Debug, Clone, Default)]
+pub struct QualityMetrics {}
+#[derive(Debug, Clone, Default)]
+pub struct SideEffect {}
+#[derive(Debug, Clone, Default)]
+pub struct TuningRecommendation {}
+#[derive(Debug, Clone, Default)]
+pub struct BayesianOptimizationSession {}
+#[derive(Debug, Clone, Default)]
+pub struct OptimizationContext {}
+#[derive(Debug, Clone, Default)]
+pub struct ConvergenceMetrics {}
+#[derive(Debug, Clone, Default)]
+pub struct AcquisitionPoint {}
+#[derive(Debug, Clone, Default)]
+pub struct ExplorationResults {}
+#[derive(Debug, Clone, Default)]
+pub struct ExplorationRecommendation {}
+#[derive(Debug, Clone, Default)]
+pub struct DependencyViolation {}
+#[derive(Debug, Clone, Default)]
+pub struct PerformanceInsight {}
+
+// ============================================================================
+
 /// Comprehensive parameter management and auto-tuning system
 #[derive(Debug)]
 pub struct ParameterManager {
@@ -1277,19 +1568,19 @@ impl ParameterRegistry {
 
     /// Get all parameters
     pub fn get_all_parameters(&self) -> Vec<OptimizationParameter> {
-        let parameters = self.parameters.read().unwrap();
+        let parameters = self.parameters.read().expect("lock should not be poisoned");
         parameters.values().cloned().collect()
     }
 
     /// Get all parameter IDs
     pub fn get_all_parameter_ids(&self) -> Vec<String> {
-        let parameters = self.parameters.read().unwrap();
+        let parameters = self.parameters.read().expect("lock should not be poisoned");
         parameters.keys().cloned().collect()
     }
 
     /// Get parameters by type
     pub fn get_parameters_by_type(&self, param_type: &ParameterType) -> Vec<String> {
-        let parameters = self.parameters.read().unwrap();
+        let parameters = self.parameters.read().expect("lock should not be poisoned");
         parameters
             .values()
             .filter(|p| p.parameter_type == *param_type)
@@ -1299,7 +1590,7 @@ impl ParameterRegistry {
 
     /// Get parameters by category
     pub fn get_parameters_by_category(&self, category: &ParameterCategory) -> Vec<String> {
-        let parameters = self.parameters.read().unwrap();
+        let parameters = self.parameters.read().expect("lock should not be poisoned");
         parameters
             .values()
             .filter(|p| p.category == *category)
@@ -1309,7 +1600,7 @@ impl ParameterRegistry {
 
     /// Get high sensitivity parameters
     pub fn get_high_sensitivity_parameters(&self) -> Vec<String> {
-        let parameters = self.parameters.read().unwrap();
+        let parameters = self.parameters.read().expect("lock should not be poisoned");
         parameters
             .values()
             .filter(|p| p.sensitivity > 0.7) // Threshold for high sensitivity
@@ -1347,7 +1638,7 @@ impl ParameterRegistry {
 
     /// Get registry statistics
     pub fn get_statistics(&self) -> ParameterRegistryStatistics {
-        let parameters = self.parameters.read().unwrap();
+        let parameters = self.parameters.read().expect("lock should not be poisoned");
         ParameterRegistryStatistics {
             total_parameters: parameters.len(),
             parameters_by_type: self.count_parameters_by_type(&parameters),

@@ -4,7 +4,7 @@
 //! It uses exponential moving averages of squared gradients and squared parameter updates.
 //!
 //! Reference: "ADADELTA: An Adaptive Learning Rate Method" by Matthew D. Zeiler
-//! Paper: https://arxiv.org/abs/1212.5701
+//! Paper: <https://arxiv.org/abs/1212.5701>
 
 use crate::{optimizer::BaseOptimizer, Optimizer, OptimizerResult, OptimizerState, ParamGroup};
 use parking_lot::RwLock;
@@ -83,7 +83,9 @@ impl Optimizer for AdaDelta {
                     continue;
                 }
 
-                let grad = param.grad().unwrap();
+                let grad = param
+                    .grad()
+                    .expect("gradient should exist after has_grad check");
                 let param_id = format!("{:p}", param_arc.as_ref());
 
                 // Apply weight decay to gradient if specified
@@ -114,8 +116,14 @@ impl Optimizer for AdaDelta {
                     );
                 }
 
-                let mut square_avg = state.get("square_avg").unwrap().clone();
-                let mut acc_delta = state.get("acc_delta").unwrap().clone();
+                let mut square_avg = state
+                    .get("square_avg")
+                    .expect("square_avg state should exist")
+                    .clone();
+                let mut acc_delta = state
+                    .get("acc_delta")
+                    .expect("acc_delta state should exist")
+                    .clone();
 
                 // Update exponential moving average of squared gradients
                 // square_avg = rho * square_avg + (1 - rho) * grad^2

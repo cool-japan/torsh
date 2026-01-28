@@ -95,7 +95,10 @@ impl Optimizer for ASGD {
                     param_state.insert("eta".to_string(), Tensor::scalar(eta)?);
                     eta
                 } else {
-                    param_state.get("eta").unwrap().item()?
+                    param_state
+                        .get("eta")
+                        .expect("eta state should exist")
+                        .item()?
                 };
 
                 let ax = if !param_state.contains_key("ax") {
@@ -103,7 +106,10 @@ impl Optimizer for ASGD {
                     param_state.insert("ax".to_string(), ax.clone());
                     ax
                 } else {
-                    param_state.get("ax").unwrap().clone()
+                    param_state
+                        .get("ax")
+                        .expect("ax state should exist")
+                        .clone()
                 };
 
                 let mu = if !param_state.contains_key("mu") {
@@ -111,7 +117,10 @@ impl Optimizer for ASGD {
                     param_state.insert("mu".to_string(), Tensor::scalar(mu)?);
                     mu
                 } else {
-                    param_state.get("mu").unwrap().item()?
+                    param_state
+                        .get("mu")
+                        .expect("mu state should exist")
+                        .item()?
                 };
 
                 // Apply weight decay

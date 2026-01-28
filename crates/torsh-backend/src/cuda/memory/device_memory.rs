@@ -4,13 +4,18 @@
 //! allocation, deallocation, memory pooling, and device-specific optimizations.
 //! It manages GPU memory directly using CUDA runtime APIs.
 
+// Allow unused variables for memory manager stubs and planned features
+#![allow(unused_variables)]
+
 use super::allocation::{
     size_class, AllocationMetadata, AllocationRequest, AllocationStats, AllocationType,
     CudaAllocation,
 };
-use crate::cuda::error::{CudaError, CudaResult};
+use crate::cuda::cuda_sys_compat as cuda_sys;
+use crate::cuda::error::{CudaError, CudaResult, CustResultExt};
 use cust::device::Device as CustDevice;
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -416,10 +421,10 @@ impl CudaMemoryManager {
                 ptr as *const std::ffi::c_void,
                 size,
                 self.device_id as i32,
-                0 as cuda_sys::cudaStream_t,
+                0 as crate::cuda::cudaStream_t,
             );
 
-            if result != cuda_sys::cudaError_t::cudaSuccess {
+            if result != crate::cuda::cudaSuccess {
                 return Err(CudaError::Context {
                     message: format!(
                         "Failed to prefetch memory to device {}: {:?}",
@@ -539,7 +544,8 @@ impl CudaMemoryManager {
         if let Some(pool) = pools.get_mut(&size_class) {
             if let Some(mut allocation) = pool.allocate() {
                 allocation.mark_in_use();
-                allocation.metadata.tag = request.tag.clone();
+                // Note: request.tag is not stored anymore (metadata removed from CudaAllocation for Copy)
+                let _ = &request.tag;
                 self.update_allocation_stats(size_class, true);
                 return Ok(Some(allocation));
             }
@@ -554,11 +560,11 @@ impl CudaMemoryManager {
         request: &AllocationRequest,
     ) -> CudaResult<CudaAllocation> {
         // Allocate new device memory
-        let ptr = unsafe { cust::memory::cuda_malloc(size_class)? };
+        let ptr = unsafe { cust::memory::cuda_malloc(size_class).cuda_result()? };
 
-        let mut allocation =
-            CudaAllocation::new_on_device(ptr, size_class, size_class, self.device_id);
-        allocation.metadata.tag = request.tag.clone();
+        let allocation = CudaAllocation::new_on_device(ptr, size_class, size_class, self.device_id);
+        // Note: request.tag is not stored anymore (metadata removed from CudaAllocation for Copy)
+        let _ = &request.tag;
 
         // Add to appropriate pool if pooling is enabled
         if self.config.enable_pooling {
@@ -570,7 +576,7 @@ impl CudaMemoryManager {
                 .entry(size_class)
                 .or_insert_with(|| DeviceMemoryPool::new(size_class, PoolConfig::default()));
 
-            pool.add_allocation(allocation.clone());
+            pool.add_allocation(allocation);
         }
 
         self.update_allocation_stats(size_class, false);
@@ -579,7 +585,7 @@ impl CudaMemoryManager {
         {
             if self.config.debug_tracking {
                 if let Ok(mut tracker) = ALLOCATION_TRACKER.lock() {
-                    tracker.insert(allocation.as_ptr());
+                    tracker.insert(allocation.as_ptr() as usize);
                 }
             }
         }
@@ -604,13 +610,13 @@ impl CudaMemoryManager {
         {
             if self.config.debug_tracking {
                 if let Ok(mut tracker) = ALLOCATION_TRACKER.lock() {
-                    tracker.remove(&allocation.as_ptr());
+                    tracker.remove(&(allocation.as_ptr() as usize));
                 }
             }
         }
 
         unsafe {
-            cust::memory::cuda_free(allocation.ptr)?;
+            cust::memory::cuda_free(allocation.ptr).cuda_result()?;
         }
 
         Ok(())
@@ -698,6 +704,115 @@ impl CudaMemoryManager {
 
     fn get_pool_count(&self) -> usize {
         self.pools.lock().map(|pools| pools.len()).unwrap_or(0)
+    }
+
+    // ===== Unified Memory Methods =====
+
+    /// Allocate unified memory that is accessible from both CPU and GPU
+    ///
+    /// Uses CUDA Unified Memory (cudaMallocManaged) for transparent data migration.
+    pub fn allocate_unified(
+        &self,
+        size: usize,
+    ) -> CudaResult<super::allocation::UnifiedAllocation> {
+        let mut ptr: *mut std::ffi::c_void = std::ptr::null_mut();
+        unsafe {
+            let result = cuda_sys::cudaMallocManaged(&mut ptr, size, cuda_sys::cudaMemAttachGlobal);
+            if result != cuda_sys::cudaSuccess {
+                return Err(CudaError::Context {
+                    message: format!("cudaMallocManaged failed with error code {:?}", result),
+                });
+            }
+        }
+        Ok(super::allocation::UnifiedAllocation::new(
+            ptr as *mut u8,
+            size,
+        ))
+    }
+
+    /// Prefetch unified memory to host (CPU)
+    ///
+    /// Hints to the CUDA driver to migrate data to host memory.
+    pub fn prefetch_to_host(&self, ptr: *mut u8, size: usize) -> CudaResult<()> {
+        unsafe {
+            let result = cuda_sys::cudaMemPrefetchAsync(
+                ptr as *const std::ffi::c_void,
+                size,
+                cuda_sys::cudaCpuDeviceId,
+                std::ptr::null_mut(), // Default stream
+            );
+            if result != cuda_sys::cudaSuccess {
+                return Err(CudaError::Context {
+                    message: format!(
+                        "cudaMemPrefetchAsync to host failed with error code {:?}",
+                        result
+                    ),
+                });
+            }
+        }
+        Ok(())
+    }
+
+    /// Prefetch unified memory to specified device (GPU)
+    ///
+    /// Hints to the CUDA driver to migrate data to device memory.
+    pub fn prefetch_to_gpu(&self, ptr: *mut u8, size: usize, device_id: i32) -> CudaResult<()> {
+        unsafe {
+            let result = cuda_sys::cudaMemPrefetchAsync(
+                ptr as *const std::ffi::c_void,
+                size,
+                device_id,
+                std::ptr::null_mut(), // Default stream
+            );
+            if result != cuda_sys::cudaSuccess {
+                return Err(CudaError::Context {
+                    message: format!(
+                        "cudaMemPrefetchAsync to device failed with error code {:?}",
+                        result
+                    ),
+                });
+            }
+        }
+        Ok(())
+    }
+
+    /// Set memory advice for unified memory region
+    ///
+    /// Provides hints to the CUDA driver about access patterns for optimization.
+    pub fn set_memory_advice(
+        &self,
+        ptr: *mut u8,
+        size: usize,
+        advice: super::MemoryAdvice,
+        device_id: i32,
+    ) -> CudaResult<()> {
+        let cuda_advice = match advice {
+            super::MemoryAdvice::SetReadMostly => cuda_sys::cudaMemAdviseSetReadMostly,
+            super::MemoryAdvice::UnsetReadMostly => cuda_sys::cudaMemAdviseUnsetReadMostly,
+            super::MemoryAdvice::SetPreferredLocation => {
+                cuda_sys::cudaMemAdviseSetPreferredLocation
+            }
+            super::MemoryAdvice::UnsetPreferredLocation => {
+                cuda_sys::cudaMemAdviseUnsetPreferredLocation
+            }
+            super::MemoryAdvice::SetAccessedBy => cuda_sys::cudaMemAdviseSetAccessedBy,
+            super::MemoryAdvice::UnsetAccessedBy => cuda_sys::cudaMemAdviseUnsetAccessedBy,
+        };
+
+        unsafe {
+            let result = cuda_sys::cudaMemAdvise(
+                ptr as *const std::ffi::c_void,
+                size,
+                cuda_advice,
+                device_id,
+            );
+            if result != cuda_sys::cudaSuccess {
+                return Err(CudaError::Context {
+                    message: format!("cudaMemAdvise failed with error code {:?}", result),
+                });
+            }
+        }
+        Ok(())
     }
 }
 
@@ -863,8 +978,14 @@ mod tests {
 
         let (limit, threshold) = CudaMemoryManager::calculate_memory_limits(&properties, 0.8, 0.7);
 
-        assert_eq!(limit, (8 * 1024 * 1024 * 1024 as f32 * 0.8) as usize);
-        assert_eq!(threshold, (8 * 1024 * 1024 * 1024 as f32 * 0.7) as usize);
+        assert_eq!(
+            limit,
+            ((8 * 1024 * 1024 * 1024_usize) as f32 * 0.8) as usize
+        );
+        assert_eq!(
+            threshold,
+            ((8 * 1024 * 1024 * 1024_usize) as f32 * 0.7) as usize
+        );
     }
 
     #[test]

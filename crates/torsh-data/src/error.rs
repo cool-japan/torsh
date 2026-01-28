@@ -3,7 +3,7 @@
 //! This module provides comprehensive error types with detailed context
 //! and recovery suggestions for data loading operations.
 
-use scirs2_core::random::{thread_rng, Rng}; // SciRS2 POLICY compliant
+use scirs2_core::random::thread_rng; // SciRS2 POLICY compliant
 use std::fmt;
 
 /// Enhanced error types specific to data loading operations

@@ -672,9 +672,11 @@ impl ComparativeBenchmarkResult {
 
     /// Get the most accurate configuration (lowest MSE)
     pub fn most_accurate(&self) -> Option<&ConfigurationBenchmarkResult> {
-        self.configurations
-            .iter()
-            .min_by(|a, b| a.accuracy_mse.partial_cmp(&b.accuracy_mse).unwrap())
+        self.configurations.iter().min_by(|a, b| {
+            a.accuracy_mse
+                .partial_cmp(&b.accuracy_mse)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
     }
 
     /// Get the best compression ratio

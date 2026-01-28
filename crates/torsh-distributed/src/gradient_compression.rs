@@ -358,7 +358,7 @@ impl GradientCompressor {
         // Find top-k indices
         let mut indexed_values: Vec<(usize, f32)> =
             abs_data.iter().enumerate().map(|(i, &v)| (i, v)).collect();
-        indexed_values.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        indexed_values.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
         let mut indices = Vec::new();
         let mut values = Vec::new();
@@ -383,7 +383,7 @@ impl GradientCompressor {
                 original_norm,
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .expect("time should be after UNIX_EPOCH")
                     .as_secs(),
             },
         })
@@ -425,7 +425,7 @@ impl GradientCompressor {
                 original_norm,
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .expect("time should be after UNIX_EPOCH")
                     .as_secs(),
             },
         })
@@ -469,7 +469,7 @@ impl GradientCompressor {
                 original_norm,
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .expect("time should be after UNIX_EPOCH")
                     .as_secs(),
             },
         })
@@ -519,7 +519,7 @@ impl GradientCompressor {
                 original_norm,
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .expect("time should be after UNIX_EPOCH")
                     .as_secs(),
             },
         })
@@ -549,7 +549,7 @@ impl GradientCompressor {
                 original_norm: norm,
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .expect("time should be after UNIX_EPOCH")
                     .as_secs(),
             },
         })
@@ -594,7 +594,7 @@ impl GradientCompressor {
                 original_norm,
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .expect("time should be after UNIX_EPOCH")
                     .as_secs(),
             },
         })
@@ -658,7 +658,7 @@ impl GradientCompressor {
                 original_norm,
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .expect("time should be after UNIX_EPOCH")
                     .as_secs(),
             },
         })
@@ -709,7 +709,7 @@ impl GradientCompressor {
                 original_norm,
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .expect("time should be after UNIX_EPOCH")
                     .as_secs(),
             },
         })
@@ -772,7 +772,7 @@ impl GradientCompressor {
                 original_norm,
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .expect("time should be after UNIX_EPOCH")
                     .as_secs(),
             },
         })
@@ -848,7 +848,7 @@ impl GradientCompressor {
                 original_norm,
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .expect("time should be after UNIX_EPOCH")
                     .as_secs(),
             },
         })
@@ -909,7 +909,7 @@ impl GradientCompressor {
             .enumerate()
             .map(|(i, &v)| (i, v.abs()))
             .collect();
-        indexed_values.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        indexed_values.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
         let mut compressed_values = vec![0.0; grad_data.len()];
         let mut new_error_feedback = adjusted_grad.clone();
@@ -947,7 +947,7 @@ impl GradientCompressor {
                 original_norm,
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .expect("time should be after UNIX_EPOCH")
                     .as_secs(),
             },
         })
@@ -978,7 +978,7 @@ impl GradientCompressor {
                 original_norm,
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .expect("time should be after UNIX_EPOCH")
                     .as_secs(),
             },
         })

@@ -744,14 +744,18 @@ impl AdjointMethod {
 
         // Solve adjoint equations backward from t1 to t0
         let t0 = forward_solution.times[0];
-        let t1 = forward_solution.final_time().unwrap();
+        let t1 = forward_solution
+            .final_time()
+            .expect("forward_solution should have final time");
 
         let adjoint_solution_raw = self
             .solver
             .solve(&adjoint_system, t1, t0, &adjoint_y0, &[])?;
 
         // Extract gradients
-        let final_adjoint_state = adjoint_solution_raw.final_state().unwrap();
+        let final_adjoint_state = adjoint_solution_raw
+            .final_state()
+            .expect("adjoint solution should have final state");
         let y0_gradient = final_adjoint_state[0..dim].to_vec();
         let param_gradient = final_adjoint_state[dim..dim + param_count].to_vec();
 
@@ -946,7 +950,10 @@ impl NeuralODE {
             self.solver
                 .solve(&self.ode_layer, t0, t1, input, self.ode_layer.parameters())?;
 
-        Ok(solution.final_state().unwrap().to_vec())
+        Ok(solution
+            .final_state()
+            .expect("solution should have final state")
+            .to_vec())
     }
 
     /// Backward pass using adjoint method

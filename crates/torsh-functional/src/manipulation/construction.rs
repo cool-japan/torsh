@@ -5,7 +5,7 @@
 //! coordinate grids. These operations are fundamental for creating structured
 //! tensors and coordinate systems in scientific computing and machine learning.
 
-use torsh_core::Result as TorshResult;
+use torsh_core::{DeviceType, Result as TorshResult};
 use torsh_tensor::{creation::zeros, Tensor};
 
 use super::shape::atleast_2d;
@@ -17,11 +17,11 @@ use super::shape::atleast_2d;
 /// A block diagonal matrix is a matrix where the non-zero elements are confined
 /// to square blocks along the main diagonal:
 ///
-/// ```
+/// ```text
 /// A = [ A₁  0   0  ]
 ///     [ 0   A₂  0  ]
 ///     [ 0   0   A₃ ]
-/// ```
+/// ```text
 ///
 /// Each block Aᵢ can be a scalar, vector, or matrix. The resulting matrix has:
 /// - **Size**: (∑ mᵢ) × (∑ nᵢ) where Aᵢ is mᵢ × nᵢ
@@ -66,7 +66,7 @@ use super::shape::atleast_2d;
 /// // [ 0  0  0  1  0 ]
 /// // [ 0  0  0  0  1 ]
 /// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
+/// ```text
 ///
 /// ## Applications
 /// - **Linear systems**: Decoupled system representation
@@ -89,8 +89,8 @@ pub fn block_diag(tensors: &[Tensor]) -> TorshResult<Tensor> {
     let total_rows: usize = matrices.iter().map(|m| m.shape().dims()[0]).sum();
     let total_cols: usize = matrices.iter().map(|m| m.shape().dims()[1]).sum();
 
-    // Create output tensor
-    let result = zeros(&[total_rows, total_cols])?;
+    // Build result data directly (avoids mutation issues with SimdOptimized storage)
+    let mut result_data = vec![0.0f32; total_rows * total_cols];
 
     // Fill block diagonal
     let mut row_offset = 0;
@@ -104,7 +104,8 @@ pub fn block_diag(tensors: &[Tensor]) -> TorshResult<Tensor> {
         for i in 0..rows {
             for j in 0..cols {
                 let value = matrix.get(&[i, j])?;
-                result.set(&[row_offset + i, col_offset + j], value)?;
+                let idx = (row_offset + i) * total_cols + (col_offset + j);
+                result_data[idx] = value;
             }
         }
 
@@ -112,7 +113,7 @@ pub fn block_diag(tensors: &[Tensor]) -> TorshResult<Tensor> {
         col_offset += cols;
     }
 
-    Ok(result)
+    Tensor::from_data(result_data, vec![total_rows, total_cols], DeviceType::Cpu)
 }
 
 /// Compute the Cartesian product of input tensors
@@ -122,9 +123,9 @@ pub fn block_diag(tensors: &[Tensor]) -> TorshResult<Tensor> {
 /// The Cartesian product A × B × ... creates all possible combinations where
 /// each element comes from a different set:
 ///
-/// ```
+/// ```text
 /// A × B = {(a,b) : a ∈ A, b ∈ B}
-/// ```
+/// ```text
 ///
 /// For tensors, this creates a matrix where each row represents one combination.
 ///
@@ -163,7 +164,7 @@ pub fn block_diag(tensors: &[Tensor]) -> TorshResult<Tensor> {
 /// // [ 2, 10 ]  # (2, 10)
 /// // [ 2, 20 ]  # (2, 20)
 /// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
+/// ```text
 ///
 /// ## Applications
 /// - **Parameter grids**: Generate all parameter combinations for experiments
@@ -220,10 +221,10 @@ pub fn cartesian_prod(tensors: &[Tensor]) -> TorshResult<Tensor> {
 /// each array contains coordinates for one dimension at every grid point.
 ///
 /// For 2D case with x ∈ ℝᵐ and y ∈ ℝⁿ:
-/// ```
+/// ```text
 /// X[i,j] = x[j]  (x-coordinates at each point)
 /// Y[i,j] = y[i]  (y-coordinates at each point)
-/// ```
+/// ```text
 ///
 /// ## Indexing Conventions
 ///
@@ -242,18 +243,18 @@ pub fn cartesian_prod(tensors: &[Tensor]) -> TorshResult<Tensor> {
 /// For vectors x = [x₁, x₂, ...] and y = [y₁, y₂, ...]:
 ///
 /// Matrix indexing ('ij'):
-/// ```
+/// ```text
 /// X = [ x₁  x₂  x₃ ]    Y = [ y₁  y₁  y₁ ]
 ///     [ x₁  x₂  x₃ ]        [ y₂  y₂  y₂ ]
 ///     [ x₁  x₂  x₃ ]        [ y₃  y₃  y₃ ]
-/// ```
+/// ```text
 ///
 /// Cartesian indexing ('xy'):
-/// ```
+/// ```text
 /// X = [ x₁  x₁  x₁ ]    Y = [ y₁  y₂  y₃ ]
 ///     [ x₂  x₂  x₂ ]        [ y₁  y₂  y₃ ]
 ///     [ x₃  x₃  x₃ ]        [ y₁  y₂  y₃ ]
-/// ```
+/// ```text
 ///
 /// ## Parameters
 /// * `tensors` - Coordinate vectors (1D tensors)
@@ -274,7 +275,7 @@ pub fn cartesian_prod(tensors: &[Tensor]) -> TorshResult<Tensor> {
 /// // x_grid: [[1, 2, 3],     y_grid: [[10, 10, 10],
 /// //          [1, 2, 3]]              [20, 20, 20]]
 /// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
+/// ```text
 ///
 /// ## Applications
 /// - **Function evaluation**: Evaluate f(x,y) on regular grids

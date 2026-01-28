@@ -8,6 +8,73 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
+// ============================================================================
+// Stub implementations for missing types
+// ============================================================================
+
+#[derive(Debug, Clone, Default)]
+pub struct AlgorithmPerformanceTracker {}
+#[derive(Debug, Clone, Default)]
+pub struct ConvergenceMonitor {}
+#[derive(Debug, Clone, Default)]
+pub struct DiversityMaintainer {}
+#[derive(Debug, Clone, Default)]
+pub struct InteractiveOptimizer {}
+#[derive(Debug, Clone, Default)]
+pub struct RobustMultiObjectiveOptimizer {}
+#[derive(Debug, Clone, Default)]
+pub struct DynamicMultiObjectiveHandler {}
+#[derive(Debug, Clone, Default)]
+pub struct PreferenceArticulationSystem {}
+#[derive(Debug, Clone, Default)]
+pub struct MultiObjectiveDecisionSupport {}
+#[derive(Debug, Clone, Default)]
+pub struct ConstraintSatisfactionEngine {}
+#[derive(Debug, Clone, Default)]
+pub struct ConstraintViolationDetector {}
+#[derive(Debug, Clone, Default)]
+pub struct PenaltyComputationSystem {}
+#[derive(Debug, Clone, Default)]
+pub struct ConstraintPropagationEngine {}
+#[derive(Debug, Clone, Default)]
+pub struct ConstraintConflictResolver {}
+#[derive(Debug, Clone, Default)]
+pub struct AdaptiveConstraintSystem {}
+#[derive(Debug, Clone, Default)]
+pub struct ConstraintLearningSystem {}
+#[derive(Debug, Clone, Default)]
+pub struct ConstraintUncertaintyHandler {}
+#[derive(Debug, Clone, Default)]
+pub struct ConstraintOptimizer {}
+#[derive(Debug, Clone, Default)]
+pub struct ConstraintMonitoringSystem {}
+#[derive(Debug, Clone, Default)]
+pub struct MathematicalExpression {}
+#[derive(Debug, Clone, Default)]
+pub struct InputVariable {}
+#[derive(Debug, Clone, Default)]
+pub struct ComputationalComplexity {}
+#[derive(Debug, Clone, Default)]
+pub struct EvaluationConfiguration {}
+#[derive(Debug, Clone, Default)]
+pub struct GradientInformation {}
+#[derive(Debug, Clone, Default)]
+pub struct HessianInformation {}
+#[derive(Debug, Clone, Default)]
+pub struct NoiseCharacteristics {}
+#[derive(Debug, Clone, Default)]
+pub struct MultiFidelityConfiguration {}
+#[derive(Debug, Clone, Default)]
+pub struct SurrogateIntegration {}
+#[derive(Debug, Clone, Default)]
+pub struct FunctionSensitivityAnalysis {}
+#[derive(Debug, Clone, Default)]
+pub struct FunctionValidationFramework {}
+#[derive(Debug, Clone, Default)]
+pub struct OptimizationResult {}
+
+// ============================================================================
+
 /// Comprehensive objective and constraint management system
 #[derive(Debug)]
 pub struct OptimizationObjectiveManager {
@@ -1290,7 +1357,7 @@ impl ObjectiveRegistry {
 
     /// Get all objectives
     pub fn get_all_objectives(&self) -> Vec<OptimizationObjective> {
-        let objectives = self.objectives.read().unwrap();
+        let objectives = self.objectives.read().expect("lock should not be poisoned");
         objectives.values().cloned().collect()
     }
 
@@ -1311,7 +1378,7 @@ impl ObjectiveRegistry {
 
     /// Count objectives
     pub fn count_objectives(&self) -> usize {
-        let objectives = self.objectives.read().unwrap();
+        let objectives = self.objectives.read().expect("lock should not be poisoned");
         objectives.len()
     }
 

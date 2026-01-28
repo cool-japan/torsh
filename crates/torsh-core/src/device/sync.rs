@@ -75,9 +75,17 @@ impl DeviceEvent {
 
     /// Record the event (mark it as pending)
     pub fn record(&self) -> Result<()> {
-        let mut state = self.inner.state.lock().unwrap();
+        let mut state = self
+            .inner
+            .state
+            .lock()
+            .expect("lock should not be poisoned");
         *state = EventState::Recorded;
-        *self.inner.recorded_time.lock().unwrap() = Some(Instant::now());
+        *self
+            .inner
+            .recorded_time
+            .lock()
+            .expect("lock should not be poisoned") = Some(Instant::now());
 
         // Simulate async completion for demo purposes
         self.complete_async();
@@ -87,18 +95,34 @@ impl DeviceEvent {
 
     /// Wait for the event to complete
     pub fn wait(&self) -> Result<()> {
-        let mut state = self.inner.state.lock().unwrap();
+        let mut state = self
+            .inner
+            .state
+            .lock()
+            .expect("lock should not be poisoned");
         while *state != EventState::Completed {
-            state = self.inner.cond.wait(state).unwrap();
+            state = self
+                .inner
+                .cond
+                .wait(state)
+                .expect("condvar wait should not be poisoned");
         }
         Ok(())
     }
 
     /// Wait for the event to complete with timeout
     pub fn wait_timeout(&self, timeout: Duration) -> Result<bool> {
-        let mut state = self.inner.state.lock().unwrap();
+        let mut state = self
+            .inner
+            .state
+            .lock()
+            .expect("lock should not be poisoned");
         while *state != EventState::Completed {
-            let (new_state, timeout_result) = self.inner.cond.wait_timeout(state, timeout).unwrap();
+            let (new_state, timeout_result) = self
+                .inner
+                .cond
+                .wait_timeout(state, timeout)
+                .expect("condvar wait_timeout should not be poisoned");
             state = new_state;
             if timeout_result.timed_out() {
                 return Ok(false);
@@ -109,14 +133,26 @@ impl DeviceEvent {
 
     /// Query if the event has completed (non-blocking)
     pub fn query(&self) -> Result<bool> {
-        let state = self.inner.state.lock().unwrap();
+        let state = self
+            .inner
+            .state
+            .lock()
+            .expect("lock should not be poisoned");
         Ok(*state == EventState::Completed)
     }
 
     /// Get the elapsed time since recording (if completed)
     pub fn elapsed_time(&self) -> Option<Duration> {
-        let recorded = self.inner.recorded_time.lock().unwrap();
-        let completed = self.inner.completed_time.lock().unwrap();
+        let recorded = self
+            .inner
+            .recorded_time
+            .lock()
+            .expect("lock should not be poisoned");
+        let completed = self
+            .inner
+            .completed_time
+            .lock()
+            .expect("lock should not be poisoned");
 
         match (*recorded, *completed) {
             (Some(start), Some(end)) => Some(end.duration_since(start)),
@@ -126,10 +162,22 @@ impl DeviceEvent {
 
     /// Reset the event to be reused
     pub fn reset(&self) -> Result<()> {
-        let mut state = self.inner.state.lock().unwrap();
+        let mut state = self
+            .inner
+            .state
+            .lock()
+            .expect("lock should not be poisoned");
         *state = EventState::Created;
-        *self.inner.recorded_time.lock().unwrap() = None;
-        *self.inner.completed_time.lock().unwrap() = None;
+        *self
+            .inner
+            .recorded_time
+            .lock()
+            .expect("lock should not be poisoned") = None;
+        *self
+            .inner
+            .completed_time
+            .lock()
+            .expect("lock should not be poisoned") = None;
         Ok(())
     }
 
@@ -139,9 +187,12 @@ impl DeviceEvent {
             // Simulate some work
             std::thread::sleep(Duration::from_millis(1));
 
-            let mut state = inner.state.lock().unwrap();
+            let mut state = inner.state.lock().expect("lock should not be poisoned");
             *state = EventState::Completed;
-            *inner.completed_time.lock().unwrap() = Some(Instant::now());
+            *inner
+                .completed_time
+                .lock()
+                .expect("lock should not be poisoned") = Some(Instant::now());
             inner.cond.notify_all();
         });
     }
@@ -250,7 +301,11 @@ impl DeviceStream {
     where
         F: FnOnce() + Send + 'static,
     {
-        let mut queue = self.inner.operation_queue.lock().unwrap();
+        let mut queue = self
+            .inner
+            .operation_queue
+            .lock()
+            .expect("lock should not be poisoned");
         queue.push(Box::new(operation));
 
         // Process operations asynchronously
@@ -261,22 +316,38 @@ impl DeviceStream {
 
     /// Wait for all operations in the stream to complete
     pub fn synchronize(&self) -> Result<()> {
-        let mut is_sync = self.inner.is_synchronizing.lock().unwrap();
+        let mut is_sync = self
+            .inner
+            .is_synchronizing
+            .lock()
+            .expect("lock should not be poisoned");
         while !self.is_empty() || *is_sync {
-            is_sync = self.inner.sync_cond.wait(is_sync).unwrap();
+            is_sync = self
+                .inner
+                .sync_cond
+                .wait(is_sync)
+                .expect("condvar wait should not be poisoned");
         }
         Ok(())
     }
 
     /// Check if the stream is empty (no pending operations)
     pub fn is_empty(&self) -> bool {
-        let queue = self.inner.operation_queue.lock().unwrap();
+        let queue = self
+            .inner
+            .operation_queue
+            .lock()
+            .expect("lock should not be poisoned");
         queue.is_empty()
     }
 
     /// Get the number of pending operations
     pub fn pending_operations(&self) -> usize {
-        let queue = self.inner.operation_queue.lock().unwrap();
+        let queue = self
+            .inner
+            .operation_queue
+            .lock()
+            .expect("lock should not be poisoned");
         queue.len()
     }
 
@@ -301,13 +372,19 @@ impl DeviceStream {
         let inner = self.inner.clone();
         std::thread::spawn(move || {
             {
-                let mut is_sync = inner.is_synchronizing.lock().unwrap();
+                let mut is_sync = inner
+                    .is_synchronizing
+                    .lock()
+                    .expect("lock should not be poisoned");
                 *is_sync = true;
             }
 
             loop {
                 let operation = {
-                    let mut queue = inner.operation_queue.lock().unwrap();
+                    let mut queue = inner
+                        .operation_queue
+                        .lock()
+                        .expect("lock should not be poisoned");
                     queue.pop()
                 };
 
@@ -320,7 +397,10 @@ impl DeviceStream {
             }
 
             {
-                let mut is_sync = inner.is_synchronizing.lock().unwrap();
+                let mut is_sync = inner
+                    .is_synchronizing
+                    .lock()
+                    .expect("lock should not be poisoned");
                 *is_sync = false;
                 inner.sync_cond.notify_all();
             }
@@ -392,9 +472,21 @@ impl DeviceBarrier {
             )));
         }
 
-        let mut count = self.inner.count.lock().unwrap();
-        let mut arrived = self.inner.arrived_devices.lock().unwrap();
-        let generation = *self.inner.generation.lock().unwrap();
+        let mut count = self
+            .inner
+            .count
+            .lock()
+            .expect("lock should not be poisoned");
+        let mut arrived = self
+            .inner
+            .arrived_devices
+            .lock()
+            .expect("lock should not be poisoned");
+        let generation = *self
+            .inner
+            .generation
+            .lock()
+            .expect("lock should not be poisoned");
 
         // Check if device already arrived in this generation
         if arrived.contains(&device) {
@@ -410,15 +502,29 @@ impl DeviceBarrier {
             // Last device to arrive - release all
             *count = 0;
             arrived.clear();
-            let mut gen = self.inner.generation.lock().unwrap();
+            let mut gen = self
+                .inner
+                .generation
+                .lock()
+                .expect("lock should not be poisoned");
             *gen += 1;
             drop(gen);
             self.inner.cond.notify_all();
             Ok(())
         } else {
             // Wait for others
-            while *self.inner.generation.lock().unwrap() == generation {
-                count = self.inner.cond.wait(count).unwrap();
+            while *self
+                .inner
+                .generation
+                .lock()
+                .expect("lock should not be poisoned")
+                == generation
+            {
+                count = self
+                    .inner
+                    .cond
+                    .wait(count)
+                    .expect("condvar wait should not be poisoned");
             }
             Ok(())
         }
@@ -431,7 +537,11 @@ impl DeviceBarrier {
 
     /// Get the number of devices that have arrived at the barrier
     pub fn arrived_count(&self) -> usize {
-        let arrived = self.inner.arrived_devices.lock().unwrap();
+        let arrived = self
+            .inner
+            .arrived_devices
+            .lock()
+            .expect("lock should not be poisoned");
         arrived.len()
     }
 
@@ -557,19 +667,19 @@ impl DeviceSyncManager {
 
     /// Register a stream with the manager
     pub fn register_stream(&self, stream: Arc<DeviceStream>) {
-        let mut streams = self.streams.lock().unwrap();
+        let mut streams = self.streams.lock().expect("lock should not be poisoned");
         streams.insert((stream.device(), stream.id()), stream);
     }
 
     /// Get a stream by device and ID
     pub fn get_stream(&self, device: DeviceType, id: u64) -> Option<Arc<DeviceStream>> {
-        let streams = self.streams.lock().unwrap();
+        let streams = self.streams.lock().expect("lock should not be poisoned");
         streams.get(&(device, id)).cloned()
     }
 
     /// Synchronize all streams for a device
     pub fn synchronize_device(&self, device: DeviceType) -> Result<()> {
-        let streams = self.streams.lock().unwrap();
+        let streams = self.streams.lock().expect("lock should not be poisoned");
         let device_streams: Vec<_> = streams
             .values()
             .filter(|stream| stream.device() == device)
@@ -586,16 +696,16 @@ impl DeviceSyncManager {
     /// Create a cross-device barrier
     pub fn create_barrier(&self, devices: Vec<DeviceType>) -> Result<Arc<DeviceBarrier>> {
         let barrier = Arc::new(DeviceBarrier::new(devices)?);
-        let mut barriers = self.barriers.lock().unwrap();
+        let mut barriers = self.barriers.lock().expect("lock should not be poisoned");
         barriers.push(barrier.clone());
         Ok(barrier)
     }
 
     /// Get synchronization statistics
     pub fn statistics(&self) -> SyncStatistics {
-        let streams = self.streams.lock().unwrap();
-        let events = self.events.lock().unwrap();
-        let barriers = self.barriers.lock().unwrap();
+        let streams = self.streams.lock().expect("lock should not be poisoned");
+        let events = self.events.lock().expect("lock should not be poisoned");
+        let barriers = self.barriers.lock().expect("lock should not be poisoned");
 
         let total_pending_ops: usize = streams
             .values()
@@ -723,12 +833,12 @@ mod tests {
 
         stream
             .submit_operation(move || {
-                *executed_clone.lock().unwrap() = true;
+                *executed_clone.lock().expect("lock should not be poisoned") = true;
             })
             .unwrap();
 
         stream.synchronize().unwrap();
-        assert!(*executed.lock().unwrap());
+        assert!(*executed.lock().expect("lock should not be poisoned"));
     }
 
     #[test]
@@ -747,7 +857,7 @@ mod tests {
         assert_eq!(mutex.device(), DeviceType::Cpu);
 
         {
-            let guard = mutex.lock().unwrap();
+            let guard = mutex.lock().expect("lock should not be poisoned");
             assert_eq!(*guard, 42);
         }
 

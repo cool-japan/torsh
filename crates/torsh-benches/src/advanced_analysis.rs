@@ -651,8 +651,14 @@ impl AdvancedAnalyzer {
         }
 
         // Simplified space complexity estimation
-        let max_memory = *memory_growth.iter().max().unwrap();
-        let min_memory = *memory_growth.iter().min().unwrap();
+        let max_memory = *memory_growth
+            .iter()
+            .max()
+            .expect("memory_growth should have at least 2 elements");
+        let min_memory = *memory_growth
+            .iter()
+            .min()
+            .expect("memory_growth should have at least 2 elements");
 
         if max_memory == min_memory {
             "O(1) - Constant".to_string()

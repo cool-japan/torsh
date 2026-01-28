@@ -556,7 +556,7 @@ impl EnhancedBenchmarkSuite {
             .max_by(|a, b| {
                 a.avg_compression_ratio
                     .partial_cmp(&b.avg_compression_ratio)
-                    .unwrap()
+                    .unwrap_or(std::cmp::Ordering::Equal)
             })
             .cloned();
 
@@ -566,7 +566,7 @@ impl EnhancedBenchmarkSuite {
             .max_by(|a, b| {
                 a.avg_throughput_mbps
                     .partial_cmp(&b.avg_throughput_mbps)
-                    .unwrap()
+                    .unwrap_or(std::cmp::Ordering::Equal)
             })
             .cloned();
 
@@ -577,7 +577,7 @@ impl EnhancedBenchmarkSuite {
                 a.memory_usage
                     .memory_reduction_pct
                     .partial_cmp(&b.memory_usage.memory_reduction_pct)
-                    .unwrap()
+                    .unwrap_or(std::cmp::Ordering::Equal)
             })
             .cloned();
 

@@ -599,7 +599,9 @@ impl ReplicationManager {
                     .get(&b.node_id)
                     .map(|n| n.replication_lag_secs)
                     .unwrap_or(f64::MAX);
-                a_lag.partial_cmp(&b_lag).unwrap()
+                a_lag
+                    .partial_cmp(&b_lag)
+                    .expect("replication lag comparison should succeed (f64::MAX is valid)")
             })
             .ok_or_else(|| TorshError::RuntimeError("No healthy replicas".to_string()))
     }

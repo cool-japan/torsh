@@ -141,17 +141,17 @@ impl ImageCache {
 
         // Try to get from cache first
         {
-            let mut cache = self.cache.lock().unwrap();
+            let mut cache = self.cache.lock().expect("lock should not be poisoned");
             if let Some(entry) = cache.get_mut(&path_str) {
                 entry.access_time = Instant::now();
                 entry.access_count += 1;
-                *self.hit_count.lock().unwrap() += 1;
+                *self.hit_count.lock().expect("lock should not be poisoned") += 1;
                 return Ok(entry.image.clone());
             }
         }
 
         // Cache miss - load image
-        *self.miss_count.lock().unwrap() += 1;
+        *self.miss_count.lock().expect("lock should not be poisoned") += 1;
         let image = crate::io::global::load_image(path)?;
 
         // Estimate image size in bytes (approximation)
@@ -173,8 +173,11 @@ impl ImageCache {
             size_bytes,
         };
 
-        let mut cache = self.cache.lock().unwrap();
-        let mut current_size = self.current_size_bytes.lock().unwrap();
+        let mut cache = self.cache.lock().expect("lock should not be poisoned");
+        let mut current_size = self
+            .current_size_bytes
+            .lock()
+            .expect("lock should not be poisoned");
 
         // Remove old entry if exists
         if let Some(old_entry) = cache.remove(&key) {
@@ -210,8 +213,8 @@ impl ImageCache {
     /// # Returns
     /// [`CacheStats`] containing comprehensive cache performance metrics
     pub fn stats(&self) -> CacheStats {
-        let hit_count = *self.hit_count.lock().unwrap();
-        let miss_count = *self.miss_count.lock().unwrap();
+        let hit_count = *self.hit_count.lock().expect("lock should not be poisoned");
+        let miss_count = *self.miss_count.lock().expect("lock should not be poisoned");
         let total_requests = hit_count + miss_count;
         let hit_rate = if total_requests > 0 {
             hit_count as f64 / total_requests as f64
@@ -223,9 +226,16 @@ impl ImageCache {
             hit_count,
             miss_count,
             hit_rate,
-            current_size_bytes: *self.current_size_bytes.lock().unwrap(),
+            current_size_bytes: *self
+                .current_size_bytes
+                .lock()
+                .expect("lock should not be poisoned"),
             max_size_bytes: self.max_size_bytes,
-            entry_count: self.cache.lock().unwrap().len(),
+            entry_count: self
+                .cache
+                .lock()
+                .expect("lock should not be poisoned")
+                .len(),
         }
     }
 
@@ -234,10 +244,16 @@ impl ImageCache {
     /// Removes all cached images and resets all statistics.
     /// This is useful for freeing memory or resetting cache state.
     pub fn clear(&self) {
-        self.cache.lock().unwrap().clear();
-        *self.current_size_bytes.lock().unwrap() = 0;
-        *self.hit_count.lock().unwrap() = 0;
-        *self.miss_count.lock().unwrap() = 0;
+        self.cache
+            .lock()
+            .expect("lock should not be poisoned")
+            .clear();
+        *self
+            .current_size_bytes
+            .lock()
+            .expect("lock should not be poisoned") = 0;
+        *self.hit_count.lock().expect("lock should not be poisoned") = 0;
+        *self.miss_count.lock().expect("lock should not be poisoned") = 0;
     }
 }
 
@@ -328,7 +344,10 @@ impl ImagePrefetcher {
     /// # Arguments
     /// * `paths` - Iterator of image file paths to prefetch
     pub fn prefetch_paths<P: AsRef<Path>>(&self, paths: &[P]) {
-        let mut queue = self.prefetch_queue.lock().unwrap();
+        let mut queue = self
+            .prefetch_queue
+            .lock()
+            .expect("lock should not be poisoned");
         for path in paths {
             queue.push(path.as_ref().to_string_lossy().to_string());
         }
@@ -346,13 +365,13 @@ impl ImagePrefetcher {
     ) {
         loop {
             // Check for shutdown signal
-            if *shutdown.lock().unwrap() {
+            if *shutdown.lock().expect("lock should not be poisoned") {
                 break;
             }
 
             // Get next path to prefetch
             let path = {
-                let mut queue_guard = queue.lock().unwrap();
+                let mut queue_guard = queue.lock().expect("lock should not be poisoned");
                 queue_guard.pop()
             };
 
@@ -387,7 +406,10 @@ impl ImagePrefetcher {
     /// Signals the worker thread to stop and waits for it to finish.
     /// This ensures clean shutdown of background operations.
     pub fn shutdown(&mut self) {
-        *self.shutdown_signal.lock().unwrap() = true;
+        *self
+            .shutdown_signal
+            .lock()
+            .expect("lock should not be poisoned") = true;
         if let Some(handle) = self.worker_handle.take() {
             let _ = handle.join();
         }
@@ -460,8 +482,8 @@ impl BatchImageLoader {
 
     /// Enable automatic normalization
     ///
-    /// When enabled, pixel values will be normalized from [0,255]
-    /// to [0,1] range by dividing by 255.0.
+    /// When enabled, pixel values will be normalized from \[0,255\]
+    /// to \[0,1\] range by dividing by 255.0.
     ///
     /// # Arguments
     /// * `normalize` - Whether to enable normalization

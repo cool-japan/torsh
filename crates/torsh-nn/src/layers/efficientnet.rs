@@ -358,7 +358,10 @@ impl EfficientNetBackbone {
 
         // Head: Conv2d + BatchNorm + Swish + GlobalAvgPool
         let head_channels = config.scale_width(1280);
-        let last_block_channels = scaled_blocks.last().unwrap().output_filters;
+        let last_block_channels = scaled_blocks
+            .last()
+            .expect("scaled_blocks should not be empty")
+            .output_filters;
         let head = Sequential::new()
             .add(Conv2d::new(
                 last_block_channels,

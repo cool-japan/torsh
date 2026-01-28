@@ -282,7 +282,10 @@ impl UltraPerformanceProfiler {
         let scalar_time = scalar_start.elapsed();
 
         // Analyze SIMD efficiency
-        let speedup = scalar_time.as_nanos() as f64 / simd_time.as_nanos() as f64;
+        // Guard against division by zero when operations are extremely fast
+        let simd_nanos = simd_time.as_nanos().max(1) as f64;
+        let scalar_nanos = scalar_time.as_nanos().max(1) as f64;
+        let speedup = scalar_nanos / simd_nanos;
         let efficiency = self.analyze_simd_instruction_efficiency(&test_data);
         let vectorization_rate = self.measure_vectorization_rate(simd_operation);
 
@@ -408,7 +411,7 @@ impl UltraPerformanceProfiler {
 
     /// Generate comprehensive ultra-performance report
     pub fn generate_comprehensive_report(&self) -> UltraPerformanceReport {
-        let statistics = self.statistics.lock().unwrap();
+        let statistics = self.statistics.lock().expect("lock should not be poisoned");
 
         UltraPerformanceReport {
             executive_summary: self.generate_executive_summary(&statistics),

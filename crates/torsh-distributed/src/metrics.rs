@@ -20,8 +20,9 @@ use std::time::{Duration, Instant, SystemTime};
 // Uncomment when scirs2_core provides these modules
 // #[cfg(feature = "scirs2-profiling")]
 // use scirs2_core::benchmarking::{BenchmarkRunner, BenchmarkSuite};
-#[cfg(feature = "scirs2-profiling")]
-use scirs2_core::metrics::{Counter, Gauge, Histogram, MetricsRegistry, Timer};
+// #[cfg(feature = "scirs2-profiling")]
+// Metrics types available when needed
+// use scirs2_core::metrics::{Counter, Gauge, Histogram, MetricsRegistry, Timer};
 // #[cfg(feature = "scirs2-profiling")]
 // use scirs2_core::observability::{audit, tracing as scirs2_tracing};
 // #[cfg(feature = "scirs2-profiling")]
@@ -378,7 +379,7 @@ impl MetricsCollector {
             loop {
                 // Check shutdown flag
                 {
-                    let shutdown = shutdown_flag.lock().unwrap();
+                    let shutdown = shutdown_flag.lock().expect("lock should not be poisoned");
                     if *shutdown {
                         break;
                     }
@@ -483,6 +484,10 @@ impl MetricsCollector {
             disk_bytes_read: 10 * 1024 * 1024,                    // 10MB placeholder
             disk_bytes_write: 5 * 1024 * 1024,                    // 5MB placeholder
             timestamp: SystemTime::now(),
+            #[cfg(feature = "scirs2-profiling")]
+            scirs2_profile: None,
+            #[cfg(feature = "scirs2-profiling")]
+            memory_profile: None,
         }
     }
 
@@ -783,11 +788,11 @@ impl MetricsCollector {
     /// Collect advanced system metrics using SciRS2 profiling
     #[cfg(feature = "scirs2-profiling")]
     pub fn collect_scirs2_system_metrics(&self) -> TorshResult<SystemMetrics> {
-        use scirs2_core::metrics::{Counter, Gauge, MetricsRegistry};
         // TODO: profiling module not yet available in scirs2_core
+        // use scirs2_core::metrics::{Counter, Gauge, MetricsRegistry};
         // use scirs2_core::profiling::profiling_memory_tracker;
 
-        let mut metrics = self.collect_system_metrics()?;
+        let mut metrics = MetricsCollector::collect_system_metrics();
 
         // TODO: Enhanced memory profiling using SciRS2 - disabled until profiling module is available
         // Enhanced memory profiling using SciRS2
@@ -875,8 +880,8 @@ impl MetricsCollector {
         // let _trace = tracing::span!("enhanced_metrics_collection");
 
         let system_metrics = self.collect_scirs2_system_metrics()?;
-        let comm_metrics = self.collect_communication_metrics()?;
-        let training_metrics = self.collect_training_metrics()?;
+        let comm_metrics = MetricsCollector::collect_communication_metrics();
+        let training_metrics = MetricsCollector::collect_training_metrics();
 
         // TODO: Create audit trail when observability module is available
         // audit::log_event(
@@ -905,8 +910,8 @@ impl MetricsCollector {
         let start = Instant::now();
         // Simulate sequential memory access pattern
         let mut data = vec![0u8; 1024 * 1024]; // 1MB
-        for i in 0..data.len() {
-            data[i] = (i % 256) as u8;
+        for (i, item) in data.iter_mut().enumerate() {
+            *item = (i % 256) as u8;
         }
         let _ = data.iter().sum::<u8>();
         start.elapsed()
@@ -1040,9 +1045,11 @@ mod tests {
     fn test_training_metrics_update() {
         let collector = MetricsCollector::new();
 
-        let mut training_metrics = TrainingMetrics::default();
-        training_metrics.current_epoch = 5;
-        training_metrics.training_loss = Some(0.123);
+        let training_metrics = TrainingMetrics {
+            current_epoch: 5,
+            training_loss: Some(0.123),
+            ..Default::default()
+        };
 
         collector
             .update_training_metrics(training_metrics.clone())
@@ -1058,7 +1065,7 @@ mod tests {
     fn test_metrics_export() {
         let collector = MetricsCollector::new();
         collector
-            .add_custom_metric("export_test".to_string(), 3.14)
+            .add_custom_metric("export_test".to_string(), std::f64::consts::PI)
             .unwrap();
 
         let json = collector.export_metrics_json().unwrap();

@@ -64,7 +64,7 @@ impl MSTLDecomposition {
             return MSTLResult {
                 trend: series.values.clone(),
                 seasonal_components: vec![],
-                residual: zeros(&[n]).unwrap(),
+                residual: zeros(&[n]).expect("tensor creation should succeed"),
             };
         }
 
@@ -76,7 +76,7 @@ impl MSTLDecomposition {
         let mut remaining_data = series.values.to_vec().unwrap_or_default();
         let mut seasonal_components = Vec::new();
         let mut final_trend = series.values.clone();
-        let mut final_residual = zeros(&[n]).unwrap();
+        let mut final_residual = zeros(&[n]).expect("tensor creation should succeed");
 
         // Iterate for the specified number of iterations to refine decomposition
         for _iter in 0..self.iterations {
@@ -164,9 +164,9 @@ impl MSTLDecomposition {
 
                 if sorted_idx < seasonal_components.len() {
                     Tensor::from_vec(seasonal_components[sorted_idx].clone(), &[n])
-                        .unwrap_or_else(|_| zeros(&[n]).unwrap())
+                        .unwrap_or_else(|_| zeros(&[n]).expect("tensor creation should succeed"))
                 } else {
-                    zeros(&[n]).unwrap()
+                    zeros(&[n]).expect("tensor creation should succeed")
                 }
             })
             .collect();

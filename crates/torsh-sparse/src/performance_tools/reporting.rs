@@ -374,7 +374,7 @@ impl PerformanceReport {
             .max_by(|a, b| {
                 a.memory_efficiency()
                     .partial_cmp(&b.memory_efficiency())
-                    .unwrap()
+                    .expect("efficiency comparison should succeed")
             })
     }
 
@@ -385,7 +385,7 @@ impl PerformanceReport {
         operations.sort_by(|a, b| {
             b.operations_per_second()
                 .partial_cmp(&a.operations_per_second())
-                .unwrap()
+                .expect("throughput comparison should succeed")
         });
         operations.into_iter().take(n).collect()
     }

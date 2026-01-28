@@ -370,9 +370,15 @@ pub mod python_bindings {
         let indptr_array = PyArray1::from_vec(py, indptr);
 
         let args = (
-            data_array.into_pyobject(py).unwrap(),
-            indices_array.into_pyobject(py).unwrap(),
-            indptr_array.into_pyobject(py).unwrap(),
+            data_array
+                .into_pyobject(py)
+                .expect("PyArray conversion should succeed"),
+            indices_array
+                .into_pyobject(py)
+                .expect("PyArray conversion should succeed"),
+            indptr_array
+                .into_pyobject(py)
+                .expect("PyArray conversion should succeed"),
         );
 
         let kwargs = PyDict::new(py);

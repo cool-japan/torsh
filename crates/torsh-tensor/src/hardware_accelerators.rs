@@ -851,23 +851,38 @@ impl HardwareAcceleratorSystem {
         hardware_report: &HardwareDetectionReport,
     ) -> Result<AcceleratorInitializationReport, Box<dyn std::error::Error>> {
         // Initialize CPU accelerators
-        let mut cpu_accelerators = self.cpu_accelerators.lock().unwrap();
+        let mut cpu_accelerators = self
+            .cpu_accelerators
+            .lock()
+            .expect("lock should not be poisoned");
         cpu_accelerators.initialize_for_cpu(&hardware_report.cpu_info)?;
 
         // Initialize GPU accelerators
-        let mut gpu_accelerators = self.gpu_accelerators.lock().unwrap();
+        let mut gpu_accelerators = self
+            .gpu_accelerators
+            .lock()
+            .expect("lock should not be poisoned");
         gpu_accelerators.initialize_for_gpu(&hardware_report.gpu_info)?;
 
         // Initialize memory accelerators
-        let mut memory_accelerators = self.memory_accelerators.lock().unwrap();
+        let mut memory_accelerators = self
+            .memory_accelerators
+            .lock()
+            .expect("lock should not be poisoned");
         memory_accelerators.initialize_for_memory(&hardware_report.memory_info)?;
 
         // Initialize network accelerators
-        let mut network_accelerators = self.network_accelerators.lock().unwrap();
+        let mut network_accelerators = self
+            .network_accelerators
+            .lock()
+            .expect("lock should not be poisoned");
         network_accelerators.initialize_for_network(&hardware_report.platform_info)?;
 
         // Initialize specialized accelerators
-        let mut specialized_accelerators = self.specialized_accelerators.lock().unwrap();
+        let mut specialized_accelerators = self
+            .specialized_accelerators
+            .lock()
+            .expect("lock should not be poisoned");
         specialized_accelerators.initialize_for_specialized(&hardware_report.specialized_info)?;
 
         Ok(AcceleratorInitializationReport {
@@ -929,7 +944,10 @@ impl HardwareAcceleratorSystem {
         &self,
         workload: &AccelerationWorkload,
     ) -> Result<CpuAccelerationMetrics, Box<dyn std::error::Error>> {
-        let _cpu_accelerators = self.cpu_accelerators.lock().unwrap();
+        let _cpu_accelerators = self
+            .cpu_accelerators
+            .lock()
+            .expect("lock should not be poisoned");
 
         // Calculate metrics based on workload size and complexity
         let workload_size_factor = (workload.data_size as f64 / 1_000_000.0).min(1.0);
@@ -968,7 +986,10 @@ impl HardwareAcceleratorSystem {
         &self,
         workload: &AccelerationWorkload,
     ) -> Result<GpuAccelerationMetrics, Box<dyn std::error::Error>> {
-        let _gpu_accelerators = self.gpu_accelerators.lock().unwrap();
+        let _gpu_accelerators = self
+            .gpu_accelerators
+            .lock()
+            .expect("lock should not be poisoned");
 
         // GPU efficiency scales better with large workloads
         let workload_size_factor = (workload.data_size as f64 / 10_000_000.0).min(1.0);
@@ -1014,7 +1035,10 @@ impl HardwareAcceleratorSystem {
         &self,
         workload: &AccelerationWorkload,
     ) -> Result<MemoryAccelerationMetrics, Box<dyn std::error::Error>> {
-        let _memory_accelerators = self.memory_accelerators.lock().unwrap();
+        let _memory_accelerators = self
+            .memory_accelerators
+            .lock()
+            .expect("lock should not be poisoned");
 
         // Memory performance degrades with larger working sets
         let workload_size_factor = (workload.data_size as f64 / 1_000_000.0).min(2.0);
@@ -1054,7 +1078,10 @@ impl HardwareAcceleratorSystem {
         &self,
         workload: &AccelerationWorkload,
     ) -> Result<NetworkAccelerationMetrics, Box<dyn std::error::Error>> {
-        let _network_accelerators = self.network_accelerators.lock().unwrap();
+        let _network_accelerators = self
+            .network_accelerators
+            .lock()
+            .expect("lock should not be poisoned");
 
         // Network performance depends on message size and communication patterns
         let workload_size_factor = (workload.data_size as f64 / 100_000.0).min(1.5);

@@ -392,7 +392,7 @@ impl ProfileGuidedOptimizer {
         recommendations.sort_by(|a, b| {
             b.expected_improvement
                 .partial_cmp(&a.expected_improvement)
-                .unwrap()
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         Ok(recommendations)
@@ -812,7 +812,9 @@ impl ProfileGuidedOptimizer {
             }
 
             // Connect the last inlined node to outgoing edges
-            let last_inline_node = *inline_nodes.last().unwrap();
+            let last_inline_node = *inline_nodes
+                .last()
+                .expect("inline_nodes should not be empty");
             for (_src_id, target_id, edge) in outgoing_data {
                 graph.add_edge(last_inline_node, target_id, edge);
             }
@@ -910,7 +912,10 @@ mod tests {
         optimizer.record_branch(node_id, true);
         optimizer.record_branch(node_id, false);
 
-        let data = optimizer.profile_data.read().unwrap();
+        let data = optimizer
+            .profile_data
+            .read()
+            .expect("lock should not be poisoned");
         let branch_data = &data.branch_frequencies[&node_id.into()];
         assert_eq!(branch_data.taken_count, 2);
         assert_eq!(branch_data.not_taken_count, 1);

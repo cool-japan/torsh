@@ -15,8 +15,8 @@ use tracing::{debug, info};
 use scirs2_core::random::{thread_rng, Distribution, Normal};
 
 // ToRSh integration
-use torsh_core::device::DeviceType;
-use torsh_tensor::Tensor;
+use torsh::core::device::DeviceType;
+use torsh::tensor::Tensor;
 
 use super::tensor_integration::estimate_tensor_flops;
 use super::types::{LayerInfo, TorshModel};

@@ -326,7 +326,10 @@ impl TensorFlowFunction {
             self.compiled = Some(compiled);
         }
 
-        Ok(self.compiled.as_ref().unwrap())
+        Ok(self
+            .compiled
+            .as_ref()
+            .expect("compiled should be set after initialization above"))
     }
 }
 

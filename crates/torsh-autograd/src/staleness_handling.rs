@@ -569,7 +569,10 @@ impl StalenessManager {
         &self,
         mut gradient: StalenessAwareGradient,
     ) -> Result<(), StalenessError> {
-        let current_global_version = *self.global_version.lock().unwrap();
+        let current_global_version = *self
+            .global_version
+            .lock()
+            .expect("lock should not be poisoned");
         gradient.compute_staleness(current_global_version);
         gradient.compute_priority(self.config.staleness_tolerance.clone());
         gradient.compute_quality_score();
@@ -584,7 +587,10 @@ impl StalenessManager {
         let gradient_id = gradient.version;
 
         {
-            let mut pending = self.pending_gradients.lock().unwrap();
+            let mut pending = self
+                .pending_gradients
+                .lock()
+                .expect("lock should not be poisoned");
             pending.insert(gradient_id, gradient.clone());
         }
 
@@ -600,7 +606,10 @@ impl StalenessManager {
             StalenessStrategy::BoundedStaleness => gradient.staleness <= self.config.max_staleness,
             StalenessStrategy::UnboundedStaleness => true,
             StalenessStrategy::AdaptiveStaleness => {
-                let controller = self.adaptive_controller.lock().unwrap();
+                let controller = self
+                    .adaptive_controller
+                    .lock()
+                    .expect("lock should not be poisoned");
                 gradient.staleness <= controller.current_max_staleness
             }
             StalenessStrategy::ConditionalStaleness => {
@@ -618,7 +627,10 @@ impl StalenessManager {
     }
 
     fn record_staleness_violation(&self, gradient: &StalenessAwareGradient) {
-        let mut metrics = self.staleness_metrics.lock().unwrap();
+        let mut metrics = self
+            .staleness_metrics
+            .lock()
+            .expect("lock should not be poisoned");
         metrics.staleness_violations += 1;
 
         if let Some(worker_profile) = metrics
@@ -630,7 +642,10 @@ impl StalenessManager {
     }
 
     fn update_worker_state(&self, gradient: &StalenessAwareGradient) -> Result<(), StalenessError> {
-        let mut workers = self.worker_states.write().unwrap();
+        let mut workers = self
+            .worker_states
+            .write()
+            .expect("lock should not be poisoned");
 
         let worker_state = workers
             .entry(gradient.worker_id)
@@ -688,13 +703,13 @@ impl StalenessManager {
         &self,
         gradient: StalenessAwareGradient,
     ) -> Result<(), StalenessError> {
-        let mut scheduler = self.scheduler.lock().unwrap();
+        let mut scheduler = self.scheduler.lock().expect("lock should not be poisoned");
         scheduler.schedule_gradient(gradient)?;
         Ok(())
     }
 
     pub fn process_gradients(&self) -> Result<Vec<StalenessAwareGradient>, StalenessError> {
-        let mut scheduler = self.scheduler.lock().unwrap();
+        let mut scheduler = self.scheduler.lock().expect("lock should not be poisoned");
         let gradients_to_process = scheduler.get_next_batch()?;
 
         drop(scheduler);
@@ -726,7 +741,10 @@ impl StalenessManager {
         &self,
         gradient: &StalenessAwareGradient,
     ) -> Result<f64, StalenessError> {
-        let compensator = self.compensator.lock().unwrap();
+        let compensator = self
+            .compensator
+            .lock()
+            .expect("lock should not be poisoned");
         compensator.compute_compensation_factor(gradient)
     }
 
@@ -734,7 +752,10 @@ impl StalenessManager {
         &self,
         gradient: &StalenessAwareGradient,
     ) -> Result<(), StalenessError> {
-        let mut version_manager = self.version_manager.lock().unwrap();
+        let mut version_manager = self
+            .version_manager
+            .lock()
+            .expect("lock should not be poisoned");
         version_manager.update_version_vector(gradient.worker_id, gradient.version)?;
         Ok(())
     }
@@ -751,7 +772,10 @@ impl StalenessManager {
         };
 
         {
-            let mut applied = self.applied_gradients.lock().unwrap();
+            let mut applied = self
+                .applied_gradients
+                .lock()
+                .expect("lock should not be poisoned");
             applied.push_back(applied_gradient);
 
             if applied.len() > 1000 {
@@ -760,12 +784,18 @@ impl StalenessManager {
         }
 
         {
-            let mut global_version = self.global_version.lock().unwrap();
+            let mut global_version = self
+                .global_version
+                .lock()
+                .expect("lock should not be poisoned");
             *global_version += 1;
         }
 
         {
-            let mut pending = self.pending_gradients.lock().unwrap();
+            let mut pending = self
+                .pending_gradients
+                .lock()
+                .expect("lock should not be poisoned");
             pending.remove(&gradient.version);
         }
 
@@ -776,7 +806,10 @@ impl StalenessManager {
         &self,
         processed_gradients: &[StalenessAwareGradient],
     ) -> Result<(), StalenessError> {
-        let mut metrics = self.staleness_metrics.lock().unwrap();
+        let mut metrics = self
+            .staleness_metrics
+            .lock()
+            .expect("lock should not be poisoned");
 
         metrics.total_gradients_processed += processed_gradients.len() as u64;
 
@@ -819,7 +852,10 @@ impl StalenessManager {
         &self,
         processed_gradients: &[StalenessAwareGradient],
     ) -> Result<(), StalenessError> {
-        let mut controller = self.adaptive_controller.lock().unwrap();
+        let mut controller = self
+            .adaptive_controller
+            .lock()
+            .expect("lock should not be poisoned");
 
         let average_staleness = if !processed_gradients.is_empty() {
             processed_gradients
@@ -861,16 +897,26 @@ impl StalenessManager {
     }
 
     pub fn get_staleness_metrics(&self) -> StalenessMetrics {
-        (*self.staleness_metrics.lock().unwrap()).clone()
+        (*self
+            .staleness_metrics
+            .lock()
+            .expect("lock should not be poisoned"))
+        .clone()
     }
 
     pub fn get_worker_states(&self) -> HashMap<u32, WorkerState> {
-        self.worker_states.read().unwrap().clone()
+        self.worker_states
+            .read()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     pub fn set_max_staleness(&self, max_staleness: u32) -> Result<(), StalenessError> {
         if self.config.adaptive_staleness {
-            let mut controller = self.adaptive_controller.lock().unwrap();
+            let mut controller = self
+                .adaptive_controller
+                .lock()
+                .expect("lock should not be poisoned");
             controller.current_max_staleness = max_staleness;
         }
         Ok(())
@@ -880,12 +926,18 @@ impl StalenessManager {
         let cleanup_threshold = SystemTime::now() - self.config.timeout_duration;
 
         {
-            let mut pending = self.pending_gradients.lock().unwrap();
+            let mut pending = self
+                .pending_gradients
+                .lock()
+                .expect("lock should not be poisoned");
             pending.retain(|_, gradient| gradient.timestamp >= cleanup_threshold);
         }
 
         {
-            let mut applied = self.applied_gradients.lock().unwrap();
+            let mut applied = self
+                .applied_gradients
+                .lock()
+                .expect("lock should not be poisoned");
             applied.retain(|gradient| gradient.application_time >= cleanup_threshold);
         }
 
@@ -1354,7 +1406,13 @@ mod tests {
     fn test_staleness_manager_creation() {
         let config = StalenessConfig::default();
         let manager = StalenessManager::new(config);
-        assert_eq!(*manager.global_version.lock().unwrap(), 0);
+        assert_eq!(
+            *manager
+                .global_version
+                .lock()
+                .expect("lock should not be poisoned"),
+            0
+        );
     }
 
     #[test]
@@ -1378,7 +1436,10 @@ mod tests {
 
         // Set the global version to a high value to make the gradient stale
         {
-            let mut global_version = manager.global_version.lock().unwrap();
+            let mut global_version = manager
+                .global_version
+                .lock()
+                .expect("lock should not be poisoned");
             *global_version = 10;
         }
 

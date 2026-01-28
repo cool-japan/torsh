@@ -203,7 +203,9 @@ impl Optimizer for Shampoo {
                     continue;
                 }
 
-                let grad = param.grad().unwrap();
+                let grad = param
+                    .grad()
+                    .expect("gradient should exist after has_grad check");
                 let param_id = format!("{:p}", param_arc.as_ref());
 
                 // Apply weight decay
@@ -253,8 +255,11 @@ impl Optimizer for Shampoo {
                     }
                 }
 
-                let mut step_tensor = state.get("step").unwrap().clone();
-                let mut momentum_buffer = state.get("momentum_buffer").unwrap().clone();
+                let mut step_tensor = state.get("step").expect("step state should exist").clone();
+                let mut momentum_buffer = state
+                    .get("momentum_buffer")
+                    .expect("momentum_buffer state should exist")
+                    .clone();
 
                 // Increment step count
                 step_tensor.add_scalar_(1.0)?;
@@ -312,15 +317,24 @@ impl Optimizer for Shampoo {
 
                     if new_preconds.is_empty() {
                         // Diagonal case
-                        let mut diagonal_precond = state.get("diagonal_precond").unwrap().clone();
+                        let mut diagonal_precond = state
+                            .get("diagonal_precond")
+                            .expect("diagonal_precond state should exist")
+                            .clone();
                         diagonal_precond = diagonal_precond
                             .mul_scalar(beta2)?
                             .add(&new_diagonal.mul_scalar(1.0 - beta2)?)?;
                         state.insert("diagonal_precond".to_string(), diagonal_precond);
                     } else if new_preconds.len() == 2 {
                         // Matrix case
-                        let mut left_precond = state.get("left_precond").unwrap().clone();
-                        let mut right_precond = state.get("right_precond").unwrap().clone();
+                        let mut left_precond = state
+                            .get("left_precond")
+                            .expect("left_precond state should exist")
+                            .clone();
+                        let mut right_precond = state
+                            .get("right_precond")
+                            .expect("right_precond state should exist")
+                            .clone();
 
                         left_precond = left_precond
                             .mul_scalar(beta2)?
@@ -338,8 +352,14 @@ impl Optimizer for Shampoo {
                 let preconditioners =
                     if state.contains_key("left_precond") && state.contains_key("right_precond") {
                         vec![
-                            state.get("left_precond").unwrap().clone(),
-                            state.get("right_precond").unwrap().clone(),
+                            state
+                                .get("left_precond")
+                                .expect("left_precond state should exist")
+                                .clone(),
+                            state
+                                .get("right_precond")
+                                .expect("right_precond state should exist")
+                                .clone(),
                         ]
                     } else {
                         vec![]
@@ -349,7 +369,8 @@ impl Optimizer for Shampoo {
                     .get("diagonal_precond")
                     .map(|t| t.clone())
                     .unwrap_or_else(|| {
-                        Tensor::zeros(&[1], torsh_core::device::DeviceType::Cpu).unwrap()
+                        Tensor::zeros(&[1], torsh_core::device::DeviceType::Cpu)
+                            .expect("tensor creation should succeed")
                     });
 
                 // Apply preconditioning inline to avoid borrowing conflicts

@@ -79,6 +79,12 @@ pub use benchmarks::{
     BenchmarkResult, VisionBenchmarkSuite,
 };
 
+// Version information
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const VERSION_MAJOR: u32 = 0;
+pub const VERSION_MINOR: u32 = 1;
+pub const VERSION_PATCH: u32 = 0;
+
 #[derive(Debug, thiserror::Error)]
 pub enum VisionError {
     #[error("Image processing error: {0}")]

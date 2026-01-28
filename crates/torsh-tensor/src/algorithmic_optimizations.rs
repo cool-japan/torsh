@@ -144,7 +144,12 @@ impl AlgorithmicOptimizer {
         }
 
         // Check performance history
-        if let Some(metrics) = self.performance_history.read().unwrap().get(signature) {
+        if let Some(metrics) = self
+            .performance_history
+            .read()
+            .expect("lock should not be poisoned")
+            .get(signature)
+        {
             return metrics
                 .best_algorithm
                 .clone()
@@ -701,7 +706,10 @@ impl AlgorithmicOptimizer {
         algorithm: MatMulAlgorithm,
         duration: std::time::Duration,
     ) {
-        let mut history = self.performance_history.write().unwrap();
+        let mut history = self
+            .performance_history
+            .write()
+            .expect("lock should not be poisoned");
         let metrics = history
             .entry(signature)
             .or_insert_with(PerformanceMetrics::default);
@@ -937,7 +945,10 @@ impl AlgorithmicOptimizer {
 
     /// Get algorithm performance statistics
     pub fn get_performance_stats(&self) -> AlgorithmPerformanceStats {
-        let history = self.performance_history.read().unwrap();
+        let history = self
+            .performance_history
+            .read()
+            .expect("lock should not be poisoned");
 
         let mut total_operations = 0;
         let mut algorithm_counts = HashMap::new();

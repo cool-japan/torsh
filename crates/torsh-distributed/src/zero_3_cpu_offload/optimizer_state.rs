@@ -97,7 +97,10 @@ impl OptimizerStateManager {
 
         // First check GPU cache
         {
-            let gpu_cache = self.gpu_optimizer_cache.read().unwrap();
+            let gpu_cache = self
+                .gpu_optimizer_cache
+                .read()
+                .expect("lock should not be poisoned");
             if let Some(state) = gpu_cache.get(param_name) {
                 info!(
                     "    Retrieved optimizer state from GPU cache: {}",
@@ -110,7 +113,10 @@ impl OptimizerStateManager {
         // Check CPU storage if GPU cache miss
         if self.config.offload_optimizer_states {
             #[allow(clippy::await_holding_lock)]
-            let cpu_states = self.cpu_optimizer_states.read().unwrap();
+            let cpu_states = self
+                .cpu_optimizer_states
+                .read()
+                .expect("lock should not be poisoned");
             if let Some(cpu_state) = cpu_states.get(param_name) {
                 info!(
                     "    Retrieved optimizer state from CPU storage: {}",
@@ -129,7 +135,10 @@ impl OptimizerStateManager {
 
         // Check in-memory storage for backward compatibility
         {
-            let states = self.optimizer_states.read().unwrap();
+            let states = self
+                .optimizer_states
+                .read()
+                .expect("lock should not be poisoned");
             if let Some(state) = states.get(param_name) {
                 info!("    Retrieved optimizer state from memory: {}", param_name);
                 return Ok(state.clone());
@@ -167,7 +176,10 @@ impl OptimizerStateManager {
             let state_size = cpu_state.size_bytes;
 
             {
-                let mut cpu_states = self.cpu_optimizer_states.write().unwrap();
+                let mut cpu_states = self
+                    .cpu_optimizer_states
+                    .write()
+                    .expect("lock should not be poisoned");
                 if let Some(old_state) = cpu_states.insert(param_name.to_string(), cpu_state) {
                     // Update memory tracking
                     self.memory_used_cpu
@@ -213,7 +225,10 @@ impl OptimizerStateManager {
         }
 
         {
-            let mut gpu_cache = self.gpu_optimizer_cache.write().unwrap();
+            let mut gpu_cache = self
+                .gpu_optimizer_cache
+                .write()
+                .expect("lock should not be poisoned");
             gpu_cache.insert(param_name.to_string(), state.clone());
         }
 
@@ -246,13 +261,19 @@ impl OptimizerStateManager {
     async fn evict_lru_gpu_state(&self) -> TorshResult<()> {
         // Simple LRU eviction - in practice you'd track access patterns
         let state_to_evict = {
-            let gpu_cache = self.gpu_optimizer_cache.read().unwrap();
+            let gpu_cache = self
+                .gpu_optimizer_cache
+                .read()
+                .expect("lock should not be poisoned");
             gpu_cache.keys().next().cloned()
         };
 
         if let Some(param_name) = state_to_evict {
             let state_size = {
-                let mut gpu_cache = self.gpu_optimizer_cache.write().unwrap();
+                let mut gpu_cache = self
+                    .gpu_optimizer_cache
+                    .write()
+                    .expect("lock should not be poisoned");
                 if let Some(state) = gpu_cache.remove(&param_name) {
                     self.calculate_state_size(&state)
                 } else {
@@ -450,7 +471,10 @@ impl OptimizerStateManager {
 
         // Collect from GPU cache
         {
-            let gpu_cache = self.gpu_optimizer_cache.read().unwrap();
+            let gpu_cache = self
+                .gpu_optimizer_cache
+                .read()
+                .expect("lock should not be poisoned");
             for (param_name, state) in gpu_cache.iter() {
                 if self.owns_parameter(param_name) {
                     owned_states.insert(param_name.clone(), state.clone());
@@ -460,7 +484,10 @@ impl OptimizerStateManager {
 
         // Collect from CPU storage
         if self.config.offload_optimizer_states {
-            let cpu_states = self.cpu_optimizer_states.read().unwrap();
+            let cpu_states = self
+                .cpu_optimizer_states
+                .read()
+                .expect("lock should not be poisoned");
             for (param_name, cpu_state) in cpu_states.iter() {
                 if self.owns_parameter(param_name) && !owned_states.contains_key(param_name) {
                     let state = self.decompress_optimizer_state(cpu_state)?;
@@ -471,7 +498,10 @@ impl OptimizerStateManager {
 
         // Collect from regular memory storage
         {
-            let states = self.optimizer_states.read().unwrap();
+            let states = self
+                .optimizer_states
+                .read()
+                .expect("lock should not be poisoned");
             for (param_name, state) in states.iter() {
                 if self.owns_parameter(param_name) && !owned_states.contains_key(param_name) {
                     owned_states.insert(param_name.clone(), state.clone());
@@ -485,17 +515,26 @@ impl OptimizerStateManager {
     /// Clear all optimizer states (reset for new training)
     pub async fn clear_states(&self) -> TorshResult<()> {
         {
-            let mut states = self.optimizer_states.write().unwrap();
+            let mut states = self
+                .optimizer_states
+                .write()
+                .expect("lock should not be poisoned");
             states.clear();
         }
 
         {
-            let mut cpu_states = self.cpu_optimizer_states.write().unwrap();
+            let mut cpu_states = self
+                .cpu_optimizer_states
+                .write()
+                .expect("lock should not be poisoned");
             cpu_states.clear();
         }
 
         {
-            let mut gpu_cache = self.gpu_optimizer_cache.write().unwrap();
+            let mut gpu_cache = self
+                .gpu_optimizer_cache
+                .write()
+                .expect("lock should not be poisoned");
             gpu_cache.clear();
         }
 
@@ -517,11 +556,31 @@ impl OptimizerStateManager {
             gpu_memory_used: self
                 .memory_used_gpu
                 .load(std::sync::atomic::Ordering::SeqCst),
-            states_on_cpu: self.cpu_optimizer_states.read().unwrap().len(),
-            states_on_gpu: self.gpu_optimizer_cache.read().unwrap().len(),
-            total_states: self.optimizer_states.read().unwrap().len()
-                + self.cpu_optimizer_states.read().unwrap().len()
-                + self.gpu_optimizer_cache.read().unwrap().len(),
+            states_on_cpu: self
+                .cpu_optimizer_states
+                .read()
+                .expect("lock should not be poisoned")
+                .len(),
+            states_on_gpu: self
+                .gpu_optimizer_cache
+                .read()
+                .expect("lock should not be poisoned")
+                .len(),
+            total_states: self
+                .optimizer_states
+                .read()
+                .expect("lock should not be poisoned")
+                .len()
+                + self
+                    .cpu_optimizer_states
+                    .read()
+                    .expect("lock should not be poisoned")
+                    .len()
+                + self
+                    .gpu_optimizer_cache
+                    .read()
+                    .expect("lock should not be poisoned")
+                    .len(),
         }
     }
 

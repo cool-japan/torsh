@@ -150,7 +150,7 @@ impl<T: FloatElement> Tensor<T> {
         // Track operation for autograd
         if self.requires_grad
             || weight.requires_grad
-            || (bias.is_some() && bias.unwrap().requires_grad)
+            || (bias.is_some() && bias.expect("bias checked with is_some").requires_grad)
         {
             use std::sync::Arc;
             output.requires_grad = true;
@@ -345,7 +345,7 @@ impl<T: FloatElement> Tensor<T> {
         // Track operation for autograd
         if self.requires_grad
             || weight.requires_grad
-            || (bias.is_some() && bias.unwrap().requires_grad)
+            || (bias.is_some() && bias.expect("bias checked with is_some").requires_grad)
         {
             use std::sync::Arc;
             output.requires_grad = true;
@@ -581,7 +581,7 @@ impl<T: FloatElement> Tensor<T> {
         // Track operation for autograd
         if self.requires_grad
             || weight.requires_grad
-            || (bias.is_some() && bias.unwrap().requires_grad)
+            || (bias.is_some() && bias.expect("bias checked with is_some").requires_grad)
         {
             use std::sync::Arc;
             output.requires_grad = true;
@@ -753,7 +753,7 @@ impl<T: FloatElement> Tensor<T> {
         // Track operation for autograd
         if self.requires_grad
             || weight.requires_grad
-            || (bias.is_some() && bias.unwrap().requires_grad)
+            || (bias.is_some() && bias.expect("bias checked with is_some").requires_grad)
         {
             use std::sync::Arc;
             output.requires_grad = true;
@@ -803,7 +803,7 @@ impl<T: FloatElement> Tensor<T> {
         if self.requires_grad
             || depthwise_weight.requires_grad
             || pointwise_weight.requires_grad
-            || (bias.is_some() && bias.unwrap().requires_grad)
+            || (bias.is_some() && bias.expect("bias checked with is_some").requires_grad)
         {
             use std::sync::Arc;
             let mut tracked_output = output;
@@ -998,7 +998,7 @@ impl<T: FloatElement> Tensor<T> {
         // Track operation for autograd
         if self.requires_grad
             || weight.requires_grad
-            || (bias.is_some() && bias.unwrap().requires_grad)
+            || (bias.is_some() && bias.expect("bias checked with is_some").requires_grad)
         {
             use std::sync::Arc;
             output.requires_grad = true;
@@ -1310,7 +1310,10 @@ impl<T: FloatElement> Tensor<T> {
         // Create kernel tensor
         let kernel_data: Vec<T> = kernel
             .into_iter()
-            .map(|v| T::from(v as f64).unwrap_or_else(|| T::from(0.0).unwrap()))
+            .map(|v| {
+                T::from(v as f64)
+                    .unwrap_or_else(|| T::from(0.0).expect("numeric conversion should succeed"))
+            })
             .collect();
         let kernel_tensor = Tensor::from_data(kernel_data, vec![kernel_size], self.device())?;
 
@@ -1380,7 +1383,10 @@ impl<T: FloatElement> Tensor<T> {
         // Create kernel tensor
         let kernel_data: Vec<T> = kernel
             .into_iter()
-            .map(|v| T::from(v as f64).unwrap_or_else(|| T::from(0.0).unwrap()))
+            .map(|v| {
+                T::from(v as f64)
+                    .unwrap_or_else(|| T::from(0.0).expect("numeric conversion should succeed"))
+            })
             .collect();
         let kernel_tensor =
             Tensor::from_data(kernel_data, vec![kernel_h, kernel_w], self.device())?;

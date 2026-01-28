@@ -735,7 +735,7 @@ impl ModelDebugger {
             model_id,
             SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .expect("system time should be after UNIX epoch")
                 .as_secs()
         );
 

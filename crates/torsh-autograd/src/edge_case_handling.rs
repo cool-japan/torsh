@@ -733,7 +733,10 @@ impl EdgeCaseHandler {
 
     /// Get current statistics
     pub fn get_statistics(&self) -> EdgeCaseStatistics {
-        self.statistics.read().unwrap().clone()
+        self.statistics
+            .read()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Reset statistics
@@ -798,13 +801,17 @@ pub fn get_global_edge_case_handler() -> &'static std::sync::Mutex<EdgeCaseHandl
 pub fn handle_tensor_edge_cases(
     tensor: &TensorInfo,
 ) -> AutogradResult<Vec<EdgeCaseHandlingResult>> {
-    let handler = get_global_edge_case_handler().lock().unwrap();
+    let handler = get_global_edge_case_handler()
+        .lock()
+        .expect("lock should not be poisoned");
     handler.handle_tensor(tensor)
 }
 
 /// Convenience function to validate shapes using the global handler
 pub fn validate_tensor_shapes(shapes: &[Vec<usize>], operation: &str) -> AutogradResult<()> {
-    let handler = get_global_edge_case_handler().lock().unwrap();
+    let handler = get_global_edge_case_handler()
+        .lock()
+        .expect("lock should not be poisoned");
     handler.validate_shapes(shapes, operation)
 }
 
@@ -951,7 +958,13 @@ mod tests {
     #[test]
     fn test_global_handler_access() {
         let handler = get_global_edge_case_handler();
-        assert!(handler.lock().unwrap().config.enabled);
+        assert!(
+            handler
+                .lock()
+                .expect("lock should not be poisoned")
+                .config
+                .enabled
+        );
     }
 
     #[test]

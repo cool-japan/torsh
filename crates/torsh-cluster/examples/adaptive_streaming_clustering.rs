@@ -6,7 +6,7 @@
 //! 3. Advanced drift detection methods
 //! 4. Online K-Means with concept drift adaptation
 
-use scirs2_core::random::{thread_rng, Rng};
+use scirs2_core::random::thread_rng;
 use torsh_cluster::{
     algorithms::incremental::{
         IncrementalClustering, OnlineKMeans, SlidingWindowConfig, SlidingWindowKMeans,

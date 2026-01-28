@@ -141,11 +141,11 @@ impl GradientSyncScheduler {
 
             for op in &self.pending_syncs {
                 // Find the earliest available slot
-                let earliest_slot = time_slots.iter_mut().min().unwrap();
+                let earliest_slot = time_slots.iter_mut().min().expect("reduction should succeed");
                 *earliest_slot += op.estimated_time;
             }
 
-            *time_slots.iter().max().unwrap()
+            *time_slots.iter().max().expect("reduction should succeed")
         };
 
         total_time_parallel

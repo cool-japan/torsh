@@ -468,7 +468,10 @@ impl AdaptiveKernelSelector {
 
     /// Register a kernel implementation
     pub fn register_kernel(&self, kernel: KernelImplementation) -> Result<()> {
-        let mut registry = self.kernel_registry.write().unwrap();
+        let mut registry = self
+            .kernel_registry
+            .write()
+            .expect("lock should not be poisoned");
         registry.register_kernel(kernel)
     }
 
@@ -477,7 +480,10 @@ impl AdaptiveKernelSelector {
         &self,
         kernel: Box<dyn CustomKernel + Send + Sync>,
     ) -> Result<()> {
-        let mut registry = self.kernel_registry.write().unwrap();
+        let mut registry = self
+            .kernel_registry
+            .write()
+            .expect("lock should not be poisoned");
         registry.register_custom_kernel(kernel)
     }
 
@@ -490,7 +496,10 @@ impl AdaptiveKernelSelector {
         workload: &WorkloadCharacteristics,
         system_state: &SystemState,
     ) -> Result<KernelSelection> {
-        let registry = self.kernel_registry.read().unwrap();
+        let registry = self
+            .kernel_registry
+            .read()
+            .expect("lock should not be poisoned");
 
         // Get candidate kernels
         let candidates = registry.get_candidates(operation_type, backend_type, inputs)?;
@@ -681,7 +690,10 @@ impl AdaptiveKernelSelector {
 
     /// Get historical performance score for a kernel
     fn get_historical_performance_score(&self, kernel_id: &str) -> Result<f64> {
-        let tracker = self.performance_tracker.lock().unwrap();
+        let tracker = self
+            .performance_tracker
+            .lock()
+            .expect("lock should not be poisoned");
 
         if let Some(stats) = tracker.usage_stats.get(kernel_id) {
             let success_rate = stats.successful_executions as f64 / stats.total_executions as f64;
@@ -729,7 +741,10 @@ impl AdaptiveKernelSelector {
         workload: &WorkloadCharacteristics,
         system_state: &SystemState,
     ) -> Result<()> {
-        let mut tracker = self.performance_tracker.lock().unwrap();
+        let mut tracker = self
+            .performance_tracker
+            .lock()
+            .expect("lock should not be poisoned");
         tracker.track_selection(selection, workload, system_state)
     }
 
@@ -740,13 +755,19 @@ impl AdaptiveKernelSelector {
         actual_performance: ActualPerformance,
         predicted_performance: Option<PerformancePrediction>,
     ) -> Result<()> {
-        let mut tracker = self.performance_tracker.lock().unwrap();
+        let mut tracker = self
+            .performance_tracker
+            .lock()
+            .expect("lock should not be poisoned");
         tracker.update_performance_feedback(kernel_id, actual_performance, predicted_performance)
     }
 
     /// Get selection statistics
     pub fn get_selection_statistics(&self) -> Result<SelectionStatistics> {
-        let tracker = self.performance_tracker.lock().unwrap();
+        let tracker = self
+            .performance_tracker
+            .lock()
+            .expect("lock should not be poisoned");
         Ok(tracker.get_statistics())
     }
 
@@ -757,7 +778,10 @@ impl AdaptiveKernelSelector {
         backend_type: BackendType,
         test_inputs: &[KernelInputs],
     ) -> Result<BenchmarkResults> {
-        let registry = self.kernel_registry.read().unwrap();
+        let registry = self
+            .kernel_registry
+            .read()
+            .expect("lock should not be poisoned");
         let kernels = registry.get_kernels_for_operation(operation_type, backend_type);
 
         let mut results = BenchmarkResults::new();
@@ -800,8 +824,14 @@ impl AdaptiveKernelSelector {
         }
 
         let avg_time = execution_times.iter().sum::<Duration>() / execution_times.len() as u32;
-        let min_time = *execution_times.iter().min().unwrap();
-        let max_time = *execution_times.iter().max().unwrap();
+        let min_time = *execution_times
+            .iter()
+            .min()
+            .expect("execution_times should not be empty after check");
+        let max_time = *execution_times
+            .iter()
+            .max()
+            .expect("execution_times should not be empty after check");
 
         // Calculate standard deviation
         let variance = execution_times

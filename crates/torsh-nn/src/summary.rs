@@ -798,7 +798,8 @@ pub mod profiling {
             let std_dev = variance.sqrt();
 
             let mut sorted_times = times_ms.clone();
-            sorted_times.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            sorted_times
+                .sort_by(|a, b| a.partial_cmp(b).expect("comparison should not involve NaN"));
 
             let median = if sorted_times.len() % 2 == 0 {
                 (sorted_times[sorted_times.len() / 2 - 1] + sorted_times[sorted_times.len() / 2])

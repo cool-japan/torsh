@@ -135,7 +135,10 @@ impl PostTrainingQuantization {
     /// Percentile-based quantization parameters
     fn percentile_params(&self, data: &[f32], percentile: f32) -> Result<QuantizationParams> {
         let mut sorted_abs: Vec<f32> = data.iter().map(|&x| x.abs()).collect();
-        sorted_abs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted_abs.sort_by(|a, b| {
+            a.partial_cmp(b)
+                .expect("data comparison should not involve NaN")
+        });
 
         let index = ((percentile / 100.0) * sorted_abs.len() as f32) as usize;
         let max_val = sorted_abs

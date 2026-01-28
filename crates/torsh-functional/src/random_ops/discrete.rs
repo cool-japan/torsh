@@ -15,7 +15,7 @@ use torsh_tensor::Tensor;
 /// The multinomial distribution is a generalization of the binomial distribution
 /// to multiple categories. For k categories with probabilities p₁, p₂, ..., pₖ:
 ///
-/// ```
+/// ```text
 /// P(X₁ = x₁, ..., Xₖ = xₖ) = n! / (x₁! × ... × xₖ!) × p₁^x₁ × ... × pₖ^xₖ
 /// ```
 ///
@@ -25,7 +25,7 @@ use torsh_tensor::Tensor;
 ///
 /// ### With Replacement (replacement=true)
 /// Uses inverse transform sampling with cumulative distribution:
-/// ```
+/// ```text
 /// 1. Compute CDF: F(i) = Σⱼ₌₀ⁱ pⱼ
 /// 2. Generate U ~ Uniform(0,1)
 /// 3. Return i where F(i-1) < U ≤ F(i)

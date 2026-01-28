@@ -557,7 +557,7 @@ impl MemoryAnalytics {
         }
 
         // Sort by severity
-        anomalies.sort_by(|a, b| b.severity.partial_cmp(&a.severity).unwrap());
+        anomalies.sort_by(|a, b| b.severity.partial_cmp(&a.severity).unwrap_or(std::cmp::Ordering::Equal));
 
         Ok(anomalies)
     }
@@ -582,7 +582,7 @@ impl MemoryAnalytics {
         let visualizations = self.prepare_visualizations(&data, &trend_analyses);
 
         let report = AnalyticsReport {
-            report_id: format!("report_{}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()),
+            report_id: format!("report_{}", SystemTime::now().duration_since(UNIX_EPOCH).expect("time should be after UNIX_EPOCH").as_secs()),
             generated_at: SystemTime::now(),
             period: ReportPeriod {
                 start_time,

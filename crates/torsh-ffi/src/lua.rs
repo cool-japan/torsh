@@ -112,7 +112,7 @@ unsafe fn lua_new_tensor(L: *mut LuaState, tensor: TensorHandle) -> c_int {
         luaL_error(
             L,
             CString::new("Failed to allocate tensor userdata")
-                .unwrap()
+                .expect("static string should not contain null bytes")
                 .as_ptr(),
         );
         return 0;
@@ -132,7 +132,7 @@ unsafe fn lua_check_tensor(L: *mut LuaState, idx: c_int) -> TensorHandle {
     let userdata = luaL_checkudata(L, idx, TORSH_TENSOR_METATABLE.as_ptr() as *const c_char)
         as *mut LuaTensorUserdata;
     if userdata.is_null() {
-        luaL_error(L, CString::new("Expected ToRSh tensor").unwrap().as_ptr());
+        luaL_error(L, CString::new("Expected ToRSh tensor").expect("static string should not contain null bytes").as_ptr());
         return ptr::null_mut();
     }
     (*userdata).tensor
@@ -142,19 +142,19 @@ unsafe fn lua_check_tensor(L: *mut LuaState, idx: c_int) -> TensorHandle {
 extern "C" fn lua_tensor_from_table(L: *mut LuaState) -> c_int {
     unsafe {
         if lua_gettop(L) != 1 {
-            luaL_error(L, CString::new("Expected 1 argument").unwrap().as_ptr());
+            luaL_error(L, CString::new("Expected 1 argument").expect("static string should not contain null bytes").as_ptr());
             return 0;
         }
 
         if lua_type(L, 1) != LUA_TTABLE {
-            luaL_error(L, CString::new("Expected table").unwrap().as_ptr());
+            luaL_error(L, CString::new("Expected table").expect("static string should not contain null bytes").as_ptr());
             return 0;
         }
 
         // Get table dimensions and flatten data
         let (data, dims) = lua_table_to_tensor_data(L, 1);
         if data.is_empty() {
-            luaL_error(L, CString::new("Empty table").unwrap().as_ptr());
+            luaL_error(L, CString::new("Empty table").expect("static string should not contain null bytes").as_ptr());
             return 0;
         }
 
@@ -162,7 +162,7 @@ extern "C" fn lua_tensor_from_table(L: *mut LuaState) -> c_int {
             torsh_tensor_from_data(data.as_ptr(), data.len(), dims.as_ptr(), dims.len());
 
         if tensor.is_null() {
-            luaL_error(L, CString::new("Failed to create tensor").unwrap().as_ptr());
+            luaL_error(L, CString::new("Failed to create tensor").expect("static string should not contain null bytes").as_ptr());
             return 0;
         }
 
@@ -214,7 +214,7 @@ extern "C" fn lua_tensor_zeros(L: *mut LuaState) -> c_int {
             luaL_error(
                 L,
                 CString::new("Expected at least 1 dimension")
-                    .unwrap()
+                    .expect("static string should not contain null bytes")
                     .as_ptr(),
             );
             return 0;
@@ -226,7 +226,7 @@ extern "C" fn lua_tensor_zeros(L: *mut LuaState) -> c_int {
                 luaL_error(
                     L,
                     CString::new("All arguments must be numbers")
-                        .unwrap()
+                        .expect("static string should not contain null bytes")
                         .as_ptr(),
                 );
                 return 0;
@@ -239,7 +239,7 @@ extern "C" fn lua_tensor_zeros(L: *mut LuaState) -> c_int {
             luaL_error(
                 L,
                 CString::new("Failed to create zeros tensor")
-                    .unwrap()
+                    .expect("static string should not contain null bytes")
                     .as_ptr(),
             );
             return 0;
@@ -257,7 +257,7 @@ extern "C" fn lua_tensor_ones(L: *mut LuaState) -> c_int {
             luaL_error(
                 L,
                 CString::new("Expected at least 1 dimension")
-                    .unwrap()
+                    .expect("static string should not contain null bytes")
                     .as_ptr(),
             );
             return 0;
@@ -269,7 +269,7 @@ extern "C" fn lua_tensor_ones(L: *mut LuaState) -> c_int {
                 luaL_error(
                     L,
                     CString::new("All arguments must be numbers")
-                        .unwrap()
+                        .expect("static string should not contain null bytes")
                         .as_ptr(),
                 );
                 return 0;
@@ -282,7 +282,7 @@ extern "C" fn lua_tensor_ones(L: *mut LuaState) -> c_int {
             luaL_error(
                 L,
                 CString::new("Failed to create ones tensor")
-                    .unwrap()
+                    .expect("static string should not contain null bytes")
                     .as_ptr(),
             );
             return 0;
@@ -300,7 +300,7 @@ extern "C" fn lua_tensor_randn(L: *mut LuaState) -> c_int {
             luaL_error(
                 L,
                 CString::new("Expected at least 1 dimension")
-                    .unwrap()
+                    .expect("static string should not contain null bytes")
                     .as_ptr(),
             );
             return 0;
@@ -312,7 +312,7 @@ extern "C" fn lua_tensor_randn(L: *mut LuaState) -> c_int {
                 luaL_error(
                     L,
                     CString::new("All arguments must be numbers")
-                        .unwrap()
+                        .expect("static string should not contain null bytes")
                         .as_ptr(),
                 );
                 return 0;
@@ -325,7 +325,7 @@ extern "C" fn lua_tensor_randn(L: *mut LuaState) -> c_int {
             luaL_error(
                 L,
                 CString::new("Failed to create random tensor")
-                    .unwrap()
+                    .expect("static string should not contain null bytes")
                     .as_ptr(),
             );
             return 0;
@@ -339,7 +339,7 @@ extern "C" fn lua_tensor_randn(L: *mut LuaState) -> c_int {
 extern "C" fn lua_tensor_add(L: *mut LuaState) -> c_int {
     unsafe {
         if lua_gettop(L) != 2 {
-            luaL_error(L, CString::new("Expected 2 arguments").unwrap().as_ptr());
+            luaL_error(L, CString::new("Expected 2 arguments").expect("static string should not contain null bytes").as_ptr());
             return 0;
         }
 
@@ -359,7 +359,7 @@ extern "C" fn lua_tensor_add(L: *mut LuaState) -> c_int {
             luaL_error(
                 L,
                 CString::new("Failed to get tensor shape for addition")
-                    .unwrap()
+                    .expect("static string should not contain null bytes")
                     .as_ptr(),
             );
             return 0;
@@ -371,7 +371,7 @@ extern "C" fn lua_tensor_add(L: *mut LuaState) -> c_int {
             luaL_error(
                 L,
                 CString::new("Failed to create output tensor for addition")
-                    .unwrap()
+                    .expect("static string should not contain null bytes")
                     .as_ptr(),
             );
             return 0;
@@ -381,7 +381,7 @@ extern "C" fn lua_tensor_add(L: *mut LuaState) -> c_int {
         let add_result = torsh_tensor_add(lhs, rhs, result);
         if add_result != TorshError::Success {
             torsh_tensor_free(result);
-            luaL_error(L, CString::new("Tensor addition failed").unwrap().as_ptr());
+            luaL_error(L, CString::new("Tensor addition failed").expect("static string should not contain null bytes").as_ptr());
             return 0;
         }
 
@@ -393,7 +393,7 @@ extern "C" fn lua_tensor_add(L: *mut LuaState) -> c_int {
 extern "C" fn lua_tensor_mul(L: *mut LuaState) -> c_int {
     unsafe {
         if lua_gettop(L) != 2 {
-            luaL_error(L, CString::new("Expected 2 arguments").unwrap().as_ptr());
+            luaL_error(L, CString::new("Expected 2 arguments").expect("static string should not contain null bytes").as_ptr());
             return 0;
         }
 
@@ -413,7 +413,7 @@ extern "C" fn lua_tensor_mul(L: *mut LuaState) -> c_int {
             luaL_error(
                 L,
                 CString::new("Failed to get tensor shape")
-                    .unwrap()
+                    .expect("static string should not contain null bytes")
                     .as_ptr(),
             );
             return 0;
@@ -425,7 +425,7 @@ extern "C" fn lua_tensor_mul(L: *mut LuaState) -> c_int {
             luaL_error(
                 L,
                 CString::new("Failed to create output tensor")
-                    .unwrap()
+                    .expect("static string should not contain null bytes")
                     .as_ptr(),
             );
             return 0;
@@ -438,7 +438,7 @@ extern "C" fn lua_tensor_mul(L: *mut LuaState) -> c_int {
             luaL_error(
                 L,
                 CString::new("Tensor multiplication failed")
-                    .unwrap()
+                    .expect("static string should not contain null bytes")
                     .as_ptr(),
             );
             return 0;
@@ -452,7 +452,7 @@ extern "C" fn lua_tensor_mul(L: *mut LuaState) -> c_int {
 extern "C" fn lua_tensor_matmul(L: *mut LuaState) -> c_int {
     unsafe {
         if lua_gettop(L) != 2 {
-            luaL_error(L, CString::new("Expected 2 arguments").unwrap().as_ptr());
+            luaL_error(L, CString::new("Expected 2 arguments").expect("static string should not contain null bytes").as_ptr());
             return 0;
         }
 
@@ -476,7 +476,7 @@ extern "C" fn lua_tensor_matmul(L: *mut LuaState) -> c_int {
             luaL_error(
                 L,
                 CString::new("Failed to get tensor shapes or tensors not 2D")
-                    .unwrap()
+                    .expect("static string should not contain null bytes")
                     .as_ptr(),
             );
             return 0;
@@ -489,7 +489,7 @@ extern "C" fn lua_tensor_matmul(L: *mut LuaState) -> c_int {
             luaL_error(
                 L,
                 CString::new("Failed to create output tensor")
-                    .unwrap()
+                    .expect("static string should not contain null bytes")
                     .as_ptr(),
             );
             return 0;
@@ -502,7 +502,7 @@ extern "C" fn lua_tensor_matmul(L: *mut LuaState) -> c_int {
             luaL_error(
                 L,
                 CString::new("Matrix multiplication failed")
-                    .unwrap()
+                    .expect("static string should not contain null bytes")
                     .as_ptr(),
             );
             return 0;
@@ -516,7 +516,7 @@ extern "C" fn lua_tensor_matmul(L: *mut LuaState) -> c_int {
 extern "C" fn lua_tensor_relu(L: *mut LuaState) -> c_int {
     unsafe {
         if lua_gettop(L) != 1 {
-            luaL_error(L, CString::new("Expected 1 argument").unwrap().as_ptr());
+            luaL_error(L, CString::new("Expected 1 argument").expect("static string should not contain null bytes").as_ptr());
             return 0;
         }
 
@@ -531,14 +531,14 @@ extern "C" fn lua_tensor_relu(L: *mut LuaState) -> c_int {
         let shape_result = torsh_tensor_shape(tensor, tensor_shape.as_mut_ptr(), &mut tensor_ndim);
 
         if shape_result != TorshError::Success {
-            luaL_error(L, CString::new("Failed to get tensor shape").unwrap().as_ptr());
+            luaL_error(L, CString::new("Failed to get tensor shape").expect("static string should not contain null bytes").as_ptr());
             return 0;
         }
 
         // Create output tensor with same shape
         let result = torsh_tensor_zeros(tensor_shape.as_ptr(), tensor_ndim);
         if result.is_null() {
-            luaL_error(L, CString::new("Failed to create output tensor").unwrap().as_ptr());
+            luaL_error(L, CString::new("Failed to create output tensor").expect("static string should not contain null bytes").as_ptr());
             return 0;
         }
 
@@ -546,7 +546,7 @@ extern "C" fn lua_tensor_relu(L: *mut LuaState) -> c_int {
         let relu_result = torsh_tensor_relu(tensor, result);
         if relu_result != TorshError::Success {
             torsh_tensor_free(result);
-            luaL_error(L, CString::new("ReLU operation failed").unwrap().as_ptr());
+            luaL_error(L, CString::new("ReLU operation failed").expect("static string should not contain null bytes").as_ptr());
             return 0;
         }
 
@@ -558,7 +558,7 @@ extern "C" fn lua_tensor_relu(L: *mut LuaState) -> c_int {
 extern "C" fn lua_tensor_shape(L: *mut LuaState) -> c_int {
     unsafe {
         if lua_gettop(L) != 1 {
-            luaL_error(L, CString::new("Expected 1 argument").unwrap().as_ptr());
+            luaL_error(L, CString::new("Expected 1 argument").expect("static string should not contain null bytes").as_ptr());
             return 0;
         }
 
@@ -574,7 +574,7 @@ extern "C" fn lua_tensor_shape(L: *mut LuaState) -> c_int {
         if result != TorshError::Success {
             luaL_error(
                 L,
-                CString::new("Failed to get tensor shape").unwrap().as_ptr(),
+                CString::new("Failed to get tensor shape").expect("static string should not contain null bytes").as_ptr(),
             );
             return 0;
         }
@@ -593,7 +593,7 @@ extern "C" fn lua_tensor_shape(L: *mut LuaState) -> c_int {
 extern "C" fn lua_tensor_data(L: *mut LuaState) -> c_int {
     unsafe {
         if lua_gettop(L) != 1 {
-            luaL_error(L, CString::new("Expected 1 argument").unwrap().as_ptr());
+            luaL_error(L, CString::new("Expected 1 argument").expect("static string should not contain null bytes").as_ptr());
             return 0;
         }
 
@@ -609,7 +609,7 @@ extern "C" fn lua_tensor_data(L: *mut LuaState) -> c_int {
         if data_ptr.is_null() {
             luaL_error(
                 L,
-                CString::new("Failed to get tensor data").unwrap().as_ptr(),
+                CString::new("Failed to get tensor data").expect("static string should not contain null bytes").as_ptr(),
             );
             return 0;
         }
@@ -655,7 +655,7 @@ extern "C" fn lua_tensor_tostring(L: *mut LuaState) -> c_int {
         let result = torsh_tensor_shape(tensor, dims.as_mut_ptr(), &mut ndims);
 
         if result != TorshError::Success {
-            lua_pushstring(L, CString::new("ToRSh.Tensor(invalid)").unwrap().as_ptr());
+            lua_pushstring(L, CString::new("ToRSh.Tensor(invalid)").expect("static string should not contain null bytes").as_ptr());
         } else {
             let shape_str = dims
                 .iter()
@@ -663,7 +663,7 @@ extern "C" fn lua_tensor_tostring(L: *mut LuaState) -> c_int {
                 .collect::<Vec<_>>()
                 .join("x");
             let tensor_str = format!("ToRSh.Tensor({})", shape_str);
-            lua_pushstring(L, CString::new(tensor_str).unwrap().as_ptr());
+            lua_pushstring(L, CString::new(tensor_str).expect("tensor_str should not contain null bytes").as_ptr());
         }
 
         1
@@ -716,14 +716,14 @@ pub extern "C" fn luaopen_torsh(L: *mut LuaState) -> c_int {
         // Set methods as __index
         lua_newtable(L);
         luaL_register(L, ptr::null(), TENSOR_METHODS.as_ptr());
-        lua_setfield(L, -2, CString::new("__index").unwrap().as_ptr());
+        lua_setfield(L, -2, CString::new("__index").expect("static string should not contain null bytes").as_ptr());
 
         lua_settop(L, -2); // Pop metatable
 
         // Register library functions
         luaL_register(
             L,
-            CString::new("torsh").unwrap().as_ptr(),
+            CString::new("torsh").expect("static string should not contain null bytes").as_ptr(),
             TORSH_FUNCTIONS.as_ptr(),
         );
 

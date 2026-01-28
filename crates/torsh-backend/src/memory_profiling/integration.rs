@@ -426,20 +426,20 @@ impl SciRS2MetricsIntegration {
     pub fn record_statistics(&mut self, stats: &MemoryStatistics) -> Result<()> {
         // Update counters
         self.counters.get_mut("allocations_total")
-            .unwrap()
+            .expect("allocations_total counter should be initialized")
             .add(stats.total_allocations as u64);
 
         self.counters.get_mut("deallocations_total")
-            .unwrap()
+            .expect("deallocations_total counter should be initialized")
             .add(stats.total_deallocations as u64);
 
         // Update gauges
         self.gauges.get_mut("memory_usage_bytes")
-            .unwrap()
+            .expect("memory_usage_bytes gauge should be initialized")
             .set(stats.current_memory_usage as f64);
 
         self.gauges.get_mut("fragmentation_index")
-            .unwrap()
+            .expect("fragmentation_index gauge should be initialized")
             .set(stats.fragmentation_index);
 
         // Record histograms would require additional data

@@ -756,7 +756,10 @@ impl Coverage {
                         .collect();
 
                     let mut sorted_scores = user_scores;
-                    sorted_scores.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+                    sorted_scores.sort_by(|a, b| {
+                        b.0.partial_cmp(&a.0)
+                            .expect("score values should be comparable")
+                    });
 
                     for j in 0..k.min(sorted_scores.len()) {
                         unique_items.insert(sorted_scores[j].1);

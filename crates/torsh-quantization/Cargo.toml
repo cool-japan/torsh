@@ -18,8 +18,8 @@ torsh-tensor = { workspace = true, features = ["std"] }
 # torsh-nn = { path = "../torsh-nn" } # Temporarily disabled due to autograd issues
 thiserror = { workspace = true }
 scirs2-core = { workspace = true, features = ["random", "simd", "benchmarking", "parallel"] }
-serde_json = "1.0" # For JSON serialization
-serde = { version = "1.0", features = ["derive"] } # For serialization
+serde_json = { workspace = true } # For JSON serialization
+serde = { workspace = true, features = ["derive"] } # For serialization
 num_cpus = "1.17" # For hardware info collection
 
 [features]
@@ -29,8 +29,8 @@ experimental = []
 
 [dev-dependencies]
 approx = { workspace = true }
-tempfile = "3.23"
-proptest = "1.8"  # Property-based testing framework
+tempfile = { workspace = true }
+proptest = { workspace = true }  # Property-based testing framework
 quickcheck = "1.0"  # Alternative property-based testing
 
 # Examples demonstrating quantization techniques

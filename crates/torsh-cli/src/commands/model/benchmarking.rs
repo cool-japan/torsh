@@ -988,7 +988,9 @@ async fn perform_real_inference(
     // Perform real forward pass through model layers using SciRS2
     for (_batch_idx, input_tensor) in inputs.inputs.iter().enumerate() {
         // Flatten input for processing
-        let flattened_input = input_tensor.as_slice().unwrap();
+        let flattened_input = input_tensor
+            .as_slice()
+            .expect("input tensor array should be contiguous");
         let input_size = flattened_input.len().min(1000);
         let mut activations = Array1::from_vec(flattened_input[..input_size].to_vec());
 
@@ -1094,7 +1096,8 @@ fn get_cpu_memory_usage() -> Result<f64> {
     let mut system = System::new_all();
     system.refresh_all();
 
-    let current_process = system.process(sysinfo::get_current_pid().unwrap());
+    let current_process = system
+        .process(sysinfo::get_current_pid().expect("should be able to get current process ID"));
     if let Some(process) = current_process {
         Ok(process.memory() as f64 / 1024.0) // Convert KB to MB
     } else {
@@ -1982,7 +1985,10 @@ pub fn calculate_advanced_metrics(
 /// Calculate latency percentiles from timing data
 fn calculate_latency_percentiles(times: &[f64]) -> LatencyPercentiles {
     let mut sorted_times = times.to_vec();
-    sorted_times.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    sorted_times.sort_by(|a, b| {
+        a.partial_cmp(b)
+            .expect("timing values should be comparable")
+    });
 
     let len = sorted_times.len();
     let p50_idx = (len as f64 * 0.50) as usize;

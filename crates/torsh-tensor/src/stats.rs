@@ -231,12 +231,12 @@ impl<
         // Compute min and max if not provided
         let min_val = config.min_val.unwrap_or_else(|| {
             data.iter()
-                .map(|&x| TensorElement::to_f64(&x).unwrap())
+                .map(|&x| TensorElement::to_f64(&x).expect("f64 conversion should succeed"))
                 .fold(f64::INFINITY, f64::min)
         });
         let max_val = config.max_val.unwrap_or_else(|| {
             data.iter()
-                .map(|&x| TensorElement::to_f64(&x).unwrap())
+                .map(|&x| TensorElement::to_f64(&x).expect("f64 conversion should succeed"))
                 .fold(f64::NEG_INFINITY, f64::max)
         });
 
@@ -255,7 +255,7 @@ impl<
         // Count values in each bin
         let mut counts = vec![0; config.bins];
         for &value in data.iter() {
-            let val = TensorElement::to_f64(&value).unwrap();
+            let val = TensorElement::to_f64(&value).expect("f64 conversion should succeed");
 
             let bin_idx = if val <= min_val {
                 if config.include_outliers {
@@ -327,10 +327,10 @@ impl<
         let mut sum_yy = 0.0;
 
         for (&x, &y) in self_data.iter().zip(other_data.iter()) {
-            let dx =
-                TensorElement::to_f64(&x).unwrap() - TensorElement::to_f64(&mean_x_val).unwrap();
-            let dy =
-                TensorElement::to_f64(&y).unwrap() - TensorElement::to_f64(&mean_y_val).unwrap();
+            let dx = TensorElement::to_f64(&x).expect("f64 conversion should succeed")
+                - TensorElement::to_f64(&mean_x_val).expect("f64 conversion should succeed");
+            let dy = TensorElement::to_f64(&y).expect("f64 conversion should succeed")
+                - TensorElement::to_f64(&mean_y_val).expect("f64 conversion should succeed");
 
             sum_xy += dx * dy;
             sum_xx += dx * dx;
@@ -345,7 +345,7 @@ impl<
         }
 
         let correlation = sum_xy / denominator;
-        Ok(<T as TensorElement>::from_f64(correlation).unwrap())
+        Ok(<T as TensorElement>::from_f64(correlation).expect("f64 conversion should succeed"))
     }
 
     /// Spearman rank correlation coefficient
@@ -376,10 +376,14 @@ impl<
 
         for i in 0..n {
             for j in i + 1..n {
-                let x1 = TensorElement::to_f64(&self_data[i]).unwrap();
-                let x2 = TensorElement::to_f64(&self_data[j]).unwrap();
-                let y1 = TensorElement::to_f64(&other_data[i]).unwrap();
-                let y2 = TensorElement::to_f64(&other_data[j]).unwrap();
+                let x1 =
+                    TensorElement::to_f64(&self_data[i]).expect("f64 conversion should succeed");
+                let x2 =
+                    TensorElement::to_f64(&self_data[j]).expect("f64 conversion should succeed");
+                let y1 =
+                    TensorElement::to_f64(&other_data[i]).expect("f64 conversion should succeed");
+                let y2 =
+                    TensorElement::to_f64(&other_data[j]).expect("f64 conversion should succeed");
 
                 let dx = x2 - x1;
                 let dy = y2 - y1;
@@ -402,11 +406,11 @@ impl<
         let effective_pairs = total_pairs - tied_x - tied_y - tied_xy;
 
         if effective_pairs == 0 {
-            return Ok(<T as TensorElement>::from_f64(0.0).unwrap());
+            return Ok(<T as TensorElement>::from_f64(0.0).expect("f64 conversion should succeed"));
         }
 
         let tau = (concordant as f64 - discordant as f64) / effective_pairs as f64;
-        Ok(<T as TensorElement>::from_f64(tau).unwrap())
+        Ok(<T as TensorElement>::from_f64(tau).expect("f64 conversion should succeed"))
     }
 
     /// Compute ranks of tensor elements
@@ -421,7 +425,7 @@ impl<
         indexed_values.sort_by(|a, b| {
             TensorElement::to_f64(&a.1)
                 .unwrap()
-                .partial_cmp(&TensorElement::to_f64(&b.1).unwrap())
+                .partial_cmp(&TensorElement::to_f64(&b.1).expect("f64 conversion should succeed"))
                 .unwrap()
         });
 
@@ -432,8 +436,10 @@ impl<
         while i < n {
             let mut j = i;
             while j < n
-                && TensorElement::to_f64(&indexed_values[j].1).unwrap()
-                    == TensorElement::to_f64(&indexed_values[i].1).unwrap()
+                && TensorElement::to_f64(&indexed_values[j].1)
+                    .expect("f64 conversion should succeed")
+                    == TensorElement::to_f64(&indexed_values[i].1)
+                        .expect("f64 conversion should succeed")
             {
                 j += 1;
             }
@@ -441,7 +447,8 @@ impl<
             // Average rank for tied values
             let avg_rank = (i + j + 1) as f64 / 2.0;
             for k in i..j {
-                ranks[indexed_values[k].0] = <T as TensorElement>::from_f64(avg_rank).unwrap();
+                ranks[indexed_values[k].0] = <T as TensorElement>::from_f64(avg_rank)
+                    .expect("f64 conversion should succeed");
             }
             i = j;
         }
@@ -461,7 +468,7 @@ impl<
         let count = data.len();
         let values: Vec<f64> = data
             .iter()
-            .map(|&x| TensorElement::to_f64(&x).unwrap())
+            .map(|&x| TensorElement::to_f64(&x).expect("f64 conversion should succeed"))
             .collect();
 
         // Basic statistics
@@ -477,7 +484,7 @@ impl<
 
         // Percentiles
         let mut sorted_values = values.clone();
-        sorted_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted_values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         let q25 = percentile_sorted(&sorted_values, 25.0);
         let q50 = percentile_sorted(&sorted_values, 50.0);
@@ -543,7 +550,8 @@ impl<
         // Extract diagonal elements (variances)
         let mut std_devs = Vec::with_capacity(n_features);
         for i in 0..n_features {
-            let variance = TensorElement::to_f64(&cov_data[i * n_features + i]).unwrap();
+            let variance = TensorElement::to_f64(&cov_data[i * n_features + i])
+                .expect("f64 conversion should succeed");
             std_devs.push(variance.sqrt());
         }
 
@@ -551,13 +559,17 @@ impl<
         let mut corr_data = Vec::with_capacity(cov_data.len());
         for i in 0..n_features {
             for j in 0..n_features {
-                let cov_val = TensorElement::to_f64(&cov_data[i * n_features + j]).unwrap();
+                let cov_val = TensorElement::to_f64(&cov_data[i * n_features + j])
+                    .expect("f64 conversion should succeed");
                 let corr_val = if std_devs[i] > f64::EPSILON && std_devs[j] > f64::EPSILON {
                     cov_val / (std_devs[i] * std_devs[j])
                 } else {
                     0.0
                 };
-                corr_data.push(<T as TensorElement>::from_f64(corr_val).unwrap());
+                corr_data.push(
+                    <T as TensorElement>::from_f64(corr_val)
+                        .expect("f64 conversion should succeed"),
+                );
             }
         }
 

@@ -169,3 +169,40 @@ pub mod cuda_errors {
         TorshError::BackendError(context.format())
     }
 }
+
+/// Helper function to convert cust::error::CudaError to TorshError
+/// Use .map_err(cuda_error_to_torsh) instead of ? for cust functions
+pub fn cuda_error_to_torsh(error: cust::error::CudaError) -> TorshError {
+    TorshError::ComputeError(format!("CUDA error: {}", error))
+}
+
+/// Helper function to convert cust::error::CudaError to BackendError
+pub fn cuda_error_to_backend(error: cust::error::CudaError) -> crate::BackendError {
+    crate::BackendError::Runtime {
+        message: format!("CUDA error: {}", error),
+    }
+}
+
+/// Extension trait for converting cust errors to TorshError
+pub trait CustResultExt<T> {
+    /// Convert cust error to TorshError
+    fn cuda_err(self) -> Result<T, TorshError>;
+    /// Convert cust error to BackendError
+    fn backend_err(self) -> Result<T, crate::BackendError>;
+    /// Convert cust error to CudaResult
+    fn cuda_result(self) -> CudaResult<T>;
+}
+
+impl<T> CustResultExt<T> for Result<T, cust::error::CudaError> {
+    fn cuda_err(self) -> Result<T, TorshError> {
+        self.map_err(cuda_error_to_torsh)
+    }
+
+    fn backend_err(self) -> Result<T, crate::BackendError> {
+        self.map_err(cuda_error_to_backend)
+    }
+
+    fn cuda_result(self) -> CudaResult<T> {
+        self.map_err(cuda_error_to_torsh)
+    }
+}

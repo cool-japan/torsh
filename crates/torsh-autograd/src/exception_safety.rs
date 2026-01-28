@@ -871,11 +871,11 @@ mod tests {
         let applied_clone2 = applied.clone();
 
         let operation = TransactionOperation::new("test_op".to_string(), move || {
-            *applied_clone1.lock().unwrap() = true;
+            *applied_clone1.lock().expect("lock should not be poisoned") = true;
             Ok(())
         })
         .with_rollback(move || {
-            *applied_clone2.lock().unwrap() = false;
+            *applied_clone2.lock().expect("lock should not be poisoned") = false;
             Ok(())
         });
 
@@ -1007,7 +1007,7 @@ mod tests {
 
         // Commit the transaction
         {
-            let mut tx = transaction.lock().unwrap();
+            let mut tx = transaction.lock().expect("lock should not be poisoned");
             tx.commit().unwrap();
         }
 

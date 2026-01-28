@@ -3,7 +3,7 @@
 // Framework infrastructure - components designed for future use
 #![allow(dead_code)]
 use crate::error::FfiError;
-use crate::python::tensor::PyTensor;
+use crate::tensor::PyTensor;
 use pyo3::prelude::*;
 
 /// Base class for neural network modules

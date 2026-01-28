@@ -14,8 +14,8 @@
 //! - **Gradient safety**: Specialized handling for gradient-related anomalies
 
 use crate::autograd_traits::AutogradTensor;
-use num_complex::Complex;
-use num_traits::Float;
+use scirs2_core::numeric::Float;
+use scirs2_core::Complex;
 use std::collections::{HashMap, VecDeque};
 use std::time::{Duration, Instant};
 use torsh_core::error::Result;
@@ -330,10 +330,11 @@ pub mod recovery {
 
                 RecoveryStrategy::GradientClipping => {
                     let mut clipped_count = 0;
-                    let threshold = T::from_f32(self.config.gradient_clip_threshold).unwrap();
+                    let threshold = T::from_f32(self.config.gradient_clip_threshold)
+                        .expect("f32 conversion should succeed");
 
                     for (param_name, grad_vec) in gradients.iter_mut() {
-                        let mut max_norm = T::from_f32(0.0).unwrap();
+                        let mut max_norm = T::from_f32(0.0).expect("f32 conversion should succeed");
 
                         // Calculate L2 norm
                         for &val in grad_vec.iter() {
@@ -363,7 +364,8 @@ pub mod recovery {
                     for grad_vec in gradients.values_mut() {
                         for val in grad_vec.iter_mut() {
                             // Use a simple random-like value based on current value
-                            let random_factor = T::from_f32(0.01).unwrap();
+                            let random_factor =
+                                T::from_f32(0.01).expect("f32 conversion should succeed");
                             *val = random_factor;
                         }
                     }
@@ -372,7 +374,7 @@ pub mod recovery {
                 }
 
                 RecoveryStrategy::GradientScaling => {
-                    let scale_factor = T::from_f32(0.5).unwrap();
+                    let scale_factor = T::from_f32(0.5).expect("f32 conversion should succeed");
                     for grad_vec in gradients.values_mut() {
                         for val in grad_vec.iter_mut() {
                             *val = *val * scale_factor;
@@ -386,7 +388,7 @@ pub mod recovery {
                     // Zero out gradients to effectively skip this batch
                     for grad_vec in gradients.values_mut() {
                         for val in grad_vec.iter_mut() {
-                            *val = T::from_f32(0.0).unwrap();
+                            *val = T::from_f32(0.0).expect("f32 conversion should succeed");
                         }
                     }
                     info!("Skipped current batch by zeroing gradients");
@@ -395,7 +397,7 @@ pub mod recovery {
 
                 RecoveryStrategy::ApplyRegularization => {
                     // Add L2 regularization to gradients
-                    let reg_factor = T::from_f32(0.01).unwrap();
+                    let reg_factor = T::from_f32(0.01).expect("f32 conversion should succeed");
                     for grad_vec in gradients.values_mut() {
                         for val in grad_vec.iter_mut() {
                             let reg_term = *val * reg_factor;

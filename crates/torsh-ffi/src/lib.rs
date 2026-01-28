@@ -1,79 +1,29 @@
-//! # ToRSh FFI - Foreign Function Interface for ToRSh Deep Learning Framework
+//! # ToRSh Python Bindings - PyTorch-Compatible Deep Learning in Rust
 //!
-//! This crate provides comprehensive foreign function interface (FFI) bindings for the ToRSh
-//! deep learning framework, enabling seamless integration across multiple programming languages
-//! and platforms. Built with production-grade performance, safety, and ease of use in mind.
+//! This crate provides Python bindings for the ToRSh deep learning framework using PyO3.
+//! ToRSh offers a PyTorch-compatible API with the performance and safety of Rust.
 //!
-//! ## 🚀 Supported Languages & Platforms
+//! ## Architecture
 //!
-//! ### Core C API
-//! - **Direct C API**: High-performance C interface with comprehensive tensor operations
-//! - **Error Handling**: Advanced error reporting with 25+ specific error types
-//! - **Memory Management**: Efficient memory pooling and automatic cleanup
-//! - **Thread Safety**: Full thread-safe operation with internal synchronization
+//! Following the QuantRS2-py design pattern, this crate is dedicated to Python bindings only.
+//! The architecture emphasizes:
+//! - Direct Python module definition (no feature gates for Python)
+//! - Clean, focused API surface
+//! - Seamless NumPy integration via scirs2-numpy
+//! - Production-ready error handling
 //!
-//! ### Language Bindings
-//! - 🐍 **Python** (`pyo3`): Full PyTorch-compatible API with NumPy integration
-//! - 💎 **Ruby**: Native Ruby bindings with familiar syntax
-//! - ☕ **Java** (`JNI`): Java Native Interface for enterprise applications
-//! - 🔷 **C#** (`P/Invoke`): .NET integration for Windows/Linux/macOS
-//! - 🐹 **Go** (`CGO`): Go bindings for high-performance services
-//! - 🍎 **Swift**: Native iOS/macOS integration with C interop
-//! - 📊 **R**: Statistical computing integration for data science
-//! - 🔬 **Julia**: High-performance scientific computing bindings
-//! - 🧮 **MATLAB** (`MEX`): MATLAB integration for mathematical computing
-//! - 🌙 **Lua**: Lightweight scripting and embedding support
-//! - 🌐 **Node.js** (`N-API`): JavaScript/TypeScript server-side integration
+//! ## Key Features
 //!
-//! ## 🏗️ Architecture Overview
+//! - **PyTorch-Compatible API**: Familiar interface for PyTorch users
+//! - **NumPy Integration**: Seamless tensor conversion via scirs2-numpy
+//! - **Zero-Copy Operations**: Efficient memory management
+//! - **Automatic Differentiation**: Full autograd support
+//! - **Neural Network Modules**: Linear layers, activations, loss functions
+//! - **Optimizers**: SGD, Adam, AdamW with PyTorch-compatible API
+//! - **Data Loading**: Parallel data loaders with batching
 //!
-//! ```text
-//! ┌─────────────────────────────────────────────────────────────┐
-//! │                    Language Bindings                        │
-//! │  Python │ Java │ C# │ Go │ Swift │ Ruby │ R │ Julia │ ...   │
-//! └─────────────────────────┬───────────────────────────────────┘
-//!                           │
-//! ┌─────────────────────────▼───────────────────────────────────┐
-//! │                     C API Layer                             │
-//! │  • Tensor Operations    • Neural Networks                   │
-//! │  • Memory Management    • Optimizers                        │
-//! │  • Error Handling       • Device Management                 │
-//! └─────────────────────────┬───────────────────────────────────┘
-//!                           │
-//! ┌─────────────────────────▼───────────────────────────────────┐
-//! │                   ToRSh Core Engine                         │
-//! │  • torsh-tensor        • torsh-autograd                     │
-//! │  • torsh-nn           • torsh-optim                         │
-//! │  • SciRS2 Integration  • Backend Abstraction                │
-//! └─────────────────────────────────────────────────────────────┘
-//! ```
+//! ## Usage
 //!
-//! ## 🎯 Key Features
-//!
-//! ### Performance & Efficiency
-//! - **Memory Pooling**: Automatic buffer reuse reduces allocation overhead
-//! - **Batched Operations**: Execute multiple operations efficiently
-//! - **Async Queue**: Non-blocking operation execution
-//! - **Operation Caching**: Intelligent caching of computation results
-//! - **SIMD Optimization**: Vectorized operations via SciRS2 integration
-//!
-//! ### Safety & Reliability
-//! - **Memory Safety**: Rust's ownership system prevents memory issues
-//! - **Thread Safety**: Safe concurrent access with proper synchronization
-//! - **Error Recovery**: Comprehensive error handling with recovery suggestions
-//! - **Type Safety**: Strong typing across language boundaries
-//! - **Resource Management**: Automatic cleanup and leak detection
-//!
-//! ### Developer Experience
-//! - **PyTorch Compatibility**: Familiar API for PyTorch users
-//! - **Comprehensive Documentation**: Extensive examples and API docs
-//! - **Performance Profiling**: Built-in profiling and benchmarking tools
-//! - **Integration Utilities**: Tools for migrating from other frameworks
-//! - **Custom Exceptions**: Rich error context with actionable suggestions
-//!
-//! ## 📚 Quick Start Examples
-//!
-//! ### Python (PyTorch-like API)
 //! ```python
 //! import torsh
 //!
@@ -81,311 +31,252 @@
 //! x = torsh.randn([2, 3])
 //! y = torsh.ones([3, 4])
 //!
-//! # Neural network operations
-//! linear = torsh.Linear(3, 4)
-//! optimizer = torsh.Adam(linear.parameters(), lr=0.001)
+//! # Neural network
+//! model = torsh.Linear(3, 4)
+//! optimizer = torsh.Adam(model.parameters(), lr=0.001)
 //!
-//! # Forward pass
-//! output = linear(x)
+//! # Training loop
+//! output = model(x)
 //! loss = torsh.mse_loss(output, target)
-//!
-//! # Backward pass
 //! loss.backward()
 //! optimizer.step()
 //! ```
 //!
-//! ### C API
-//! ```c
-//! #include "torsh.h"
+//! ## SciRS2 Policy Compliance
 //!
-//! int main() {
-//!     // Initialize ToRSh
-//!     if (torsh_init() != TORSH_SUCCESS) {
-//!         fprintf(stderr, "Failed to initialize ToRSh\n");
-//!         return -1;
-//!     }
+//! This crate strictly follows the SciRS2 POLICY:
+//! - Uses `scirs2_core::ndarray` for array operations (not direct ndarray)
+//! - Uses `scirs2_core::random` for RNG (not direct rand/rand_distr)
+//! - Uses `scirs2-numpy` for NumPy integration (SciRS2-compatible)
+//! - All numerical operations through scirs2 abstractions
 //!
-//!     // Create tensors
-//!     size_t shape[] = {2, 3};
-//!     TorshTensor* x = torsh_tensor_randn(shape, 2);
-//!     TorshTensor* y = torsh_tensor_ones(shape, 2);
-//!     TorshTensor* result = torsh_tensor_zeros(shape, 2);
+//! ## Building
 //!
-//!     // Perform operations
-//!     TorshError status = torsh_tensor_add(x, y, result);
-//!     if (status != TORSH_SUCCESS) {
-//!         const char* error = torsh_get_last_error();
-//!         fprintf(stderr, "Operation failed: %s\n", error);
-//!     }
+//! This crate is designed to be built with Maturin:
 //!
-//!     // Neural network
-//!     TorshModule* linear = torsh_linear_new(3, 2, true);
-//!     TorshOptimizer* adam = torsh_adam_new(0.001, 0.9, 0.999, 1e-8);
+//! ```bash
+//! # Development build
+//! maturin develop
 //!
-//!     // Cleanup
-//!     torsh_tensor_free(x);
-//!     torsh_tensor_free(y);
-//!     torsh_tensor_free(result);
-//!     torsh_linear_free(linear);
-//!     torsh_optimizer_free(adam);
-//!     torsh_cleanup();
+//! # Production build
+//! maturin build --release
 //!
-//!     return 0;
-//! }
+//! # With GPU support
+//! maturin develop --features gpu
 //! ```
 //!
-//! ### Java
-//! ```java
-//! import com.torsh.*;
+//! ## COOLJAPAN Pure Rust Policy
 //!
-//! public class Example {
-//!     public static void main(String[] args) {
-//!         // Initialize ToRSh
-//!         TorshNative.init();
-//!
-//!         // Create tensor
-//!         float[] data = {1.0f, 2.0f, 3.0f, 4.0f};
-//!         int[] shape = {2, 2};
-//!         Tensor tensor = new Tensor(data, shape);
-//!
-//!         // Operations
-//!         Tensor result = tensor.relu();
-//!         float[] output = result.getData();
-//!
-//!         // Cleanup
-//!         tensor.free();
-//!         result.free();
-//!         TorshNative.cleanup();
-//!     }
-//! }
-//! ```
-//!
-//! ## 🔧 Advanced Usage
-//!
-//! ### Performance Monitoring
-//! ```rust
-//! use torsh_ffi::performance::{profile_operation, get_performance_stats};
-//!
-//! // Profile an operation
-//! let result = profile_operation("matrix_multiply", || {
-//!     // Your computation here
-//!     expensive_computation()
-//! });
-//!
-//! // Get statistics
-//! let stats = get_performance_stats();
-//! println!("Average operation time: {:.2}ms", stats.avg_time_ms);
-//! println!("Cache hit rate: {:.1}%", stats.cache_hit_rate() * 100.0);
-//! ```
-//!
-//! ### Memory Management
-//! ```rust
-//! use torsh_ffi::performance::{get_pooled_buffer, return_pooled_buffer};
-//!
-//! // Use memory pool for efficient allocation
-//! let buffer = get_pooled_buffer(1024);
-//! // ... use buffer ...
-//! return_pooled_buffer(buffer); // Return to pool for reuse
-//! ```
-//!
-//! ### Error Handling (Python)
-//! ```python
-//! import torsh
-//!
-//! try:
-//!     result = torsh.matmul(tensor_a, tensor_b)
-//! except torsh.ShapeError as e:
-//!     print(f"Shape mismatch: {e}")
-//!     print(f"Suggestion: {e.suggestion}")
-//!     print(f"Operation: {e.operation}")
-//!     print(f"Recoverable: {e.recoverable}")
-//! ```
-//!
-//! ## 🏭 Production Features
-//!
-//! - **Comprehensive Testing**: 95%+ test coverage across all bindings
-//! - **Benchmarking Suite**: Performance regression detection
-//! - **Memory Leak Detection**: Automatic resource tracking
-//! - **Cross-Platform**: Windows, Linux, macOS support
-//! - **CI/CD Integration**: Automated testing and deployment
-//! - **Semantic Versioning**: Stable API with clear upgrade paths
-//!
-//! ## 🔗 Module Structure
-//!
-//! This crate is organized into focused modules for maintainability and clarity:
+//! While this crate produces a Python extension module (cdylib), the core ToRSh
+//! framework remains 100% Pure Rust. This crate is the Python bridge only.
 
-// Framework infrastructure - components designed for future use
-#![allow(dead_code)]
+#![allow(dead_code)] // Framework infrastructure for future use
 
-#[cfg(feature = "python")]
-pub mod python;
+use pyo3::prelude::*;
 
-#[cfg(feature = "python")]
-pub use python::*;
+// ============================================================================
+// Python Module Components
+// ============================================================================
 
-/// C FFI exports (base API for all language bindings)
-pub mod c_api;
+// Core tensor implementation
+mod tensor;
+use tensor::PyTensor;
 
-/// Ruby FFI bindings using direct C API calls
-pub mod ruby;
+// Functional operations (activations, loss functions)
+mod functional;
 
-/// Java JNI bindings for Java Native Interface integration
-pub mod java;
+// Neural network modules
+mod module;
+use module::PyLinear;
 
-/// GraalVM integration for polyglot JVM support and native image compilation
-pub mod graalvm;
+// Optimizers
+mod optimizer;
+use optimizer::{PyAdam, PySGD};
 
-/// C# P/Invoke bindings for .NET integration
-pub mod csharp;
+// Data loading
+mod dataloader;
+use dataloader::{PyDataLoader, PyDataLoaderBuilder, PyRandomDataLoader};
 
-/// .NET 6+ modern async/await and high-performance features
-pub mod dotnet6;
+// Utility functions
+mod utils;
 
-/// Go CGO bindings for Go language integration
-pub mod go;
-
-/// Swift C interop bindings for iOS/macOS integration
-pub mod swift;
-
-/// iOS-specific bindings with Swift Concurrency, Combine, Core ML, and Metal support
-pub mod ios;
-
-/// Android-specific bindings with Kotlin Coroutines, Flow, NNAPI, and Jetpack Compose
-pub mod android;
-
-/// R language bindings for statistical computing integration
-pub mod r_lang;
-
-/// Julia language bindings for high-performance scientific computing
-pub mod julia;
-
-/// MATLAB MEX interface for mathematical computing integration
-// TEMPORARILY DISABLED DUE TO LINKER ISSUES
-// pub mod matlab;
-
-/// Lua bindings for scripting and embedding integration
-// TEMPORARILY DISABLED DUE TO LINKER ISSUES
-// pub mod lua;
-
-/// Node.js N-API bindings for JavaScript/TypeScript integration
-// TEMPORARILY DISABLED DUE TO CLIPPY UNSAFE POINTER ISSUES
-// pub mod nodejs;
-
-/// WebAssembly bindings for browser and edge deployment
-pub mod wasm;
-
-/// WebGPU hardware acceleration for WASM (browser GPU support)
-pub mod webgpu;
-
-/// Model quantization and compression for edge deployment
-pub mod quantization;
-
-/// Model optimization (pruning, distillation, fusion)
-pub mod model_optimization;
-
-/// Performance optimizations and batched operations
-pub mod performance;
-
-/// Binding generator for automatically generating FFI bindings
-pub mod binding_generator;
-
-/// API documentation generator for FFI bindings
-pub mod api_docs;
-
-/// Test generator for automatic test suite generation
-pub mod test_generator;
-
-/// Comprehensive benchmark suite for performance testing
-pub mod benchmark_suite;
-
-/// Migration tools for transitioning from other frameworks
-pub mod migration_tools;
-
-/// NumPy compatibility layer for seamless integration
-pub mod numpy_compatibility;
-
-/// SciPy integration for scientific computing functionality
-#[cfg(feature = "python")]
-pub mod scipy_integration;
-
-/// Pandas support for data manipulation and analysis
-#[cfg(feature = "python")]
-pub mod pandas_support;
-
-/// Plotting utilities for data visualization
-// TEMPORARILY DISABLED DUE TO PyO3 API COMPATIBILITY ISSUES
-// #[cfg(feature = "python")]
-// pub mod plotting_utilities;
-
-/// Jupyter widgets integration for interactive notebooks
-// TEMPORARILY DISABLED DUE TO PyO3 API COMPATIBILITY ISSUES
-// #[cfg(feature = "python")]
-// pub mod jupyter_widgets;
-
-/// Error types for FFI operations
+// Error handling
 pub mod error;
-
 pub use error::FfiError;
 
-/// Unified type system for consistent cross-language type handling
-pub mod type_system;
+// Integration modules for advanced features
+mod numpy_compatibility;
+mod pandas_support;
+mod scipy_integration;
 
-/// Unified conversion utilities to reduce code duplication
-pub mod conversions;
+// NumPy compatibility is provided through utility functions, not a Python class
+use pandas_support::{DataAnalysisResult, PandasSupport, TorshDataFrame, TorshSeries};
+use scipy_integration::{LinalgResult, OptimizationResult, SciPyIntegration, SignalResult};
 
-// Re-export commonly used types
-#[allow(ambiguous_glob_reexports)]
-pub mod prelude {
-    pub use crate::api_docs::*;
-    pub use crate::benchmark_suite::*;
-    pub use crate::binding_generator::*;
-    pub use crate::c_api::*;
-    pub use crate::conversions;
-    pub use crate::error::FfiError;
-    pub use crate::migration_tools::*;
-    pub use crate::numpy_compatibility::*;
-    pub use crate::performance::*;
-    pub use crate::type_system::*;
+// ============================================================================
+// Python Module Definition (following QuantRS2-py pattern)
+// ============================================================================
 
-    #[cfg(feature = "python")]
-    pub use crate::python::*;
+/// ToRSh - PyTorch-compatible deep learning framework in Rust
+///
+/// This is the main Python module entry point, following the QuantRS2-py architecture.
+/// Python bindings are ALWAYS enabled (no feature gates) as this is a Python extension module.
+#[pymodule]
+fn torsh(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    // Add version information
+    m.add("__version__", env!("CARGO_PKG_VERSION"))?;
+    m.add(
+        "__doc__",
+        "ToRSh: PyTorch-compatible deep learning framework in Pure Rust",
+    )?;
 
-    // Integration utilities re-exports
-    // TEMPORARILY DISABLED DUE TO PyO3 API COMPATIBILITY ISSUES
-    // #[cfg(feature = "python")]
-    // pub use crate::jupyter_widgets::*;
-    #[cfg(feature = "python")]
-    pub use crate::pandas_support::*;
-    // TEMPORARILY DISABLED DUE TO PyO3 API COMPATIBILITY ISSUES
-    // #[cfg(feature = "python")]
-    // pub use crate::plotting_utilities::*;
-    #[cfg(feature = "python")]
-    pub use crate::scipy_integration::*;
+    // ========================================================================
+    // Core Classes
+    // ========================================================================
 
-    // Language-specific re-exports
-    pub use crate::android::*;
-    pub use crate::csharp::*;
-    pub use crate::go::*;
-    pub use crate::ios::*;
-    pub use crate::java::*;
-    pub use crate::julia::*;
-    pub use crate::model_optimization::*;
-    pub use crate::quantization::*;
-    pub use crate::r_lang::*;
-    pub use crate::ruby::*;
-    pub use crate::swift::*;
-    pub use crate::wasm::*;
-    pub use crate::webgpu::*;
+    // Add tensor class
+    m.add_class::<PyTensor>()?;
+
+    // Add neural network modules
+    m.add_class::<PyLinear>()?;
+
+    // Add optimizers
+    m.add_class::<PySGD>()?;
+    m.add_class::<PyAdam>()?;
+
+    // Add data loaders
+    m.add_class::<PyDataLoader>()?;
+    m.add_class::<PyRandomDataLoader>()?;
+    m.add_class::<PyDataLoaderBuilder>()?;
+
+    // ========================================================================
+    // Functional Operations
+    // ========================================================================
+
+    // Activation functions
+    m.add_function(wrap_pyfunction!(functional::relu, m)?)?;
+    m.add_function(wrap_pyfunction!(functional::sigmoid, m)?)?;
+    m.add_function(wrap_pyfunction!(functional::tanh, m)?)?;
+    m.add_function(wrap_pyfunction!(functional::softmax, m)?)?;
+    m.add_function(wrap_pyfunction!(functional::gelu, m)?)?;
+    m.add_function(wrap_pyfunction!(functional::log_softmax, m)?)?;
+
+    // Loss functions
+    m.add_function(wrap_pyfunction!(functional::cross_entropy, m)?)?;
+    m.add_function(wrap_pyfunction!(functional::mse_loss, m)?)?;
+    m.add_function(wrap_pyfunction!(functional::binary_cross_entropy, m)?)?;
+
+    // ========================================================================
+    // Tensor Creation & Manipulation
+    // ========================================================================
+
+    m.add_function(wrap_pyfunction!(utils::tensor, m)?)?;
+    m.add_function(wrap_pyfunction!(utils::zeros, m)?)?;
+    m.add_function(wrap_pyfunction!(utils::ones, m)?)?;
+    m.add_function(wrap_pyfunction!(utils::randn, m)?)?;
+    m.add_function(wrap_pyfunction!(utils::rand, m)?)?;
+    m.add_function(wrap_pyfunction!(utils::eye, m)?)?;
+    m.add_function(wrap_pyfunction!(utils::full, m)?)?;
+    m.add_function(wrap_pyfunction!(utils::linspace, m)?)?;
+    m.add_function(wrap_pyfunction!(utils::arange, m)?)?;
+    m.add_function(wrap_pyfunction!(utils::stack, m)?)?;
+    m.add_function(wrap_pyfunction!(utils::cat, m)?)?;
+
+    // NumPy interop
+    m.add_function(wrap_pyfunction!(utils::from_numpy, m)?)?;
+    m.add_function(wrap_pyfunction!(utils::to_numpy, m)?)?;
+
+    // Random seed
+    m.add_function(wrap_pyfunction!(utils::manual_seed, m)?)?;
+
+    // ========================================================================
+    // Data Loading Functions
+    // ========================================================================
+
+    m.add_function(wrap_pyfunction!(dataloader::create_dataloader, m)?)?;
+    m.add_function(wrap_pyfunction!(dataloader::create_dataset_from_array, m)?)?;
+    m.add_function(wrap_pyfunction!(dataloader::get_dataloader_info, m)?)?;
+    m.add_function(wrap_pyfunction!(dataloader::benchmark_dataloader, m)?)?;
+
+    // ========================================================================
+    // Device Management
+    // ========================================================================
+
+    m.add_function(wrap_pyfunction!(utils::cuda_is_available, m)?)?;
+    m.add_function(wrap_pyfunction!(utils::cuda_device_count, m)?)?;
+
+    // ========================================================================
+    // Integration Utilities (SciPy, Pandas)
+    // ========================================================================
+
+    // SciPy integration
+    m.add_class::<SciPyIntegration>()?;
+    m.add_class::<OptimizationResult>()?;
+    m.add_class::<LinalgResult>()?;
+    m.add_class::<SignalResult>()?;
+
+    // Pandas integration
+    m.add_class::<PandasSupport>()?;
+    m.add_class::<TorshDataFrame>()?;
+    m.add_class::<TorshSeries>()?;
+    m.add_class::<DataAnalysisResult>()?;
+
+    // NumPy compatibility is provided through utility functions
+
+    // ========================================================================
+    // Submodules for Advanced Features
+    // ========================================================================
+
+    // Create SciPy utilities submodule
+    let scipy_utils = scipy_integration::create_scipy_utilities(m.py())?;
+    m.add("scipy", scipy_utils)?;
+
+    // Create Pandas utilities submodule
+    let pandas_utils = pandas_support::create_pandas_utilities(m.py())?;
+    m.add("pandas", pandas_utils)?;
+
+    // ========================================================================
+    // Error Handling
+    // ========================================================================
+
+    // Register custom exception types
+    error::python_exceptions::register_exceptions(m)?;
+
+    // ========================================================================
+    // Module Metadata
+    // ========================================================================
+
+    // Add framework information
+    m.add("__author__", "COOLJAPAN OU (Team Kitasan)")?;
+    m.add("__license__", "MIT OR Apache-2.0")?;
+
+    Ok(())
 }
+
+// ============================================================================
+// Tests
+// ============================================================================
 
 #[cfg(test)]
 mod tests {
-    #[allow(unused_imports)]
     use super::*;
 
     #[test]
-    fn test_ffi_module_loads() {
-        // Basic test to ensure the module compiles and loads
-        assert!(true);
+    fn test_module_creation() {
+        Python::with_gil(|py| {
+            let module = PyModule::new(py, "test_torsh").unwrap();
+            let result = torsh(&module);
+            assert!(result.is_ok(), "Module creation failed: {:?}", result.err());
+        });
+    }
+
+    #[test]
+    fn test_module_has_version() {
+        Python::with_gil(|py| {
+            let module = PyModule::new(py, "test_torsh").unwrap();
+            torsh(&module).unwrap();
+            let version = module.getattr("__version__").unwrap();
+            assert!(!version.to_string().is_empty());
+        });
     }
 }

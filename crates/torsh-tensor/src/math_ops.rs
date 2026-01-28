@@ -29,18 +29,8 @@ mod simd_imports {
     // ✅ SciRS2 Breakthrough SIMD Implementation - 14.17x Performance
 
     // 🚀 Hyperoptimized SIMD implementations with breakthrough performance
-    pub use scirs2_core::simd::{
-        // Basic operations for backward compatibility
-        simd_add_f32,
-        simd_div_f32,
-        simd_dot_f32,
-        // Available hyperoptimized implementations
-        simd_mul_f32_hyperoptimized, // Adaptive selection - best overall performance
-        // Temporarily unavailable in current SciRS2 version:
-        // simd_add_f32_hyperoptimized, simd_div_f32_hyperoptimized, simd_dot_f32_hyperoptimized
-        // simd_mul_f32_cacheline, simd_mul_f32_pipelined
-        simd_mul_f32_tlb_optimized, // 14.17x speedup - TLB-optimized for medium arrays
-    };
+    // Note: Currently not using direct SIMD functions - they're available via SimdUnifiedOps trait
+    // pub use scirs2_core::simd::{ ... };
 
     // Array types
     pub use scirs2_core::ndarray::Array1;
@@ -76,71 +66,26 @@ use crate::core_ops::{Operation, Tensor};
 
 // 🚀 Adaptive SIMD Selection System for Maximum Performance
 #[cfg(feature = "simd")]
-mod adaptive_simd {
+pub(crate) mod adaptive_simd {
     use super::*;
     use scirs2_core::ndarray::ArrayView1;
 
-    /// Size thresholds for optimal SIMD strategy selection
-    /// Based on SciRS2 performance analysis achieving up to 14.17x speedup
-    const SMALL_ARRAY_THRESHOLD: usize = 256; // < 256 elements: cache-line aware
-    const MEDIUM_ARRAY_THRESHOLD: usize = 1024; // < 4KB: TLB-optimized
-    const LARGE_ARRAY_THRESHOLD: usize = 16384; // < 64KB: software pipelined
-    const HUGE_ARRAY_THRESHOLD: usize = 131072; // >= 512KB: adaptive hyperoptimized
-
-    /// Adaptive SIMD multiplication with automatic optimization selection
-    /// Achieves up to 14.17x speedup by selecting optimal strategy based on array size
-    pub fn adaptive_simd_mul_f32(a: &ArrayView1<f32>, b: &ArrayView1<f32>) -> Array1<f32> {
-        let len = a.len();
-
-        match len {
-            // Small arrays: Cache-line aware SIMD (7.93x speedup)
-            0..=SMALL_ARRAY_THRESHOLD => simd_mul_f32_hyperoptimized(a, b),
-
-            // Medium arrays: TLB-optimized (14.17x speedup - BEST OVERALL)
-            ..=MEDIUM_ARRAY_THRESHOLD => simd_mul_f32_tlb_optimized(a, b),
-
-            // Large arrays: Software pipelined (7.41x speedup)
-            ..=LARGE_ARRAY_THRESHOLD => simd_mul_f32_hyperoptimized(a, b),
-
-            // Huge arrays: Hyperoptimized adaptive selection (6.67x speedup)
-            _ => simd_mul_f32_hyperoptimized(a, b),
-        }
+    /// SIMD-accelerated ReLU activation function
+    /// Uses scirs2_core SIMD implementation for optimal performance
+    pub fn adaptive_simd_relu_f32(input: &ArrayView1<f32>) -> Array1<f32> {
+        scirs2_core::simd::activation::simd_relu_f32(input)
     }
 
-    /// Adaptive SIMD addition with automatic optimization selection
-    pub fn adaptive_simd_add_f32(a: &ArrayView1<f32>, b: &ArrayView1<f32>) -> Array1<f32> {
-        let len = a.len();
-
-        // Use hyperoptimized implementation if available, fallback to basic
-        if len >= MEDIUM_ARRAY_THRESHOLD {
-            simd_add_f32(a, b)
-        } else {
-            simd_add_f32(a, b)
-        }
+    /// SIMD-accelerated sigmoid activation function
+    /// Uses scirs2_core SIMD implementation for optimal performance
+    pub fn adaptive_simd_sigmoid_f32(input: &ArrayView1<f32>) -> Array1<f32> {
+        scirs2_core::simd::transcendental::simd_sigmoid_f32(input)
     }
 
-    /// Adaptive SIMD division with automatic optimization selection
-    pub fn adaptive_simd_div_f32(a: &ArrayView1<f32>, b: &ArrayView1<f32>) -> Array1<f32> {
-        let len = a.len();
-
-        // Use hyperoptimized implementation if available, fallback to basic
-        if len >= MEDIUM_ARRAY_THRESHOLD {
-            simd_div_f32(a, b)
-        } else {
-            simd_div_f32(a, b)
-        }
-    }
-
-    /// Adaptive SIMD dot product with automatic optimization selection
-    pub fn adaptive_simd_dot_f32(a: &ArrayView1<f32>, b: &ArrayView1<f32>) -> f32 {
-        let len = a.len();
-
-        // Use hyperoptimized implementation if available, fallback to basic
-        if len >= MEDIUM_ARRAY_THRESHOLD {
-            simd_dot_f32(a, b)
-        } else {
-            simd_dot_f32(a, b)
-        }
+    /// SIMD-accelerated GELU activation function
+    /// Uses scirs2_core SIMD implementation for optimal performance
+    pub fn adaptive_simd_gelu_f32(input: &ArrayView1<f32>) -> Array1<f32> {
+        scirs2_core::simd::transcendental::simd_gelu_f32(input)
     }
 }
 
@@ -155,22 +100,8 @@ mod intelligent_chunking {
     pub enum TensorOpType {
         /// Element-wise operations (add, mul, etc.)
         ElementWise,
-        /// Matrix multiplication and linear algebra
-        LinearAlgebra,
-        /// Reduction operations (sum, mean, etc.)
-        Reduction,
-        /// Convolution operations
-        Convolution,
-        /// FFT and signal processing
-        SignalProcessing,
-        /// Sparse matrix operations
-        SparseMatrix,
         /// Activation functions
         Activation,
-        /// Memory-intensive operations
-        MemoryIntensive,
-        /// Compute-intensive operations
-        ComputeIntensive,
     }
 
     // Note: GpuChunkSettings is now imported from scirs2_core::chunking
@@ -179,7 +110,7 @@ mod intelligent_chunking {
     pub fn create_optimal_chunk_config(
         tensor_size: usize,
         op_type: TensorOpType,
-        device: torsh_core::device::DeviceType,
+        _device: torsh_core::device::DeviceType,
         is_gpu_available: bool,
     ) -> ChunkConfig {
         match op_type {
@@ -205,106 +136,6 @@ mod intelligent_chunking {
                 },
             },
 
-            TensorOpType::LinearAlgebra => ChunkConfig {
-                strategy: ChunkStrategy::LinearAlgebra,
-                min_chunk_size: 256,
-                max_chunk_size: 16384,
-                prefer_work_stealing: false, // Better for block-based algorithms
-                memory_pattern: MemoryPattern::BlockWise,
-                compute_intensity: ComputeIntensity::ComputeIntensive,
-                enable_monitoring: true,
-                load_balance_factor: 0.05,
-                cache_awareness: CacheAwareness::Full,
-                numa_strategy: NumaStrategy::LocalPreferred,
-                gpu_settings: if is_gpu_available {
-                    Some(GpuChunkSettings {
-                        gpu_memory_ratio: 0.9, // High GPU utilization for linear algebra
-                        gpu_min_chunk: 8192,
-                        overlap_compute: true,
-                        gpu_bandwidth: None,      // Option<u64>
-                        transfer_bandwidth: None, // Option<u64>
-                    })
-                } else {
-                    None
-                },
-            },
-
-            TensorOpType::Reduction => ChunkConfig {
-                strategy: ChunkStrategy::WorkStealingBalanced,
-                min_chunk_size: 128,
-                max_chunk_size: 4096,
-                prefer_work_stealing: true,
-                memory_pattern: MemoryPattern::Sequential,
-                compute_intensity: ComputeIntensity::Balanced,
-                enable_monitoring: false,
-                load_balance_factor: 0.2,
-                cache_awareness: CacheAwareness::L3,
-                numa_strategy: NumaStrategy::LocalPreferred,
-                gpu_settings: None, // Reductions often better on CPU
-            },
-
-            TensorOpType::Convolution => ChunkConfig {
-                strategy: ChunkStrategy::ImageProcessing,
-                min_chunk_size: 512,
-                max_chunk_size: 32768,
-                prefer_work_stealing: false,
-                memory_pattern: MemoryPattern::BlockWise,
-                compute_intensity: ComputeIntensity::ComputeIntensive,
-                enable_monitoring: true,
-                load_balance_factor: 0.05,
-                cache_awareness: CacheAwareness::Full,
-                numa_strategy: NumaStrategy::LocalPreferred,
-                gpu_settings: if is_gpu_available {
-                    Some(GpuChunkSettings {
-                        gpu_memory_ratio: 0.95, // Maximum GPU utilization for convolutions
-                        gpu_min_chunk: 16384,
-                        overlap_compute: true,
-                        gpu_bandwidth: None,      // Option<u64>
-                        transfer_bandwidth: None, // Option<u64>
-                    })
-                } else {
-                    None
-                },
-            },
-
-            TensorOpType::SignalProcessing => ChunkConfig {
-                strategy: ChunkStrategy::SignalProcessing,
-                min_chunk_size: 1024,
-                max_chunk_size: 65536,
-                prefer_work_stealing: false,
-                memory_pattern: MemoryPattern::Sequential,
-                compute_intensity: ComputeIntensity::ComputeIntensive,
-                enable_monitoring: true,
-                load_balance_factor: 0.1,
-                cache_awareness: CacheAwareness::L3,
-                numa_strategy: NumaStrategy::Interleave,
-                gpu_settings: if is_gpu_available {
-                    Some(GpuChunkSettings {
-                        gpu_memory_ratio: 0.8,
-                        gpu_min_chunk: 4096,
-                        overlap_compute: true,
-                        gpu_bandwidth: None,      // Option<u64>
-                        transfer_bandwidth: None, // Option<u64>
-                    })
-                } else {
-                    None
-                },
-            },
-
-            TensorOpType::SparseMatrix => ChunkConfig {
-                strategy: ChunkStrategy::SparseMatrix,
-                min_chunk_size: 32,
-                max_chunk_size: 2048,
-                prefer_work_stealing: true,
-                memory_pattern: MemoryPattern::Sparse,
-                compute_intensity: ComputeIntensity::MemoryBound,
-                enable_monitoring: true,
-                load_balance_factor: 0.3,
-                cache_awareness: CacheAwareness::L1,
-                numa_strategy: NumaStrategy::LocalPreferred,
-                gpu_settings: None, // Sparse operations often better on CPU
-            },
-
             TensorOpType::Activation => ChunkConfig {
                 strategy: ChunkStrategy::CacheOptimized,
                 min_chunk_size: 64,
@@ -320,44 +151,6 @@ mod intelligent_chunking {
                     Some(GpuChunkSettings {
                         gpu_memory_ratio: 0.7,
                         gpu_min_chunk: 2048,
-                        overlap_compute: true,
-                        gpu_bandwidth: None,      // Option<u64>
-                        transfer_bandwidth: None, // Option<u64>
-                    })
-                } else {
-                    None
-                },
-            },
-
-            TensorOpType::MemoryIntensive => ChunkConfig {
-                strategy: ChunkStrategy::MemoryOptimized,
-                min_chunk_size: 32,
-                max_chunk_size: 1024,
-                prefer_work_stealing: true,
-                memory_pattern: MemoryPattern::Sequential,
-                compute_intensity: ComputeIntensity::MemoryBound,
-                enable_monitoring: true,
-                load_balance_factor: 0.2,
-                cache_awareness: CacheAwareness::Full,
-                numa_strategy: NumaStrategy::LocalPreferred,
-                gpu_settings: None,
-            },
-
-            TensorOpType::ComputeIntensive => ChunkConfig {
-                strategy: ChunkStrategy::Adaptive,
-                min_chunk_size: 16,
-                max_chunk_size: 512,
-                prefer_work_stealing: true,
-                memory_pattern: MemoryPattern::CacheFriendly,
-                compute_intensity: ComputeIntensity::ComputeIntensive,
-                enable_monitoring: true,
-                load_balance_factor: 0.05,
-                cache_awareness: CacheAwareness::L1,
-                numa_strategy: NumaStrategy::LocalPreferred,
-                gpu_settings: if is_gpu_available {
-                    Some(GpuChunkSettings {
-                        gpu_memory_ratio: 0.9,
-                        gpu_min_chunk: 1024,
                         overlap_compute: true,
                         gpu_bandwidth: None,      // Option<u64>
                         transfer_bandwidth: None, // Option<u64>
@@ -388,13 +181,13 @@ mod intelligent_chunking {
                 | torsh_core::device::DeviceType::Wgpu(_)
         );
 
-        let chunk_config =
+        let _chunk_config =
             create_optimal_chunk_config(data.len(), op_type, device, is_gpu_available);
 
-        // Use SciRS2's parallel processing - fallback to rayon for now
+        // ✅ SciRS2 POLICY: Use scirs2_core::parallel_ops instead of direct rayon
         #[cfg(feature = "parallel")]
         {
-            use rayon::prelude::*;
+            use scirs2_core::parallel_ops::*;
             data.into_par_iter().map(operation).collect()
         }
         #[cfg(not(feature = "parallel"))]
@@ -824,14 +617,15 @@ impl<T: TensorElement + Copy> Tensor<T> {
         {
             // For f32, use the breakthrough aligned SIMD operations
             if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
-                let a_f32 = unsafe { std::mem::transmute::<&[T], &[f32]>(data_a) };
+                let _a_f32 = unsafe { std::mem::transmute::<&[T], &[f32]>(data_a) };
                 let _b_f32 = unsafe { std::mem::transmute::<&[T], &[f32]>(data_b) };
 
                 // Simplified parallel processing - avoid unsafe transmute for generic types
                 // Direct conversion back to generic processing since we can't safely transmute T
+                // ✅ SciRS2 POLICY: Use scirs2_core::parallel_ops instead of direct rayon
                 #[cfg(feature = "parallel")]
                 {
-                    use rayon::prelude::*;
+                    use scirs2_core::parallel_ops::*;
                     return Ok(data_a
                         .par_iter()
                         .zip(data_b.par_iter())
@@ -861,7 +655,7 @@ impl<T: TensorElement + Copy> Tensor<T> {
 // Mathematical functions for floating-point tensors
 impl<T: TensorElement + Copy> Tensor<T>
 where
-    T: num_traits::Float + torsh_core::dtype::FloatElement,
+    T: scirs2_core::numeric::Float + torsh_core::dtype::FloatElement,
 {
     /// Square root of all elements
     pub fn sqrt(&self) -> Result<Self> {
@@ -875,12 +669,12 @@ where
 
     /// Reciprocal square root of all elements (1/sqrt(x))
     pub fn rsqrt(&self) -> Result<Self> {
-        self.map(|x| T::from(1.0).unwrap() / x.sqrt())
+        self.map(|x| T::from(1.0).expect("numeric conversion should succeed") / x.sqrt())
     }
 
     /// Reciprocal of all elements (1/x)
     pub fn reciprocal(&self) -> Result<Self> {
-        self.map(|x| T::from(1.0).unwrap() / x)
+        self.map(|x| T::from(1.0).expect("numeric conversion should succeed") / x)
     }
 
     /// Exponential of all elements
@@ -935,14 +729,13 @@ where
             }
         }
 
-        // ✅ SciRS2 SIMD Optimization - Vectorized GELU for performance
-        // TODO: Enable when scirs2_core::simd module is available
-        // #[cfg(feature = "simd")]
-        // {
-        //     if self.numel() > 1000 {
-        //         return self.simd_gelu();
-        //     }
-        // }
+        // ✅ SciRS2 SIMD Optimization - Vectorized GELU for f32 tensors
+        #[cfg(feature = "simd")]
+        {
+            if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() && self.numel() > 1000 {
+                return self.simd_gelu_f32();
+            }
+        }
 
         // ✅ SciRS2 Parallel Processing - Use parallel computation for medium tensors
         #[cfg(feature = "parallel")]
@@ -989,83 +782,53 @@ where
 
     /// Compute GELU for a single scalar value
     fn compute_gelu_scalar(&self, x: T) -> T {
-        let pi = T::from(std::f64::consts::PI).unwrap();
-        let two = T::from(2.0).unwrap();
+        let pi = T::from(std::f64::consts::PI).expect("numeric conversion should succeed");
+        let two = T::from(2.0).expect("numeric conversion should succeed");
         let sqrt_2_over_pi = (two / pi).sqrt();
-        let point_044715 = T::from(0.044715).unwrap();
-        let one = <T as num_traits::One>::one();
-        let half = T::from(0.5).unwrap();
+        let point_044715 = T::from(0.044715).expect("numeric conversion should succeed");
+        let one = <T as scirs2_core::numeric::One>::one();
+        let half = T::from(0.5).expect("numeric conversion should succeed");
 
         let x_cubed = x * x * x;
         let tanh_input = sqrt_2_over_pi * (x + point_044715 * x_cubed);
         half * x * (one + tanh_input.tanh())
     }
 
-    /// SIMD-optimized GELU activation function
+    /// SIMD-optimized GELU activation function for f32 tensors
     #[cfg(feature = "simd")]
-    #[allow(dead_code)]
-    fn simd_gelu(&self) -> Result<Self>
-    where
-        // TODO: Add scirs2_core::simd::SimdElement constraint when available
-        T: torsh_core::dtype::FloatElement,
-    {
-        #[cfg(feature = "profiling")]
-        // let _profile = profile_section!("simd_gelu");
-
-        // TODO: Implement full SIMD when scirs2_core::simd module is available
-        /*
-        use simd_imports::{SimdArray, SimdOps};
+    fn simd_gelu_f32(&self) -> Result<Self> {
+        use scirs2_core::ndarray::ArrayView1;
 
         let data = self.data()?;
-        let mut result = Vec::with_capacity(data.len());
-        let simd_width = T::simd_width();
 
-        // Pre-compute constants
-        let pi = T::from(std::f64::consts::PI).unwrap();
-        let two = T::from(2.0).unwrap();
-        let sqrt_2_over_pi = (two / pi).sqrt();
-        let point_044715 = T::from(0.044715).unwrap();
-        let one = <T as num_traits::One>::one();
-        let half = T::from(0.5).unwrap();
+        // Cast to f32 for SIMD operations
+        let data_f32: &[f32] =
+            unsafe { std::slice::from_raw_parts(data.as_ptr() as *const f32, data.len()) };
 
-        // Process SIMD-aligned chunks
-        let (simd_data, remainder) = data.split_at(data.len() - (data.len() % simd_width));
+        // Create ArrayView1 for SIMD function
+        let data_view = ArrayView1::from(data_f32);
 
-        // SIMD processing for vectorized GELU
-        for chunk in simd_data.chunks_exact(simd_width) {
-            let simd_x = SimdArray::from_slice(chunk);
-            let simd_sqrt_2_over_pi = SimdArray::splat(sqrt_2_over_pi);
-            let simd_044715 = SimdArray::splat(point_044715);
-            let simd_one = SimdArray::splat(one);
-            let simd_half = SimdArray::splat(half);
+        // Use scirs2_core SIMD-accelerated GELU
+        let result_array = adaptive_simd::adaptive_simd_gelu_f32(&data_view);
 
-            // Vectorized GELU computation: 0.5 * x * (1 + tanh(sqrt(2/π) * (x + 0.044715 * x^3)))
-            let x_squared = simd_x.mul(&simd_x);
-            let x_cubed = x_squared.mul(&simd_x);
-            let term = simd_x.add(&simd_044715.mul(&x_cubed));
-            let tanh_input = simd_sqrt_2_over_pi.mul(&term);
-            let tanh_result = tanh_input.tanh();
-            let one_plus_tanh = simd_one.add(&tanh_result);
-            let gelu_result = simd_half.mul(&simd_x).mul(&one_plus_tanh);
+        // Convert result back to T type
+        let result_vec: Vec<T> = result_array
+            .to_vec()
+            .into_iter()
+            .map(|f| unsafe { std::mem::transmute_copy::<f32, T>(&f) })
+            .collect();
 
-            result.extend_from_slice(gelu_result.as_slice());
-        }
-
-        // Handle remainder elements
-        for &x in remainder {
-            result.push(self.compute_gelu_scalar(x));
-        }
-
-        Self::from_data(result, self.shape().dims().to_vec(), self.device)
-        */
-        // Temporary fallback until scirs2_core::simd is available
-        self.map(|x| self.compute_gelu_scalar(x))
+        Self::from_data(
+            result_vec,
+            self.shape().dims().to_vec(),
+            self.device.clone(),
+        )
     }
 
     /// Leaky ReLU activation function with negative slope
     pub fn leaky_relu(&self, negative_slope: T) -> Result<Self> {
         self.map(|x| {
-            if x > num_traits::Zero::zero() {
+            if x > scirs2_core::numeric::Zero::zero() {
                 x
             } else {
                 negative_slope * x
@@ -1174,12 +937,12 @@ where
     /// Sign of all elements (-1, 0, or 1)
     pub fn sign(&self) -> Result<Self> {
         self.map(|x| {
-            if x > <T as num_traits::Zero>::zero() {
-                <T as num_traits::One>::one()
-            } else if x < <T as num_traits::Zero>::zero() {
-                -<T as num_traits::One>::one()
+            if x > <T as scirs2_core::numeric::Zero>::zero() {
+                <T as scirs2_core::numeric::One>::one()
+            } else if x < <T as scirs2_core::numeric::Zero>::zero() {
+                -<T as scirs2_core::numeric::One>::one()
             } else {
-                <T as num_traits::Zero>::zero()
+                <T as scirs2_core::numeric::Zero>::zero()
             }
         })
     }
@@ -1208,20 +971,19 @@ impl<T: TensorElement + Copy> Tensor<T> {
     where
         T: torsh_core::dtype::FloatElement,
     {
-        // ✅ SciRS2 SIMD Optimization - Vectorized sigmoid for performance
-        // TODO: Enable when scirs2_core::simd module is available
-        // #[cfg(feature = "simd")]
-        // {
-        //     if self.numel() > 1000 {
-        //         return self.simd_sigmoid();
-        //     }
-        // }
+        // ✅ SciRS2 SIMD Optimization - Vectorized sigmoid for f32 tensors
+        #[cfg(feature = "simd")]
+        {
+            if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() && self.numel() > 1000 {
+                return self.simd_sigmoid_f32();
+            }
+        }
 
         // ✅ SciRS2 Parallel Processing - Use parallel computation for medium tensors
         #[cfg(feature = "parallel")]
         {
             if self.numel() > 100 {
-                let one = <T as num_traits::One>::one();
+                let one = <T as scirs2_core::numeric::One>::one();
                 return self.parallel_map(|x| {
                     // sigmoid(x) = 1 / (1 + exp(-x))
                     one / (one + (-x).exp())
@@ -1230,7 +992,7 @@ impl<T: TensorElement + Copy> Tensor<T> {
         }
 
         // Fallback to sequential tensor operations
-        let one = <T as num_traits::One>::one();
+        let one = <T as scirs2_core::numeric::One>::one();
         let neg_self = self.neg()?;
         let exp_neg = neg_self.exp()?;
         let one_plus_exp = exp_neg.add_scalar(one)?;
@@ -1238,72 +1000,51 @@ impl<T: TensorElement + Copy> Tensor<T> {
         ones.div(&one_plus_exp)
     }
 
-    /// SIMD-optimized sigmoid activation function
+    /// SIMD-optimized sigmoid activation function for f32 tensors
     #[cfg(feature = "simd")]
-    #[allow(dead_code)]
-    fn simd_sigmoid(&self) -> Result<Self>
-    where
-        // TODO: Add scirs2_core::simd::SimdElement constraint when available
-        T: torsh_core::dtype::FloatElement + Copy,
-    {
-        #[cfg(feature = "profiling")]
-        // let _profile = profile_section!("simd_sigmoid");
-
-        // TODO: Implement full SIMD when scirs2_core::simd module is available
-        /*
-        use simd_imports::{SimdArray, SimdOps};
+    fn simd_sigmoid_f32(&self) -> Result<Self> {
+        use scirs2_core::ndarray::ArrayView1;
 
         let data = self.data()?;
-        let mut result = Vec::with_capacity(data.len());
-        let simd_width = T::simd_width();
 
-        let one = <T as num_traits::One>::one();
+        // Cast to f32 for SIMD operations
+        let data_f32: &[f32] =
+            unsafe { std::slice::from_raw_parts(data.as_ptr() as *const f32, data.len()) };
 
-        // Process SIMD-aligned chunks
-        let (simd_data, remainder) = data.split_at(data.len() - (data.len() % simd_width));
+        // Create ArrayView1 for SIMD function
+        let data_view = ArrayView1::from(data_f32);
 
-        // SIMD processing for vectorized sigmoid: 1 / (1 + exp(-x))
-        for chunk in simd_data.chunks_exact(simd_width) {
-            let simd_chunk = SimdArray::from_slice(chunk);
-            let simd_one = SimdArray::splat(one);
+        // Use scirs2_core SIMD-accelerated sigmoid
+        let result_array = adaptive_simd::adaptive_simd_sigmoid_f32(&data_view);
 
-            // Vectorized sigmoid computation
-            let neg_x = simd_chunk.neg();
-            let exp_neg_x = neg_x.exp();
-            let one_plus_exp = simd_one.add(&exp_neg_x);
-            let sigmoid_result = simd_one.div(&one_plus_exp);
+        // Convert result back to T type
+        let result_vec: Vec<T> = result_array
+            .to_vec()
+            .into_iter()
+            .map(|f| unsafe { std::mem::transmute_copy::<f32, T>(&f) })
+            .collect();
 
-            result.extend_from_slice(sigmoid_result.as_slice());
-        }
-
-        // Handle remainder elements
-        for &x in remainder {
-            let sigmoid_val = one / (one + (-x).exp());
-            result.push(sigmoid_val);
-        }
-
-        Self::from_data(result, self.shape().dims().to_vec(), self.device)
-        */
-        // Temporary fallback until scirs2_core::simd is available
-        let one = <T as num_traits::One>::one();
-        self.map(move |x| one / (one + (-x).exp()))
+        Self::from_data(
+            result_vec,
+            self.shape().dims().to_vec(),
+            self.device.clone(),
+        )
     }
 
     /// ReLU activation function (Rectified Linear Unit) with SIMD optimization
     pub fn relu(&self) -> Result<Self>
     where
-        T: std::cmp::PartialOrd + num_traits::Zero,
+        T: std::cmp::PartialOrd + scirs2_core::numeric::Zero,
     {
-        let zero = <T as num_traits::Zero>::zero();
+        let zero = <T as scirs2_core::numeric::Zero>::zero();
 
-        // ✅ SciRS2 SIMD Optimization - Vectorized ReLU for performance
-        // TODO: Enable when scirs2_core::simd module is available
-        // #[cfg(feature = "simd")]
-        // {
-        //     if self.numel() > 1000 {
-        //         return self.simd_relu(zero);
-        //     }
-        // }
+        // ✅ SciRS2 SIMD Optimization - Vectorized ReLU for f32 tensors
+        #[cfg(feature = "simd")]
+        {
+            if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() && self.numel() > 1000 {
+                return self.simd_relu_f32();
+            }
+        }
 
         // ✅ SciRS2 Parallel Processing - Use parallel map for medium tensors
         #[cfg(feature = "parallel")]
@@ -1317,47 +1058,35 @@ impl<T: TensorElement + Copy> Tensor<T> {
         self.map(|x| if x > zero { x } else { zero })
     }
 
-    /// SIMD-optimized ReLU activation function
+    /// SIMD-optimized ReLU activation function for f32 tensors
     #[cfg(feature = "simd")]
-    #[allow(dead_code)]
-    fn simd_relu(&self, zero: T) -> Result<Self>
-    where
-        // TODO: Add scirs2_core::simd::SimdElement constraint when available
-        T: std::cmp::PartialOrd,
-    {
-        #[cfg(feature = "profiling")]
-        // let _profile = profile_section!("simd_relu");
-
-        // TODO: Implement full SIMD when scirs2_core::simd module is available
-        /*
-        use simd_imports::{SimdArray, SimdOps};
+    fn simd_relu_f32(&self) -> Result<Self> {
+        use scirs2_core::ndarray::ArrayView1;
 
         let data = self.data()?;
-        let mut result = Vec::with_capacity(data.len());
-        let simd_width = T::simd_width();
 
-        // Process SIMD-aligned chunks
-        let (simd_data, remainder) = data.split_at(data.len() - (data.len() % simd_width));
+        // Cast to f32 for SIMD operations
+        let data_f32: &[f32] =
+            unsafe { std::slice::from_raw_parts(data.as_ptr() as *const f32, data.len()) };
 
-        // SIMD processing for vectorized ReLU
-        for chunk in simd_data.chunks_exact(simd_width) {
-            let simd_chunk = SimdArray::from_slice(chunk);
-            let simd_zero = SimdArray::splat(zero);
+        // Create ArrayView1 for SIMD function
+        let data_view = ArrayView1::from(data_f32);
 
-            // Vectorized max(x, 0) operation
-            let simd_result = simd_chunk.max(&simd_zero);
-            result.extend_from_slice(simd_result.as_slice());
-        }
+        // Use scirs2_core SIMD-accelerated ReLU
+        let result_array = adaptive_simd::adaptive_simd_relu_f32(&data_view);
 
-        // Handle remainder elements
-        for &x in remainder {
-            result.push(if x > zero { x } else { zero });
-        }
+        // Convert result back to T type
+        let result_vec: Vec<T> = result_array
+            .to_vec()
+            .into_iter()
+            .map(|f| unsafe { std::mem::transmute_copy::<f32, T>(&f) })
+            .collect();
 
-        Self::from_data(result, self.shape().dims().to_vec(), self.device)
-        */
-        // Temporary fallback until scirs2_core::simd is available
-        self.map(|x| if x > zero { x } else { zero })
+        Self::from_data(
+            result_vec,
+            self.shape().dims().to_vec(),
+            self.device.clone(),
+        )
     }
 
     /// SciRS2 Intelligent parallel map operation for medium-sized tensors with operation-aware chunking
@@ -1421,27 +1150,12 @@ impl<T: TensorElement + Copy> Tensor<T> {
         )
     }
 
-    /// Clamp tensor values between min and max bounds (in-place)
-    pub fn clamp_(&mut self, min: T, max: T) -> Result<()>
-    where
-        T: std::cmp::PartialOrd + Copy,
-    {
-        self.make_unique()?;
-        self.apply_(|x| {
-            if x < min {
-                min
-            } else if x > max {
-                max
-            } else {
-                x
-            }
-        })
-    }
+    // ✅ clamp_ moved to in-place operations section below for PyTorch compatibility
 
     /// Dot product with another tensor (for 1D tensors)
     pub fn dot(&self, other: &Self) -> Result<Self>
     where
-        T: std::ops::Mul<Output = T> + std::ops::Add<Output = T> + num_traits::Zero,
+        T: std::ops::Mul<Output = T> + std::ops::Add<Output = T> + scirs2_core::numeric::Zero,
     {
         // For now, implement as element-wise multiply then sum
         let elementwise = self.mul(other)?;
@@ -1450,11 +1164,11 @@ impl<T: TensorElement + Copy> Tensor<T> {
 }
 
 // SciRS2 backend integration for optimized operations
-impl<T: TensorElement + Copy + num_traits::FromPrimitive> Tensor<T> {
+impl<T: TensorElement + Copy + scirs2_core::numeric::FromPrimitive> Tensor<T> {
     /// Use SciRS2 backend for optimized tensor addition
     pub fn add_scirs2(&self, other: &Self) -> Result<Self>
     where
-        T: std::ops::Add<Output = T> + num_traits::Float,
+        T: std::ops::Add<Output = T> + scirs2_core::numeric::Float,
     {
         // TODO: Integrate with actual SciRS2 backend
         // For now, fall back to basic implementation
@@ -1464,7 +1178,7 @@ impl<T: TensorElement + Copy + num_traits::FromPrimitive> Tensor<T> {
     /// Use SciRS2 backend for optimized tensor multiplication
     pub fn mul_scirs2(&self, other: &Self) -> Result<Self>
     where
-        T: std::ops::Mul<Output = T> + num_traits::Float,
+        T: std::ops::Mul<Output = T> + scirs2_core::numeric::Float,
     {
         // TODO: Integrate with actual SciRS2 backend
         // For now, fall back to basic implementation
@@ -1474,7 +1188,7 @@ impl<T: TensorElement + Copy + num_traits::FromPrimitive> Tensor<T> {
     /// Use SciRS2 backend for optimized tensor subtraction
     pub fn sub_scirs2(&self, other: &Self) -> Result<Self>
     where
-        T: std::ops::Sub<Output = T> + num_traits::Float,
+        T: std::ops::Sub<Output = T> + scirs2_core::numeric::Float,
     {
         // TODO: Integrate with actual SciRS2 backend
         // For now, fall back to basic implementation
@@ -1484,7 +1198,7 @@ impl<T: TensorElement + Copy + num_traits::FromPrimitive> Tensor<T> {
     /// Use SciRS2 backend for optimized tensor division
     pub fn div_scirs2(&self, other: &Self) -> Result<Self>
     where
-        T: std::ops::Div<Output = T> + num_traits::Float,
+        T: std::ops::Div<Output = T> + scirs2_core::numeric::Float,
     {
         // TODO: Integrate with actual SciRS2 backend
         // For now, fall back to basic implementation
@@ -1500,7 +1214,7 @@ where
     type Output = Tensor<T>;
 
     fn add(self, rhs: Self) -> Self::Output {
-        self.add(rhs).unwrap()
+        self.add(rhs).expect("tensor addition should succeed")
     }
 }
 
@@ -1511,7 +1225,7 @@ where
     type Output = Tensor<T>;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        self.sub(rhs).unwrap()
+        self.sub(rhs).expect("tensor subtraction should succeed")
     }
 }
 
@@ -1522,7 +1236,7 @@ where
     type Output = Tensor<T>;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        self.mul(rhs).unwrap()
+        self.mul(rhs).expect("tensor multiplication should succeed")
     }
 }
 
@@ -1533,7 +1247,7 @@ where
     type Output = Tensor<T>;
 
     fn div(self, rhs: Self) -> Self::Output {
-        self.div(rhs).unwrap()
+        self.div(rhs).expect("tensor division should succeed")
     }
 }
 
@@ -1545,29 +1259,110 @@ where
     type Output = Tensor<T>;
 
     fn neg(self) -> Self::Output {
-        self.map(|x| -x).unwrap()
+        self.map(|x| -x).expect("negation map should succeed")
     }
 }
 
 // ✅ SciRS2 ADVANCED PERFORMANCE FEATURES
 // High-performance implementations leveraging SciRS2 ecosystem
 
-impl<T: TensorElement + Copy + num_traits::Float> Tensor<T> {
+impl<T: TensorElement + Copy + scirs2_core::numeric::Float> Tensor<T> {
     /// Element-wise addition with SIMD acceleration (SciRS2)
+    ///
+    /// Uses real hardware SIMD instructions (AVX2/NEON) via `scirs2_core::simd_ops::SimdUnifiedOps`
     #[cfg(feature = "simd")]
-    pub fn add_simd(&self, other: &Self) -> Result<Self> {
-        #[cfg(feature = "profiling")]
-        // let _profile = profile_section!("tensor_add_simd");
+    pub fn add_simd(&self, other: &Self) -> Result<Self>
+    where
+        T: scirs2_core::simd_ops::SimdUnifiedOps,
+    {
+        use scirs2_core::ndarray::Array1;
 
-        // Use SciRS2 SIMD acceleration for large tensors
-        if self.numel() > 1000 {
-            // SciRS2 SIMD vectorized addition (placeholder - actual API depends on scirs2_core)
-            let result = self.map(|x| x + x)?; // Simplified for compilation
-            Ok(result)
-        } else {
-            // Fallback to regular addition for small tensors
-            self.add(other)
+        // Shape check
+        if self.shape().dims() != other.shape().dims() {
+            return Err(TorshError::ShapeMismatch {
+                expected: self.shape().dims().to_vec(),
+                got: other.shape().dims().to_vec(),
+            });
         }
+
+        // Get data as vectors
+        let data_a = self.to_vec()?;
+        let data_b = other.to_vec()?;
+
+        // Create ndarray arrays
+        let arr_a = Array1::from_vec(data_a);
+        let arr_b = Array1::from_vec(data_b);
+
+        // Use REAL SIMD operation (not Rayon!)
+        let result_arr = T::simd_add(&arr_a.view(), &arr_b.view());
+
+        // Convert back to Tensor
+        Tensor::from_vec(result_arr.to_vec(), self.shape().dims())
+    }
+
+    /// Element-wise multiplication with SIMD acceleration (SciRS2)
+    ///
+    /// Uses real hardware SIMD instructions (AVX2/NEON) via `scirs2_core::simd_ops::SimdUnifiedOps`
+    #[cfg(feature = "simd")]
+    pub fn mul_simd(&self, other: &Self) -> Result<Self>
+    where
+        T: scirs2_core::simd_ops::SimdUnifiedOps,
+    {
+        use scirs2_core::ndarray::Array1;
+
+        // Shape check
+        if self.shape().dims() != other.shape().dims() {
+            return Err(TorshError::ShapeMismatch {
+                expected: self.shape().dims().to_vec(),
+                got: other.shape().dims().to_vec(),
+            });
+        }
+
+        // Get data as vectors
+        let data_a = self.to_vec()?;
+        let data_b = other.to_vec()?;
+
+        // Create ndarray arrays
+        let arr_a = Array1::from_vec(data_a);
+        let arr_b = Array1::from_vec(data_b);
+
+        // Use REAL SIMD operation (not Rayon!)
+        let result_arr = T::simd_mul(&arr_a.view(), &arr_b.view());
+
+        // Convert back to Tensor
+        Tensor::from_vec(result_arr.to_vec(), self.shape().dims())
+    }
+
+    /// Dot product with SIMD acceleration (SciRS2)
+    ///
+    /// Uses real hardware SIMD instructions (AVX2/NEON) via `scirs2_core::simd_ops::SimdUnifiedOps`
+    ///
+    /// Returns a scalar value (sum of element-wise products)
+    #[cfg(feature = "simd")]
+    pub fn dot_simd(&self, other: &Self) -> Result<T>
+    where
+        T: scirs2_core::simd_ops::SimdUnifiedOps,
+    {
+        use scirs2_core::ndarray::Array1;
+
+        // Shape check
+        if self.shape().dims() != other.shape().dims() {
+            return Err(TorshError::ShapeMismatch {
+                expected: self.shape().dims().to_vec(),
+                got: other.shape().dims().to_vec(),
+            });
+        }
+
+        // Get data as vectors
+        let data_a = self.to_vec()?;
+        let data_b = other.to_vec()?;
+
+        // Create ndarray arrays
+        let arr_a = Array1::from_vec(data_a);
+        let arr_b = Array1::from_vec(data_b);
+
+        // Use REAL SIMD dot product (not Rayon!)
+        Ok(T::simd_dot(&arr_a.view(), &arr_b.view()))
     }
 
     /// Memory-efficient reduction using SciRS2 intelligent chunking and lazy evaluation
@@ -1586,7 +1381,181 @@ impl<T: TensorElement + Copy + num_traits::Float> Tensor<T> {
         Ok(data
             .into_iter()
             .reduce(func)
-            .unwrap_or_else(|| <T as num_traits::Zero>::zero()))
+            .unwrap_or_else(|| <T as scirs2_core::numeric::Zero>::zero()))
+    }
+}
+
+// ✅ In-place activation functions for PyTorch compatibility
+impl<T: TensorElement + Copy + std::ops::Mul<Output = T>> Tensor<T> {
+    /// In-place ReLU activation: self = max(0, self)
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to PyTorch's `tensor.relu_()`
+    ///
+    /// # Errors
+    /// - Returns error if `requires_grad` is true
+    pub fn relu_(&mut self) -> Result<&mut Self>
+    where
+        T: std::cmp::PartialOrd + scirs2_core::numeric::Zero,
+    {
+        if self.requires_grad {
+            return Err(TorshError::InvalidArgument(
+                "In-place operation on tensor that requires grad is not allowed".to_string(),
+            ));
+        }
+
+        let zero = <T as scirs2_core::numeric::Zero>::zero();
+        let len = self.storage.len();
+
+        for i in 0..len {
+            let current = self.storage.get(i)?;
+            if current < zero {
+                self.storage.set(i, zero)?;
+            }
+        }
+
+        Ok(self)
+    }
+
+    /// In-place sigmoid activation: self = 1 / (1 + exp(-self))
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to PyTorch's `tensor.sigmoid_()`
+    pub fn sigmoid_(&mut self) -> Result<&mut Self>
+    where
+        T: torsh_core::dtype::FloatElement,
+    {
+        if self.requires_grad {
+            return Err(TorshError::InvalidArgument(
+                "In-place operation on tensor that requires grad is not allowed".to_string(),
+            ));
+        }
+
+        let one = <T as scirs2_core::numeric::One>::one();
+        let len = self.storage.len();
+
+        for i in 0..len {
+            let x = self.storage.get(i)?;
+            let sigmoid_val = one / (one + (-x).exp());
+            self.storage.set(i, sigmoid_val)?;
+        }
+
+        Ok(self)
+    }
+
+    /// In-place tanh activation: self = tanh(self)
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to PyTorch's `tensor.tanh_()`
+    pub fn tanh_(&mut self) -> Result<&mut Self>
+    where
+        T: torsh_core::dtype::FloatElement,
+    {
+        if self.requires_grad {
+            return Err(TorshError::InvalidArgument(
+                "In-place operation on tensor that requires grad is not allowed".to_string(),
+            ));
+        }
+
+        let len = self.storage.len();
+
+        for i in 0..len {
+            let x = self.storage.get(i)?;
+            self.storage.set(i, x.tanh())?;
+        }
+
+        Ok(self)
+    }
+
+    /// In-place GELU activation
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to PyTorch's `tensor.gelu_()`
+    pub fn gelu_(&mut self) -> Result<&mut Self>
+    where
+        T: torsh_core::dtype::FloatElement,
+    {
+        if self.requires_grad {
+            return Err(TorshError::InvalidArgument(
+                "In-place operation on tensor that requires grad is not allowed".to_string(),
+            ));
+        }
+
+        let len = self.storage.len();
+        let pi = T::from(std::f64::consts::PI).expect("numeric conversion should succeed");
+        let two = T::from(2.0).expect("numeric conversion should succeed");
+        let sqrt_2_over_pi = (two / pi).sqrt();
+        let point_044715 = T::from(0.044715).expect("numeric conversion should succeed");
+        let one = <T as scirs2_core::numeric::One>::one();
+        let half = T::from(0.5).expect("numeric conversion should succeed");
+
+        for i in 0..len {
+            let x = self.storage.get(i)?;
+            let x_cubed = x * x * x;
+            let tanh_input = sqrt_2_over_pi * (x + point_044715 * x_cubed);
+            let gelu_val = half * x * (one + tanh_input.tanh());
+            self.storage.set(i, gelu_val)?;
+        }
+
+        Ok(self)
+    }
+
+    /// In-place leaky ReLU activation
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to PyTorch's `tensor.leaky_relu_(negative_slope)`
+    pub fn leaky_relu_(&mut self, negative_slope: T) -> Result<&mut Self>
+    where
+        T: std::cmp::PartialOrd + scirs2_core::numeric::Zero,
+    {
+        if self.requires_grad {
+            return Err(TorshError::InvalidArgument(
+                "In-place operation on tensor that requires grad is not allowed".to_string(),
+            ));
+        }
+
+        let zero = <T as scirs2_core::numeric::Zero>::zero();
+        let len = self.storage.len();
+
+        for i in 0..len {
+            let x = self.storage.get(i)?;
+            if x < zero {
+                self.storage.set(i, negative_slope * x)?;
+            }
+        }
+
+        Ok(self)
+    }
+
+    /// In-place clamp operation: self = clamp(self, min, max)
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to PyTorch's `tensor.clamp_(min, max)`
+    pub fn clamp_(&mut self, min: T, max: T) -> Result<&mut Self>
+    where
+        T: std::cmp::PartialOrd,
+    {
+        if self.requires_grad {
+            return Err(TorshError::InvalidArgument(
+                "In-place operation on tensor that requires grad is not allowed".to_string(),
+            ));
+        }
+
+        let len = self.storage.len();
+
+        for i in 0..len {
+            let x = self.storage.get(i)?;
+            let clamped = if x < min {
+                min
+            } else if x > max {
+                max
+            } else {
+                x
+            };
+            self.storage.set(i, clamped)?;
+        }
+
+        Ok(self)
     }
 }
 
@@ -1733,5 +1702,63 @@ mod tests {
 
         assert!(a.add(&b).is_err());
         assert!(a.mul(&b).is_err());
+    }
+
+    // ✅ In-place operation tests
+    #[test]
+    fn test_relu_inplace() {
+        let mut tensor =
+            Tensor::from_data(vec![-2.0f32, -1.0, 0.0, 1.0, 2.0], vec![5], DeviceType::Cpu)
+                .unwrap();
+
+        tensor.relu_().unwrap();
+        let result = tensor.data().unwrap();
+
+        assert_eq!(result, vec![0.0, 0.0, 0.0, 1.0, 2.0]);
+    }
+
+    #[test]
+    fn test_sigmoid_inplace() {
+        let mut tensor = Tensor::from_data(vec![0.0f32], vec![1], DeviceType::Cpu).unwrap();
+
+        tensor.sigmoid_().unwrap();
+        let result = tensor.data().unwrap();
+
+        // sigmoid(0) = 0.5
+        assert!((result[0] - 0.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_tanh_inplace() {
+        let mut tensor = Tensor::from_data(vec![0.0f32], vec![1], DeviceType::Cpu).unwrap();
+
+        tensor.tanh_().unwrap();
+        let result = tensor.data().unwrap();
+
+        // tanh(0) = 0
+        assert!(result[0].abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_clamp_inplace() {
+        let mut tensor =
+            Tensor::from_data(vec![-2.0f32, -1.0, 0.0, 1.0, 2.0], vec![5], DeviceType::Cpu)
+                .unwrap();
+
+        tensor.clamp_(-1.0, 1.0).unwrap();
+        let result = tensor.data().unwrap();
+
+        assert_eq!(result, vec![-1.0, -1.0, 0.0, 1.0, 1.0]);
+    }
+
+    #[test]
+    fn test_inplace_with_requires_grad_error() {
+        let mut tensor = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu).unwrap();
+        tensor.requires_grad = true;
+
+        // In-place operations should fail on tensors with requires_grad=true
+        assert!(tensor.relu_().is_err());
+        assert!(tensor.sigmoid_().is_err());
+        assert!(tensor.tanh_().is_err());
     }
 }

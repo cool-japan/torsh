@@ -43,9 +43,9 @@ impl UnscentedKalmanFilter {
         let lambda = alpha.powi(2) * (state_dim as f64 + kappa) - state_dim as f64;
 
         let num_sigma = 2 * state_dim + 1;
-        let sigma_points = zeros(&[num_sigma, state_dim]).unwrap();
-        let weights_mean = zeros(&[num_sigma]).unwrap();
-        let weights_cov = zeros(&[num_sigma]).unwrap();
+        let sigma_points = zeros(&[num_sigma, state_dim]).expect("tensor creation should succeed");
+        let weights_mean = zeros(&[num_sigma]).expect("tensor creation should succeed");
+        let weights_cov = zeros(&[num_sigma]).expect("tensor creation should succeed");
 
         Self {
             state_dim,
@@ -57,10 +57,10 @@ impl UnscentedKalmanFilter {
             sigma_points,
             weights_mean,
             weights_cov,
-            process_noise: eye(state_dim).unwrap(),
-            measurement_noise: eye(obs_dim).unwrap(),
-            state: zeros(&[state_dim]).unwrap(),
-            covariance: eye(state_dim).unwrap(),
+            process_noise: eye(state_dim).expect("tensor creation should succeed"),
+            measurement_noise: eye(obs_dim).expect("tensor creation should succeed"),
+            state: zeros(&[state_dim]).expect("tensor creation should succeed"),
+            covariance: eye(state_dim).expect("tensor creation should succeed"),
         }
     }
 
@@ -75,9 +75,9 @@ impl UnscentedKalmanFilter {
         let lambda = alpha.powi(2) * (state_dim as f64 + kappa) - state_dim as f64;
 
         let num_sigma = 2 * state_dim + 1;
-        let sigma_points = zeros(&[num_sigma, state_dim]).unwrap();
-        let weights_mean = zeros(&[num_sigma]).unwrap();
-        let weights_cov = zeros(&[num_sigma]).unwrap();
+        let sigma_points = zeros(&[num_sigma, state_dim]).expect("tensor creation should succeed");
+        let weights_mean = zeros(&[num_sigma]).expect("tensor creation should succeed");
+        let weights_cov = zeros(&[num_sigma]).expect("tensor creation should succeed");
 
         let mut ukf = Self {
             state_dim,
@@ -89,10 +89,10 @@ impl UnscentedKalmanFilter {
             sigma_points,
             weights_mean,
             weights_cov,
-            process_noise: eye(state_dim).unwrap(),
-            measurement_noise: eye(obs_dim).unwrap(),
-            state: zeros(&[state_dim]).unwrap(),
-            covariance: eye(state_dim).unwrap(),
+            process_noise: eye(state_dim).expect("tensor creation should succeed"),
+            measurement_noise: eye(obs_dim).expect("tensor creation should succeed"),
+            state: zeros(&[state_dim]).expect("tensor creation should succeed"),
+            covariance: eye(state_dim).expect("tensor creation should succeed"),
         };
 
         ukf.compute_weights();
@@ -202,14 +202,18 @@ impl UnscentedKalmanFilter {
         let mut transformed_sigma_points = Vec::new();
 
         for i in 0..(2 * self.state_dim + 1) {
-            let sigma_point = self.sigma_points.slice_tensor(0, i, i + 1).unwrap();
+            let sigma_point = self
+                .sigma_points
+                .slice_tensor(0, i, i + 1)
+                .expect("slice should succeed");
             let transformed = transition_fn(&sigma_point);
             transformed_sigma_points.push(transformed);
         }
 
         // Compute predicted mean and covariance
-        let predicted_mean = zeros(&[self.state_dim]).unwrap();
-        let predicted_cov = zeros(&[self.state_dim, self.state_dim]).unwrap();
+        let predicted_mean = zeros(&[self.state_dim]).expect("tensor creation should succeed");
+        let predicted_cov =
+            zeros(&[self.state_dim, self.state_dim]).expect("tensor creation should succeed");
 
         // TODO: Implement weighted mean and covariance computation
         // when tensor operations are available
@@ -232,9 +236,10 @@ impl UnscentedKalmanFilter {
         }
 
         // Compute predicted observation mean and covariance
-        let obs_mean = zeros(&[self.obs_dim]).unwrap();
-        let obs_cov = zeros(&[self.obs_dim, self.obs_dim]).unwrap();
-        let cross_cov = zeros(&[self.state_dim, self.obs_dim]).unwrap();
+        let obs_mean = zeros(&[self.obs_dim]).expect("tensor creation should succeed");
+        let obs_cov = zeros(&[self.obs_dim, self.obs_dim]).expect("tensor creation should succeed");
+        let cross_cov =
+            zeros(&[self.state_dim, self.obs_dim]).expect("tensor creation should succeed");
 
         // TODO: Implement weighted computation when tensor operations are available
 
@@ -263,7 +268,11 @@ impl UnscentedKalmanFilter {
 
         // Apply unscented transform to predicted sigma points
         let predicted_sigma_points: Vec<Tensor> = (0..(2 * self.state_dim + 1))
-            .map(|i| self.sigma_points.slice_tensor(0, i, i + 1).unwrap())
+            .map(|i| {
+                self.sigma_points
+                    .slice_tensor(0, i, i + 1)
+                    .expect("slice should succeed")
+            })
             .collect();
 
         let (_obs_mean, _obs_cov, _cross_cov) =
@@ -300,14 +309,18 @@ impl UnscentedKalmanFilter {
             self.predict(transition_fn);
 
             // Update
-            let obs = series.values.slice_tensor(0, t, t + 1).unwrap();
+            let obs = series
+                .values
+                .slice_tensor(0, t, t + 1)
+                .expect("slice should succeed");
             self.update(&obs, observation_fn);
 
             filtered.push(self.state.clone());
         }
 
         // TODO: Stack filtered states
-        let values = zeros(&[series.len(), self.state_dim]).unwrap();
+        let values =
+            zeros(&[series.len(), self.state_dim]).expect("tensor creation should succeed");
         TimeSeries::new(values)
     }
 
@@ -338,8 +351,8 @@ impl UnscentedKalmanFilter {
 
     /// Reset filter
     pub fn reset(&mut self) {
-        self.state = zeros(&[self.state_dim]).unwrap();
-        self.covariance = eye(self.state_dim).unwrap();
+        self.state = zeros(&[self.state_dim]).expect("tensor creation should succeed");
+        self.covariance = eye(self.state_dim).expect("tensor creation should succeed");
     }
 
     /// Get filter statistics

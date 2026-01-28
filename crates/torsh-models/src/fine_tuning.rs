@@ -953,8 +953,10 @@ struct LoRAAdapter {
 
 impl LoRAAdapter {
     fn new(in_features: usize, out_features: usize, rank: usize) -> Self {
-        let lora_a = torsh_tensor::creation::randn(&[rank, in_features]).unwrap();
-        let lora_b = torsh_tensor::creation::zeros(&[out_features, rank]).unwrap();
+        let lora_a = torsh_tensor::creation::randn(&[rank, in_features])
+            .expect("failed to create LoRAAdapter lora_a");
+        let lora_b = torsh_tensor::creation::zeros(&[out_features, rank])
+            .expect("failed to create LoRAAdapter lora_b");
         let scaling = 1.0 / rank as f32;
 
         Self {
@@ -1002,8 +1004,12 @@ struct SimpleLinear {
 
 impl SimpleLinear {
     fn new(in_features: usize, out_features: usize) -> Self {
-        let weight = torsh_tensor::creation::randn(&[out_features, in_features]).unwrap();
-        let bias = Some(torsh_tensor::creation::zeros(&[out_features]).unwrap());
+        let weight = torsh_tensor::creation::randn(&[out_features, in_features])
+            .expect("failed to create SimpleLinear weight");
+        let bias = Some(
+            torsh_tensor::creation::zeros(&[out_features])
+                .expect("failed to create SimpleLinear bias"),
+        );
         Self { weight, bias }
     }
 }

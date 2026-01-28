@@ -411,7 +411,7 @@ mod tests {
     }
 }
 
-/// Convert image::DynamicImage to Tensor<f32>
+/// Convert image::DynamicImage to `Tensor<f32>`
 ///
 /// This is a convenience function that wraps the image_to_tensor utility function
 /// from the utils module.

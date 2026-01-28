@@ -255,7 +255,7 @@ impl MultiStreamOrchestrator {
         let mut results = Vec::new();
 
         // Use coordinator for batch execution with dependencies
-        let batch_results = self.coordinator.execute_parallel_workflow(
+        let _batch_results = self.coordinator.execute_parallel_workflow(
             operations.clone(),
             move |op_id, stream| {
                 let executor = executor_factory(op_id);
@@ -267,7 +267,7 @@ impl MultiStreamOrchestrator {
         )?;
 
         // Process results
-        for (op_id, characteristics) in operations {
+        for (_op_id, _characteristics) in operations {
             results.push(ExecutionResult {
                 execution_time: Duration::from_millis(10), // Placeholder
                 memory_bandwidth: 1_000_000_000,
@@ -278,8 +278,8 @@ impl MultiStreamOrchestrator {
         }
 
         // Update batch execution metrics
-        let total_time = start_time.elapsed();
-        let mut metrics = self.metrics.lock().unwrap();
+        let _total_time = start_time.elapsed();
+        let mut metrics = self.metrics.lock().expect("lock should not be poisoned");
         metrics.total_operations_executed += results.len() as u64;
         metrics.successful_operations += results.iter().filter(|r| r.success).count() as u64;
 
@@ -370,14 +370,17 @@ impl MultiStreamOrchestrator {
         self.coordinator.get_metrics(); // This will trigger internal synchronization
 
         // Clear active workloads
-        self.active_workloads.lock().unwrap().clear();
+        self.active_workloads
+            .lock()
+            .expect("lock should not be poisoned")
+            .clear();
 
         Ok(())
     }
 
     /// Get comprehensive performance metrics
     pub fn get_metrics(&self) -> OrchestratorMetrics {
-        let mut metrics = self.metrics.lock().unwrap();
+        let mut metrics = self.metrics.lock().expect("lock should not be poisoned");
         metrics.scheduler_metrics = self.coordinator.get_metrics();
         metrics.clone()
     }
@@ -393,11 +396,15 @@ impl MultiStreamOrchestrator {
         }
 
         let mut optimizations_applied = 0;
+        #[allow(unused_assignments)]
         let mut performance_improvement = 0.0;
         let mut new_strategy = None;
 
         // Analyze execution history
-        let history = self.execution_history.read().unwrap();
+        let history = self
+            .execution_history
+            .read()
+            .expect("lock should not be poisoned");
 
         // Optimize scheduling strategy based on workload patterns
         if let Some(optimal_strategy) = self.analyze_optimal_strategy(&history) {
@@ -418,7 +425,7 @@ impl MultiStreamOrchestrator {
         performance_improvement = self.calculate_overall_performance_improvement(&history);
 
         // Update metrics
-        let mut metrics = self.metrics.lock().unwrap();
+        let mut metrics = self.metrics.lock().expect("lock should not be poisoned");
         metrics.adaptive_optimizations += optimizations_applied as u64;
 
         Ok(OptimizationResult {
@@ -457,7 +464,10 @@ impl MultiStreamOrchestrator {
     }
 
     fn has_repeated_execution_pattern(&self, operation_id: &str) -> bool {
-        let history = self.execution_history.read().unwrap();
+        let history = self
+            .execution_history
+            .read()
+            .expect("lock should not be poisoned");
         let count = history
             .operation_history
             .iter()
@@ -471,7 +481,7 @@ impl MultiStreamOrchestrator {
         let stream = Arc::new(CudaStream::new()?);
         let execution_time = self.graph_manager.execute_graph(graph_id, &stream)?;
 
-        let mut metrics = self.metrics.lock().unwrap();
+        let mut metrics = self.metrics.lock().expect("lock should not be poisoned");
         metrics.graph_replay_count += 1;
 
         Ok(ExecutionResult {
@@ -506,7 +516,7 @@ impl MultiStreamOrchestrator {
 
         let execution_time = start_time.elapsed();
 
-        let mut metrics = self.metrics.lock().unwrap();
+        let mut metrics = self.metrics.lock().expect("lock should not be poisoned");
         metrics.graph_capture_count += 1;
 
         Ok(ExecutionResult {
@@ -559,11 +569,14 @@ impl MultiStreamOrchestrator {
             graph_captured: false,
         };
 
-        let mut active = self.active_workloads.lock().unwrap();
+        let mut active = self
+            .active_workloads
+            .lock()
+            .expect("lock should not be poisoned");
         active.insert(operation_id.to_string(), workload);
 
         // Update peak concurrent operations
-        let mut metrics = self.metrics.lock().unwrap();
+        let mut metrics = self.metrics.lock().expect("lock should not be poisoned");
         metrics.current_active_operations = active.len();
         if active.len() > metrics.peak_concurrent_operations {
             metrics.peak_concurrent_operations = active.len();
@@ -579,11 +592,18 @@ impl MultiStreamOrchestrator {
         memory_bandwidth: u64,
     ) -> CudaResult<()> {
         // Remove from active workloads
-        let workload = self.active_workloads.lock().unwrap().remove(operation_id);
+        let workload = self
+            .active_workloads
+            .lock()
+            .expect("lock should not be poisoned")
+            .remove(operation_id);
 
         if let Some(workload) = workload {
             // Update execution history
-            let mut history = self.execution_history.write().unwrap();
+            let mut history = self
+                .execution_history
+                .write()
+                .expect("lock should not be poisoned");
             let record = OperationRecord {
                 operation_id: operation_id.to_string(),
                 workload_type: workload.characteristics.workload_type,
@@ -610,13 +630,17 @@ impl MultiStreamOrchestrator {
         }
 
         // Update metrics
-        let mut metrics = self.metrics.lock().unwrap();
+        let mut metrics = self.metrics.lock().expect("lock should not be poisoned");
         metrics.total_operations_executed += 1;
         metrics.successful_operations += 1;
         metrics.total_execution_time += execution_time;
         metrics.average_execution_time =
             metrics.total_execution_time / metrics.total_operations_executed as u32;
-        metrics.current_active_operations = self.active_workloads.lock().unwrap().len();
+        metrics.current_active_operations = self
+            .active_workloads
+            .lock()
+            .expect("lock should not be poisoned")
+            .len();
 
         Ok(())
     }
@@ -626,7 +650,10 @@ impl MultiStreamOrchestrator {
         workload_id: &str,
         execution_times: &[Duration],
     ) {
-        let mut history = self.execution_history.write().unwrap();
+        let mut history = self
+            .execution_history
+            .write()
+            .expect("lock should not be poisoned");
 
         // Update performance trend
         let trend = history
@@ -660,7 +687,10 @@ impl MultiStreamOrchestrator {
     }
 
     fn calculate_performance_improvement(&self, workload_id: &str) -> f32 {
-        let history = self.execution_history.read().unwrap();
+        let history = self
+            .execution_history
+            .read()
+            .expect("lock should not be poisoned");
         if let Some(trend) = history.performance_trends.get(workload_id) {
             trend.trend_direction * trend.confidence
         } else {
@@ -707,19 +737,21 @@ impl MultiStreamOrchestrator {
         }
 
         let recent_count = history.operation_history.len().min(100);
-        let recent_ops =
-            &history.operation_history[history.operation_history.len() - recent_count..];
+        let start_idx = history.operation_history.len() - recent_count;
 
-        let recent_avg: Duration = recent_ops
+        let recent_avg: Duration = history
+            .operation_history
             .iter()
+            .skip(start_idx)
             .map(|op| op.execution_time)
             .sum::<Duration>()
             / recent_count as u32;
 
-        let historical_count = (history.operation_history.len() - recent_count).max(1);
-        let historical_ops = &history.operation_history[..historical_count];
-        let historical_avg: Duration = historical_ops
+        let historical_count = start_idx.max(1);
+        let historical_avg: Duration = history
+            .operation_history
             .iter()
+            .take(historical_count)
             .map(|op| op.execution_time)
             .sum::<Duration>()
             / historical_count as u32;
@@ -763,8 +795,10 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore = "Requires CUDA hardware - run with --ignored flag"]
     fn test_orchestrator_creation() {
         if crate::cuda::is_available() {
+            let _device = Arc::new(crate::cuda::device::CudaDevice::new(0).unwrap());
             let config = OrchestratorConfig::default();
             let orchestrator = MultiStreamOrchestrator::new(config);
             assert!(orchestrator.is_ok());

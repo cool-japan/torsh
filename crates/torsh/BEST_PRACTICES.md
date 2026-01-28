@@ -944,15 +944,15 @@ impl Trainer {
             timestamp: chrono::Utc::now(),
         };
         
-        let serialized = bincode::serialize(&checkpoint)?;
+        let serialized = oxicode::encode(&checkpoint)?;
         std::fs::write(path, serialized)?;
-        
+
         Ok(())
     }
-    
+
     pub fn load_checkpoint<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
         let data = std::fs::read(path)?;
-        let checkpoint: Checkpoint = bincode::deserialize(&data)?;
+        let checkpoint: Checkpoint = oxicode::decode(&data)?;
         
         self.model.load_state_dict(&checkpoint.model_state)?;
         self.optimizer.load_state_dict(&checkpoint.optimizer_state)?;

@@ -5,8 +5,9 @@
 // trait and specialized traits for floating point and complex number operations.
 
 use half::{bf16, f16};
-use num_complex::Complex;
-use num_traits::{Float, NumCast, One, Zero};
+use scirs2_core::Complex;
+// ✅ SciRS2 POLICY: Use scirs2_core::numeric for numerical traits
+use scirs2_core::numeric::{Float, NumCast, One, Zero};
 use std::any::Any;
 use std::fmt;
 
@@ -258,6 +259,11 @@ impl TensorElement for f16 {
     }
 }
 
+// TODO: f16 FloatElement implementation requires scirs2_core::Float trait implementation for half::f16
+// This will be available when scirs2-core adds Float trait support for f16/bf16 types
+// For now, f16 tensors can be created but may have limited Float-based operations
+// Uncomment when scirs2-core 0.1.1+ provides Float impl for f16
+/*
 impl FloatElement for f16 {
     fn epsilon() -> Self {
         f16::EPSILON
@@ -287,6 +293,7 @@ impl FloatElement for f16 {
         f16::NAN
     }
 }
+*/
 
 /// Custom implementation for bf16 (brain floating point)
 impl TensorElement for bf16 {
@@ -319,6 +326,11 @@ impl TensorElement for bf16 {
     }
 }
 
+// TODO: bf16 FloatElement implementation requires scirs2_core::Float trait implementation for half::bf16
+// This will be available when scirs2-core adds Float trait support for f16/bf16 types
+// For now, bf16 tensors can be created but may have limited Float-based operations
+// Uncomment when scirs2-core 0.1.1+ provides Float impl for bf16
+/*
 impl FloatElement for bf16 {
     fn epsilon() -> Self {
         bf16::EPSILON
@@ -348,6 +360,7 @@ impl FloatElement for bf16 {
         bf16::NAN
     }
 }
+*/
 
 /// Type aliases for complex numbers
 pub type Complex32 = Complex<f32>;
@@ -603,7 +616,7 @@ pub trait AnyTensorElement: Any + Send + Sync + fmt::Debug {
     /// Get the type as Any for downcasting
     fn as_any(&self) -> &dyn Any;
 
-    /// Clone this value into a Box<dyn AnyTensorElement>
+    /// Clone this value into a `Box<dyn AnyTensorElement>`
     fn clone_boxed(&self) -> Box<dyn AnyTensorElement>;
 
     /// Get a string representation of this value

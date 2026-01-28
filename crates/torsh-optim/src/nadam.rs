@@ -148,7 +148,9 @@ impl Optimizer for NAdam {
                         exp_avg_sq: zeros_like(&param)?,
                     };
                     self.state.insert(param_id.clone(), new_state);
-                    self.state.get_mut(&param_id).unwrap()
+                    self.state
+                        .get_mut(&param_id)
+                        .expect("state should exist after insert")
                 };
 
                 // Apply weight decay

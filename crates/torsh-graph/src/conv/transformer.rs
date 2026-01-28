@@ -33,14 +33,25 @@ impl GraphTransformer {
         dropout: f32,
         bias: bool,
     ) -> Self {
-        let query_weight = Parameter::new(randn(&[in_features, out_features]).unwrap());
-        let key_weight = Parameter::new(randn(&[in_features, out_features]).unwrap());
-        let value_weight = Parameter::new(randn(&[in_features, out_features]).unwrap());
-        let edge_weight = Parameter::new(randn(&[edge_dim, heads]).unwrap());
-        let output_weight = Parameter::new(randn(&[out_features, out_features]).unwrap());
+        let query_weight = Parameter::new(
+            randn(&[in_features, out_features]).expect("failed to create query weight tensor"),
+        );
+        let key_weight = Parameter::new(
+            randn(&[in_features, out_features]).expect("failed to create key weight tensor"),
+        );
+        let value_weight = Parameter::new(
+            randn(&[in_features, out_features]).expect("failed to create value weight tensor"),
+        );
+        let edge_weight =
+            Parameter::new(randn(&[edge_dim, heads]).expect("failed to create edge weight tensor"));
+        let output_weight = Parameter::new(
+            randn(&[out_features, out_features]).expect("failed to create output weight tensor"),
+        );
 
         let bias = if bias {
-            Some(Parameter::new(zeros(&[out_features]).unwrap()))
+            Some(Parameter::new(
+                zeros(&[out_features]).expect("failed to create bias tensor"),
+            ))
         } else {
             None
         };
@@ -91,65 +102,105 @@ impl GraphTransformer {
         let head_dim = self.out_features / self.heads;
 
         // Linear transformations for Q, K, V
-        let queries = graph.x.matmul(&self.query_weight.clone_data()).unwrap();
-        let keys = graph.x.matmul(&self.key_weight.clone_data()).unwrap();
-        let values = graph.x.matmul(&self.value_weight.clone_data()).unwrap();
+        let queries = graph
+            .x
+            .matmul(&self.query_weight.clone_data())
+            .expect("operation should succeed");
+        let keys = graph
+            .x
+            .matmul(&self.key_weight.clone_data())
+            .expect("operation should succeed");
+        let values = graph
+            .x
+            .matmul(&self.value_weight.clone_data())
+            .expect("operation should succeed");
 
         // Reshape for multi-head attention
         let q = queries
             .view(&[num_nodes as i32, self.heads as i32, head_dim as i32])
-            .unwrap();
+            .expect("view should succeed");
         let k = keys
             .view(&[num_nodes as i32, self.heads as i32, head_dim as i32])
-            .unwrap();
+            .expect("view should succeed");
         let v = values
             .view(&[num_nodes as i32, self.heads as i32, head_dim as i32])
-            .unwrap();
+            .expect("view should succeed");
 
         // Initialize output
-        let mut output_features = zeros(&[num_nodes, self.out_features]).unwrap();
+        let mut output_features = zeros(&[num_nodes, self.out_features])
+            .expect("failed to create output features tensor");
 
         // For simplicity, use a basic attention mechanism
         for head in 0..self.heads {
             let head_dim_start = head * head_dim;
             let head_dim_end = (head + 1) * head_dim;
 
-            let q_head = q.slice(1, head, head + 1).unwrap();
-            let k_head = k.slice(1, head, head + 1).unwrap();
-            let v_head = v.slice(1, head, head + 1).unwrap();
+            let q_head = q
+                .slice(1, head, head + 1)
+                .expect("failed to slice query head");
+            let k_head = k
+                .slice(1, head, head + 1)
+                .expect("failed to slice key head");
+            let v_head = v
+                .slice(1, head, head + 1)
+                .expect("failed to slice value head");
 
             // Basic self-attention computation
             let scale = 1.0 / (head_dim as f64).sqrt();
-            let k_head_tensor = k_head.to_tensor().unwrap().squeeze_tensor(1).unwrap();
-            let q_head_tensor = q_head.to_tensor().unwrap().squeeze_tensor(1).unwrap();
-            let v_head_tensor = v_head.to_tensor().unwrap().squeeze_tensor(1).unwrap();
+            let k_head_tensor = k_head
+                .to_tensor()
+                .expect("failed to convert key head to tensor")
+                .squeeze_tensor(1)
+                .expect("failed to squeeze key head");
+            let q_head_tensor = q_head
+                .to_tensor()
+                .expect("failed to convert query head to tensor")
+                .squeeze_tensor(1)
+                .expect("failed to squeeze query head");
+            let v_head_tensor = v_head
+                .to_tensor()
+                .expect("failed to convert value head to tensor")
+                .squeeze_tensor(1)
+                .expect("failed to squeeze value head");
 
-            let k_transposed = k_head_tensor.transpose(0, 1).unwrap();
+            let k_transposed = k_head_tensor
+                .transpose(0, 1)
+                .expect("transpose should succeed");
             let attention_scores = q_head_tensor
                 .matmul(&k_transposed)
-                .unwrap()
+                .expect("operation should succeed")
                 .mul_scalar(scale as f32)
-                .unwrap();
-            let attention_weights = attention_scores.softmax(-1).unwrap();
-            let head_output = attention_weights.matmul(&v_head_tensor).unwrap();
+                .expect("failed to scale attention scores");
+            let attention_weights = attention_scores
+                .softmax(-1)
+                .expect("failed to apply softmax to attention scores");
+            let head_output = attention_weights
+                .matmul(&v_head_tensor)
+                .expect("operation should succeed");
 
             // Copy to output
             let output_slice = output_features
                 .slice(1, head_dim_start, head_dim_end)
-                .unwrap();
+                .expect("failed to slice output features");
             // head_output is already [num_nodes, head_dim] - no need to squeeze
-            let mut output_slice_tensor = output_slice.to_tensor().unwrap();
-            output_slice_tensor.copy_(&head_output).unwrap();
+            let mut output_slice_tensor = output_slice
+                .to_tensor()
+                .expect("failed to convert output slice to tensor");
+            output_slice_tensor
+                .copy_(&head_output)
+                .expect("failed to copy head output to output tensor");
         }
 
         // Apply output projection
         output_features = output_features
             .matmul(&self.output_weight.clone_data())
-            .unwrap();
+            .expect("operation should succeed");
 
         // Add bias if present
         if let Some(ref bias) = self.bias {
-            output_features = output_features.add(&bias.clone_data()).unwrap();
+            output_features = output_features
+                .add(&bias.clone_data())
+                .expect("operation should succeed");
         }
 
         GraphData {

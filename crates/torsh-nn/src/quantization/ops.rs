@@ -436,7 +436,9 @@ mod tests {
         let params = QuantizationParams::symmetric(1.0 / 127.0, DType::F32, DType::I8);
 
         let result = quantized_relu_int8(&tensor, &params, &params).unwrap();
-        let result_data = result.to_vec().unwrap();
+        let result_data = result
+            .to_vec()
+            .expect("tensor to vec conversion should succeed");
 
         // ReLU should clamp negative values to zero
         for (i, &value) in result_data.iter().enumerate() {

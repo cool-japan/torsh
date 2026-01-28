@@ -704,7 +704,7 @@ impl EmbeddingUtils {
             similarities.push((i, similarity));
         }
 
-        similarities.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        similarities.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         similarities.truncate(top_k);
 
         Ok(similarities)

@@ -137,7 +137,11 @@ impl Module for AudioClassifierHead {
         }
 
         // Final layer (no activation, no dropout)
-        let output = self.layers.last().unwrap().forward(&hidden)?;
+        let output = self
+            .layers
+            .last()
+            .expect("audio classifier should have at least one layer")
+            .forward(&hidden)?;
         Ok(output)
     }
 

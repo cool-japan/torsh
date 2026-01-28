@@ -5,7 +5,6 @@
  * and libraries including SciPy, MATLAB, HDF5, and Matrix Market.
  */
 
-use scirs2_core::random::Rng;
 use std::fs;
 use torsh_core::TorshError;
 use torsh_sparse::*;

@@ -192,26 +192,28 @@ impl WebGpuDevice {
         let adapter_info = adapter.get_info();
 
         let (device, queue) = adapter
-            .request_device(&wgpu::DeviceDescriptor {
-                label: Some(&format!("ToRSh WebGPU Device {}", device_id)),
-                required_features: wgpu::Features::TIMESTAMP_QUERY
-                    | wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS
-                    | wgpu::Features::MAPPABLE_PRIMARY_BUFFERS
-                    | wgpu::Features::BUFFER_BINDING_ARRAY
-                    | wgpu::Features::STORAGE_RESOURCE_BINDING_ARRAY,
-                required_limits: wgpu::Limits {
-                    max_storage_buffer_binding_size: 1024 * 1024 * 1024, // 1GB
-                    max_compute_workgroup_storage_size: 32768,
-                    max_compute_invocations_per_workgroup: 1024,
-                    max_compute_workgroup_size_x: 1024,
-                    max_compute_workgroup_size_y: 1024,
-                    max_compute_workgroup_size_z: 64,
-                    max_compute_workgroups_per_dimension: 65535,
-                    ..Default::default()
+            .request_device(
+                &wgpu::DeviceDescriptor {
+                    label: Some(&format!("ToRSh WebGPU Device {}", device_id)),
+                    required_features: wgpu::Features::TIMESTAMP_QUERY
+                        | wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS
+                        | wgpu::Features::MAPPABLE_PRIMARY_BUFFERS
+                        | wgpu::Features::BUFFER_BINDING_ARRAY
+                        | wgpu::Features::STORAGE_RESOURCE_BINDING_ARRAY,
+                    required_limits: wgpu::Limits {
+                        max_storage_buffer_binding_size: 1024 * 1024 * 1024, // 1GB
+                        max_compute_workgroup_storage_size: 32768,
+                        max_compute_invocations_per_workgroup: 1024,
+                        max_compute_workgroup_size_x: 1024,
+                        max_compute_workgroup_size_y: 1024,
+                        max_compute_workgroup_size_z: 64,
+                        max_compute_workgroups_per_dimension: 65535,
+                        ..Default::default()
+                    },
+                    memory_hints: wgpu::MemoryHints::Performance,
                 },
-                memory_hints: wgpu::MemoryHints::Performance,
-                trace: Default::default(),
-            })
+                None, // trace path
+            )
             .await
             .map_err(|e| WebGpuError::DeviceCreation(e.to_string()))?;
 
@@ -317,7 +319,7 @@ impl WebGpuDevice {
     /// Wait for all submitted commands to complete
     pub async fn wait_for_completion(&self) -> WebGpuResult<()> {
         // Wait for device to process commands
-        let _ = self.device.poll(wgpu::PollType::Wait);
+        let _ = self.device.poll(wgpu::Maintain::Wait);
         Ok(())
     }
 
@@ -804,7 +806,7 @@ impl WebGpuDevice {
             );
 
             self.queue.submit([encoder.finish()]);
-            let _ = self.device.poll(wgpu::PollType::Wait);
+            let _ = self.device.poll(wgpu::Maintain::Wait);
         }
 
         let elapsed = start.elapsed();
@@ -1061,13 +1063,13 @@ impl WebGpuDevice {
 
     pub fn is_available(&self) -> bool {
         // Check if device is still valid by polling
-        let _ = self.device.poll(wgpu::PollType::Wait);
+        let _ = self.device.poll(wgpu::Maintain::Wait);
         true // WebGPU devices are typically always available once created
     }
 
     pub fn synchronize(&self) -> crate::error::BackendResult<()> {
         // Wait for device to process commands
-        let _ = self.device.poll(wgpu::PollType::Wait);
+        let _ = self.device.poll(wgpu::Maintain::Wait);
         Ok(())
     }
 

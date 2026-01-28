@@ -170,14 +170,22 @@ impl ModelMerger {
             // Collect tensors with proper Arc<RwLock> handling
             let tensor_arcs: Vec<_> = models
                 .iter()
-                .map(|m| m.parameters().get(name).unwrap().tensor())
+                .map(|m| {
+                    m.parameters()
+                        .get(name)
+                        .expect("parameter should exist in all models")
+                        .tensor()
+                })
                 .collect();
 
             let merged_tensor = match self.strategy {
                 MergeStrategy::Average => self.average_tensors(&tensor_arcs)?,
-                MergeStrategy::WeightedAverage => {
-                    self.weighted_average_tensors(&tensor_arcs, self.weights.as_ref().unwrap())?
-                }
+                MergeStrategy::WeightedAverage => self.weighted_average_tensors(
+                    &tensor_arcs,
+                    self.weights
+                        .as_ref()
+                        .expect("weights should be set for weighted average strategy"),
+                )?,
                 MergeStrategy::ExponentialMovingAverage { alpha } => {
                     self.ema_tensors(&tensor_arcs, alpha)?
                 }

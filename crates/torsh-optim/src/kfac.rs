@@ -170,7 +170,9 @@ impl Optimizer for KFAC {
                     continue;
                 }
 
-                let grad = param.grad().unwrap();
+                let grad = param
+                    .grad()
+                    .expect("gradient should exist after has_grad check");
                 let param_id = format!("{:p}", param_arc.as_ref());
 
                 // Only handle 2D parameters (weight matrices) for now
@@ -198,12 +200,27 @@ impl Optimizer for KFAC {
                     state.insert("step".to_string(), zeros_like(&param)?);
                 }
 
-                let mut momentum_buffer = state.get("momentum_buffer").unwrap().clone();
-                let mut activation_cov = state.get("activation_cov").unwrap().clone();
-                let mut gradient_cov = state.get("gradient_cov").unwrap().clone();
-                let mut a_inv = state.get("a_inv").unwrap().clone();
-                let mut g_inv = state.get("g_inv").unwrap().clone();
-                let mut step_tensor = state.get("step").unwrap().clone();
+                let mut momentum_buffer = state
+                    .get("momentum_buffer")
+                    .expect("momentum_buffer state should exist")
+                    .clone();
+                let mut activation_cov = state
+                    .get("activation_cov")
+                    .expect("activation_cov state should exist")
+                    .clone();
+                let mut gradient_cov = state
+                    .get("gradient_cov")
+                    .expect("gradient_cov state should exist")
+                    .clone();
+                let mut a_inv = state
+                    .get("a_inv")
+                    .expect("a_inv state should exist")
+                    .clone();
+                let mut g_inv = state
+                    .get("g_inv")
+                    .expect("g_inv state should exist")
+                    .clone();
+                let mut step_tensor = state.get("step").expect("step state should exist").clone();
 
                 // Increment step count
                 step_tensor.add_scalar_(1.0)?;
@@ -260,7 +277,7 @@ impl Optimizer for KFAC {
 
                 // Re-acquire gradient if param was dropped
                 let grad = if should_update_kfac {
-                    param.grad().unwrap()
+                    param.grad().expect("gradient should exist after update")
                 } else {
                     grad
                 };
@@ -481,7 +498,11 @@ mod tests {
         // Check that parameter changed
         let final_param = param.read().clone();
         let diff = initial_param.sub(&final_param).unwrap();
-        let norm = diff.norm().unwrap().to_vec().unwrap()[0];
+        let norm = diff
+            .norm()
+            .unwrap()
+            .to_vec()
+            .expect("tensor to vec conversion should succeed")[0];
         assert!(
             norm > 0.0,
             "Parameter should change after optimization step"

@@ -276,7 +276,10 @@ fn compute_top_k_accuracy(predictions: &Tensor, targets: &Tensor, k: usize) -> f
                     (0..cols).map(|j| (pred_vec[i * cols + j], j)).collect();
 
                 // Sort by value in descending order
-                row_values.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+                row_values.sort_by(|a, b| {
+                    b.0.partial_cmp(&a.0)
+                        .expect("row values should be comparable")
+                });
 
                 // Check if target is in top-k
                 for j in 0..k.min(row_values.len()) {
@@ -853,8 +856,8 @@ pub struct ThresholdMetrics {
 
 impl ThresholdMetrics {
     /// Compute threshold metrics for binary classification
-    /// predictions: probabilities for the positive class (shape: [n])
-    /// targets: binary labels (0 or 1) (shape: [n])
+    /// predictions: probabilities for the positive class (shape: \[n\])
+    /// targets: binary labels (0 or 1) (shape: \[n\])
     pub fn compute(predictions: &Tensor, targets: &Tensor) -> Self {
         let (pred_vec, targets_vec) = match (predictions.to_vec(), targets.to_vec()) {
             (Ok(p), Ok(t)) => (p, t),
@@ -879,7 +882,10 @@ impl ThresholdMetrics {
 
         // Generate thresholds
         let mut thresholds: Vec<f64> = pred_vec.iter().map(|&x| x as f64).collect();
-        thresholds.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        thresholds.sort_by(|a, b| {
+            a.partial_cmp(b)
+                .expect("threshold values should be comparable")
+        });
         thresholds.dedup();
 
         // Add boundary thresholds

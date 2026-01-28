@@ -38,7 +38,7 @@ use torsh_core::{
 /// let values = vec![1.0, 2.0, 3.0];
 /// let shape = vec![3, 3];
 ///
-/// let sparse = SparseTensor::from_coo(indices, values, shape).unwrap();
+/// let sparse = SparseTensor::from_coo(indices, values, shape).expect("sparse tensor creation should succeed");
 /// ```
 #[derive(Debug, Clone)]
 pub struct SparseTensor<T: TensorElement> {

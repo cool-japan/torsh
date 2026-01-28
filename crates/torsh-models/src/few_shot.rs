@@ -174,7 +174,10 @@ impl FewShotDataset {
 
         // For each selected class, sample K support examples and Q query examples
         for (class_idx, &class_label) in selected_classes.iter().enumerate() {
-            let class_examples = self.class_to_examples.get(&class_label).unwrap();
+            let class_examples = self
+                .class_to_examples
+                .get(&class_label)
+                .expect("class label should exist in class_to_examples mapping");
 
             if class_examples.len() < self.config.k_shot + self.config.query_shots {
                 return Err(TorshError::ComputeError(format!(
@@ -654,8 +657,8 @@ impl FewShotEvaluator {
         let (max_idx, _) = data
             .iter()
             .enumerate()
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-            .unwrap();
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).expect("logit values should be comparable"))
+            .expect("logits tensor should not be empty");
         Ok(max_idx)
     }
 

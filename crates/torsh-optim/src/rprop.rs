@@ -89,7 +89,10 @@ impl Optimizer for Rprop {
                     param_state.insert("prev_grad".to_string(), prev_grad.clone());
                     prev_grad
                 } else {
-                    param_state.get("prev_grad").unwrap().clone()
+                    param_state
+                        .get("prev_grad")
+                        .expect("prev_grad state should exist")
+                        .clone()
                 };
 
                 let step_size = if !param_state.contains_key("step_size") {
@@ -99,7 +102,10 @@ impl Optimizer for Rprop {
                     param_state.insert("step_size".to_string(), step_size.clone());
                     step_size
                 } else {
-                    param_state.get("step_size").unwrap().clone()
+                    param_state
+                        .get("step_size")
+                        .expect("step_size state should exist")
+                        .clone()
                 };
 
                 // For simplicity in initial implementation, we'll use element-wise operations

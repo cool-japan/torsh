@@ -104,14 +104,14 @@ impl<D: Dataset> LazyDataset<D> {
             let cache = self.cache.read();
             if let Some(item) = cache.get(&index) {
                 // Cache hit
-                *self.hit_count.lock().unwrap() += 1;
+                *self.hit_count.lock().expect("lock should not be poisoned") += 1;
                 self.update_access_order(index);
                 return Ok(item.clone());
             }
         }
         
         // Cache miss
-        *self.miss_count.lock().unwrap() += 1;
+        *self.miss_count.lock().expect("lock should not be poisoned") += 1;
         
         // Load item and cache it
         let item = self.inner.get_item(index)?;
@@ -132,7 +132,7 @@ impl<D: Dataset> LazyDataset<D> {
     }
     
     fn update_access_order(&self, index: usize) {
-        let mut access_order = self.access_order.lock().unwrap();
+        let mut access_order = self.access_order.lock().expect("lock should not be poisoned");
         
         // Remove existing entry if present
         access_order.retain(|&x| x != index);
@@ -142,7 +142,7 @@ impl<D: Dataset> LazyDataset<D> {
     }
     
     fn evict_lru(&self, cache: &mut HashMap<usize, (Tensor<f32>, usize)>) {
-        let mut access_order = self.access_order.lock().unwrap();
+        let mut access_order = self.access_order.lock().expect("lock should not be poisoned");
         
         if let Some(lru_index) = access_order.first().copied() {
             cache.remove(&lru_index);
@@ -153,8 +153,8 @@ impl<D: Dataset> LazyDataset<D> {
     /// Get cache statistics
     pub fn cache_stats(&self) -> CacheStats {
         let cache = self.cache.read();
-        let hit_count = *self.hit_count.lock().unwrap();
-        let miss_count = *self.miss_count.lock().unwrap();
+        let hit_count = *self.hit_count.lock().expect("lock should not be poisoned");
+        let miss_count = *self.miss_count.lock().expect("lock should not be poisoned");
         let total_requests = hit_count + miss_count;
         
         let hit_rate = if total_requests > 0 {
@@ -173,9 +173,9 @@ impl<D: Dataset> LazyDataset<D> {
     /// Clear cache
     pub fn clear_cache(&self) {
         let mut cache = self.cache.write();
-        let mut access_order = self.access_order.lock().unwrap();
-        let mut hit_count = self.hit_count.lock().unwrap();
-        let mut miss_count = self.miss_count.lock().unwrap();
+        let mut access_order = self.access_order.lock().expect("lock should not be poisoned");
+        let mut hit_count = self.hit_count.lock().expect("lock should not be poisoned");
+        let mut miss_count = self.miss_count.lock().expect("lock should not be poisoned");
         
         cache.clear();
         access_order.clear();
@@ -505,7 +505,7 @@ impl CIFAR10Lazy {
         let label = buffer[0] as usize;
         
         // Parse image data
-        let mut tensor = creation::zeros(&[3, 32, 32]).unwrap();
+        let mut tensor = creation::zeros(&[3, 32, 32]).expect("tensor creation should succeed");
         
         // CIFAR-10 format: R channel (1024 bytes), G channel (1024 bytes), B channel (1024 bytes)
         for channel in 0..3 {
@@ -603,7 +603,7 @@ impl<D: Dataset> DatasetSampler<D> {
     /// Get the next sample index according to the sampling strategy
     fn next_index(&mut self) -> Option<usize> {
         // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
-        use scirs2_core::random::Rng;
+        
         
         match self.strategy {
             SamplingStrategy::Sequential => {

@@ -310,12 +310,16 @@ impl OptimizerAnalyzer {
 
         // Calculate velocity (rate of parameter change)
         if self.parameter_stats.norm_history.len() >= 2 {
-            let current = self.parameter_stats.norm_history.back().unwrap();
+            let current = self
+                .parameter_stats
+                .norm_history
+                .back()
+                .expect("norm_history should not be empty");
             let previous = self
                 .parameter_stats
                 .norm_history
                 .get(self.parameter_stats.norm_history.len() - 2)
-                .unwrap();
+                .expect("second-to-last element should exist");
             self.parameter_stats.velocity = (current - previous).abs();
         }
 
@@ -612,7 +616,7 @@ impl HyperparameterSensitivity {
         let optimal_idx = performance_metrics
             .iter()
             .enumerate()
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .map(|(i, _)| i)
             .unwrap_or(0);
         let optimal_value = test_values[optimal_idx];
@@ -638,7 +642,7 @@ impl HyperparameterSensitivity {
             .map(|(name, result)| (name.as_str(), result.sensitivity_score))
             .collect();
 
-        ranking.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        ranking.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         ranking
     }
 

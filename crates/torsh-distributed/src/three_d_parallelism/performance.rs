@@ -37,7 +37,7 @@ impl Performance3DMonitor {
 
     /// Record forward pass performance
     pub async fn record_forward_pass(&self, duration: Duration, num_tokens: usize) {
-        let mut stats = self.stats.lock().unwrap();
+        let mut stats = self.stats.lock().expect("lock should not be poisoned");
         stats.forward_passes += 1;
         stats.total_forward_time += duration;
         stats.total_tokens_processed += num_tokens as u64;
@@ -49,7 +49,10 @@ impl Performance3DMonitor {
         }
 
         // Record in timing history
-        let mut history = self.timing_history.lock().unwrap();
+        let mut history = self
+            .timing_history
+            .lock()
+            .expect("lock should not be poisoned");
         history.record_forward_pass(duration, num_tokens);
 
         // Update computation time
@@ -58,12 +61,15 @@ impl Performance3DMonitor {
 
     /// Record backward pass performance
     pub async fn record_backward_pass(&self, duration: Duration, num_tokens: usize) {
-        let mut stats = self.stats.lock().unwrap();
+        let mut stats = self.stats.lock().expect("lock should not be poisoned");
         stats.backward_passes += 1;
         stats.total_backward_time += duration;
 
         // Record in timing history
-        let mut history = self.timing_history.lock().unwrap();
+        let mut history = self
+            .timing_history
+            .lock()
+            .expect("lock should not be poisoned");
         history.record_backward_pass(duration, num_tokens);
 
         // Update computation time
@@ -77,33 +83,51 @@ impl Performance3DMonitor {
         duration: Duration,
         bytes: usize,
     ) {
-        let mut stats = self.stats.lock().unwrap();
+        let mut stats = self.stats.lock().expect("lock should not be poisoned");
         stats.communication_time += duration;
 
-        let mut comm_metrics = self.communication_metrics.lock().unwrap();
+        let mut comm_metrics = self
+            .communication_metrics
+            .lock()
+            .expect("lock should not be poisoned");
         comm_metrics.record_communication(comm_type, duration, bytes);
     }
 
     /// Record memory usage
     pub fn record_memory_usage(&self, usage_mb: f64) {
-        let mut stats = self.stats.lock().unwrap();
+        let mut stats = self.stats.lock().expect("lock should not be poisoned");
         stats.memory_usage_mb = usage_mb;
 
-        let mut memory_tracker = self.memory_tracker.lock().unwrap();
+        let mut memory_tracker = self
+            .memory_tracker
+            .lock()
+            .expect("lock should not be poisoned");
         memory_tracker.record_usage(usage_mb);
     }
 
     /// Get current performance statistics
     pub fn get_stats(&self) -> Performance3DStats {
-        self.stats.lock().unwrap().clone()
+        self.stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Get detailed performance analysis
     pub fn get_performance_analysis(&self) -> PerformanceAnalysis {
-        let stats = self.stats.lock().unwrap();
-        let timing_history = self.timing_history.lock().unwrap();
-        let memory_tracker = self.memory_tracker.lock().unwrap();
-        let comm_metrics = self.communication_metrics.lock().unwrap();
+        let stats = self.stats.lock().expect("lock should not be poisoned");
+        let timing_history = self
+            .timing_history
+            .lock()
+            .expect("lock should not be poisoned");
+        let memory_tracker = self
+            .memory_tracker
+            .lock()
+            .expect("lock should not be poisoned");
+        let comm_metrics = self
+            .communication_metrics
+            .lock()
+            .expect("lock should not be poisoned");
 
         PerformanceAnalysis {
             overall_throughput: stats.tokens_per_second,
@@ -166,7 +190,11 @@ impl Performance3DMonitor {
         } else {
             // Efficiency based on gradient synchronization patterns
             let dp_comm_time = comm_metrics.get_communication_time(CommunicationType::AllReduceDP);
-            let computation_time = self.stats.lock().unwrap().computation_time;
+            let computation_time = self
+                .stats
+                .lock()
+                .expect("lock should not be poisoned")
+                .computation_time;
 
             if computation_time.is_zero() {
                 100.0
@@ -310,16 +338,25 @@ impl Performance3DMonitor {
 
     /// Reset statistics
     pub fn reset_stats(&self) {
-        let mut stats = self.stats.lock().unwrap();
+        let mut stats = self.stats.lock().expect("lock should not be poisoned");
         *stats = Performance3DStats::new();
 
-        let mut history = self.timing_history.lock().unwrap();
+        let mut history = self
+            .timing_history
+            .lock()
+            .expect("lock should not be poisoned");
         *history = TimingHistory::new();
 
-        let mut memory_tracker = self.memory_tracker.lock().unwrap();
+        let mut memory_tracker = self
+            .memory_tracker
+            .lock()
+            .expect("lock should not be poisoned");
         *memory_tracker = MemoryTracker::new();
 
-        let mut comm_metrics = self.communication_metrics.lock().unwrap();
+        let mut comm_metrics = self
+            .communication_metrics
+            .lock()
+            .expect("lock should not be poisoned");
         *comm_metrics = CommunicationMetrics::new();
     }
 }

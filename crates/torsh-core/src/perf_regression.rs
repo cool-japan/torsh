@@ -476,16 +476,20 @@ impl RegressionReport {
 
     /// Get worst regression
     pub fn worst_regression(&self) -> Option<&PerfComparison> {
-        self.regressions
-            .iter()
-            .max_by(|a, b| a.mean_change_pct.partial_cmp(&b.mean_change_pct).unwrap())
+        self.regressions.iter().max_by(|a, b| {
+            a.mean_change_pct
+                .partial_cmp(&b.mean_change_pct)
+                .expect("mean_change_pct should be comparable (no NaN)")
+        })
     }
 
     /// Get best improvement
     pub fn best_improvement(&self) -> Option<&PerfComparison> {
-        self.improvements
-            .iter()
-            .min_by(|a, b| a.mean_change_pct.partial_cmp(&b.mean_change_pct).unwrap())
+        self.improvements.iter().min_by(|a, b| {
+            a.mean_change_pct
+                .partial_cmp(&b.mean_change_pct)
+                .expect("mean_change_pct should be comparable (no NaN)")
+        })
     }
 
     /// Count regressions by severity
@@ -591,7 +595,7 @@ fn current_timestamp() -> u64 {
     {
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after UNIX epoch")
             .as_secs()
     }
 

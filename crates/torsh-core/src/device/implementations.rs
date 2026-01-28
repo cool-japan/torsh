@@ -336,7 +336,10 @@ impl CudaDevice {
     pub fn create_stream(&self) -> Result<u32> {
         #[cfg(feature = "cuda")]
         {
-            let mut manager = self.stream_manager.lock().unwrap();
+            let mut manager = self
+                .stream_manager
+                .lock()
+                .expect("lock should not be poisoned");
             let stream_id = manager.next_stream_id;
             manager.next_stream_id += 1;
 
@@ -443,7 +446,10 @@ impl Device for CudaDevice {
         #[cfg(feature = "cuda")]
         {
             // Reset CUDA context
-            let mut manager = self.stream_manager.lock().unwrap();
+            let mut manager = self
+                .stream_manager
+                .lock()
+                .expect("lock should not be poisoned");
             manager.streams.clear();
             manager.next_stream_id = 1;
         }

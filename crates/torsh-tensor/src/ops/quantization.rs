@@ -9,7 +9,7 @@
 
 use crate::{FloatElement, Tensor, TensorElement};
 use torsh_core::error::{Result, TorshError};
-use num_traits::ToPrimitive;
+use scirs2_core::numeric::ToPrimitive;
 
 /// Quantized 8-bit signed integer with scale and zero-point
 #[derive(Debug, Clone, Copy, PartialEq)]

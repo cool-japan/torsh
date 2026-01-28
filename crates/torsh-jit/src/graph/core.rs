@@ -494,7 +494,10 @@ impl ComputationGraph {
     /// Get all edges
     pub fn edges(&self) -> impl Iterator<Item = (NodeId, NodeId, &Edge)> + '_ {
         self.graph.edge_indices().map(move |idx| {
-            let (src, dst) = self.graph.edge_endpoints(idx).unwrap();
+            let (src, dst) = self
+                .graph
+                .edge_endpoints(idx)
+                .expect("edge index should be valid");
             (src, dst, &self.graph[idx])
         })
     }
@@ -640,7 +643,7 @@ impl ComputationGraph {
         for &src_id in node_ids {
             for &dst_id in node_ids {
                 if let Some(edge_ref) = self.graph.find_edge(src_id, dst_id) {
-                    let edge = self.graph.edge_weight(edge_ref).unwrap();
+                    let edge = self.graph.edge_weight(edge_ref).expect("edge should exist");
                     let new_src = node_mapping[&src_id];
                     let new_dst = node_mapping[&dst_id];
                     new_graph.add_edge(new_src, new_dst, edge.clone());
@@ -814,7 +817,7 @@ impl ComputationGraph {
             .collect();
 
         let first_id = sequence_ids[0];
-        let last_id = *sequence_ids.last().unwrap();
+        let last_id = *sequence_ids.last().expect("sequence should not be empty");
 
         // Connect nodes in the sequence to each other
         for window in sequence_ids.windows(2) {

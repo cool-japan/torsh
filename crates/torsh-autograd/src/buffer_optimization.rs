@@ -152,7 +152,7 @@ impl TempBuffer {
         };
 
         Ok(Self {
-            ptr: NonNull::new(ptr).unwrap(),
+            ptr: NonNull::new(ptr).expect("memory allocation returned null pointer"),
             metadata,
             layout,
         })
@@ -238,7 +238,7 @@ impl BufferPool {
             // Find a suitable buffer
             for i in 0..pool.len() {
                 if pool[i].is_reusable(size, alignment) {
-                    let mut buffer = pool.remove(i).unwrap();
+                    let mut buffer = pool.remove(i).expect("index i is within pool bounds");
                     buffer.mark_accessed();
                     self.allocation_stats.pool_hits += 1;
                     return Ok(buffer);
@@ -385,7 +385,7 @@ impl OptimizedBufferAllocator {
             AllocationStrategy::Pooled => {
                 if let Some(ref pool) = self.pool {
                     pool.lock()
-                        .unwrap()
+                        .expect("lock should not be poisoned")
                         .get_buffer(optimized_size, optimized_alignment, location)
                 } else {
                     TempBuffer::new(optimized_size, optimized_alignment, location)
@@ -404,11 +404,9 @@ impl OptimizedBufferAllocator {
                 ) {
                     // Use pool for smaller buffers
                     if let Some(ref pool) = self.pool {
-                        pool.lock().unwrap().get_buffer(
-                            optimized_size,
-                            optimized_alignment,
-                            location,
-                        )
+                        pool.lock()
+                            .expect("lock should not be poisoned")
+                            .get_buffer(optimized_size, optimized_alignment, location)
                     } else {
                         TempBuffer::new(optimized_size, optimized_alignment, location)
                     }
@@ -438,7 +436,9 @@ impl OptimizedBufferAllocator {
         match self.strategy {
             AllocationStrategy::Pooled | AllocationStrategy::Hybrid => {
                 if let Some(ref pool) = self.pool {
-                    pool.lock().unwrap().return_buffer(buffer);
+                    pool.lock()
+                        .expect("lock should not be poisoned")
+                        .return_buffer(buffer);
                 }
                 // If no pool, buffer will be dropped automatically
             }
@@ -450,9 +450,11 @@ impl OptimizedBufferAllocator {
 
     /// Get allocation statistics
     pub fn get_allocation_stats(&self) -> Option<AllocationStats> {
-        self.pool
-            .as_ref()
-            .map(|pool| pool.lock().unwrap().get_stats())
+        self.pool.as_ref().map(|pool| {
+            pool.lock()
+                .expect("lock should not be poisoned")
+                .get_stats()
+        })
     }
 
     /// Get allocation pattern analysis
@@ -463,7 +465,9 @@ impl OptimizedBufferAllocator {
     /// Perform maintenance (cleanup, optimization)
     pub fn perform_maintenance(&mut self) {
         if let Some(ref pool) = self.pool {
-            pool.lock().unwrap().cleanup_idle_buffers();
+            pool.lock()
+                .expect("lock should not be poisoned")
+                .cleanup_idle_buffers();
         }
         self.allocation_patterns.analyze_patterns();
         self.cache_optimization
@@ -696,25 +700,28 @@ pub fn allocate_temp_buffer(
 ) -> AutogradResult<TempBuffer> {
     get_global_allocator()
         .write()
-        .unwrap()
+        .expect("lock should not be poisoned")
         .allocate(size, alignment, location)
 }
 
 pub fn deallocate_temp_buffer(buffer: TempBuffer) {
-    get_global_allocator().write().unwrap().deallocate(buffer);
+    get_global_allocator()
+        .write()
+        .expect("lock should not be poisoned")
+        .deallocate(buffer);
 }
 
 pub fn get_global_allocation_stats() -> Option<AllocationStats> {
     get_global_allocator()
         .read()
-        .unwrap()
+        .expect("lock should not be poisoned")
         .get_allocation_stats()
 }
 
 pub fn perform_global_maintenance() {
     get_global_allocator()
         .write()
-        .unwrap()
+        .expect("lock should not be poisoned")
         .perform_maintenance();
 }
 

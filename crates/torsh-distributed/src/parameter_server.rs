@@ -168,7 +168,7 @@ impl ParameterServerState {
         {
             let mut stats = self.stats.lock().await;
             stats.num_parameters = self.parameters.len();
-            stats.current_version = *self.version.read().unwrap();
+            stats.current_version = *self.version.read().expect("lock should not be poisoned");
         }
 
         Ok(true)
@@ -189,7 +189,10 @@ impl ParameterServerState {
 
         // Track active worker
         {
-            let mut workers = self.active_workers.write().unwrap();
+            let mut workers = self
+                .active_workers
+                .write()
+                .expect("lock should not be poisoned");
             workers.insert(worker_id);
         }
 
@@ -198,7 +201,7 @@ impl ParameterServerState {
         for (param_name, grad_data) in gradients {
             if let Some(param_entry) = self.parameters.get(&param_name) {
                 let param_tensor = param_entry.clone();
-                let mut param_guard = param_tensor.write().unwrap();
+                let mut param_guard = param_tensor.write().expect("lock should not be poisoned");
 
                 // Convert gradient data to tensor
                 let shape = param_guard.shape().dims().to_vec();
@@ -231,7 +234,9 @@ impl ParameterServerState {
                 let update = if self.config.use_momentum {
                     if let Some(momentum_entry) = self.momentum_buffers.get(&param_name) {
                         let momentum_tensor = momentum_entry.clone();
-                        let mut momentum_guard = momentum_tensor.write().unwrap();
+                        let mut momentum_guard = momentum_tensor
+                            .write()
+                            .expect("lock should not be poisoned");
 
                         // momentum = momentum * momentum_factor + gradient
                         *momentum_guard = momentum_guard
@@ -252,7 +257,10 @@ impl ParameterServerState {
 
         // Update gradient history
         {
-            let mut history = self.gradient_history.write().unwrap();
+            let mut history = self
+                .gradient_history
+                .write()
+                .expect("lock should not be poisoned");
             history.extend(gradient_norms);
             // Keep only recent entries to prevent unbounded growth
             if history.len() > 1000 {
@@ -262,7 +270,7 @@ impl ParameterServerState {
 
         // Increment version
         let new_version = {
-            let mut version = self.version.write().unwrap();
+            let mut version = self.version.write().expect("lock should not be poisoned");
             *version += 1;
             *version
         };
@@ -272,7 +280,11 @@ impl ParameterServerState {
             let mut stats = self.stats.lock().await;
             stats.total_pushes += 1;
             stats.current_version = new_version;
-            stats.active_workers = self.active_workers.read().unwrap().len();
+            stats.active_workers = self
+                .active_workers
+                .read()
+                .expect("lock should not be poisoned")
+                .len();
             // Estimate memory usage (simplified)
             stats.memory_usage_mb = (self.parameters.len() * std::mem::size_of::<f32>() * 1000)
                 as f64
@@ -299,7 +311,7 @@ impl ParameterServerState {
         for param_name in param_names {
             if let Some(param_entry) = self.parameters.get(&param_name) {
                 let param_tensor = param_entry.clone();
-                let param_guard = param_tensor.read().unwrap();
+                let param_guard = param_tensor.read().expect("lock should not be poisoned");
 
                 // Convert tensor to Vec<f32>
                 let data = param_guard.flatten()?.to_vec()?;
@@ -307,7 +319,7 @@ impl ParameterServerState {
             }
         }
 
-        let version = *self.version.read().unwrap();
+        let version = *self.version.read().expect("lock should not be poisoned");
 
         // Update statistics
         {
@@ -427,7 +439,11 @@ impl ParameterServer {
 
     /// Get current parameter version
     pub fn get_version(&self) -> u64 {
-        *self.state.version.read().unwrap()
+        *self
+            .state
+            .version
+            .read()
+            .expect("lock should not be poisoned")
     }
 
     /// Get number of stored parameters
@@ -507,7 +523,10 @@ impl ParameterServerClient {
             grad_data.insert(name, data);
         }
 
-        let current_version = *self.current_version.read().unwrap();
+        let current_version = *self
+            .current_version
+            .read()
+            .expect("lock should not be poisoned");
         let message = ParameterServerMessage::PushGradients {
             worker_id: self.worker_id,
             gradients: grad_data,
@@ -523,7 +542,10 @@ impl ParameterServerClient {
                 new_version,
             } => {
                 if success {
-                    *self.current_version.write().unwrap() = new_version;
+                    *self
+                        .current_version
+                        .write()
+                        .expect("lock should not be poisoned") = new_version;
                     debug!(
                         "Successfully pushed gradients, new version: {}",
                         new_version
@@ -569,7 +591,10 @@ impl ParameterServerClient {
                     result.insert(name, tensor);
                 }
 
-                *self.current_version.write().unwrap() = version;
+                *self
+                    .current_version
+                    .write()
+                    .expect("lock should not be poisoned") = version;
                 debug!(
                     "Successfully pulled {} parameters, version: {}",
                     result.len(),
@@ -601,7 +626,10 @@ impl ParameterServerClient {
 
     /// Get current local version
     pub fn get_local_version(&self) -> u64 {
-        *self.current_version.read().unwrap()
+        *self
+            .current_version
+            .read()
+            .expect("lock should not be poisoned")
     }
 }
 

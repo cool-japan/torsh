@@ -785,8 +785,11 @@ impl<T: torsh_core::dtype::TensorElement> SharedMemoryDataset<T> {
 
     /// Add a sample to the shared memory dataset
     pub fn add_sample(&mut self, tensors: Vec<Tensor<T>>) -> Result<()> {
-        let mut shared_data = self.shared_data.write().unwrap();
-        let mut metadata = self.metadata.write().unwrap();
+        let mut shared_data = self
+            .shared_data
+            .write()
+            .expect("lock should not be poisoned");
+        let mut metadata = self.metadata.write().expect("lock should not be poisoned");
 
         for tensor in tensors {
             let shape = tensor.shape().dims().to_vec();
@@ -840,8 +843,11 @@ impl<T: torsh_core::dtype::TensorElement> Dataset for SharedMemoryDataset<T> {
             });
         }
 
-        let shared_data = self.shared_data.read().unwrap();
-        let metadata = self.metadata.read().unwrap();
+        let shared_data = self
+            .shared_data
+            .read()
+            .expect("lock should not be poisoned");
+        let metadata = self.metadata.read().expect("lock should not be poisoned");
 
         // For simplicity, assume each sample has the same number of tensors
         // In a real implementation, you'd track this in metadata
@@ -1017,17 +1023,23 @@ where
 
     /// Clear the cache
     pub fn clear_cache(&self) {
-        let mut cache = self.cache.write().unwrap();
-        let mut access_count = self.access_count.write().unwrap();
+        let mut cache = self.cache.write().expect("lock should not be poisoned");
+        let mut access_count = self
+            .access_count
+            .write()
+            .expect("lock should not be poisoned");
         cache.clear();
         access_count.clear();
     }
 
     /// Get cache hit rate
     pub fn cache_hit_rate(&self) -> f64 {
-        let access_count = self.access_count.read().unwrap();
+        let access_count = self
+            .access_count
+            .read()
+            .expect("lock should not be poisoned");
         let total_accesses: usize = access_count.values().sum();
-        let cache = self.cache.read().unwrap();
+        let cache = self.cache.read().expect("lock should not be poisoned");
         let cache_hits: usize = access_count
             .iter()
             .filter_map(|(&idx, &count)| {
@@ -1048,8 +1060,11 @@ where
 
     /// Evict least recently used items if cache is full
     fn evict_lru(&self) {
-        let mut cache = self.cache.write().unwrap();
-        let access_count = self.access_count.read().unwrap();
+        let mut cache = self.cache.write().expect("lock should not be poisoned");
+        let access_count = self
+            .access_count
+            .read()
+            .expect("lock should not be poisoned");
 
         if cache.len() >= self.max_cache_size {
             // Find least recently used item
@@ -1073,13 +1088,16 @@ where
     fn get(&self, index: usize) -> Result<Self::Item> {
         // Update access count
         {
-            let mut access_count = self.access_count.write().unwrap();
+            let mut access_count = self
+                .access_count
+                .write()
+                .expect("lock should not be poisoned");
             *access_count.entry(index).or_insert(0) += 1;
         }
 
         // Check cache first
         {
-            let cache = self.cache.read().unwrap();
+            let cache = self.cache.read().expect("lock should not be poisoned");
             if let Some(item) = cache.get(&index) {
                 return Ok(item.clone());
             }
@@ -1091,7 +1109,7 @@ where
         // Add to cache
         {
             self.evict_lru();
-            let mut cache = self.cache.write().unwrap();
+            let mut cache = self.cache.write().expect("lock should not be poisoned");
             cache.insert(index, item.clone());
         }
 
@@ -1395,7 +1413,7 @@ impl FeatureStats {
 /// Compute statistics for a tensor dataset
 ///
 /// Returns feature statistics for each feature dimension in the dataset.
-/// Only works with TensorDataset<f32> where the first tensor contains the features.
+/// Only works with `TensorDataset<f32>` where the first tensor contains the features.
 pub fn dataset_statistics(dataset: &TensorDataset<f32>) -> Result<Vec<FeatureStats>> {
     if dataset.len() == 0 {
         return Ok(Vec::new());
@@ -1489,7 +1507,7 @@ impl KFold {
                 use std::time::SystemTime;
                 let seed = SystemTime::now()
                     .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap()
+                    .expect("time should be after UNIX_EPOCH")
                     .as_secs();
                 StdRng::seed_from_u64(seed)
             };
@@ -1574,7 +1592,7 @@ where
         use std::time::SystemTime;
         let seed = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
+            .expect("time should be after UNIX_EPOCH")
             .as_secs();
         StdRng::seed_from_u64(seed)
     };
@@ -1788,7 +1806,7 @@ mod tests {
 
         // Send some data
         {
-            let sender_lock = sender.lock().unwrap();
+            let sender_lock = sender.lock().expect("lock should not be poisoned");
             sender_lock.send(1).unwrap();
             sender_lock.send(2).unwrap();
             sender_lock.send(3).unwrap();

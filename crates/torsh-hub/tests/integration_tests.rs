@@ -117,7 +117,7 @@ fn test_concurrent_operations() -> Result<(), Box<dyn std::error::Error>> {
         let counter_clone = Arc::clone(&counter);
         let handle = thread::spawn(move || {
             for _ in 0..100 {
-                let mut num = counter_clone.lock().unwrap();
+                let mut num = counter_clone.lock().expect("lock should not be poisoned");
                 *num += 1;
             }
         });
@@ -129,7 +129,7 @@ fn test_concurrent_operations() -> Result<(), Box<dyn std::error::Error>> {
         handle.join().unwrap();
     }
 
-    let final_count = *counter.lock().unwrap();
+    let final_count = *counter.lock().expect("lock should not be poisoned");
     assert_eq!(final_count, 1000, "Concurrent increments should total 1000");
 
     Ok(())

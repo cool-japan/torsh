@@ -686,7 +686,10 @@ impl ModelComparator {
         }
 
         // Sort by score (descending)
-        scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        scores.sort_by(|a, b| {
+            b.1.partial_cmp(&a.1)
+                .expect("comparison scores should be comparable")
+        });
 
         // Normalize scores
         let max_score = scores
@@ -770,7 +773,10 @@ impl ModelComparator {
         if let Some(accuracy_ranking) = rankings.get("accuracy") {
             if accuracy_ranking.len() > 1 {
                 let best_acc = accuracy_ranking[0].score;
-                let worst_acc = accuracy_ranking.last().unwrap().score;
+                let worst_acc = accuracy_ranking
+                    .last()
+                    .expect("accuracy ranking should not be empty")
+                    .score;
                 let spread = best_acc - worst_acc;
 
                 insights.push(format!(
@@ -789,8 +795,8 @@ impl ModelComparator {
             .collect();
 
         if param_counts.len() > 1 {
-            let max_params = *param_counts.iter().max().unwrap();
-            let min_params = *param_counts.iter().min().unwrap();
+            let max_params = *param_counts.iter().max().expect("reduction should succeed");
+            let min_params = *param_counts.iter().min().expect("reduction should succeed");
             let ratio = max_params as f64 / min_params as f64;
 
             insights.push(format!(
@@ -805,7 +811,10 @@ impl ModelComparator {
         if let Some(speed_ranking) = rankings.get("speed") {
             if speed_ranking.len() > 1 {
                 let fastest = speed_ranking[0].score;
-                let slowest = speed_ranking.last().unwrap().score;
+                let slowest = speed_ranking
+                    .last()
+                    .expect("speed ranking should not be empty")
+                    .score;
                 let speedup = fastest / slowest;
 
                 insights.push(format!(

@@ -86,9 +86,14 @@ impl FakeQuantize {
         let init_scale = 1.0;
         let init_zero_point = 0.0;
 
-        let scale = Parameter::new(torsh_tensor::creation::tensor_scalar(init_scale).unwrap());
-        let zero_point =
-            Parameter::new(torsh_tensor::creation::tensor_scalar(init_zero_point).unwrap());
+        let scale = Parameter::new(
+            torsh_tensor::creation::tensor_scalar(init_scale)
+                .expect("scalar tensor for scale should succeed"),
+        );
+        let zero_point = Parameter::new(
+            torsh_tensor::creation::tensor_scalar(init_zero_point)
+                .expect("scalar tensor for zero_point should succeed"),
+        );
 
         if config.learnable_params {
             base.register_parameter("scale".to_string(), scale.clone());
@@ -282,7 +287,8 @@ impl QATLinear {
         base.register_parameter("weight".to_string(), Parameter::new(weight));
 
         if bias {
-            let bias_tensor = torsh_tensor::creation::zeros(&[out_features]).unwrap();
+            let bias_tensor = torsh_tensor::creation::zeros(&[out_features])
+                .expect("zeros tensor for bias should succeed");
             base.register_parameter("bias".to_string(), Parameter::new(bias_tensor));
         }
 

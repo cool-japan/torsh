@@ -10,11 +10,54 @@
 //! - Dynamic kernel generation and auto-tuning
 
 use crate::cuda::{CudaResult, CudaStream};
-use scirs2_core::ndarray::{ArrayView1, ArrayView2};
+use scirs2_core::ndarray::{Array1, Array2, ArrayView1, ArrayView2};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 use torsh_core::TensorElement;
+
+// ============================================================================
+// Stub implementations for missing types
+// ============================================================================
+
+#[derive(Debug, Clone, Default)]
+pub struct TensorCoreMatMulImpl {}
+#[derive(Debug, Clone, Default)]
+pub struct CudaCoresMatMulImpl {}
+#[derive(Debug, Clone, Default)]
+pub struct MixedPrecisionMatMulImpl {}
+#[derive(Debug, Clone, Default)]
+pub struct TiledMatMulImpl {}
+#[derive(Debug, Clone, Default)]
+pub struct FusedMatMulImpl {}
+#[derive(Debug, Clone, Default)]
+pub struct MatMulImplementationSelector {}
+#[derive(Debug, Clone, Default)]
+pub struct DirectConvolutionImpl {}
+#[derive(Debug, Clone, Default)]
+pub struct WinogradConvolutionImpl {}
+#[derive(Debug, Clone, Default)]
+pub struct FftConvolutionImpl {}
+#[derive(Debug, Clone, Default)]
+pub struct DepthwiseConvolutionImpl {}
+#[derive(Debug, Clone, Default)]
+pub struct GroupedConvolutionImpl {}
+#[derive(Debug, Clone, Default)]
+pub struct DilatedConvolutionImpl {}
+#[derive(Debug, Clone, Default)]
+pub struct ReLUImplementations {}
+#[derive(Debug, Clone, Default)]
+pub struct SigmoidImplementations {}
+#[derive(Debug, Clone, Default)]
+pub struct TanhImplementations {}
+#[derive(Debug, Clone, Default)]
+pub struct GeLUImplementations {}
+#[derive(Debug, Clone, Default)]
+pub struct SwishImplementations {}
+#[derive(Debug, Clone, Default)]
+pub struct FusedActivationImplementations {}
+
+// ============================================================================
 
 /// High-performance CUDA kernel manager
 #[derive(Debug)]
@@ -403,7 +446,7 @@ impl HighPerformanceKernelManager {
         problem_size: ProblemSize,
         target_device: u32,
     ) -> CudaResult<OptimalConfiguration> {
-        let mut auto_tuner = self.auto_tuner.lock().unwrap();
+        let mut auto_tuner = self.auto_tuner.lock().expect("lock should not be poisoned");
         auto_tuner.tune_kernel(operation_type, problem_size, target_device)
     }
 
@@ -413,13 +456,13 @@ impl HighPerformanceKernelManager {
         operation_spec: KernelOperationSpec,
         optimization_hints: OptimizationHints,
     ) -> CudaResult<GeneratedKernel> {
-        let mut code_generator = self.code_generator.lock().unwrap();
+        let mut code_generator = self.code_generator.lock().expect("lock should not be poisoned");
         code_generator.generate_kernel(operation_spec, optimization_hints)
     }
 
     /// Get comprehensive performance statistics
     pub fn get_performance_statistics(&self) -> CudaResult<KernelPerformanceReport> {
-        let statistics = self.statistics.lock().unwrap();
+        let statistics = self.statistics.lock().expect("lock should not be poisoned");
         statistics.generate_comprehensive_report()
     }
 
@@ -490,7 +533,7 @@ impl HighPerformanceKernelManager {
     where
         T: TensorElement + Send + Sync,
     {
-        let tensor_core_engine = self.tensor_core_engine.lock().unwrap();
+        let tensor_core_engine = self.tensor_core_engine.lock().expect("lock should not be poisoned");
         tensor_core_engine.execute_wmma_matmul(a, b, c, stream)
     }
 
@@ -520,7 +563,7 @@ impl HighPerformanceKernelManager {
         T: TensorElement + Send + Sync,
     {
         // Convert to half precision, compute, then convert back
-        let tensor_core_engine = self.tensor_core_engine.lock().unwrap();
+        let tensor_core_engine = self.tensor_core_engine.lock().expect("lock should not be poisoned");
         tensor_core_engine.execute_mixed_precision_matmul(a, b, c, stream)
     }
 
@@ -572,7 +615,7 @@ impl HighPerformanceKernelManager {
         &self,
         signature: &MatMulOperationSignature,
     ) -> CudaResult<Option<CachedImplementation>> {
-        let cache = self.kernel_cache.read().unwrap();
+        let cache = self.kernel_cache.read().expect("lock should not be poisoned");
         Ok(cache.get_implementation(signature))
     }
 
@@ -596,7 +639,7 @@ impl HighPerformanceKernelManager {
         signature: MatMulOperationSignature,
         implementation: MatMulImplementation,
     ) -> CudaResult<()> {
-        let mut cache = self.kernel_cache.write().unwrap();
+        let mut cache = self.kernel_cache.write().expect("lock should not be poisoned");
         cache.store_implementation(signature, implementation);
         Ok(())
     }
@@ -607,7 +650,7 @@ impl HighPerformanceKernelManager {
         execution_time: Duration,
         result: &CudaResult<()>,
     ) -> CudaResult<()> {
-        let mut statistics = self.statistics.lock().unwrap();
+        let mut statistics = self.statistics.lock().expect("lock should not be poisoned");
         statistics.record_matmul_performance(signature, execution_time, result.is_ok());
         Ok(())
     }
@@ -1042,13 +1085,18 @@ impl_placeholder_struct!(OccupancyMaximizer);
 impl_placeholder_struct!(AutoTuningBenchmarkRunner);
 impl_placeholder_struct!(ConfigurationSearchSpace);
 impl_placeholder_struct!(GeneticAlgorithmOptimizer);
-impl_placeholder_struct!(OptimizedKernelCache);
-impl_placeholder_struct!(KernelPerformanceMonitor);
-impl_placeholder_struct!(DynamicKernelCodeGenerator);
-impl_placeholder_struct!(KernelPerformanceStatistics);
+// These structs have explicit implementations below, so we don't use the macro
+#[derive(Debug)]
+pub struct OptimizedKernelCache;
+#[derive(Debug)]
+pub struct KernelPerformanceMonitor;
+#[derive(Debug)]
+pub struct DynamicKernelCodeGenerator;
+#[derive(Debug)]
+pub struct KernelPerformanceStatistics;
 
 impl OptimizedKernelCache {
-    pub fn new(cache_size: usize) -> Self {
+    pub fn new(_cache_size: usize) -> Self {
         Self
     }
 

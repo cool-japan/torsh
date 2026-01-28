@@ -289,8 +289,14 @@ impl PatternAnalyzer {
 
             for component in &components {
                 if component.len() > 1 {
-                    let min_idx = *component.iter().min().unwrap();
-                    let max_idx = *component.iter().max().unwrap();
+                    let min_idx = *component
+                        .iter()
+                        .min()
+                        .expect("component should not be empty");
+                    let max_idx = *component
+                        .iter()
+                        .max()
+                        .expect("component should not be empty");
                     let block_size = max_idx - min_idx + 1;
 
                     block_sizes.push((block_size, block_size));

@@ -27,7 +27,7 @@ use crate::error::{ClusterError, ClusterResult};
 use crate::traits::{ClusteringAlgorithm, ClusteringResult, Fit, FitPredict};
 use crate::utils::parallel;
 use scirs2_core::ndarray::Array2;
-use scirs2_core::random::{seeded_rng, CoreRandom, Rng};
+use scirs2_core::random::{seeded_rng, CoreRandom};
 // Using SciRS2 re-exported StdRng to avoid direct rand dependency (SciRS2 POLICY)
 use scirs2_core::random::rngs::StdRng;
 #[cfg(feature = "serde")]
@@ -935,7 +935,7 @@ impl Fit for KMeans {
                 use std::time::{SystemTime, UNIX_EPOCH};
                 SystemTime::now()
                     .duration_since(UNIX_EPOCH)
-                    .unwrap()
+                    .expect("system time should be after UNIX_EPOCH")
                     .as_secs()
             }
         };

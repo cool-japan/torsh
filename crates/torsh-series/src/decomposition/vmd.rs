@@ -374,7 +374,7 @@ fn initialize_omega_random(k: usize) -> Array1<f64> {
 
     // Sort to ensure order
     let mut omega_vec = omega.to_vec();
-    omega_vec.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    omega_vec.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     omega = Array1::from_vec(omega_vec);
 
     omega

@@ -467,7 +467,10 @@ impl TelemetrySystem {
         }
 
         // Buffer the event
-        let mut buffer = self.event_buffer.lock().unwrap();
+        let mut buffer = self
+            .event_buffer
+            .lock()
+            .expect("lock should not be poisoned");
         buffer.push(event);
 
         // Flush if buffer is full
@@ -478,12 +481,18 @@ impl TelemetrySystem {
 
     /// Start a new span
     pub fn start_span(&self, name: String, parent_id: Option<u64>) -> u64 {
-        let mut next_id = self.next_span_id.lock().unwrap();
+        let mut next_id = self
+            .next_span_id
+            .lock()
+            .expect("lock should not be poisoned");
         let span_id = *next_id;
         *next_id += 1;
 
         let span = Span::new(span_id, name, parent_id);
-        let mut spans = self.active_spans.lock().unwrap();
+        let mut spans = self
+            .active_spans
+            .lock()
+            .expect("lock should not be poisoned");
         spans.insert(span_id, span);
 
         span_id
@@ -491,7 +500,10 @@ impl TelemetrySystem {
 
     /// Add attribute to active span
     pub fn span_add_attribute(&self, span_id: u64, key: String, value: String) {
-        let mut spans = self.active_spans.lock().unwrap();
+        let mut spans = self
+            .active_spans
+            .lock()
+            .expect("lock should not be poisoned");
         if let Some(span) = spans.get_mut(&span_id) {
             span.add_attribute(key, value);
         }
@@ -499,10 +511,16 @@ impl TelemetrySystem {
 
     /// End a span
     pub fn end_span(&self, span_id: u64) -> Option<SpanMetrics> {
-        let mut spans = self.active_spans.lock().unwrap();
+        let mut spans = self
+            .active_spans
+            .lock()
+            .expect("lock should not be poisoned");
         if let Some(span) = spans.remove(&span_id) {
             let metrics = span.close();
-            let mut closed = self.closed_spans.lock().unwrap();
+            let mut closed = self
+                .closed_spans
+                .lock()
+                .expect("lock should not be poisoned");
             closed.push(metrics.clone());
             Some(metrics)
         } else {
@@ -519,21 +537,33 @@ impl TelemetrySystem {
 
     /// Get all events (for testing/debugging)
     pub fn get_events(&self) -> Vec<LogEvent> {
-        let buffer = self.event_buffer.lock().unwrap();
+        let buffer = self
+            .event_buffer
+            .lock()
+            .expect("lock should not be poisoned");
         buffer.clone()
     }
 
     /// Get closed span metrics
     pub fn get_span_metrics(&self) -> Vec<SpanMetrics> {
-        let closed = self.closed_spans.lock().unwrap();
+        let closed = self
+            .closed_spans
+            .lock()
+            .expect("lock should not be poisoned");
         closed.clone()
     }
 
     /// Clear all data (for testing)
     pub fn clear(&self) {
-        let mut buffer = self.event_buffer.lock().unwrap();
+        let mut buffer = self
+            .event_buffer
+            .lock()
+            .expect("lock should not be poisoned");
         buffer.clear();
-        let mut closed = self.closed_spans.lock().unwrap();
+        let mut closed = self
+            .closed_spans
+            .lock()
+            .expect("lock should not be poisoned");
         closed.clear();
     }
 }

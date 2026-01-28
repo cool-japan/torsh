@@ -1254,8 +1254,8 @@ impl TopicCoherenceAnalyzer {
             return (0, sentences.len().saturating_sub(1));
         }
 
-        let min_pos = *all_positions.iter().min().unwrap();
-        let max_pos = *all_positions.iter().max().unwrap();
+        let min_pos = *all_positions.iter().min().expect("reduction should succeed");
+        let max_pos = *all_positions.iter().max().expect("reduction should succeed");
 
         (min_pos, max_pos)
     }

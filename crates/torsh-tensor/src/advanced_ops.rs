@@ -568,7 +568,7 @@ impl<T: TensorElement + Copy> Tensor<T> {
 
         match &mut self.storage {
             TensorStorage::InMemory(data) => {
-                let mut data_guard = data.write().unwrap();
+                let mut data_guard = data.write().expect("lock should not be poisoned");
                 for item in data_guard.iter_mut() {
                     func(item);
                 }
@@ -587,10 +587,22 @@ impl<T: TensorElement + Copy> Tensor<T> {
             }
             #[cfg(feature = "simd")]
             TensorStorage::Aligned(data) => {
-                let mut data_guard = data.write().unwrap();
+                let mut data_guard = data.write().expect("lock should not be poisoned");
                 for item in data_guard.as_mut_slice().iter_mut() {
                     func(item);
                 }
+                Ok(())
+            }
+            #[cfg(feature = "simd")]
+            TensorStorage::SimdOptimized(_) => {
+                // SimdOptimized should have been converted by ensure_exclusive_data()
+                // If we reach here, something went wrong - convert to optimal storage and retry
+                let data = self.to_vec()?;
+                let mut new_data = data;
+                for item in new_data.iter_mut() {
+                    func(item);
+                }
+                self.storage = TensorStorage::create_optimal(new_data)?;
                 Ok(())
             }
         }
@@ -601,8 +613,11 @@ impl<T: TensorElement + Copy> Tensor<T> {
     where
         T: Copy,
     {
-        let data = self.to_vec().unwrap();
-        Self::from_data(data, self.shape().dims().to_vec(), self.device).unwrap()
+        let data = self
+            .to_vec()
+            .expect("tensor to vec conversion should succeed");
+        Self::from_data(data, self.shape().dims().to_vec(), self.device)
+            .expect("tensor creation should succeed")
     }
 
     /// Ensure tensor has unique data (copy-on-write semantics)
@@ -627,6 +642,13 @@ impl<T: TensorElement + Copy> Tensor<T> {
                     let data_vec = self.to_vec()?;
                     self.storage = TensorStorage::create_optimal(data_vec)?;
                 }
+            }
+            #[cfg(feature = "simd")]
+            TensorStorage::SimdOptimized(_storage) => {
+                // SimdOptimized storage is immutable by design (optimized for read-heavy workloads)
+                // Always convert to Aligned storage which supports both SIMD and mutation
+                let data_vec = self.to_vec()?;
+                self.storage = TensorStorage::aligned(data_vec)?;
             }
         }
         Ok(())
@@ -721,7 +743,7 @@ impl<T: TensorElement + Copy> Tensor<T> {
                 if Arc::strong_count(data) > 1 {
                     // Data is shared, need to clone it to get exclusive access
                     let cloned_data = {
-                        let data_guard = data.read().unwrap();
+                        let data_guard = data.read().expect("lock should not be poisoned");
                         data_guard.clone()
                     };
                     self.storage = TensorStorage::in_memory(cloned_data);
@@ -739,10 +761,18 @@ impl<T: TensorElement + Copy> Tensor<T> {
                 if Arc::strong_count(data) > 1 {
                     // Data is shared, need to clone it to get exclusive access
                     let vec_data = {
-                        let data_guard = data.read().unwrap();
+                        let data_guard = data.read().expect("lock should not be poisoned");
                         data_guard.as_slice().to_vec()
                     };
                     self.storage = TensorStorage::aligned(vec_data)?;
+                }
+            }
+            #[cfg(feature = "simd")]
+            TensorStorage::SimdOptimized(storage) => {
+                if Arc::strong_count(storage) > 1 || storage.is_shared() {
+                    // SimdOptimized uses COW - copy the data to get exclusive access
+                    let vec_data = storage.to_vec();
+                    self.storage = TensorStorage::simd_optimized(vec_data)?;
                 }
             }
         }

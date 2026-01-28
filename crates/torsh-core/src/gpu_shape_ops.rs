@@ -281,12 +281,18 @@ impl GpuShapeAccelerator {
 
     /// Get current statistics
     pub fn stats(&self) -> AcceleratorStats {
-        self.stats.lock().unwrap().clone()
+        self.stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Reset statistics
     pub fn reset_stats(&self) {
-        self.stats.lock().unwrap().reset();
+        self.stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .reset();
     }
 
     /// GPU-accelerated broadcasting for very large tensors
@@ -298,7 +304,7 @@ impl GpuShapeAccelerator {
         let total_elements = numel1.max(numel2);
 
         // Record operation start
-        let mut stats = self.stats.lock().unwrap();
+        let mut stats = self.stats.lock().expect("lock should not be poisoned");
         stats.total_operations += 1;
 
         // Decide whether to use GPU
@@ -313,7 +319,7 @@ impl GpuShapeAccelerator {
                 Ok(result) => Ok(result),
                 Err(_) => {
                     // Fallback to CPU
-                    let mut stats = self.stats.lock().unwrap();
+                    let mut stats = self.stats.lock().expect("lock should not be poisoned");
                     stats.gpu_fallback_count += 1;
                     stats.gpu_operations -= 1;
                     stats.cpu_operations += 1;
@@ -375,7 +381,7 @@ impl GpuShapeAccelerator {
         }
 
         // Record operation
-        let mut stats = self.stats.lock().unwrap();
+        let mut stats = self.stats.lock().expect("lock should not be poisoned");
         stats.total_operations += 1;
 
         let use_gpu = self.gpu_available && numel >= self.config.reshape_threshold;
@@ -387,7 +393,7 @@ impl GpuShapeAccelerator {
             match self.reshape_gpu(shape, new_dims) {
                 Ok(result) => Ok(result),
                 Err(_) => {
-                    let mut stats = self.stats.lock().unwrap();
+                    let mut stats = self.stats.lock().expect("lock should not be poisoned");
                     stats.gpu_fallback_count += 1;
                     stats.gpu_operations -= 1;
                     stats.cpu_operations += 1;
@@ -423,7 +429,7 @@ impl GpuShapeAccelerator {
     ///
     /// Validates a batch of shapes for validity in parallel on GPU.
     pub fn batch_validate(&self, shapes: &[Vec<usize>]) -> Result<Vec<bool>> {
-        let mut stats = self.stats.lock().unwrap();
+        let mut stats = self.stats.lock().expect("lock should not be poisoned");
         stats.total_operations += 1;
 
         let use_gpu = self.gpu_available && shapes.len() >= self.config.batch_validation_threshold;
@@ -435,7 +441,7 @@ impl GpuShapeAccelerator {
             match self.batch_validate_gpu(shapes) {
                 Ok(result) => Ok(result),
                 Err(_) => {
-                    let mut stats = self.stats.lock().unwrap();
+                    let mut stats = self.stats.lock().expect("lock should not be poisoned");
                     stats.gpu_fallback_count += 1;
                     stats.gpu_operations -= 1;
                     stats.cpu_operations += 1;
@@ -477,7 +483,7 @@ impl GpuShapeAccelerator {
     ///
     /// Uses GPU acceleration for shapes with many dimensions.
     pub fn compute_strides(&self, dims: &[usize]) -> Result<Vec<usize>> {
-        let mut stats = self.stats.lock().unwrap();
+        let mut stats = self.stats.lock().expect("lock should not be poisoned");
         stats.total_operations += 1;
 
         let use_gpu = self.gpu_available && dims.len() >= self.config.stride_dimension_threshold;
@@ -489,7 +495,7 @@ impl GpuShapeAccelerator {
             match self.compute_strides_gpu(dims) {
                 Ok(result) => Ok(result),
                 Err(_) => {
-                    let mut stats = self.stats.lock().unwrap();
+                    let mut stats = self.stats.lock().expect("lock should not be poisoned");
                     stats.gpu_fallback_count += 1;
                     stats.gpu_operations -= 1;
                     stats.cpu_operations += 1;

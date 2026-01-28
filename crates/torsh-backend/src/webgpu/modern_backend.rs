@@ -237,7 +237,7 @@ impl ModernWebGpuDevice {
             }
         });
 
-        let _ = self.device.poll(wgpu::PollType::WaitForSubmissionIndex(submission_index));
+        let _ = self.device.poll(wgpu::Maintain::WaitForSubmissionIndex(submission_index));
         Ok(())
     }
 }
@@ -414,8 +414,8 @@ impl ModernWebGpuBuffer {
             let _ = tx.send(result);
         });
 
-        let _ = self.device.device.poll(wgpu::PollType::Wait);
-        rx.await.unwrap().map_err(|e| WebGpuError::RuntimeError(format!("Buffer mapping failed: {:?}", e)))?;
+        let _ = self.device.device.poll(wgpu::Maintain::Wait);
+        rx.await.expect("buffer mapping channel should not be dropped").map_err(|e| WebGpuError::RuntimeError(format!("Buffer mapping failed: {:?}", e)))?;
 
         let data = buffer_slice.get_mapped_range();
         let result: Vec<T> = bytemuck::cast_slice(&data).to_vec();

@@ -80,7 +80,7 @@ impl GradientSynchronizer {
             .await?;
 
         // Update statistics
-        let mut stats = self.sync_stats.lock().unwrap();
+        let mut stats = self.sync_stats.lock().expect("lock should not be poisoned");
         stats.total_sync_operations += 1;
         stats.total_sync_time += start_time.elapsed();
 
@@ -317,7 +317,7 @@ impl GradientSynchronizer {
         }
 
         // Update statistics
-        let mut stats = self.sync_stats.lock().unwrap();
+        let mut stats = self.sync_stats.lock().expect("lock should not be poisoned");
         stats.total_buckets_synced += 1;
         stats.total_bucket_sync_time += start_time.elapsed();
 
@@ -394,7 +394,10 @@ impl GradientSynchronizer {
 
     /// Get synchronization statistics
     pub fn get_sync_stats(&self) -> SyncStatistics {
-        self.sync_stats.lock().unwrap().clone()
+        self.sync_stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Update gradient compression configuration
@@ -404,7 +407,10 @@ impl GradientSynchronizer {
 
     /// Clear gradient buffers
     pub fn clear_buffers(&self) {
-        let mut buffers = self.gradient_buffers.lock().unwrap();
+        let mut buffers = self
+            .gradient_buffers
+            .lock()
+            .expect("lock should not be poisoned");
         buffers.clear();
     }
 }

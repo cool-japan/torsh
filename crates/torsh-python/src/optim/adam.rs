@@ -39,7 +39,8 @@ impl PyAdam {
         let amsgrad = amsgrad.unwrap_or(false);
 
         // Extract tensor parameters and wrap in Arc<RwLock>
-        let tensor_params = extract_parameters(params.clone()).unwrap();
+        let tensor_params =
+            extract_parameters(params.clone()).expect("parameter extraction should succeed");
         let wrapped_params: Vec<Arc<RwLock<_>>> = tensor_params
             .into_iter()
             .map(|tensor| Arc::new(RwLock::new(tensor)))
@@ -58,15 +59,26 @@ impl PyAdam {
         Python::attach(|py| {
             param_group_data.insert(
                 "betas".to_string(),
-                betas.into_pyobject(py).unwrap().into_any().unbind(),
+                betas
+                    .into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
             param_group_data.insert(
                 "eps".to_string(),
-                eps.into_pyobject(py).unwrap().into_any().unbind(),
+                eps.into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
             param_group_data.insert(
                 "weight_decay".to_string(),
-                weight_decay.into_pyobject(py).unwrap().into_any().unbind(),
+                weight_decay
+                    .into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
             param_group_data.insert(
                 "amsgrad".to_string(),
@@ -74,7 +86,8 @@ impl PyAdam {
             );
         });
 
-        let param_groups = vec![create_param_group(params, lr, param_group_data).unwrap()];
+        let param_groups = vec![create_param_group(params, lr, param_group_data)
+            .expect("param group creation should succeed")];
 
         (
             Self {
@@ -131,20 +144,32 @@ impl PyAdam {
         Python::attach(|py| {
             state.insert(
                 "step".to_string(),
-                0i64.into_pyobject(py).unwrap().into_any().unbind(),
+                0i64.into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
             state.insert(
                 "exp_avg".to_string(),
-                "{}".into_pyobject(py).unwrap().into_any().unbind(),
+                "{}".into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
             state.insert(
                 "exp_avg_sq".to_string(),
-                "{}".into_pyobject(py).unwrap().into_any().unbind(),
+                "{}".into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
             if self.amsgrad {
                 state.insert(
                     "max_exp_avg_sq".to_string(),
-                    "{}".into_pyobject(py).unwrap().into_any().unbind(),
+                    "{}".into_pyobject(py)
+                        .expect("Python object conversion should succeed")
+                        .into_any()
+                        .unbind(),
                 );
             }
         });
@@ -165,21 +190,33 @@ impl PyAdam {
         Python::attach(|py| {
             defaults.insert(
                 "lr".to_string(),
-                self.lr.into_pyobject(py).unwrap().into_any().unbind(),
+                self.lr
+                    .into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
             defaults.insert(
                 "betas".to_string(),
-                self.betas.into_pyobject(py).unwrap().into_any().unbind(),
+                self.betas
+                    .into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
             defaults.insert(
                 "eps".to_string(),
-                self.eps.into_pyobject(py).unwrap().into_any().unbind(),
+                self.eps
+                    .into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
             defaults.insert(
                 "weight_decay".to_string(),
                 self.weight_decay
                     .into_pyobject(py)
-                    .unwrap()
+                    .expect("Python object conversion should succeed")
                     .into_any()
                     .unbind(),
             );
@@ -205,7 +242,10 @@ impl PyAdam {
             for param_group in &mut self.param_groups {
                 param_group.insert(
                     "lr".to_string(),
-                    lr.into_pyobject(py).unwrap().into_any().unbind(),
+                    lr.into_pyobject(py)
+                        .expect("Python object conversion should succeed")
+                        .into_any()
+                        .unbind(),
                 );
             }
         });
@@ -266,7 +306,8 @@ impl PyAdamW {
         let amsgrad = amsgrad.unwrap_or(false);
 
         // Extract tensor parameters and wrap in Arc<RwLock>
-        let tensor_params = extract_parameters(params.clone()).unwrap();
+        let tensor_params =
+            extract_parameters(params.clone()).expect("parameter extraction should succeed");
         let wrapped_params: Vec<Arc<RwLock<_>>> = tensor_params
             .into_iter()
             .map(|tensor| Arc::new(RwLock::new(tensor)))
@@ -285,15 +326,26 @@ impl PyAdamW {
         Python::attach(|py| {
             param_group_data.insert(
                 "betas".to_string(),
-                betas.into_pyobject(py).unwrap().into_any().unbind(),
+                betas
+                    .into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
             param_group_data.insert(
                 "eps".to_string(),
-                eps.into_pyobject(py).unwrap().into_any().unbind(),
+                eps.into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
             param_group_data.insert(
                 "weight_decay".to_string(),
-                weight_decay.into_pyobject(py).unwrap().into_any().unbind(),
+                weight_decay
+                    .into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
             param_group_data.insert(
                 "amsgrad".to_string(),
@@ -301,7 +353,8 @@ impl PyAdamW {
             );
         });
 
-        let param_groups = vec![create_param_group(params, lr, param_group_data).unwrap()];
+        let param_groups = vec![create_param_group(params, lr, param_group_data)
+            .expect("param group creation should succeed")];
 
         (
             Self {
@@ -358,20 +411,32 @@ impl PyAdamW {
         Python::attach(|py| {
             state.insert(
                 "step".to_string(),
-                0i64.into_pyobject(py).unwrap().into_any().unbind(),
+                0i64.into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
             state.insert(
                 "exp_avg".to_string(),
-                "{}".into_pyobject(py).unwrap().into_any().unbind(),
+                "{}".into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
             state.insert(
                 "exp_avg_sq".to_string(),
-                "{}".into_pyobject(py).unwrap().into_any().unbind(),
+                "{}".into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
             if self.amsgrad {
                 state.insert(
                     "max_exp_avg_sq".to_string(),
-                    "{}".into_pyobject(py).unwrap().into_any().unbind(),
+                    "{}".into_pyobject(py)
+                        .expect("Python object conversion should succeed")
+                        .into_any()
+                        .unbind(),
                 );
             }
         });
@@ -392,21 +457,33 @@ impl PyAdamW {
         Python::attach(|py| {
             defaults.insert(
                 "lr".to_string(),
-                self.lr.into_pyobject(py).unwrap().into_any().unbind(),
+                self.lr
+                    .into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
             defaults.insert(
                 "betas".to_string(),
-                self.betas.into_pyobject(py).unwrap().into_any().unbind(),
+                self.betas
+                    .into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
             defaults.insert(
                 "eps".to_string(),
-                self.eps.into_pyobject(py).unwrap().into_any().unbind(),
+                self.eps
+                    .into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
             defaults.insert(
                 "weight_decay".to_string(),
                 self.weight_decay
                     .into_pyobject(py)
-                    .unwrap()
+                    .expect("Python object conversion should succeed")
                     .into_any()
                     .unbind(),
             );
@@ -432,7 +509,10 @@ impl PyAdamW {
             for param_group in &mut self.param_groups {
                 param_group.insert(
                     "lr".to_string(),
-                    lr.into_pyobject(py).unwrap().into_any().unbind(),
+                    lr.into_pyobject(py)
+                        .expect("Python object conversion should succeed")
+                        .into_any()
+                        .unbind(),
                 );
             }
         });

@@ -411,7 +411,9 @@ impl Optimizer for Adam {
                     continue;
                 }
 
-                let grad = param.grad().unwrap();
+                let grad = param
+                    .grad()
+                    .expect("gradient should exist after has_grad check");
                 let param_id = format!("{:p}", param_arc.as_ref());
 
                 // Get or initialize optimizer state
@@ -431,9 +433,15 @@ impl Optimizer for Adam {
                     }
                 }
 
-                let mut step_tensor = state.get("step").unwrap().clone();
-                let mut exp_avg = state.get("exp_avg").unwrap().clone();
-                let mut exp_avg_sq = state.get("exp_avg_sq").unwrap().clone();
+                let mut step_tensor = state.get("step").expect("step state should exist").clone();
+                let mut exp_avg = state
+                    .get("exp_avg")
+                    .expect("exp_avg state should exist")
+                    .clone();
+                let mut exp_avg_sq = state
+                    .get("exp_avg_sq")
+                    .expect("exp_avg_sq state should exist")
+                    .clone();
 
                 // Increment step count
                 step_tensor
@@ -477,7 +485,10 @@ impl Optimizer for Adam {
 
                 let denom = if self.amsgrad {
                     // Update max of exp_avg_sq
-                    let mut max_exp_avg_sq = state.get("max_exp_avg_sq").unwrap().clone();
+                    let mut max_exp_avg_sq = state
+                        .get("max_exp_avg_sq")
+                        .expect("max_exp_avg_sq state should exist")
+                        .clone();
                     max_exp_avg_sq = max_exp_avg_sq
                         .maximum(&exp_avg_sq)
                         .map_err(OptimizerError::TensorError)?;
@@ -799,7 +810,9 @@ impl Optimizer for AdamW {
                     continue;
                 }
 
-                let grad = param.grad().unwrap();
+                let grad = param
+                    .grad()
+                    .expect("gradient should exist after has_grad check");
                 let param_id = format!("{:p}", param_arc.as_ref());
 
                 // Get or initialize optimizer state
@@ -819,9 +832,15 @@ impl Optimizer for AdamW {
                     }
                 }
 
-                let mut step_tensor = state.get("step").unwrap().clone();
-                let mut exp_avg = state.get("exp_avg").unwrap().clone();
-                let mut exp_avg_sq = state.get("exp_avg_sq").unwrap().clone();
+                let mut step_tensor = state.get("step").expect("step state should exist").clone();
+                let mut exp_avg = state
+                    .get("exp_avg")
+                    .expect("exp_avg state should exist")
+                    .clone();
+                let mut exp_avg_sq = state
+                    .get("exp_avg_sq")
+                    .expect("exp_avg_sq state should exist")
+                    .clone();
 
                 // Increment step count
                 step_tensor
@@ -875,7 +894,10 @@ impl Optimizer for AdamW {
 
                 let denom = if self.amsgrad {
                     // Update max of exp_avg_sq
-                    let mut max_exp_avg_sq = state.get("max_exp_avg_sq").unwrap().clone();
+                    let mut max_exp_avg_sq = state
+                        .get("max_exp_avg_sq")
+                        .expect("max_exp_avg_sq state should exist")
+                        .clone();
                     max_exp_avg_sq = max_exp_avg_sq
                         .maximum(&corrected_exp_avg_sq)
                         .map_err(OptimizerError::TensorError)?;

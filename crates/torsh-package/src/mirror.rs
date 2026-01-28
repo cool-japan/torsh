@@ -528,7 +528,7 @@ impl MirrorManager {
         // Simplified weighted random (in production, use proper RNG)
         let random_weight = (SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after UNIX_EPOCH")
             .as_millis() as u32)
             % total_weight;
 

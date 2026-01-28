@@ -847,8 +847,8 @@ mod tests {
         assert_eq!(one_qint8.value, 1);
 
         // Test conversions
-        let from_f64 = QInt8::from_f64(5.5).unwrap();
-        let to_f64 = from_f64.to_f64().unwrap();
+        let from_f64 = QInt8::from_f64(5.5).expect("f64 conversion should succeed");
+        let to_f64 = from_f64.to_f64().expect("f64 conversion should succeed");
         assert!((to_f64 - 5.5).abs() < 1.0); // Allow for quantization error
 
         // Test QUInt8

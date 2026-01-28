@@ -1,6 +1,7 @@
 //! Multi-GPU support for CUDA backend
 
 use super::{CudaBackend, CudaBuffer, CudaDevice, CudaStream};
+use crate::cuda::cuda_sys_compat as cuda_sys;
 use crate::cuda::error::{CudaError, CudaResult};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -22,7 +23,7 @@ impl MultiGpuContext {
         }
 
         // Verify device count
-        let device_count = crate::device_count()? as usize;
+        let device_count = crate::cuda::device_count()? as usize;
         for &id in &device_ids {
             if id >= device_count {
                 return Err(CudaError::InvalidDevice { device_id: id });
@@ -36,7 +37,7 @@ impl MultiGpuContext {
 
         for &device_id in &device_ids {
             // Set device as current before creating resources
-            crate::set_device(device_id)?;
+            crate::cuda::set_device(device_id)?;
 
             let device = Arc::new(CudaDevice::new(device_id)?);
             let backend = Arc::new(CudaBackend::new(super::backend::CudaBackendConfig {
@@ -74,7 +75,7 @@ impl MultiGpuContext {
 
     /// Create context with all available GPUs
     pub fn all_gpus() -> CudaResult<Self> {
-        let device_count = crate::device_count()? as usize;
+        let device_count = crate::cuda::device_count()? as usize;
         let device_ids: Vec<usize> = (0..device_count).collect();
         Self::new(device_ids)
     }
@@ -111,7 +112,7 @@ impl MultiGpuContext {
     }
 
     /// Copy data between devices
-    pub async fn copy_between_devices<T: Clone + Send + Sync + 'static>(
+    pub async fn copy_between_devices<T: Clone + Send + Sync + Default + 'static>(
         &self,
         src: &CudaBuffer<T>,
         dst: &mut CudaBuffer<T>,
@@ -128,8 +129,8 @@ impl MultiGpuContext {
         if self.has_peer_access(src_device, dst_device) {
             // Direct peer-to-peer copy
             unsafe {
-                cuda_sys::cudart::cudaMemcpyPeerAsync(
-                    dst.device_ptr().as_raw_mut() as *mut _,
+                cuda_sys::cudaMemcpyPeerAsync(
+                    dst.device_ptr().as_raw() as *mut _,
                     dst_device as i32,
                     src.device_ptr().as_raw() as *const _,
                     src_device as i32,
@@ -152,7 +153,7 @@ impl MultiGpuContext {
     }
 
     /// Broadcast data from one device to all others
-    pub async fn broadcast<T: Clone + Send + Sync + 'static>(
+    pub async fn broadcast<T: Clone + Send + Sync + Default + 'static>(
         &self,
         src: &CudaBuffer<T>,
         src_device: usize,
@@ -166,7 +167,7 @@ impl MultiGpuContext {
 
         // Copy to all other devices
         let mut dst_idx = 0;
-        for (i, device) in self.devices.iter().enumerate() {
+        for (_i, device) in self.devices.iter().enumerate() {
             if device.id() != src_device {
                 self.copy_between_devices(src, &mut dst_buffers[dst_idx], src_device, device.id())
                     .await?;
@@ -178,7 +179,7 @@ impl MultiGpuContext {
     }
 
     /// Reduce data from all devices to one
-    pub async fn reduce<T: Clone + Send + Sync + 'static>(
+    pub async fn reduce<T: Clone + Send + Sync + Default + 'static>(
         &self,
         src_buffers: &[CudaBuffer<T>],
         dst: &mut CudaBuffer<T>,
@@ -208,17 +209,33 @@ impl MultiGpuContext {
                     let src_device = self.devices[i].id();
                     if src_device == dst_device {
                         // Same device, direct add
-                        let backend = self.backend(dst_device).unwrap();
+                        let backend = self
+                            .backend(dst_device)
+                            .expect("backend for dst_device should exist");
                         // Note: This is a simplified version, would need proper type handling
                         if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
                             unsafe {
                                 let src_f32 =
                                     std::mem::transmute::<&CudaBuffer<T>, &CudaBuffer<f32>>(src);
-                                let dst_f32 = std::mem::transmute::<
+                                // Create a temporary output buffer to avoid borrow conflict
+                                let mut output_buffer = dst.clone();
+                                let output_f32 = std::mem::transmute::<
                                     &mut CudaBuffer<T>,
                                     &mut CudaBuffer<f32>,
-                                >(dst);
-                                backend.elementwise_add_f32(src_f32, dst_f32, dst_f32, None)?;
+                                >(
+                                    &mut output_buffer
+                                );
+                                let dst_f32 = std::mem::transmute::<&CudaBuffer<T>, &CudaBuffer<f32>>(
+                                    &*(dst as *const _),
+                                );
+                                backend.elementwise_add_f32(src_f32, dst_f32, output_f32, None)?;
+                                // Copy result back to dst
+                                std::ptr::copy_nonoverlapping(
+                                    &output_buffer as *const _ as *const u8,
+                                    dst as *mut _ as *mut u8,
+                                    std::mem::size_of::<CudaBuffer<T>>(),
+                                );
+                                std::mem::forget(output_buffer);
                             }
                         }
                     } else {
@@ -227,16 +244,32 @@ impl MultiGpuContext {
                         self.copy_between_devices(src, &mut temp, src_device, dst_device)
                             .await?;
 
-                        let backend = self.backend(dst_device).unwrap();
+                        let backend = self
+                            .backend(dst_device)
+                            .expect("backend for dst_device should exist");
                         if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
                             unsafe {
                                 let temp_f32 =
                                     std::mem::transmute::<&CudaBuffer<T>, &CudaBuffer<f32>>(&temp);
-                                let dst_f32 = std::mem::transmute::<
+                                // Create a temporary output buffer to avoid borrow conflict
+                                let mut output_buffer = dst.clone();
+                                let output_f32 = std::mem::transmute::<
                                     &mut CudaBuffer<T>,
                                     &mut CudaBuffer<f32>,
-                                >(dst);
-                                backend.elementwise_add_f32(temp_f32, dst_f32, dst_f32, None)?;
+                                >(
+                                    &mut output_buffer
+                                );
+                                let dst_f32 = std::mem::transmute::<&CudaBuffer<T>, &CudaBuffer<f32>>(
+                                    &*(dst as *const _),
+                                );
+                                backend.elementwise_add_f32(temp_f32, dst_f32, output_f32, None)?;
+                                // Copy result back to dst
+                                std::ptr::copy_nonoverlapping(
+                                    &output_buffer as *const _ as *const u8,
+                                    dst as *mut _ as *mut u8,
+                                    std::mem::size_of::<CudaBuffer<T>>(),
+                                );
+                                std::mem::forget(output_buffer);
                             }
                         }
                     }
@@ -244,7 +277,8 @@ impl MultiGpuContext {
             }
             _ => {
                 return Err(CudaError::UnsupportedOperation {
-                    operation: format!("Reduce operation {:?}", op),
+                    op: format!("Reduce operation {:?}", op),
+                    dtype: "".to_string(),
                 });
             }
         }
@@ -253,7 +287,7 @@ impl MultiGpuContext {
     }
 
     /// All-reduce operation across all devices
-    pub async fn all_reduce<T: Clone + Send + Sync + 'static>(
+    pub async fn all_reduce<T: Clone + Send + Sync + Default + 'static>(
         &self,
         buffers: &mut [CudaBuffer<T>],
         op: ReduceOp,
@@ -299,13 +333,13 @@ impl MultiGpuContext {
     fn can_access_peer(device1: usize, device2: usize) -> CudaResult<bool> {
         let mut can_access: i32 = 0;
         unsafe {
-            let result = cuda_sys::cudart::cudaDeviceCanAccessPeer(
+            let result = cuda_sys::cudaDeviceCanAccessPeer(
                 &mut can_access as *mut _,
                 device1 as i32,
                 device2 as i32,
             );
-            if result != cuda_sys::cudart::cudaError_t::cudaSuccess {
-                return Err(CudaError::Device {
+            if result != crate::cuda::cudaSuccess {
+                return Err(CudaError::Context {
                     message: format!(
                         "Failed to check peer access between devices {} and {}",
                         device1, device2
@@ -319,15 +353,15 @@ impl MultiGpuContext {
     /// Enable peer access between two devices
     fn enable_peer_access(src_device: usize, dst_device: usize) -> CudaResult<()> {
         // Set current device
-        crate::set_device(src_device)?;
+        crate::cuda::set_device(src_device)?;
 
         unsafe {
-            let result = cuda_sys::cudart::cudaDeviceEnablePeerAccess(dst_device as i32, 0);
+            let result = ::cuda_sys::cudart::cudaDeviceEnablePeerAccess(dst_device as i32, 0);
             // Ignore error if peer access is already enabled
-            if result != cuda_sys::cudart::cudaError_t::cudaSuccess
-                && result != cuda_sys::cudart::cudaError_t::cudaErrorPeerAccessAlreadyEnabled
+            if result != crate::cuda::cudaSuccess
+                && result != ::cuda_sys::cudart::cudaError_t::PeerAccessAlreadyEnabled
             {
-                return Err(CudaError::Device {
+                return Err(CudaError::Context {
                     message: format!(
                         "Failed to enable peer access from device {} to device {}",
                         src_device, dst_device
@@ -392,10 +426,11 @@ impl<M> DataParallel<M> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use torsh_core::DType;
 
     #[test]
     fn test_multi_gpu_context_creation() {
-        if crate::is_available() && crate::device_count().unwrap_or(0) > 1 {
+        if crate::is_available() && crate::cuda::device_count().unwrap_or(0) > 1 {
             let context = MultiGpuContext::new(vec![0, 1]);
             assert!(context.is_ok());
 
@@ -406,17 +441,17 @@ mod tests {
 
     #[tokio::test]
     async fn test_peer_to_peer_copy() {
-        if crate::is_available() && crate::device_count().unwrap_or(0) > 1 {
+        if crate::is_available() && crate::cuda::device_count().unwrap_or(0) > 1 {
             let context = MultiGpuContext::new(vec![0, 1]).unwrap();
 
             // Create buffers on different devices
             let backend0 = context.backend(0).unwrap();
             let backend1 = context.backend(1).unwrap();
 
-            crate::set_device(0).unwrap();
+            crate::cuda::set_device(0).unwrap();
             let mut src = backend0.create_buffer::<f32>(1024, DType::F32).unwrap();
 
-            crate::set_device(1).unwrap();
+            crate::cuda::set_device(1).unwrap();
             let mut dst = backend1.create_buffer::<f32>(1024, DType::F32).unwrap();
 
             // Initialize source buffer
@@ -438,13 +473,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_all_reduce() {
-        if crate::is_available() && crate::device_count().unwrap_or(0) > 1 {
+        if crate::is_available() && crate::cuda::device_count().unwrap_or(0) > 1 {
             let context = MultiGpuContext::new(vec![0, 1]).unwrap();
 
             // Create buffers on each device
             let mut buffers = Vec::new();
             for (i, backend) in context.backends.iter().enumerate() {
-                crate::set_device(context.devices[i].id()).unwrap();
+                crate::cuda::set_device(context.devices[i].id()).unwrap();
                 let mut buffer = backend.create_buffer::<f32>(4, DType::F32).unwrap();
 
                 // Initialize with device-specific values

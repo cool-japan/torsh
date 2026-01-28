@@ -137,7 +137,8 @@ fn nest_scopes(depth: usize) {
     if depth == 0 {
         black_box(42);
     } else {
-        profile_scope!(format!("level_{}", depth));
+        let scope_name = format!("level_{}", depth);
+        profile_scope!(&scope_name);
         nest_scopes(depth - 1);
     }
 }
@@ -155,7 +156,8 @@ fn bench_event_volume_overhead(c: &mut Criterion) {
                 b.iter(|| {
                     start_profiling();
                     for i in 0..num_events {
-                        profile_scope!(format!("event_{}", i));
+                        let scope_name = format!("event_{}", i);
+                        profile_scope!(&scope_name);
                     }
                     stop_profiling();
                     clear_global_events();
@@ -190,11 +192,7 @@ fn bench_memory_profiling_overhead(c: &mut Criterion) {
             for i in 0..100 {
                 data.push(black_box(vec![i; 1000]));
                 // Simulate allocation tracking
-                profiler.record_allocation(
-                    i * 1000,
-                    1000 * std::mem::size_of::<i32>(),
-                    "allocation",
-                );
+                let _ = profiler.record_allocation(i * 1000, 1000 * std::mem::size_of::<i32>());
             }
 
             profiler.disable();
@@ -222,7 +220,8 @@ fn bench_concurrent_contention(c: &mut Criterion) {
                     for thread_id in 0..num_threads {
                         let handle = thread::spawn(move || {
                             for i in 0..100 {
-                                profile_scope!(format!("thread_{}_op_{}", thread_id, i));
+                                let scope_name = format!("thread_{}_op_{}", thread_id, i);
+                                profile_scope!(&scope_name);
                                 // Minimal work to focus on profiling overhead
                                 black_box(i * i);
                             }
@@ -252,7 +251,8 @@ fn bench_export_format_comparison(c: &mut Criterion) {
     let setup_events = || {
         start_profiling();
         for i in 0..500 {
-            profile_scope!(format!("operation_{}", i));
+            let scope_name = format!("operation_{}", i);
+            profile_scope!(&scope_name);
         }
         stop_profiling();
     };

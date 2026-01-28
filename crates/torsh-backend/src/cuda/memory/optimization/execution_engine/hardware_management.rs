@@ -10,7 +10,12 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, SystemTime};
 
-use super::config::HardwareConfig;
+/// Helper function for serde default SystemTime value
+fn default_system_time() -> SystemTime {
+    SystemTime::UNIX_EPOCH
+}
+
+use super::config::{GpuConfig, HardwareConfig, ThermalConfig};
 use super::task_management::ResourceType;
 
 /// Comprehensive hardware manager for CUDA execution
@@ -247,8 +252,8 @@ pub struct GpuDevice {
     /// Total memory
     pub total_memory: u64,
 
-    /// Available memory
-    pub available_memory: AtomicU64,
+    /// Available memory (simplified for serialization)
+    pub available_memory: u64,
 
     /// Number of streaming multiprocessors
     pub sm_count: u32,
@@ -274,11 +279,11 @@ pub struct GpuDevice {
     /// Device utilization
     pub utilization: GpuUtilization,
 
-    /// Temperature readings
-    pub temperature: AtomicU64,
+    /// Temperature readings (simplified for serialization)
+    pub temperature: u64,
 
-    /// Power consumption
-    pub power_consumption: AtomicU64,
+    /// Power consumption (simplified for serialization)
+    pub power_consumption: u64,
 }
 
 /// Resource pool for managing hardware resources
@@ -293,11 +298,11 @@ pub struct ResourcePool {
     /// Total capacity
     pub total_capacity: u64,
 
-    /// Available capacity
-    pub available_capacity: AtomicU64,
+    /// Available capacity (simplified for serialization)
+    pub available_capacity: u64,
 
-    /// Reserved capacity
-    pub reserved_capacity: AtomicU64,
+    /// Reserved capacity (simplified for serialization)
+    pub reserved_capacity: u64,
 
     /// Pool resources
     pub resources: Vec<PoolResource>,
@@ -322,6 +327,7 @@ pub struct ResourceAllocation {
     pub allocated_resources: Vec<AllocatedResource>,
 
     /// Allocation timestamp
+    #[serde(skip, default = "default_system_time")]
     pub allocation_time: SystemTime,
 
     /// Allocation duration
@@ -667,31 +673,31 @@ impl HardwareManager {
     pub fn initialize_hardware(&self) -> Result<(), HardwareError> {
         // Initialize GPU devices
         {
-            let mut gpu_manager = self.gpu_manager.lock().unwrap();
+            let mut gpu_manager = self.gpu_manager.lock().expect("lock should not be poisoned");
             gpu_manager.initialize_devices()?;
         }
 
         // Start device monitoring
         {
-            let mut monitor = self.device_monitor.lock().unwrap();
+            let mut monitor = self.device_monitor.lock().expect("lock should not be poisoned");
             monitor.start_monitoring()?;
         }
 
         // Initialize thermal management
         {
-            let mut thermal_manager = self.thermal_manager.lock().unwrap();
+            let mut thermal_manager = self.thermal_manager.lock().expect("lock should not be poisoned");
             thermal_manager.initialize_thermal_systems()?;
         }
 
         // Initialize power management
         {
-            let mut power_manager = self.power_manager.lock().unwrap();
+            let mut power_manager = self.power_manager.lock().expect("lock should not be poisoned");
             power_manager.initialize_power_systems()?;
         }
 
         // Update statistics
         {
-            let mut stats = self.statistics.lock().unwrap();
+            let mut stats = self.statistics.lock().expect("lock should not be poisoned");
             stats.initialization_count += 1;
             stats.last_initialization = Some(SystemTime::now());
         }
@@ -701,12 +707,12 @@ impl HardwareManager {
 
     /// Discover available hardware devices
     pub fn discover_devices(&self) -> Result<Vec<DeviceInfo>, HardwareError> {
-        let mut capability_detector = self.capability_detector.lock().unwrap();
+        let mut capability_detector = self.capability_detector.lock().expect("lock should not be poisoned");
         let devices = capability_detector.discover_devices()?;
 
         // Update statistics
         {
-            let mut stats = self.statistics.lock().unwrap();
+            let mut stats = self.statistics.lock().expect("lock should not be poisoned");
             stats.devices_discovered = devices.len() as u64;
         }
 
@@ -718,12 +724,12 @@ impl HardwareManager {
         &self,
         requirements: ResourceRequirements,
     ) -> Result<String, HardwareError> {
-        let mut allocator = self.resource_allocator.lock().unwrap();
+        let mut allocator = self.resource_allocator.lock().expect("lock should not be poisoned");
         let allocation_id = allocator.allocate_resources(requirements)?;
 
         // Update statistics
         {
-            let mut stats = self.statistics.lock().unwrap();
+            let mut stats = self.statistics.lock().expect("lock should not be poisoned");
             stats.resource_allocations += 1;
         }
 
@@ -732,12 +738,12 @@ impl HardwareManager {
 
     /// Release allocated resources
     pub fn release_resources(&self, allocation_id: &str) -> Result<(), HardwareError> {
-        let mut allocator = self.resource_allocator.lock().unwrap();
+        let mut allocator = self.resource_allocator.lock().expect("lock should not be poisoned");
         allocator.release_allocation(allocation_id)?;
 
         // Update statistics
         {
-            let mut stats = self.statistics.lock().unwrap();
+            let mut stats = self.statistics.lock().expect("lock should not be poisoned");
             stats.resource_releases += 1;
         }
 
@@ -746,25 +752,25 @@ impl HardwareManager {
 
     /// Get device health status
     pub fn get_device_health(&self, device_id: &DeviceId) -> Result<HealthStatus, HardwareError> {
-        let monitor = self.device_monitor.lock().unwrap();
+        let monitor = self.device_monitor.lock().expect("lock should not be poisoned");
         monitor.get_device_health(device_id)
     }
 
     /// Get thermal status
     pub fn get_thermal_status(&self) -> Result<ThermalStatusReport, HardwareError> {
-        let thermal_manager = self.thermal_manager.lock().unwrap();
+        let thermal_manager = self.thermal_manager.lock().expect("lock should not be poisoned");
         thermal_manager.get_thermal_status()
     }
 
     /// Get power consumption status
     pub fn get_power_status(&self) -> Result<PowerStatusReport, HardwareError> {
-        let power_manager = self.power_manager.lock().unwrap();
+        let power_manager = self.power_manager.lock().expect("lock should not be poisoned");
         power_manager.get_power_status()
     }
 
     /// Get hardware statistics
     pub fn get_hardware_statistics(&self) -> HardwareStatistics {
-        let stats = self.statistics.lock().unwrap();
+        let stats = self.statistics.lock().expect("lock should not be poisoned");
         stats.clone()
     }
 
@@ -773,12 +779,12 @@ impl HardwareManager {
         &self,
         command: HardwareCommand,
     ) -> Result<CommandResult, HardwareError> {
-        let mut hal = self.hardware_abstraction.lock().unwrap();
+        let mut hal = self.hardware_abstraction.lock().expect("lock should not be poisoned");
         let result = hal.execute_command(command)?;
 
         // Update statistics
         {
-            let mut stats = self.statistics.lock().unwrap();
+            let mut stats = self.statistics.lock().expect("lock should not be poisoned");
             stats.commands_executed += 1;
         }
 
@@ -825,7 +831,7 @@ impl GpuManager {
             architecture: GpuArchitecture::Ampere,
             compute_capability: ComputeCapability { major: 8, minor: 6 },
             total_memory: 12 * 1024 * 1024 * 1024, // 12GB
-            available_memory: AtomicU64::new(12 * 1024 * 1024 * 1024),
+            available_memory: 12 * 1024 * 1024 * 1024,
             sm_count: 108,
             cuda_cores: 6912,
             memory_bandwidth: 900 * 1024 * 1024 * 1024, // 900 GB/s
@@ -834,8 +840,8 @@ impl GpuManager {
             capabilities: DeviceCapabilities::default(),
             state: GpuDeviceState::Active,
             utilization: GpuUtilization::default(),
-            temperature: AtomicU64::new(45),
-            power_consumption: AtomicU64::new(250),
+            temperature: 45,
+            power_consumption: 250,
         })
     }
 }
@@ -1040,7 +1046,7 @@ pub enum HardwareError {
 
 macro_rules! default_placeholder_type {
     ($name:ident) => {
-        #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+        #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
         pub struct $name {
             pub placeholder: bool,
         }

@@ -16,9 +16,9 @@ use torsh_tensor::Tensor;
 /// The tensor dot product (or tensor contraction) is a generalization of matrix
 /// multiplication to higher-dimensional tensors. For tensors A and B, it computes:
 ///
-/// ```
+/// ```text
 /// C_{i₁...iₘ,j₁...jₙ} = Σₖ₁...ₖₚ A_{i₁...iₘ,k₁...kₚ} · B_{k₁...kₚ,j₁...jₙ}
-/// ```
+/// ```text
 ///
 /// Where the summation is over the contracted indices k₁,...,kₚ.
 ///
@@ -82,7 +82,7 @@ use torsh_tensor::Tensor;
 /// let b = ones(&[10, 64, 128])?;
 /// let result = tensordot(&a, &b, TensorDotAxes::Arrays(vec![2], vec![1]))?; // Shape: [10, 32, 10, 128]
 /// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
+/// ```text
 pub fn tensordot(a: &Tensor, b: &Tensor, axes: TensorDotAxes) -> TorshResult<Tensor> {
     match axes {
         TensorDotAxes::Int(n) => {

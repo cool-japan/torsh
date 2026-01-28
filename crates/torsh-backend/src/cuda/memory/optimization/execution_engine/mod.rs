@@ -64,3 +64,6 @@ pub use minimal_integration::{
     MinimalEngineConfig, MinimalEngineError, MinimalExecutionEngine, MinimalTask, TaskResult,
     TaskStatus as MinimalTaskStatus,
 };
+
+// Type alias for optimization execution engine
+pub type OptimizationExecutionEngine = MinimalExecutionEngine;

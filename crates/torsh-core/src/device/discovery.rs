@@ -81,7 +81,10 @@ impl DeviceDiscovery {
 
         // Update discovered devices
         {
-            let mut devices = self.discovered_devices.write().unwrap();
+            let mut devices = self
+                .discovered_devices
+                .write()
+                .expect("lock should not be poisoned");
             *devices = discovered;
         }
 
@@ -93,7 +96,10 @@ impl DeviceDiscovery {
 
     /// Get all discovered devices
     pub fn get_discovered_devices(&self) -> Vec<DiscoveredDevice> {
-        let devices = self.discovered_devices.read().unwrap();
+        let devices = self
+            .discovered_devices
+            .read()
+            .expect("lock should not be poisoned");
         devices.clone()
     }
 
@@ -102,8 +108,14 @@ impl DeviceDiscovery {
         &self,
         workload: &WorkloadProfile,
     ) -> Result<Option<Arc<dyn Device>>> {
-        let devices = self.discovered_devices.read().unwrap();
-        let cache = self.device_cache.read().unwrap();
+        let devices = self
+            .discovered_devices
+            .read()
+            .expect("lock should not be poisoned");
+        let cache = self
+            .device_cache
+            .read()
+            .expect("lock should not be poisoned");
 
         if devices.is_empty() {
             return Ok(None);
@@ -145,8 +157,14 @@ impl DeviceDiscovery {
         workload: &WorkloadProfile,
         target_count: usize,
     ) -> Result<Vec<Arc<dyn Device>>> {
-        let devices = self.discovered_devices.read().unwrap();
-        let cache = self.device_cache.read().unwrap();
+        let devices = self
+            .discovered_devices
+            .read()
+            .expect("lock should not be poisoned");
+        let cache = self
+            .device_cache
+            .read()
+            .expect("lock should not be poisoned");
 
         let mut candidates: Vec<_> = devices
             .iter()
@@ -176,8 +194,14 @@ impl DeviceDiscovery {
         &self,
         requirements: &CapabilityRequirements,
     ) -> Result<Vec<Arc<dyn Device>>> {
-        let devices = self.discovered_devices.read().unwrap();
-        let cache = self.device_cache.read().unwrap();
+        let devices = self
+            .discovered_devices
+            .read()
+            .expect("lock should not be poisoned");
+        let cache = self
+            .device_cache
+            .read()
+            .expect("lock should not be poisoned");
 
         let mut matching_devices = Vec::new();
 
@@ -206,8 +230,14 @@ impl DeviceDiscovery {
             UseCase::Research => WorkloadProfile::research(),
         };
 
-        let devices = self.discovered_devices.read().unwrap();
-        let cache = self.device_cache.read().unwrap();
+        let devices = self
+            .discovered_devices
+            .read()
+            .expect("lock should not be poisoned");
+        let cache = self
+            .device_cache
+            .read()
+            .expect("lock should not be poisoned");
 
         let mut recommendations = Vec::new();
 
@@ -245,8 +275,14 @@ impl DeviceDiscovery {
 
     /// Get device discovery statistics
     pub fn get_statistics(&self) -> DiscoveryStatistics {
-        let devices = self.discovered_devices.read().unwrap();
-        let history = self.selection_history.read().unwrap();
+        let devices = self
+            .discovered_devices
+            .read()
+            .expect("lock should not be poisoned");
+        let history = self
+            .selection_history
+            .read()
+            .expect("lock should not be poisoned");
 
         let total_devices = devices.len();
         let available_devices = devices.iter().filter(|d| d.is_available).count();
@@ -364,8 +400,14 @@ impl DeviceDiscovery {
     }
 
     fn populate_device_cache(&self) -> Result<()> {
-        let devices = self.discovered_devices.read().unwrap();
-        let mut cache = self.device_cache.write().unwrap();
+        let devices = self
+            .discovered_devices
+            .read()
+            .expect("lock should not be poisoned");
+        let mut cache = self
+            .device_cache
+            .write()
+            .expect("lock should not be poisoned");
 
         cache.clear();
 
@@ -586,7 +628,10 @@ impl DeviceDiscovery {
     }
 
     fn get_history_bonus(&self, device_type: DeviceType, workload: &WorkloadProfile) -> f64 {
-        let history = self.selection_history.read().unwrap();
+        let history = self
+            .selection_history
+            .read()
+            .expect("lock should not be poisoned");
 
         let successful_selections = history
             .iter()
@@ -602,7 +647,10 @@ impl DeviceDiscovery {
     }
 
     fn record_selection(&self, device_type: DeviceType, workload: WorkloadProfile, score: f64) {
-        let mut history = self.selection_history.write().unwrap();
+        let mut history = self
+            .selection_history
+            .write()
+            .expect("lock should not be poisoned");
         history.push(SelectionRecord {
             device_type,
             workload,

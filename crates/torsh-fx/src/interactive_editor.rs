@@ -415,7 +415,7 @@ impl InteractiveGraphEditor {
 
     /// Undo the last edit operation
     pub fn undo(&self) -> Result<bool> {
-        let mut history = self.history.lock().unwrap();
+        let mut history = self.history.lock().expect("lock should not be poisoned");
         if history.can_undo() {
             let snapshot = history.undo();
             self.restore_from_snapshot(&snapshot)?;
@@ -427,7 +427,7 @@ impl InteractiveGraphEditor {
 
     /// Redo the next edit operation
     pub fn redo(&self) -> Result<bool> {
-        let mut history = self.history.lock().unwrap();
+        let mut history = self.history.lock().expect("lock should not be poisoned");
         if history.can_redo() {
             let snapshot = history.redo();
             self.restore_from_snapshot(&snapshot)?;
@@ -439,7 +439,7 @@ impl InteractiveGraphEditor {
 
     /// Export graph in various formats
     pub fn export_graph(&self, format: ExportFormat) -> Result<String> {
-        let graph = self.graph.read().unwrap();
+        let graph = self.graph.read().expect("lock should not be poisoned");
         match format {
             ExportFormat::Json => {
                 // Create a simplified JSON representation since FxGraph doesn't implement Serialize
@@ -482,7 +482,7 @@ impl InteractiveGraphEditor {
 
         // Replace current graph
         {
-            let mut graph = self.graph.write().unwrap();
+            let mut graph = self.graph.write().expect("lock should not be poisoned");
             *graph = new_graph;
         } // Release write lock before creating snapshot
 
@@ -494,13 +494,19 @@ impl InteractiveGraphEditor {
 
     /// Get real-time performance metrics
     pub fn get_performance_metrics(&self) -> PerformanceMetrics {
-        let monitor = self.performance_monitor.lock().unwrap();
+        let monitor = self
+            .performance_monitor
+            .lock()
+            .expect("lock should not be poisoned");
         monitor.get_current_metrics()
     }
 
     /// Start collaborative editing session
     pub fn start_collaboration(&self, user: UserSession) -> Result<String> {
-        let mut state = self.collaboration_state.write().unwrap();
+        let mut state = self
+            .collaboration_state
+            .write()
+            .expect("lock should not be poisoned");
         let session_id = uuid::Uuid::new_v4().to_string();
         state.active_users.insert(session_id.clone(), user);
         Ok(session_id)
@@ -508,7 +514,10 @@ impl InteractiveGraphEditor {
 
     /// Stop collaborative editing session
     pub fn stop_collaboration(&self, session_id: &str) -> Result<()> {
-        let mut state = self.collaboration_state.write().unwrap();
+        let mut state = self
+            .collaboration_state
+            .write()
+            .expect("lock should not be poisoned");
         state.active_users.remove(session_id);
 
         // Release any locks held by this user
@@ -519,18 +528,21 @@ impl InteractiveGraphEditor {
 
     /// Get current collaboration state
     pub fn get_collaboration_state(&self) -> CollaborationState {
-        self.collaboration_state.read().unwrap().clone()
+        self.collaboration_state
+            .read()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     // Private helper methods
     fn record_edit(&self, operation: &EditOperation, user_id: Option<&str>) -> Result<()> {
-        let _graph = self.graph.read().unwrap();
+        let _graph = self.graph.read().expect("lock should not be poisoned");
         let snapshot = GraphSnapshot {
             graph_data: format!(
                 "graph_snapshot_{}",
                 std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .expect("system time should be after UNIX epoch")
                     .as_secs()
             ), // Simplified since we can't serialize FxGraph
             timestamp: std::time::SystemTime::now(),
@@ -538,7 +550,7 @@ impl InteractiveGraphEditor {
             editor_id: user_id.map(|s| s.to_string()),
         };
 
-        let mut history = self.history.lock().unwrap();
+        let mut history = self.history.lock().expect("lock should not be poisoned");
         history.add_snapshot(snapshot);
 
         Ok(())
@@ -550,7 +562,7 @@ impl InteractiveGraphEditor {
         _position: (f64, f64),
         parameters: HashMap<String, String>,
     ) -> Result<()> {
-        let mut graph = self.graph.write().unwrap();
+        let mut graph = self.graph.write().expect("lock should not be poisoned");
 
         // Create node based on type and parameters
         let node = match node_type {
@@ -586,7 +598,7 @@ impl InteractiveGraphEditor {
     }
 
     fn remove_node(&self, node_id: NodeIndex) -> Result<()> {
-        let mut graph = self.graph.write().unwrap();
+        let mut graph = self.graph.write().expect("lock should not be poisoned");
         if graph.graph.node_weight(node_id).is_some() {
             graph.graph.remove_node(node_id);
             Ok(())
@@ -598,7 +610,7 @@ impl InteractiveGraphEditor {
     }
 
     fn modify_node(&self, node_id: NodeIndex, changes: HashMap<String, String>) -> Result<()> {
-        let graph = self.graph.write().unwrap();
+        let graph = self.graph.write().expect("lock should not be poisoned");
 
         // Verify node exists
         if graph.graph.node_weight(node_id).is_none() {
@@ -629,7 +641,7 @@ impl InteractiveGraphEditor {
             changes.keys().cloned().collect::<Vec<_>>().join(", ")
         );
 
-        let mut history = self.history.lock().unwrap();
+        let mut history = self.history.lock().expect("lock should not be poisoned");
         history.operations.push(modification_record);
 
         // Note: Actual node modification would require graph restructuring
@@ -643,7 +655,7 @@ impl InteractiveGraphEditor {
     }
 
     fn add_edge(&self, source: NodeIndex, target: NodeIndex, _edge_type: &str) -> Result<()> {
-        let mut graph = self.graph.write().unwrap();
+        let mut graph = self.graph.write().expect("lock should not be poisoned");
         let edge = crate::Edge {
             name: "data".to_string(),
         };
@@ -652,7 +664,7 @@ impl InteractiveGraphEditor {
     }
 
     fn remove_edge(&self, source: NodeIndex, target: NodeIndex) -> Result<()> {
-        let mut graph = self.graph.write().unwrap();
+        let mut graph = self.graph.write().expect("lock should not be poisoned");
         if let Some(edge_id) = graph.graph.find_edge(source, target) {
             graph.graph.remove_edge(edge_id);
             Ok(())
@@ -665,11 +677,14 @@ impl InteractiveGraphEditor {
 
     fn move_nodes(&self, moves: Vec<(NodeIndex, (f64, f64))>) -> Result<()> {
         // Update node positions in collaboration state
-        let mut collab_state = self.collaboration_state.write().unwrap();
+        let mut collab_state = self
+            .collaboration_state
+            .write()
+            .expect("lock should not be poisoned");
 
         for (node_id, new_position) in moves {
             // Validate the node exists
-            let graph = self.graph.read().unwrap();
+            let graph = self.graph.read().expect("lock should not be poisoned");
             if graph.graph.node_weight(node_id).is_none() {
                 return Err(torsh_core::error::TorshError::InvalidArgument(format!(
                     "Node {:?} not found",
@@ -694,18 +709,27 @@ impl InteractiveGraphEditor {
 
     /// Get current position of a node
     pub fn get_node_position(&self, node_id: NodeIndex) -> Option<(f64, f64)> {
-        let collab_state = self.collaboration_state.read().unwrap();
+        let collab_state = self
+            .collaboration_state
+            .read()
+            .expect("lock should not be poisoned");
         collab_state.node_positions.get(&node_id).copied()
     }
 
     /// Get all node positions
     pub fn get_all_positions(&self) -> HashMap<NodeIndex, (f64, f64)> {
-        let collab_state = self.collaboration_state.read().unwrap();
+        let collab_state = self
+            .collaboration_state
+            .read()
+            .expect("lock should not be poisoned");
         collab_state.node_positions.clone()
     }
 
     fn update_performance_metrics(&self) {
-        let mut monitor = self.performance_monitor.lock().unwrap();
+        let mut monitor = self
+            .performance_monitor
+            .lock()
+            .expect("lock should not be poisoned");
         monitor.update();
     }
 
@@ -720,7 +744,7 @@ impl InteractiveGraphEditor {
             self.auto_save_config.save_location,
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .expect("system time should be after UNIX epoch")
                 .as_secs()
         );
 
@@ -735,20 +759,20 @@ impl InteractiveGraphEditor {
         // In a real implementation, this would restore the actual graph state
         let new_graph = FxGraph::new();
 
-        let mut graph = self.graph.write().unwrap();
+        let mut graph = self.graph.write().expect("lock should not be poisoned");
         *graph = new_graph;
 
         Ok(())
     }
 
     fn create_snapshot(&self, description: &str) -> Result<()> {
-        let _graph = self.graph.read().unwrap();
+        let _graph = self.graph.read().expect("lock should not be poisoned");
         let snapshot = GraphSnapshot {
             graph_data: format!(
                 "snapshot_{}",
                 std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .expect("system time should be after UNIX epoch")
                     .as_secs()
             ), // Simplified since we can't serialize FxGraph
             timestamp: std::time::SystemTime::now(),
@@ -756,7 +780,7 @@ impl InteractiveGraphEditor {
             editor_id: None,
         };
 
-        let mut history = self.history.lock().unwrap();
+        let mut history = self.history.lock().expect("lock should not be poisoned");
         history.add_snapshot(snapshot);
 
         Ok(())

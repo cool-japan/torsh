@@ -61,14 +61,18 @@ impl JitRuntime {
     ) -> JitResult<()> {
         // Check cache
         let cache_hit = if self.config.enable_caching {
-            self.cache.lock().unwrap().get(&kernel.id).is_some()
+            self.cache
+                .lock()
+                .expect("lock should not be poisoned")
+                .get(&kernel.id)
+                .is_some()
         } else {
             false
         };
 
         if cache_hit {
             // Get and execute cached function
-            let mut cache = self.cache.lock().unwrap();
+            let mut cache = self.cache.lock().expect("lock should not be poisoned");
             if let Some(exec_fn) = cache.get(&kernel.id) {
                 exec_fn(context, kernel)?;
             }
@@ -83,7 +87,7 @@ impl JitRuntime {
             if self.config.enable_caching {
                 self.cache
                     .lock()
-                    .unwrap()
+                    .expect("cache lock should not be poisoned")
                     .insert(kernel.id.clone(), exec_fn);
             }
         }
@@ -106,23 +110,29 @@ impl JitRuntime {
 
     /// Update execution statistics
     fn update_stats(&self, elapsed_us: u64, kernel_count: usize) {
-        let mut stats = self.stats.lock().unwrap();
+        let mut stats = self.stats.lock().expect("lock should not be poisoned");
         stats.total_time_us += elapsed_us;
         stats.kernel_launches += kernel_count;
 
         // Update cache hit rate
-        let cache = self.cache.lock().unwrap();
+        let cache = self.cache.lock().expect("lock should not be poisoned");
         stats.cache_hit_rate = cache.hit_rate();
     }
 
     /// Get execution statistics
     pub fn stats(&self) -> ExecutionStats {
-        self.stats.lock().unwrap().clone()
+        self.stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Clear kernel cache
     pub fn clear_cache(&self) {
-        self.cache.lock().unwrap().clear();
+        self.cache
+            .lock()
+            .expect("lock should not be poisoned")
+            .clear();
     }
 }
 

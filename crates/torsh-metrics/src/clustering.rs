@@ -896,7 +896,7 @@ impl Inertia {
                                 (centroids_dims[0], centroids_dims[1]),
                                 centroids_vec.iter().map(|&x| x as f64).collect(),
                             )
-                            .unwrap();
+                            .expect("centroids array should have valid shape");
                             return self.compute_inertia_with_centroids(
                                 &data_array,
                                 &labels_array,

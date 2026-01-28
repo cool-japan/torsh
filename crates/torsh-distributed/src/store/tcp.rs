@@ -178,7 +178,7 @@ impl TcpStoreServer {
 
             // Deserialize message
             let message: StoreMessage =
-                bincode::serde::decode_from_slice(&msg_buf, bincode::config::standard())
+                oxicode::serde::decode_from_slice(&msg_buf, oxicode::config::standard())
                     .map_err(|e| {
                         TorshDistributedError::communication_error(
                             "deserialize",
@@ -192,7 +192,7 @@ impl TcpStoreServer {
 
             // Serialize response
             let response_buf =
-                bincode::serde::encode_to_vec(&response, bincode::config::standard()).map_err(
+                oxicode::serde::encode_to_vec(&response, oxicode::config::standard()).map_err(
                     |e| {
                         TorshDistributedError::communication_error(
                             "serialize",
@@ -459,7 +459,7 @@ impl TcpStore {
             })?;
 
         // Serialize message
-        let msg_buf = bincode::serde::encode_to_vec(&message, bincode::config::standard())
+        let msg_buf = oxicode::serde::encode_to_vec(&message, oxicode::config::standard())
             .map_err(|e| {
                 TorshDistributedError::communication_error(
                     "serialize",
@@ -516,7 +516,7 @@ impl TcpStore {
 
         // Deserialize response
         let response: StoreResponse =
-            bincode::serde::decode_from_slice(&response_buf, bincode::config::standard())
+            oxicode::serde::decode_from_slice(&response_buf, oxicode::config::standard())
                 .map_err(|e| {
                     TorshDistributedError::communication_error(
                         "deserialize",

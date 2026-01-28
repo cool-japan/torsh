@@ -652,7 +652,10 @@ impl MetricsCollector {
         }
 
         let mut values: Vec<f64> = points.iter().map(|p| p.value).collect();
-        values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        values.sort_by(|a, b| {
+            a.partial_cmp(b)
+                .expect("metric values should be comparable")
+        });
 
         let count = values.len();
         let sum: f64 = values.iter().sum();

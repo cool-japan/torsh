@@ -22,10 +22,10 @@ use torsh_tensor::Tensor;
 use alloc::{boxed::Box, vec::Vec};
 
 #[cfg(feature = "std")]
-use scirs2_core::random::{thread_rng, Rng};
+use scirs2_core::random::thread_rng;
 
 #[cfg(not(feature = "std"))]
-use scirs2_core::random::{thread_rng, Rng};
+use scirs2_core::random::thread_rng;
 
 /// Augmentation pipeline builder for easy composition of transforms
 pub struct AugmentationPipeline<T> {

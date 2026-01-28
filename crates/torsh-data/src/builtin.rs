@@ -157,7 +157,7 @@ pub fn make_regression(config: RegressionConfig) -> Result<DatasetResult, DataEr
     };
 
     // Generate features from standard normal distribution
-    let normal = Normal::new(0.0, 1.0).unwrap();
+    let normal = Normal::new(0.0, 1.0).expect("valid Normal parameters");
     let features_data: Vec<f32> = (0..config.n_samples * config.n_features)
         .map(|_| normal.sample(&mut rng) as f32)
         .collect();
@@ -173,7 +173,7 @@ pub fn make_regression(config: RegressionConfig) -> Result<DatasetResult, DataEr
         .collect();
 
     // Generate targets as linear combination of informative features
-    let noise_dist = Normal::new(0.0, noise_std).unwrap();
+    let noise_dist = Normal::new(0.0, noise_std).expect("valid Normal parameters");
     let targets_data: Vec<f32> = (0..config.n_samples)
         .map(|i| {
             // Compute linear combination: sum(coef_j * x_ij) for informative features
@@ -273,7 +273,7 @@ pub fn make_classification(config: ClassificationConfig) -> Result<DatasetResult
     let mut features_data = Vec::new();
     let mut targets_data = Vec::new();
 
-    let normal = Normal::new(0.0, 1.0).unwrap();
+    let normal = Normal::new(0.0, 1.0).expect("valid Normal parameters");
 
     for (cluster_idx, (center, &class_label)) in cluster_centers
         .iter()
@@ -393,7 +393,7 @@ pub fn make_blobs(config: ClusteringConfig) -> Result<DatasetResult, DataError> 
     let mut targets_data = Vec::new();
 
     // Create Gaussian distribution for sampling around cluster centers
-    let normal = Normal::new(0.0, cluster_std).unwrap();
+    let normal = Normal::new(0.0, cluster_std).expect("valid Normal parameters");
 
     for (cluster_id, center) in centers.iter().enumerate() {
         let n_samples_this_cluster =

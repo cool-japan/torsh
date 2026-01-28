@@ -184,12 +184,14 @@ pub fn hardtanh<T: FloatElement>(
 where
     T: From<f32> + Default,
 {
-    let min_tensor = input
-        .ones_like()?
-        .mul_scalar(num_traits::cast(min_val as f32).unwrap())?;
-    let max_tensor = input
-        .ones_like()?
-        .mul_scalar(num_traits::cast(max_val as f32).unwrap())?;
+    let min_tensor = input.ones_like()?.mul_scalar(
+        num_traits::cast(min_val as f32)
+            .expect("f32 min_val should be castable to tensor element type"),
+    )?;
+    let max_tensor = input.ones_like()?.mul_scalar(
+        num_traits::cast(max_val as f32)
+            .expect("f32 max_val should be castable to tensor element type"),
+    )?;
 
     // Clamp between min_val and max_val
     let clamped_min = input.maximum(&min_tensor)?;

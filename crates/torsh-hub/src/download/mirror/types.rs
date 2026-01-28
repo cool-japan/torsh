@@ -675,7 +675,7 @@ pub fn create_performance_snapshot(
     PerformanceSnapshot {
         timestamp: std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after UNIX epoch")
             .as_secs(),
         response_time,
         throughput,

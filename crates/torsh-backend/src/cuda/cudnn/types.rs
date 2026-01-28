@@ -3,8 +3,22 @@
 //! This module provides fundamental data types, enums, and utility structures
 //! used throughout the cuDNN integration system.
 
+// Allow unreachable patterns for forward compatibility with cuDNN versions
+#![allow(unreachable_patterns)]
+// Allow unused imports as they are used conditionally with the cudnn feature
+#![allow(unused_imports)]
+
 #[cfg(feature = "cudnn")]
 use cudnn_sys::*;
+
+// Import compatibility types for missing cudnn-sys definitions
+#[cfg(feature = "cudnn")]
+use super::compat::{
+    cudnnActivationMode_t, cudnnAddMode_t, cudnnBatchNormMode_t, cudnnConvolutionFwdAlgo_t,
+    cudnnConvolutionMode_t, cudnnDataType_t, cudnnDirectionMode_t, cudnnForwardMode_t,
+    cudnnMathType_t, cudnnNanPropagation_t, cudnnPoolingMode_t, cudnnRNNAlgo_t,
+    cudnnRNNDataLayout_t, cudnnRNNInputMode_t, cudnnRNNMode_t, cudnnTensorFormat_t,
+};
 
 /// Convolution mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -337,9 +351,10 @@ impl RNNDataLayout {
 }
 
 /// Convolution forward algorithm
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ConvolutionForwardAlgorithm {
     /// Implicit GEMM algorithm
+    #[default]
     ImplicitGemm,
     /// Implicit precomputed GEMM algorithm
     ImplicitPrecompGemm,
@@ -429,7 +444,7 @@ impl ConvolutionForwardAlgorithm {
 }
 
 /// Convolution forward algorithm performance information
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ConvolutionForwardAlgorithmPerformance {
     /// Algorithm type
     pub algorithm: ConvolutionForwardAlgorithm,
@@ -446,9 +461,10 @@ pub struct ConvolutionForwardAlgorithmPerformance {
 }
 
 /// Convolution status
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ConvolutionStatus {
     /// Success
+    #[default]
     Success,
     /// Not supported
     NotSupported,
@@ -469,18 +485,20 @@ pub enum ConvolutionStatus {
 }
 
 /// Convolution determinism
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ConvolutionDeterminism {
     /// Non-deterministic
+    #[default]
     NonDeterministic,
     /// Deterministic
     Deterministic,
 }
 
 /// Convolution math type
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ConvolutionMathType {
     /// Default math
+    #[default]
     Default,
     /// Tensor operations
     TensorOp,

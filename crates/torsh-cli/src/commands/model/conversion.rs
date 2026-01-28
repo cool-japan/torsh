@@ -18,7 +18,7 @@ use super::types::ModelResult;
 // ✅ UNIFIED ACCESS (v0.1.0-RC.1+): Complete ndarray/random functionality through scirs2-core
 // SciRS2 ecosystem - MUST use instead of rand/ndarray (SCIRS2 POLICY COMPLIANT)
 use scirs2_core::ndarray::Array2;
-use scirs2_core::random::{thread_rng, Rng};
+use scirs2_core::random::thread_rng;
 
 /// Convert model between different formats
 pub async fn convert_model(args: ConvertArgs, _config: &Config, output_format: &str) -> Result<()> {
@@ -368,7 +368,7 @@ async fn convert_pytorch_to_torsh(
         convert_pytorch_to_torsh as pytorch_convert, generate_conversion_report,
         parse_pytorch_model, validate_conversion,
     };
-    use torsh_core::device::DeviceType;
+    use torsh::core::device::DeviceType;
 
     // Parse PyTorch model
     let pytorch_info = parse_pytorch_model(input_path).await?;

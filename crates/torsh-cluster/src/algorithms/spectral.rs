@@ -522,7 +522,8 @@ impl SpectralClustering {
                     }
 
                     // Sort by distance and take k nearest
-                    distances.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+                    distances
+                        .sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
                     let k = self.config.n_neighbors.min(distances.len());
 
                     for &(dist, j) in distances.iter().take(k) {

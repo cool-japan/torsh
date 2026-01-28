@@ -98,10 +98,16 @@ impl FaultInjector {
 
         // Record fault
         {
-            let mut active_faults = self.active_faults.lock().unwrap();
+            let mut active_faults = self
+                .active_faults
+                .lock()
+                .expect("lock should not be poisoned");
             active_faults.push((self.config.fault_type, fault_start));
 
-            let mut count = self.fault_count.lock().unwrap();
+            let mut count = self
+                .fault_count
+                .lock()
+                .expect("lock should not be poisoned");
             *count += 1;
         }
 
@@ -166,9 +172,9 @@ impl FaultInjector {
         // Simulate operation timeout
         sleep(self.config.fault_duration).await;
 
-        return Err(torsh_core::TorshError::Other(
+        Err(torsh_core::TorshError::Other(
             "Operation timed out".to_string(),
-        ));
+        ))
     }
 
     async fn inject_data_corruption(&self) -> Result<()> {
@@ -207,17 +213,30 @@ impl FaultInjector {
 
     /// Get fault statistics
     pub fn get_fault_stats(&self) -> (u64, usize) {
-        let count = *self.fault_count.lock().unwrap();
-        let active = self.active_faults.lock().unwrap().len();
+        let count = *self
+            .fault_count
+            .lock()
+            .expect("lock should not be poisoned");
+        let active = self
+            .active_faults
+            .lock()
+            .expect("lock should not be poisoned")
+            .len();
         (count, active)
     }
 
     /// Clear fault history
     pub fn clear_faults(&self) {
-        let mut active_faults = self.active_faults.lock().unwrap();
+        let mut active_faults = self
+            .active_faults
+            .lock()
+            .expect("lock should not be poisoned");
         active_faults.clear();
 
-        let mut count = self.fault_count.lock().unwrap();
+        let mut count = self
+            .fault_count
+            .lock()
+            .expect("lock should not be poisoned");
         *count = 0;
     }
 }
@@ -341,10 +360,11 @@ async fn test_retry_mechanism_with_faults() -> Result<()> {
             let pg = &pg;
 
             async move {
-                let mut count = attempt_count.lock().unwrap();
-                *count += 1;
-                let current_attempt = *count;
-                drop(count);
+                let current_attempt = {
+                    let mut count = attempt_count.lock().expect("lock should not be poisoned");
+                    *count += 1;
+                    *count
+                };
 
                 if current_attempt < 2 {
                     // First attempt fails
@@ -355,7 +375,7 @@ async fn test_retry_mechanism_with_faults() -> Result<()> {
                 } else {
                     // Second attempt succeeds
                     let mut tensor = ones::<f32>(&[2, 2])?;
-                    all_reduce(&mut tensor, ReduceOp::Sum, &pg).await?;
+                    all_reduce(&mut tensor, ReduceOp::Sum, pg).await?;
                     Ok(())
                 }
             }
@@ -364,7 +384,7 @@ async fn test_retry_mechanism_with_faults() -> Result<()> {
 
     assert!(result.is_ok(), "Retry mechanism should succeed eventually");
 
-    let final_attempt_count = *attempt_count.lock().unwrap();
+    let final_attempt_count = *attempt_count.lock().expect("lock should not be poisoned");
     assert_eq!(
         final_attempt_count, 2,
         "Should have made exactly 2 attempts"
@@ -421,7 +441,7 @@ async fn test_partial_process_failure() -> Result<()> {
     process_groups[3] = None;
 
     // Test that remaining processes can still operate
-    let remaining_pgs: Vec<_> = process_groups.into_iter().filter_map(|pg| pg).collect();
+    let remaining_pgs: Vec<_> = process_groups.into_iter().flatten().collect();
 
     for pg in &remaining_pgs {
         let mut tensor = ones::<f32>(&[2, 2])?;

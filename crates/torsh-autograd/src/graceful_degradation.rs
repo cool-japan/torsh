@@ -243,7 +243,10 @@ impl GracefulDegradationManager {
         operation_name: String,
         info: UnsupportedOperationInfo,
     ) {
-        let mut registry = self.operation_registry.write().unwrap();
+        let mut registry = self
+            .operation_registry
+            .write()
+            .expect("lock should not be poisoned");
         registry.insert(operation_name, info);
     }
 
@@ -252,7 +255,10 @@ impl GracefulDegradationManager {
         operation_name: String,
         strategy: DegradationStrategy,
     ) {
-        let mut strategies = self.degradation_strategies.write().unwrap();
+        let mut strategies = self
+            .degradation_strategies
+            .write()
+            .expect("lock should not be poisoned");
         strategies.insert(operation_name, strategy);
     }
 
@@ -261,7 +267,10 @@ impl GracefulDegradationManager {
         fallback_id: String,
         function: Box<dyn FallbackFunction>,
     ) {
-        let mut functions = self.fallback_functions.write().unwrap();
+        let mut functions = self
+            .fallback_functions
+            .write()
+            .expect("lock should not be poisoned");
         functions.insert(fallback_id, function);
     }
 
@@ -274,12 +283,18 @@ impl GracefulDegradationManager {
     }
 
     pub fn is_operation_supported(&self, operation_name: &str) -> bool {
-        let registry = self.operation_registry.read().unwrap();
+        let registry = self
+            .operation_registry
+            .read()
+            .expect("lock should not be poisoned");
         !registry.contains_key(operation_name)
     }
 
     pub fn get_operation_info(&self, operation_name: &str) -> Option<UnsupportedOperationInfo> {
-        let registry = self.operation_registry.read().unwrap();
+        let registry = self
+            .operation_registry
+            .read()
+            .expect("lock should not be poisoned");
         registry.get(operation_name).cloned()
     }
 
@@ -329,7 +344,10 @@ impl GracefulDegradationManager {
     where
         F: FnOnce() -> AutogradResult<R>,
     {
-        let strategies = self.degradation_strategies.read().unwrap();
+        let strategies = self
+            .degradation_strategies
+            .read()
+            .expect("lock should not be poisoned");
         let strategy = strategies.get(operation_name);
 
         match strategy {
@@ -420,7 +438,10 @@ impl GracefulDegradationManager {
                 fallback_id,
                 metadata: _metadata,
             }) => {
-                let functions = self.fallback_functions.read().unwrap();
+                let functions = self
+                    .fallback_functions
+                    .read()
+                    .expect("lock should not be poisoned");
                 if let Some(fallback_fn) = functions.get(fallback_id) {
                     tracing::info!(
                         "Using user-defined fallback '{}' for operation '{}'",
@@ -479,7 +500,10 @@ impl GracefulDegradationManager {
         success: bool,
         error_message: Option<String>,
     ) {
-        let registry = self.operation_registry.read().unwrap();
+        let registry = self
+            .operation_registry
+            .read()
+            .expect("lock should not be poisoned");
         let category = registry
             .get(operation_name)
             .map(|info| info.category.clone())
@@ -502,7 +526,10 @@ impl GracefulDegradationManager {
     }
 
     pub fn get_degradation_statistics(&self) -> DegradationStatistics {
-        let history = self.degradation_history.lock().unwrap();
+        let history = self
+            .degradation_history
+            .lock()
+            .expect("lock should not be poisoned");
         DegradationStatistics::from_events(&history)
     }
 
@@ -663,8 +690,16 @@ impl DegradationStatistics {
             None
         } else {
             let timestamps: Vec<_> = events.iter().map(|e| e.timestamp).collect();
-            let min_time = timestamps.iter().min().copied().unwrap();
-            let max_time = timestamps.iter().max().copied().unwrap();
+            let min_time = timestamps
+                .iter()
+                .min()
+                .copied()
+                .expect("events is non-empty");
+            let max_time = timestamps
+                .iter()
+                .max()
+                .copied()
+                .expect("events is non-empty");
             Some((min_time, max_time))
         };
 

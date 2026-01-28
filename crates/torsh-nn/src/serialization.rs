@@ -161,7 +161,7 @@ impl ModelState {
     /// Save the model state to binary format (more efficient)
     pub fn save_to_binary<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         let mut file = File::create(path)?;
-        let data = bincode::serde::encode_to_vec(self, bincode::config::standard())
+        let data = oxicode::serde::encode_to_vec(self, oxicode::config::standard())
             .map_err(|e| TorshError::SerializationError(e.to_string()))?;
         file.write_all(&data)?;
         Ok(())
@@ -173,7 +173,7 @@ impl ModelState {
         let mut data = Vec::new();
         file.read_to_end(&mut data)?;
         let (model_state, _): (ModelState, usize) =
-            bincode::serde::decode_from_slice(&data, bincode::config::standard())
+            oxicode::serde::decode_from_slice(&data, oxicode::config::standard())
                 .map_err(|e| TorshError::SerializationError(e.to_string()))?;
         Ok(model_state)
     }
@@ -209,7 +209,7 @@ impl ModelState {
         }
 
         let safetensors_data =
-            safetensors::serialize(&tensors, Some(metadata_map)).map_err(|e| {
+            safetensors::serialize(&tensors, &Some(metadata_map)).map_err(|e| {
                 TorshError::SerializationError(format!("SafeTensors serialization error: {}", e))
             })?;
 

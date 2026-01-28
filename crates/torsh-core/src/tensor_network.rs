@@ -325,8 +325,14 @@ impl TensorNetwork {
         let edge_id = edge.id;
 
         self.edges.insert(edge_id, edge);
-        self.adjacency.get_mut(&source).unwrap().push(edge_id);
-        self.adjacency.get_mut(&target).unwrap().push(edge_id);
+        self.adjacency
+            .get_mut(&source)
+            .expect("source node should exist in adjacency map")
+            .push(edge_id);
+        self.adjacency
+            .get_mut(&target)
+            .expect("target node should exist in adjacency map")
+            .push(edge_id);
 
         Ok(edge_id)
     }
@@ -378,7 +384,11 @@ impl TensorNetwork {
         }
 
         let mut visited = HashSet::new();
-        let start = *self.nodes.keys().next().unwrap();
+        let start = *self
+            .nodes
+            .keys()
+            .next()
+            .expect("nodes should have at least one key after is_empty check");
         let mut queue = VecDeque::new();
         queue.push_back(start);
         visited.insert(start);

@@ -591,7 +591,7 @@ pub struct SeasonalityFeatures {
 /// Note: The first max(lags) rows will contain zeros due to unavailable past values
 ///
 /// # Examples
-/// ```
+/// ```text
 /// // For series [1, 2, 3, 4, 5] with lags [1, 2]:
 /// // Result:
 /// // [[0, 0],   // t=0: no past values
@@ -599,7 +599,7 @@ pub struct SeasonalityFeatures {
 /// //  [2, 1],   // t=2: lag1=2, lag2=1
 /// //  [3, 2],   // t=3: lag1=3, lag2=2
 /// //  [4, 3]]   // t=4: lag1=4, lag2=3
-/// ```
+/// ```text
 pub fn create_lag_features(series: &TimeSeries, lags: &[usize]) -> TimeSeries {
     let data = series.values.to_vec().unwrap_or_default();
     let n = data.len();
@@ -626,7 +626,8 @@ pub fn create_lag_features(series: &TimeSeries, lags: &[usize]) -> TimeSeries {
         }
     }
 
-    let tensor = Tensor::from_vec(lag_matrix, &[n, num_lags]).unwrap();
+    let tensor =
+        Tensor::from_vec(lag_matrix, &[n, num_lags]).expect("tensor creation should succeed");
     TimeSeries::new(tensor)
 }
 
@@ -654,12 +655,12 @@ pub struct RollingStatistics {
 /// RollingStatistics containing mean, std, min, max, median for each time point
 ///
 /// # Examples
-/// ```
+/// ```text
 /// // For series [1, 2, 3, 4, 5] with window_size=3:
 /// // At t=2: window=[1,2,3], mean=2.0, std≈0.816
 /// // At t=3: window=[2,3,4], mean=3.0, std≈0.816
 /// // At t=4: window=[3,4,5], mean=4.0, std≈0.816
-/// ```
+/// ```text
 pub fn rolling_statistics(
     series: &TimeSeries,
     window_size: usize,
@@ -748,10 +749,10 @@ pub fn rolling_statistics(
 /// Matrix where each column is a difference feature
 ///
 /// # Examples
-/// ```
+/// ```text
 /// // For series [1, 3, 6, 10] with periods [1]:
 /// // Result: [[0], [2], [3], [4]]  // First differences
-/// ```
+/// ```text
 pub fn create_difference_features(series: &TimeSeries, periods: &[usize]) -> TimeSeries {
     let data = series.values.to_vec().unwrap_or_default();
     let n = data.len();
@@ -774,7 +775,8 @@ pub fn create_difference_features(series: &TimeSeries, periods: &[usize]) -> Tim
         }
     }
 
-    let tensor = Tensor::from_vec(diff_matrix, &[n, num_features]).unwrap();
+    let tensor =
+        Tensor::from_vec(diff_matrix, &[n, num_features]).expect("tensor creation should succeed");
     TimeSeries::new(tensor)
 }
 
@@ -844,7 +846,8 @@ pub fn create_interaction_features(
         }
     }
 
-    let tensor = Tensor::from_vec(feature_matrix, &[n, num_features]).unwrap();
+    let tensor = Tensor::from_vec(feature_matrix, &[n, num_features])
+        .expect("tensor creation should succeed");
     TimeSeries::new(tensor)
 }
 

@@ -6,7 +6,7 @@
 
 use crate::{Result, VisionError};
 use image::{DynamicImage, GenericImageView};
-use torsh_tensor::{creation, Tensor};
+use torsh_tensor::{creation, creation::zeros_mut, Tensor};
 
 // Import text rendering functions from the parent utils module
 use super::text_rendering::draw_simple_text;
@@ -81,8 +81,8 @@ pub fn make_grid(tensors: &[Tensor<f32>], nrow: usize, padding: usize) -> Result
     let grid_height = actual_nrow * height + (actual_nrow - 1) * padding;
     let grid_width = ncol * width + (ncol - 1) * padding;
 
-    // Create output grid tensor
-    let grid = creation::zeros(&[channels, grid_height, grid_width]).unwrap();
+    // Create output grid tensor (mutable storage for element-wise writes)
+    let grid = zeros_mut(&[channels, grid_height, grid_width]);
 
     // Fill the grid
     for (idx, tensor) in tensors.iter().enumerate() {
@@ -116,7 +116,7 @@ pub fn make_grid(tensors: &[Tensor<f32>], nrow: usize, padding: usize) -> Result
 /// * `image` - Mutable reference to the image to draw on
 /// * `boxes` - Tensor containing bounding box coordinates in format [N, 4] where each box is [x1, y1, x2, y2]
 /// * `labels` - Optional slice of string labels for each bounding box
-/// * `scores` - Optional tensor of confidence scores for each bounding box [N]
+/// * `scores` - Optional tensor of confidence scores for each bounding box \[N\]
 /// * `colors` - Optional slice of RGB color tuples for each box. Cycles through default colors if None
 ///
 /// # Returns

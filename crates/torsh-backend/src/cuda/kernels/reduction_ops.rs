@@ -1,5 +1,6 @@
 //! Rust bindings for reduction operation kernels
 
+#![allow(unused_imports)]
 #[allow(unused_imports)]
 use crate::cuda::error::{CudaError, CudaResult};
 
@@ -9,10 +10,10 @@ pub fn launch_sum_f32(
     output: *mut f32,
     size: usize,
     axis: i32,
-    stream: cuda_sys::CUstream,
+    stream: crate::cuda::CUstream,
 ) {
     unsafe {
-        super::cuda_kernels::launch_sum_f32(input, output, size, axis, stream);
+        super::cuda_kernels::launch_sum_f32(input, output, size as i32, axis, stream);
     }
 }
 
@@ -22,10 +23,10 @@ pub fn launch_mean_f32(
     output: *mut f32,
     size: usize,
     axis: i32,
-    stream: cuda_sys::CUstream,
+    stream: crate::cuda::CUstream,
 ) {
     unsafe {
-        super::cuda_kernels::launch_mean_f32(input, output, size, axis, stream);
+        super::cuda_kernels::launch_mean_f32(input, output, size as i32, axis, stream);
     }
 }
 
@@ -35,10 +36,10 @@ pub fn launch_max_f32(
     output: *mut f32,
     size: usize,
     axis: i32,
-    stream: cuda_sys::CUstream,
+    stream: crate::cuda::CUstream,
 ) {
     unsafe {
-        super::cuda_kernels::launch_max_f32(input, output, size, axis, stream);
+        super::cuda_kernels::launch_max_f32(input, output, size as i32, axis, stream);
     }
 }
 
@@ -48,10 +49,10 @@ pub fn launch_min_f32(
     output: *mut f32,
     size: usize,
     axis: i32,
-    stream: cuda_sys::CUstream,
+    stream: crate::cuda::CUstream,
 ) {
     unsafe {
-        super::cuda_kernels::launch_min_f32(input, output, size, axis, stream);
+        super::cuda_kernels::launch_min_f32(input, output, size as i32, axis, stream);
     }
 }
 

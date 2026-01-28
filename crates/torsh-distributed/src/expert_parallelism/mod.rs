@@ -263,8 +263,7 @@ mod tests {
 
         // Note: Pipeline execution may fail with mock backend
         // Test verifies system creation and basic functionality
-        if result.is_ok() {
-            let (output, _metrics) = result.unwrap();
+        if let Ok((output, _metrics)) = result {
             // Verify output shape if pipeline succeeded
             assert!(output.shape().dims().len() >= 2);
         }

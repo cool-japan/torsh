@@ -83,7 +83,10 @@ pub async fn download_files_parallel(
             let semaphore = semaphore.clone();
 
             async move {
-                let _permit = semaphore.acquire().await.unwrap();
+                let _permit = semaphore
+                    .acquire()
+                    .await
+                    .expect("semaphore acquire should succeed");
 
                 if progress {
                     println!(

@@ -10,9 +10,9 @@
 //! - Advanced mel-scale operations powered by SciRS2
 //!
 //! The module is organized into the following submodules:
-//! - [`stft`] - Short-Time Fourier Transform operations
+//! - [`mod@stft`] - Short-Time Fourier Transform operations
 //! - [`mel`] - Mel-scale operations and filterbanks
-//! - [`spectrogram`] - Spectrogram computation utilities
+//! - [`mod@spectrogram`] - Spectrogram computation utilities
 
 pub mod mel;
 pub mod spectrogram;
@@ -55,7 +55,7 @@ mod tests {
             ..Default::default()
         };
 
-        let result = stft(&signal, params).unwrap();
+        let result = stft(&signal, params).expect("stft should succeed");
         let shape = result.shape();
 
         // Should have shape [n_freqs, n_frames]
@@ -66,7 +66,8 @@ mod tests {
 
     #[test]
     fn test_mel_filterbank() -> torsh_core::error::Result<()> {
-        let filterbank = mel_filterbank(128, 2048, 16000.0, 0.0, None).unwrap();
+        let filterbank =
+            mel_filterbank(128, 2048, 16000.0, 0.0, None).expect("mel_filterbank should succeed");
         assert_eq!(filterbank.shape().dims(), &[128, 1025]);
 
         // Check that filters sum to approximately 1
@@ -74,7 +75,7 @@ mod tests {
         if sum.shape().ndim() == 0 {
             // Sum is a scalar
             let val = sum.item();
-            let val_unwrapped = val.unwrap();
+            let val_unwrapped = val.expect("item value should be present");
             assert!(val_unwrapped >= 0.0 && val_unwrapped <= 2048.0); // Total sum across all filters
         } else {
             // Sum per dimension

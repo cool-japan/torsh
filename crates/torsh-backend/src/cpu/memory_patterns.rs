@@ -102,7 +102,7 @@ impl CacheAlignedAllocator {
         }
 
         Ok(CacheAlignedBuffer {
-            ptr: NonNull::new(ptr as *mut T).unwrap(),
+            ptr: NonNull::new(ptr as *mut T).expect("ptr should not be null after null check"),
             len: count,
             layout,
             numa_policy: self.numa_policy,
@@ -125,7 +125,7 @@ impl CacheAlignedAllocator {
         }
 
         Ok(CacheAlignedBuffer {
-            ptr: NonNull::new(ptr as *mut T).unwrap(),
+            ptr: NonNull::new(ptr as *mut T).expect("ptr should not be null after null check"),
             len: count,
             layout,
             numa_policy: self.numa_policy,

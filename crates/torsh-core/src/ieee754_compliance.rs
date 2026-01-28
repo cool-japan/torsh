@@ -249,8 +249,8 @@ impl ComplianceChecker {
         let pos_inf = T::positive_infinity();
         let neg_inf = T::negative_infinity();
         let nan = T::quiet_nan();
-        let one = T::from(1.0).unwrap();
-        let zero = T::from(0.0).unwrap();
+        let one = T::from(1.0).expect("numeric conversion should succeed");
+        let zero = T::from(0.0).expect("numeric conversion should succeed");
 
         // Infinity + Infinity = Infinity
         assert!((pos_inf + pos_inf).is_positive_infinity());
@@ -288,7 +288,7 @@ impl ComplianceChecker {
         let pos_inf = T::positive_infinity();
         let neg_inf = T::negative_infinity();
         let nan = T::quiet_nan();
-        let one = T::from(1.0).unwrap();
+        let one = T::from(1.0).expect("numeric conversion should succeed");
         let pos_zero = T::positive_zero();
         let neg_zero = T::negative_zero();
 
@@ -315,8 +315,8 @@ impl ComplianceChecker {
 
     /// Check sign operations
     pub fn check_sign_operations<T: IEEE754Float>() -> Result<()> {
-        let one = T::from(1.0).unwrap();
-        let neg_one = T::from(-1.0).unwrap();
+        let one = T::from(1.0).expect("numeric conversion should succeed");
+        let neg_one = T::from(-1.0).expect("numeric conversion should succeed");
         let pos_zero = T::positive_zero();
         let neg_zero = T::negative_zero();
 
@@ -340,16 +340,16 @@ impl ComplianceChecker {
         // This is a basic check; actual subnormal handling depends on CPU flags
         // Most CPUs support gradual underflow (subnormal numbers)
         let min_positive = if std::mem::size_of::<T>() == 4 {
-            T::from(f32::MIN_POSITIVE).unwrap()
+            T::from(f32::MIN_POSITIVE).expect("numeric conversion should succeed")
         } else {
-            T::from(f64::MIN_POSITIVE).unwrap()
+            T::from(f64::MIN_POSITIVE).expect("numeric conversion should succeed")
         };
 
-        let two = T::from(2.0).unwrap();
+        let two = T::from(2.0).expect("numeric conversion should succeed");
         let half_min = min_positive / two;
 
         // half_min should be subnormal (if supported)
-        if half_min != T::from(0.0).unwrap() {
+        if half_min != T::from(0.0).expect("numeric conversion should succeed") {
             assert!(IEEE754Float::is_subnormal(half_min));
         }
 

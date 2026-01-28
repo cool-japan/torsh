@@ -174,7 +174,7 @@ impl CheckpointManager {
             let decompressed = self.decompress_data(&data)?;
             {
                 let (checkpoint, _): (Checkpoint, usize) =
-                    bincode::serde::decode_from_slice(&decompressed, bincode::config::standard())
+                    oxicode::serde::decode_from_slice(&decompressed, oxicode::config::standard())
                         .map_err(|e| {
                         OptimizerError::CheckpointError(format!(
                             "Failed to deserialize checkpoint: {e}"
@@ -183,9 +183,9 @@ impl CheckpointManager {
                 checkpoint
             }
         } else {
-            let (checkpoint, _): (Checkpoint, usize) = bincode::serde::decode_from_slice(
+            let (checkpoint, _): (Checkpoint, usize) = oxicode::serde::decode_from_slice(
                 &data,
-                bincode::config::standard(),
+                oxicode::config::standard(),
             )
             .map_err(|e| {
                 OptimizerError::CheckpointError(format!("Failed to deserialize checkpoint: {e}"))
@@ -324,7 +324,7 @@ impl CheckpointManager {
             })?;
         }
 
-        let data = bincode::serde::encode_to_vec(checkpoint, bincode::config::standard()).map_err(
+        let data = oxicode::serde::encode_to_vec(checkpoint, oxicode::config::standard()).map_err(
             |e| OptimizerError::CheckpointError(format!("Failed to serialize checkpoint: {e}")),
         )?;
 
@@ -347,8 +347,8 @@ impl CheckpointManager {
         let compress = self.config.compress;
 
         std::thread::spawn(move || {
-            let data =
-                bincode::serde::encode_to_vec(&checkpoint, bincode::config::standard()).unwrap();
+            let data = oxicode::serde::encode_to_vec(&checkpoint, oxicode::config::standard())
+                .expect("checkpoint serialization should succeed");
             let final_data = if compress {
                 // Simple compression implementation
                 data // For now, just use the original data
@@ -538,12 +538,12 @@ mod tests {
 
     impl CheckpointSupport for MockOptimizer {
         fn save_state_for_checkpoint(&self) -> Result<Vec<u8>, OptimizerError> {
-            Ok(bincode::serde::encode_to_vec(&self.state, bincode::config::standard()).unwrap())
+            Ok(oxicode::serde::encode_to_vec(&self.state, oxicode::config::standard()).unwrap())
         }
 
         fn load_state_from_checkpoint(&mut self, data: &[u8]) -> Result<(), OptimizerError> {
             let (state, _): (HashMap<String, f32>, usize) =
-                bincode::serde::decode_from_slice(data, bincode::config::standard()).unwrap();
+                oxicode::serde::decode_from_slice(data, oxicode::config::standard()).unwrap();
             self.state = state;
             Ok(())
         }

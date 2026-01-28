@@ -624,8 +624,8 @@ impl CompressionSelector {
         }
 
         // Check if there's a region with >80% density
-        let min_idx = *indices.iter().min().unwrap();
-        let max_idx = *indices.iter().max().unwrap();
+        let min_idx = *indices.iter().min().expect("reduction should succeed");
+        let max_idx = *indices.iter().max().expect("reduction should succeed");
         let range = max_idx - min_idx + 1;
 
         if range == 0 {
@@ -655,7 +655,10 @@ impl MagnitudeThresholdCalculator {
         }
 
         let mut sorted_values: Vec<f32> = values.iter().map(|v| v.abs()).collect();
-        sorted_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted_values.sort_by(|a, b| {
+            a.partial_cmp(b)
+                .expect("absolute values should be comparable (no NaN)")
+        });
 
         let index = ((percentile as f32 / 100.0) * sorted_values.len() as f32) as usize;
         let index = index.min(sorted_values.len() - 1);
@@ -670,7 +673,10 @@ impl MagnitudeThresholdCalculator {
         }
 
         let mut sorted_values: Vec<f32> = values.iter().map(|v| v.abs()).collect();
-        sorted_values.sort_by(|a, b| b.partial_cmp(a).unwrap());
+        sorted_values.sort_by(|a, b| {
+            b.partial_cmp(a)
+                .expect("absolute values should be comparable (no NaN)")
+        });
 
         let k = k.min(sorted_values.len());
         sorted_values[k - 1]

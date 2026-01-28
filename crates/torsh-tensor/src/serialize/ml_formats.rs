@@ -3,9 +3,14 @@
 //! This module provides serialization support for machine learning formats,
 //! particularly ONNX (Open Neural Network Exchange) for ML model interoperability.
 
+// Imports needed by both real implementations and stubs
+#[allow(unused_imports)]
 use super::common::{SerializationFormat, SerializationOptions, TensorMetadata};
+#[allow(unused_imports)]
 use crate::{Tensor, TensorElement};
+#[allow(unused_imports)]
 use std::path::Path;
+#[allow(unused_imports)]
 use torsh_core::error::{Result, TorshError};
 
 /// ONNX format implementation
@@ -27,7 +32,7 @@ pub mod onnx {
     /// * `Result<()>` - Ok if successful, error otherwise
     pub fn serialize_onnx<T: TensorElement>(
         tensor: &Tensor<T>,
-        path: &Path,
+        _path: &Path,
         options: &SerializationOptions,
     ) -> Result<()> {
         // TODO: Implement ONNX serialization using onnx-rs crate

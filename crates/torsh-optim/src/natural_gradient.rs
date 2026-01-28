@@ -130,7 +130,9 @@ impl Optimizer for NaturalGradient {
                     continue;
                 }
 
-                let grad = param.grad().unwrap();
+                let grad = param
+                    .grad()
+                    .expect("gradient should exist after has_grad check");
                 let param_id = format!("{:p}", param_arc.as_ref());
 
                 // Extract data early to avoid borrow conflicts
@@ -151,9 +153,15 @@ impl Optimizer for NaturalGradient {
                     state.insert("step".to_string(), zeros_like(&param)?);
                 }
 
-                let mut momentum_buffer = state.get("momentum_buffer").unwrap().clone();
-                let mut fisher_matrix = state.get("fisher_matrix").unwrap().clone();
-                let mut step_tensor = state.get("step").unwrap().clone();
+                let mut momentum_buffer = state
+                    .get("momentum_buffer")
+                    .expect("momentum_buffer state should exist")
+                    .clone();
+                let mut fisher_matrix = state
+                    .get("fisher_matrix")
+                    .expect("fisher_matrix state should exist")
+                    .clone();
+                let mut step_tensor = state.get("step").expect("step state should exist").clone();
 
                 // Increment step count
                 step_tensor.add_scalar_(1.0)?;

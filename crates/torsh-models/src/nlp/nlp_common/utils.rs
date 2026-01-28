@@ -77,7 +77,10 @@ impl NlpModelUtils {
             .collect();
 
         // Sort by probability descending
-        indexed_probs.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        indexed_probs.sort_by(|a, b| {
+            b.1.partial_cmp(&a.1)
+                .expect("probabilities should be comparable")
+        });
 
         let mut cumulative_prob = 0.0;
         let mut cutoff_index = indexed_probs.len();
@@ -117,7 +120,7 @@ impl NlpModelUtils {
             .collect();
 
         // Sort by score descending
-        predictions.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        predictions.sort_by(|a, b| b.1.partial_cmp(&a.1).expect("scores should be comparable"));
 
         // Take top-k
         predictions
@@ -147,7 +150,7 @@ impl NlpModelUtils {
             let next_token_id = logits
                 .iter()
                 .enumerate()
-                .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+                .max_by(|a, b| a.1.partial_cmp(b.1).expect("logits should be comparable"))
                 .map(|(i, _)| i as u32)
                 .unwrap_or(0);
 
@@ -196,7 +199,10 @@ impl NlpModelUtils {
             let next_token_id = probs
                 .iter()
                 .enumerate()
-                .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+                .max_by(|a, b| {
+                    a.1.partial_cmp(b.1)
+                        .expect("probabilities should be comparable")
+                })
                 .map(|(i, _)| i as u32)
                 .unwrap_or(0);
 

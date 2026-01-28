@@ -251,7 +251,7 @@ impl TensorInspector {
         let properties = self.analyze_properties(shape, dtype, device)?;
         let memory_layout = self.analyze_memory_layout(shape)?;
         let statistics = if self.config.show_statistics && data.is_some() {
-            Some(self.compute_statistics(data.unwrap())?)
+            Some(self.compute_statistics(data.expect("data should be Some after is_some check"))?)
         } else {
             None
         };

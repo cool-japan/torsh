@@ -8,7 +8,7 @@ use crate::compression::{
     GradientCompressor,
 };
 use crate::simd_ops::{F32SimdAccumulator, SimdGradAccumulator, SimdLevel};
-use num_traits::{FromPrimitive, ToPrimitive};
+use scirs2_core::numeric::{FromPrimitive, ToPrimitive};
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -328,7 +328,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> DistributedGradAccumulator<T
 
         // Update statistics
         let sync_time = start_time.elapsed();
-        let mut stats = self.stats.write().unwrap();
+        let mut stats = self.stats.write().expect("lock should not be poisoned");
         stats.total_communications += 1;
         stats.total_comm_time += sync_time;
         stats.sync_overhead += sync_time;
@@ -470,7 +470,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> DistributedGradAccumulator<T
                 let compression_ratio = compressed_size as f64 / original_size as f64;
 
                 // Update statistics
-                let mut stats = self.stats.write().unwrap();
+                let mut stats = self.stats.write().expect("lock should not be poisoned");
                 stats.total_communications += 1;
                 stats.total_data_communicated += compressed_size; // Use compressed size for bandwidth calculation
                 stats.total_comm_time += total_time;
@@ -515,11 +515,11 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> DistributedGradAccumulator<T
             for i in start_idx..end_idx {
                 if let Some(val) = bucket.data.get_mut(i) {
                     // Apply reduction - for simulation, scale by world size
-                    *val = *val * T::from_usize(world_size).unwrap();
+                    *val = *val * T::from_usize(world_size).expect("numeric conversion should succeed");
 
                     // Apply division for mean operation
                     if self.config.reduction_op == ReductionOp::Mean {
-                        *val = *val / T::from_usize(world_size).unwrap();
+                        *val = *val / T::from_usize(world_size).expect("numeric conversion should succeed");
                     }
                 }
             }
@@ -556,7 +556,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> DistributedGradAccumulator<T
                     } else {
                         // Simulate slightly different data from other ranks
                         val * <T as torsh_core::TensorElement>::from_f64(1.0 + (rank as f64 * 0.01))
-                            .unwrap()
+                            .expect("f64 conversion should succeed")
                     };
                     gathered_data.push(simulated_val);
                 }
@@ -565,7 +565,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> DistributedGradAccumulator<T
             bucket.data = gathered_data;
 
             // Update statistics
-            let mut stats = self.stats.write().unwrap();
+            let mut stats = self.stats.write().expect("lock should not be poisoned");
             stats.total_data_communicated += std::mem::size_of_val(&bucket.data);
         }
 
@@ -590,7 +590,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> DistributedGradAccumulator<T
                     ReductionOp::Sum => {
                         // Server accumulates gradients from all workers
                         for val in bucket.data.iter_mut() {
-                            *val = *val * T::from_usize(self.config.world_size).unwrap();
+                            *val = *val * T::from_usize(self.config.world_size).expect("numeric conversion should succeed");
                         }
                     }
                     ReductionOp::Mean => {
@@ -618,7 +618,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> DistributedGradAccumulator<T
             }
 
             // Update statistics
-            let mut stats = self.stats.write().unwrap();
+            let mut stats = self.stats.write().expect("lock should not be poisoned");
             stats.total_data_communicated += std::mem::size_of_val(&bucket.data);
         }
 
@@ -679,7 +679,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> DistributedGradAccumulator<T
                     if let Some(val) = bucket.data.get_mut(i) {
                         // Simulate accumulating gradients from neighbor
                         *val = *val
-                            + (*val * <T as torsh_core::TensorElement>::from_f64(0.1).unwrap());
+                            + (*val * <T as torsh_core::TensorElement>::from_f64(0.1).expect("f64 conversion should succeed"));
                         // Small increment to simulate accumulation
                     }
                 }
@@ -708,14 +708,14 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> DistributedGradAccumulator<T
             match self.config.reduction_op {
                 ReductionOp::Mean => {
                     for val in bucket.data.iter_mut() {
-                        *val = *val / T::from_usize(world_size).unwrap();
+                        *val = *val / T::from_usize(world_size).expect("numeric conversion should succeed");
                     }
                 }
                 _ => {} // Other ops handled during reduce phase
             }
 
             // Update statistics
-            let mut stats = self.stats.write().unwrap();
+            let mut stats = self.stats.write().expect("lock should not be poisoned");
             stats.total_data_communicated += std::mem::size_of_val(&bucket.data) * 2;
             // Two phases
         }
@@ -763,7 +763,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> DistributedGradAccumulator<T
                         // Simulate receiving and accumulating gradients from child1
                         for val in bucket.data.iter_mut() {
                             *val = *val
-                                + (*val * <T as torsh_core::TensorElement>::from_f64(0.5).unwrap());
+                                + (*val * <T as torsh_core::TensorElement>::from_f64(0.5).expect("f64 conversion should succeed"));
                             // Simulate child contribution
                         }
 
@@ -776,7 +776,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> DistributedGradAccumulator<T
                         // Simulate receiving and accumulating gradients from child2
                         for val in bucket.data.iter_mut() {
                             *val = *val
-                                + (*val * <T as torsh_core::TensorElement>::from_f64(0.5).unwrap());
+                                + (*val * <T as torsh_core::TensorElement>::from_f64(0.5).expect("f64 conversion should succeed"));
                             // Simulate child contribution
                         }
 
@@ -819,7 +819,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> DistributedGradAccumulator<T
             match self.config.reduction_op {
                 ReductionOp::Mean => {
                     for val in bucket.data.iter_mut() {
-                        *val = *val / T::from_usize(world_size).unwrap();
+                        *val = *val / T::from_usize(world_size).expect("numeric conversion should succeed");
                     }
                 }
                 ReductionOp::Sum => {
@@ -832,7 +832,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> DistributedGradAccumulator<T
             }
 
             // Update statistics
-            let mut stats = self.stats.write().unwrap();
+            let mut stats = self.stats.write().expect("lock should not be poisoned");
             stats.total_data_communicated += std::mem::size_of_val(&bucket.data) * tree_height * 2;
             // Up and down
         }
@@ -857,7 +857,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> DistributedGradAccumulator<T
         let compression_ratio = compressed_size as f64 / original_size as f64;
 
         {
-            let mut stats = self.stats.write().unwrap();
+            let mut stats = self.stats.write().expect("lock should not be poisoned");
             stats.compression_ratio = (stats.compression_ratio + compression_ratio) / 2.0;
             // Running average
         }
@@ -952,7 +952,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> DistributedGradAccumulator<T
                 // For simulation, we just multiply by world size to simulate sum
                 // In real implementation, this would be the result of actual communication
                 for val in data.iter_mut() {
-                    *val = *val * T::from_usize(world_size).unwrap();
+                    *val = *val * T::from_usize(world_size).expect("numeric conversion should succeed");
                 }
             }
             ReductionOp::Mean => {
@@ -992,7 +992,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> DistributedGradAccumulator<T
 
     /// Get distributed training statistics
     pub fn get_stats(&self) -> DistributedStats {
-        self.stats.read().unwrap().clone()
+        self.stats.read().expect("lock should not be poisoned").clone()
     }
 
     /// Check if this is the master rank

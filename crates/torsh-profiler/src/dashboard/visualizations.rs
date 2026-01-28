@@ -111,7 +111,14 @@ impl PerformanceLandscape {
             return 100_000; // 100ms default
         }
 
-        let total_duration = events.last().unwrap().start_us - events.first().unwrap().start_us;
+        let total_duration = events
+            .last()
+            .expect("events should not be empty after early return check")
+            .start_us
+            - events
+                .first()
+                .expect("events should not be empty after early return check")
+                .start_us;
         let target_windows = self.config.grid_resolution;
 
         if total_duration > 0 && target_windows > 0 {
@@ -433,7 +440,14 @@ impl PerformanceHeatmap {
             return 100_000;
         }
 
-        let total_duration = events.last().unwrap().start_us - events.first().unwrap().start_us;
+        let total_duration = events
+            .last()
+            .expect("events should not be empty after early return check")
+            .start_us
+            - events
+                .first()
+                .expect("events should not be empty after early return check")
+                .start_us;
         if total_duration > 0 {
             (total_duration / self.width as u64).max(10_000) // Min 10ms windows
         } else {

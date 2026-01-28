@@ -101,12 +101,16 @@ impl CircuitBreaker {
 
     /// Check if a request should be allowed through
     pub fn allow_request(&self) -> bool {
-        let state = self.state.lock().unwrap();
+        let state = self.state.lock().expect("lock should not be poisoned");
         match *state {
             CircuitBreakerState::Closed => true,
             CircuitBreakerState::Open => {
                 // Check if timeout has passed
-                if let Some(last_failure) = *self.last_failure_time.lock().unwrap() {
+                if let Some(last_failure) = *self
+                    .last_failure_time
+                    .lock()
+                    .expect("lock should not be poisoned")
+                {
                     last_failure.elapsed() >= self.config.timeout
                 } else {
                     true
@@ -118,9 +122,12 @@ impl CircuitBreaker {
 
     /// Record a successful operation
     pub fn record_success(&self) {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock().expect("lock should not be poisoned");
         self.success_count.fetch_add(1, Ordering::Relaxed);
-        *self.last_success_time.lock().unwrap() = Some(Instant::now());
+        *self
+            .last_success_time
+            .lock()
+            .expect("lock should not be poisoned") = Some(Instant::now());
 
         match *state {
             CircuitBreakerState::HalfOpen => {
@@ -138,7 +145,11 @@ impl CircuitBreaker {
             }
             CircuitBreakerState::Open => {
                 // Transition to half-open if timeout has passed
-                if let Some(last_failure) = *self.last_failure_time.lock().unwrap() {
+                if let Some(last_failure) = *self
+                    .last_failure_time
+                    .lock()
+                    .expect("lock should not be poisoned")
+                {
                     if last_failure.elapsed() >= self.config.timeout {
                         info!("Circuit breaker transitioning to HALF_OPEN state after timeout");
                         *state = CircuitBreakerState::HalfOpen;
@@ -157,9 +168,12 @@ impl CircuitBreaker {
 
     /// Record a failed operation
     pub fn record_failure(&self) {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock().expect("lock should not be poisoned");
         self.failure_count.fetch_add(1, Ordering::Relaxed);
-        *self.last_failure_time.lock().unwrap() = Some(Instant::now());
+        *self
+            .last_failure_time
+            .lock()
+            .expect("lock should not be poisoned") = Some(Instant::now());
 
         match *state {
             CircuitBreakerState::Closed => {
@@ -187,7 +201,10 @@ impl CircuitBreaker {
 
     /// Get current state
     pub fn state(&self) -> CircuitBreakerState {
-        self.state.lock().unwrap().clone()
+        self.state
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Get failure count
@@ -378,11 +395,17 @@ impl HealthChecker {
     pub fn mark_healthy(&self, rank: u32) {
         let now = Instant::now();
         {
-            let mut healthy = self.healthy_ranks.lock().unwrap();
+            let mut healthy = self
+                .healthy_ranks
+                .lock()
+                .expect("lock should not be poisoned");
             healthy.insert(rank, now);
         }
         {
-            let mut unhealthy = self.unhealthy_ranks.lock().unwrap();
+            let mut unhealthy = self
+                .unhealthy_ranks
+                .lock()
+                .expect("lock should not be poisoned");
             unhealthy.remove(&rank);
         }
         debug!("Rank {} marked as healthy", rank);
@@ -392,11 +415,17 @@ impl HealthChecker {
     pub fn mark_unhealthy(&self, rank: u32) {
         let now = Instant::now();
         {
-            let mut unhealthy = self.unhealthy_ranks.lock().unwrap();
+            let mut unhealthy = self
+                .unhealthy_ranks
+                .lock()
+                .expect("lock should not be poisoned");
             unhealthy.insert(rank, now);
         }
         {
-            let mut healthy = self.healthy_ranks.lock().unwrap();
+            let mut healthy = self
+                .healthy_ranks
+                .lock()
+                .expect("lock should not be poisoned");
             healthy.remove(&rank);
         }
         warn!("Rank {} marked as unhealthy", rank);
@@ -409,7 +438,10 @@ impl HealthChecker {
 
     /// Check if a rank is healthy
     pub fn is_healthy(&self, rank: u32) -> bool {
-        let healthy = self.healthy_ranks.lock().unwrap();
+        let healthy = self
+            .healthy_ranks
+            .lock()
+            .expect("lock should not be poisoned");
         if let Some(last_seen) = healthy.get(&rank) {
             last_seen.elapsed() < self.health_timeout
         } else {
@@ -419,7 +451,10 @@ impl HealthChecker {
 
     /// Get all healthy ranks
     pub fn get_healthy_ranks(&self) -> Vec<u32> {
-        let healthy = self.healthy_ranks.lock().unwrap();
+        let healthy = self
+            .healthy_ranks
+            .lock()
+            .expect("lock should not be poisoned");
         let now = Instant::now();
         healthy
             .iter()
@@ -430,7 +465,10 @@ impl HealthChecker {
 
     /// Get all unhealthy ranks
     pub fn get_unhealthy_ranks(&self) -> Vec<u32> {
-        let unhealthy = self.unhealthy_ranks.lock().unwrap();
+        let unhealthy = self
+            .unhealthy_ranks
+            .lock()
+            .expect("lock should not be poisoned");
         unhealthy.keys().copied().collect()
     }
 
@@ -438,13 +476,19 @@ impl HealthChecker {
     pub fn cleanup_stale_entries(&self) {
         let now = Instant::now();
         {
-            let mut healthy = self.healthy_ranks.lock().unwrap();
+            let mut healthy = self
+                .healthy_ranks
+                .lock()
+                .expect("lock should not be poisoned");
             healthy.retain(|_, &mut last_seen| {
                 now.duration_since(last_seen) < self.health_timeout * 2
             });
         }
         {
-            let mut unhealthy = self.unhealthy_ranks.lock().unwrap();
+            let mut unhealthy = self
+                .unhealthy_ranks
+                .lock()
+                .expect("lock should not be poisoned");
             unhealthy.retain(|_, &mut last_seen| {
                 now.duration_since(last_seen) < self.health_timeout * 2
             });
@@ -555,8 +599,7 @@ mod tests {
                         Err(TorshDistributedError::communication_error(
                             "test_operation",
                             "Temporary failure",
-                        )
-                        .into())
+                        ))
                     } else {
                         Ok("success")
                     }

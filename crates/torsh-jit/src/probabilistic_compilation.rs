@@ -79,7 +79,7 @@ impl NormalDistribution {
         use std::time::{SystemTime, UNIX_EPOCH};
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after UNIX_EPOCH")
             .subsec_nanos();
         ((nanos % 10000) as f64 / 10000.0).max(0.0001)
     }
@@ -570,7 +570,7 @@ impl ProbabilisticCompiler {
                 samples.push(time);
             }
 
-            samples.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            samples.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
             let mean = samples.iter().sum::<f64>() / num_samples as f64;
             let variance =

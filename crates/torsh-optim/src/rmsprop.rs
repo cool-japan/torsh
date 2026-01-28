@@ -100,7 +100,10 @@ impl Optimizer for RMSprop {
                     param_state.insert("square_avg".to_string(), square_avg.clone());
                     square_avg
                 } else {
-                    param_state.get("square_avg").unwrap().clone()
+                    param_state
+                        .get("square_avg")
+                        .expect("square_avg state should exist")
+                        .clone()
                 };
 
                 // Update square average: square_avg = alpha * square_avg + (1 - alpha) * grad^2
@@ -126,7 +129,10 @@ impl Optimizer for RMSprop {
                         param_state.insert("grad_avg".to_string(), grad_avg.clone());
                         grad_avg
                     } else {
-                        param_state.get("grad_avg").unwrap().clone()
+                        param_state
+                            .get("grad_avg")
+                            .expect("grad_avg state should exist")
+                            .clone()
                     };
 
                     // Update gradient average: grad_avg = alpha * grad_avg + (1 - alpha) * grad
@@ -172,7 +178,10 @@ impl Optimizer for RMSprop {
                         param_state.insert("momentum_buffer".to_string(), buf.clone());
                         buf
                     } else {
-                        param_state.get("momentum_buffer").unwrap().clone()
+                        param_state
+                            .get("momentum_buffer")
+                            .expect("momentum_buffer state should exist")
+                            .clone()
                     };
 
                     // Update momentum buffer: buf = momentum * buf + update

@@ -4,7 +4,7 @@ use crate::{Tensor, TensorElement, FloatElement};
 use torsh_core::error::{Result, TorshError};
 use torsh_core::shape::Shape;
 use scirs2_core::ndarray::{Array, Array2, ArrayView, Axis, IxDyn};
-use num_traits::{Float, Zero, One, cast::ToPrimitive};
+use scirs2_core::numeric::{Float, Zero, One, cast::ToPrimitive};
 use std::ops::{Add, Mul, Sub};
 
 // ✅ SciRS2 Advanced Performance Features for Matrix Operations
@@ -798,5 +798,352 @@ impl<T: FloatElement> Tensor<T> {
         // For now, use simple approach: x = A^(-1) * b
         let inv_a = self.inverse()?;
         inv_a.matmul(b)
+    }
+
+    /// Returns the lower triangular part of the matrix
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to `torch.tril(tensor, diagonal)`
+    ///
+    /// # Arguments
+    /// * `diagonal` - Offset from main diagonal (0 = main diagonal, >0 above, <0 below)
+    pub fn tril(&self, diagonal: isize) -> Result<Self>
+    where
+        T: Zero + Copy,
+    {
+        let shape = self.shape().dims();
+        if shape.len() < 2 {
+            return Err(TorshError::InvalidArgument(
+                "tril requires at least 2D tensor".to_string(),
+            ));
+        }
+
+        let data = self.data()?;
+        let mut result = vec![<T as Zero>::zero(); data.len()];
+
+        let rows = shape[shape.len() - 2];
+        let cols = shape[shape.len() - 1];
+        let matrix_size = rows * cols;
+        let num_matrices = data.len() / matrix_size;
+
+        for mat_idx in 0..num_matrices {
+            let offset = mat_idx * matrix_size;
+            for i in 0..rows {
+                for j in 0..cols {
+                    let idx = offset + i * cols + j;
+                    // Keep element if column index <= row index + diagonal
+                    if (j as isize) <= (i as isize) + diagonal {
+                        result[idx] = data[idx];
+                    }
+                }
+            }
+        }
+
+        Self::from_data(result, shape.to_vec(), self.device.clone())
+    }
+
+    /// Returns the upper triangular part of the matrix
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to `torch.triu(tensor, diagonal)`
+    ///
+    /// # Arguments
+    /// * `diagonal` - Offset from main diagonal (0 = main diagonal, >0 above, <0 below)
+    pub fn triu(&self, diagonal: isize) -> Result<Self>
+    where
+        T: Zero + Copy,
+    {
+        let shape = self.shape().dims();
+        if shape.len() < 2 {
+            return Err(TorshError::InvalidArgument(
+                "triu requires at least 2D tensor".to_string(),
+            ));
+        }
+
+        let data = self.data()?;
+        let mut result = vec![<T as Zero>::zero(); data.len()];
+
+        let rows = shape[shape.len() - 2];
+        let cols = shape[shape.len() - 1];
+        let matrix_size = rows * cols;
+        let num_matrices = data.len() / matrix_size;
+
+        for mat_idx in 0..num_matrices {
+            let offset = mat_idx * matrix_size;
+            for i in 0..rows {
+                for j in 0..cols {
+                    let idx = offset + i * cols + j;
+                    // Keep element if column index >= row index + diagonal
+                    if (j as isize) >= (i as isize) + diagonal {
+                        result[idx] = data[idx];
+                    }
+                }
+            }
+        }
+
+        Self::from_data(result, shape.to_vec(), self.device.clone())
+    }
+
+    /// Returns the diagonal elements of the matrix
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to `torch.diagonal(tensor, offset, dim1, dim2)`
+    ///
+    /// # Arguments
+    /// * `offset` - Offset from main diagonal (0 = main diagonal, >0 above, <0 below)
+    /// * `dim1` - First dimension (default: -2)
+    /// * `dim2` - Second dimension (default: -1)
+    pub fn diagonal(&self, offset: isize, dim1: Option<isize>, dim2: Option<isize>) -> Result<Self>
+    where
+        T: Copy,
+    {
+        let shape = self.shape().dims();
+        let ndim = shape.len();
+
+        if ndim < 2 {
+            return Err(TorshError::InvalidArgument(
+                "diagonal requires at least 2D tensor".to_string(),
+            ));
+        }
+
+        // Normalize dimensions
+        let d1 = if let Some(d) = dim1 {
+            if d < 0 {
+                (ndim as isize + d) as usize
+            } else {
+                d as usize
+            }
+        } else {
+            ndim - 2
+        };
+
+        let d2 = if let Some(d) = dim2 {
+            if d < 0 {
+                (ndim as isize + d) as usize
+            } else {
+                d as usize
+            }
+        } else {
+            ndim - 1
+        };
+
+        if d1 >= ndim || d2 >= ndim {
+            return Err(TorshError::InvalidArgument(
+                "dimension out of range".to_string(),
+            ));
+        }
+
+        if d1 == d2 {
+            return Err(TorshError::InvalidArgument(
+                "dimensions must be different".to_string(),
+            ));
+        }
+
+        let data = self.data()?;
+        let rows = shape[d1];
+        let cols = shape[d2];
+
+        // Determine diagonal length
+        let diag_len = if offset >= 0 {
+            if offset as usize >= cols {
+                0
+            } else {
+                std::cmp::min(rows, cols - offset as usize)
+            }
+        } else {
+            let abs_offset = (-offset) as usize;
+            if abs_offset >= rows {
+                0
+            } else {
+                std::cmp::min(rows - abs_offset, cols)
+            }
+        };
+
+        if diag_len == 0 {
+            return Self::from_data(vec![], vec![0], self.device.clone());
+        }
+
+        // Extract diagonal elements
+        // For simplicity, handle 2D case
+        if ndim == 2 {
+            let mut result = Vec::with_capacity(diag_len);
+
+            for i in 0..diag_len {
+                let row = if offset < 0 {
+                    i + (-offset) as usize
+                } else {
+                    i
+                };
+                let col = if offset >= 0 {
+                    i + offset as usize
+                } else {
+                    i
+                };
+
+                if row < rows && col < cols {
+                    let idx = row * cols + col;
+                    result.push(data[idx]);
+                }
+            }
+
+            return Self::from_data(result, vec![diag_len], self.device.clone());
+        }
+
+        // For higher dimensions, this is more complex - simplified implementation
+        Err(TorshError::NotImplemented(
+            "diagonal for >2D tensors not yet implemented".to_string(),
+        ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use torsh_core::device::DeviceType;
+
+    #[test]
+    fn test_tril_2d() {
+        let tensor = Tensor::from_data(
+            vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
+            vec![3, 3],
+            DeviceType::Cpu,
+        ).unwrap();
+
+        let result = tensor.tril(0).unwrap();
+        let data = result.data().unwrap();
+
+        // [[1, 2, 3],   [[1, 0, 0],
+        //  [4, 5, 6], -> [4, 5, 0],
+        //  [7, 8, 9]]    [7, 8, 9]]
+        assert_eq!(data, vec![1.0, 0.0, 0.0, 4.0, 5.0, 0.0, 7.0, 8.0, 9.0]);
+    }
+
+    #[test]
+    fn test_tril_diagonal_offset() {
+        let tensor = Tensor::from_data(
+            vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
+            vec![3, 3],
+            DeviceType::Cpu,
+        ).unwrap();
+
+        let result = tensor.tril(1).unwrap();
+        let data = result.data().unwrap();
+
+        // With diagonal=1, keep one more diagonal above main
+        // [[1, 2, 3],   [[1, 2, 0],
+        //  [4, 5, 6], -> [4, 5, 6],
+        //  [7, 8, 9]]    [7, 8, 9]]
+        assert_eq!(data, vec![1.0, 2.0, 0.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]);
+    }
+
+    #[test]
+    fn test_triu_2d() {
+        let tensor = Tensor::from_data(
+            vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
+            vec![3, 3],
+            DeviceType::Cpu,
+        ).unwrap();
+
+        let result = tensor.triu(0).unwrap();
+        let data = result.data().unwrap();
+
+        // [[1, 2, 3],   [[1, 2, 3],
+        //  [4, 5, 6], -> [0, 5, 6],
+        //  [7, 8, 9]]    [0, 0, 9]]
+        assert_eq!(data, vec![1.0, 2.0, 3.0, 0.0, 5.0, 6.0, 0.0, 0.0, 9.0]);
+    }
+
+    #[test]
+    fn test_triu_diagonal_offset() {
+        let tensor = Tensor::from_data(
+            vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
+            vec![3, 3],
+            DeviceType::Cpu,
+        ).unwrap();
+
+        let result = tensor.triu(1).unwrap();
+        let data = result.data().unwrap();
+
+        // With diagonal=1, start from one diagonal above main
+        // [[1, 2, 3],   [[0, 2, 3],
+        //  [4, 5, 6], -> [0, 0, 6],
+        //  [7, 8, 9]]    [0, 0, 0]]
+        assert_eq!(data, vec![0.0, 2.0, 3.0, 0.0, 0.0, 6.0, 0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn test_tril_rectangular() {
+        let tensor = Tensor::from_data(
+            vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0],
+            vec![2, 3],
+            DeviceType::Cpu,
+        ).unwrap();
+
+        let result = tensor.tril(0).unwrap();
+        let data = result.data().unwrap();
+
+        // [[1, 2, 3],   [[1, 0, 0],
+        //  [4, 5, 6]] -> [4, 5, 0]]
+        assert_eq!(data, vec![1.0, 0.0, 0.0, 4.0, 5.0, 0.0]);
+    }
+
+    #[test]
+    fn test_diagonal_main() {
+        let tensor = Tensor::from_data(
+            vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
+            vec![3, 3],
+            DeviceType::Cpu,
+        ).unwrap();
+
+        let result = tensor.diagonal(0, None, None).unwrap();
+        let data = result.data().unwrap();
+
+        // Main diagonal: [1, 5, 9]
+        assert_eq!(data, vec![1.0, 5.0, 9.0]);
+    }
+
+    #[test]
+    fn test_diagonal_above() {
+        let tensor = Tensor::from_data(
+            vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
+            vec![3, 3],
+            DeviceType::Cpu,
+        ).unwrap();
+
+        let result = tensor.diagonal(1, None, None).unwrap();
+        let data = result.data().unwrap();
+
+        // First diagonal above main: [2, 6]
+        assert_eq!(data, vec![2.0, 6.0]);
+    }
+
+    #[test]
+    fn test_diagonal_below() {
+        let tensor = Tensor::from_data(
+            vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
+            vec![3, 3],
+            DeviceType::Cpu,
+        ).unwrap();
+
+        let result = tensor.diagonal(-1, None, None).unwrap();
+        let data = result.data().unwrap();
+
+        // First diagonal below main: [4, 8]
+        assert_eq!(data, vec![4.0, 8.0]);
+    }
+
+    #[test]
+    fn test_diagonal_rectangular() {
+        let tensor = Tensor::from_data(
+            vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0],
+            vec![2, 3],
+            DeviceType::Cpu,
+        ).unwrap();
+
+        let result = tensor.diagonal(0, None, None).unwrap();
+        let data = result.data().unwrap();
+
+        // Main diagonal of 2x3: [1, 5]
+        assert_eq!(data, vec![1.0, 5.0]);
     }
 }

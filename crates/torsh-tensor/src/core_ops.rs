@@ -105,6 +105,30 @@ impl<T: TensorElement + Copy> Tensor<T> {
         })
     }
 
+    /// 🚀 **Phase 7**: Create tensor with fast result storage (skips alignment copy)
+    ///
+    /// For SIMD operation results, uses simple InMemory storage to avoid
+    /// the ~10µs overhead of copying data to aligned memory.
+    ///
+    /// # Performance
+    /// - Skips AlignedVec copy (saves ~10µs for 50K elements)
+    /// - Best for intermediate/result tensors
+    /// - Input tensors should still use from_data for optimal SIMD input access
+    pub fn from_data_fast(data: Vec<T>, shape: Vec<usize>, device: DeviceType) -> Self {
+        let storage = TensorStorage::fast_result(data);
+        Self {
+            storage,
+            shape: Shape::new(shape),
+            device,
+            requires_grad: false,
+            grad: Arc::new(RwLock::new(None)),
+            operation: Operation::Leaf,
+            strides: None,
+            storage_offset: 0,
+            base_tensor: None,
+        }
+    }
+
     /// Create from raw data with explicit storage type
     pub fn from_data_with_storage(
         data: Vec<T>,
@@ -359,6 +383,75 @@ impl<T: TensorElement + Copy> Tensor<T> {
         Ok(flat_index)
     }
 
+    /// Execute a function with zero-copy access to tensor data (immutable)
+    ///
+    /// This enables SIMD operations without memory copies by providing direct
+    /// access to the underlying buffer within a scoped context.
+    ///
+    /// # Arguments
+    /// * `f` - Closure that receives `&[T]` and returns `Result<R>`
+    ///
+    /// # Returns
+    /// Result from the closure
+    ///
+    /// # Performance
+    /// - Zero memory copies for InMemory and Aligned storage
+    /// - One allocation for MemoryMapped storage
+    /// - Enables 2-4x SIMD speedup (per SciRS2 docs)
+    ///
+    /// # Examples
+    /// ```ignore
+    /// // Direct SIMD operation without copies
+    /// let result = tensor.with_data_slice(|data| {
+    ///     other_tensor.with_data_slice(|other_data| {
+    ///         // Zero-copy SIMD addition
+    ///         f32::simd_add(&data, &other_data)
+    ///     })
+    /// })?;
+    /// ```
+    pub fn with_data_slice<R, F>(&self, f: F) -> Result<R>
+    where
+        F: FnOnce(&[T]) -> Result<R>,
+        T: Copy,
+    {
+        self.storage.with_slice(f)
+    }
+
+    /// Execute a function with zero-copy access to tensor data (mutable)
+    ///
+    /// This enables in-place SIMD operations without memory copies.
+    ///
+    /// # Arguments
+    /// * `f` - Closure that receives `&mut [T]` and returns `Result<R>`
+    ///
+    /// # Returns
+    /// Result from the closure
+    ///
+    /// # Performance
+    /// - Zero memory copies for InMemory storage
+    /// - Not supported for MemoryMapped or Aligned storage (returns error)
+    ///
+    /// # Examples
+    /// ```ignore
+    /// // In-place SIMD operation without copies
+    /// tensor.with_data_slice_mut(|data| {
+    ///     other_tensor.with_data_slice(|other_data| {
+    ///         // Zero-copy in-place SIMD addition
+    ///         for (x, y) in data.iter_mut().zip(other_data.iter()) {
+    ///             *x = *x + *y;
+    ///         }
+    ///         Ok(())
+    ///     })
+    /// })?;
+    /// ```
+    pub fn with_data_slice_mut<R, F>(&self, f: F) -> Result<R>
+    where
+        F: FnOnce(&mut [T]) -> Result<R>,
+        T: Copy,
+    {
+        self.storage.with_slice_mut(f)
+    }
+
     /// Create a tensor of ones with the same shape as this tensor
     pub fn ones_like(&self) -> Result<Self> {
         let ones_data = vec![T::one(); self.numel()];
@@ -385,7 +478,7 @@ impl<T: TensorElement + Copy> Tensor<T> {
     /// Set gradient tensor
     #[allow(dead_code)]
     pub fn set_grad(&self, grad: Option<Tensor<T>>) {
-        let mut grad_lock = self.grad.write().unwrap();
+        let mut grad_lock = self.grad.write().expect("lock should not be poisoned");
         *grad_lock = grad;
     }
 
@@ -528,19 +621,19 @@ impl<T: TensorElement + Copy> Tensor<T> {
 
     /// Get the gradient of this tensor (if it exists)
     pub fn grad(&self) -> Option<Self> {
-        let grad_lock = self.grad.read().unwrap();
+        let grad_lock = self.grad.read().expect("lock should not be poisoned");
         grad_lock.as_ref().cloned()
     }
 
     /// Check if this tensor has a gradient
     pub fn has_grad(&self) -> bool {
-        let grad_lock = self.grad.read().unwrap();
+        let grad_lock = self.grad.read().expect("lock should not be poisoned");
         grad_lock.is_some()
     }
 
     /// Zero the gradient
     pub fn zero_grad(&mut self) {
-        let mut grad_lock = self.grad.write().unwrap();
+        let mut grad_lock = self.grad.write().expect("lock should not be poisoned");
         *grad_lock = None;
     }
 
@@ -615,7 +708,7 @@ impl<T: TensorElement + Copy> Tensor<T> {
         match &self.operation {
             Operation::Leaf => {
                 // Accumulate gradient for leaf nodes
-                let mut grad_lock = self.grad.write().unwrap();
+                let mut grad_lock = self.grad.write().expect("lock should not be poisoned");
                 if let Some(existing_grad) = grad_lock.as_ref() {
                     // Add gradients if they exist
                     let new_grad = existing_grad.add_op(grad_output)?;
@@ -633,8 +726,10 @@ impl<T: TensorElement + Copy> Tensor<T> {
                         .iter()
                         .map(|&x| {
                             let exp_minus_one = *exponent - 1.0;
-                            let exp_t = T::from_f64(*exponent as f64).unwrap();
-                            let exp_minus_one_t = T::from_f64(exp_minus_one as f64).unwrap();
+                            let exp_t = T::from_f64(*exponent as f64)
+                                .expect("f64 conversion should succeed");
+                            let exp_minus_one_t = T::from_f64(exp_minus_one as f64)
+                                .expect("f64 conversion should succeed");
                             exp_t * x.powf(exp_minus_one_t)
                         })
                         .collect();
@@ -895,21 +990,7 @@ impl<T: TensorElement> Tensor<T> {
         self.view(&[total_elements as i32])
     }
 
-    /// Broadcast tensor to specified shape
-    pub fn broadcast_to(&self, shape: &torsh_core::Shape) -> Result<Self> {
-        // Check if shapes are compatible for broadcasting
-        let current_dims = self.shape.dims();
-        let target_dims = shape.dims();
-
-        // For simplicity, implement basic expansion/repeat for compatible dimensions
-        if current_dims == target_dims {
-            return Ok(self.clone());
-        }
-
-        // Simple broadcasting: if target has more dimensions, pad with 1s at front
-        // For now, return current tensor if shapes are different - proper broadcasting would be more complex
-        Ok(self.clone())
-    }
+    // broadcast_to has been moved to ops/manipulation.rs with proper implementation
 
     /// Conditional tensor selection - where condition is true, select from self, otherwise from other
     pub fn where_tensor(&self, condition: &Tensor<bool>, other: &Self) -> Result<Self> {

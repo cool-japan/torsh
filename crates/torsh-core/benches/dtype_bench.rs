@@ -92,7 +92,7 @@ fn dtype_comparison_benchmarks(c: &mut Criterion) {
 
     // Benchmark equality comparisons
     group.bench_function("equal_f32", |b| {
-        b.iter(|| criterion::black_box(f32_type) == criterion::black_box(f32_type))
+        b.iter(|| std::hint::black_box(f32_type) == std::hint::black_box(f32_type))
     });
 
     group.bench_function("different_types", |b| b.iter(|| f32_type == i32_type));

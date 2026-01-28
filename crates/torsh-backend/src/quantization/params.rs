@@ -482,7 +482,7 @@ impl QuantizationParams {
         // The maximum error is half the quantization step size
         self.scale
             .iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .copied()
             .unwrap_or(0.0)
             * 0.5

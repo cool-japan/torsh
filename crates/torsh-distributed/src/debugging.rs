@@ -1198,7 +1198,7 @@ mod tests {
 
         debugger.log_event(event).unwrap();
 
-        let events = debugger.events.lock().unwrap();
+        let events = debugger.events.lock().expect("lock should not be poisoned");
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].message, "Test event");
     }

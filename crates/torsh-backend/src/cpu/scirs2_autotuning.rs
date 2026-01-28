@@ -425,8 +425,8 @@ impl SciRS2AutoTuner {
             session.tested_configurations.push(test_result);
             
             // Update best configuration
-            if session.best_configuration.is_none() || 
-               self.is_better_configuration(&test_result, session.best_configuration.as_ref().unwrap()) {
+            if session.best_configuration.is_none() ||
+               self.is_better_configuration(&test_result, session.best_configuration.as_ref().expect("best configuration should be present")) {
                 session.best_configuration = Some(test_result);
             }
             

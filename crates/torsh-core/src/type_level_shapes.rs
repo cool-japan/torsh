@@ -57,7 +57,7 @@ impl<const N: usize> Dim<N> {
 
 /// Type-level list of dimensions (using tuple encoding)
 ///
-/// Encodes shape as nested tuples: (Dim<N>, (Dim<M>, ...))
+/// Encodes shape as nested tuples: `(Dim<N>, (Dim<M>, ...))`
 /// Empty list is represented by ()
 pub trait DimList: Sized {
     /// Number of dimensions in this list

@@ -27,7 +27,7 @@ impl VisualizationTool {
         sorted_results.sort_by(|a, b| {
             b.sensitivity_score
                 .partial_cmp(&a.sensitivity_score)
-                .unwrap()
+                .expect("sensitivity scores should be comparable")
         });
 
         let max_sensitivity = sorted_results

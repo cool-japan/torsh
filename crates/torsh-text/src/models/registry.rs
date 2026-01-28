@@ -62,19 +62,19 @@ impl ModelRegistry {
 
     /// Register a pre-configured model
     pub fn register_config(&self, name: &str, config: TextModelConfig) {
-        let mut configs = self.configs.lock().unwrap();
+        let mut configs = self.configs.lock().expect("lock should not be poisoned");
         configs.insert(name.to_string(), config);
     }
 
     /// Get a registered configuration
     pub fn get_config(&self, name: &str) -> Option<TextModelConfig> {
-        let configs = self.configs.lock().unwrap();
+        let configs = self.configs.lock().expect("lock should not be poisoned");
         configs.get(name).cloned()
     }
 
     /// List all registered configurations
     pub fn list_configs(&self) -> Vec<String> {
-        let configs = self.configs.lock().unwrap();
+        let configs = self.configs.lock().expect("lock should not be poisoned");
         configs.keys().cloned().collect()
     }
 

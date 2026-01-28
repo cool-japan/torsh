@@ -244,7 +244,9 @@ pub fn get_registry() -> &'static mut AttributeRegistry {
         REGISTRY_INIT.call_once(|| {
             GLOBAL_REGISTRY = Some(AttributeRegistry::new());
         });
-        GLOBAL_REGISTRY.as_mut().unwrap()
+        GLOBAL_REGISTRY
+            .as_mut()
+            .expect("GLOBAL_REGISTRY should be initialized by call_once")
     }
 }
 

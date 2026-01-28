@@ -812,7 +812,7 @@ impl EdgeComputingManager {
                     b.compute_capability
                         .estimated_flops
                         .partial_cmp(&a.compute_capability.estimated_flops)
-                        .unwrap()
+                        .unwrap_or(std::cmp::Ordering::Equal)
                 });
 
                 sorted_devices
@@ -827,7 +827,9 @@ impl EdgeComputingManager {
                 sorted_devices.sort_by(|a, b| {
                     let score_a = a.network_info.bandwidth / (a.network_info.latency + 1.0);
                     let score_b = b.network_info.bandwidth / (b.network_info.latency + 1.0);
-                    score_b.partial_cmp(&score_a).unwrap()
+                    score_b
+                        .partial_cmp(&score_a)
+                        .unwrap_or(std::cmp::Ordering::Equal)
                 });
 
                 sorted_devices
@@ -1124,7 +1126,11 @@ impl FederatedLearningCoordinator {
         }
 
         let num_clients = client_updates.len() as f32;
-        let update_size = client_updates.values().next().unwrap().len();
+        let update_size = client_updates
+            .values()
+            .next()
+            .expect("client_updates should not be empty")
+            .len();
         let mut aggregated = vec![0.0; update_size];
 
         for updates in client_updates.values() {
@@ -1157,12 +1163,16 @@ impl FederatedLearningCoordinator {
             ));
         }
 
-        let update_size = client_updates.values().next().unwrap().len();
+        let update_size = client_updates
+            .values()
+            .next()
+            .expect("client_updates should not be empty")
+            .len();
         let mut aggregated = vec![0.0; update_size];
 
         for i in 0..update_size {
             let mut values: Vec<f32> = client_updates.values().map(|updates| updates[i]).collect();
-            values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
             aggregated[i] = if values.len() % 2 == 0 {
                 (values[values.len() / 2 - 1] + values[values.len() / 2]) / 2.0

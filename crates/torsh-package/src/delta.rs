@@ -205,8 +205,8 @@ impl DeltaPatchBuilder {
 
         // Generate target hash (simplified - just hash the new package manifest)
         let target_hash = calculate_hash(
-            &bincode::serde::encode_to_vec(&new_package.manifest, bincode::config::standard())
-                .unwrap(),
+            &oxicode::serde::encode_to_vec(&new_package.manifest, oxicode::config::standard())
+                .expect("manifest serialization should succeed"),
         );
 
         let mut metadata = HashMap::new();
@@ -344,8 +344,8 @@ impl DeltaPatchApplier {
         // Verify final hash if enabled
         if self.verify_checksums {
             let current_hash = calculate_hash(
-                &bincode::serde::encode_to_vec(&package.manifest, bincode::config::standard())
-                    .unwrap(),
+                &oxicode::serde::encode_to_vec(&package.manifest, oxicode::config::standard())
+                    .expect("manifest serialization should succeed"),
             );
             if current_hash != patch.target_hash {
                 return Err(TorshError::InvalidArgument(
@@ -456,7 +456,7 @@ impl DeltaPatchApplier {
 
     /// Save delta patch to file
     pub fn save_patch<P: AsRef<Path>>(patch: &DeltaPatch, path: P) -> Result<()> {
-        let serialized = bincode::serde::encode_to_vec(patch, bincode::config::standard())
+        let serialized = oxicode::serde::encode_to_vec(patch, oxicode::config::standard())
             .map_err(|e| TorshError::SerializationError(e.to_string()))?;
 
         fs::write(path, serialized).map_err(|e| TorshError::IoError(e.to_string()))?;
@@ -469,7 +469,7 @@ impl DeltaPatchApplier {
         let data = fs::read(path).map_err(|e| TorshError::IoError(e.to_string()))?;
 
         let (patch, _): (DeltaPatch, usize) =
-            bincode::serde::decode_from_slice(&data, bincode::config::standard())
+            oxicode::serde::decode_from_slice(&data, oxicode::config::standard())
                 .map_err(|e| TorshError::SerializationError(e.to_string()))?;
 
         Ok(patch)
@@ -501,7 +501,8 @@ impl DeltaPackageExt for Package {
 
     fn get_package_hash(&self) -> String {
         calculate_hash(
-            &bincode::serde::encode_to_vec(&self.manifest, bincode::config::standard()).unwrap(),
+            &oxicode::serde::encode_to_vec(&self.manifest, oxicode::config::standard())
+                .expect("manifest serialization should succeed"),
         )
     }
 }
@@ -576,9 +577,9 @@ mod tests {
 
         // Test serialization and deserialization
         let serialized =
-            bincode::serde::encode_to_vec(&patch, bincode::config::standard()).unwrap();
+            oxicode::serde::encode_to_vec(&patch, oxicode::config::standard()).unwrap();
         let (deserialized, _): (DeltaPatch, usize) =
-            bincode::serde::decode_from_slice(&serialized, bincode::config::standard()).unwrap();
+            oxicode::serde::decode_from_slice(&serialized, oxicode::config::standard()).unwrap();
 
         assert_eq!(patch.from_version, deserialized.from_version);
         assert_eq!(patch.to_version, deserialized.to_version);

@@ -282,7 +282,7 @@ impl DynamicLinearModel {
         let aa_q = a_kalman
             .clone()
             .into_shape_with_order((self.state_dim, 1))
-            .unwrap();
+            .expect("reshape should succeed for compatible dimensions");
         let aa_q_t = aa_q.dot(&aa_q.t()) * q_t;
         let c_t = &r_t - &aa_q_t;
 

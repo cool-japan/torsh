@@ -256,7 +256,7 @@ impl JitDebugger {
         while continue_execution {
             // Get current state
             let current_state = {
-                let session_guard = session.lock().unwrap();
+                let session_guard = session.lock().expect("lock should not be poisoned");
                 session_guard.get_current_state()
             };
 
@@ -279,7 +279,7 @@ impl JitDebugger {
         }
 
         // Generate session result
-        let session_guard = session.lock().unwrap();
+        let session_guard = session.lock().expect("lock should not be poisoned");
         Ok(DebugSessionResult {
             execution_trace: session_guard.get_execution_trace(),
             final_state: session_guard.get_current_state(),
@@ -298,27 +298,27 @@ impl JitDebugger {
     ) -> JitResult<DebugCommandResult> {
         match command {
             DebugCommand::Step => {
-                let mut session_guard = session.lock().unwrap();
+                let mut session_guard = session.lock().expect("lock should not be poisoned");
                 session_guard.step()?;
                 Ok(DebugCommandResult::Continue)
             }
             DebugCommand::StepOver => {
-                let mut session_guard = session.lock().unwrap();
+                let mut session_guard = session.lock().expect("lock should not be poisoned");
                 session_guard.step_over()?;
                 Ok(DebugCommandResult::Continue)
             }
             DebugCommand::StepInto => {
-                let mut session_guard = session.lock().unwrap();
+                let mut session_guard = session.lock().expect("lock should not be poisoned");
                 session_guard.step_into()?;
                 Ok(DebugCommandResult::Continue)
             }
             DebugCommand::StepOut => {
-                let mut session_guard = session.lock().unwrap();
+                let mut session_guard = session.lock().expect("lock should not be poisoned");
                 session_guard.step_out()?;
                 Ok(DebugCommandResult::Continue)
             }
             DebugCommand::Continue => {
-                let mut session_guard = session.lock().unwrap();
+                let mut session_guard = session.lock().expect("lock should not be poisoned");
                 let result = session_guard.continue_execution()?;
                 match result {
                     ContinueResult::Breakpoint => Ok(DebugCommandResult::Continue),
@@ -356,31 +356,31 @@ impl JitDebugger {
                 Ok(DebugCommandResult::Continue)
             }
             DebugCommand::Inspect { target } => {
-                let session_guard = session.lock().unwrap();
+                let session_guard = session.lock().expect("lock should not be poisoned");
                 let inspection_result = session_guard.inspect_target(&target)?;
                 self.ui_interface.show_inspection_result(&inspection_result);
                 Ok(DebugCommandResult::Continue)
             }
             DebugCommand::CallStack => {
-                let session_guard = session.lock().unwrap();
+                let session_guard = session.lock().expect("lock should not be poisoned");
                 let call_stack = session_guard.get_call_stack();
                 self.ui_interface.show_call_stack(&call_stack);
                 Ok(DebugCommandResult::Continue)
             }
             DebugCommand::Locals => {
-                let session_guard = session.lock().unwrap();
+                let session_guard = session.lock().expect("lock should not be poisoned");
                 let locals = session_guard.get_local_variables();
                 self.ui_interface.show_local_variables(&locals);
                 Ok(DebugCommandResult::Continue)
             }
             DebugCommand::Memory { address } => {
-                let session_guard = session.lock().unwrap();
+                let session_guard = session.lock().expect("lock should not be poisoned");
                 let memory_view = session_guard.get_memory_view(address)?;
                 self.ui_interface.show_memory_view(&memory_view);
                 Ok(DebugCommandResult::Continue)
             }
             DebugCommand::Disassemble { location } => {
-                let session_guard = session.lock().unwrap();
+                let session_guard = session.lock().expect("lock should not be poisoned");
                 let disassembly = session_guard.disassemble_at(location)?;
                 self.ui_interface.show_disassembly(&disassembly);
                 Ok(DebugCommandResult::Continue)
@@ -478,7 +478,7 @@ impl JitDebugger {
     /// The current debug state if a session is active, None otherwise
     pub fn get_current_state(&self) -> Option<DebugState> {
         if let Some(session) = &self.session {
-            let session_guard = session.lock().unwrap();
+            let session_guard = session.lock().expect("lock should not be poisoned");
             Some(session_guard.get_current_state())
         } else {
             None
@@ -494,7 +494,7 @@ impl JitDebugger {
     /// The evaluation result
     pub fn evaluate_expression(&self, expression: &str) -> JitResult<EvaluationResult> {
         if let Some(session) = &self.session {
-            let session_guard = session.lock().unwrap();
+            let session_guard = session.lock().expect("lock should not be poisoned");
             session_guard.evaluate_expression(expression)
         } else {
             Err(JitError::RuntimeError(
@@ -568,7 +568,7 @@ impl JitDebugger {
     /// Get debug statistics from the current session
     pub fn get_session_statistics(&self) -> Option<DebugStatistics> {
         if let Some(session) = &self.session {
-            let session_guard = session.lock().unwrap();
+            let session_guard = session.lock().expect("lock should not be poisoned");
             Some(session_guard.get_statistics())
         } else {
             None

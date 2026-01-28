@@ -69,7 +69,10 @@ impl PerformanceBaseline {
         let std_dev = variance.sqrt();
 
         let mut sorted_samples = samples.clone();
-        sorted_samples.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted_samples.sort_by(|a, b| {
+            a.partial_cmp(b)
+                .expect("samples should be comparable (no NaN values)")
+        });
 
         let median = if sorted_samples.len() % 2 == 0 {
             (sorted_samples[sorted_samples.len() / 2 - 1]
@@ -113,7 +116,10 @@ impl PerformanceBaseline {
         let std_dev = variance.sqrt();
 
         let mut sorted_samples = self.samples.clone();
-        sorted_samples.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted_samples.sort_by(|a, b| {
+            a.partial_cmp(b)
+                .expect("samples should be comparable (no NaN values)")
+        });
 
         let median = if sorted_samples.len() % 2 == 0 {
             (sorted_samples[sorted_samples.len() / 2 - 1]
@@ -148,7 +154,10 @@ impl PerformanceBaseline {
         }
 
         let mut sorted = self.samples.clone();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted.sort_by(|a, b| {
+            a.partial_cmp(b)
+                .expect("samples should be comparable (no NaN values)")
+        });
 
         let q1_idx = sorted.len() / 4;
         let q3_idx = (3 * sorted.len()) / 4;
@@ -354,12 +363,16 @@ impl RegressionDetector {
             match (a.severity, b.severity) {
                 (RegressionSeverity::Critical, _) => std::cmp::Ordering::Less,
                 (_, RegressionSeverity::Critical) => std::cmp::Ordering::Greater,
-                (RegressionSeverity::High, RegressionSeverity::High) => {
-                    b.change_percent.partial_cmp(&a.change_percent).unwrap()
-                }
+                (RegressionSeverity::High, RegressionSeverity::High) => b
+                    .change_percent
+                    .partial_cmp(&a.change_percent)
+                    .expect("change_percent should be comparable (no NaN values)"),
                 (RegressionSeverity::High, _) => std::cmp::Ordering::Less,
                 (_, RegressionSeverity::High) => std::cmp::Ordering::Greater,
-                _ => b.change_percent.partial_cmp(&a.change_percent).unwrap(),
+                _ => b
+                    .change_percent
+                    .partial_cmp(&a.change_percent)
+                    .expect("change_percent should be comparable (no NaN values)"),
             }
         });
 

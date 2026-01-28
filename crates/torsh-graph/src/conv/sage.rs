@@ -20,10 +20,16 @@ pub struct SAGEConv {
 impl SAGEConv {
     /// Create a new GraphSAGE convolution layer
     pub fn new(in_features: usize, out_features: usize, bias: bool) -> Self {
-        let weight_neighbor = Parameter::new(randn(&[in_features, out_features]).unwrap());
-        let weight_self = Parameter::new(randn(&[in_features, out_features]).unwrap());
+        let weight_neighbor = Parameter::new(
+            randn(&[in_features, out_features]).expect("failed to create neighbor weight tensor"),
+        );
+        let weight_self = Parameter::new(
+            randn(&[in_features, out_features]).expect("failed to create self weight tensor"),
+        );
         let bias = if bias {
-            Some(Parameter::new(zeros(&[out_features]).unwrap()))
+            Some(Parameter::new(
+                zeros(&[out_features]).expect("failed to create bias tensor"),
+            ))
         } else {
             None
         };
@@ -50,7 +56,8 @@ impl SAGEConv {
     /// Apply GraphSAGE convolution
     pub fn forward(&self, graph: &GraphData) -> GraphData {
         let num_nodes = graph.num_nodes;
-        let edge_data = crate::utils::tensor_to_vec2::<f32>(&graph.edge_index).unwrap();
+        let edge_data = crate::utils::tensor_to_vec2::<f32>(&graph.edge_index)
+            .expect("failed to extract edge index data");
 
         // Build adjacency list for efficient neighbor aggregation
         let mut adjacency_list: Vec<Vec<usize>> = vec![Vec::new(); num_nodes];
@@ -61,31 +68,37 @@ impl SAGEConv {
         }
 
         // Aggregate neighbor features (mean aggregation)
-        let mut neighbor_features = zeros(&[num_nodes, self.in_features]).unwrap();
+        let mut neighbor_features = zeros(&[num_nodes, self.in_features])
+            .expect("failed to create neighbor features tensor");
 
         for node in 0..num_nodes {
             if !adjacency_list[node].is_empty() {
-                let mut aggregated = zeros(&[self.in_features]).unwrap();
+                let mut aggregated = zeros(&[self.in_features])
+                    .expect("failed to create aggregated features tensor");
 
                 for &neighbor in &adjacency_list[node] {
                     let neighbor_slice = graph
                         .x
                         .slice(0, neighbor, neighbor + 1)
-                        .unwrap()
+                        .expect("failed to slice neighbor features")
                         .to_tensor()
-                        .unwrap();
-                    let neighbor_feat = neighbor_slice.squeeze(0).unwrap();
-                    aggregated = aggregated.add(&neighbor_feat).unwrap();
+                        .expect("failed to convert slice to tensor");
+                    let neighbor_feat = neighbor_slice.squeeze(0).expect("squeeze should succeed");
+                    aggregated = aggregated
+                        .add(&neighbor_feat)
+                        .expect("operation should succeed");
                 }
 
                 // Mean aggregation
                 aggregated = aggregated
                     .div_scalar(adjacency_list[node].len() as f32)
-                    .unwrap();
+                    .expect("failed to compute mean aggregation");
                 // Store aggregated features for this node
-                let aggregated_data = aggregated.to_vec().unwrap();
+                let aggregated_data = aggregated.to_vec().expect("conversion should succeed");
                 for (i, &value) in aggregated_data.iter().enumerate() {
-                    neighbor_features.set_item(&[node, i], value).unwrap();
+                    neighbor_features
+                        .set_item(&[node, i], value)
+                        .expect("failed to set neighbor feature value");
                 }
             }
         }
@@ -93,23 +106,37 @@ impl SAGEConv {
         // Transform neighbor features and self features
         let neighbor_transformed = neighbor_features
             .matmul(&self.weight_neighbor.clone_data())
-            .unwrap();
-        let self_transformed = graph.x.matmul(&self.weight_self.clone_data()).unwrap();
+            .expect("operation should succeed");
+        let self_transformed = graph
+            .x
+            .matmul(&self.weight_self.clone_data())
+            .expect("operation should succeed");
 
         // Combine neighbor and self representations
-        let mut output_features = neighbor_transformed.add(&self_transformed).unwrap();
+        let mut output_features = neighbor_transformed
+            .add(&self_transformed)
+            .expect("operation should succeed");
 
         // Add bias if present
         if let Some(ref bias) = self.bias {
-            output_features = output_features.add(&bias.clone_data()).unwrap();
+            output_features = output_features
+                .add(&bias.clone_data())
+                .expect("operation should succeed");
         }
 
         // L2 normalize the output features (common in GraphSAGE)
         // For simplicity, using standard normalization instead of row-wise normalization
-        let norm_val = output_features.norm().unwrap();
+        let norm_val = output_features
+            .norm()
+            .expect("failed to compute feature norm");
         let epsilon = 1e-8_f32;
-        let norm_scalar = norm_val.item().unwrap().max(epsilon);
-        output_features = output_features.div_scalar(norm_scalar).unwrap();
+        let norm_scalar = norm_val
+            .item()
+            .expect("tensor should have single item")
+            .max(epsilon);
+        output_features = output_features
+            .div_scalar(norm_scalar)
+            .expect("failed to normalize output features");
 
         // Create output graph
         GraphData {

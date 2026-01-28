@@ -524,10 +524,11 @@ impl QuantizationBenchmarks {
 
     /// Get the best result for an operation
     pub fn get_best_result(&self, operation: &str) -> Option<&BenchmarkResult> {
-        self.results
-            .get(operation)?
-            .iter()
-            .max_by(|a, b| a.throughput.partial_cmp(&b.throughput).unwrap())
+        self.results.get(operation)?.iter().max_by(|a, b| {
+            a.throughput
+                .partial_cmp(&b.throughput)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
     }
 
     /// Clear all benchmark results
@@ -598,7 +599,11 @@ impl BenchmarkResults {
         self.results
             .iter()
             .filter(|r| r.operation == operation)
-            .max_by(|a, b| a.throughput.partial_cmp(&b.throughput).unwrap())
+            .max_by(|a, b| {
+                a.throughput
+                    .partial_cmp(&b.throughput)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
     }
 
     /// Get average throughput for an operation

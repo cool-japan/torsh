@@ -251,19 +251,19 @@ impl KernelCache {
 
     /// Get a kernel from cache
     pub fn get(&self, key: &str) -> Option<GeneratedKernel> {
-        let cache = self.cache.lock().unwrap();
+        let cache = self.cache.lock().expect("lock should not be poisoned");
         if let Some(kernel) = cache.get(key) {
-            *self.hit_count.lock().unwrap() += 1;
+            *self.hit_count.lock().expect("lock should not be poisoned") += 1;
             Some(kernel.clone())
         } else {
-            *self.miss_count.lock().unwrap() += 1;
+            *self.miss_count.lock().expect("lock should not be poisoned") += 1;
             None
         }
     }
 
     /// Insert a kernel into cache
     pub fn insert(&self, key: String, kernel: GeneratedKernel) {
-        let mut cache = self.cache.lock().unwrap();
+        let mut cache = self.cache.lock().expect("lock should not be poisoned");
 
         // Simple LRU eviction if cache is full
         if cache.len() >= self.max_size {
@@ -277,8 +277,8 @@ impl KernelCache {
 
     /// Get cache statistics
     pub fn statistics(&self) -> CacheStatistics {
-        let hits = *self.hit_count.lock().unwrap();
-        let misses = *self.miss_count.lock().unwrap();
+        let hits = *self.hit_count.lock().expect("lock should not be poisoned");
+        let misses = *self.miss_count.lock().expect("lock should not be poisoned");
         let total = hits + misses;
         let hit_rate = if total > 0 {
             hits as f64 / total as f64
@@ -291,16 +291,23 @@ impl KernelCache {
             misses,
             total_requests: total,
             hit_rate,
-            cache_size: self.cache.lock().unwrap().len(),
+            cache_size: self
+                .cache
+                .lock()
+                .expect("lock should not be poisoned")
+                .len(),
             max_cache_size: self.max_size,
         }
     }
 
     /// Clear the cache
     pub fn clear(&self) {
-        self.cache.lock().unwrap().clear();
-        *self.hit_count.lock().unwrap() = 0;
-        *self.miss_count.lock().unwrap() = 0;
+        self.cache
+            .lock()
+            .expect("lock should not be poisoned")
+            .clear();
+        *self.hit_count.lock().expect("lock should not be poisoned") = 0;
+        *self.miss_count.lock().expect("lock should not be poisoned") = 0;
     }
 }
 

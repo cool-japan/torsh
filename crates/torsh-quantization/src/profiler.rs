@@ -527,7 +527,7 @@ impl QuantizationProfiler {
             a.stats
                 .avg_time_us
                 .partial_cmp(&b.stats.avg_time_us)
-                .unwrap()
+                .expect("avg_time_us values should be comparable")
         }) {
             stats.insert(
                 "fastest_avg_time_us".to_string(),
@@ -539,7 +539,7 @@ impl QuantizationProfiler {
             a.stats
                 .avg_time_us
                 .partial_cmp(&b.stats.avg_time_us)
-                .unwrap()
+                .expect("avg_time_us values should be comparable")
         }) {
             stats.insert(
                 "slowest_avg_time_us".to_string(),
@@ -591,7 +591,7 @@ impl OperationMetrics {
         let avg_time = times.iter().sum::<f64>() / times.len() as f64;
 
         let mut sorted_times = times.clone();
-        sorted_times.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted_times.sort_by(|a, b| a.partial_cmp(b).expect("time values should be comparable"));
         let median_time = sorted_times[sorted_times.len() / 2];
 
         let mean = avg_time;
@@ -621,7 +621,10 @@ impl OperationMetrics {
         }
 
         let mut sorted = values.to_vec();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted.sort_by(|a, b| {
+            a.partial_cmp(b)
+                .expect("values should be comparable for percentile calculation")
+        });
 
         let index = (percentile / 100.0) * (sorted.len() - 1) as f64;
         let lower = index.floor() as usize;

@@ -476,8 +476,12 @@ impl ThermalProfiler {
 
         // Calculate temperature slope (rate of change)
         let temperature_slope = if sensor_samples.len() > 1 {
-            let first = sensor_samples.first().unwrap();
-            let last = sensor_samples.last().unwrap();
+            let first = sensor_samples
+                .first()
+                .expect("sensor_samples should not be empty after length check");
+            let last = sensor_samples
+                .last()
+                .expect("sensor_samples should not be empty after length check");
             let time_diff = last
                 .timestamp
                 .duration_since(first.timestamp)
@@ -587,7 +591,7 @@ impl ThermalProfiler {
                 sample
                     .timestamp
                     .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap()
+                    .expect("sample timestamp should be after UNIX_EPOCH")
                     .as_secs(),
                 sample.sensor,
                 temp_c,

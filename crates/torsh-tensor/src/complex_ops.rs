@@ -12,7 +12,7 @@
 //! - **Complex arithmetic**: Element-wise operations preserving complex structure
 //! - **Magnitude and phase**: Polar representation support
 
-use num_traits::Float;
+use scirs2_core::numeric::Float;
 use std::sync::Arc;
 use torsh_core::{
     dtype::{ComplexElement, TensorElement},
@@ -190,7 +190,7 @@ impl<T: ComplexElement + Copy> Tensor<T> {
         match &self.operation {
             Operation::Leaf => {
                 // Accumulate gradient for leaf nodes
-                let mut grad_lock = self.grad.write().unwrap();
+                let mut grad_lock = self.grad.write().expect("lock should not be poisoned");
                 if let Some(existing_grad) = grad_lock.as_ref() {
                     // Add gradients if they exist
                     let new_grad = existing_grad.add_op(grad_output)?;

@@ -16,19 +16,28 @@ pub mod global {
     /// Global mean pooling
     pub fn global_mean_pool(graph: &GraphData) -> Tensor {
         // Average node features across the graph
-        graph.x.mean(Some(&[0]), false).unwrap()
+        graph
+            .x
+            .mean(Some(&[0]), false)
+            .expect("mean pooling should succeed")
     }
 
     /// Global max pooling
     pub fn global_max_pool(graph: &GraphData) -> Tensor {
         // Max node features across the graph - simplified using max without indices
-        graph.x.max(Some(0), false).unwrap()
+        graph
+            .x
+            .max(Some(0), false)
+            .expect("max pooling should succeed")
     }
 
     /// Global sum pooling
     pub fn global_sum_pool(graph: &GraphData) -> Tensor {
         // Sum node features across the graph (along node dimension)
-        graph.x.sum_dim(&[0], false).unwrap()
+        graph
+            .x
+            .sum_dim(&[0], false)
+            .expect("sum pooling should succeed")
     }
 
     /// Global attention pooling
@@ -40,8 +49,12 @@ pub mod global {
     impl GlobalAttentionPool {
         /// Create a new global attention pooling layer
         pub fn new(input_dim: usize, hidden_dim: usize) -> Self {
-            let gate_nn = Parameter::new(randn(&[input_dim, hidden_dim]).unwrap());
-            let feat_nn = Parameter::new(randn(&[input_dim, hidden_dim]).unwrap());
+            let gate_nn = Parameter::new(
+                randn(&[input_dim, hidden_dim]).expect("randn gate_nn should succeed"),
+            );
+            let feat_nn = Parameter::new(
+                randn(&[input_dim, hidden_dim]).expect("randn feat_nn should succeed"),
+            );
 
             Self { gate_nn, feat_nn }
         }
@@ -52,16 +65,21 @@ pub mod global {
             let gate = graph
                 .x
                 .matmul(&self.gate_nn.clone_data())
-                .unwrap()
+                .expect("operation should succeed")
                 .sigmoid()
-                .unwrap();
-            let feat = graph.x.matmul(&self.feat_nn.clone_data()).unwrap();
+                .expect("sigmoid should succeed");
+            let feat = graph
+                .x
+                .matmul(&self.feat_nn.clone_data())
+                .expect("operation should succeed");
 
             // Apply attention weights
-            let weighted_features = feat.mul(&gate).unwrap();
+            let weighted_features = feat.mul(&gate).expect("operation should succeed");
 
             // Sum over nodes (axis 0), preserving feature dimension
-            weighted_features.sum_dim(&[0], false).unwrap()
+            weighted_features
+                .sum_dim(&[0], false)
+                .expect("sum reduction should succeed")
         }
 
         /// Get parameters
@@ -93,12 +111,17 @@ pub mod global {
             let mut lstm_weights = Vec::new();
             for _ in 0..num_layers {
                 lstm_weights.push(Parameter::new(
-                    randn(&[hidden_dim * 4, hidden_dim + input_dim]).unwrap(),
+                    randn(&[hidden_dim * 4, hidden_dim + input_dim])
+                        .expect("randn lstm weights should succeed"),
                 ));
             }
 
-            let attention_weights = Parameter::new(randn(&[hidden_dim, input_dim]).unwrap());
-            let projection_weights = Parameter::new(randn(&[input_dim, hidden_dim]).unwrap());
+            let attention_weights = Parameter::new(
+                randn(&[hidden_dim, input_dim]).expect("randn attention weights should succeed"),
+            );
+            let projection_weights = Parameter::new(
+                randn(&[input_dim, hidden_dim]).expect("randn projection weights should succeed"),
+            );
 
             Self {
                 input_dim,
@@ -114,32 +137,34 @@ pub mod global {
         /// Apply Set2Set pooling
         pub fn forward(&self, graph: &GraphData) -> Tensor {
             let _num_nodes = graph.num_nodes;
-            let mut query = zeros(&[1, self.hidden_dim]).unwrap();
+            let mut query = zeros(&[1, self.hidden_dim]).expect("zeros query should succeed");
 
             // Simplified Set2Set implementation
             for _ in 0..self.num_iters {
                 // Compute attention scores
                 let scores = query
                     .matmul(&self.attention_weights.clone_data())
-                    .unwrap()
-                    .matmul(&graph.x.t().unwrap())
-                    .unwrap()
+                    .expect("operation should succeed")
+                    .matmul(&graph.x.t().expect("transpose should succeed"))
+                    .expect("operation should succeed")
                     .softmax(-1)
-                    .unwrap();
+                    .expect("softmax should succeed");
 
                 // Weighted sum of node features
-                let attended = scores.matmul(&graph.x).unwrap();
+                let attended = scores.matmul(&graph.x).expect("operation should succeed");
 
                 // Project attended features to hidden dimension
                 let projected_attended = attended
                     .matmul(&self.projection_weights.clone_data())
-                    .unwrap();
+                    .expect("operation should succeed");
 
                 // Update query (simplified LSTM step)
-                query = query.add(&projected_attended).unwrap();
+                query = query
+                    .add(&projected_attended)
+                    .expect("operation should succeed");
             }
 
-            query.squeeze(0).unwrap()
+            query.squeeze(0).expect("squeeze should succeed")
         }
 
         /// Get parameters
@@ -170,8 +195,12 @@ pub mod hierarchical {
     impl DiffPool {
         /// Create a new DiffPool layer
         pub fn new(embed_dim: usize, assign_dim: usize) -> Self {
-            let embed_gnn = Parameter::new(randn(&[embed_dim, embed_dim]).unwrap());
-            let assign_gnn = Parameter::new(randn(&[embed_dim, assign_dim]).unwrap());
+            let embed_gnn = Parameter::new(
+                randn(&[embed_dim, embed_dim]).expect("randn embed_gnn should succeed"),
+            );
+            let assign_gnn = Parameter::new(
+                randn(&[embed_dim, assign_dim]).expect("randn assign_gnn should succeed"),
+            );
 
             Self {
                 embed_dim,
@@ -188,28 +217,36 @@ pub mod hierarchical {
             let num_nodes = graph.num_nodes;
 
             // Generate node embeddings
-            let node_embeddings = graph.x.matmul(&self.embed_gnn.clone_data()).unwrap();
+            let node_embeddings = graph
+                .x
+                .matmul(&self.embed_gnn.clone_data())
+                .expect("operation should succeed");
 
             // Generate assignment matrix (soft clustering)
-            let assignment_logits = graph.x.matmul(&self.assign_gnn.clone_data()).unwrap();
-            let assignment_matrix = assignment_logits.softmax(-1).unwrap();
+            let assignment_logits = graph
+                .x
+                .matmul(&self.assign_gnn.clone_data())
+                .expect("operation should succeed");
+            let assignment_matrix = assignment_logits
+                .softmax(-1)
+                .expect("softmax should succeed");
 
             // Pool node features using assignment matrix
             let pooled_features = assignment_matrix
                 .t()
-                .unwrap()
+                .expect("transpose should succeed")
                 .matmul(&node_embeddings)
-                .unwrap();
+                .expect("operation should succeed");
 
             // Create new adjacency matrix
             let adjacency = self.compute_adjacency_matrix(&graph.edge_index, num_nodes);
             let pooled_adj = assignment_matrix
                 .t()
-                .unwrap()
+                .expect("transpose should succeed")
                 .matmul(&adjacency)
-                .unwrap()
+                .expect("operation should succeed")
                 .matmul(&assignment_matrix)
-                .unwrap();
+                .expect("operation should succeed");
 
             // Extract edges from pooled adjacency matrix
             let (new_edge_index, _) = self.adjacency_to_edge_index(&pooled_adj);
@@ -219,13 +256,13 @@ pub mod hierarchical {
             let entropy_loss = self.compute_entropy_loss(&assignment_matrix);
             let total_aux_loss = link_pred_loss
                 .mul_scalar(self.link_pred_loss_weight as f32)
-                .unwrap()
+                .expect("mul_scalar link_pred should succeed")
                 .add(
                     &entropy_loss
                         .mul_scalar(self.entropy_loss_weight as f32)
-                        .unwrap(),
+                        .expect("mul_scalar entropy should succeed"),
                 )
-                .unwrap();
+                .expect("operation should succeed");
 
             let pooled_graph = GraphData {
                 x: pooled_features,
@@ -241,8 +278,9 @@ pub mod hierarchical {
 
         /// Compute adjacency matrix from edge index
         fn compute_adjacency_matrix(&self, edge_index: &Tensor, num_nodes: usize) -> Tensor {
-            let mut adjacency = zeros(&[num_nodes, num_nodes]).unwrap();
-            let edge_data = edge_index.to_vec().unwrap();
+            let mut adjacency =
+                zeros(&[num_nodes, num_nodes]).expect("zeros adjacency should succeed");
+            let edge_data = edge_index.to_vec().expect("conversion should succeed");
             let edge_list: Vec<Vec<i64>> = vec![
                 edge_data[0..edge_data.len() / 2]
                     .iter()
@@ -259,14 +297,14 @@ pub mod hierarchical {
                 let dst = edge_list[1][j] as usize;
                 if src < num_nodes && dst < num_nodes {
                     // Simplified adjacency matrix setting - use direct indexing approach
-                    let mut adj_data = adjacency.to_vec().unwrap();
+                    let mut adj_data = adjacency.to_vec().expect("conversion should succeed");
                     adj_data[src * num_nodes + dst] = 1.0;
                     adjacency = torsh_tensor::creation::from_vec(
                         adj_data,
                         &[num_nodes, num_nodes],
                         torsh_core::device::DeviceType::Cpu,
                     )
-                    .unwrap();
+                    .expect("from_vec adjacency should succeed");
                 }
             }
 
@@ -275,7 +313,7 @@ pub mod hierarchical {
 
         /// Convert adjacency matrix to edge index
         fn adjacency_to_edge_index(&self, adjacency: &Tensor) -> (Tensor, usize) {
-            let adj_data = adjacency.to_vec().unwrap();
+            let adj_data = adjacency.to_vec().expect("conversion should succeed");
             let mut edges = Vec::new();
 
             // Convert flattened vector to 2D indexing using tensor shape
@@ -292,7 +330,7 @@ pub mod hierarchical {
             }
 
             if edges.is_empty() {
-                (zeros(&[2, 0]).unwrap(), 0)
+                (zeros(&[2, 0]).expect("zeros empty edges should succeed"), 0)
             } else {
                 let num_edges = edges.len();
                 let mut edge_vec = Vec::with_capacity(2 * num_edges);
@@ -310,7 +348,7 @@ pub mod hierarchical {
                         &[2, num_edges],
                         torsh_core::device::DeviceType::Cpu,
                     )
-                    .unwrap(),
+                    .expect("from_vec edge_index should succeed"),
                     num_edges,
                 )
             }
@@ -319,57 +357,72 @@ pub mod hierarchical {
         /// Compute link prediction auxiliary loss
         fn compute_link_prediction_loss(&self, adjacency: &Tensor, assignment: &Tensor) -> Tensor {
             // Predict adjacency matrix from assignment
-            let predicted_adj = assignment.matmul(&assignment.t().unwrap()).unwrap();
+            let predicted_adj = assignment
+                .matmul(&assignment.t().expect("transpose should succeed"))
+                .expect("operation should succeed");
 
             // Compute binary cross-entropy loss
             let eps = 1e-8;
             let eps_tensor = torsh_tensor::creation::ones_like(adjacency)
-                .unwrap()
+                .expect("ones_like should succeed")
                 .mul_scalar(eps as f32)
-                .unwrap();
-            let one_tensor = torsh_tensor::creation::ones_like(adjacency).unwrap();
+                .expect("mul_scalar eps should succeed");
+            let one_tensor =
+                torsh_tensor::creation::ones_like(adjacency).expect("ones_like should succeed");
             let pos_loss = adjacency
-                .mul(&predicted_adj.add(&eps_tensor).unwrap().ln().unwrap())
-                .unwrap();
+                .mul(
+                    &predicted_adj
+                        .add(&eps_tensor)
+                        .expect("operation should succeed")
+                        .ln()
+                        .expect("ln should succeed"),
+                )
+                .expect("operation should succeed");
             let neg_loss = one_tensor
                 .sub(adjacency)
-                .unwrap()
+                .expect("operation should succeed")
                 .mul(
                     &one_tensor
                         .sub(&predicted_adj)
-                        .unwrap()
+                        .expect("operation should succeed")
                         .add(&eps_tensor)
-                        .unwrap()
+                        .expect("operation should succeed")
                         .ln()
-                        .unwrap(),
+                        .expect("ln should succeed"),
                 )
-                .unwrap();
+                .expect("operation should succeed");
 
             pos_loss
                 .add(&neg_loss)
-                .unwrap()
+                .expect("operation should succeed")
                 .mean(None, false)
-                .unwrap()
+                .expect("reduction should succeed")
                 .neg()
-                .unwrap()
+                .expect("operation should succeed")
         }
 
         /// Compute entropy auxiliary loss to encourage discrete assignments
         fn compute_entropy_loss(&self, assignment: &Tensor) -> Tensor {
             let eps = 1e-8;
             let eps_tensor = torsh_tensor::creation::ones_like(assignment)
-                .unwrap()
+                .expect("ones_like should succeed")
                 .mul_scalar(eps as f32)
-                .unwrap();
+                .expect("mul_scalar eps should succeed");
             let entropy = assignment
-                .mul(&assignment.add(&eps_tensor).unwrap().ln().unwrap())
-                .unwrap()
+                .mul(
+                    &assignment
+                        .add(&eps_tensor)
+                        .expect("operation should succeed")
+                        .ln()
+                        .expect("operation should succeed"),
+                )
+                .expect("operation should succeed")
                 .sum()
-                .unwrap()
+                .expect("reduction should succeed")
                 .mean(None, false)
-                .unwrap()
+                .expect("reduction should succeed")
                 .neg()
-                .unwrap();
+                .expect("operation should succeed");
             entropy
         }
 
@@ -389,7 +442,8 @@ pub mod hierarchical {
     impl TopKPool {
         /// Create a new TopK pooling layer
         pub fn new(input_dim: usize, ratio: f32, min_score: Option<f32>) -> Self {
-            let score_layer = Parameter::new(randn(&[input_dim, 1]).unwrap());
+            let score_layer =
+                Parameter::new(randn(&[input_dim, 1]).expect("randn score_layer should succeed"));
 
             Self {
                 ratio,
@@ -407,18 +461,20 @@ pub mod hierarchical {
             let scores = graph
                 .x
                 .matmul(&self.score_layer.clone_data())
-                .unwrap()
+                .expect("operation should succeed")
                 .squeeze(-1)
-                .unwrap();
+                .expect("squeeze should succeed");
 
             // Get top-k node indices
             let (top_scores, top_indices) = self.topk(&scores, k);
 
             // Filter nodes based on minimum score if specified
             let (selected_indices, _selected_scores) = if let Some(min_score) = self.min_score {
-                let valid_mask = top_scores.gt_scalar(min_score).unwrap();
+                let valid_mask = top_scores
+                    .gt_scalar(min_score)
+                    .expect("gt_scalar should succeed");
                 // Convert boolean mask to f32 for compatibility
-                let mask_data = valid_mask.to_vec().unwrap();
+                let mask_data = valid_mask.to_vec().expect("conversion should succeed");
                 let mask_f32 = mask_data
                     .iter()
                     .map(|&x| if x { 1.0 } else { 0.0 })
@@ -428,7 +484,7 @@ pub mod hierarchical {
                     valid_mask.shape().dims(),
                     torsh_core::device::DeviceType::Cpu,
                 )
-                .unwrap();
+                .expect("from_vec mask should succeed");
                 let valid_indices = self.masked_select(&top_indices, &mask_tensor);
                 let valid_scores = self.masked_select(&top_scores, &mask_tensor);
                 (valid_indices, valid_scores)
@@ -455,7 +511,7 @@ pub mod hierarchical {
 
         /// Compute top-k indices and values
         fn topk(&self, tensor: &Tensor, k: usize) -> (Tensor, Tensor) {
-            let values = tensor.to_vec().unwrap();
+            let values = tensor.to_vec().expect("conversion should succeed");
             let mut indexed_values: Vec<(f32, usize)> = values
                 .into_iter()
                 .enumerate()
@@ -463,7 +519,8 @@ pub mod hierarchical {
                 .collect();
 
             // Sort by value in descending order
-            indexed_values.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+            indexed_values
+                .sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
 
             // Take top k
             indexed_values.truncate(k);
@@ -471,18 +528,18 @@ pub mod hierarchical {
             let top_values: Vec<f32> = indexed_values.iter().map(|(v, _)| *v).collect();
             let top_indices: Vec<f32> = indexed_values.iter().map(|(_, i)| *i as f32).collect();
 
-            let values_tensor =
-                from_vec(top_values, &[k], torsh_core::device::DeviceType::Cpu).unwrap();
-            let indices_tensor =
-                from_vec(top_indices, &[k], torsh_core::device::DeviceType::Cpu).unwrap();
+            let values_tensor = from_vec(top_values, &[k], torsh_core::device::DeviceType::Cpu)
+                .expect("from_vec values should succeed");
+            let indices_tensor = from_vec(top_indices, &[k], torsh_core::device::DeviceType::Cpu)
+                .expect("from_vec indices should succeed");
 
             (values_tensor, indices_tensor)
         }
 
         /// Select elements based on a boolean mask
         fn masked_select(&self, tensor: &Tensor, mask: &Tensor) -> Tensor {
-            let values = tensor.to_vec().unwrap();
-            let mask_values = mask.to_vec().unwrap();
+            let values = tensor.to_vec().expect("conversion should succeed");
+            let mask_values = mask.to_vec().expect("conversion should succeed");
 
             let selected: Vec<f32> = values
                 .into_iter()
@@ -496,16 +553,16 @@ pub mod hierarchical {
                 &[selected_len],
                 torsh_core::device::DeviceType::Cpu,
             )
-            .unwrap()
+            .expect("from_vec selected should succeed")
         }
 
         /// Select rows/columns from a tensor based on indices
         fn index_select(&self, tensor: &Tensor, indices: &Tensor, dim: i64) -> Tensor {
-            let idx_values = indices.to_vec().unwrap();
+            let idx_values = indices.to_vec().expect("conversion should succeed");
 
             if dim == 0 {
                 // Select rows
-                let tensor_data = tensor.to_vec().unwrap();
+                let tensor_data = tensor.to_vec().expect("conversion should succeed");
                 let shape = tensor.shape();
                 let cols = shape.dims()[1];
                 let original_data: Vec<Vec<f32>> = tensor_data
@@ -533,7 +590,7 @@ pub mod hierarchical {
                     &[num_rows, num_cols],
                     torsh_core::device::DeviceType::Cpu,
                 )
-                .unwrap()
+                .expect("from_vec selected_rows should succeed")
             } else {
                 // For simplicity, only implement row selection
                 tensor.clone()
@@ -542,7 +599,7 @@ pub mod hierarchical {
 
         /// Filter edges to only include those between selected nodes
         fn filter_edges(&self, edge_index: &Tensor, selected_nodes: &Tensor) -> (Tensor, usize) {
-            let edge_data = edge_index.to_vec().unwrap();
+            let edge_data = edge_index.to_vec().expect("conversion should succeed");
             let edges = vec![
                 edge_data[0..edge_data.len() / 2]
                     .iter()
@@ -553,7 +610,7 @@ pub mod hierarchical {
                     .map(|&x| x as i64)
                     .collect::<Vec<i64>>(),
             ];
-            let selected_indices = selected_nodes.to_vec().unwrap();
+            let selected_indices = selected_nodes.to_vec().expect("conversion should succeed");
 
             // Create a mapping from old node indices to new ones
             let mut node_mapping = std::collections::HashMap::new();
@@ -575,7 +632,7 @@ pub mod hierarchical {
             }
 
             if filtered_edges.is_empty() {
-                (zeros(&[2, 0]).unwrap(), 0)
+                (zeros(&[2, 0]).expect("zeros empty edges should succeed"), 0)
             } else {
                 let num_edges = filtered_edges.len();
                 let mut edge_vec = Vec::with_capacity(2 * num_edges);
@@ -593,7 +650,7 @@ pub mod hierarchical {
                         &[2, num_edges],
                         torsh_core::device::DeviceType::Cpu,
                     )
-                    .unwrap(),
+                    .expect("from_vec filtered edges should succeed"),
                     num_edges,
                 )
             }
@@ -615,7 +672,9 @@ pub mod hierarchical {
     impl MinCutPool {
         /// Create a new MinCut pooling layer
         pub fn new(input_dim: usize, output_dim: usize) -> Self {
-            let assignment_layer = Parameter::new(randn(&[input_dim, output_dim]).unwrap());
+            let assignment_layer = Parameter::new(
+                randn(&[input_dim, output_dim]).expect("randn assignment_layer should succeed"),
+            );
 
             Self {
                 input_dim,
@@ -627,11 +686,20 @@ pub mod hierarchical {
         /// Apply MinCut pooling
         pub fn forward(&self, graph: &GraphData) -> (GraphData, Tensor) {
             // Compute soft assignment matrix
-            let assignment_logits = graph.x.matmul(&self.assignment_layer.clone_data()).unwrap();
-            let assignment_matrix = assignment_logits.softmax(-1).unwrap();
+            let assignment_logits = graph
+                .x
+                .matmul(&self.assignment_layer.clone_data())
+                .expect("operation should succeed");
+            let assignment_matrix = assignment_logits
+                .softmax(-1)
+                .expect("softmax should succeed");
 
             // Pool node features
-            let pooled_features = assignment_matrix.t().unwrap().matmul(&graph.x).unwrap();
+            let pooled_features = assignment_matrix
+                .t()
+                .expect("transpose should succeed")
+                .matmul(&graph.x)
+                .expect("operation should succeed");
 
             // Compute adjacency matrix
             let adjacency = self.compute_adjacency_matrix(&graph.edge_index, graph.num_nodes);
@@ -639,11 +707,11 @@ pub mod hierarchical {
             // Pool adjacency matrix
             let pooled_adj = assignment_matrix
                 .t()
-                .unwrap()
+                .expect("transpose should succeed")
                 .matmul(&adjacency)
-                .unwrap()
+                .expect("operation should succeed")
                 .matmul(&assignment_matrix)
-                .unwrap();
+                .expect("operation should succeed");
 
             // Create new edge index
             let (new_edge_index, new_num_edges) = self.adjacency_to_edge_index(&pooled_adj);
@@ -651,7 +719,9 @@ pub mod hierarchical {
             // Compute MinCut loss
             let mincut_loss = self.compute_mincut_loss(&adjacency, &assignment_matrix);
             let orthogonality_loss = self.compute_orthogonality_loss(&assignment_matrix);
-            let total_loss = mincut_loss.add(&orthogonality_loss).unwrap();
+            let total_loss = mincut_loss
+                .add(&orthogonality_loss)
+                .expect("operation should succeed");
 
             let pooled_graph = GraphData {
                 x: pooled_features,
@@ -667,8 +737,9 @@ pub mod hierarchical {
 
         /// Compute adjacency matrix from edge index
         fn compute_adjacency_matrix(&self, edge_index: &Tensor, num_nodes: usize) -> Tensor {
-            let mut adjacency = zeros(&[num_nodes, num_nodes]).unwrap();
-            let edge_data = edge_index.to_vec().unwrap();
+            let mut adjacency =
+                zeros(&[num_nodes, num_nodes]).expect("zeros adjacency should succeed");
+            let edge_data = edge_index.to_vec().expect("conversion should succeed");
             let edge_list: Vec<Vec<i64>> = vec![
                 edge_data[0..edge_data.len() / 2]
                     .iter()
@@ -685,14 +756,14 @@ pub mod hierarchical {
                 let dst = edge_list[1][j] as usize;
                 if src < num_nodes && dst < num_nodes {
                     // Simplified adjacency matrix setting - use direct indexing approach
-                    let mut adj_data = adjacency.to_vec().unwrap();
+                    let mut adj_data = adjacency.to_vec().expect("conversion should succeed");
                     adj_data[src * num_nodes + dst] = 1.0;
                     adjacency = torsh_tensor::creation::from_vec(
                         adj_data,
                         &[num_nodes, num_nodes],
                         torsh_core::device::DeviceType::Cpu,
                     )
-                    .unwrap();
+                    .expect("from_vec adjacency should succeed");
                 }
             }
 
@@ -701,7 +772,7 @@ pub mod hierarchical {
 
         /// Convert adjacency matrix to edge index
         fn adjacency_to_edge_index(&self, adjacency: &Tensor) -> (Tensor, usize) {
-            let adj_data = adjacency.to_vec().unwrap();
+            let adj_data = adjacency.to_vec().expect("conversion should succeed");
             let mut edges = Vec::new();
 
             // Convert flattened vector to 2D indexing using tensor shape
@@ -718,7 +789,7 @@ pub mod hierarchical {
             }
 
             if edges.is_empty() {
-                (zeros(&[2, 0]).unwrap(), 0)
+                (zeros(&[2, 0]).expect("zeros empty edges should succeed"), 0)
             } else {
                 let num_edges = edges.len();
                 let mut edge_vec = Vec::with_capacity(2 * num_edges);
@@ -736,7 +807,7 @@ pub mod hierarchical {
                         &[2, num_edges],
                         torsh_core::device::DeviceType::Cpu,
                     )
-                    .unwrap(),
+                    .expect("from_vec edge_index should succeed"),
                     num_edges,
                 )
             }
@@ -747,47 +818,65 @@ pub mod hierarchical {
             // MinCut loss encourages nodes in different clusters to have few connections
             let cut = assignment
                 .t()
-                .unwrap()
+                .expect("transpose should succeed")
                 .matmul(adjacency)
-                .unwrap()
+                .expect("operation should succeed")
                 .matmul(assignment)
-                .unwrap();
+                .expect("operation should succeed");
             // Compute degree for each cluster (sum along node dimension)
-            let degree = assignment.sum_dim(&[0], false).unwrap();
+            let degree = assignment
+                .sum_dim(&[0], false)
+                .expect("sum_dim should succeed");
 
             // Normalized cut - outer product of degrees
-            let degree_unsqueezed = degree.unsqueeze(0).unwrap();
-            let degree_t = degree.unsqueeze(1).unwrap();
-            let degree_product = degree_t.matmul(&degree_unsqueezed).unwrap();
+            let degree_unsqueezed = degree.unsqueeze(0).expect("unsqueeze should succeed");
+            let degree_t = degree.unsqueeze(1).expect("unsqueeze should succeed");
+            let degree_product = degree_t
+                .matmul(&degree_unsqueezed)
+                .expect("operation should succeed");
             let eps_tensor = torsh_tensor::creation::ones_like(&degree_product)
-                .unwrap()
+                .expect("ones_like should succeed")
                 .mul_scalar(1e-8_f32)
-                .unwrap();
-            let normalized_cut = cut.div(&degree_product.add(&eps_tensor).unwrap()).unwrap();
+                .expect("mul_scalar eps should succeed");
+            let normalized_cut = cut
+                .div(
+                    &degree_product
+                        .add(&eps_tensor)
+                        .expect("operation should succeed"),
+                )
+                .expect("operation should succeed");
             // Simplified trace computation - sum of diagonal elements
-            let diag_sum = normalized_cut.sum().unwrap();
-            diag_sum.neg().unwrap()
+            let diag_sum = normalized_cut.sum().expect("reduction should succeed");
+            diag_sum.neg().expect("neg should succeed")
         }
 
         /// Compute orthogonality loss to encourage balanced clusters
         fn compute_orthogonality_loss(&self, assignment: &Tensor) -> Tensor {
-            let cluster_sizes = assignment.sum().unwrap();
-            let normalized_sizes = cluster_sizes.div(&cluster_sizes.sum().unwrap()).unwrap();
+            let cluster_sizes = assignment.sum().expect("reduction should succeed");
+            let normalized_sizes = cluster_sizes
+                .div(&cluster_sizes.sum().expect("reduction should succeed"))
+                .expect("operation should succeed");
 
             // Entropy loss to encourage balanced clusters
             let eps = 1e-8;
             let eps_tensor = torsh_tensor::creation::ones_like(&normalized_sizes)
-                .unwrap()
+                .expect("ones_like should succeed")
                 .mul_scalar(eps as f32)
-                .unwrap();
+                .expect("mul_scalar eps should succeed");
             let entropy_loss = normalized_sizes
-                .mul(&normalized_sizes.add(&eps_tensor).unwrap().ln().unwrap())
-                .unwrap()
+                .mul(
+                    &normalized_sizes
+                        .add(&eps_tensor)
+                        .expect("operation should succeed")
+                        .ln()
+                        .expect("ln should succeed"),
+                )
+                .expect("operation should succeed")
                 .sum()
-                .unwrap()
+                .expect("reduction should succeed")
                 .neg()
-                .unwrap();
-            entropy_loss.neg().unwrap()
+                .expect("neg should succeed");
+            entropy_loss.neg().expect("neg should succeed")
         }
 
         /// Get parameters

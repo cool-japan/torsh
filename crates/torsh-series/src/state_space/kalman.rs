@@ -31,12 +31,18 @@ impl KalmanFilter {
         Self {
             state_dim,
             obs_dim,
-            transition: eye(state_dim).unwrap(),
-            observation: ones(&[obs_dim, state_dim]).unwrap(),
-            process_noise: eye(state_dim).unwrap().mul_scalar(0.01).unwrap(),
-            measurement_noise: eye(obs_dim).unwrap().mul_scalar(0.1).unwrap(),
-            state: zeros(&[state_dim, 1]).unwrap(), // Column vector
-            covariance: eye(state_dim).unwrap(),
+            transition: eye(state_dim).expect("tensor creation should succeed"),
+            observation: ones(&[obs_dim, state_dim]).expect("tensor creation should succeed"),
+            process_noise: eye(state_dim)
+                .expect("tensor creation should succeed")
+                .mul_scalar(0.01)
+                .expect("scalar mul should succeed"),
+            measurement_noise: eye(obs_dim)
+                .expect("tensor creation should succeed")
+                .mul_scalar(0.1)
+                .expect("scalar mul should succeed"),
+            state: zeros(&[state_dim, 1]).expect("tensor creation should succeed"), // Column vector
+            covariance: eye(state_dim).expect("tensor creation should succeed"),
         }
     }
 
@@ -56,8 +62,8 @@ impl KalmanFilter {
             observation,
             process_noise,
             measurement_noise,
-            state: zeros(&[state_dim, 1]).unwrap(), // Column vector
-            covariance: eye(state_dim).unwrap(),
+            state: zeros(&[state_dim, 1]).expect("tensor creation should succeed"), // Column vector
+            covariance: eye(state_dim).expect("tensor creation should succeed"),
         }
     }
 
@@ -331,8 +337,8 @@ impl KalmanFilter {
 
     /// Reset filter state
     pub fn reset(&mut self) {
-        self.state = zeros(&[self.state_dim, 1]).unwrap(); // Column vector
-        self.covariance = eye(self.state_dim).unwrap();
+        self.state = zeros(&[self.state_dim, 1]).expect("tensor creation should succeed"); // Column vector
+        self.covariance = eye(self.state_dim).expect("tensor creation should succeed");
     }
 }
 

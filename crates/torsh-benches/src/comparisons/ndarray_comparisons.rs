@@ -4,7 +4,7 @@
 //! performance with NDArray operations.
 
 use crate::Benchmarkable;
-use criterion::black_box;
+use std::hint::black_box;
 
 #[cfg(feature = "compare-external")]
 use scirs2_autograd::ndarray::{Array, Array2};

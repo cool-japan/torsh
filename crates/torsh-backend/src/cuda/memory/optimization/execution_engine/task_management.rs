@@ -5,12 +5,20 @@
 //! task lifecycle management, metadata tracking, and execution coordination.
 
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet, VecDeque};
-use std::sync::{Arc, Mutex, RwLock};
+use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
+use std::sync::{
+    atomic::AtomicU64,
+    Arc, Mutex, RwLock,
+};
 use std::time::{Duration, Instant, SystemTime};
 use uuid::Uuid;
 
 use super::config::ExecutionConfig;
+
+/// Helper function for serde default Instant value
+fn default_instant() -> Instant {
+    Instant::now()
+}
 
 /// Comprehensive optimization task for execution
 ///
@@ -814,25 +822,25 @@ impl TaskManager {
 
         // Store task
         {
-            let mut tasks = self.tasks.write().unwrap();
+            let mut tasks = self.tasks.write().expect("lock should not be poisoned");
             tasks.insert(task.id, task.clone());
         }
 
         // Add to scheduling queue
         {
-            let mut queue = self.scheduling_queue.lock().unwrap();
+            let mut queue = self.scheduling_queue.lock().expect("lock should not be poisoned");
             queue.enqueue_task(task.id, task.priority);
         }
 
         // Update dependencies
         {
-            let mut dep_manager = self.dependency_manager.lock().unwrap();
+            let mut dep_manager = self.dependency_manager.lock().expect("lock should not be poisoned");
             dep_manager.register_dependencies(&task)?;
         }
 
         // Update statistics
         {
-            let mut stats = self.statistics.lock().unwrap();
+            let mut stats = self.statistics.lock().expect("lock should not be poisoned");
             stats.tasks_submitted += 1;
         }
 
@@ -841,17 +849,17 @@ impl TaskManager {
 
     /// Get the next task to execute
     pub fn get_next_task(&self) -> Option<OptimizationTask> {
-        let mut queue = self.scheduling_queue.lock().unwrap();
+        let mut queue = self.scheduling_queue.lock().expect("lock should not be poisoned");
         let task_id = queue.dequeue_next_task()?;
 
-        let tasks = self.tasks.read().unwrap();
+        let tasks = self.tasks.read().expect("lock should not be poisoned");
         tasks.get(&task_id).cloned()
     }
 
     /// Mark task as started
     pub fn start_task(&self, task_id: TaskId) -> Result<(), TaskError> {
         let task = {
-            let tasks = self.tasks.read().unwrap();
+            let tasks = self.tasks.read().expect("lock should not be poisoned");
             tasks
                 .get(&task_id)
                 .cloned()
@@ -868,12 +876,12 @@ impl TaskManager {
         };
 
         {
-            let mut active_tasks = self.active_tasks.write().unwrap();
+            let mut active_tasks = self.active_tasks.write().expect("lock should not be poisoned");
             active_tasks.insert(task_id, active_info);
         }
 
         {
-            let mut stats = self.statistics.lock().unwrap();
+            let mut stats = self.statistics.lock().expect("lock should not be poisoned");
             stats.tasks_started += 1;
         }
 
@@ -883,7 +891,7 @@ impl TaskManager {
     /// Mark task as completed
     pub fn complete_task(&self, task_id: TaskId, results: TaskResults) -> Result<(), TaskError> {
         let active_info = {
-            let mut active_tasks = self.active_tasks.write().unwrap();
+            let mut active_tasks = self.active_tasks.write().expect("lock should not be poisoned");
             active_tasks
                 .remove(&task_id)
                 .ok_or(TaskError::TaskNotActive(task_id))?
@@ -903,18 +911,18 @@ impl TaskManager {
         };
 
         {
-            let mut completed_tasks = self.completed_tasks.write().unwrap();
+            let mut completed_tasks = self.completed_tasks.write().expect("lock should not be poisoned");
             completed_tasks.insert(task_id, completion_info);
         }
 
         {
-            let mut stats = self.statistics.lock().unwrap();
+            let mut stats = self.statistics.lock().expect("lock should not be poisoned");
             stats.tasks_completed += 1;
         }
 
         // Update dependency resolution
         {
-            let mut dep_manager = self.dependency_manager.lock().unwrap();
+            let mut dep_manager = self.dependency_manager.lock().expect("lock should not be poisoned");
             dep_manager.mark_task_completed(task_id);
         }
 
@@ -928,7 +936,7 @@ impl TaskManager {
         failure_info: TaskFailureInfo,
     ) -> Result<(), TaskError> {
         let active_info = {
-            let mut active_tasks = self.active_tasks.write().unwrap();
+            let mut active_tasks = self.active_tasks.write().expect("lock should not be poisoned");
             active_tasks
                 .remove(&task_id)
                 .ok_or(TaskError::TaskNotActive(task_id))?
@@ -943,12 +951,12 @@ impl TaskManager {
         };
 
         {
-            let mut failed_tasks = self.failed_tasks.write().unwrap();
+            let mut failed_tasks = self.failed_tasks.write().expect("lock should not be poisoned");
             failed_tasks.insert(task_id, failed_info);
         }
 
         {
-            let mut stats = self.statistics.lock().unwrap();
+            let mut stats = self.statistics.lock().expect("lock should not be poisoned");
             stats.tasks_failed += 1;
         }
 
@@ -957,25 +965,25 @@ impl TaskManager {
 
     /// Get task by ID
     pub fn get_task(&self, task_id: TaskId) -> Option<OptimizationTask> {
-        let tasks = self.tasks.read().unwrap();
+        let tasks = self.tasks.read().expect("lock should not be poisoned");
         tasks.get(&task_id).cloned()
     }
 
     /// Get active tasks
     pub fn get_active_tasks(&self) -> Vec<ActiveTaskInfo> {
-        let active_tasks = self.active_tasks.read().unwrap();
+        let active_tasks = self.active_tasks.read().expect("lock should not be poisoned");
         active_tasks.values().cloned().collect()
     }
 
     /// Get task statistics
     pub fn get_statistics(&self) -> TaskManagerStatistics {
-        let stats = self.statistics.lock().unwrap();
+        let stats = self.statistics.lock().expect("lock should not be poisoned");
         stats.clone()
     }
 
     /// Generate a new task ID
     fn generate_task_id(&self) -> Result<TaskId, TaskError> {
-        let mut generator = self.id_generator.lock().unwrap();
+        let mut generator = self.id_generator.lock().expect("lock should not be poisoned");
         Ok(generator.generate())
     }
 
@@ -1251,8 +1259,29 @@ default_placeholder_struct!(TaskMetricsCollector);
 default_placeholder_struct!(TaskPriorityManager);
 default_placeholder_struct!(TaskResourceManager);
 default_placeholder_struct!(TaskManagerStatistics);
-default_placeholder_struct!(DeadlineTaskEntry);
-default_placeholder_struct!(SchedulingStatistics);
+/// Entry for deadline-based task tracking
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeadlineTaskEntry {
+    /// Task identifier
+    pub task_id: TaskId,
+    /// Task deadline
+    #[serde(skip, default = "default_instant")]
+    pub deadline: std::time::Instant,
+    /// Priority for tie-breaking
+    pub priority: u32,
+}
+/// Scheduling statistics for task management
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SchedulingStatistics {
+    /// Total tasks scheduled
+    pub total_scheduled: u64,
+    /// Total tasks dequeued
+    pub tasks_dequeued: u64,
+    /// Successful executions
+    pub successful: u64,
+    /// Failed executions
+    pub failed: u64,
+}
 default_placeholder_struct!(ExecutionPhase);
 default_placeholder_struct!(AllocatedResources);
 default_placeholder_struct!(TaskProgress);

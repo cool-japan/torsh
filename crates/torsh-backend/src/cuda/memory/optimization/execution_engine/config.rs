@@ -1175,6 +1175,14 @@ default_placeholder_config!(ProfilingConfig);
 default_placeholder_config!(PluginSupportConfig);
 default_placeholder_config!(AdvancedSchedulingConfig);
 
+/// GPU configuration stub type
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct GpuConfig {}
+
+/// Thermal configuration stub type
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ThermalConfig {}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -11,9 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-#[cfg(feature = "python")]
 use numpy::PyArrayDyn;
-#[cfg(feature = "python")]
 use pyo3::prelude::*;
 
 /// NumPy data type mapping
@@ -501,7 +499,6 @@ impl NumpyCompat {
         mapping
     }
 
-    #[cfg(feature = "python")]
     /// Convert NumPy array to ToRSh tensor (Python integration)
     pub fn from_numpy_array(&self, _py_array: &PyArrayDyn<f32>) -> Result<Vec<f32>, String> {
         // TODO: Fix PyArray compatibility issues
@@ -532,7 +529,6 @@ impl NumpyCompat {
         // }
     }
 
-    #[cfg(feature = "python")]
     /// Convert ToRSh tensor to NumPy array (Python integration)
     pub fn to_numpy_array(
         &self,
@@ -550,7 +546,6 @@ impl NumpyCompat {
         // })
     }
 
-    #[cfg(feature = "python")]
     #[allow(dead_code)]
     /// Copy strided array data to contiguous layout
     fn copy_strided_array_to_contiguous(

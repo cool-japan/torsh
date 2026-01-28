@@ -266,7 +266,10 @@ impl WandbClient {
 
     fn save_run_data(&self) -> Result<(), TorshError> {
         let run_data = RunData {
-            run_id: self.run_id.clone().unwrap(),
+            run_id: self
+                .run_id
+                .clone()
+                .expect("run_id should be set before saving run data"),
             run_name: self.run_name.clone(),
             project_name: self.project_name.clone(),
             entity: self.entity.clone(),
@@ -365,7 +368,7 @@ fn generate_run_id() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .expect("system time should be after UNIX_EPOCH")
         .as_secs();
     format!("run_{}", timestamp)
 }
@@ -374,7 +377,7 @@ fn current_timestamp() -> u64 {
     use std::time::{SystemTime, UNIX_EPOCH};
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .expect("system time should be after UNIX_EPOCH")
         .as_secs()
 }
 

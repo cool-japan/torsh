@@ -380,8 +380,9 @@ impl Transform for RandomErasing {
         let start_y = rng.gen_range(0..=(height - erase_height));
         let start_x = rng.gen_range(0..=(width - erase_width));
 
-        // Apply erasing
-        let output = input.clone();
+        // Apply erasing - make_unique() ensures mutable storage for element-wise writes
+        let mut output = input.clone();
+        output.make_unique()?;
         for c in 0..channels {
             for y in start_y..(start_y + erase_height) {
                 for x in start_x..(start_x + erase_width) {
@@ -480,7 +481,9 @@ impl Transform for Cutout {
         }
 
         let (channels, height, width) = (shape.dims()[0], shape.dims()[1], shape.dims()[2]);
-        let output = input.clone();
+        // make_unique() ensures mutable storage for element-wise writes
+        let mut output = input.clone();
+        output.make_unique()?;
         // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
         let mut rng = Random::seed(42);
 

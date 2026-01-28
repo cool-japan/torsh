@@ -6,17 +6,27 @@
 //! of resource utilization across the entire CUDA execution environment.
 
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::sync::{
-    atomic::{AtomicU64, Ordering},
+    atomic::{AtomicU64, AtomicUsize, Ordering},
     Arc, Mutex,
 };
 use std::time::{Duration, Instant};
 
+/// Helper function for serde default Instant value
+fn default_instant() -> Instant {
+    Instant::now()
+}
+
+/// Helper function for serde default Option<Instant> value
+fn default_option_instant() -> Option<Instant> {
+    None
+}
+
 use super::config::{
     CpuAllocationConfig, GpuAllocationConfig, MemoryAllocationConfig, ResourceAllocationStrategy,
 };
-use super::task_management::{HardwareRequirement, ResourceRequirements};
+use super::task_management::{HardwareRequirement, ResourceRequirements, TaskId};
 
 /// Comprehensive resource manager for CUDA optimization execution
 ///
@@ -301,8 +311,8 @@ pub struct GpuDevice {
     /// Total memory in bytes
     pub total_memory_bytes: usize,
 
-    /// Available memory in bytes
-    pub available_memory_bytes: AtomicUsize,
+    /// Available memory in bytes (simplified for serialization)
+    pub available_memory_bytes: usize,
 
     /// Memory bandwidth in GB/s
     pub memory_bandwidth_gbps: f64,
@@ -319,10 +329,10 @@ pub struct GpuDevice {
 
     /// Power specifications
     pub max_power_watts: f64,
-    pub current_power_watts: AtomicU64,
+    pub current_power_watts: u64,
 
     /// Temperature monitoring
-    pub temperature_celsius: AtomicU64,
+    pub temperature_celsius: u64,
     pub max_temperature_celsius: f64,
 
     /// Device capabilities
@@ -332,6 +342,7 @@ pub struct GpuDevice {
     pub status: GpuDeviceStatus,
 
     /// Last updated timestamp
+    #[serde(skip, default = "default_instant")]
     pub last_updated: Instant,
 }
 
@@ -358,9 +369,11 @@ pub struct GpuAllocation {
     pub compute_allocation: GpuComputeAllocation,
 
     /// Allocation timestamp
+    #[serde(skip, default = "default_instant")]
     pub allocated_at: Instant,
 
     /// Expected release time
+    #[serde(skip, default = "default_option_instant")]
     pub expected_release: Option<Instant>,
 
     /// Allocation status
@@ -433,9 +446,11 @@ pub struct CpuCoreAllocation {
     pub thread_allocations: Vec<ThreadAllocation>,
 
     /// Allocation timestamp
+    #[serde(skip, default = "default_instant")]
     pub allocated_at: Instant,
 
     /// Expected release time
+    #[serde(skip, default = "default_option_instant")]
     pub expected_release: Option<Instant>,
 
     /// Performance metrics
@@ -473,6 +488,7 @@ pub struct SystemMemoryAllocation {
     pub performance_characteristics: MemoryPerformanceCharacteristics,
 
     /// Allocation timestamp
+    #[serde(skip, default = "default_instant")]
     pub allocated_at: Instant,
 }
 
@@ -518,8 +534,8 @@ pub struct GpuMemoryPool {
     /// Total pool size in bytes
     pub total_size_bytes: usize,
 
-    /// Available size in bytes
-    pub available_size_bytes: AtomicUsize,
+    /// Available size in bytes (simplified for serialization)
+    pub available_size_bytes: usize,
 
     /// Memory blocks in the pool
     pub memory_blocks: HashMap<BlockId, MemoryBlock>,
@@ -574,8 +590,8 @@ pub struct MemoryPool {
     /// Total pool size
     pub total_size_bytes: usize,
 
-    /// Available size
-    pub available_size_bytes: AtomicUsize,
+    /// Available size (simplified for serialization)
+    pub available_size_bytes: usize,
 
     /// Memory blocks
     pub blocks: HashMap<BlockId, MemoryBlock>,
@@ -736,12 +752,12 @@ impl OptimizationResourceManager {
         }
 
         // Execute allocation through allocation engine
-        let mut allocation_engine = self.allocation_engine.lock().unwrap();
+        let mut allocation_engine = self.allocation_engine.lock().expect("lock should not be poisoned");
         let allocation_plan = allocation_engine.create_allocation_plan(task_id, requirements)?;
 
         // Allocate GPU resources if needed
         let gpu_allocations = if requirements.gpu_requirements.gpu_count > 0 {
-            let mut gpu_manager = self.gpu_manager.lock().unwrap();
+            let mut gpu_manager = self.gpu_manager.lock().expect("lock should not be poisoned");
             gpu_manager.allocate_gpu_resources(task_id, &requirements.gpu_requirements)?
         } else {
             Vec::new()
@@ -749,7 +765,7 @@ impl OptimizationResourceManager {
 
         // Allocate CPU resources if needed
         let cpu_allocations = if requirements.cpu_requirements.min_cores > 0 {
-            let mut cpu_manager = self.cpu_manager.lock().unwrap();
+            let mut cpu_manager = self.cpu_manager.lock().expect("lock should not be poisoned");
             cpu_manager.allocate_cpu_resources(task_id, &requirements.cpu_requirements)?
         } else {
             Vec::new()
@@ -757,13 +773,13 @@ impl OptimizationResourceManager {
 
         // Allocate memory resources
         let memory_allocations = {
-            let mut memory_manager = self.memory_manager.lock().unwrap();
+            let mut memory_manager = self.memory_manager.lock().expect("lock should not be poisoned");
             memory_manager.allocate_memory_resources(task_id, &requirements.memory_requirements)?
         };
 
         // Allocate specialized hardware if needed
         let hardware_allocations = if !requirements.hardware_requirements.is_empty() {
-            let mut hardware_manager = self.hardware_manager.lock().unwrap();
+            let mut hardware_manager = self.hardware_manager.lock().expect("lock should not be poisoned");
             hardware_manager
                 .allocate_hardware_resources(task_id, &requirements.hardware_requirements)?
         } else {
@@ -785,14 +801,14 @@ impl OptimizationResourceManager {
 
         // Update statistics
         {
-            let mut stats = self.statistics.lock().unwrap();
+            let mut stats = self.statistics.lock().expect("lock should not be poisoned");
             stats.successful_allocations += 1;
             stats.total_allocated_resources += allocation.total_resource_count();
         }
 
         // Start resource monitoring
         {
-            let mut monitoring = self.monitoring_system.lock().unwrap();
+            let mut monitoring = self.monitoring_system.lock().expect("lock should not be poisoned");
             monitoring.start_monitoring_allocation(&allocation)?;
         }
 
@@ -806,37 +822,37 @@ impl OptimizationResourceManager {
 
         // Deallocate GPU resources
         if !allocation_info.gpu_allocations.is_empty() {
-            let mut gpu_manager = self.gpu_manager.lock().unwrap();
+            let mut gpu_manager = self.gpu_manager.lock().expect("lock should not be poisoned");
             gpu_manager.deallocate_gpu_resources(task_id)?;
         }
 
         // Deallocate CPU resources
         if !allocation_info.cpu_allocations.is_empty() {
-            let mut cpu_manager = self.cpu_manager.lock().unwrap();
+            let mut cpu_manager = self.cpu_manager.lock().expect("lock should not be poisoned");
             cpu_manager.deallocate_cpu_resources(task_id)?;
         }
 
         // Deallocate memory resources
         {
-            let mut memory_manager = self.memory_manager.lock().unwrap();
+            let mut memory_manager = self.memory_manager.lock().expect("lock should not be poisoned");
             memory_manager.deallocate_memory_resources(task_id)?;
         }
 
         // Deallocate hardware resources
         if !allocation_info.hardware_allocations.is_empty() {
-            let mut hardware_manager = self.hardware_manager.lock().unwrap();
+            let mut hardware_manager = self.hardware_manager.lock().expect("lock should not be poisoned");
             hardware_manager.deallocate_hardware_resources(task_id)?;
         }
 
         // Update statistics
         {
-            let mut stats = self.statistics.lock().unwrap();
+            let mut stats = self.statistics.lock().expect("lock should not be poisoned");
             stats.successful_deallocations += 1;
         }
 
         // Stop resource monitoring
         {
-            let mut monitoring = self.monitoring_system.lock().unwrap();
+            let mut monitoring = self.monitoring_system.lock().expect("lock should not be poisoned");
             monitoring.stop_monitoring_allocation(task_id)?;
         }
 
@@ -846,17 +862,17 @@ impl OptimizationResourceManager {
     /// Get current resource utilization
     pub fn get_resource_utilization(&self) -> Result<ResourceUtilization, ResourceError> {
         let gpu_utilization = {
-            let gpu_manager = self.gpu_manager.lock().unwrap();
+            let gpu_manager = self.gpu_manager.lock().expect("lock should not be poisoned");
             gpu_manager.get_current_utilization()
         };
 
         let cpu_utilization = {
-            let cpu_manager = self.cpu_manager.lock().unwrap();
+            let cpu_manager = self.cpu_manager.lock().expect("lock should not be poisoned");
             cpu_manager.get_current_utilization()
         };
 
         let memory_utilization = {
-            let memory_manager = self.memory_manager.lock().unwrap();
+            let memory_manager = self.memory_manager.lock().expect("lock should not be poisoned");
             memory_manager.get_current_utilization()
         };
 
@@ -875,13 +891,13 @@ impl OptimizationResourceManager {
 
     /// Get resource statistics
     pub fn get_resource_statistics(&self) -> ResourceStatistics {
-        let stats = self.statistics.lock().unwrap();
+        let stats = self.statistics.lock().expect("lock should not be poisoned");
         stats.clone()
     }
 
     /// Optimize resource allocation
     pub fn optimize_resources(&self) -> Result<OptimizationResults, ResourceError> {
-        let mut optimization_engine = self.optimization_engine.lock().unwrap();
+        let mut optimization_engine = self.optimization_engine.lock().expect("lock should not be poisoned");
         optimization_engine.optimize_current_allocations()
     }
 
@@ -916,7 +932,7 @@ impl OptimizationResourceManager {
 
         // Check GPU availability
         if requirements.gpu_requirements.gpu_count > 0 {
-            let gpu_manager = self.gpu_manager.lock().unwrap();
+            let gpu_manager = self.gpu_manager.lock().expect("lock should not be poisoned");
             if !gpu_manager.has_sufficient_gpu_resources(&requirements.gpu_requirements) {
                 missing_resources.push("GPU".to_string());
             }
@@ -924,14 +940,14 @@ impl OptimizationResourceManager {
 
         // Check CPU availability
         if requirements.cpu_requirements.min_cores > 0 {
-            let cpu_manager = self.cpu_manager.lock().unwrap();
+            let cpu_manager = self.cpu_manager.lock().expect("lock should not be poisoned");
             if !cpu_manager.has_sufficient_cpu_resources(&requirements.cpu_requirements) {
                 missing_resources.push("CPU".to_string());
             }
         }
 
         // Check memory availability
-        let memory_manager = self.memory_manager.lock().unwrap();
+        let memory_manager = self.memory_manager.lock().expect("lock should not be poisoned");
         if !memory_manager.has_sufficient_memory(&requirements.memory_requirements) {
             missing_resources.push("Memory".to_string());
         }
@@ -1028,7 +1044,7 @@ impl GpuResourceManager {
             model: "RTX 4090".to_string(),
             compute_capability: (8, 9),
             total_memory_bytes: 24 * 1024 * 1024 * 1024, // 24GB
-            available_memory_bytes: AtomicUsize::new(24 * 1024 * 1024 * 1024),
+            available_memory_bytes: 24 * 1024 * 1024 * 1024,
             memory_bandwidth_gbps: 1008.0,
             cuda_cores: 16384,
             rt_cores: Some(128),
@@ -1037,8 +1053,8 @@ impl GpuResourceManager {
             boost_clock_mhz: 2520,
             memory_clock_mhz: 10501,
             max_power_watts: 450.0,
-            current_power_watts: AtomicU64::new(0),
-            temperature_celsius: AtomicU64::new(30),
+            current_power_watts: 0,
+            temperature_celsius: 30,
             max_temperature_celsius: 83.0,
             capabilities: GpuCapabilities::default(),
             status: GpuDeviceStatus::Available,
@@ -1062,8 +1078,7 @@ impl GpuResourceManager {
         requirements: &super::task_management::GpuRequirements,
     ) -> bool {
         device.compute_capability >= requirements.min_compute_capability
-            && device.available_memory_bytes.load(Ordering::Relaxed)
-                >= requirements.min_gpu_memory_bytes
+            && device.available_memory_bytes >= requirements.min_gpu_memory_bytes
             && device.status == GpuDeviceStatus::Available
     }
 
@@ -1269,7 +1284,7 @@ impl MemoryResourceManager {
                 pool_id: "system_pool".to_string(),
                 pool_type: MemoryPoolType::System,
                 total_size_bytes: config.pool_size,
-                available_size_bytes: AtomicUsize::new(config.pool_size),
+                available_size_bytes: config.pool_size,
                 blocks: HashMap::new(),
                 allocation_algorithm: MemoryAllocationAlgorithm::BestFit,
                 performance_metrics: MemoryPoolPerformanceMetrics::default(),
@@ -1355,7 +1370,7 @@ pub enum ResourceError {
 
 macro_rules! default_placeholder_type {
     ($name:ident) => {
-        #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+        #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
         pub struct $name {
             pub placeholder: bool,
         }
@@ -1502,11 +1517,7 @@ impl GpuDeviceStatus {
     }
 }
 
-impl PartialEq for GpuDeviceStatus {
-    fn eq(&self, other: &Self) -> bool {
-        self.placeholder == other.placeholder
-    }
-}
+// PartialEq is already derived by the default_placeholder_type macro
 
 impl HardwareInventory {
     fn discover() -> Self {
@@ -1784,4 +1795,12 @@ pub enum MemoryPoolType {
     GPU,
     Shared,
     Pinned,
+}
+
+// Stub types for incomplete implementation
+#[derive(Debug, Clone)]
+pub struct GpuAllocationRecord {
+    pub task_id: TaskId,
+    pub size_bytes: usize,
+    pub timestamp: Instant,
 }

@@ -75,7 +75,8 @@ impl PatchMatcher {
             let mut indexed_distances: Vec<(usize, f64)> =
                 row.iter().enumerate().map(|(j, &d)| (j, d)).collect();
 
-            indexed_distances.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+            indexed_distances
+                .sort_by(|a, b| a.1.partial_cmp(&b.1).expect("comparison should succeed"));
 
             for (rank, &(idx, _)) in indexed_distances.iter().take(k).enumerate() {
                 indices[[i, rank]] = idx;
@@ -165,15 +166,24 @@ pub fn compute_image_similarity(image1: &Tensor, image2: &Tensor, metric: &str) 
 
     let similarity = match metric {
         "euclidean" => {
-            let dist = euclidean(arr1.as_slice().unwrap(), arr2.as_slice().unwrap());
+            let dist = euclidean(
+                arr1.as_slice().expect("slice conversion should succeed"),
+                arr2.as_slice().expect("slice conversion should succeed"),
+            );
             1.0 / (1.0 + dist) // Convert distance to similarity
         }
         "cosine" => {
-            let sim = cosine(arr1.as_slice().unwrap(), arr2.as_slice().unwrap());
+            let sim = cosine(
+                arr1.as_slice().expect("slice conversion should succeed"),
+                arr2.as_slice().expect("slice conversion should succeed"),
+            );
             1.0 - sim // Cosine distance to cosine similarity
         }
         "manhattan" => {
-            let dist = manhattan(arr1.as_slice().unwrap(), arr2.as_slice().unwrap());
+            let dist = manhattan(
+                arr1.as_slice().expect("slice conversion should succeed"),
+                arr2.as_slice().expect("slice conversion should succeed"),
+            );
             1.0 / (1.0 + dist)
         }
         _ => {
@@ -244,7 +254,7 @@ impl BatchDistanceComputer {
             similarities.push((idx, similarity));
         }
 
-        similarities.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        similarities.sort_by(|a, b| b.1.partial_cmp(&a.1).expect("comparison should succeed"));
         similarities.truncate(k);
 
         Ok(similarities)

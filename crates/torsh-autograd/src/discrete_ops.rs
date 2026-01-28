@@ -493,7 +493,7 @@ impl DifferentiableArgmax {
             .iter()
             .enumerate()
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-            .unwrap();
+            .expect("data is checked to be non-empty");
 
         Tensor::scalar(argmax_idx as f32)
     }

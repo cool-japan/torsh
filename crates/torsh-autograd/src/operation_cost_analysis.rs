@@ -351,7 +351,7 @@ impl OperationCostAnalyzer {
             .map(|(name, stats)| (name.clone(), stats.total_cost_usd))
             .collect();
 
-        operations.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        operations.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
         operations.into_iter().take(limit).collect()
     }

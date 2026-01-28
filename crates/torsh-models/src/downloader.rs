@@ -56,7 +56,7 @@ impl ConsoleProgressCallback {
         pb.set_style(
             ProgressStyle::default_bar()
                 .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({eta})")
-                .unwrap()
+                .expect("progress bar template should be valid")
                 .progress_chars("#>-"),
         );
 

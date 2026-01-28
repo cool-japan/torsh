@@ -329,7 +329,10 @@ impl<M: Module> DistributedDataParallel<M> {
     /// Initialize unused parameter tracking
     fn initialize_unused_parameter_tracking(&mut self) -> TorshResult<()> {
         let parameters = self.module.named_parameters();
-        let mut tracker = self.unused_param_tracker.lock().unwrap();
+        let mut tracker = self
+            .unused_param_tracker
+            .lock()
+            .expect("lock should not be poisoned");
 
         tracker.enabled = true;
         tracker.all_parameters.clear();
@@ -688,7 +691,10 @@ impl<M: Module> DistributedDataParallel<M> {
 
         // Mark parameter as used for unused parameter detection
         if self.overlap_config.detect_unused_parameters {
-            let mut tracker = self.unused_param_tracker.lock().unwrap();
+            let mut tracker = self
+                .unused_param_tracker
+                .lock()
+                .expect("lock should not be poisoned");
             if tracker.enabled {
                 tracker.used_parameters.insert(param_name.to_string());
             }
@@ -719,7 +725,10 @@ impl<M: Module> DistributedDataParallel<M> {
             return Ok(Vec::new());
         }
 
-        let tracker = self.unused_param_tracker.lock().unwrap();
+        let tracker = self
+            .unused_param_tracker
+            .lock()
+            .expect("lock should not be poisoned");
         if !tracker.enabled {
             return Ok(Vec::new());
         }
@@ -747,7 +756,10 @@ impl<M: Module> DistributedDataParallel<M> {
     /// Start a new iteration (reset unused parameter tracking)
     pub fn start_iteration(&self) -> TorshResult<()> {
         if self.overlap_config.detect_unused_parameters {
-            let mut tracker = self.unused_param_tracker.lock().unwrap();
+            let mut tracker = self
+                .unused_param_tracker
+                .lock()
+                .expect("lock should not be poisoned");
             if tracker.enabled {
                 tracker.used_parameters.clear();
                 tracker.iteration += 1;

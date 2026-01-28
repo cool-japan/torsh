@@ -651,14 +651,14 @@ macro_rules! profile_operation {
     ($op_type:expr, $context:expr, $body:expr) => {{
         let profiler = $crate::profiling::get_profiler();
         let handle = {
-            let mut p = profiler.lock().unwrap();
+            let mut p = profiler.lock().expect("lock should not be poisoned");
             p.start_operation($op_type)
         };
 
         let result = $body;
 
         {
-            let mut p = profiler.lock().unwrap();
+            let mut p = profiler.lock().expect("lock should not be poisoned");
             p.finish_operation(handle, $context);
         }
 
@@ -673,14 +673,14 @@ where
 {
     let profiler = get_profiler();
     let handle = {
-        let mut p = profiler.lock().unwrap();
+        let mut p = profiler.lock().expect("lock should not be poisoned");
         p.start_operation(op_type)
     };
 
     let result = closure();
 
     {
-        let mut p = profiler.lock().unwrap();
+        let mut p = profiler.lock().expect("lock should not be poisoned");
         p.finish_operation(handle, context);
     }
 
@@ -894,7 +894,7 @@ impl ShapePerformanceTracker {
         sorted_ops.sort_by(|a, b| {
             a.1.avg_performance_score
                 .partial_cmp(&b.1.avg_performance_score)
-                .unwrap()
+                .expect("performance scores should be comparable (no NaN)")
         });
 
         report.push_str("Performance Summary (worst to best):\n");
@@ -1185,7 +1185,7 @@ mod tests {
         // Check that the operation was recorded
         let profiler = get_profiler();
         let records = {
-            let p = profiler.lock().unwrap();
+            let p = profiler.lock().expect("lock should not be poisoned");
             p.get_records()
         };
 

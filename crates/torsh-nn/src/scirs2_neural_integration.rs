@@ -155,10 +155,12 @@ impl MultiHeadAttention {
     ) -> Result<(Tensor, Tensor)> {
         // Simplified implementation using matrix operations
         let params = self.base.named_parameters();
-        let q_proj = params.get("q_proj").unwrap();
-        let k_proj = params.get("k_proj").unwrap();
-        let v_proj = params.get("v_proj").unwrap();
-        let out_proj = params.get("out_proj").unwrap();
+        let q_proj = params.get("q_proj").expect("q_proj parameter should exist");
+        let k_proj = params.get("k_proj").expect("k_proj parameter should exist");
+        let v_proj = params.get("v_proj").expect("v_proj parameter should exist");
+        let out_proj = params
+            .get("out_proj")
+            .expect("out_proj parameter should exist");
 
         let q = query.matmul(&*q_proj.tensor().read())?;
         let k = key.matmul(&*k_proj.tensor().read())?;
@@ -419,8 +421,12 @@ impl LayerNorm {
 
         if self.elementwise_affine {
             let params = self.base.named_parameters();
-            let weight = params.get("weight").unwrap();
-            let bias = params.get("bias").unwrap();
+            let weight = params
+                .get("weight")
+                .expect("weight parameter should exist for elementwise_affine");
+            let bias = params
+                .get("bias")
+                .expect("bias parameter should exist for elementwise_affine");
 
             // Apply weight and bias using element-wise operations
             let weight_tensor = weight.tensor().read().clone();

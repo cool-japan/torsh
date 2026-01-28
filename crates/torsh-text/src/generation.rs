@@ -252,7 +252,8 @@ impl TextSampler {
             values_and_indices.push((val, i));
         }
 
-        values_and_indices.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+        values_and_indices
+            .sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
         values_and_indices.truncate(k);
 
         let values: Vec<f32> = values_and_indices.iter().map(|(v, _)| *v).collect();
@@ -273,7 +274,8 @@ impl TextSampler {
             values_and_indices.push((val, i));
         }
 
-        values_and_indices.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+        values_and_indices
+            .sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
 
         let values: Vec<f32> = values_and_indices.iter().map(|(v, _)| *v).collect();
         let indices: Vec<f32> = values_and_indices.iter().map(|(_, i)| *i as f32).collect();
@@ -398,7 +400,7 @@ impl BeamSearchDecoder {
             all_candidates.sort_by(|a, b| {
                 b.normalized_score(self.length_penalty)
                     .partial_cmp(&a.normalized_score(self.length_penalty))
-                    .unwrap()
+                    .unwrap_or(std::cmp::Ordering::Equal)
             });
             beams = all_candidates.into_iter().take(self.num_beams).collect();
 
@@ -470,7 +472,7 @@ impl BeamHypothesesPool {
             .binary_search_by(|h| {
                 score
                     .partial_cmp(&h.normalized_score(self.length_penalty))
-                    .unwrap()
+                    .unwrap_or(std::cmp::Ordering::Equal)
             })
             .unwrap_or_else(|e| e);
 
@@ -506,7 +508,7 @@ impl BeamHypothesesPool {
         self.hypotheses.sort_by(|a, b| {
             b.normalized_score(self.length_penalty)
                 .partial_cmp(&a.normalized_score(self.length_penalty))
-                .unwrap()
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
         self.hypotheses
     }

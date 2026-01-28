@@ -12,6 +12,18 @@ use super::handle::CudnnHandle;
 #[cfg(feature = "cudnn")]
 use cudnn_sys::*;
 
+// Import compatibility layer for missing cudnn-sys types and functions
+#[cfg(feature = "cudnn")]
+use super::compat::{
+    cudnnCreateDropoutDescriptor, cudnnCreateRNNDataDescriptor, cudnnCreateRNNDescriptor,
+    cudnnDataType_t as CompatDataType_t, cudnnDestroyDropoutDescriptor,
+    cudnnDestroyRNNDataDescriptor, cudnnDestroyRNNDescriptor, cudnnDirectionMode_t,
+    cudnnDropoutDescriptor_t, cudnnDropoutGetStatesSize, cudnnForwardMode_t, cudnnMathType_t,
+    cudnnRNNAlgo_t, cudnnRNNDataDescriptor_t, cudnnRNNDataLayout_t, cudnnRNNDescriptor_t,
+    cudnnRNNInputMode_t, cudnnRNNMode_t, cudnnSetDropoutDescriptor, cudnnSetRNNDataDescriptor,
+    cudnnSetRNNDescriptor_v8,
+};
+
 /// RNN input mode
 #[derive(Debug, Clone, Copy)]
 pub enum RNNInputMode {
@@ -79,9 +91,9 @@ impl RNNAlgorithm {
     #[cfg(feature = "cudnn")]
     pub(crate) fn to_cudnn(self) -> cudnnRNNAlgo_t {
         match self {
-            RNNAlgorithm::Standard => cudnnRNNAlgo_t::CUDNN_STANDARD_LSTM,
-            RNNAlgorithm::PersistStatic => cudnnRNNAlgo_t::CUDNN_PERSIST_STATIC_LSTM,
-            RNNAlgorithm::PersistDynamic => cudnnRNNAlgo_t::CUDNN_PERSIST_DYNAMIC_LSTM,
+            RNNAlgorithm::Standard => cudnnRNNAlgo_t::CUDNN_STANDARD,
+            RNNAlgorithm::PersistStatic => cudnnRNNAlgo_t::CUDNN_STATIC_PERSISTENT,
+            RNNAlgorithm::PersistDynamic => cudnnRNNAlgo_t::CUDNN_DYNAMIC_PERSISTENT,
         }
     }
 }
@@ -620,9 +632,9 @@ impl RNNDataDescriptor {
         #[cfg(feature = "cudnn")]
         {
             let cudnn_data_type = match data_type {
-                DType::F32 => cudnnDataType_t::CUDNN_DATA_FLOAT,
-                DType::F64 => cudnnDataType_t::CUDNN_DATA_DOUBLE,
-                DType::F16 => cudnnDataType_t::CUDNN_DATA_HALF,
+                DType::F32 => CompatDataType_t::CUDNN_DATA_FLOAT,
+                DType::F64 => CompatDataType_t::CUDNN_DATA_DOUBLE,
+                DType::F16 => CompatDataType_t::CUDNN_DATA_HALF,
                 _ => {
                     return Err(CudaError::CudnnError(format!(
                         "Unsupported data type for RNN: {:?}",

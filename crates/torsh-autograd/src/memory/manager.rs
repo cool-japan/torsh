@@ -465,7 +465,10 @@ impl<T: FloatElement + Send + Sync + 'static> AdaptiveMemoryManager<T> {
         size: usize,
         operation_name: &str,
     ) -> Result<Vec<T>> {
-        let current_pressure = *self.current_pressure.read().unwrap();
+        let current_pressure = *self
+            .current_pressure
+            .read()
+            .expect("lock should not be poisoned");
         let strategy = self.determine_allocation_strategy(current_pressure);
 
         // Update gradient history
@@ -814,14 +817,20 @@ impl<T: FloatElement + Send + Sync + 'static> AdaptiveMemoryManager<T> {
     /// }
     /// ```
     pub fn get_memory_pressure(&self) -> MemoryPressure {
-        *self.current_pressure.read().unwrap()
+        *self
+            .current_pressure
+            .read()
+            .expect("lock should not be poisoned")
     }
 
     /// Get system memory information
     ///
     /// Returns current system memory statistics.
     pub fn get_memory_info(&self) -> SystemMemoryInfo {
-        self.memory_info.read().unwrap().clone()
+        self.memory_info
+            .read()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Get memory usage statistics

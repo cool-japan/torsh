@@ -58,8 +58,8 @@ impl Default for OTConfig {
 ///
 /// # Arguments:
 /// * `cost_matrix` - Pairwise cost matrix [n, m]
-/// * `a` - Source distribution (marginal) [n]
-/// * `b` - Target distribution (marginal) [m]
+/// * `a` - Source distribution (marginal) \[n\]
+/// * `b` - Target distribution (marginal) \[m\]
 /// * `config` - OT configuration
 ///
 /// # Returns:
@@ -78,8 +78,8 @@ impl SinkhornSolver {
     ///
     /// # Arguments:
     /// * `cost_matrix` - Cost matrix [n, m]
-    /// * `a` - Source distribution [n]
-    /// * `b` - Target distribution [m]
+    /// * `a` - Source distribution \[n\]
+    /// * `b` - Target distribution \[m\]
     ///
     /// # Returns:
     /// Optimal transport plan [n, m]

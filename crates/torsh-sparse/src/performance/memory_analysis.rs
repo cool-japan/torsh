@@ -354,7 +354,7 @@ impl PerformanceReport {
         self.operation_statistics
             .values()
             .filter(|stats| stats.operation.contains(operation_pattern))
-            .min_by(|a, b| a.avg_memory.partial_cmp(&b.avg_memory).unwrap())
+            .min_by(|a, b| a.avg_memory.partial_cmp(&b.avg_memory).expect("memory comparison should succeed"))
     }
 
     /// Get all operations matching a pattern

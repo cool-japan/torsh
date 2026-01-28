@@ -650,7 +650,8 @@ impl BackendOperations for CpuBackend {
 
     fn sparse_ops(&self) -> Box<dyn crate::sparse_ops::SparseOps<f32>> {
         Box::new(crate::sparse_ops::DefaultSparseOps::new(
-            self.default_device().unwrap(),
+            self.default_device()
+                .expect("CPU backend should always have a default device"),
         ))
     }
 
@@ -1006,7 +1007,7 @@ mod tests {
                     .num_threads(2 + i) // Different thread counts
                     .build();
 
-                let mut results = results_clone.lock().unwrap();
+                let mut results = results_clone.lock().expect("lock should not be poisoned");
                 results.push(backend.is_ok());
             });
             handles.push(handle);
@@ -1016,7 +1017,7 @@ mod tests {
             handle.join().unwrap();
         }
 
-        let results = results.lock().unwrap();
+        let results = results.lock().expect("lock should not be poisoned");
         // At least some should succeed
         assert!(results.iter().any(|&success| success));
     }

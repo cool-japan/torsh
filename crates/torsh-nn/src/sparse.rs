@@ -303,7 +303,10 @@ impl SparseLinear {
         // Calculate threshold to achieve target sparsity
         let weight_data = weight.to_vec()?;
         let mut abs_weights: Vec<f32> = weight_data.iter().map(|&w| w.abs()).collect();
-        abs_weights.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        abs_weights.sort_by(|a, b| {
+            a.partial_cmp(b)
+                .expect("weight comparison should not involve NaN")
+        });
 
         let num_to_prune = (abs_weights.len() as f32 * target_sparsity) as usize
             - (abs_weights.len() - self.mask.nnz());

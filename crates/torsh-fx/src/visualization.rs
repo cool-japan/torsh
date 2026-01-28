@@ -804,7 +804,7 @@ impl InteractiveGraphAnalyzer {
         bottlenecks.sort_by(|a, b| {
             b.execution_time_ms
                 .partial_cmp(&a.execution_time_ms)
-                .unwrap()
+                .expect("execution_time_ms should be comparable")
         });
         bottlenecks
     }

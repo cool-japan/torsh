@@ -67,7 +67,7 @@ impl QuantumPSO {
         objective: &F,
         initial_bounds: &[(f32, f32)],
     ) -> OptimizerResult<QuantumOptimizationResult> {
-        use scirs2_core::random::Random;
+        use scirs2_core::random::{Random, Rng};
         let mut rng = Random::seed(self.config.seed.unwrap_or(42));
 
         let dimension = initial_bounds.len();
@@ -290,9 +290,9 @@ impl QuantumGeneticAlgorithm {
             let best_idx = fitnesses
                 .iter()
                 .enumerate()
-                .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
                 .map(|(idx, _)| idx)
-                .unwrap();
+                .expect("population should not be empty");
 
             // Apply quantum rotation gate to update population
             for i in 0..self.population_size {

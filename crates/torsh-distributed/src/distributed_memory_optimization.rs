@@ -521,7 +521,7 @@ impl MemoryPredictor {
         // Update prediction model
         let current_time = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after UNIX_EPOCH")
             .as_secs_f32();
 
         let model = self
@@ -602,7 +602,7 @@ impl MemoryPredictor {
         let model = self.prediction_models.get(node_id)?;
         let current_time = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after UNIX_EPOCH")
             .as_secs_f32();
         let future_time = current_time + (minutes_ahead as f32 * 60.0);
 
@@ -669,15 +669,29 @@ impl MemoryBalancer {
             return actions;
         }
 
-        utilizations.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+        utilizations.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
 
-        let min_util = utilizations.first().unwrap().1;
-        let max_util = utilizations.last().unwrap().1;
+        let min_util = utilizations
+            .first()
+            .expect("utilizations should have at least 2 elements")
+            .1;
+        let max_util = utilizations
+            .last()
+            .expect("utilizations should have at least 2 elements")
+            .1;
 
         // Check if imbalance exceeds threshold
         if (max_util - min_util) > self.imbalance_threshold {
-            let source_node = utilizations.last().unwrap().0.clone();
-            let target_node = utilizations.first().unwrap().0.clone();
+            let source_node = utilizations
+                .last()
+                .expect("utilizations should have at least 2 elements")
+                .0
+                .clone();
+            let target_node = utilizations
+                .first()
+                .expect("utilizations should have at least 2 elements")
+                .0
+                .clone();
 
             // Calculate transfer amount (try to equalize)
             let target_util = (max_util + min_util) / 2.0;
@@ -692,11 +706,11 @@ impl MemoryBalancer {
                         "balance_{}_{}",
                         SystemTime::now()
                             .duration_since(UNIX_EPOCH)
-                            .unwrap()
+                            .expect("time should be after UNIX_EPOCH")
                             .as_millis(),
                         SystemTime::now()
                             .duration_since(UNIX_EPOCH)
-                            .unwrap()
+                            .expect("time should be after UNIX_EPOCH")
                             .as_nanos()
                             % 1000
                     ),
@@ -710,7 +724,7 @@ impl MemoryBalancer {
                     status: OptimizationStatus::Pending,
                     created_at: SystemTime::now()
                         .duration_since(UNIX_EPOCH)
-                        .unwrap()
+                        .expect("system time should be after UNIX_EPOCH")
                         .as_millis() as u64,
                 };
 
@@ -860,7 +874,7 @@ impl DistributedMemoryOptimizer {
             deallocation_rate_mbps: metrics.training_metrics.throughput_samples_per_sec * 0.08, // Estimate
             timestamp_ms: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .expect("system time should be after UNIX_EPOCH")
                 .as_millis() as u64,
         })
     }
@@ -934,11 +948,11 @@ impl DistributedMemoryOptimizer {
                         node_id,
                         SystemTime::now()
                             .duration_since(UNIX_EPOCH)
-                            .unwrap()
+                            .expect("time should be after UNIX_EPOCH")
                             .as_millis(),
                         SystemTime::now()
                             .duration_since(UNIX_EPOCH)
-                            .unwrap()
+                            .expect("time should be after UNIX_EPOCH")
                             .as_nanos()
                             % 1000
                     ),
@@ -950,7 +964,7 @@ impl DistributedMemoryOptimizer {
                     status: OptimizationStatus::Pending,
                     created_at: SystemTime::now()
                         .duration_since(UNIX_EPOCH)
-                        .unwrap()
+                        .expect("system time should be after UNIX_EPOCH")
                         .as_millis() as u64,
                 };
 
@@ -1028,7 +1042,7 @@ impl DistributedMemoryOptimizer {
                             node_id,
                             SystemTime::now()
                                 .duration_since(UNIX_EPOCH)
-                                .unwrap()
+                                .expect("system time should be after UNIX_EPOCH")
                                 .as_millis()
                         ),
                         target_node: node_id.clone(),
@@ -1043,7 +1057,7 @@ impl DistributedMemoryOptimizer {
                         status: OptimizationStatus::Pending,
                         created_at: SystemTime::now()
                             .duration_since(UNIX_EPOCH)
-                            .unwrap()
+                            .expect("time should be after UNIX_EPOCH")
                             .as_millis() as u64,
                     };
 
@@ -1129,7 +1143,7 @@ impl DistributedMemoryOptimizer {
         // Complete optimization (simulate 95% success rate)
         let success = (SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after UNIX_EPOCH")
             .as_nanos()
             % 20)
             != 0;
@@ -1140,7 +1154,7 @@ impl DistributedMemoryOptimizer {
             let variation = 0.9
                 + (SystemTime::now()
                     .duration_since(UNIX_EPOCH)
-                    .unwrap()
+                    .expect("system time should be after UNIX_EPOCH")
                     .as_nanos()
                     % 21) as f32
                     / 100.0;
@@ -1290,7 +1304,7 @@ impl DistributedMemoryOptimizer {
             optimization_efficiency: self.calculate_optimization_efficiency()?,
             timestamp_ms: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .expect("system time should be after UNIX_EPOCH")
                 .as_millis() as u64,
         })
     }
@@ -1404,7 +1418,7 @@ impl DistributedMemoryOptimizer {
             config: self.config.clone(),
             export_timestamp_ms: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .expect("system time should be after UNIX_EPOCH")
                 .as_millis() as u64,
         })
     }

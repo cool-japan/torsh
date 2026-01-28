@@ -118,7 +118,11 @@ where
     let output_refs: Vec<&Tensor> = result.as_ref().iter().collect();
     profiler.finish_operation(&output_refs)?;
 
-    Ok(profiler.metrics.into_iter().next().unwrap())
+    Ok(profiler
+        .metrics
+        .into_iter()
+        .next()
+        .expect("profiler should have at least one metric after finish_operation"))
 }
 
 #[cfg(test)]

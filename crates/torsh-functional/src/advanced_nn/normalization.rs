@@ -25,7 +25,7 @@ use torsh_tensor::Tensor;
 /// ## Power Iteration Algorithm
 ///
 /// The spectral norm is estimated using power iteration:
-/// ```
+/// ```text
 /// for i in 0..n_iterations:
 ///   v ← W^T u / ||W^T u||
 ///   u ← W v / ||W v||
@@ -103,13 +103,13 @@ pub fn spectral_norm(weight: &Tensor, n_power_iterations: usize, eps: f64) -> To
 ///
 /// ## Mathematical Definition
 ///
-/// For a weight tensor W with shape [out_channels, ...], weight standardization computes:
-/// ```
+/// For a weight tensor W with shape \[out_channels, ...\], weight standardization computes:
+/// ```text
 /// W_std[i] = (W[i] - μ[i]) / (σ[i] + ε)
 /// ```
 /// where:
-/// - μ[i] = mean(W[i]) across all dimensions except output channel
-/// - σ[i] = std(W[i]) across all dimensions except output channel
+/// - `μ[i]` = mean(W\[i\]) across all dimensions except output channel
+/// - `σ[i]` = std(W\[i\]) across all dimensions except output channel
 /// - ε is a small constant for numerical stability
 ///
 /// ## Benefits

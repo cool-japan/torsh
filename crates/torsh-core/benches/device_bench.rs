@@ -41,7 +41,7 @@ fn device_comparison_benchmarks(c: &mut Criterion) {
     });
 
     group.bench_function("device_type_comparison", |b| {
-        b.iter(|| criterion::black_box(DeviceType::Cpu) == criterion::black_box(DeviceType::Cpu))
+        b.iter(|| std::hint::black_box(DeviceType::Cpu) == std::hint::black_box(DeviceType::Cpu))
     });
 
     // Benchmark device type hashing

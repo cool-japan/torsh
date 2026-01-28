@@ -1,5 +1,5 @@
 use crate::error::{FfiError, FfiResult};
-use crate::python::tensor::memory::MEMORY_POOL;
+use crate::tensor::memory::MEMORY_POOL;
 use parking_lot::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;

@@ -238,7 +238,10 @@ impl WilcoxonTest {
         }
 
         // Rank by absolute value
-        diffs_with_ranks.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+        diffs_with_ranks.sort_by(|a, b| {
+            a.1.partial_cmp(&b.1)
+                .expect("absolute differences should be comparable")
+        });
 
         // Sum of ranks for positive differences
         let w_statistic: f64 = diffs_with_ranks
@@ -414,7 +417,7 @@ impl FriedmanTest {
     /// Perform Friedman test
     ///
     /// # Arguments
-    /// * `scores` - Matrix of scores: scores[dataset_idx][model_idx]
+    /// * `scores` - Matrix of scores: `scores[dataset_idx][model_idx]`
     pub fn compute(scores: &[Vec<f64>]) -> Self {
         let n_datasets = scores.len();
         let n_models = scores[0].len();
@@ -460,7 +463,10 @@ impl FriedmanTest {
     fn rank_values(values: &[f64]) -> Vec<f64> {
         let n = values.len();
         let mut indexed: Vec<(usize, f64)> = values.iter().copied().enumerate().collect();
-        indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap()); // Descending order
+        indexed.sort_by(|a, b| {
+            b.1.partial_cmp(&a.1)
+                .expect("values should be comparable for ranking")
+        }); // Descending order
 
         let mut ranks = vec![0.0; n];
         let mut i = 0;
@@ -505,7 +511,7 @@ impl NemenyiTest {
     /// Perform Nemenyi post-hoc test
     ///
     /// # Arguments
-    /// * `scores` - Matrix of scores: scores[dataset_idx][model_idx]
+    /// * `scores` - Matrix of scores: `scores[dataset_idx][model_idx]`
     /// * `alpha` - Significance level (default 0.05)
     pub fn compute(scores: &[Vec<f64>], alpha: f64) -> Self {
         let n_datasets = scores.len();
@@ -591,7 +597,10 @@ impl MannWhitneyTest {
             combined.push((val, 1)); // 1 for group B
         }
 
-        combined.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        combined.sort_by(|a, b| {
+            a.0.partial_cmp(&b.0)
+                .expect("combined values should be comparable")
+        });
 
         // Assign ranks (average for ties)
         let mut ranks = vec![0.0; n_a + n_b];
@@ -677,7 +686,10 @@ impl KruskalWallisTest {
         }
 
         let n_total = combined.len();
-        combined.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        combined.sort_by(|a, b| {
+            a.0.partial_cmp(&b.0)
+                .expect("combined values should be comparable")
+        });
 
         // Assign ranks
         let mut ranks = vec![0.0; n_total];

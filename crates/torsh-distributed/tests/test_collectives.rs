@@ -23,14 +23,14 @@ async fn test_all_reduce() -> Result<()> {
 
     // With mock backend, sum operation should divide by world size
     // So tensor should now be 0.25 (1.0 / 4)
-    let expected = full::<f32>(&[2, 3], 0.25);
+    let expected = full::<f32>(&[2, 3], 0.25)?;
 
     // Compare tensors element-wise
     let data = tensor.to_vec()?;
     let expected_data = expected.to_vec()?;
     assert_eq!(data.len(), expected_data.len());
     for (a, b) in data.iter().zip(expected_data.iter()) {
-        assert!((a - b).abs() < 1e-6);
+        assert!((a - b).abs() < 1e-6_f32);
     }
 
     Ok(())
@@ -42,14 +42,14 @@ async fn test_broadcast() -> Result<()> {
 
     // Create a tensor with rank-specific values
     let rank = pg.rank() as f32;
-    let mut tensor = full::<f32>(&[3, 3], rank);
+    let mut tensor = full::<f32>(&[3, 3], rank)?;
 
     // Broadcast from rank 0
     broadcast(&mut tensor, 0, &pg).await?;
 
     // With mock backend, tensor remains unchanged
     // In real implementation, all ranks would have rank 0's tensor
-    let expected = full::<f32>(&[3, 3], rank);
+    let expected = full::<f32>(&[3, 3], rank)?;
 
     // Compare tensors
     let data = tensor.to_vec()?;
@@ -64,7 +64,7 @@ async fn test_all_gather() -> Result<()> {
     let pg = init_process_group(BackendType::Gloo, 2, 4, "127.0.0.1", 29500).await?;
 
     // Create input tensor
-    let input = eye::<f32>(3);
+    let input = eye::<f32>(3)?;
     let mut output = Vec::new();
 
     // Perform all-gather
@@ -88,19 +88,24 @@ async fn test_reduce() -> Result<()> {
     let pg = init_process_group(BackendType::Gloo, 0, 4, "127.0.0.1", 29500).await?;
 
     // Create tensor
-    let mut tensor = full::<f32>(&[2, 2], 2.0);
+    let mut tensor = full::<f32>(&[2, 2], 2.0)?;
 
     // Reduce to rank 0
     reduce(&mut tensor, 0, ReduceOp::Sum, &pg).await?;
 
     // Since we are rank 0 (dst), tensor should be multiplied by world size
-    let expected = full::<f32>(&[2, 2], 8.0); // 2.0 * 4
+    let expected = full::<f32>(&[2, 2], 8.0)?; // 2.0 * 4
 
     // Compare tensors
-    let data = tensor.to_vec()?;
+    let data: Vec<f32> = tensor.to_vec()?;
     let expected_data = expected.to_vec()?;
     for (a, b) in data.iter().zip(expected_data.iter()) {
-        assert!((a - b).abs() < 1e-6);
+        assert!(
+            (a - b).abs() < 1e-6_f32,
+            "Values don't match: {} vs {}",
+            a,
+            b
+        );
     }
 
     Ok(())
@@ -111,15 +116,17 @@ async fn test_scatter() -> Result<()> {
     let pg = init_process_group(BackendType::Gloo, 0, 4, "127.0.0.1", 29500).await?;
 
     // Create tensors to scatter
-    let tensors: Vec<Tensor<f32>> = (0..4).map(|i| full(&[2, 2], i as f32)).collect();
+    let tensors: Vec<Tensor<f32>> = (0..4)
+        .map(|i| full(&[2, 2], i as f32))
+        .collect::<Result<Vec<_>>>()?;
 
-    let mut output = zeros::<f32>(&[2, 2]);
+    let mut output = zeros::<f32>(&[2, 2])?;
 
     // Scatter from rank 0
     scatter(&mut output, Some(&tensors), 0, &pg).await?;
 
     // Rank 0 should get tensor[0]
-    let expected = zeros::<f32>(&[2, 2]);
+    let expected = zeros::<f32>(&[2, 2])?;
 
     // Compare tensors
     let data = output.to_vec()?;
@@ -172,9 +179,10 @@ fn test_backend_availability() {
     #[cfg(not(feature = "mpi"))]
     assert!(!is_mpi_available());
 
-    #[cfg(all(feature = "nccl", feature = "cuda"))]
+    // Note: NCCL is currently a mock backend without actual CUDA dependency
+    #[cfg(feature = "nccl")]
     assert!(is_nccl_available());
 
-    #[cfg(not(all(feature = "nccl", feature = "cuda")))]
+    #[cfg(not(feature = "nccl"))]
     assert!(!is_nccl_available());
 }

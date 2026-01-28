@@ -620,7 +620,12 @@ impl IterativeFunction<f32> for QuadraticFunction {
 
         // Ensure x is treated as a column vector for matrix operations
         let x_col = if x.shape().dims().len() == 1 {
-            x.reshape(&[x.shape().dims()[0].try_into().unwrap(), 1])?
+            x.reshape(&[
+                x.shape().dims()[0]
+                    .try_into()
+                    .expect("dimension should fit in i64"),
+                1,
+            ])?
         } else {
             x.clone()
         };
@@ -633,7 +638,12 @@ impl IterativeFunction<f32> for QuadraticFunction {
 
         // b^T * x
         let b_row = if b.shape().dims().len() == 1 {
-            b.reshape(&[1, b.shape().dims()[0].try_into().unwrap()])?
+            b.reshape(&[
+                1,
+                b.shape().dims()[0]
+                    .try_into()
+                    .expect("dimension should fit in i64"),
+            ])?
         } else {
             b.transpose(0, 1)?
         };
@@ -656,7 +666,12 @@ impl IterativeFunction<f32> for QuadraticFunction {
 
         // Ensure x is treated as a column vector for matrix operations
         let x_col = if x.shape().dims().len() == 1 {
-            x.reshape(&[x.shape().dims()[0].try_into().unwrap(), 1])?
+            x.reshape(&[
+                x.shape().dims()[0]
+                    .try_into()
+                    .expect("dimension should fit in i64"),
+                1,
+            ])?
         } else {
             x.clone()
         };
@@ -666,7 +681,12 @@ impl IterativeFunction<f32> for QuadraticFunction {
 
         // Ensure b has the same shape as ax for addition
         let b_col = if b.shape().dims().len() == 1 {
-            b.reshape(&[b.shape().dims()[0].try_into().unwrap(), 1])?
+            b.reshape(&[
+                b.shape().dims()[0]
+                    .try_into()
+                    .expect("dimension should fit in i64"),
+                1,
+            ])?
         } else {
             b.clone()
         };
@@ -675,7 +695,9 @@ impl IterativeFunction<f32> for QuadraticFunction {
 
         // Return as original shape (flatten if needed)
         if x.shape().dims().len() == 1 {
-            Ok(result.reshape(&[result.shape().dims()[0].try_into().unwrap()])?)
+            Ok(result.reshape(&[result.shape().dims()[0]
+                .try_into()
+                .expect("dimension should fit in i64")])?)
         } else {
             Ok(result)
         }
@@ -686,7 +708,12 @@ impl IterativeFunction<f32> for QuadraticFunction {
 
         // Ensure x is treated as a column vector for matrix operations
         let x_col = if x.shape().dims().len() == 1 {
-            x.reshape(&[x.shape().dims()[0].try_into().unwrap(), 1])?
+            x.reshape(&[
+                x.shape().dims()[0]
+                    .try_into()
+                    .expect("dimension should fit in i64"),
+                1,
+            ])?
         } else {
             x.clone()
         };

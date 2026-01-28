@@ -5,7 +5,7 @@
 //! for large-scale distributed deep learning training.
 
 use crate::compression::CompressionStrategy;
-use num_traits::{FromPrimitive, ToPrimitive};
+use scirs2_core::numeric::{FromPrimitive, ToPrimitive};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
@@ -254,7 +254,7 @@ impl DistributedCheckpointManager {
             let dir_name = dir_name.to_string_lossy();
 
             if dir_name.starts_with("step_") {
-                if let Ok(step) = dir_name.strip_prefix("step_").unwrap().parse::<usize>() {
+                if let Ok(step) = dir_name.strip_prefix("step_").expect("prefix checked to exist").parse::<usize>() {
                     steps.push(step);
                 }
             }
@@ -320,19 +320,19 @@ impl DistributedCheckpointManager {
 
         // Apply compression if configured
         let data = match self.config.compression {
-            CompressionStrategy::None => bincode::serde::encode_to_vec(gradients, bincode::config::standard()).map_err(|e| {
+            CompressionStrategy::None => oxicode::serde::encode_to_vec(gradients, oxicode::config::standard()).map_err(|e| {
                 TorshError::AutogradError(format!("Serialization error: {}", e))
             })?,
             CompressionStrategy::Quantization => {
                 // Simple quantization to f16
                 let quantized = self.quantize_gradients(gradients);
-                bincode::serde::encode_to_vec(&quantized, bincode::config::standard()).map_err(|e| {
+                oxicode::serde::encode_to_vec(&quantized, oxicode::config::standard()).map_err(|e| {
                     TorshError::AutogradError(format!("Serialization error: {}", e))
                 })?
             }
             _ => {
                 // Use default serialization for other compression types
-                bincode::serde::encode_to_vec(gradients, bincode::config::standard()).map_err(|e| {
+                oxicode::serde::encode_to_vec(gradients, oxicode::config::standard()).map_err(|e| {
                     TorshError::AutogradError(format!("Serialization error: {}", e))
                 })?
             }
@@ -356,18 +356,18 @@ impl DistributedCheckpointManager {
         // Apply decompression if needed
         let gradients = match self.config.compression {
             CompressionStrategy::None => {
-                let (g, _): (HashMap<String, Vec<T>>, usize) = bincode::serde::decode_from_slice(&data, bincode::config::standard()).map_err(|e| {
+                let (g, _): (HashMap<String, Vec<T>>, usize) = oxicode::serde::decode_from_slice(&data, oxicode::config::standard()).map_err(|e| {
                     TorshError::AutogradError(format!("Deserialization error: {}", e))
                 })?; g
             }
             CompressionStrategy::Quantization => {
                 // Deserialize quantized data and convert back
-                let (quantized, _): (HashMap<String, Vec<f32>>, usize) = bincode::serde::decode_from_slice(&data, bincode::config::standard()).map_err(|e| {
+                let (quantized, _): (HashMap<String, Vec<f32>>, usize) = oxicode::serde::decode_from_slice(&data, oxicode::config::standard()).map_err(|e| {
                     TorshError::AutogradError(format!("Deserialization error: {}", e))
                 })?; self.dequantize_gradients(&quantized)
             }
             _ => {
-                let (g, _): (HashMap<String, Vec<T>>, usize) = bincode::serde::decode_from_slice(&data, bincode::config::standard()).map_err(|e| {
+                let (g, _): (HashMap<String, Vec<T>>, usize) = oxicode::serde::decode_from_slice(&data, oxicode::config::standard()).map_err(|e| {
                     TorshError::AutogradError(format!("Deserialization error: {}", e))
                 })?; g
             }
@@ -398,7 +398,7 @@ impl DistributedCheckpointManager {
             .map(|(name, values)| {
                 let dequantized = values
                     .iter()
-                    .map(|v| T::from_f32(*v).unwrap_or_else(|| T::from_f32(0.0).unwrap()))
+                    .map(|v| T::from_f32(*v).unwrap_or_else(|| T::from_f32(0.0).expect("f32 conversion should succeed")))
                     .collect();
                 (name.clone(), dequantized)
             })

@@ -378,7 +378,10 @@ impl GradientMemoryMonitor {
             ));
         }
 
-        let mut snapshots = self.memory_snapshots.lock().unwrap();
+        let mut snapshots = self
+            .memory_snapshots
+            .lock()
+            .expect("lock should not be poisoned");
 
         // Calculate allocation delta
         let allocation_delta = if let Some(last_snapshot) = snapshots.last() {
@@ -428,7 +431,10 @@ impl GradientMemoryMonitor {
     pub fn stop_and_analyze(&self) -> Result<GradientMemoryMonitoringResult> {
         self.active.store(false, Ordering::SeqCst);
 
-        let snapshots = self.memory_snapshots.lock().unwrap();
+        let snapshots = self
+            .memory_snapshots
+            .lock()
+            .expect("lock should not be poisoned");
 
         if snapshots.is_empty() {
             return Ok(GradientMemoryMonitoringResult {
@@ -470,7 +476,10 @@ impl GradientMemoryMonitor {
     ///
     /// Returns the number of snapshots currently stored in the monitor.
     pub fn snapshot_count(&self) -> usize {
-        self.memory_snapshots.lock().unwrap().len()
+        self.memory_snapshots
+            .lock()
+            .expect("lock should not be poisoned")
+            .len()
     }
 
     /// Get monitoring duration so far
@@ -756,7 +765,10 @@ mod tests {
         assert_eq!(monitor.snapshot_count(), 2);
 
         // Check snapshots are properly recorded
-        let snapshots = monitor.memory_snapshots.lock().unwrap();
+        let snapshots = monitor
+            .memory_snapshots
+            .lock()
+            .expect("lock should not be poisoned");
         assert_eq!(snapshots[0].allocated_bytes, 1000);
         assert_eq!(snapshots[1].allocated_bytes, 2000);
         assert_eq!(snapshots[1].allocation_delta, 1000); // Increase from previous
@@ -801,7 +813,10 @@ mod tests {
         // Should not exceed max_snapshots
         assert!(monitor.snapshot_count() <= 3);
 
-        let snapshots = monitor.memory_snapshots.lock().unwrap();
+        let snapshots = monitor
+            .memory_snapshots
+            .lock()
+            .expect("lock should not be poisoned");
         // Should keep the latest ones
         assert!(snapshots.iter().any(|s| s.allocated_bytes == 5000));
     }

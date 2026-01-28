@@ -126,7 +126,10 @@ impl StreamingAccuracy {
                                 (0..cols).map(|j| (pred_vec[i * cols + j], j)).collect();
 
                             // Sort by value in descending order
-                            row_values.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+                            row_values.sort_by(|a, b| {
+                                b.0.partial_cmp(&a.0)
+                                    .expect("row values should be comparable")
+                            });
 
                             // Check if target is in top-k
                             let mut found = false;
@@ -454,7 +457,10 @@ impl StreamingAUROC {
         }
 
         // Sort by score in descending order
-        all_scores.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+        all_scores.sort_by(|a, b| {
+            b.0.partial_cmp(&a.0)
+                .expect("score values should be comparable")
+        });
 
         // Use proper AUROC calculation
         let n_pos = self.positive_scores.len() as f64;

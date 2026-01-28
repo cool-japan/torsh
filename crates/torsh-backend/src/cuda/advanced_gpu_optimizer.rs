@@ -289,7 +289,7 @@ impl AdvancedGpuOptimizer {
         let profile = self.create_device_profile(&device)?;
 
         // Initialize device-specific optimizations
-        self.device_profiles.lock().unwrap().insert(device.clone(), profile);
+        self.device_profiles.lock().expect("lock should not be poisoned").insert(device.clone(), profile);
 
         // Setup auto-tuning for this device
         self.auto_tuner.initialize_device(&device)?;
@@ -431,8 +431,8 @@ impl AdvancedGpuOptimizer {
 
     /// Estimate performance improvement from optimizations
     fn estimate_performance(&self, operations: &[OptimizedOperation], device: &Device) -> BackendResult<PerformanceEstimate> {
-        let profile = self.device_profiles.lock().unwrap();
-        let device_profile = profile.get(device).unwrap();
+        let profile = self.device_profiles.lock().expect("lock should not be poisoned");
+        let device_profile = profile.get(device).expect("device should exist in profile");
 
         let mut total_compute_time = 0.0;
         let mut total_memory_time = 0.0;

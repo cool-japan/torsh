@@ -16,21 +16,21 @@ use torsh_tensor::Tensor;
 /// the tensor can participate in operations requiring at least 1 dimension.
 ///
 /// ## Shape Transformations
-/// ```
+/// ```text
 /// () → (1,)         # Scalar to 1D
 /// (n,) → (n,)       # 1D unchanged
 /// (m,n) → (m,n)     # Higher dimensions unchanged
-/// ```
+/// ```text
 ///
 /// ## Broadcasting Compatibility
 ///
 /// Many tensor operations require inputs to have compatible shapes for broadcasting.
 /// The `atleast_1d` function ensures tensors can participate in element-wise operations:
 ///
-/// ```
+/// ```text
 /// scalar + vector   # Requires scalar to be at least 1D
 /// 0D + 1D → 1D + 1D → broadcasting possible
-/// ```
+/// ```text
 ///
 /// ## Parameters
 /// * `tensor` - Input tensor of any dimensionality
@@ -48,7 +48,7 @@ use torsh_tensor::Tensor;
 /// let existing = ones(&[3])?;         // Shape: (3,)
 /// let unchanged = atleast_1d(&existing)?; // Shape: (3,) - no change
 /// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
+/// ```text
 ///
 /// ## Applications
 /// - **Broadcasting preparation**: Ensure compatibility with vector operations
@@ -73,12 +73,12 @@ pub fn atleast_1d(tensor: &Tensor) -> TorshResult<Tensor> {
 /// which require 2D inputs.
 ///
 /// ## Shape Transformations
-/// ```
+/// ```text
 /// ()     → (1,1)     # Scalar to 2D
 /// (n,)   → (n,1)     # Vector to column matrix
 /// (m,n)  → (m,n)     # Matrix unchanged
 /// (l,m,n) → (l,m,n)  # Higher dimensions unchanged
-/// ```
+/// ```text
 ///
 /// ## Matrix Operation Compatibility
 ///
@@ -92,9 +92,9 @@ pub fn atleast_1d(tensor: &Tensor) -> TorshResult<Tensor> {
 /// 1D tensors are converted to column vectors (n,1) following the convention
 /// that vectors are treated as column matrices in linear algebra:
 ///
-/// ```
+/// ```text
 /// vector: (n,) → column matrix: (n,1)
-/// ```
+/// ```text
 ///
 /// ## Parameters
 /// * `tensor` - Input tensor of any dimensionality
@@ -115,7 +115,7 @@ pub fn atleast_1d(tensor: &Tensor) -> TorshResult<Tensor> {
 /// let existing = ones(&[2, 4])?;      // Shape: (2,4)
 /// let unchanged = atleast_2d(&existing)?; // Shape: (2,4) - no change
 /// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
+/// ```text
 ///
 /// ## Applications
 /// - **Linear algebra**: Prepare vectors for matrix operations
@@ -140,23 +140,23 @@ pub fn atleast_2d(tensor: &Tensor) -> TorshResult<Tensor> {
 /// 3D inputs such as 3D convolutions, volume processing, or batch operations.
 ///
 /// ## Shape Transformations
-/// ```
+/// ```text
 /// ()       → (1,1,1)   # Scalar to 3D
 /// (n,)     → (n,1,1)   # Vector to 3D
 /// (m,n)    → (m,n,1)   # Matrix to 3D
 /// (l,m,n)  → (l,m,n)   # 3D unchanged
 /// (k,l,m,n) → (k,l,m,n) # Higher dimensions unchanged
-/// ```
+/// ```text
 ///
 /// ## Batch Processing Convention
 ///
 /// The added dimensions follow the convention (batch, height, width) or
 /// (batch, channels, spatial) for compatibility with deep learning frameworks:
 ///
-/// ```
+/// ```text
 /// 1D signal: (n,) → (n,1,1)     # n samples, 1x1 spatial
 /// 2D image:  (h,w) → (h,w,1)    # h×w image, 1 channel
-/// ```
+/// ```text
 ///
 /// ## 3D Operation Compatibility
 ///
@@ -188,7 +188,7 @@ pub fn atleast_2d(tensor: &Tensor) -> TorshResult<Tensor> {
 /// let existing = ones(&[2, 3, 4])?;   // Shape: (2,3,4)
 /// let unchanged = atleast_3d(&existing)?; // Shape: (2,3,4) - no change
 /// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
+/// ```text
 ///
 /// ## Applications
 /// - **3D computer vision**: Prepare 2D images for 3D processing

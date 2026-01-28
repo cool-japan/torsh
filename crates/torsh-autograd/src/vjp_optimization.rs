@@ -240,7 +240,10 @@ impl<T: FloatElement + Send + Sync + 'static> VjpOptimizer<T> {
 
     /// Initialize built-in VJP functions
     fn initialize_vjp_functions(&mut self) {
-        let mut registry = self.vjp_registry.write().unwrap();
+        let mut registry = self
+            .vjp_registry
+            .write()
+            .expect("lock should not be poisoned");
 
         // Addition VJP
         registry.insert(
@@ -266,8 +269,12 @@ impl<T: FloatElement + Send + Sync + 'static> VjpOptimizer<T> {
                         ));
                     }
 
-                    let a = saved_tensors[0].read().unwrap();
-                    let b = saved_tensors[1].read().unwrap();
+                    let a = saved_tensors[0]
+                        .read()
+                        .expect("lock should not be poisoned");
+                    let b = saved_tensors[1]
+                        .read()
+                        .expect("lock should not be poisoned");
 
                     let grad_a: Vec<T> = grad_output
                         .iter()
@@ -314,7 +321,9 @@ impl<T: FloatElement + Send + Sync + 'static> VjpOptimizer<T> {
                         ));
                     }
 
-                    let input = saved_tensors[0].read().unwrap();
+                    let input = saved_tensors[0]
+                        .read()
+                        .expect("lock should not be poisoned");
                     let grad_input: Vec<T> = grad_output
                         .iter()
                         .zip(input.iter())
@@ -335,7 +344,10 @@ impl<T: FloatElement + Send + Sync + 'static> VjpOptimizer<T> {
 
     /// Initialize fusion patterns
     fn initialize_fusion_patterns(&mut self) {
-        let mut patterns = self.fusion_patterns.write().unwrap();
+        let mut patterns = self
+            .fusion_patterns
+            .write()
+            .expect("lock should not be poisoned");
 
         // Add-ReLU fusion
         patterns.push(FusionPattern {
@@ -385,7 +397,7 @@ impl<T: FloatElement + Send + Sync + 'static> VjpOptimizer<T> {
 
         // Update statistics
         {
-            let mut stats = self.stats.write().unwrap();
+            let mut stats = self.stats.write().expect("lock should not be poisoned");
             stats.total_vjp_computations += 1;
             let computation_time = start_time.elapsed().as_millis() as f64;
             stats.total_computation_time_ms += computation_time;
@@ -419,7 +431,7 @@ impl<T: FloatElement + Send + Sync + 'static> VjpOptimizer<T> {
 
         // Update stats
         {
-            let mut stats = self.stats.write().unwrap();
+            let mut stats = self.stats.write().expect("lock should not be poisoned");
             stats.checkpoints_created = context.checkpoints.len();
         }
 
@@ -439,7 +451,7 @@ impl<T: FloatElement + Send + Sync + 'static> VjpOptimizer<T> {
 
         // Update stats
         {
-            let mut stats = self.stats.write().unwrap();
+            let mut stats = self.stats.write().expect("lock should not be poisoned");
             stats.operations_fused += fused_count;
         }
 
@@ -595,7 +607,10 @@ impl<T: FloatElement + Send + Sync + 'static> VjpOptimizer<T> {
     /// Identify opportunities for operation fusion
     fn identify_fusion_opportunities(&self, nodes: &[VjpNode<T>]) -> Result<Vec<(usize, usize)>> {
         let mut opportunities = Vec::new();
-        let patterns = self.fusion_patterns.read().unwrap();
+        let patterns = self
+            .fusion_patterns
+            .read()
+            .expect("lock should not be poisoned");
 
         for i in 0..nodes.len().saturating_sub(1) {
             let current_op = &nodes[i].operation;
@@ -664,7 +679,10 @@ impl<T: FloatElement + Send + Sync + 'static> VjpOptimizer<T> {
         } else {
             // Try to get from registry
             let op_name = self.operation_to_string(&node.operation);
-            let registry = self.vjp_registry.read().unwrap();
+            let registry = self
+                .vjp_registry
+                .read()
+                .expect("lock should not be poisoned");
             let vjp_fn = registry.get(&op_name).ok_or_else(|| {
                 TorshError::AutogradError(format!("No VJP function for operation: {op_name}"))
             })?;
@@ -700,13 +718,19 @@ impl<T: FloatElement + Send + Sync + 'static> VjpOptimizer<T> {
 
     /// Register a custom VJP function
     pub fn register_vjp_function(&self, name: String, vjp_fn: VjpFunction<T>) {
-        let mut registry = self.vjp_registry.write().unwrap();
+        let mut registry = self
+            .vjp_registry
+            .write()
+            .expect("lock should not be poisoned");
         registry.insert(name, vjp_fn);
     }
 
     /// Get VJP statistics
     pub fn get_stats(&self) -> VjpStats {
-        self.stats.read().unwrap().clone()
+        self.stats
+            .read()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Get current memory usage
@@ -716,7 +740,7 @@ impl<T: FloatElement + Send + Sync + 'static> VjpOptimizer<T> {
 
     /// Reset statistics
     pub fn reset_stats(&self) {
-        let mut stats = self.stats.write().unwrap();
+        let mut stats = self.stats.write().expect("lock should not be poisoned");
         *stats = VjpStats::default();
 
         let mut memory_tracker = self.memory_tracker.lock();

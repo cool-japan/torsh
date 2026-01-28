@@ -101,7 +101,7 @@ pub fn validate_signature_age(signature: &ModelSignature, max_age: Option<u64>) 
     if let Some(max_age_secs) = max_age {
         let current_time = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after UNIX epoch")
             .as_secs();
 
         let age = current_time.saturating_sub(signature.timestamp);

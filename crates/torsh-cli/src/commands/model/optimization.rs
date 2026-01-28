@@ -861,7 +861,9 @@ fn serialize_model_with_scirs2(model: &ModelContainer) -> Result<Vec<u8>> {
     // Serialize tensors using SciRS2's efficient format
     for tensor in &model.tensors {
         // Convert to bytes using SciRS2
-        let tensor_bytes = tensor.as_slice().unwrap();
+        let tensor_bytes = tensor
+            .as_slice()
+            .expect("tensor array should be contiguous for serialization");
         let bytes: Vec<u8> = tensor_bytes
             .iter()
             .flat_map(|&f| f.to_le_bytes().to_vec())
@@ -896,7 +898,10 @@ fn apply_calibrated_quantization(
 /// Calculate magnitude threshold for pruning
 fn calculate_magnitude_threshold(tensor: &Array2<f32>, sparsity: f32) -> Result<f32> {
     let mut magnitudes: Vec<f32> = tensor.iter().map(|x| x.abs()).collect();
-    magnitudes.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    magnitudes.sort_by(|a, b| {
+        a.partial_cmp(b)
+            .expect("magnitude values should be comparable")
+    });
 
     let threshold_index = (magnitudes.len() as f32 * sparsity) as usize;
     Ok(magnitudes.get(threshold_index).copied().unwrap_or(0.0))
@@ -922,7 +927,10 @@ fn apply_structured_magnitude_pruning(
                 })
                 .collect();
 
-            row_norms.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+            row_norms.sort_by(|a, b| {
+                a.1.partial_cmp(&b.1)
+                    .expect("row norm values should be comparable")
+            });
 
             // Zero out rows with smallest norms
             for &(row_idx, _) in row_norms.iter().take(rows_to_remove) {
@@ -959,7 +967,10 @@ fn apply_gradient_based_pruning(
         .map(|((i, j), &val)| (i * tensor.ncols() + j, val))
         .collect();
 
-    importance_flat.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+    importance_flat.sort_by(|a, b| {
+        a.1.partial_cmp(&b.1)
+            .expect("importance values should be comparable")
+    });
 
     let elements_to_prune = (importance_flat.len() as f32 * sparsity) as usize;
     let mut pruned = tensor.clone();
@@ -997,7 +1008,10 @@ fn apply_fisher_based_pruning(
         .map(|((i, j), &val)| (i * tensor.ncols() + j, val))
         .collect();
 
-    fisher_flat.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+    fisher_flat.sort_by(|a, b| {
+        a.1.partial_cmp(&b.1)
+            .expect("Fisher information values should be comparable")
+    });
 
     let elements_to_prune = (fisher_flat.len() as f32 * sparsity) as usize;
     let mut pruned = tensor.clone();

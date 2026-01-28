@@ -45,10 +45,10 @@ impl ExtendedKalmanFilter {
             observation_fn,
             transition_jacobian_fn: None,
             observation_jacobian_fn: None,
-            process_noise: eye(state_dim).unwrap(),
-            measurement_noise: eye(obs_dim).unwrap(),
-            state: zeros(&[state_dim]).unwrap(),
-            covariance: eye(state_dim).unwrap(),
+            process_noise: eye(state_dim).expect("tensor creation should succeed"),
+            measurement_noise: eye(obs_dim).expect("tensor creation should succeed"),
+            state: zeros(&[state_dim]).expect("tensor creation should succeed"),
+            covariance: eye(state_dim).expect("tensor creation should succeed"),
         }
     }
 
@@ -70,8 +70,8 @@ impl ExtendedKalmanFilter {
             observation_jacobian_fn: None,
             process_noise,
             measurement_noise,
-            state: zeros(&[state_dim]).unwrap(),
-            covariance: eye(state_dim).unwrap(),
+            state: zeros(&[state_dim]).expect("tensor creation should succeed"),
+            covariance: eye(state_dim).expect("tensor creation should succeed"),
         }
     }
 
@@ -126,7 +126,7 @@ impl ExtendedKalmanFilter {
     ) -> Tensor {
         // Finite difference approximation of Jacobian
         // TODO: Implement when tensor operations are available
-        zeros(&[output_dim, self.state_dim]).unwrap()
+        zeros(&[output_dim, self.state_dim]).expect("tensor creation should succeed")
     }
 
     /// Get transition Jacobian at current state
@@ -194,13 +194,17 @@ impl ExtendedKalmanFilter {
 
         for t in 0..series.len() {
             self.predict();
-            let obs = series.values.slice_tensor(0, t, t + 1).unwrap();
+            let obs = series
+                .values
+                .slice_tensor(0, t, t + 1)
+                .expect("slice should succeed");
             self.update(&obs);
             filtered.push(self.state.clone());
         }
 
         // TODO: Stack filtered states
-        let values = zeros(&[series.len(), self.state_dim]).unwrap();
+        let values =
+            zeros(&[series.len(), self.state_dim]).expect("tensor creation should succeed");
         TimeSeries::new(values)
     }
 
@@ -221,8 +225,8 @@ impl ExtendedKalmanFilter {
 
     /// Reset filter
     pub fn reset(&mut self) {
-        self.state = zeros(&[self.state_dim]).unwrap();
-        self.covariance = eye(self.state_dim).unwrap();
+        self.state = zeros(&[self.state_dim]).expect("tensor creation should succeed");
+        self.covariance = eye(self.state_dim).expect("tensor creation should succeed");
     }
 }
 

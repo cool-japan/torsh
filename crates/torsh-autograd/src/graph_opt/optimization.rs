@@ -36,7 +36,10 @@ impl OptimizedGraph {
         self.compute_execution_order()?;
 
         let optimization_time = start_time.elapsed().as_millis() as u64;
-        self.stats.write().unwrap().total_execution_time_ms += optimization_time;
+        self.stats
+            .write()
+            .expect("lock should not be poisoned")
+            .total_execution_time_ms += optimization_time;
 
         tracing::info!("Graph optimization completed in {}ms", optimization_time);
         Ok(())
@@ -96,7 +99,10 @@ impl OptimizedGraph {
             }
         }
 
-        self.stats.write().unwrap().eliminated_nodes += eliminated_count;
+        self.stats
+            .write()
+            .expect("lock should not be poisoned")
+            .eliminated_nodes += eliminated_count;
         tracing::debug!("Eliminated {} dead nodes", eliminated_count);
 
         Ok(())
@@ -154,7 +160,10 @@ impl OptimizedGraph {
             }
         }
 
-        self.stats.write().unwrap().eliminated_nodes += eliminated_count;
+        self.stats
+            .write()
+            .expect("lock should not be poisoned")
+            .eliminated_nodes += eliminated_count;
         tracing::debug!("Eliminated {} common subexpressions", eliminated_count);
 
         Ok(())
@@ -233,7 +242,10 @@ impl OptimizedGraph {
             }
         }
 
-        self.stats.write().unwrap().fused_operations += fused_count;
+        self.stats
+            .write()
+            .expect("lock should not be poisoned")
+            .fused_operations += fused_count;
         tracing::debug!("Fused {} operations", fused_count);
 
         Ok(())

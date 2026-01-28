@@ -334,8 +334,8 @@ extern "C" fn js_create_tensor(env: NapiEnv, info: NapiCallbackInfo) -> NapiValu
         if argc != 1 {
             napi_throw_error(
                 env,
-                CString::new("INVALID_ARGS").unwrap().as_ptr(),
-                CString::new("Expected 1 argument").unwrap().as_ptr(),
+                CString::new("INVALID_ARGS").expect("static string should not contain null bytes").as_ptr(),
+                CString::new("Expected 1 argument").expect("static string should not contain null bytes").as_ptr(),
             );
             return ptr::null_mut();
         }
@@ -344,8 +344,8 @@ extern "C" fn js_create_tensor(env: NapiEnv, info: NapiCallbackInfo) -> NapiValu
         if data.is_empty() || dims.is_empty() {
             napi_throw_error(
                 env,
-                CString::new("INVALID_DATA").unwrap().as_ptr(),
-                CString::new("Invalid tensor data").unwrap().as_ptr(),
+                CString::new("INVALID_DATA").expect("static string should not contain null bytes").as_ptr(),
+                CString::new("Invalid tensor data").expect("static string should not contain null bytes").as_ptr(),
             );
             return ptr::null_mut();
         }
@@ -354,8 +354,8 @@ extern "C" fn js_create_tensor(env: NapiEnv, info: NapiCallbackInfo) -> NapiValu
         if tensor.is_null() {
             napi_throw_error(
                 env,
-                CString::new("CREATION_FAILED").unwrap().as_ptr(),
-                CString::new("Failed to create tensor").unwrap().as_ptr(),
+                CString::new("CREATION_FAILED").expect("static string should not contain null bytes").as_ptr(),
+                CString::new("Failed to create tensor").expect("static string should not contain null bytes").as_ptr(),
             );
             return ptr::null_mut();
         }
@@ -381,9 +381,9 @@ extern "C" fn js_zeros(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
         if argc == 0 {
             napi_throw_error(
                 env,
-                CString::new("INVALID_ARGS").unwrap().as_ptr(),
+                CString::new("INVALID_ARGS").expect("static string should not contain null bytes").as_ptr(),
                 CString::new("Expected at least 1 dimension")
-                    .unwrap()
+                    .expect("static string should not contain null bytes")
                     .as_ptr(),
             );
             return ptr::null_mut();
@@ -400,9 +400,9 @@ extern "C" fn js_zeros(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
         if tensor.is_null() {
             napi_throw_error(
                 env,
-                CString::new("CREATION_FAILED").unwrap().as_ptr(),
+                CString::new("CREATION_FAILED").expect("static string should not contain null bytes").as_ptr(),
                 CString::new("Failed to create zeros tensor")
-                    .unwrap()
+                    .expect("static string should not contain null bytes")
                     .as_ptr(),
             );
             return ptr::null_mut();
@@ -429,9 +429,9 @@ extern "C" fn js_ones(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
         if argc == 0 {
             napi_throw_error(
                 env,
-                CString::new("INVALID_ARGS").unwrap().as_ptr(),
+                CString::new("INVALID_ARGS").expect("static string should not contain null bytes").as_ptr(),
                 CString::new("Expected at least 1 dimension")
-                    .unwrap()
+                    .expect("static string should not contain null bytes")
                     .as_ptr(),
             );
             return ptr::null_mut();
@@ -448,9 +448,9 @@ extern "C" fn js_ones(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
         if tensor.is_null() {
             napi_throw_error(
                 env,
-                CString::new("CREATION_FAILED").unwrap().as_ptr(),
+                CString::new("CREATION_FAILED").expect("static string should not contain null bytes").as_ptr(),
                 CString::new("Failed to create ones tensor")
-                    .unwrap()
+                    .expect("static string should not contain null bytes")
                     .as_ptr(),
             );
             return ptr::null_mut();
@@ -477,8 +477,8 @@ extern "C" fn js_add(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
         if argc != 2 {
             napi_throw_error(
                 env,
-                CString::new("INVALID_ARGS").unwrap().as_ptr(),
-                CString::new("Expected 2 arguments").unwrap().as_ptr(),
+                CString::new("INVALID_ARGS").expect("static string should not contain null bytes").as_ptr(),
+                CString::new("Expected 2 arguments").expect("static string should not contain null bytes").as_ptr(),
             );
             return ptr::null_mut();
         }
@@ -489,8 +489,8 @@ extern "C" fn js_add(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
         if tensor_a.is_null() || tensor_b.is_null() {
             napi_throw_error(
                 env,
-                CString::new("INVALID_TENSOR").unwrap().as_ptr(),
-                CString::new("Invalid tensor arguments").unwrap().as_ptr(),
+                CString::new("INVALID_TENSOR").expect("static string should not contain null bytes").as_ptr(),
+                CString::new("Invalid tensor arguments").expect("static string should not contain null bytes").as_ptr(),
             );
             return ptr::null_mut();
         }
@@ -502,8 +502,8 @@ extern "C" fn js_add(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
         if shape_result != TorshError::Success {
             napi_throw_error(
                 env,
-                CString::new("SHAPE_ERROR").unwrap().as_ptr(),
-                CString::new("Failed to get tensor shape").unwrap().as_ptr(),
+                CString::new("SHAPE_ERROR").expect("static string should not contain null bytes").as_ptr(),
+                CString::new("Failed to get tensor shape").expect("static string should not contain null bytes").as_ptr(),
             );
             return ptr::null_mut();
         }
@@ -513,9 +513,9 @@ extern "C" fn js_add(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
         if result.is_null() {
             napi_throw_error(
                 env,
-                CString::new("ALLOCATION_FAILED").unwrap().as_ptr(),
+                CString::new("ALLOCATION_FAILED").expect("static string should not contain null bytes").as_ptr(),
                 CString::new("Failed to allocate output tensor")
-                    .unwrap()
+                    .expect("static string should not contain null bytes")
                     .as_ptr(),
             );
             return ptr::null_mut();
@@ -527,8 +527,8 @@ extern "C" fn js_add(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
             torsh_tensor_free(result);
             napi_throw_error(
                 env,
-                CString::new("OPERATION_FAILED").unwrap().as_ptr(),
-                CString::new("Tensor addition failed").unwrap().as_ptr(),
+                CString::new("OPERATION_FAILED").expect("static string should not contain null bytes").as_ptr(),
+                CString::new("Tensor addition failed").expect("static string should not contain null bytes").as_ptr(),
             );
             return ptr::null_mut();
         }
@@ -554,8 +554,8 @@ extern "C" fn js_multiply(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
         if argc != 2 {
             napi_throw_error(
                 env,
-                CString::new("INVALID_ARGS").unwrap().as_ptr(),
-                CString::new("Expected 2 arguments").unwrap().as_ptr(),
+                CString::new("INVALID_ARGS").expect("static string should not contain null bytes").as_ptr(),
+                CString::new("Expected 2 arguments").expect("static string should not contain null bytes").as_ptr(),
             );
             return ptr::null_mut();
         }
@@ -566,8 +566,8 @@ extern "C" fn js_multiply(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
         if tensor_a.is_null() || tensor_b.is_null() {
             napi_throw_error(
                 env,
-                CString::new("INVALID_TENSOR").unwrap().as_ptr(),
-                CString::new("Invalid tensor arguments").unwrap().as_ptr(),
+                CString::new("INVALID_TENSOR").expect("static string should not contain null bytes").as_ptr(),
+                CString::new("Invalid tensor arguments").expect("static string should not contain null bytes").as_ptr(),
             );
             return ptr::null_mut();
         }
@@ -579,8 +579,8 @@ extern "C" fn js_multiply(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
         if shape_result != TorshError::Success {
             napi_throw_error(
                 env,
-                CString::new("SHAPE_ERROR").unwrap().as_ptr(),
-                CString::new("Failed to get tensor shape").unwrap().as_ptr(),
+                CString::new("SHAPE_ERROR").expect("static string should not contain null bytes").as_ptr(),
+                CString::new("Failed to get tensor shape").expect("static string should not contain null bytes").as_ptr(),
             );
             return ptr::null_mut();
         }
@@ -590,9 +590,9 @@ extern "C" fn js_multiply(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
         if result.is_null() {
             napi_throw_error(
                 env,
-                CString::new("ALLOCATION_FAILED").unwrap().as_ptr(),
+                CString::new("ALLOCATION_FAILED").expect("static string should not contain null bytes").as_ptr(),
                 CString::new("Failed to allocate output tensor")
-                    .unwrap()
+                    .expect("static string should not contain null bytes")
                     .as_ptr(),
             );
             return ptr::null_mut();
@@ -604,9 +604,9 @@ extern "C" fn js_multiply(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
             torsh_tensor_free(result);
             napi_throw_error(
                 env,
-                CString::new("OPERATION_FAILED").unwrap().as_ptr(),
+                CString::new("OPERATION_FAILED").expect("static string should not contain null bytes").as_ptr(),
                 CString::new("Tensor multiplication failed")
-                    .unwrap()
+                    .expect("static string should not contain null bytes")
                     .as_ptr(),
             );
             return ptr::null_mut();
@@ -633,8 +633,8 @@ extern "C" fn js_matmul(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
         if argc != 2 {
             napi_throw_error(
                 env,
-                CString::new("INVALID_ARGS").unwrap().as_ptr(),
-                CString::new("Expected 2 arguments").unwrap().as_ptr(),
+                CString::new("INVALID_ARGS").expect("static string should not contain null bytes").as_ptr(),
+                CString::new("Expected 2 arguments").expect("static string should not contain null bytes").as_ptr(),
             );
             return ptr::null_mut();
         }
@@ -645,8 +645,8 @@ extern "C" fn js_matmul(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
         if tensor_a.is_null() || tensor_b.is_null() {
             napi_throw_error(
                 env,
-                CString::new("INVALID_TENSOR").unwrap().as_ptr(),
-                CString::new("Invalid tensor arguments").unwrap().as_ptr(),
+                CString::new("INVALID_TENSOR").expect("static string should not contain null bytes").as_ptr(),
+                CString::new("Invalid tensor arguments").expect("static string should not contain null bytes").as_ptr(),
             );
             return ptr::null_mut();
         }
@@ -658,8 +658,8 @@ extern "C" fn js_matmul(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
         if shape_result != TorshError::Success {
             napi_throw_error(
                 env,
-                CString::new("SHAPE_ERROR").unwrap().as_ptr(),
-                CString::new("Failed to get tensor shape").unwrap().as_ptr(),
+                CString::new("SHAPE_ERROR").expect("static string should not contain null bytes").as_ptr(),
+                CString::new("Failed to get tensor shape").expect("static string should not contain null bytes").as_ptr(),
             );
             return ptr::null_mut();
         }
@@ -669,9 +669,9 @@ extern "C" fn js_matmul(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
         if result.is_null() {
             napi_throw_error(
                 env,
-                CString::new("ALLOCATION_FAILED").unwrap().as_ptr(),
+                CString::new("ALLOCATION_FAILED").expect("static string should not contain null bytes").as_ptr(),
                 CString::new("Failed to allocate output tensor")
-                    .unwrap()
+                    .expect("static string should not contain null bytes")
                     .as_ptr(),
             );
             return ptr::null_mut();
@@ -683,9 +683,9 @@ extern "C" fn js_matmul(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
             torsh_tensor_free(result);
             napi_throw_error(
                 env,
-                CString::new("OPERATION_FAILED").unwrap().as_ptr(),
+                CString::new("OPERATION_FAILED").expect("static string should not contain null bytes").as_ptr(),
                 CString::new("Matrix multiplication failed")
-                    .unwrap()
+                    .expect("static string should not contain null bytes")
                     .as_ptr(),
             );
             return ptr::null_mut();
@@ -712,8 +712,8 @@ extern "C" fn js_relu(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
         if argc != 1 {
             napi_throw_error(
                 env,
-                CString::new("INVALID_ARGS").unwrap().as_ptr(),
-                CString::new("Expected 1 argument").unwrap().as_ptr(),
+                CString::new("INVALID_ARGS").expect("static string should not contain null bytes").as_ptr(),
+                CString::new("Expected 1 argument").expect("static string should not contain null bytes").as_ptr(),
             );
             return ptr::null_mut();
         }
@@ -722,8 +722,8 @@ extern "C" fn js_relu(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
         if tensor.is_null() {
             napi_throw_error(
                 env,
-                CString::new("INVALID_TENSOR").unwrap().as_ptr(),
-                CString::new("Invalid tensor argument").unwrap().as_ptr(),
+                CString::new("INVALID_TENSOR").expect("static string should not contain null bytes").as_ptr(),
+                CString::new("Invalid tensor argument").expect("static string should not contain null bytes").as_ptr(),
             );
             return ptr::null_mut();
         }
@@ -735,8 +735,8 @@ extern "C" fn js_relu(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
         if shape_result != TorshError::Success {
             napi_throw_error(
                 env,
-                CString::new("SHAPE_ERROR").unwrap().as_ptr(),
-                CString::new("Failed to get tensor shape").unwrap().as_ptr(),
+                CString::new("SHAPE_ERROR").expect("static string should not contain null bytes").as_ptr(),
+                CString::new("Failed to get tensor shape").expect("static string should not contain null bytes").as_ptr(),
             );
             return ptr::null_mut();
         }
@@ -746,9 +746,9 @@ extern "C" fn js_relu(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
         if result.is_null() {
             napi_throw_error(
                 env,
-                CString::new("ALLOCATION_FAILED").unwrap().as_ptr(),
+                CString::new("ALLOCATION_FAILED").expect("static string should not contain null bytes").as_ptr(),
                 CString::new("Failed to allocate output tensor")
-                    .unwrap()
+                    .expect("static string should not contain null bytes")
                     .as_ptr(),
             );
             return ptr::null_mut();
@@ -760,8 +760,8 @@ extern "C" fn js_relu(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
             torsh_tensor_free(result);
             napi_throw_error(
                 env,
-                CString::new("OPERATION_FAILED").unwrap().as_ptr(),
-                CString::new("ReLU operation failed").unwrap().as_ptr(),
+                CString::new("OPERATION_FAILED").expect("static string should not contain null bytes").as_ptr(),
+                CString::new("ReLU operation failed").expect("static string should not contain null bytes").as_ptr(),
             );
             return ptr::null_mut();
         }
@@ -787,8 +787,8 @@ extern "C" fn js_get_shape(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
         if argc != 1 {
             napi_throw_error(
                 env,
-                CString::new("INVALID_ARGS").unwrap().as_ptr(),
-                CString::new("Expected 1 argument").unwrap().as_ptr(),
+                CString::new("INVALID_ARGS").expect("static string should not contain null bytes").as_ptr(),
+                CString::new("Expected 1 argument").expect("static string should not contain null bytes").as_ptr(),
             );
             return ptr::null_mut();
         }
@@ -797,8 +797,8 @@ extern "C" fn js_get_shape(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
         if tensor.is_null() {
             napi_throw_error(
                 env,
-                CString::new("INVALID_TENSOR").unwrap().as_ptr(),
-                CString::new("Invalid tensor argument").unwrap().as_ptr(),
+                CString::new("INVALID_TENSOR").expect("static string should not contain null bytes").as_ptr(),
+                CString::new("Invalid tensor argument").expect("static string should not contain null bytes").as_ptr(),
             );
             return ptr::null_mut();
         }
@@ -810,8 +810,8 @@ extern "C" fn js_get_shape(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
         if result_code != TorshError::Success {
             napi_throw_error(
                 env,
-                CString::new("OPERATION_FAILED").unwrap().as_ptr(),
-                CString::new("Failed to get tensor shape").unwrap().as_ptr(),
+                CString::new("OPERATION_FAILED").expect("static string should not contain null bytes").as_ptr(),
+                CString::new("Failed to get tensor shape").expect("static string should not contain null bytes").as_ptr(),
             );
             return ptr::null_mut();
         }
@@ -846,8 +846,8 @@ extern "C" fn js_get_data(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
         if argc != 1 {
             napi_throw_error(
                 env,
-                CString::new("INVALID_ARGS").unwrap().as_ptr(),
-                CString::new("Expected 1 argument").unwrap().as_ptr(),
+                CString::new("INVALID_ARGS").expect("static string should not contain null bytes").as_ptr(),
+                CString::new("Expected 1 argument").expect("static string should not contain null bytes").as_ptr(),
             );
             return ptr::null_mut();
         }
@@ -856,8 +856,8 @@ extern "C" fn js_get_data(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
         if tensor.is_null() {
             napi_throw_error(
                 env,
-                CString::new("INVALID_TENSOR").unwrap().as_ptr(),
-                CString::new("Invalid tensor argument").unwrap().as_ptr(),
+                CString::new("INVALID_TENSOR").expect("static string should not contain null bytes").as_ptr(),
+                CString::new("Invalid tensor argument").expect("static string should not contain null bytes").as_ptr(),
             );
             return ptr::null_mut();
         }
@@ -869,8 +869,8 @@ extern "C" fn js_get_data(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue {
         if data_ptr.is_null() {
             napi_throw_error(
                 env,
-                CString::new("OPERATION_FAILED").unwrap().as_ptr(),
-                CString::new("Failed to get tensor data").unwrap().as_ptr(),
+                CString::new("OPERATION_FAILED").expect("static string should not contain null bytes").as_ptr(),
+                CString::new("Failed to get tensor data").expect("static string should not contain null bytes").as_ptr(),
             );
             return ptr::null_mut();
         }
@@ -889,7 +889,7 @@ pub extern "C" fn napi_register_module_v1(env: NapiEnv, exports: NapiValue) -> N
     unsafe {
         let properties = [
             NapiPropertyDescriptor {
-                utf8name: CString::new("createTensor").unwrap().as_ptr(),
+                utf8name: CString::new("createTensor").expect("static string should not contain null bytes").as_ptr(),
                 name: ptr::null_mut(),
                 method: js_create_tensor,
                 getter: std::mem::transmute(ptr::null() as *const ()),
@@ -899,7 +899,7 @@ pub extern "C" fn napi_register_module_v1(env: NapiEnv, exports: NapiValue) -> N
                 data: ptr::null_mut(),
             },
             NapiPropertyDescriptor {
-                utf8name: CString::new("zeros").unwrap().as_ptr(),
+                utf8name: CString::new("zeros").expect("static string should not contain null bytes").as_ptr(),
                 name: ptr::null_mut(),
                 method: js_zeros,
                 getter: std::mem::transmute(ptr::null() as *const ()),
@@ -909,7 +909,7 @@ pub extern "C" fn napi_register_module_v1(env: NapiEnv, exports: NapiValue) -> N
                 data: ptr::null_mut(),
             },
             NapiPropertyDescriptor {
-                utf8name: CString::new("ones").unwrap().as_ptr(),
+                utf8name: CString::new("ones").expect("static string should not contain null bytes").as_ptr(),
                 name: ptr::null_mut(),
                 method: js_ones,
                 getter: std::mem::transmute(ptr::null() as *const ()),
@@ -919,7 +919,7 @@ pub extern "C" fn napi_register_module_v1(env: NapiEnv, exports: NapiValue) -> N
                 data: ptr::null_mut(),
             },
             NapiPropertyDescriptor {
-                utf8name: CString::new("add").unwrap().as_ptr(),
+                utf8name: CString::new("add").expect("static string should not contain null bytes").as_ptr(),
                 name: ptr::null_mut(),
                 method: js_add,
                 getter: std::mem::transmute(ptr::null() as *const ()),
@@ -929,7 +929,7 @@ pub extern "C" fn napi_register_module_v1(env: NapiEnv, exports: NapiValue) -> N
                 data: ptr::null_mut(),
             },
             NapiPropertyDescriptor {
-                utf8name: CString::new("multiply").unwrap().as_ptr(),
+                utf8name: CString::new("multiply").expect("static string should not contain null bytes").as_ptr(),
                 name: ptr::null_mut(),
                 method: js_multiply,
                 getter: std::mem::transmute(ptr::null() as *const ()),
@@ -939,7 +939,7 @@ pub extern "C" fn napi_register_module_v1(env: NapiEnv, exports: NapiValue) -> N
                 data: ptr::null_mut(),
             },
             NapiPropertyDescriptor {
-                utf8name: CString::new("matmul").unwrap().as_ptr(),
+                utf8name: CString::new("matmul").expect("static string should not contain null bytes").as_ptr(),
                 name: ptr::null_mut(),
                 method: js_matmul,
                 getter: std::mem::transmute(ptr::null() as *const ()),
@@ -949,7 +949,7 @@ pub extern "C" fn napi_register_module_v1(env: NapiEnv, exports: NapiValue) -> N
                 data: ptr::null_mut(),
             },
             NapiPropertyDescriptor {
-                utf8name: CString::new("relu").unwrap().as_ptr(),
+                utf8name: CString::new("relu").expect("static string should not contain null bytes").as_ptr(),
                 name: ptr::null_mut(),
                 method: js_relu,
                 getter: std::mem::transmute(ptr::null() as *const ()),
@@ -959,7 +959,7 @@ pub extern "C" fn napi_register_module_v1(env: NapiEnv, exports: NapiValue) -> N
                 data: ptr::null_mut(),
             },
             NapiPropertyDescriptor {
-                utf8name: CString::new("getShape").unwrap().as_ptr(),
+                utf8name: CString::new("getShape").expect("static string should not contain null bytes").as_ptr(),
                 name: ptr::null_mut(),
                 method: js_get_shape,
                 getter: std::mem::transmute(ptr::null() as *const ()),
@@ -969,7 +969,7 @@ pub extern "C" fn napi_register_module_v1(env: NapiEnv, exports: NapiValue) -> N
                 data: ptr::null_mut(),
             },
             NapiPropertyDescriptor {
-                utf8name: CString::new("getData").unwrap().as_ptr(),
+                utf8name: CString::new("getData").expect("static string should not contain null bytes").as_ptr(),
                 name: ptr::null_mut(),
                 method: js_get_data,
                 getter: std::mem::transmute(ptr::null() as *const ()),

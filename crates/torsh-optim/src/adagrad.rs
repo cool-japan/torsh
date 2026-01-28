@@ -80,7 +80,9 @@ impl Optimizer for AdaGrad {
                     continue;
                 }
 
-                let grad = param.grad().unwrap();
+                let grad = param
+                    .grad()
+                    .expect("gradient should exist after has_grad check");
                 let param_id = format!("{:p}", param_arc.as_ref());
 
                 // Apply weight decay to gradient if specified
@@ -108,7 +110,7 @@ impl Optimizer for AdaGrad {
                     if self.initial_accumulator_value != 0.0 {
                         sum_of_squares
                             .add_scalar_(self.initial_accumulator_value)
-                            .unwrap();
+                            .expect("adding initial accumulator value should succeed");
                     }
                     state.insert("sum_of_squares".to_string(), sum_of_squares);
                     state.insert(
@@ -117,8 +119,11 @@ impl Optimizer for AdaGrad {
                     );
                 }
 
-                let mut sum_of_squares = state.get("sum_of_squares").unwrap().clone();
-                let mut step_tensor = state.get("step").unwrap().clone();
+                let mut sum_of_squares = state
+                    .get("sum_of_squares")
+                    .expect("sum_of_squares state should exist")
+                    .clone();
+                let mut step_tensor = state.get("step").expect("step state should exist").clone();
 
                 // Increment step count
                 step_tensor

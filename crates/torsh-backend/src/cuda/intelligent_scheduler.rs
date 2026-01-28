@@ -26,7 +26,7 @@ pub struct SchedulingDecision {
 }
 
 /// Available scheduling strategies
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SchedulingStrategy {
     /// Minimize total execution time
     MinimizeLatency,
@@ -221,7 +221,7 @@ impl IntelligentStreamScheduler {
 
         self.active_operations
             .lock()
-            .unwrap()
+            .expect("active_operations lock should not be poisoned")
             .insert(operation_id.clone(), metadata);
 
         self.total_operations_scheduled += 1;
@@ -245,7 +245,7 @@ impl IntelligentStreamScheduler {
         let metadata = self
             .active_operations
             .lock()
-            .unwrap()
+            .expect("active_operations lock should not be poisoned")
             .remove(&operation_id)
             .ok_or_else(|| CudaError::Context {
                 message: format!("Operation {} not found in active operations", operation_id),
@@ -255,7 +255,10 @@ impl IntelligentStreamScheduler {
         let utilization = self.calculate_resource_utilization(&metadata.stream)?;
 
         // Update performance history
-        let mut history = self.performance_history.write().unwrap();
+        let mut history = self
+            .performance_history
+            .write()
+            .expect("lock should not be poisoned");
         let op_history = history
             .entry(operation_id.clone())
             .or_insert_with(PerformanceHistory::new);
@@ -278,6 +281,9 @@ impl IntelligentStreamScheduler {
                 self.successful_predictions as f32 / self.total_operations_scheduled as f32;
         }
 
+        // Drop the lock before calling adapt_stream_pool to avoid borrow conflict
+        drop(history);
+
         // Adaptive stream pool management
         self.adapt_stream_pool()?;
 
@@ -286,7 +292,10 @@ impl IntelligentStreamScheduler {
 
     /// Handle dependencies between operations
     pub fn add_dependency(&mut self, dependent_op: &str, dependency_op: &str) -> CudaResult<()> {
-        let active_ops = self.active_operations.lock().unwrap();
+        let active_ops = self
+            .active_operations
+            .lock()
+            .expect("lock should not be poisoned");
 
         if let (Some(dependent_meta), Some(dependency_meta)) =
             (active_ops.get(dependent_op), active_ops.get(dependency_op))
@@ -302,7 +311,10 @@ impl IntelligentStreamScheduler {
 
     /// Create barrier across all active streams
     pub fn create_execution_barrier(&self) -> CudaResult<()> {
-        let active_ops = self.active_operations.lock().unwrap();
+        let active_ops = self
+            .active_operations
+            .lock()
+            .expect("lock should not be poisoned");
         let active_streams: Vec<_> = active_ops
             .values()
             .map(|meta| meta.stream.clone())
@@ -330,8 +342,15 @@ impl IntelligentStreamScheduler {
 
     /// Get scheduler performance metrics
     pub fn get_performance_metrics(&self) -> SchedulerMetrics {
-        let history = self.performance_history.read().unwrap();
-        let active_count = self.active_operations.lock().unwrap().len();
+        let history = self
+            .performance_history
+            .read()
+            .expect("lock should not be poisoned");
+        let active_count = self
+            .active_operations
+            .lock()
+            .expect("lock should not be poisoned")
+            .len();
 
         let total_operations = history.len();
         let average_accuracy = self.prediction_accuracy;
@@ -373,7 +392,7 @@ impl IntelligentStreamScheduler {
         }
 
         // Update stream pool strategy
-        let new_allocation_strategy =
+        let _new_allocation_strategy =
             Self::strategy_to_allocation_strategy(self.scheduling_strategy);
         // Note: We'd need to modify AdvancedStreamPool to allow strategy updates
 
@@ -410,7 +429,10 @@ impl IntelligentStreamScheduler {
         operation_id: &str,
         characteristics: &WorkloadCharacteristics,
     ) -> Duration {
-        let history = self.performance_history.read().unwrap();
+        let history = self
+            .performance_history
+            .read()
+            .expect("lock should not be poisoned");
 
         if let Some(op_history) = history.get(operation_id) {
             if let Some(predicted) = op_history.predict_execution_time(characteristics) {
@@ -423,7 +445,10 @@ impl IntelligentStreamScheduler {
     }
 
     fn calculate_prediction_confidence(&self, operation_id: &str) -> f32 {
-        let history = self.performance_history.read().unwrap();
+        let history = self
+            .performance_history
+            .read()
+            .expect("lock should not be poisoned");
 
         if let Some(op_history) = history.get(operation_id) {
             // Confidence based on amount of historical data
@@ -485,7 +510,11 @@ impl IntelligentStreamScheduler {
     }
 
     fn calculate_pool_utilization(&self) -> f32 {
-        let active_count = self.active_operations.lock().unwrap().len();
+        let active_count = self
+            .active_operations
+            .lock()
+            .expect("lock should not be poisoned")
+            .len();
         // This would calculate based on actual stream pool size
         active_count as f32 / 8.0 // Assuming 8 streams for now
     }
@@ -699,8 +728,10 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore = "Requires CUDA hardware - run with --ignored flag"]
     fn test_scheduler_creation() {
         if crate::cuda::is_available() {
+            let _device = Arc::new(crate::cuda::device::CudaDevice::new(0).unwrap());
             let scheduler = IntelligentStreamScheduler::new(4, SchedulingStrategy::Balanced);
             assert!(scheduler.is_ok());
         }
@@ -750,8 +781,10 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Requires CUDA hardware - run with --ignored flag"]
     fn test_coordinator_creation() {
         if crate::cuda::is_available() {
+            let _device = Arc::new(crate::cuda::device::CudaDevice::new(0).unwrap());
             let coordinator = MultiOperationCoordinator::new(SchedulingStrategy::Balanced);
             assert!(coordinator.is_ok());
         }

@@ -49,7 +49,7 @@ impl MirrorSelectionState {
     ) {
         let current_time = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after UNIX epoch")
             .as_secs();
 
         let record = SelectionRecord {
@@ -241,7 +241,7 @@ impl MirrorSelectionState {
             training_samples: 0,
             last_training: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .expect("system time should be after UNIX epoch")
                 .as_secs(),
             feature_importance,
         });
@@ -284,7 +284,7 @@ impl MirrorSelectionState {
 
             ml_state.last_training = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .expect("system time should be after UNIX epoch")
                 .as_secs();
         }
     }

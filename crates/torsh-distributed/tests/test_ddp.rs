@@ -89,15 +89,9 @@ impl Module for TestModel {
     }
 }
 
-#[test]
-fn test_ddp_creation() -> Result<()> {
-    let pg = Arc::new(init_process_group(
-        BackendType::Gloo,
-        0,
-        4,
-        "127.0.0.1",
-        29500,
-    )?);
+#[tokio::test]
+async fn test_ddp_creation() -> Result<()> {
+    let pg = Arc::new(init_process_group(BackendType::Gloo, 0, 4, "127.0.0.1", 29500).await?);
 
     let model = TestModel::new();
 
@@ -117,21 +111,15 @@ fn test_ddp_creation() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_ddp_forward() -> Result<()> {
-    let pg = Arc::new(init_process_group(
-        BackendType::Gloo,
-        0,
-        4,
-        "127.0.0.1",
-        29500,
-    )?);
+#[tokio::test]
+async fn test_ddp_forward() -> Result<()> {
+    let pg = Arc::new(init_process_group(BackendType::Gloo, 0, 4, "127.0.0.1", 29500).await?);
 
     let model = TestModel::new();
     let ddp = DistributedDataParallel::new(model, pg, vec![0], None, false, 25.0)?;
 
     // Test forward pass
-    let input = randn::<f32>(&[32, 10]);
+    let input = randn::<f32>(&[32, 10])?;
     let output = ddp.forward(&input)?;
 
     assert_eq!(output.shape().dims(), &[32, 5]);
@@ -141,13 +129,7 @@ fn test_ddp_forward() -> Result<()> {
 
 #[tokio::test]
 async fn test_ddp_sync_gradients() -> Result<()> {
-    let pg = Arc::new(init_process_group(
-        BackendType::Gloo,
-        0,
-        4,
-        "127.0.0.1",
-        29500,
-    )?);
+    let pg = Arc::new(init_process_group(BackendType::Gloo, 0, 4, "127.0.0.1", 29500).await?);
 
     let model = TestModel::new();
     let mut ddp = DistributedDataParallel::new(model, pg, vec![0], None, true, 25.0)?;
@@ -174,13 +156,7 @@ async fn test_ddp_sync_gradients() -> Result<()> {
 
 #[tokio::test]
 async fn test_ddp_bucket_configuration() -> Result<()> {
-    let pg = Arc::new(init_process_group(
-        BackendType::Gloo,
-        0,
-        2,
-        "127.0.0.1",
-        29500,
-    )?);
+    let pg = Arc::new(init_process_group(BackendType::Gloo, 0, 2, "127.0.0.1", 29500).await?);
 
     let model = TestModel::new();
     let custom_bucket_config = torsh_distributed::BucketConfig {
@@ -213,13 +189,7 @@ async fn test_ddp_bucket_configuration() -> Result<()> {
 
 #[tokio::test]
 async fn test_ddp_gradient_consistency_check() -> Result<()> {
-    let pg = Arc::new(init_process_group(
-        BackendType::Gloo,
-        0,
-        2,
-        "127.0.0.1",
-        29500,
-    )?);
+    let pg = Arc::new(init_process_group(BackendType::Gloo, 0, 2, "127.0.0.1", 29500).await?);
 
     let model = TestModel::new();
     let ddp = DistributedDataParallel::new(model, pg, vec![0], None, true, 25.0)?;
@@ -231,15 +201,9 @@ async fn test_ddp_gradient_consistency_check() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_ddp_train_eval_modes() -> Result<()> {
-    let pg = Arc::new(init_process_group(
-        BackendType::Gloo,
-        0,
-        4,
-        "127.0.0.1",
-        29500,
-    )?);
+#[tokio::test]
+async fn test_ddp_train_eval_modes() -> Result<()> {
+    let pg = Arc::new(init_process_group(BackendType::Gloo, 0, 4, "127.0.0.1", 29500).await?);
 
     let model = TestModel::new();
     let mut ddp = DistributedDataParallel::new(model, pg, vec![0], None, true, 25.0)?;

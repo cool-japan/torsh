@@ -194,14 +194,16 @@ impl PrometheusExporter {
             // Update bytes transferred if available
             if let Some(bytes) = event.bytes_transferred {
                 // Assume "data" direction for now - could be enhanced with direction metadata
+                let direction = String::from("data");
                 self.bytes_transferred
-                    .with_label_values(&[&event.name, "data"])
+                    .with_label_values(&[&event.name, &direction])
                     .inc_by(bytes as f64);
             }
 
             // Update thread activity
+            let operations = String::from("operations");
             self.thread_activity
-                .with_label_values(&[&thread_id, "operations"])
+                .with_label_values(&[&thread_id, &operations])
                 .inc();
         }
 

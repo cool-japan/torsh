@@ -809,7 +809,9 @@ impl AccessPatternAnalyzer {
         let primary_index = confidence_scores
             .iter()
             .enumerate()
-            .max_by(|(_, (_, a)), (_, (_, b))| a.partial_cmp(b).unwrap())
+            .max_by(|(_, (_, a)), (_, (_, b))| {
+                a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
+            })
             .map(|(i, _)| i)
             .unwrap_or(0);
 

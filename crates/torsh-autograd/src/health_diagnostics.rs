@@ -333,7 +333,7 @@ impl HealthCheck for GradientHealthCheck {
         let status = if history.is_empty() {
             HealthStatus::Unknown
         } else {
-            let latest = history.back().unwrap();
+            let latest = history.back().expect("history checked to be non-empty");
 
             if latest.nan_count > 0 || latest.inf_count > 0 {
                 HealthStatus::Critical

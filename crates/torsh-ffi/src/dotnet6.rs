@@ -243,7 +243,8 @@ pub unsafe extern "C" fn dotnet6_async_get_error(op: *const DotNetAsyncOperation
 
     let op_ref = &*(op as *const DotNetAsyncOperation);
     if let Some(error) = op_ref.get_error() {
-        let c_str = std::ffi::CString::new(error).unwrap();
+        let c_str =
+            std::ffi::CString::new(error).expect("error string should not contain null bytes");
         c_str.into_raw()
     } else {
         ptr::null()
@@ -663,7 +664,8 @@ pub unsafe extern "C" fn dotnet6_matmul_with_callback(
     user_data: *mut c_void,
 ) {
     if a.is_null() || b.is_null() {
-        let error = std::ffi::CString::new("Invalid tensor").unwrap();
+        let error = std::ffi::CString::new("Invalid tensor")
+            .expect("static string should not contain null bytes");
         callback(ptr::null_mut(), error.as_ptr(), user_data);
         return;
     }
@@ -684,7 +686,8 @@ pub unsafe extern "C" fn dotnet6_matmul_with_callback(
         if torsh_tensor_matmul(a, b, result) == TorshError::Success {
             callback(result, ptr::null(), user_data);
         } else {
-            let error = std::ffi::CString::new("Matrix multiplication failed").unwrap();
+            let error = std::ffi::CString::new("Matrix multiplication failed")
+                .expect("static string should not contain null bytes");
             callback(ptr::null_mut(), error.as_ptr(), user_data);
             torsh_tensor_free(result);
         }
@@ -704,7 +707,8 @@ pub unsafe extern "C" fn dotnet6_train_with_progress(
     user_data: *mut c_void,
 ) {
     if model.is_null() || data.is_null() {
-        let error = std::ffi::CString::new("Invalid arguments").unwrap();
+        let error = std::ffi::CString::new("Invalid arguments")
+            .expect("static string should not contain null bytes");
         completion_callback(ptr::null_mut(), error.as_ptr(), user_data);
         return;
     }

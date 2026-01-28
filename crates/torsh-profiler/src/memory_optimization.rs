@@ -258,7 +258,7 @@ impl AdvancedMemoryOptimizer {
         &self,
         memory_profiler: &Arc<Mutex<MemoryProfiler>>,
     ) -> MemorySnapshot {
-        let profiler = memory_profiler.lock().unwrap();
+        let profiler = memory_profiler.lock().expect("lock should not be poisoned");
         let stats_result = profiler.get_stats();
 
         let stats = match stats_result {
@@ -280,7 +280,10 @@ impl AdvancedMemoryOptimizer {
 
     /// Add snapshot to history with size management
     fn add_snapshot(&self, snapshot: MemorySnapshot) {
-        let mut history = self.usage_history.lock().unwrap();
+        let mut history = self
+            .usage_history
+            .lock()
+            .expect("lock should not be poisoned");
 
         if history.len() >= self.config.history_window {
             history.pop_front();
@@ -291,7 +294,10 @@ impl AdvancedMemoryOptimizer {
 
     /// Determine if optimization should be performed
     fn should_perform_optimization(&self) -> bool {
-        let history = self.usage_history.lock().unwrap();
+        let history = self
+            .usage_history
+            .lock()
+            .expect("lock should not be poisoned");
 
         if history.len() < self.config.min_samples {
             return false;
@@ -353,7 +359,7 @@ impl AdvancedMemoryOptimizer {
 
     /// Optimize future allocations based on predictions
     fn optimize_future_allocations(&self, snapshot: &MemorySnapshot) {
-        let predictor = self.predictor.lock().unwrap();
+        let predictor = self.predictor.lock().expect("lock should not be poisoned");
 
         if let Some(prediction) = predictor.predict_next_allocation() {
             // Pre-allocate memory pools based on prediction
@@ -380,7 +386,7 @@ impl AdvancedMemoryOptimizer {
             return;
         }
 
-        let mut predictor = self.predictor.lock().unwrap();
+        let mut predictor = self.predictor.lock().expect("lock should not be poisoned");
         predictor.add_data_point(DataPoint {
             timestamp: snapshot
                 .timestamp
@@ -405,7 +411,10 @@ impl AdvancedMemoryOptimizer {
 
     fn calculate_allocation_rate(&self, _stats: &MemoryStats) -> f64 {
         // Calculate based on recent history
-        let history = self.usage_history.lock().unwrap();
+        let history = self
+            .usage_history
+            .lock()
+            .expect("lock should not be poisoned");
         if history.len() < 2 {
             return 0.0;
         }
@@ -442,8 +451,14 @@ impl AdvancedMemoryOptimizer {
         }
 
         // Simple trend calculation
-        let first_pressure = snapshots.first().unwrap().gc_pressure;
-        let last_pressure = snapshots.last().unwrap().gc_pressure;
+        let first_pressure = snapshots
+            .first()
+            .expect("snapshots should not be empty after length check")
+            .gc_pressure;
+        let last_pressure = snapshots
+            .last()
+            .expect("snapshots should not be empty after length check")
+            .gc_pressure;
 
         (last_pressure - first_pressure) / snapshots.len() as f64
     }
@@ -475,7 +490,12 @@ impl AdvancedMemoryOptimizer {
         let data = OptimizationExportData {
             config: self.config.clone(),
             strategies: self.strategies.read().clone(),
-            history: self.usage_history.lock().unwrap().clone().into(),
+            history: self
+                .usage_history
+                .lock()
+                .expect("lock should not be poisoned")
+                .clone()
+                .into(),
             stats: self.get_optimization_stats_summary(),
             timestamp: SystemTime::now(),
         };
@@ -619,7 +639,7 @@ impl AdaptivePoolManager {
 
     fn prepare_for_allocation(&self, predicted_size: f64) {
         let size_class = self.calculate_size_class(predicted_size as usize);
-        let mut pools = self.pools.lock().unwrap();
+        let mut pools = self.pools.lock().expect("lock should not be poisoned");
 
         pools
             .entry(size_class)
@@ -637,7 +657,7 @@ impl AdaptivePoolManager {
     }
 
     fn rebalance_pools(&self) {
-        let mut pools = self.pools.lock().unwrap();
+        let mut pools = self.pools.lock().expect("lock should not be poisoned");
 
         for pool in pools.values_mut() {
             if pool.should_expand() {
@@ -652,7 +672,7 @@ impl AdaptivePoolManager {
 
     fn optimize_based_on_usage(&self) {
         // Analyze usage patterns and optimize pool sizes
-        let pools = self.pools.lock().unwrap();
+        let pools = self.pools.lock().expect("lock should not be poisoned");
 
         for pool in pools.values() {
             if pool.hit_rate < 0.5 {

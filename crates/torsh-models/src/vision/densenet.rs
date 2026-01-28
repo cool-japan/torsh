@@ -692,7 +692,7 @@ impl DenseNet {
     /// Get number of parameters
     pub fn num_parameters(&self) -> usize {
         self.parameters().values().map(|p| {
-            let data = p.data.read().unwrap();
+            let data = p.data.read().expect("lock should not be poisoned");
             data.numel()
         }).sum()
     }

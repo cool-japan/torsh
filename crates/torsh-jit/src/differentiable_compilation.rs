@@ -586,7 +586,7 @@ impl GumbelSoftmax {
         use std::time::{SystemTime, UNIX_EPOCH};
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after UNIX_EPOCH")
             .subsec_nanos();
         let u = ((nanos % 1000) as f32 / 1000.0).max(1e-10);
         -(-u).ln().ln()
@@ -610,7 +610,7 @@ impl GumbelSoftmax {
         let choice = probs
             .iter()
             .enumerate()
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .map(|(i, _)| i)
             .unwrap_or(0);
 
@@ -725,7 +725,11 @@ impl CompilationTrainer {
     pub fn best_params(&self) -> &CompilationParams {
         self.history
             .iter()
-            .min_by(|a, b| a.loss.partial_cmp(&b.loss).unwrap())
+            .min_by(|a, b| {
+                a.loss
+                    .partial_cmp(&b.loss)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
             .map(|e| &e.params)
             .unwrap_or(&self.params)
     }

@@ -347,7 +347,10 @@ impl KernelFusion {
         for succ_id in graph.successors(start) {
             if let Some(succ_node) = graph.node(succ_id) {
                 if self.is_reduction(&succ_node.op)
-                    && self.can_fuse_reductions(&graph.node(start).unwrap().op, &succ_node.op)
+                    && self.can_fuse_reductions(
+                        &graph.node(start).expect("start node should exist").op,
+                        &succ_node.op,
+                    )
                 {
                     chain.push(succ_id);
                     visited.insert(succ_id);
@@ -739,7 +742,7 @@ impl KernelFusion {
             );
 
             // Determine output shape and dtype from the last node in the group
-            let last_node_id = group.last().unwrap();
+            let last_node_id = group.last().expect("group should not be empty");
             let (output_shape, dtype, device) = if let Some(last_node) = graph.node(*last_node_id) {
                 (
                     last_node.output_shape.clone(),

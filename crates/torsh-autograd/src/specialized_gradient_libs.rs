@@ -843,7 +843,11 @@ impl SpecializedLibraryManager {
     }
 
     pub fn get_usage_report(&self) -> LibraryUsageReport {
-        let stats = self.usage_stats.lock().unwrap().clone();
+        let stats = self
+            .usage_stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone();
 
         LibraryUsageReport {
             library_stats: stats.clone(),

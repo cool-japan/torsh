@@ -122,12 +122,19 @@ pub mod mlx {
 
     /// Set the default device for MLX operations
     pub fn set_default_device(device: MLXDevice) {
-        DEFAULT_DEVICE.lock().unwrap().replace(device);
+        DEFAULT_DEVICE
+            .lock()
+            .expect("lock should not be poisoned")
+            .replace(device);
     }
 
     /// Get the current default device
     pub fn default_device() -> MLXDevice {
-        DEFAULT_DEVICE.lock().unwrap().clone().unwrap_or_default()
+        DEFAULT_DEVICE
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
+            .unwrap_or_default()
     }
 
     /// Enable or disable gradient computation globally
@@ -315,7 +322,7 @@ where
     }
 
     fn compile_if_needed(&self) -> Result<()> {
-        let mut compiled = self.compiled.lock().unwrap();
+        let mut compiled = self.compiled.lock().expect("lock should not be poisoned");
         if !*compiled {
             tracing::info!("Compiling function: {}", self.inner.name());
             // Placeholder compilation

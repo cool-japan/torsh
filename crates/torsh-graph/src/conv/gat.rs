@@ -30,10 +30,16 @@ impl GATConv {
         dropout: f32,
         bias: bool,
     ) -> Self {
-        let weight = Parameter::new(randn(&[in_features, heads * out_features]).unwrap());
-        let attention = Parameter::new(randn(&[heads, 2 * out_features]).unwrap());
+        let weight = Parameter::new(
+            randn(&[in_features, heads * out_features]).expect("failed to create weight tensor"),
+        );
+        let attention = Parameter::new(
+            randn(&[heads, 2 * out_features]).expect("failed to create attention tensor"),
+        );
         let bias = if bias {
-            Some(Parameter::new(zeros(&[heads * out_features]).unwrap()))
+            Some(Parameter::new(
+                zeros(&[heads * out_features]).expect("failed to create bias tensor"),
+            ))
         } else {
             None
         };
@@ -54,7 +60,10 @@ impl GATConv {
         let num_nodes = graph.num_nodes;
 
         // Transform node features: X @ W
-        let x_transformed = graph.x.matmul(&self.weight.clone_data()).unwrap();
+        let x_transformed = graph
+            .x
+            .matmul(&self.weight.clone_data())
+            .expect("operation should succeed");
 
         // Reshape to separate heads: [num_nodes, heads, out_features]
         let x_reshaped = x_transformed
@@ -63,10 +72,13 @@ impl GATConv {
                 self.heads as i32,
                 self.out_features as i32,
             ])
-            .unwrap();
+            .expect("view should succeed");
 
         // Get edge indices - flatten and interpret as pairs
-        let edge_flat = graph.edge_index.to_vec().unwrap();
+        let edge_flat = graph
+            .edge_index
+            .to_vec()
+            .expect("conversion should succeed");
         let num_edges = graph.num_edges;
 
         // Extract source and destination nodes (edge_index is [2, num_edges] stored row-major)
@@ -76,7 +88,8 @@ impl GATConv {
             .collect();
 
         // Initialize output
-        let mut output = zeros(&[num_nodes, self.heads * self.out_features]).unwrap();
+        let mut output = zeros(&[num_nodes, self.heads * self.out_features])
+            .expect("failed to create output tensor");
 
         // Process each head independently
         for head in 0..self.heads {
@@ -85,9 +98,9 @@ impl GATConv {
                 .attention
                 .clone_data()
                 .slice_tensor(0, head, head + 1)
-                .unwrap()
+                .expect("failed to slice attention tensor")
                 .squeeze_tensor(0)
-                .unwrap();
+                .expect("failed to squeeze attention tensor");
 
             // Compute attention scores for all edges
             let mut attention_scores = Vec::with_capacity(num_edges);
@@ -99,33 +112,39 @@ impl GATConv {
                 // Get source and destination node features for this head
                 let src_feat = x_reshaped
                     .slice_tensor(0, src, src + 1)
-                    .unwrap()
+                    .expect("failed to slice source node")
                     .slice_tensor(1, head, head + 1)
-                    .unwrap()
+                    .expect("failed to slice head dimension")
                     .squeeze_tensor(0)
-                    .unwrap()
+                    .expect("failed to squeeze node dimension")
                     .squeeze_tensor(0)
-                    .unwrap();
+                    .expect("failed to squeeze head dimension");
 
                 let dst_feat = x_reshaped
                     .slice_tensor(0, dst, dst + 1)
-                    .unwrap()
+                    .expect("failed to slice destination node")
                     .slice_tensor(1, head, head + 1)
-                    .unwrap()
+                    .expect("failed to slice head dimension")
                     .squeeze_tensor(0)
-                    .unwrap()
+                    .expect("failed to squeeze node dimension")
                     .squeeze_tensor(0)
-                    .unwrap();
+                    .expect("failed to squeeze head dimension");
 
                 // Concatenate source and destination features
-                let concat_feat = Tensor::cat(&[&src_feat, &dst_feat], 0).unwrap();
+                let concat_feat = Tensor::cat(&[&src_feat, &dst_feat], 0)
+                    .expect("failed to concatenate features");
 
                 // Compute attention coefficient: a^T [h_i || h_j]
                 // Element-wise multiplication and sum to get scalar
-                let attention_coeff = attention_head.mul(&concat_feat).unwrap().sum().unwrap();
+                let attention_coeff = attention_head
+                    .mul(&concat_feat)
+                    .expect("operation should succeed")
+                    .sum()
+                    .expect("reduction should succeed");
 
                 // Apply LeakyReLU activation
-                let coeff_val = attention_coeff.to_vec().unwrap()[0] as f64;
+                let coeff_val =
+                    attention_coeff.to_vec().expect("conversion should succeed")[0] as f64;
                 let activated_val = if coeff_val > 0.0 {
                     coeff_val
                 } else {
@@ -163,10 +182,12 @@ impl GATConv {
             }
 
             // Aggregate features using attention weights
-            let head_output = zeros(&[num_nodes, self.out_features]).unwrap();
+            let head_output = zeros(&[num_nodes, self.out_features])
+                .expect("failed to create head output tensor");
 
             for node in 0..num_nodes {
-                let mut node_output = zeros(&[self.out_features]).unwrap();
+                let mut node_output =
+                    zeros(&[self.out_features]).expect("failed to create node output tensor");
 
                 for (edge_idx, (src, dst, _)) in attention_scores.iter().enumerate() {
                     if *dst == node {
@@ -174,35 +195,49 @@ impl GATConv {
                         if weight > 0.0 {
                             let src_feat = x_reshaped
                                 .slice_tensor(0, *src, *src + 1)
-                                .unwrap()
+                                .expect("failed to slice source node")
                                 .slice_tensor(1, head, head + 1)
-                                .unwrap()
+                                .expect("failed to slice head dimension")
                                 .squeeze_tensor(0)
-                                .unwrap()
+                                .expect("failed to squeeze node dimension")
                                 .squeeze_tensor(0)
-                                .unwrap();
+                                .expect("failed to squeeze head dimension");
 
-                            let weighted_feat = src_feat.mul_scalar(weight as f32).unwrap();
-                            node_output = node_output.add(&weighted_feat).unwrap();
+                            let weighted_feat = src_feat
+                                .mul_scalar(weight as f32)
+                                .expect("failed to scale features");
+                            node_output = node_output
+                                .add(&weighted_feat)
+                                .expect("operation should succeed");
                         }
                     }
                 }
 
                 // Set the aggregated features for this node
-                let mut node_slice = head_output.slice_tensor(0, node, node + 1).unwrap();
-                let _ = node_slice.copy_(&node_output.unsqueeze_tensor(0).unwrap());
+                let mut node_slice = head_output
+                    .slice_tensor(0, node, node + 1)
+                    .expect("failed to slice node output");
+                let _ = node_slice.copy_(
+                    &node_output
+                        .unsqueeze_tensor(0)
+                        .expect("failed to unsqueeze node output"),
+                );
             }
 
             // Place head output into the appropriate slice of the final output
             let start_feat = head * self.out_features;
             let end_feat = (head + 1) * self.out_features;
-            let mut output_slice = output.slice_tensor(1, start_feat, end_feat).unwrap();
+            let mut output_slice = output
+                .slice_tensor(1, start_feat, end_feat)
+                .expect("failed to slice output tensor");
             let _ = output_slice.copy_(&head_output);
         }
 
         // Add bias if present
         if let Some(ref bias) = self.bias {
-            output = output.add(&bias.clone_data()).unwrap();
+            output = output
+                .add(&bias.clone_data())
+                .expect("operation should succeed");
         }
 
         // Apply dropout if in training mode (placeholder for now)

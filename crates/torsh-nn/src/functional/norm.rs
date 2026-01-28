@@ -520,7 +520,7 @@ pub fn layer_norm_enhanced(
 ///
 /// # Example
 ///
-/// For an input of shape [batch, seq_len, hidden_dim] with normalized_shape = [hidden_dim],
+/// For an input of shape [batch, seq_len, hidden_dim] with normalized_shape = \[hidden_dim\],
 /// this will normalize over the hidden_dim dimension for each position independently.
 pub fn layer_norm(
     input: &Tensor,
@@ -753,8 +753,8 @@ pub fn instance_norm(
 /// * `k` - Additive constant for numerical stability
 ///
 /// # Formula
-/// output[i] = input[i] / (k + alpha * sum(input[j]^2))^beta
-/// where j ranges over [i - size/2, i + size/2] clamped to valid channels
+/// `output[i] = input[i] / (k + alpha * sum(input[j]^2))^beta`
+/// where j ranges over \[i - size/2, i + size/2\] clamped to valid channels
 pub fn local_response_norm(
     input: &Tensor,
     size: usize,

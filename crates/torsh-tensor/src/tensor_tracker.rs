@@ -402,7 +402,7 @@ impl<T: TensorElement> TensorTracker<T> {
     where
         T: Copy,
     {
-        let config = self.config.read().unwrap();
+        let config = self.config.read().expect("lock should not be poisoned");
         if !config.enabled {
             return Err(TorshError::InvalidArgument(
                 "Tracking is disabled".to_string(),
@@ -410,7 +410,7 @@ impl<T: TensorElement> TensorTracker<T> {
         }
         drop(config);
 
-        let mut next_id = self.next_id.write().unwrap();
+        let mut next_id = self.next_id.write().expect("lock should not be poisoned");
         let id = *next_id;
         *next_id += 1;
         drop(next_id);
@@ -418,20 +418,26 @@ impl<T: TensorElement> TensorTracker<T> {
         let mut tracked = TrackedTensor::new(id, label.into(), tensor.clone());
 
         // Take initial snapshot if auto_snapshot is enabled
-        let config = self.config.read().unwrap();
+        let config = self.config.read().expect("lock should not be poisoned");
         if config.auto_snapshot {
             tracked.take_snapshot("initial".to_string())?;
         }
         drop(config);
 
-        self.tensors.write().unwrap().insert(id, tracked);
+        self.tensors
+            .write()
+            .expect("lock should not be poisoned")
+            .insert(id, tracked);
 
         Ok(id)
     }
 
     /// Stop tracking a tensor
     pub fn untrack(&mut self, id: TrackId) -> Result<()> {
-        self.tensors.write().unwrap().remove(&id);
+        self.tensors
+            .write()
+            .expect("lock should not be poisoned")
+            .remove(&id);
         Ok(())
     }
 
@@ -446,7 +452,7 @@ impl<T: TensorElement> TensorTracker<T> {
     where
         T: Copy,
     {
-        let config = self.config.read().unwrap();
+        let config = self.config.read().expect("lock should not be poisoned");
         if !config.enabled {
             return Ok(());
         }
@@ -463,7 +469,7 @@ impl<T: TensorElement> TensorTracker<T> {
         let max_operations = config.max_operations;
         drop(config);
 
-        let mut tensors = self.tensors.write().unwrap();
+        let mut tensors = self.tensors.write().expect("lock should not be poisoned");
         let tracked = tensors.get_mut(&id).ok_or_else(|| {
             TorshError::InvalidArgument(format!("Tensor with ID {} is not tracked", id))
         })?;
@@ -490,7 +496,7 @@ impl<T: TensorElement> TensorTracker<T> {
     where
         T: Copy,
     {
-        let mut tensors = self.tensors.write().unwrap();
+        let mut tensors = self.tensors.write().expect("lock should not be poisoned");
         let tracked = tensors.get_mut(&id).ok_or_else(|| {
             TorshError::InvalidArgument(format!("Tensor with ID {} is not tracked", id))
         })?;
@@ -498,7 +504,7 @@ impl<T: TensorElement> TensorTracker<T> {
         tracked.take_snapshot(label.into())?;
 
         // Trim if needed
-        let config = self.config.read().unwrap();
+        let config = self.config.read().expect("lock should not be poisoned");
         if tracked.snapshots.len() > config.max_snapshots {
             tracked.snapshots.remove(0);
         }
@@ -511,7 +517,7 @@ impl<T: TensorElement> TensorTracker<T> {
     where
         T: Copy + PartialOrd + num_traits::Zero + num_traits::ToPrimitive + fmt::Display,
     {
-        let tensors = self.tensors.read().unwrap();
+        let tensors = self.tensors.read().expect("lock should not be poisoned");
         let tracked = tensors.get(&id).ok_or_else(|| {
             TorshError::InvalidArgument(format!("Tensor with ID {} is not tracked", id))
         })?;
@@ -568,7 +574,7 @@ impl<T: TensorElement> TensorTracker<T> {
 
     /// Get the current tensor for a tracked ID
     pub fn get_tensor(&self, id: TrackId) -> Result<Tensor<T>> {
-        let tensors = self.tensors.read().unwrap();
+        let tensors = self.tensors.read().expect("lock should not be poisoned");
         let tracked = tensors.get(&id).ok_or_else(|| {
             TorshError::InvalidArgument(format!("Tensor with ID {} is not tracked", id))
         })?;
@@ -577,13 +583,21 @@ impl<T: TensorElement> TensorTracker<T> {
 
     /// Get all tracked tensor IDs
     pub fn tracked_ids(&self) -> Vec<TrackId> {
-        self.tensors.read().unwrap().keys().copied().collect()
+        self.tensors
+            .read()
+            .expect("lock should not be poisoned")
+            .keys()
+            .copied()
+            .collect()
     }
 
     /// Clear all tracking data
     pub fn clear(&mut self) {
-        self.tensors.write().unwrap().clear();
-        *self.next_id.write().unwrap() = 0;
+        self.tensors
+            .write()
+            .expect("lock should not be poisoned")
+            .clear();
+        *self.next_id.write().expect("lock should not be poisoned") = 0;
     }
 }
 
@@ -641,7 +655,7 @@ mod tests {
         tracker.snapshot(id, "first_snapshot").unwrap();
         tracker.snapshot(id, "second_snapshot").unwrap();
 
-        let tensors = tracker.tensors.read().unwrap();
+        let tensors = tracker.tensors.read().expect("lock should not be poisoned");
         let tracked = tensors.get(&id).unwrap();
         assert_eq!(tracked.snapshots.len(), 2);
     }
@@ -697,7 +711,7 @@ mod tests {
             .record_operation(id, "sub", vec![1.0], &result2)
             .unwrap();
 
-        let tensors = tracker.tensors.read().unwrap();
+        let tensors = tracker.tensors.read().expect("lock should not be poisoned");
         let tracked = tensors.get(&id).unwrap();
         assert_eq!(tracked.operations.len(), 1); // Only "mul" should be tracked
         assert_eq!(tracked.operations[0].operation, "mul");

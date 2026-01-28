@@ -136,7 +136,7 @@ impl PerformanceRegressionTester {
     ) -> TorshResult<()> {
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after UNIX_EPOCH")
             .as_secs();
 
         let system_info = SystemInfo {

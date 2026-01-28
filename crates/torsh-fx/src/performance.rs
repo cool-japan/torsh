@@ -62,7 +62,10 @@ impl ParallelTraversal {
             ready_nodes.par_iter().for_each(|&idx| {
                 if let Some(node) = self.graph.get_node(idx) {
                     visitor(idx, node);
-                    visited.lock().unwrap().insert(idx);
+                    visited
+                        .lock()
+                        .expect("lock should not be poisoned")
+                        .insert(idx);
                 }
             });
 
@@ -70,7 +73,7 @@ impl ParallelTraversal {
             ready_nodes.clear();
 
             for (idx, deps) in dependencies.iter() {
-                let visited_guard = visited.lock().unwrap();
+                let visited_guard = visited.lock().expect("lock should not be poisoned");
                 if !visited_guard.contains(idx) {
                     if deps.iter().all(|dep| visited_guard.contains(dep)) {
                         ready_nodes.push(*idx);
@@ -112,7 +115,10 @@ impl ParallelTraversal {
             use petgraph::visit::EdgeRef;
             let target = edge_ref.target();
             let source = edge_ref.source();
-            dependencies.get_mut(&target).unwrap().push(source);
+            dependencies
+                .get_mut(&target)
+                .expect("target node should exist in dependencies map")
+                .push(source);
         }
 
         dependencies
@@ -131,7 +137,7 @@ impl ParallelTraversal {
 
         while let Some(current) = stack.pop() {
             let already_visited = {
-                let mut v = visited.lock().unwrap();
+                let mut v = visited.lock().expect("lock should not be poisoned");
                 if v.contains(&current) {
                     true
                 } else {
@@ -194,21 +200,33 @@ impl GraphCache {
 
     /// Get cached operation result
     pub fn get_operation(&self, key: &str) -> Option<CachedResult> {
-        let mut cache = self.operation_cache.write().unwrap();
+        let mut cache = self
+            .operation_cache
+            .write()
+            .expect("lock should not be poisoned");
         if let Some(result) = cache.get_mut(key) {
             result.access_count += 1;
             result.last_accessed = std::time::SystemTime::now();
-            self.cache_stats.lock().unwrap().hits += 1;
+            self.cache_stats
+                .lock()
+                .expect("lock should not be poisoned")
+                .hits += 1;
             Some(result.clone())
         } else {
-            self.cache_stats.lock().unwrap().misses += 1;
+            self.cache_stats
+                .lock()
+                .expect("lock should not be poisoned")
+                .misses += 1;
             None
         }
     }
 
     /// Cache operation result
     pub fn cache_operation(&self, key: String, result: String, computation_time: Duration) {
-        let mut cache = self.operation_cache.write().unwrap();
+        let mut cache = self
+            .operation_cache
+            .write()
+            .expect("lock should not be poisoned");
 
         // Evict oldest entries if cache is full
         if cache.len() >= self.max_cache_size {
@@ -227,19 +245,31 @@ impl GraphCache {
 
     /// Get cached subgraph
     pub fn get_subgraph(&self, key: &str) -> Option<Arc<FxGraph>> {
-        let cache = self.subgraph_cache.read().unwrap();
+        let cache = self
+            .subgraph_cache
+            .read()
+            .expect("lock should not be poisoned");
         if let Some(graph) = cache.get(key) {
-            self.cache_stats.lock().unwrap().hits += 1;
+            self.cache_stats
+                .lock()
+                .expect("lock should not be poisoned")
+                .hits += 1;
             Some(graph.clone())
         } else {
-            self.cache_stats.lock().unwrap().misses += 1;
+            self.cache_stats
+                .lock()
+                .expect("lock should not be poisoned")
+                .misses += 1;
             None
         }
     }
 
     /// Cache subgraph
     pub fn cache_subgraph(&self, key: String, graph: Arc<FxGraph>) {
-        let mut cache = self.subgraph_cache.write().unwrap();
+        let mut cache = self
+            .subgraph_cache
+            .write()
+            .expect("lock should not be poisoned");
 
         // Evict oldest entries if cache is full
         if cache.len() >= self.max_cache_size {
@@ -251,14 +281,26 @@ impl GraphCache {
 
     /// Get cache statistics
     pub fn statistics(&self) -> CacheStatistics {
-        self.cache_stats.lock().unwrap().clone()
+        self.cache_stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Clear all caches
     pub fn clear(&self) {
-        self.operation_cache.write().unwrap().clear();
-        self.subgraph_cache.write().unwrap().clear();
-        *self.cache_stats.lock().unwrap() = CacheStatistics::default();
+        self.operation_cache
+            .write()
+            .expect("lock should not be poisoned")
+            .clear();
+        self.subgraph_cache
+            .write()
+            .expect("lock should not be poisoned")
+            .clear();
+        *self
+            .cache_stats
+            .lock()
+            .expect("lock should not be poisoned") = CacheStatistics::default();
     }
 
     /// Evict least recently used operation
@@ -269,7 +311,10 @@ impl GraphCache {
             .map(|(key, _)| key.clone())
         {
             cache.remove(&lru_key);
-            self.cache_stats.lock().unwrap().evictions += 1;
+            self.cache_stats
+                .lock()
+                .expect("lock should not be poisoned")
+                .evictions += 1;
         }
     }
 
@@ -277,7 +322,10 @@ impl GraphCache {
     fn evict_lru_subgraph(&self, cache: &mut HashMap<String, Arc<FxGraph>>) {
         if let Some(key) = cache.keys().next().cloned() {
             cache.remove(&key);
-            self.cache_stats.lock().unwrap().evictions += 1;
+            self.cache_stats
+                .lock()
+                .expect("lock should not be poisoned")
+                .evictions += 1;
         }
     }
 }
@@ -503,7 +551,10 @@ impl PerformanceProfiler {
             return;
         }
 
-        let mut times = self.operation_times.write().unwrap();
+        let mut times = self
+            .operation_times
+            .write()
+            .expect("lock should not be poisoned");
         times
             .entry(operation.to_string())
             .or_insert_with(Vec::new)
@@ -536,7 +587,10 @@ impl PerformanceProfiler {
 
     /// Detect and analyze performance bottlenecks
     fn analyze_bottlenecks(&self) {
-        let times = self.operation_times.read().unwrap();
+        let times = self
+            .operation_times
+            .read()
+            .expect("lock should not be poisoned");
         let mut bottlenecks = Vec::new();
 
         for (operation, durations) in times.iter() {
@@ -567,9 +621,16 @@ impl PerformanceProfiler {
         }
 
         // Sort by impact score
-        bottlenecks.sort_by(|a, b| b.impact_score.partial_cmp(&a.impact_score).unwrap());
+        bottlenecks.sort_by(|a, b| {
+            b.impact_score
+                .partial_cmp(&a.impact_score)
+                .expect("impact_score should be comparable")
+        });
 
-        *self.bottlenecks.write().unwrap() = bottlenecks;
+        *self
+            .bottlenecks
+            .write()
+            .expect("lock should not be poisoned") = bottlenecks;
     }
 
     /// Generate optimization recommendations
@@ -617,8 +678,15 @@ impl PerformanceProfiler {
 
     /// Generate comprehensive performance report
     fn generate_report(&self, total_time: Duration) -> PerformanceReport {
-        let times = self.operation_times.read().unwrap();
-        let bottlenecks = self.bottlenecks.read().unwrap().clone();
+        let times = self
+            .operation_times
+            .read()
+            .expect("lock should not be poisoned");
+        let bottlenecks = self
+            .bottlenecks
+            .read()
+            .expect("lock should not be poisoned")
+            .clone();
 
         let total_operations: u64 = times.values().map(|v| v.len() as u64).sum();
         let average_operation_time = if total_operations > 0 {
@@ -671,13 +739,22 @@ impl PerformanceProfiler {
 
     /// Clear all profiling data
     pub fn clear(&self) {
-        self.operation_times.write().unwrap().clear();
-        self.bottlenecks.write().unwrap().clear();
+        self.operation_times
+            .write()
+            .expect("lock should not be poisoned")
+            .clear();
+        self.bottlenecks
+            .write()
+            .expect("lock should not be poisoned")
+            .clear();
     }
 
     /// Get current bottlenecks
     pub fn bottlenecks(&self) -> Vec<PerformanceBottleneck> {
-        self.bottlenecks.read().unwrap().clone()
+        self.bottlenecks
+            .read()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 }
 
@@ -724,11 +801,20 @@ mod tests {
         let visited_nodes = Arc::new(Mutex::new(visited_nodes));
 
         let result = parallel_traversal.parallel_topological_traverse(|idx, _node| {
-            visited_nodes.lock().unwrap().push(idx);
+            visited_nodes
+                .lock()
+                .expect("lock should not be poisoned")
+                .push(idx);
         });
 
         assert!(result.is_ok());
-        assert_eq!(visited_nodes.lock().unwrap().len(), 3);
+        assert_eq!(
+            visited_nodes
+                .lock()
+                .expect("lock should not be poisoned")
+                .len(),
+            3
+        );
     }
 
     #[test]

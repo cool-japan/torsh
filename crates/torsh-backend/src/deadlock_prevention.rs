@@ -290,7 +290,7 @@ mod tests {
 
         // Hold lock in another thread
         let handle = thread::spawn(move || {
-            let _guard = mutex_clone.lock().unwrap();
+            let _guard = mutex_clone.lock().expect("lock should not be poisoned");
             thread::sleep(Duration::from_millis(100));
         });
 

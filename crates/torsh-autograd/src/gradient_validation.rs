@@ -5,7 +5,7 @@
 //! error reporting.
 
 use crate::{AutogradTensor, Result};
-use num_traits::{Float, FromPrimitive, ToPrimitive};
+use scirs2_core::numeric::{Float, FromPrimitive, ToPrimitive};
 use std::collections::HashMap;
 use torsh_core::dtype::TensorElement;
 use torsh_core::error::TorshError;

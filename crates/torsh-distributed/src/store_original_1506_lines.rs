@@ -33,7 +33,7 @@ impl StoreValue {
             data,
             timestamp: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .expect("time should be after UNIX_EPOCH")
                 .as_secs(),
         }
     }
@@ -506,7 +506,7 @@ impl TcpStore {
         self.ensure_connection().await?;
 
         let mut client = self.client.lock().await;
-        let stream = client.as_mut().unwrap();
+        let stream = client.as_mut().expect("client connection should be established");
 
         // Serialize request
         let request_data = serde_json::to_vec(&request).map_err(|e| {

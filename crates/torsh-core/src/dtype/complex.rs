@@ -5,8 +5,8 @@
 // implementations for standard complex types, and utilities for complex
 // number computations in scientific and engineering applications.
 
-use num_complex::Complex;
-use num_traits::Float;
+use scirs2_core::numeric::Float;
+use scirs2_core::Complex;
 
 use crate::dtype::traits::{FloatElement, TensorElement};
 

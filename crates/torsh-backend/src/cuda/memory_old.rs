@@ -14,6 +14,7 @@
 //! For new code, consider using the enhanced APIs in `crate::cuda::memory::`
 
 use crate::cuda::error::{CudaError, CudaResult};
+use crate::cuda::cuda_sys_compat as cuda_sys;
 use cust::prelude::DevicePointer;
 use std::collections::HashMap;
 use std::ptr;
@@ -231,10 +232,10 @@ impl CudaMemoryManager {
                 ptr as *const std::ffi::c_void,
                 size,
                 target_device,
-                0 as cuda_sys::cudaStream_t, // Default stream
+                0 as crate::cuda::cudaStream_t, // Default stream
             );
 
-            if result != cuda_sys::cudaError_t::cudaSuccess {
+            if result != crate::cuda::cudaSuccess {
                 return Err(CudaError::Context {
                     message: format!("Failed to prefetch memory: {:?}", result),
                 });
@@ -250,10 +251,10 @@ impl CudaMemoryManager {
                 ptr as *const std::ffi::c_void,
                 size,
                 cuda_sys::cudaCpuDeviceId as i32,
-                0 as cuda_sys::cudaStream_t, // Default stream
+                0 as crate::cuda::cudaStream_t, // Default stream
             );
 
-            if result != cuda_sys::cudaError_t::cudaSuccess {
+            if result != crate::cuda::cudaSuccess {
                 return Err(CudaError::Context {
                     message: format!("Failed to prefetch memory to host: {:?}", result),
                 });
@@ -292,7 +293,7 @@ impl CudaMemoryManager {
             let result =
                 cuda_sys::cudaMemAdvise(ptr as *const std::ffi::c_void, size, cuda_advice, device);
 
-            if result != cuda_sys::cudaError_t::cudaSuccess {
+            if result != crate::cuda::cudaSuccess {
                 return Err(CudaError::Context {
                     message: format!("Failed to set memory advice: {:?}", result),
                 });

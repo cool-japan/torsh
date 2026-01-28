@@ -1099,7 +1099,9 @@ impl DiffusionUNet {
 
         // Upsampling with skip connections
         for (_i, up_block) in self.up_blocks.iter().enumerate() {
-            let skip = skip_connections.pop().unwrap();
+            let skip = skip_connections
+                .pop()
+                .expect("skip connections should match up blocks");
             h = Tensor::cat(&[&h, &skip], 1)?; // Concatenate along channel dimension
             h = up_block.forward(&h)?;
             h = h.relu()?;

@@ -891,7 +891,7 @@ pub fn learnable_positional_encoding(seq_len: usize, d_model: usize) -> Result<T
 /// # Arguments
 ///
 /// * `input` - Input tensor of shape [..., seq_len, d_model]
-/// * `position_ids` - Position indices tensor of shape [seq_len]
+/// * `position_ids` - Position indices tensor of shape \[seq_len\]
 /// * `theta` - Base wavelength for frequency calculation (typically 10000.0)
 ///
 /// # Returns

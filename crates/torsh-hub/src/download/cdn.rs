@@ -362,7 +362,7 @@ impl AdvancedCdnManager {
         let mut endpoint_results = Vec::new();
         let current_time = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after UNIX epoch")
             .as_secs();
 
         // First, collect all health check results without mutating
@@ -430,7 +430,7 @@ impl AdvancedCdnManager {
         let start_time = Instant::now();
         let current_timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after UNIX epoch")
             .as_secs();
 
         // Build health check URL
@@ -518,7 +518,7 @@ impl AdvancedCdnManager {
 
         self.performance_metrics.last_update = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after UNIX epoch")
             .as_secs();
     }
 
@@ -580,7 +580,7 @@ impl AdvancedCdnManager {
 
             let current_time = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .expect("system time should be after UNIX epoch")
                 .as_secs();
 
             let pattern_key = format!("{}_{:?}", endpoint_name, pattern_type);
@@ -763,7 +763,10 @@ impl AdvancedCdnManager {
             .collect();
 
         // Sort by score (higher is better)
-        scored_endpoints.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        scored_endpoints.sort_by(|a, b| {
+            b.1.partial_cmp(&a.1)
+                .expect("endpoint scores should be comparable")
+        });
 
         // Return top endpoints (up to 3 for failover)
         Ok(scored_endpoints

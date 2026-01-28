@@ -4,7 +4,7 @@
 //! processes and coordinating distributed operations across them.
 
 use std::process::{Command, Stdio};
-use std::sync::Arc;
+// use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::timeout;
 use torsh_core::Result;
@@ -14,7 +14,7 @@ use torsh_distributed::{
     collectives::{all_reduce, barrier},
     init_process_group, ProcessGroup,
 };
-use torsh_tensor::creation::{ones, zeros};
+use torsh_tensor::creation::{full, ones};
 use torsh_tensor::Tensor;
 
 /// Configuration for multi-node tests
@@ -67,7 +67,7 @@ impl MultiNodeTestCoordinator {
                 let global_rank = node_id * self.config.processes_per_node + local_rank;
 
                 let child = Command::new("cargo")
-                    .args(&["test", "--test", "test_multi_node_worker"])
+                    .args(["test", "--test", "test_multi_node_worker"])
                     .env("TORSH_RANK", global_rank.to_string())
                     .env("TORSH_WORLD_SIZE", world_size.to_string())
                     .env("TORSH_MASTER_ADDR", &self.config.master_addr)
@@ -90,7 +90,8 @@ impl MultiNodeTestCoordinator {
 
     /// Wait for all worker processes to complete
     pub fn wait_for_completion(&mut self) -> Result<()> {
-        for process in &mut self.processes {
+        let processes = std::mem::take(&mut self.processes);
+        for process in processes {
             let output = process.wait_with_output().map_err(|e| {
                 torsh_core::TorshError::Other(format!("Process wait failed: {}", e))
             })?;
@@ -148,13 +149,14 @@ pub async fn multi_node_worker() -> Result<()> {
         world_size,
         &master_addr,
         master_port,
-    )?;
+    )
+    .await?;
 
     // Perform a barrier to ensure all processes are ready
     barrier(&pg).await?;
 
     // Create rank-specific tensor
-    let mut tensor = ones::<f32>(&[4, 4])? * (rank as f32 + 1.0);
+    let mut tensor = full::<f32>(&[4, 4], rank as f32 + 1.0)?;
 
     // Perform all-reduce operation
     all_reduce(&mut tensor, ReduceOp::Sum, &pg).await?;
@@ -166,7 +168,7 @@ pub async fn multi_node_worker() -> Result<()> {
     let data = tensor.to_vec()?;
     for value in data {
         assert!(
-            (value - expected_average).abs() < 1e-5,
+            (value - expected_average).abs() < 1e-5_f32,
             "AllReduce result incorrect: got {}, expected {}",
             value,
             expected_average
@@ -208,16 +210,21 @@ async fn test_two_node_communication() -> Result<()> {
 async fn test_multi_node_gradient_aggregation() -> Result<()> {
     // Simulate gradient aggregation across multiple nodes
     let world_size = 4;
-    let process_groups: Vec<_> = (0..world_size)
-        .map(|rank| init_process_group(BackendType::Gloo, rank, world_size, "127.0.0.1", 29502))
-        .collect::<Result<Vec<_>>>()?;
+
+    // Create process groups with await
+    let mut process_groups = Vec::new();
+    for rank in 0..world_size {
+        let pg =
+            init_process_group(BackendType::Gloo, rank, world_size, "127.0.0.1", 29502).await?;
+        process_groups.push(pg);
+    }
 
     // Each "node" has different gradients
-    let mut gradients: Vec<Tensor> = process_groups
-        .iter()
-        .enumerate()
-        .map(|(i, _)| ones::<f32>(&[10, 10])? * (i as f32 + 1.0))
-        .collect();
+    let mut gradients: Vec<Tensor> = Vec::new();
+    for i in 0..world_size as usize {
+        let tensor = full::<f32>(&[10, 10], i as f32 + 1.0)?;
+        gradients.push(tensor);
+    }
 
     // Simulate all-reduce for gradient aggregation
     for (i, gradient) in gradients.iter_mut().enumerate() {
@@ -229,10 +236,10 @@ async fn test_multi_node_gradient_aggregation() -> Result<()> {
     let expected_average = expected_sum / world_size as f32;
 
     for gradient in &gradients {
-        let data = gradient.to_vec()?;
-        for value in data {
+        let data: Vec<f32> = gradient.to_vec()?;
+        for &value in &data {
             assert!(
-                (value - expected_average).abs() < 1e-5,
+                (value - expected_average).abs() < 1e-5_f32,
                 "Gradient aggregation failed: got {}, expected {}",
                 value,
                 expected_average
@@ -247,13 +254,15 @@ async fn test_multi_node_gradient_aggregation() -> Result<()> {
 async fn test_node_failure_simulation() -> Result<()> {
     // Test behavior when a node fails during communication
     let world_size = 3;
-    let mut process_groups: Vec<Option<ProcessGroup>> = (0..world_size)
-        .map(|rank| {
-            init_process_group(BackendType::Gloo, rank, world_size, "127.0.0.1", 29503)
-                .await
-                .ok()
-        })
-        .collect();
+
+    // Create process groups properly
+    let mut process_groups: Vec<Option<ProcessGroup>> = Vec::new();
+    for rank in 0..world_size {
+        let pg = init_process_group(BackendType::Gloo, rank, world_size, "127.0.0.1", 29503)
+            .await
+            .ok();
+        process_groups.push(pg);
+    }
 
     // Simulate node 1 failure by setting it to None
     process_groups[1] = None;
@@ -279,7 +288,7 @@ async fn test_node_failure_simulation() -> Result<()> {
 async fn test_dynamic_node_joining() -> Result<()> {
     // Test adding nodes to an existing training session
     let initial_world_size = 2;
-    let mut initial_pgs: Vec<ProcessGroup> = (0..initial_world_size)
+    let initial_pg_futures: Vec<_> = (0..initial_world_size)
         .map(|rank| {
             init_process_group(
                 BackendType::Gloo,
@@ -289,7 +298,14 @@ async fn test_dynamic_node_joining() -> Result<()> {
                 29504,
             )
         })
-        .collect::<Result<Vec<_>>>()?;
+        .collect();
+    let initial_pg_results = futures_util::future::join_all(initial_pg_futures).await;
+    let initial_pgs: Vec<ProcessGroup> = initial_pg_results
+        .into_iter()
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(|e| {
+            torsh_core::TorshError::Other(format!("Failed to initialize process groups: {:?}", e))
+        })?;
 
     // Initial synchronization
     for pg in &initial_pgs {
@@ -304,7 +320,8 @@ async fn test_dynamic_node_joining() -> Result<()> {
         expanded_world_size,
         "127.0.0.1",
         29504,
-    )?;
+    )
+    .await?;
 
     // Test that new node can communicate
     barrier(&new_node_pg).await?;
@@ -316,12 +333,19 @@ async fn test_dynamic_node_joining() -> Result<()> {
 async fn test_cross_node_data_consistency() -> Result<()> {
     // Test that data remains consistent across nodes during operations
     let world_size = 4;
-    let process_groups: Vec<_> = (0..world_size)
+    let pg_futures: Vec<_> = (0..world_size)
         .map(|rank| init_process_group(BackendType::Gloo, rank, world_size, "127.0.0.1", 29505))
-        .collect::<Result<Vec<_>>>()?;
+        .collect();
+    let pg_results = futures_util::future::join_all(pg_futures).await;
+    let process_groups: Vec<ProcessGroup> = pg_results
+        .into_iter()
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(|e| {
+            torsh_core::TorshError::Other(format!("Failed to initialize process groups: {:?}", e))
+        })?;
 
     // Each node starts with the same data
-    let initial_data = ones::<f32>(&[5, 5])? * 2.0;
+    let initial_data = ones::<f32>(&[5, 5])?.mul_scalar(2.0)?;
     let mut node_data: Vec<Tensor> = vec![initial_data; world_size as usize];
 
     // Perform multiple rounds of all-reduce

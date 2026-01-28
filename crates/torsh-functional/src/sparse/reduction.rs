@@ -14,7 +14,7 @@ use torsh_tensor::Tensor;
 ///
 /// # Mathematical Formula
 /// - Global sum: result = Σ(all non-zero values)
-/// - Dimension sum: result[...] = Σ(values where coordinate[dim] varies)
+/// - Dimension sum: `result[...] = Σ(values where coordinate[dim] varies)`
 ///
 /// # Arguments
 /// * `sparse` - The input sparse tensor

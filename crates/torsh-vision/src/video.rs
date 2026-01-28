@@ -641,7 +641,7 @@ impl TemporalTransform for TemporalSampling {
                     .collect()
             }
             SamplingStrategy::Random => {
-                use scirs2_core::random::{Random, Rng};
+                use scirs2_core::random::Random;
                 let mut rng = Random::seed(42); // Use fixed seed for deterministic results
                 let mut indices: Vec<usize> = (0..sequence.len()).collect();
                 // Fisher-Yates shuffle algorithm

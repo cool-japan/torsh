@@ -159,10 +159,10 @@ impl FederatedAggregator {
     /// aggregator.register_client(client)?;
     /// ```
     pub fn register_client(&self, client: FederatedClient) -> Result<(), FederatedError> {
-        let mut clients = self.clients.write().unwrap();
+        let mut clients = self.clients.write().expect("lock should not be poisoned");
         clients.insert(client.client_id.clone(), client);
 
-        let mut metrics = self.metrics.lock().unwrap();
+        let mut metrics = self.metrics.lock().expect("lock should not be poisoned");
         metrics.total_clients = clients.len();
 
         Ok(())
@@ -189,7 +189,10 @@ impl FederatedAggregator {
             self.execute_federated_round(round)?;
             round += 1;
 
-            *self.current_round.lock().unwrap() = round;
+            *self
+                .current_round
+                .lock()
+                .expect("lock should not be poisoned") = round;
         }
 
         Ok(())
@@ -245,12 +248,15 @@ impl FederatedAggregator {
     fn select_clients_for_round(&self) -> Result<Vec<String>, FederatedError> {
         // Get client IDs snapshot to avoid holding locks simultaneously
         let client_ids: Vec<String> = {
-            let clients = self.clients.read().unwrap();
+            let clients = self.clients.read().expect("lock should not be poisoned");
             clients.keys().cloned().collect()
         };
 
         // Now safely acquire selector lock
-        let mut selector = self.client_selector.lock().unwrap();
+        let mut selector = self
+            .client_selector
+            .lock()
+            .expect("lock should not be poisoned");
         let selected = selector.select_clients(&client_ids, self.config.clients_per_round)?;
 
         println!("Selected {} clients for this round", selected.len());
@@ -277,17 +283,23 @@ impl FederatedAggregator {
         let mut client_updates = HashMap::new();
 
         // Get current round value before main loop to avoid nested locks
-        let current_round_value = *self.current_round.lock().unwrap();
+        let current_round_value = *self
+            .current_round
+            .lock()
+            .expect("lock should not be poisoned");
 
         // Create snapshot of global model to reduce lock scope
         let global_model_snapshot = {
-            let global_model = self.global_model.read().unwrap();
+            let global_model = self
+                .global_model
+                .read()
+                .expect("lock should not be poisoned");
             global_model.clone()
         };
 
         // Now work with clients with minimal lock duration
         {
-            let mut clients = self.clients.write().unwrap();
+            let mut clients = self.clients.write().expect("lock should not be poisoned");
 
             for client_id in selected_clients {
                 if let Some(client) = clients.get_mut(client_id) {
@@ -348,7 +360,10 @@ impl FederatedAggregator {
 
         // Scope the detector lock to limit its duration
         {
-            let mut detector = self.byzantine_detector.lock().unwrap();
+            let mut detector = self
+                .byzantine_detector
+                .lock()
+                .expect("lock should not be poisoned");
 
             for (client_id, gradients) in client_updates {
                 let is_byzantine = detector.detect_byzantine_behavior(client_id, gradients)?;
@@ -362,7 +377,10 @@ impl FederatedAggregator {
 
         // Now safely acquire metrics lock
         if byzantine_count > 0 {
-            self.metrics.lock().unwrap().byzantine_attacks_detected += byzantine_count;
+            self.metrics
+                .lock()
+                .expect("lock should not be poisoned")
+                .byzantine_attacks_detected += byzantine_count;
         }
 
         Ok(())
@@ -381,7 +399,7 @@ impl FederatedAggregator {
         &self,
         client_updates: &HashMap<String, HashMap<String, Vec<f32>>>,
     ) -> Result<HashMap<String, Vec<f32>>, FederatedError> {
-        let clients = self.clients.read().unwrap();
+        let clients = self.clients.read().expect("lock should not be poisoned");
 
         match self.config.aggregation_strategy {
             AggregationStrategy::FederatedAveraging => {
@@ -460,7 +478,10 @@ impl FederatedAggregator {
         clients: &HashMap<String, FederatedClient>,
     ) -> Result<HashMap<String, Vec<f32>>, FederatedError> {
         let mu = 0.01;
-        let global_model = self.global_model.read().unwrap();
+        let global_model = self
+            .global_model
+            .read()
+            .expect("lock should not be poisoned");
         let mut aggregated = self.federated_averaging(client_updates, clients)?;
 
         for (param_name, aggregated_gradient) in &mut aggregated {
@@ -737,7 +758,10 @@ impl FederatedAggregator {
         &self,
         aggregated_gradients: &HashMap<String, Vec<f32>>,
     ) -> Result<(), FederatedError> {
-        let mut privacy_engine = self.privacy_engine.lock().unwrap();
+        let mut privacy_engine = self
+            .privacy_engine
+            .lock()
+            .expect("lock should not be poisoned");
         privacy_engine.apply_privacy(&aggregated_gradients)?;
         Ok(())
     }
@@ -755,7 +779,10 @@ impl FederatedAggregator {
         &self,
         aggregated_gradients: &HashMap<String, Vec<f32>>,
     ) -> Result<(), FederatedError> {
-        let mut global_model = self.global_model.write().unwrap();
+        let mut global_model = self
+            .global_model
+            .write()
+            .expect("lock should not be poisoned");
 
         for (param_name, gradient) in aggregated_gradients {
             let model_param = global_model
@@ -785,7 +812,10 @@ impl FederatedAggregator {
         selected_clients: &[String],
         client_updates: &HashMap<String, HashMap<String, Vec<f32>>>,
     ) -> Result<(), FederatedError> {
-        let mut personalization_manager = self.personalization_manager.lock().unwrap();
+        let mut personalization_manager = self
+            .personalization_manager
+            .lock()
+            .expect("lock should not be poisoned");
         personalization_manager.update_personalized_models(selected_clients, client_updates)?;
         Ok(())
     }
@@ -821,7 +851,10 @@ impl FederatedAggregator {
             timestamp: Instant::now(),
         };
 
-        let mut history = self.aggregation_history.lock().unwrap();
+        let mut history = self
+            .aggregation_history
+            .lock()
+            .expect("lock should not be poisoned");
         history.push_back(aggregation_round);
 
         if history.len() > 100 {
@@ -829,9 +862,13 @@ impl FederatedAggregator {
         }
 
         // Get client count first to avoid holding multiple locks
-        let client_count = self.clients.read().unwrap().len();
+        let client_count = self
+            .clients
+            .read()
+            .expect("lock should not be poisoned")
+            .len();
 
-        let mut metrics = self.metrics.lock().unwrap();
+        let mut metrics = self.metrics.lock().expect("lock should not be poisoned");
         metrics.total_rounds += 1;
         metrics.average_participation_rate =
             participating_clients.len() as f64 / client_count as f64;
@@ -845,7 +882,7 @@ impl FederatedAggregator {
         participating_clients: &[String],
         aggregated_gradients: &HashMap<String, Vec<f32>>,
     ) -> Result<RoundMetrics, FederatedError> {
-        let clients = self.clients.read().unwrap();
+        let clients = self.clients.read().expect("lock should not be poisoned");
 
         let mut total_local_loss = 0.0;
         let mut num_participants = 0;
@@ -930,7 +967,10 @@ impl FederatedAggregator {
     ///
     /// Current global model parameters
     pub fn get_global_model(&self) -> HashMap<String, Vec<f32>> {
-        self.global_model.read().unwrap().clone()
+        self.global_model
+            .read()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Get current aggregation metrics
@@ -939,7 +979,10 @@ impl FederatedAggregator {
     ///
     /// Current federated learning metrics
     pub fn get_metrics(&self) -> FederatedMetrics {
-        self.metrics.lock().unwrap().clone()
+        self.metrics
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Get the aggregation history

@@ -341,9 +341,14 @@ impl PowerProfiler {
         let total_energy = if domain_samples.len() > 1 {
             let time_span = domain_samples
                 .last()
-                .unwrap()
+                .expect("domain_samples should not be empty after length check")
                 .timestamp
-                .duration_since(domain_samples.first().unwrap().timestamp)
+                .duration_since(
+                    domain_samples
+                        .first()
+                        .expect("domain_samples should not be empty after length check")
+                        .timestamp,
+                )
                 .unwrap_or(Duration::ZERO)
                 .as_secs_f64();
             average_power * time_span / 3600.0 // Convert to Wh
@@ -443,7 +448,7 @@ impl PowerProfiler {
                 sample
                     .timestamp
                     .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap()
+                    .expect("sample timestamp should be after UNIX_EPOCH")
                     .as_secs(),
                 sample.domain,
                 sample.power,

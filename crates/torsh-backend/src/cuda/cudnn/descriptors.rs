@@ -3,12 +3,42 @@
 //! This module provides wrapper types for various cuDNN descriptors including
 //! tensor, filter, convolution, activation, and pooling descriptors.
 
+// Allow unused imports as they are used conditionally with the cudnn feature
+#![allow(unused_imports)]
+
 use super::types::{ActivationMode, ConvolutionMode, NanPropagation, PoolingMode};
 use crate::cuda::error::{CudaError, CudaResult};
 use torsh_core::DType;
 
 #[cfg(feature = "cudnn")]
 use cudnn_sys::*;
+
+// Import compatibility layer for missing cudnn-sys functions
+#[cfg(feature = "cudnn")]
+use super::compat::{
+    cudnnActivationDescriptor_t, cudnnCreateActivationDescriptor, cudnnDestroyActivationDescriptor,
+    cudnnMathType_t, cudnnSetActivationDescriptor, cudnnSetConvolutionMathType,
+};
+
+/// Convert compat pooling mode to cudnn_sys pooling mode
+#[cfg(feature = "cudnn")]
+fn to_sys_pooling_mode(mode: super::compat::cudnnPoolingMode_t) -> cudnnPoolingMode_t {
+    match mode {
+        super::compat::cudnnPoolingMode_t::CUDNN_POOLING_MAX => {
+            cudnnPoolingMode_t::CUDNN_POOLING_MAX
+        }
+        super::compat::cudnnPoolingMode_t::CUDNN_POOLING_AVERAGE_COUNT_INCLUDE_PADDING => {
+            cudnnPoolingMode_t::CUDNN_POOLING_AVERAGE_COUNT_INCLUDE_PADDING
+        }
+        super::compat::cudnnPoolingMode_t::CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING => {
+            cudnnPoolingMode_t::CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING
+        }
+        // Map deterministic to max (cudnn_sys 0.0.3 doesn't have deterministic variant)
+        super::compat::cudnnPoolingMode_t::CUDNN_POOLING_MAX_DETERMINISTIC => {
+            cudnnPoolingMode_t::CUDNN_POOLING_MAX
+        }
+    }
+}
 
 /// Tensor descriptor for cuDNN operations
 ///
@@ -312,15 +342,8 @@ impl FilterDescriptor {
             };
 
             let status = unsafe {
-                cudnnSetFilter4dDescriptor(
-                    self.desc,
-                    cudnn_type,
-                    cudnnTensorFormat_t::CUDNN_TENSOR_NCHW,
-                    k,
-                    c,
-                    h,
-                    w,
-                )
+                // cudnn-sys 0.0.3 doesn't take tensor format for Filter4dDescriptor
+                cudnnSetFilter4dDescriptor(self.desc, cudnn_type, k, c, h, w)
             };
 
             if status != cudnnStatus_t::CUDNN_STATUS_SUCCESS {
@@ -362,13 +385,8 @@ impl FilterDescriptor {
             };
 
             let status = unsafe {
-                cudnnSetFilterNdDescriptor(
-                    self.desc,
-                    cudnn_type,
-                    cudnnTensorFormat_t::CUDNN_TENSOR_NCHW,
-                    dims.len() as i32,
-                    dims.as_ptr(),
-                )
+                // cudnn-sys 0.0.3 doesn't take tensor format for FilterNdDescriptor
+                cudnnSetFilterNdDescriptor(self.desc, cudnn_type, dims.len() as i32, dims.as_ptr())
             };
 
             if status != cudnnStatus_t::CUDNN_STATUS_SUCCESS {
@@ -467,17 +485,20 @@ impl ConvolutionDescriptor {
         {
             let cudnn_mode = mode.to_cudnn();
 
+            // Convert to cudnn_sys type directly
+            let mode_value = match cudnn_mode {
+                crate::cuda::cudnn::compat::cudnnConvolutionMode_t::CUDNN_CONVOLUTION => {
+                    cudnn_sys::cudnnConvolutionMode_t::CUDNN_CONVOLUTION
+                }
+                crate::cuda::cudnn::compat::cudnnConvolutionMode_t::CUDNN_CROSS_CORRELATION => {
+                    cudnn_sys::cudnnConvolutionMode_t::CUDNN_CROSS_CORRELATION
+                }
+            };
+
             let status = unsafe {
+                // cudnn-sys 0.0.3 doesn't take data type argument
                 cudnnSetConvolution2dDescriptor(
-                    self.desc,
-                    pad_h,
-                    pad_w,
-                    stride_h,
-                    stride_w,
-                    dilation_h,
-                    dilation_w,
-                    cudnn_mode,
-                    cudnnDataType_t::CUDNN_DATA_FLOAT,
+                    self.desc, pad_h, pad_w, stride_h, stride_w, dilation_h, dilation_w, mode_value,
                 )
             };
 
@@ -688,13 +709,14 @@ impl PoolingDescriptor {
     ) -> CudaResult<()> {
         #[cfg(feature = "cudnn")]
         {
-            let cudnn_mode = mode.to_cudnn();
-            let cudnn_nan = nan_opt.to_cudnn();
+            let compat_mode = mode.to_cudnn();
+            let cudnn_mode = to_sys_pooling_mode(compat_mode);
+            let _ = nan_opt; // cudnn-sys 0.0.3 doesn't support nan propagation option
 
             let status = unsafe {
+                // cudnn-sys 0.0.3 doesn't take nan propagation argument
                 cudnnSetPooling2dDescriptor(
-                    self.desc, cudnn_mode, cudnn_nan, window_h, window_w, pad_h, pad_w, stride_h,
-                    stride_w,
+                    self.desc, cudnn_mode, window_h, window_w, pad_h, pad_w, stride_h, stride_w,
                 )
             };
 

@@ -479,7 +479,7 @@ mod tests {
             ..Default::default()
         };
 
-        let result = stft(&signal, params).unwrap();
+        let result = stft(&signal, params).expect("stft should succeed");
         let shape = result.shape();
 
         // Should have shape [n_freqs, n_frames]

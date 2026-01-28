@@ -428,7 +428,9 @@ pub mod utils {
 
         let mut result = Vec::new();
         let mut views_iter = views.into_iter();
-        let mut current = views_iter.next().unwrap();
+        let mut current = views_iter
+            .next()
+            .expect("views is non-empty after is_empty check");
 
         for view in views_iter {
             match current.merge(&view) {

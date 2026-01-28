@@ -629,7 +629,7 @@ impl LoadBalancingManager {
 
         // Start monitoring
         {
-            let mut monitor = self.resource_monitor.lock().unwrap();
+            let mut monitor = self.resource_monitor.lock().expect("lock should not be poisoned");
             monitor.start_monitoring()?;
         }
 
@@ -647,13 +647,13 @@ impl LoadBalancingManager {
         };
 
         {
-            let mut sessions = self.active_sessions.lock().unwrap();
+            let mut sessions = self.active_sessions.lock().expect("lock should not be poisoned");
             sessions.insert(session_id.clone(), session);
         }
 
         // Update statistics
         {
-            let mut stats = self.statistics.lock().unwrap();
+            let mut stats = self.statistics.lock().expect("lock should not be poisoned");
             stats.sessions_started += 1;
         }
 
@@ -665,12 +665,12 @@ impl LoadBalancingManager {
         &self,
         tasks: Vec<TaskId>,
     ) -> Result<WorkloadDistribution, LoadBalancingError> {
-        let mut distributor = self.workload_distributor.lock().unwrap();
+        let mut distributor = self.workload_distributor.lock().expect("lock should not be poisoned");
         let distribution = distributor.distribute_tasks(tasks)?;
 
         // Update statistics
         {
-            let mut stats = self.statistics.lock().unwrap();
+            let mut stats = self.statistics.lock().expect("lock should not be poisoned");
             stats.tasks_distributed += distribution.task_assignments.len() as u64;
         }
 
@@ -679,18 +679,18 @@ impl LoadBalancingManager {
 
     /// Get current system load status
     pub fn get_system_load(&self) -> SystemLoadSnapshot {
-        let monitor = self.resource_monitor.lock().unwrap();
+        let monitor = self.resource_monitor.lock().expect("lock should not be poisoned");
         monitor.get_current_snapshot()
     }
 
     /// Optimize load balancing performance
     pub fn optimize_performance(&self) -> Result<OptimizationResult, LoadBalancingError> {
-        let mut optimizer = self.performance_optimizer.lock().unwrap();
+        let mut optimizer = self.performance_optimizer.lock().expect("lock should not be poisoned");
         let result = optimizer.optimize_current_load_distribution()?;
 
         // Update statistics
         {
-            let mut stats = self.statistics.lock().unwrap();
+            let mut stats = self.statistics.lock().expect("lock should not be poisoned");
             stats.optimizations_performed += 1;
         }
 
@@ -702,12 +702,12 @@ impl LoadBalancingManager {
         &self,
         migration_request: MigrationRequest,
     ) -> Result<String, LoadBalancingError> {
-        let mut migration_system = self.migration_system.lock().unwrap();
+        let mut migration_system = self.migration_system.lock().expect("lock should not be poisoned");
         let migration_id = migration_system.initiate_migration(migration_request)?;
 
         // Update statistics
         {
-            let mut stats = self.statistics.lock().unwrap();
+            let mut stats = self.statistics.lock().expect("lock should not be poisoned");
             stats.migrations_initiated += 1;
         }
 
@@ -716,18 +716,18 @@ impl LoadBalancingManager {
 
     /// Get load balancing statistics
     pub fn get_statistics(&self) -> LoadBalancingStatistics {
-        let stats = self.statistics.lock().unwrap();
+        let stats = self.statistics.lock().expect("lock should not be poisoned");
         stats.clone()
     }
 
     /// Adapt load balancing strategy
     pub fn adapt_strategy(&self) -> Result<StrategyType, LoadBalancingError> {
-        let mut adaptive_balancer = self.adaptive_balancer.lock().unwrap();
+        let mut adaptive_balancer = self.adaptive_balancer.lock().expect("lock should not be poisoned");
         let new_strategy = adaptive_balancer.adapt_strategy()?;
 
         // Update strategy engine
         {
-            let mut strategy_engine = self.strategy_engine.lock().unwrap();
+            let mut strategy_engine = self.strategy_engine.lock().expect("lock should not be poisoned");
             strategy_engine.switch_strategy(new_strategy.clone())?;
         }
 
@@ -1060,7 +1060,7 @@ pub enum LoadBalancingError {
 
 macro_rules! default_placeholder_type {
     ($name:ident) => {
-        #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+        #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
         pub struct $name {
             pub placeholder: bool,
         }

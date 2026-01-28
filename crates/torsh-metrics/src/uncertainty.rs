@@ -754,7 +754,10 @@ impl EnsembleUncertainty {
                     let predicted_class = sample_probs
                         .iter()
                         .enumerate()
-                        .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                        .max_by(|(_, a), (_, b)| {
+                            a.partial_cmp(b)
+                                .expect("probability values should be comparable")
+                        })
                         .map(|(idx, _)| idx)
                         .unwrap_or(0);
 
@@ -866,7 +869,10 @@ impl BayesianUncertainty {
             }
 
             let mut sorted_preds = preds.clone();
-            sorted_preds.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            sorted_preds.sort_by(|a, b| {
+                a.partial_cmp(b)
+                    .expect("prediction values should be comparable")
+            });
 
             let lower_idx = (sorted_preds.len() as f64 * lower_percentile) as usize;
             let upper_idx = ((sorted_preds.len() as f64 * upper_percentile) as usize)

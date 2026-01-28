@@ -1010,7 +1010,7 @@ impl PerformancePredictor {
         strategy_id: &str,
         horizon: Duration,
     ) -> Option<&CachedPrediction> {
-        let cache = self.prediction_cache.read().unwrap();
+        let cache = self.prediction_cache.read().expect("lock should not be poisoned");
         let cache_key = format!("{}_{:?}", strategy_id, horizon);
 
         if let Some(cached) = cache.get(&cache_key) {
@@ -1117,7 +1117,7 @@ impl PerformancePredictor {
             metadata: HashMap::new(),
         };
 
-        let mut cache = self.prediction_cache.write().unwrap();
+        let mut cache = self.prediction_cache.write().expect("lock should not be poisoned");
         cache.insert(cache_key, cached_prediction);
 
         Ok(())

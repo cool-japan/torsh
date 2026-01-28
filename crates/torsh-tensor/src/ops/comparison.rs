@@ -430,4 +430,212 @@ mod tests {
         let min_data = min_result.data().unwrap();
         assert_eq!(min_data.as_slice(), &[1.0, 3.0, 2.0, 1.0]);
     }
+
+    #[test]
+    fn test_masked_fill() {
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu).unwrap();
+        let mask = Tensor::from_data(vec![true, false, true, false], vec![4], DeviceType::Cpu).unwrap();
+
+        let result = tensor.masked_fill(&mask, 0.0).unwrap();
+        let data = result.data().unwrap();
+
+        assert_eq!(data.as_slice(), &[0.0, 2.0, 0.0, 4.0]);
+    }
+
+    #[test]
+    fn test_masked_fill_2d() {
+        let tensor = Tensor::from_data(
+            vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0],
+            vec![2, 3],
+            DeviceType::Cpu,
+        ).unwrap();
+        let mask = Tensor::from_data(
+            vec![true, false, true, false, true, false],
+            vec![2, 3],
+            DeviceType::Cpu,
+        ).unwrap();
+
+        let result = tensor.masked_fill(&mask, -1.0).unwrap();
+        let data = result.data().unwrap();
+
+        assert_eq!(data.as_slice(), &[-1.0, 2.0, -1.0, 4.0, -1.0, 6.0]);
+    }
+
+    #[test]
+    fn test_masked_fill_inplace() {
+        let mut tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu).unwrap();
+        let mask = Tensor::from_data(vec![false, true, false, true], vec![4], DeviceType::Cpu).unwrap();
+
+        tensor.masked_fill_(&mask, 99.0).unwrap();
+        let data = tensor.data().unwrap();
+
+        assert_eq!(data.as_slice(), &[1.0, 99.0, 3.0, 99.0]);
+    }
+
+    #[test]
+    fn test_masked_fill_requires_grad() {
+        let mut tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu).unwrap();
+        tensor.requires_grad = true;
+        let mask = Tensor::from_data(vec![true, false, true, false], vec![4], DeviceType::Cpu).unwrap();
+
+        let result = tensor.masked_fill_(&mask, 0.0);
+
+        assert!(result.is_err()); // Should fail for tensors with requires_grad
+    }
+
+    #[test]
+    fn test_nonzero_1d() {
+        let tensor = Tensor::from_data(vec![0.0f32, 1.0, 0.0, 2.0, 0.0, 3.0], vec![6], DeviceType::Cpu).unwrap();
+
+        let result = tensor.nonzero().unwrap();
+        let data = result.data().unwrap();
+        let shape = result.shape().dims();
+
+        assert_eq!(shape, &[3, 1]); // 3 non-zero elements, 1D tensor
+        assert_eq!(data.as_slice(), &[1i64, 3, 5]); // Indices of non-zero values
+    }
+
+    #[test]
+    fn test_nonzero_2d() {
+        let tensor = Tensor::from_data(
+            vec![0.0f32, 1.0, 0.0, 2.0, 0.0, 3.0],
+            vec![2, 3],
+            DeviceType::Cpu,
+        ).unwrap();
+
+        let result = tensor.nonzero().unwrap();
+        let data = result.data().unwrap();
+        let shape = result.shape().dims();
+
+        assert_eq!(shape, &[3, 2]); // 3 non-zero elements, 2D tensor
+        // Each row contains [row_idx, col_idx]
+        // Value 1.0 at [0, 1], 2.0 at [1, 0], 3.0 at [1, 2]
+        assert_eq!(data.as_slice(), &[0i64, 1, 1, 0, 1, 2]);
+    }
+
+    #[test]
+    fn test_nonzero_all_zeros() {
+        let tensor = Tensor::from_data(vec![0.0f32, 0.0, 0.0], vec![3], DeviceType::Cpu).unwrap();
+
+        let result = tensor.nonzero().unwrap();
+        let shape = result.shape().dims();
+
+        assert_eq!(shape, &[0, 1]); // No non-zero elements
+    }
+
+    #[test]
+    fn test_nonzero_all_nonzero() {
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+
+        let result = tensor.nonzero().unwrap();
+        let data = result.data().unwrap();
+        let shape = result.shape().dims();
+
+        assert_eq!(shape, &[3, 1]); // All 3 elements are non-zero
+        assert_eq!(data.as_slice(), &[0i64, 1, 2]);
+    }
+}
+
+// ✅ Masked operations for PyTorch compatibility
+impl<T: TensorElement + Copy> Tensor<T> {
+    /// Fill elements where mask is true with value
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to `torch.masked_fill(tensor, mask, value)`
+    pub fn masked_fill(&self, mask: &Tensor<bool>, value: T) -> Result<Self> {
+        if self.shape() != mask.shape() {
+            return Err(TorshError::ShapeMismatch {
+                expected: self.shape().to_vec(),
+                got: mask.shape().to_vec(),
+            });
+        }
+
+        let data = self.data()?;
+        let mask_data = mask.data()?;
+
+        let result: Vec<T> = data
+            .iter()
+            .zip(mask_data.iter())
+            .map(|(&val, &mask_val)| if mask_val { value } else { val })
+            .collect();
+
+        Self::from_data(result, self.shape().to_vec(), self.device())
+    }
+
+    /// In-place fill elements where mask is true with value
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to `torch.Tensor.masked_fill_(mask, value)`
+    pub fn masked_fill_(&mut self, mask: &Tensor<bool>, value: T) -> Result<&mut Self> {
+        if self.requires_grad {
+            return Err(TorshError::InvalidArgument(
+                "In-place operation on tensor that requires grad is not allowed".to_string(),
+            ));
+        }
+
+        if self.shape() != mask.shape() {
+            return Err(TorshError::ShapeMismatch {
+                expected: self.shape().to_vec(),
+                got: mask.shape().to_vec(),
+            });
+        }
+
+        let mask_data = mask.data()?;
+
+        for (i, &mask_val) in mask_data.iter().enumerate() {
+            if mask_val {
+                self.storage.set(i, value)?;
+            }
+        }
+
+        Ok(self)
+    }
+
+    /// Return indices of non-zero elements
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to `torch.nonzero(tensor, as_tuple=False)`
+    pub fn nonzero(&self) -> Result<Tensor<i64>>
+    where
+        T: PartialEq + num_traits::Zero,
+    {
+        let data = self.data()?;
+        let shape = self.shape().dims();
+        let ndim = shape.len();
+
+        // Find all non-zero indices
+        let mut nonzero_indices = Vec::new();
+
+        for (flat_idx, &val) in data.iter().enumerate() {
+            if val != <T as num_traits::Zero>::zero() {
+                // Convert flat index to multi-dimensional indices
+                let mut indices = vec![0; ndim];
+                let mut remaining = flat_idx;
+
+                for d in (0..ndim).rev() {
+                    let mut stride = 1;
+                    for dim in d + 1..ndim {
+                        stride *= shape[dim];
+                    }
+                    indices[d] = remaining / stride;
+                    remaining %= stride;
+                }
+
+                // Store as [num_nonzero, ndim] format
+                for &idx in &indices {
+                    nonzero_indices.push(idx as i64);
+                }
+            }
+        }
+
+        let num_nonzero = nonzero_indices.len() / ndim;
+
+        if num_nonzero == 0 {
+            // Return empty tensor with shape [0, ndim]
+            return Tensor::<i64>::from_data(vec![], vec![0, ndim], self.device());
+        }
+
+        // Return as [num_nonzero, ndim] tensor
+        Tensor::<i64>::from_data(nonzero_indices, vec![num_nonzero, ndim], self.device())
+    }
 }

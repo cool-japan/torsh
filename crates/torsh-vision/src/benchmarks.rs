@@ -20,7 +20,7 @@ use crate::scirs2_integration::{
 };
 use crate::{Result, VisionError};
 use scirs2_core::ndarray::{s, Array2, Array3, Array4};
-use scirs2_core::random::{Random, Rng}; // SciRS2 Policy compliance
+use scirs2_core::random::Random; // SciRS2 Policy compliance
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use torsh_core::device::DeviceType;
@@ -363,7 +363,7 @@ impl VisionBenchmarkSuite {
         model_results.sort_by(|a, b| {
             a.1.throughput_samples_per_sec
                 .partial_cmp(&b.1.throughput_samples_per_sec)
-                .unwrap()
+                .expect("comparison should succeed")
                 .reverse()
         });
 
@@ -387,7 +387,11 @@ impl VisionBenchmarkSuite {
                     && !name.contains("EfficientNet")
             })
             .collect();
-        vision_results.sort_by(|a, b| a.1.mean_time_ms.partial_cmp(&b.1.mean_time_ms).unwrap());
+        vision_results.sort_by(|a, b| {
+            a.1.mean_time_ms
+                .partial_cmp(&b.1.mean_time_ms)
+                .expect("comparison should succeed")
+        });
 
         for (name, result) in vision_results.iter().take(15) {
             report.push_str(&format!("  {}: {:.2}ms avg\n", name, result.mean_time_ms));

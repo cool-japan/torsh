@@ -48,8 +48,10 @@ impl MultiheadAttention {
         );
 
         // Initialize biases
-        let in_proj_bias = zeros(&[3 * embed_dim]).unwrap();
-        let out_proj_bias = zeros(&[embed_dim]).unwrap();
+        let in_proj_bias =
+            zeros(&[3 * embed_dim]).expect("zeros tensor for in_proj_bias should succeed");
+        let out_proj_bias =
+            zeros(&[embed_dim]).expect("zeros tensor for out_proj_bias should succeed");
 
         base.register_parameter("in_proj_bias".to_string(), Parameter::new(in_proj_bias));
         base.register_parameter("out_proj.bias".to_string(), Parameter::new(out_proj_bias));
@@ -432,8 +434,9 @@ impl FlashMultiHeadAttention {
         );
 
         // Add bias parameters
-        let qkv_bias = zeros(&[3 * embed_dim]).unwrap();
-        let out_proj_bias = zeros(&[embed_dim]).unwrap();
+        let qkv_bias = zeros(&[3 * embed_dim]).expect("zeros tensor for qkv_bias should succeed");
+        let out_proj_bias =
+            zeros(&[embed_dim]).expect("zeros tensor for out_proj_bias should succeed");
         base.register_parameter("qkv_bias".to_string(), Parameter::new(qkv_bias));
         base.register_parameter("out_proj_bias".to_string(), Parameter::new(out_proj_bias));
 
@@ -591,7 +594,10 @@ fn create_block_causal_mask(
         }
     }
 
-    Ok(Tensor::from_data(mask_data, vec![q_size, k_size], DeviceType::Cpu).unwrap())
+    Ok(
+        Tensor::from_data(mask_data, vec![q_size, k_size], DeviceType::Cpu)
+            .expect("tensor creation should succeed"),
+    )
 }
 
 /// FlexAttention - Flexible attention mechanism with customizable attention patterns

@@ -247,7 +247,7 @@ impl GraphPartitioner {
                 .get(&b)
                 .unwrap_or(&0.0)
                 .partial_cmp(node_weights.get(&a).unwrap_or(&0.0))
-                .unwrap()
+                .expect("node weights should be comparable")
         });
 
         for (device_idx, device) in self.devices.iter().enumerate() {

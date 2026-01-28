@@ -252,7 +252,7 @@ impl PackageSigner {
 
     /// Save signature to file
     pub fn save_signature<P: AsRef<Path>>(signature: &PackageSignature, path: P) -> Result<()> {
-        let serialized = bincode::serde::encode_to_vec(signature, bincode::config::standard())
+        let serialized = oxicode::serde::encode_to_vec(signature, oxicode::config::standard())
             .map_err(|e| TorshError::SerializationError(e.to_string()))?;
 
         fs::write(path, serialized).map_err(|e| TorshError::IoError(e.to_string()))?;
@@ -263,7 +263,7 @@ impl PackageSigner {
     pub fn load_signature<P: AsRef<Path>>(path: P) -> Result<PackageSignature> {
         let data = fs::read(path).map_err(|e| TorshError::IoError(e.to_string()))?;
 
-        let (signature, _) = bincode::serde::decode_from_slice(&data, bincode::config::standard())
+        let (signature, _) = oxicode::serde::decode_from_slice(&data, oxicode::config::standard())
             .map_err(|e| TorshError::SerializationError(e.to_string()))?;
 
         Ok(signature)
@@ -289,7 +289,7 @@ impl PackageEncryptor {
         password: &str,
     ) -> Result<EncryptedPackage> {
         // Serialize package
-        let package_data = bincode::serde::encode_to_vec(package, bincode::config::standard())
+        let package_data = oxicode::serde::encode_to_vec(package, oxicode::config::standard())
             .map_err(|e| TorshError::SerializationError(e.to_string()))?;
 
         // Derive key from password using PBKDF2
@@ -338,7 +338,7 @@ impl PackageEncryptor {
 
         // Deserialize package
         let (package, _) =
-            bincode::serde::decode_from_slice(&decrypted_data, bincode::config::standard())
+            oxicode::serde::decode_from_slice(&decrypted_data, oxicode::config::standard())
                 .map_err(|e| TorshError::SerializationError(e.to_string()))?;
 
         Ok(package)
@@ -440,7 +440,8 @@ impl PackageEncryptor {
     fn derive_key_from_password(&self, password: &str, salt: &[u8]) -> Result<Vec<u8>> {
         use ring::pbkdf2;
 
-        let iterations = std::num::NonZeroU32::new(100_000).unwrap();
+        let iterations =
+            std::num::NonZeroU32::new(100_000).expect("100_000 is a valid non-zero u32");
         let mut key = vec![0u8; 32]; // 256-bit key
 
         pbkdf2::derive(
@@ -476,7 +477,7 @@ impl PackageEncryptor {
 
     /// Save encrypted package to file
     pub fn save_encrypted<P: AsRef<Path>>(encrypted: &EncryptedPackage, path: P) -> Result<()> {
-        let serialized = bincode::serde::encode_to_vec(encrypted, bincode::config::standard())
+        let serialized = oxicode::serde::encode_to_vec(encrypted, oxicode::config::standard())
             .map_err(|e| TorshError::SerializationError(e.to_string()))?;
 
         fs::write(path, serialized).map_err(|e| TorshError::IoError(e.to_string()))?;
@@ -487,7 +488,7 @@ impl PackageEncryptor {
     pub fn load_encrypted<P: AsRef<Path>>(path: P) -> Result<EncryptedPackage> {
         let data = fs::read(path).map_err(|e| TorshError::IoError(e.to_string()))?;
 
-        let (encrypted, _) = bincode::serde::decode_from_slice(&data, bincode::config::standard())
+        let (encrypted, _) = oxicode::serde::decode_from_slice(&data, oxicode::config::standard())
             .map_err(|e| TorshError::SerializationError(e.to_string()))?;
 
         Ok(encrypted)

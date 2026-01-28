@@ -281,7 +281,7 @@ impl<T: Clone + Default> BufferPool<T> {
 
     /// Acquire a buffer from the pool
     pub fn acquire(&self) -> Vec<T> {
-        let mut buffers = self.buffers.lock().unwrap();
+        let mut buffers = self.buffers.lock().expect("lock should not be poisoned");
         buffers
             .pop()
             .unwrap_or_else(|| Vec::with_capacity(self.buffer_capacity))
@@ -291,7 +291,7 @@ impl<T: Clone + Default> BufferPool<T> {
     pub fn release(&self, mut buffer: Vec<T>) {
         buffer.clear();
 
-        let mut buffers = self.buffers.lock().unwrap();
+        let mut buffers = self.buffers.lock().expect("lock should not be poisoned");
         if buffers.len() < self.max_pool_size {
             buffers.push(buffer);
         }
@@ -300,7 +300,7 @@ impl<T: Clone + Default> BufferPool<T> {
 
     /// Get pool statistics
     pub fn stats(&self) -> (usize, usize) {
-        let buffers = self.buffers.lock().unwrap();
+        let buffers = self.buffers.lock().expect("lock should not be poisoned");
         (buffers.len(), self.max_pool_size)
     }
 }
@@ -343,12 +343,16 @@ impl<T: Clone + Default + 'static> ScopedBuffer<T> {
 
     /// Get mutable access to buffer
     pub fn get_mut(&mut self) -> &mut Vec<T> {
-        self.buffer.as_mut().unwrap()
+        self.buffer
+            .as_mut()
+            .expect("buffer should be present before drop")
     }
 
     /// Get immutable access to buffer
     pub fn get(&self) -> &Vec<T> {
-        self.buffer.as_ref().unwrap()
+        self.buffer
+            .as_ref()
+            .expect("buffer should be present before drop")
     }
 }
 

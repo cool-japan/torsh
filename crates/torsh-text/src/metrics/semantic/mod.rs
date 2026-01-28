@@ -705,7 +705,7 @@ impl SemanticAnalyzer {
             enabled_components.push("feature_extraction".to_string());
             let fe_start = Instant::now();
 
-            let mut feature_extractor = self.feature_extractor.lock().unwrap();
+            let mut feature_extractor = self.feature_extractor.lock().expect("lock should not be poisoned");
             let f1 = feature_extractor.extract_features(text1)?;
             let f2 = feature_extractor.extract_features(text2)?;
             drop(feature_extractor);
@@ -723,7 +723,7 @@ impl SemanticAnalyzer {
                 enabled_components.push("similarity_analysis".to_string());
                 let sim_start = Instant::now();
 
-                let mut similarity_engine = self.similarity_engine.lock().unwrap();
+                let mut similarity_engine = self.similarity_engine.lock().expect("lock should not be poisoned");
                 let result = similarity_engine.compute_similarity(
                     self.config.similarity_algorithm,
                     features1.as_ref().unwrap(),
@@ -748,7 +748,7 @@ impl SemanticAnalyzer {
                 let text2 = text2.to_string();
 
                 tasks.push(task::spawn(async move {
-                    let mut analyzer = sentiment_analyzer.lock().unwrap();
+                    let mut analyzer = sentiment_analyzer.lock().expect("lock should not be poisoned");
                     let s1 = analyzer.analyze_sentiment(&text1)?;
                     let s2 = analyzer.analyze_sentiment(&text2)?;
                     Ok::<_, SemanticAnalysisError>((s1, s2))
@@ -762,7 +762,7 @@ impl SemanticAnalyzer {
                 let text2 = text2.to_string();
 
                 tasks.push(task::spawn(async move {
-                    let mut modeler = topic_modeler.lock().unwrap();
+                    let mut modeler = topic_modeler.lock().expect("lock should not be poisoned");
                     let t1 = modeler.extract_topics(&text1)?;
                     let t2 = modeler.extract_topics(&text2)?;
                     Ok::<_, SemanticAnalysisError>((t1, t2))
@@ -776,7 +776,7 @@ impl SemanticAnalyzer {
                 let text2 = text2.to_string();
 
                 tasks.push(task::spawn(async move {
-                    let mut analyzer = domain_analyzer.lock().unwrap();
+                    let mut analyzer = domain_analyzer.lock().expect("lock should not be poisoned");
                     let d1 = analyzer.classify_domain(&text1)?;
                     let d2 = analyzer.classify_domain(&text2)?;
                     Ok::<_, SemanticAnalysisError>((d1, d2))
@@ -790,7 +790,7 @@ impl SemanticAnalyzer {
                 let text2 = text2.to_string();
 
                 tasks.push(task::spawn(async move {
-                    let mut analyzer = syntactic_analyzer.lock().unwrap();
+                    let mut analyzer = syntactic_analyzer.lock().expect("lock should not be poisoned");
                     let result = analyzer.analyze_similarity(&text1, &text2)?;
                     Ok::<_, SemanticAnalysisError>(result)
                 }));
@@ -892,7 +892,7 @@ impl SemanticAnalyzer {
             let quality_scores = vec![0.8]; // Simplified
             let confidence_scores = vec![0.9]; // Simplified
 
-            let mut metrics_analyzer = self.metrics_analyzer.lock().unwrap();
+            let mut metrics_analyzer = self.metrics_analyzer.lock().expect("lock should not be poisoned");
             let result = metrics_analyzer.analyze_metrics(
                 &similarity_scores,
                 &quality_scores,
@@ -926,7 +926,7 @@ impl SemanticAnalyzer {
 
         // Create cache info
         let cache_info = {
-            let cache_stats = self.cache_stats.lock().unwrap();
+            let cache_stats = self.cache_stats.lock().expect("lock should not be poisoned");
             cache_stats.clone()
         };
 
@@ -1100,12 +1100,12 @@ impl SemanticAnalyzer {
         }
 
         let cache_key = generate_cache_key(text1, text2);
-        let cache = self.cache.read().unwrap();
+        let cache = self.cache.read().expect("lock should not be poisoned");
 
         if let Some(entry) = cache.get(&cache_key) {
             // Update cache stats
             {
-                let mut stats = self.cache_stats.lock().unwrap();
+                let mut stats = self.cache_stats.lock().expect("lock should not be poisoned");
                 stats.cache_hits += 1;
                 stats.cache_hit_rate =
                     stats.cache_hits as f64 / (stats.cache_hits + stats.cache_misses) as f64;
@@ -1116,7 +1116,7 @@ impl SemanticAnalyzer {
 
         // Cache miss
         {
-            let mut stats = self.cache_stats.lock().unwrap();
+            let mut stats = self.cache_stats.lock().expect("lock should not be poisoned");
             stats.cache_misses += 1;
             stats.cache_hit_rate =
                 stats.cache_hits as f64 / (stats.cache_hits + stats.cache_misses) as f64;
@@ -1143,7 +1143,7 @@ impl SemanticAnalyzer {
             access_count: 1,
         };
 
-        let mut cache = self.cache.write().unwrap();
+        let mut cache = self.cache.write().expect("lock should not be poisoned");
 
         // Check if cache is full and evict if necessary
         if cache.len() >= self.config.cache_size_limit {
@@ -1154,7 +1154,7 @@ impl SemanticAnalyzer {
 
         // Update cache stats
         {
-            let mut stats = self.cache_stats.lock().unwrap();
+            let mut stats = self.cache_stats.lock().expect("lock should not be poisoned");
             stats.cache_size = cache.len();
         }
 
@@ -1203,10 +1203,10 @@ impl SemanticAnalyzer {
 
     /// Clear cache
     pub async fn clear_cache(&mut self) -> Result<(), SemanticAnalysisError> {
-        let mut cache = self.cache.write().unwrap();
+        let mut cache = self.cache.write().expect("lock should not be poisoned");
         cache.clear();
 
-        let mut stats = self.cache_stats.lock().unwrap();
+        let mut stats = self.cache_stats.lock().expect("lock should not be poisoned");
         stats.cache_size = 0;
         stats.cache_hits = 0;
         stats.cache_misses = 0;
@@ -1217,7 +1217,7 @@ impl SemanticAnalyzer {
 
     /// Get cache statistics
     pub fn get_cache_stats(&self) -> CacheInfo {
-        let stats = self.cache_stats.lock().unwrap();
+        let stats = self.cache_stats.lock().expect("lock should not be poisoned");
         stats.clone()
     }
 

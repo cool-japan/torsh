@@ -8,7 +8,7 @@
 #![allow(dead_code)]
 use crate::error::FfiError;
 use crate::numpy_compatibility::NumpyCompat;
-use crate::python::tensor::PyTensor;
+use crate::tensor::PyTensor;
 use pyo3::prelude::*;
 use pyo3::types::{IntoPyDict, PyAny, PyDict, PyModule};
 use pyo3::Bound;

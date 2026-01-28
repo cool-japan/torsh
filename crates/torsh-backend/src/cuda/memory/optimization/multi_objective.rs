@@ -4,6 +4,7 @@
 //! including various algorithms (NSGA-II, NSGA-III, SPEA2, MOEA/D, SMS-EMOA),
 //! Pareto front management, constraint handling, and performance metrics.
 
+use scirs2_core::random::thread_rng as rng;
 use std::collections::{HashMap, VecDeque};
 use std::time::{Duration, Instant};
 
@@ -1009,7 +1010,7 @@ impl MultiObjectiveOptimizer {
         self.population.clear();
 
         for _ in 0..population_size {
-            let genotype: Vec<f64> = (0..10).map(|_| rng.uniform_f64(-1.0, 1.0)).collect();
+            let genotype: Vec<f64> = (0..10).map(|_| rng.gen_range(-1.0..1.0)).collect();
             let individual = Individual {
                 genotype,
                 phenotype: HashMap::new(),
@@ -1143,7 +1144,7 @@ impl MultiObjectiveOptimizer {
             indices.sort_by(|&i, &j| {
                 self.population[i].objectives[obj_index]
                     .partial_cmp(&self.population[j].objectives[obj_index])
-                    .unwrap()
+                    .expect("objective values should be comparable (finite numbers)")
             });
 
             // Set boundary points to infinite distance
@@ -1179,7 +1180,7 @@ impl MultiObjectiveOptimizer {
             let parent2 = &self.population[parent2_idx];
 
             // Crossover
-            if rng.uniform_f64(0.0, 1.0) < algorithm.crossover_probability {
+            if rng.gen_range(0.0..1.0) < algorithm.crossover_probability {
                 let (child1, child2) = self.simulated_binary_crossover(parent1, parent2);
                 offspring.push(child1);
                 if offspring.len() < self.population.len() {
@@ -1195,7 +1196,7 @@ impl MultiObjectiveOptimizer {
 
         // Mutation
         for child in &mut offspring {
-            if rng.uniform_f64(0.0, 1.0) < algorithm.mutation_probability {
+            if rng.gen_range(0.0..1.0) < algorithm.mutation_probability {
                 self.polynomial_mutation(child);
             }
         }
@@ -1207,10 +1208,10 @@ impl MultiObjectiveOptimizer {
     fn tournament_selection(&self) -> usize {
         let mut rng = rng();
         let tournament_size = 2;
-        let mut best_idx = rng.uniform_usize(0, self.population.len());
+        let mut best_idx = rng.gen_range(0..self.population.len());
 
         for _ in 1..tournament_size {
-            let candidate_idx = rng.uniform_usize(0, self.population.len());
+            let candidate_idx = rng.gen_range(0..self.population.len());
             if self.is_better_solution(candidate_idx, best_idx) {
                 best_idx = candidate_idx;
             }
@@ -1245,15 +1246,15 @@ impl MultiObjectiveOptimizer {
         let eta_c = 20.0; // Distribution index
 
         for i in 0..parent1.genotype.len() {
-            if rng.uniform_f64(0.0, 1.0) <= 0.5 {
+            if rng.gen_range(0.0..1.0) <= 0.5 {
                 let y1 = parent1.genotype[i].min(parent2.genotype[i]);
                 let y2 = parent1.genotype[i].max(parent2.genotype[i]);
 
-                let rand = rng.uniform_f64(0.0, 1.0);
-                let beta = if rand <= 0.5 {
-                    (2.0 * rand).powf(1.0 / (eta_c + 1.0))
+                let rand: f64 = rng.gen_range(0.0..1.0);
+                let beta: f64 = if rand <= 0.5 {
+                    (2.0_f64 * rand).powf(1.0 / (eta_c + 1.0))
                 } else {
-                    (1.0 / (2.0 * (1.0 - rand))).powf(1.0 / (eta_c + 1.0))
+                    (1.0_f64 / (2.0_f64 * (1.0_f64 - rand))).powf(1.0 / (eta_c + 1.0))
                 };
 
                 child1.genotype[i] = 0.5 * ((y1 + y2) - beta * (y2 - y1));
@@ -1275,12 +1276,12 @@ impl MultiObjectiveOptimizer {
         let mutation_prob = 1.0 / individual.genotype.len() as f64;
 
         for gene in &mut individual.genotype {
-            if rng.uniform_f64(0.0, 1.0) <= mutation_prob {
-                let rand = rng.uniform_f64(0.0, 1.0);
-                let delta = if rand < 0.5 {
-                    (2.0 * rand).powf(1.0 / (eta_m + 1.0)) - 1.0
+            if rng.gen_range(0.0..1.0) <= mutation_prob {
+                let rand: f64 = rng.gen_range(0.0..1.0);
+                let delta: f64 = if rand < 0.5 {
+                    (2.0_f64 * rand).powf(1.0 / (eta_m + 1.0)) - 1.0
                 } else {
-                    1.0 - (2.0 * (1.0 - rand)).powf(1.0 / (eta_m + 1.0))
+                    1.0 - (2.0_f64 * (1.0_f64 - rand)).powf(1.0 / (eta_m + 1.0))
                 };
 
                 *gene += delta;
@@ -1307,40 +1308,14 @@ impl MultiObjectiveOptimizer {
             } else {
                 b.crowding_distance
                     .partial_cmp(&a.crowding_distance)
-                    .unwrap()
+                    .expect("crowding_distance should be comparable (finite numbers)")
             }
         });
 
         self.population.truncate(self.population.len() / 2);
     }
 
-    // Placeholder implementations for other algorithms
-    fn run_nsga3(
-        &mut self,
-        _objectives: &[String],
-        _constraints: &[String],
-        _algorithm: &MultiObjectiveAlgorithm,
-    ) -> Result<Vec<ParetoSolution>, String> {
-        Err("NSGA-III not fully implemented".to_string())
-    }
-
-    fn run_moead(
-        &mut self,
-        _objectives: &[String],
-        _constraints: &[String],
-        _algorithm: &MultiObjectiveAlgorithm,
-    ) -> Result<Vec<ParetoSolution>, String> {
-        Err("MOEA/D not fully implemented".to_string())
-    }
-
-    fn run_sms_emoa(
-        &mut self,
-        _objectives: &[String],
-        _constraints: &[String],
-        _algorithm: &MultiObjectiveAlgorithm,
-    ) -> Result<Vec<ParetoSolution>, String> {
-        Err("SMS-EMOA not fully implemented".to_string())
-    }
+    // Note: run_nsga3, run_moead, run_sms_emoa implementations are defined above
 
     // Additional placeholder methods
     fn create_offspring_nsga3(&self, _algorithm: &MultiObjectiveAlgorithm) -> Vec<Individual> {

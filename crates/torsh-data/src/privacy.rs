@@ -9,6 +9,7 @@ use crate::sampler::{Sampler, SamplerIterator};
 // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand_distr
 use scirs2_core::rand_prelude::Distribution;
 use scirs2_core::random::RandNormal;
+use scirs2_core::Rng;
 use std::collections::HashMap;
 
 #[cfg(not(feature = "std"))]
@@ -333,7 +334,6 @@ impl NoiseGenerator for LaplaceNoise {
         scale: f64,
     ) -> Result<torsh_tensor::Tensor> {
         // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand_distr
-        use scirs2_core::random::Rng;
 
         let size: usize = shape.iter().product();
 

@@ -71,9 +71,13 @@ impl GraphClassificationGCN {
             layers.push(GCNConv::new(layer_dims[i], layer_dims[i + 1], true));
         }
 
-        let final_dim = layer_dims.last().unwrap();
-        let classifier = Parameter::new(randn(&[*final_dim, num_classes]).unwrap());
-        let bias = Some(Parameter::new(zeros(&[num_classes]).unwrap()));
+        let final_dim = layer_dims.last().expect("collection should not be empty");
+        let classifier = Parameter::new(
+            randn(&[*final_dim, num_classes]).expect("randn should succeed with valid shape"),
+        );
+        let bias = Some(Parameter::new(
+            zeros(&[num_classes]).expect("zeros should succeed with valid shape"),
+        ));
 
         let attention_pool = if matches!(pooling_type, PoolingType::Attention) {
             Some(GlobalAttentionPool::new(*final_dim, *final_dim))
@@ -100,16 +104,19 @@ impl GraphClassificationGCN {
             PoolingType::Sum => {
                 // Sum pooling
                 let num_features = graph.x.shape().dims()[1];
-                let mut sum_features = zeros(&[num_features]).unwrap();
+                let mut sum_features =
+                    zeros(&[num_features]).expect("zeros should succeed with valid shape");
 
                 for node in 0..graph.num_nodes {
                     let node_feat = graph
                         .x
                         .slice_tensor(0, node, node + 1)
-                        .unwrap()
+                        .expect("slice should succeed")
                         .squeeze_tensor(0)
-                        .unwrap();
-                    sum_features = sum_features.add(&node_feat).unwrap();
+                        .expect("squeeze should succeed");
+                    sum_features = sum_features
+                        .add(&node_feat)
+                        .expect("operation should succeed");
                 }
 
                 sum_features
@@ -135,8 +142,12 @@ impl GraphClassifier for GraphClassificationGCN {
 
             // Apply ReLU activation (except for last layer)
             if i < self.layers.len() - 1 {
-                let zero_tensor = zeros(current_graph.x.shape().dims()).unwrap();
-                current_graph.x = current_graph.x.maximum(&zero_tensor).unwrap();
+                let zero_tensor = zeros(current_graph.x.shape().dims())
+                    .expect("zeros should succeed with valid shape");
+                current_graph.x = current_graph
+                    .x
+                    .maximum(&zero_tensor)
+                    .expect("maximum should succeed with same shapes");
 
                 // Apply dropout (simplified - would need proper training/eval mode)
                 if self.dropout > 0.0 {
@@ -151,27 +162,33 @@ impl GraphClassifier for GraphClassificationGCN {
         // Classification layer
         // Ensure graph_embedding is 2D for matrix multiplication
         let graph_embedding_2d = if graph_embedding.shape().dims().len() == 1 {
-            graph_embedding.unsqueeze_tensor(0).unwrap()
+            graph_embedding
+                .unsqueeze_tensor(0)
+                .expect("unsqueeze should succeed")
         } else if graph_embedding.shape().dims().len() == 2 {
             graph_embedding
         } else {
             // Flatten to 2D if more than 2 dimensions
             let total_features = graph_embedding.shape().dims().iter().product::<usize>();
-            graph_embedding.view(&[1, total_features as i32]).unwrap()
+            graph_embedding
+                .view(&[1, total_features as i32])
+                .expect("view should succeed")
         };
 
         let mut logits = graph_embedding_2d
             .matmul(&self.classifier.clone_data())
-            .unwrap();
+            .expect("matmul should succeed with compatible shapes");
 
         // Squeeze to 1D if needed
         if logits.shape().dims().len() == 2 && logits.shape().dims()[0] == 1 {
-            logits = logits.squeeze_tensor(0).unwrap();
+            logits = logits.squeeze_tensor(0).expect("squeeze should succeed");
         }
 
         // Add bias
         if let Some(ref bias) = self.bias {
-            logits = logits.add(&bias.clone_data()).unwrap();
+            logits = logits
+                .add(&bias.clone_data())
+                .expect("operation should succeed");
         }
 
         logits
@@ -248,8 +265,13 @@ impl GraphClassificationGAT {
         // Classifier
         let final_dim = hidden_dim * num_heads;
         let classifier = vec![
-            Parameter::new(randn(&[final_dim, final_dim / 2]).unwrap()),
-            Parameter::new(randn(&[final_dim / 2, num_classes]).unwrap()),
+            Parameter::new(
+                randn(&[final_dim, final_dim / 2]).expect("randn should succeed with valid shape"),
+            ),
+            Parameter::new(
+                randn(&[final_dim / 2, num_classes])
+                    .expect("randn should succeed with valid shape"),
+            ),
         ];
 
         Self {
@@ -272,8 +294,12 @@ impl GraphClassifier for GraphClassificationGAT {
 
             // Apply activation (except for last layer)
             if i < self.gat_layers.len() - 1 {
-                let zero_tensor = zeros(current_graph.x.shape().dims()).unwrap();
-                current_graph.x = current_graph.x.maximum(&zero_tensor).unwrap();
+                let zero_tensor = zeros(current_graph.x.shape().dims())
+                    .expect("zeros should succeed with valid shape");
+                current_graph.x = current_graph
+                    .x
+                    .maximum(&zero_tensor)
+                    .expect("maximum should succeed with same shapes");
             }
         }
 
@@ -287,40 +313,51 @@ impl GraphClassifier for GraphClassificationGAT {
         // Two-layer classifier
         // Ensure graph_embedding is 2D for matrix multiplication
         let graph_embedding_2d = if graph_embedding.shape().dims().len() == 1 {
-            graph_embedding.unsqueeze_tensor(0).unwrap()
+            graph_embedding
+                .unsqueeze_tensor(0)
+                .expect("unsqueeze should succeed")
         } else if graph_embedding.shape().dims().len() == 2 {
             graph_embedding
         } else {
             // Flatten to 2D if more than 2 dimensions
             let total_features = graph_embedding.shape().dims().iter().product::<usize>();
-            graph_embedding.view(&[1, total_features as i32]).unwrap()
+            graph_embedding
+                .view(&[1, total_features as i32])
+                .expect("view should succeed")
         };
 
         let mut hidden = graph_embedding_2d
             .matmul(&self.classifier[0].clone_data())
-            .unwrap();
+            .expect("matmul should succeed with compatible shapes");
 
         // Squeeze to 1D if needed
         if hidden.shape().dims().len() == 2 && hidden.shape().dims()[0] == 1 {
-            hidden = hidden.squeeze_tensor(0).unwrap();
+            hidden = hidden.squeeze_tensor(0).expect("squeeze should succeed");
         }
 
         // ReLU activation
-        let zero_tensor = zeros(hidden.shape().dims()).unwrap();
-        hidden = hidden.maximum(&zero_tensor).unwrap();
+        let zero_tensor =
+            zeros(hidden.shape().dims()).expect("zeros should succeed with valid shape");
+        hidden = hidden
+            .maximum(&zero_tensor)
+            .expect("maximum should succeed with same shapes");
 
         // Final classification
         let hidden_2d = if hidden.shape().dims().len() == 1 {
-            hidden.unsqueeze_tensor(0).unwrap()
+            hidden
+                .unsqueeze_tensor(0)
+                .expect("unsqueeze should succeed")
         } else {
             hidden
         };
 
-        let mut logits = hidden_2d.matmul(&self.classifier[1].clone_data()).unwrap();
+        let mut logits = hidden_2d
+            .matmul(&self.classifier[1].clone_data())
+            .expect("matmul should succeed with compatible shapes");
 
         // Squeeze to 1D if needed
         if logits.shape().dims().len() == 2 && logits.shape().dims()[0] == 1 {
-            logits = logits.squeeze_tensor(0).unwrap();
+            logits = logits.squeeze_tensor(0).expect("squeeze should succeed");
         }
 
         logits
@@ -388,10 +425,14 @@ impl HierarchicalGraphClassifier {
 
         // Cross-scale attention
         let combined_dim = local_hidden + global_hidden;
-        let attention_weights = Parameter::new(randn(&[combined_dim, 1]).unwrap());
+        let attention_weights = Parameter::new(
+            randn(&[combined_dim, 1]).expect("randn should succeed with valid shape"),
+        );
 
         // Final classifier
-        let classifier = Parameter::new(randn(&[combined_dim, num_classes]).unwrap());
+        let classifier = Parameter::new(
+            randn(&[combined_dim, num_classes]).expect("randn should succeed with valid shape"),
+        );
 
         Self {
             local_layers,
@@ -409,8 +450,12 @@ impl GraphClassifier for HierarchicalGraphClassifier {
         let mut local_graph = graph.clone();
         for layer in &self.local_layers {
             local_graph = layer.forward(&local_graph);
-            let zero_tensor = zeros(local_graph.x.shape().dims()).unwrap();
-            local_graph.x = local_graph.x.maximum(&zero_tensor).unwrap();
+            let zero_tensor =
+                zeros(local_graph.x.shape().dims()).expect("zeros should succeed with valid shape");
+            local_graph.x = local_graph
+                .x
+                .maximum(&zero_tensor)
+                .expect("maximum should succeed with same shapes");
         }
         let local_repr = global_mean_pool(&local_graph);
 
@@ -418,8 +463,12 @@ impl GraphClassifier for HierarchicalGraphClassifier {
         let mut global_graph = graph.clone();
         for layer in &self.global_layers {
             global_graph = layer.forward(&global_graph);
-            let zero_tensor = zeros(global_graph.x.shape().dims()).unwrap();
-            global_graph.x = global_graph.x.maximum(&zero_tensor).unwrap();
+            let zero_tensor = zeros(global_graph.x.shape().dims())
+                .expect("zeros should succeed with valid shape");
+            global_graph.x = global_graph
+                .x
+                .maximum(&zero_tensor)
+                .expect("maximum should succeed with same shapes");
         }
         let global_repr = global_mean_pool(&global_graph);
 
@@ -430,64 +479,80 @@ impl GraphClassifier for HierarchicalGraphClassifier {
         } else {
             local_repr
                 .view(&[local_repr.shape().dims().iter().product::<usize>() as i32])
-                .unwrap()
+                .expect("view should succeed")
         };
         let global_1d = if global_repr.shape().dims().len() == 1 {
             global_repr
         } else {
             global_repr
                 .view(&[global_repr.shape().dims().iter().product::<usize>() as i32])
-                .unwrap()
+                .expect("view should succeed")
         };
 
         // Concatenate the 1D tensors along feature dimension, then expand to 2D
-        let combined_1d = Tensor::cat(&[&local_1d, &global_1d], 0).unwrap();
-        let combined = combined_1d.unsqueeze_tensor(0).unwrap();
+        let combined_1d = Tensor::cat(&[&local_1d, &global_1d], 0).expect("cat should succeed");
+        let combined = combined_1d
+            .unsqueeze_tensor(0)
+            .expect("unsqueeze should succeed");
 
         // Apply cross-scale attention
         // Ensure combined tensor is 2D for matrix multiplication
         let combined_2d = if combined.shape().dims().len() == 1 {
-            combined.unsqueeze_tensor(0).unwrap()
+            combined
+                .unsqueeze_tensor(0)
+                .expect("unsqueeze should succeed")
         } else {
             combined.clone()
         };
 
         let mut attention_scores = combined_2d
             .matmul(&self.attention_weights.clone_data())
-            .unwrap();
+            .expect("matmul should succeed with compatible shapes");
 
         // Squeeze to appropriate dimensions
         if attention_scores.shape().dims().len() == 2 && attention_scores.shape().dims()[1] == 1 {
-            attention_scores = attention_scores.squeeze_tensor(1).unwrap();
+            attention_scores = attention_scores
+                .squeeze_tensor(1)
+                .expect("squeeze should succeed");
         }
 
         // Softmax attention
-        let exp_scores = attention_scores.exp().unwrap();
-        let sum_exp = exp_scores.sum().unwrap();
-        let normalized_scores = exp_scores.div_scalar(sum_exp.to_vec().unwrap()[0]).unwrap();
+        let exp_scores = attention_scores.exp().expect("exp should succeed");
+        let sum_exp = exp_scores.sum().expect("reduction should succeed");
+        let normalized_scores = exp_scores
+            .div_scalar(sum_exp.to_vec().expect("conversion should succeed")[0])
+            .expect("div_scalar should succeed");
 
         // Weighted combination - ensure proper broadcasting
-        let scores_expanded = normalized_scores.unsqueeze_tensor(1).unwrap();
+        let scores_expanded = normalized_scores
+            .unsqueeze_tensor(1)
+            .expect("unsqueeze should succeed");
         let combined_shape = combined_2d.shape();
-        let scores_broadcasted = scores_expanded.expand(combined_shape.dims()).unwrap();
+        let scores_broadcasted = scores_expanded
+            .expand(combined_shape.dims())
+            .expect("expand should succeed");
         let attended = combined_2d
             .mul(&scores_broadcasted)
-            .unwrap()
+            .expect("mul should succeed with same shapes")
             .sum_dim(&[0], false) // Sum along batch dimension, keep feature dimension
-            .unwrap();
+            .expect("sum_dim should succeed");
 
         // Classification
         let attended_2d = if attended.shape().dims().len() == 1 {
-            attended.unsqueeze_tensor(0).unwrap()
+            attended
+                .unsqueeze_tensor(0)
+                .expect("unsqueeze should succeed")
         } else {
             attended
         };
 
-        let mut logits = attended_2d.matmul(&self.classifier.clone_data()).unwrap();
+        let mut logits = attended_2d
+            .matmul(&self.classifier.clone_data())
+            .expect("matmul should succeed with compatible shapes");
 
         // Squeeze to 1D if needed
         if logits.shape().dims().len() == 2 && logits.shape().dims()[0] == 1 {
-            logits = logits.squeeze_tensor(0).unwrap();
+            logits = logits.squeeze_tensor(0).expect("squeeze should succeed");
         }
 
         logits
@@ -543,10 +608,14 @@ impl GraphRegressor {
             ));
         }
 
-        let final_dim = layer_dims.last().unwrap();
-        let regressor = Parameter::new(randn(&[*final_dim, output_dim]).unwrap());
+        let final_dim = layer_dims.last().expect("collection should not be empty");
+        let regressor = Parameter::new(
+            randn(&[*final_dim, output_dim]).expect("randn should succeed with valid shape"),
+        );
         let bias_param = if bias {
-            Some(Parameter::new(zeros(&[output_dim]).unwrap()))
+            Some(Parameter::new(
+                zeros(&[output_dim]).expect("zeros should succeed with valid shape"),
+            ))
         } else {
             None
         };
@@ -567,8 +636,12 @@ impl GraphRegressor {
             current_graph = layer.forward(&current_graph);
 
             // ReLU activation
-            let zero_tensor = zeros(current_graph.x.shape().dims()).unwrap();
-            current_graph.x = current_graph.x.maximum(&zero_tensor).unwrap();
+            let zero_tensor = zeros(current_graph.x.shape().dims())
+                .expect("zeros should succeed with valid shape");
+            current_graph.x = current_graph
+                .x
+                .maximum(&zero_tensor)
+                .expect("maximum should succeed with same shapes");
         }
 
         // Pool to graph-level representation
@@ -576,23 +649,27 @@ impl GraphRegressor {
 
         // Regression
         let graph_embedding_2d = if graph_embedding.shape().dims().len() == 1 {
-            graph_embedding.unsqueeze_tensor(0).unwrap()
+            graph_embedding
+                .unsqueeze_tensor(0)
+                .expect("unsqueeze should succeed")
         } else {
             graph_embedding
         };
 
         let mut output = graph_embedding_2d
             .matmul(&self.regressor.clone_data())
-            .unwrap();
+            .expect("matmul should succeed with compatible shapes");
 
         // Squeeze to 1D if needed
         if output.shape().dims().len() == 2 && output.shape().dims()[0] == 1 {
-            output = output.squeeze_tensor(0).unwrap();
+            output = output.squeeze_tensor(0).expect("squeeze should succeed");
         }
 
         // Add bias if present
         if let Some(ref bias) = self.bias {
-            output = output.add(&bias.clone_data()).unwrap();
+            output = output
+                .add(&bias.clone_data())
+                .expect("operation should succeed");
         }
 
         output
@@ -639,13 +716,20 @@ impl MultiTaskGraphNetwork {
             shared_layers.push(GCNConv::new(layer_dims[i], layer_dims[i + 1], true));
         }
 
-        let final_dim = layer_dims.last().unwrap();
+        let final_dim = layer_dims.last().expect("collection should not be empty");
 
-        let classifier = Parameter::new(randn(&[*final_dim, num_classes]).unwrap());
-        let regressor = Parameter::new(randn(&[*final_dim, regression_dim]).unwrap());
+        let classifier = Parameter::new(
+            randn(&[*final_dim, num_classes]).expect("randn should succeed with valid shape"),
+        );
+        let regressor = Parameter::new(
+            randn(&[*final_dim, regression_dim]).expect("randn should succeed with valid shape"),
+        );
 
-        let classification_bias = Parameter::new(zeros(&[num_classes]).unwrap());
-        let regression_bias = Parameter::new(zeros(&[regression_dim]).unwrap());
+        let classification_bias =
+            Parameter::new(zeros(&[num_classes]).expect("zeros should succeed with valid shape"));
+        let regression_bias = Parameter::new(
+            zeros(&[regression_dim]).expect("zeros should succeed with valid shape"),
+        );
 
         Self {
             shared_layers,
@@ -665,8 +749,12 @@ impl MultiTaskGraphNetwork {
         for layer in &self.shared_layers {
             current_graph = layer.forward(&current_graph);
 
-            let zero_tensor = zeros(current_graph.x.shape().dims()).unwrap();
-            current_graph.x = current_graph.x.maximum(&zero_tensor).unwrap();
+            let zero_tensor = zeros(current_graph.x.shape().dims())
+                .expect("zeros should succeed with valid shape");
+            current_graph.x = current_graph
+                .x
+                .maximum(&zero_tensor)
+                .expect("maximum should succeed with same shapes");
         }
 
         // Pool to graph-level representation
@@ -674,45 +762,53 @@ impl MultiTaskGraphNetwork {
 
         // Classification output
         let graph_embedding_2d = if graph_embedding.shape().dims().len() == 1 {
-            graph_embedding.unsqueeze_tensor(0).unwrap()
+            graph_embedding
+                .unsqueeze_tensor(0)
+                .expect("unsqueeze should succeed")
         } else {
             graph_embedding.clone()
         };
 
         let mut classification_logits = graph_embedding_2d
             .matmul(&self.classifier.clone_data())
-            .unwrap();
+            .expect("matmul should succeed with compatible shapes");
 
         // Squeeze to 1D if needed
         if classification_logits.shape().dims().len() == 2
             && classification_logits.shape().dims()[0] == 1
         {
-            classification_logits = classification_logits.squeeze_tensor(0).unwrap();
+            classification_logits = classification_logits
+                .squeeze_tensor(0)
+                .expect("squeeze should succeed");
         }
 
         let classification_logits = classification_logits
             .add(&self.classification_bias.clone_data())
-            .unwrap();
+            .expect("add should succeed with same shapes");
 
         // Regression output
         let graph_embedding_2d_reg = if graph_embedding.shape().dims().len() == 1 {
-            graph_embedding.unsqueeze_tensor(0).unwrap()
+            graph_embedding
+                .unsqueeze_tensor(0)
+                .expect("unsqueeze should succeed")
         } else {
             graph_embedding
         };
 
         let mut regression_output = graph_embedding_2d_reg
             .matmul(&self.regressor.clone_data())
-            .unwrap();
+            .expect("matmul should succeed with compatible shapes");
 
         // Squeeze to 1D if needed
         if regression_output.shape().dims().len() == 2 && regression_output.shape().dims()[0] == 1 {
-            regression_output = regression_output.squeeze_tensor(0).unwrap();
+            regression_output = regression_output
+                .squeeze_tensor(0)
+                .expect("squeeze should succeed");
         }
 
         let regression_output = regression_output
             .add(&self.regression_bias.clone_data())
-            .unwrap();
+            .expect("add should succeed with same shapes");
 
         (classification_logits, regression_output)
     }
@@ -774,7 +870,7 @@ mod tests {
             let logits = classifier.forward(&graph);
             assert_eq!(logits.shape().dims(), &[2]);
 
-            let logit_vals = logits.to_vec().unwrap();
+            let logit_vals = logits.to_vec().expect("conversion should succeed");
             assert!(logit_vals.iter().all(|&x| x.is_finite()));
         }
     }
@@ -791,7 +887,7 @@ mod tests {
         let output = regressor.forward(&graph);
         assert_eq!(output.shape().dims(), &[2]);
 
-        let output_vals = output.to_vec().unwrap();
+        let output_vals = output.to_vec().expect("conversion should succeed");
         assert!(output_vals.iter().all(|&x| x.is_finite()));
     }
 
@@ -826,8 +922,8 @@ mod tests {
         assert_eq!(class_logits.shape().dims(), &[3]);
         assert_eq!(reg_output.shape().dims(), &[2]);
 
-        let class_vals = class_logits.to_vec().unwrap();
-        let reg_vals = reg_output.to_vec().unwrap();
+        let class_vals = class_logits.to_vec().expect("conversion should succeed");
+        let reg_vals = reg_output.to_vec().expect("conversion should succeed");
 
         assert!(class_vals.iter().all(|&x| x.is_finite()));
         assert!(reg_vals.iter().all(|&x| x.is_finite()));
@@ -852,8 +948,8 @@ mod tests {
             let logits1 = classifier.forward(&graph);
             let logits2 = classifier.forward(&graph);
 
-            let vals1 = logits1.to_vec().unwrap();
-            let vals2 = logits2.to_vec().unwrap();
+            let vals1 = logits1.to_vec().expect("conversion should succeed");
+            let vals2 = logits2.to_vec().expect("conversion should succeed");
 
             for (v1, v2) in vals1.iter().zip(vals2.iter()) {
                 assert!((v1 - v2).abs() < 1e-6);

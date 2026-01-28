@@ -542,15 +542,16 @@ impl<O: Optimizer> ReduceLROnPlateau<O> {
         if self.best.is_none() {
             self.best = Some(current);
         } else {
+            let best_value = self.best.expect("best should exist after is_none check");
             let is_better = match self.mode.as_str() {
                 "min" => match self.threshold_mode.as_str() {
-                    "rel" => current < self.best.unwrap() * (1.0 - self.threshold),
-                    "abs" => current < self.best.unwrap() - self.threshold,
+                    "rel" => current < best_value * (1.0 - self.threshold),
+                    "abs" => current < best_value - self.threshold,
                     _ => false,
                 },
                 "max" => match self.threshold_mode.as_str() {
-                    "rel" => current > self.best.unwrap() * (1.0 + self.threshold),
-                    "abs" => current > self.best.unwrap() + self.threshold,
+                    "rel" => current > best_value * (1.0 + self.threshold),
+                    "abs" => current > best_value + self.threshold,
                     _ => false,
                 },
                 _ => false,

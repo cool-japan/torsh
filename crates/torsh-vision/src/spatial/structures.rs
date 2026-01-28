@@ -156,7 +156,7 @@ impl SpatialObjectTracker {
             detections: detections.to_vec(),
             timestamp: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .expect("system time should be after UNIX_EPOCH")
                 .as_secs_f64(),
         };
 
@@ -314,7 +314,7 @@ impl PointCloudProcessor {
             distances.push((PointId(i), distance));
         }
 
-        distances.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+        distances.sort_by(|a, b| a.1.partial_cmp(&b.1).expect("comparison should succeed"));
         distances.truncate(k);
 
         Ok(distances.into_iter().map(|(id, _)| id).collect())

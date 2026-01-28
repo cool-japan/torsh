@@ -188,7 +188,8 @@ where
     let scale = 1.050_700_987_355_480_5;
 
     let elu_result = elu(input, alpha, false)?;
-    elu_result.mul_scalar(num_traits::cast(scale).unwrap())
+    elu_result
+        .mul_scalar(num_traits::cast(scale).expect("f64 scale constant should be castable to f32"))
 }
 
 /// ReLU6 activation function

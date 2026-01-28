@@ -355,7 +355,10 @@ impl Optimizer for NewtonCG {
             trust_radius = self.update_trust_radius(trust_radius, reduction_ratio);
 
             // Update trust radius in state
-            let param_state = self.state.get_mut(&state_id).unwrap();
+            let param_state = self
+                .state
+                .get_mut(&state_id)
+                .expect("state should exist for state_id");
             param_state.insert("trust_radius".to_string(), Tensor::scalar(trust_radius)?);
 
             // Accept step only if reduction ratio is reasonable

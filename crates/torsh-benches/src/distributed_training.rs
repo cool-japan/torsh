@@ -4,7 +4,7 @@
 //! testing data parallel, model parallel, and pipeline parallel training strategies.
 
 use crate::Benchmarkable;
-use criterion::black_box;
+use std::hint::black_box;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use torsh_tensor::{creation::*, Tensor};
@@ -343,8 +343,8 @@ impl ModelParallelBench {
             return 0.0;
         }
 
-        let min_time = times.iter().min().unwrap();
-        let max_time = times.iter().max().unwrap();
+        let min_time = times.iter().min().expect("times should not be empty");
+        let max_time = times.iter().max().expect("times should not be empty");
 
         min_time.as_secs_f64() / max_time.as_secs_f64()
     }
@@ -453,7 +453,7 @@ impl WorkerNode {
 
         // Simulate model parameters
         let param_size = (config.model_params.param_count_m * 1_000_000.0) as usize;
-        let param_tensor = rand(&[param_size]).unwrap();
+        let param_tensor = rand(&[param_size]).expect("failed to create parameter tensor");
         local_parameters.insert("weights".to_string(), param_tensor);
 
         Self {
@@ -467,7 +467,7 @@ impl WorkerNode {
     fn compute_gradients(&mut self, _model_params: &ModelParams) -> GradientTensor {
         // Simulate gradient computation
         let grad_size = (self.config.model_params.param_count_m * 1_000_000.0) as usize;
-        let gradient = randn(&[grad_size]).unwrap();
+        let gradient = randn(&[grad_size]).expect("failed to create gradient tensor");
 
         GradientTensor::new(gradient, self.id)
     }
@@ -478,8 +478,13 @@ impl WorkerNode {
             // Simple SGD update: params = params - lr * gradients
             let lr = 0.001;
             *weights = weights
-                .sub(&gradients.tensor.mul_scalar(lr).unwrap())
-                .unwrap();
+                .sub(
+                    &gradients
+                        .tensor
+                        .mul_scalar(lr)
+                        .expect("failed to scale gradients"),
+                )
+                .expect("failed to update parameters");
         }
     }
 }
@@ -498,7 +503,7 @@ impl ParameterServerNode {
         let mut global_parameters = HashMap::new();
 
         let param_size = (config.model_params.param_count_m * 1_000_000.0) as usize;
-        let param_tensor = zeros(&[param_size]).unwrap();
+        let param_tensor = zeros(&[param_size]).expect("failed to create parameter server tensor");
         global_parameters.insert("weights".to_string(), param_tensor);
 
         Self {
@@ -512,10 +517,14 @@ impl ParameterServerNode {
         let mut aggregated = gradients[0].tensor.clone();
 
         for grad in &gradients[1..] {
-            aggregated = aggregated.add(&grad.tensor).unwrap();
+            aggregated = aggregated
+                .add(&grad.tensor)
+                .expect("failed to add gradient tensors");
         }
 
-        aggregated = aggregated.div_scalar(gradients.len() as f32).unwrap();
+        aggregated = aggregated
+            .div_scalar(gradients.len() as f32)
+            .expect("failed to average gradients");
 
         GradientTensor::new(aggregated, 999) // Server ID
     }
@@ -547,7 +556,7 @@ impl PipelineStage {
     fn forward_pass(&mut self, microbatch_id: usize) {
         // Simulate forward pass through layers in this stage
         let activation_size = 1024; // Simplified
-        let activation = rand(&[activation_size]).unwrap();
+        let activation = rand(&[activation_size]).expect("failed to create activation tensor");
 
         self.activation_cache.insert(microbatch_id, activation);
     }
@@ -589,21 +598,30 @@ impl GradientTensor {
 
     fn add(&self, other: &Self) -> Self {
         Self {
-            tensor: self.tensor.add(&other.tensor).unwrap(),
+            tensor: self
+                .tensor
+                .add(&other.tensor)
+                .expect("failed to add gradient tensors"),
             worker_id: self.worker_id,
         }
     }
 
     fn mul_scalar(&self, scalar: f32) -> Self {
         Self {
-            tensor: self.tensor.mul_scalar(scalar).unwrap(),
+            tensor: self
+                .tensor
+                .mul_scalar(scalar)
+                .expect("failed to multiply gradient by scalar"),
             worker_id: self.worker_id,
         }
     }
 
     fn div_scalar(&self, scalar: f32) -> Self {
         Self {
-            tensor: self.tensor.div_scalar(scalar).unwrap(),
+            tensor: self
+                .tensor
+                .div_scalar(scalar)
+                .expect("failed to divide gradient by scalar"),
             worker_id: self.worker_id,
         }
     }

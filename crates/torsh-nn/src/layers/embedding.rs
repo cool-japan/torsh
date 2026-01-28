@@ -786,7 +786,7 @@ fn create_sinusoidal_encoding(max_len: usize, d_model: usize) -> Tensor {
         }
     }
 
-    Tensor::from_vec(pos_encoding, &[max_len, d_model]).unwrap()
+    Tensor::from_vec(pos_encoding, &[max_len, d_model]).expect("tensor creation should succeed")
 }
 
 impl std::fmt::Debug for SinusoidalPositionalEncoding {

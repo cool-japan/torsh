@@ -122,7 +122,10 @@ impl OperationProfiler {
 
     /// Start profiling an operation
     pub fn start(&self, operation: &str) {
-        let mut active = self.active_operations.lock().unwrap();
+        let mut active = self
+            .active_operations
+            .lock()
+            .expect("lock should not be poisoned");
         active.insert(operation.to_string(), Instant::now());
     }
 
@@ -133,7 +136,10 @@ impl OperationProfiler {
 
     /// End profiling with additional metadata
     pub fn end_with_metadata(&self, operation: &str, metadata: HashMap<String, String>) {
-        let mut active = self.active_operations.lock().unwrap();
+        let mut active = self
+            .active_operations
+            .lock()
+            .expect("lock should not be poisoned");
         if let Some(start) = active.remove(operation) {
             let duration = start.elapsed();
             let entry = ProfileEntry {
@@ -144,25 +150,34 @@ impl OperationProfiler {
                 metadata,
             };
 
-            let mut entries = self.entries.lock().unwrap();
+            let mut entries = self.entries.lock().expect("lock should not be poisoned");
             entries.push(entry);
         }
     }
 
     /// Get all profile entries
     pub fn entries(&self) -> Vec<ProfileEntry> {
-        self.entries.lock().unwrap().clone()
+        self.entries
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Clear all entries
     pub fn clear(&self) {
-        self.entries.lock().unwrap().clear();
-        self.active_operations.lock().unwrap().clear();
+        self.entries
+            .lock()
+            .expect("lock should not be poisoned")
+            .clear();
+        self.active_operations
+            .lock()
+            .expect("lock should not be poisoned")
+            .clear();
     }
 
     /// Get statistics for a specific operation
     pub fn stats_for(&self, operation: &str) -> Option<ProfileStats> {
-        let entries = self.entries.lock().unwrap();
+        let entries = self.entries.lock().expect("lock should not be poisoned");
         let operation_entries: Vec<_> = entries.iter().filter(|e| e.name == operation).collect();
 
         if operation_entries.is_empty() {
@@ -174,8 +189,8 @@ impl OperationProfiler {
 
         let total: u64 = durations.iter().sum();
         let avg = total as f64 / count as f64;
-        let min = *durations.iter().min().unwrap();
-        let max = *durations.iter().max().unwrap();
+        let min = *durations.iter().min().expect("reduction should succeed");
+        let max = *durations.iter().max().expect("reduction should succeed");
 
         // Calculate standard deviation
         let variance = durations
@@ -211,7 +226,7 @@ impl OperationProfiler {
 
     /// Get statistics for all operations
     pub fn all_stats(&self) -> Vec<ProfileStats> {
-        let entries = self.entries.lock().unwrap();
+        let entries = self.entries.lock().expect("lock should not be poisoned");
         let mut operation_names: Vec<String> = entries.iter().map(|e| e.name.clone()).collect();
         operation_names.sort();
         operation_names.dedup();
@@ -234,7 +249,7 @@ impl OperationProfiler {
     pub fn total_time_ms(&self) -> u64 {
         self.entries
             .lock()
-            .unwrap()
+            .expect("lock should not be poisoned")
             .iter()
             .map(|e| e.duration_ms)
             .sum()
@@ -242,7 +257,10 @@ impl OperationProfiler {
 
     /// Get operation count
     pub fn operation_count(&self) -> usize {
-        self.entries.lock().unwrap().len()
+        self.entries
+            .lock()
+            .expect("lock should not be poisoned")
+            .len()
     }
 }
 

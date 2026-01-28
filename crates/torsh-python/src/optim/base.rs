@@ -95,15 +95,27 @@ pub fn create_param_group(
         // Add parameters
         let py_params: Vec<Py<PyAny>> = params
             .into_iter()
-            .map(|p| p.into_pyobject(py).unwrap().into())
+            .map(|p| {
+                p.into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into()
+            })
             .collect();
         param_group.insert(
             "params".to_string(),
-            py_params.into_pyobject(py).unwrap().into(),
+            py_params
+                .into_pyobject(py)
+                .expect("Python object conversion should succeed")
+                .into(),
         );
 
         // Add learning rate
-        param_group.insert("lr".to_string(), lr.into_pyobject(py).unwrap().into());
+        param_group.insert(
+            "lr".to_string(),
+            lr.into_pyobject(py)
+                .expect("Python object conversion should succeed")
+                .into(),
+        );
 
         // Add extra parameters
         for (key, value) in extra_params {

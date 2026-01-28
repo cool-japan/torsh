@@ -187,26 +187,30 @@ fn test_optimization_integration() -> Result<()> {
 #[cfg(feature = "functional")]
 #[test]
 fn test_functional_integration() -> Result<()> {
+    // Import functional operations directly
+    use torsh::functional::{cross_entropy, relu, sigmoid, softmax, tanh};
+
     let input = randn::<f32>(&[2, 3, 4]).unwrap();
 
-    // Test activation functions
-    let relu_out = F::relu(&input)?;
-    let sigmoid_out = F::sigmoid(&input)?;
-    let tanh_out = F::tanh(&input)?;
+    // Test activation functions (note: relu takes an 'inplace' parameter)
+    let relu_out = relu(&input, false)?;
+    let sigmoid_out = sigmoid(&input)?;
+    let tanh_out = tanh(&input)?;
 
     assert_eq!(relu_out.shape(), input.shape());
     assert_eq!(sigmoid_out.shape(), input.shape());
     assert_eq!(tanh_out.shape(), input.shape());
 
     // Test normalization
-    let softmax_out = F::softmax(&input, -1)?;
+    let softmax_out = softmax(&input, -1, None)?;
     assert_eq!(softmax_out.shape(), input.shape());
 
     // Test loss functions
     let logits = randn::<f32>(&[4, 10]).unwrap();
-    let targets = Tensor::from_data(vec![1i64, 5, 2, 8], vec![4], DeviceType::Cpu).unwrap();
+    // Note: cross_entropy in torsh-functional expects both inputs to be f32
+    let targets = Tensor::from_data(vec![1.0f32, 5.0, 2.0, 8.0], vec![4], DeviceType::Cpu).unwrap();
 
-    let ce_loss = F::cross_entropy(&logits, &targets)?;
+    let ce_loss = cross_entropy(&logits, &targets, None, "mean", None, 0.0)?;
     assert_eq!(ce_loss.shape().dims(), &[] as &[usize]);
 
     Ok(())
@@ -273,12 +277,13 @@ fn test_data_loading_integration() -> Result<()> {
 fn test_sparse_integration() -> Result<()> {
     use torsh::sparse::*;
 
-    // Create sparse COO tensor
-    let indices = tensor_2d![[0, 1, 1], [2, 0, 2]];
-    let values = tensor![3.0, 4.0, 5.0]?;
-    let shape = vec![2, 3];
+    // Create sparse COO tensor using the correct API
+    let row_indices = vec![0, 1, 1];
+    let col_indices = vec![2, 0, 2];
+    let values = vec![3.0, 4.0, 5.0];
+    let shape = Shape::new(vec![2, 3]);
 
-    let sparse_tensor = SparseTensor::coo(indices, values, shape)?;
+    let sparse_tensor = CooTensor::new(row_indices, col_indices, values, shape)?;
 
     // Test sparse operations
     let dense = sparse_tensor.to_dense()?;
@@ -296,7 +301,7 @@ fn test_quantization_integration() -> Result<()> {
     let tensor = randn::<f32>(&[4, 4]).unwrap();
 
     // Test quantization
-    let quantized = quantize(&tensor, DType::I8, 0.1, 0)?;
+    let quantized = quantize_per_tensor(&tensor, 0.1, 0, DType::I8)?;
     let dequantized = dequantize(&quantized, 0.1, 0)?;
 
     assert_eq!(dequantized.shape(), tensor.shape());
@@ -336,9 +341,10 @@ fn test_linalg_integration() -> Result<()> {
     assert_eq!(q.shape().dims(), &[4, 4]);
     assert_eq!(r.shape().dims(), &[4, 4]);
 
-    // Test determinant
-    let det = det(&matrix)?;
-    assert_eq!(det.shape().dims(), &[] as &[usize]);
+    // Test determinant - returns f32, not Tensor
+    let determinant = det(&matrix)?;
+    // Just verify we can compute a determinant (it's a scalar f32)
+    let _ = determinant;
 
     Ok(())
 }

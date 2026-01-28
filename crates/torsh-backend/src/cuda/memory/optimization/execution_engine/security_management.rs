@@ -7,11 +7,12 @@
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, SystemTime};
 
 use super::config::{EncryptionConfig, SecurityConfig};
+use crate::cuda::memory::optimization::monitoring::AuditConfig;
 
 /// Comprehensive security manager for CUDA execution
 ///
@@ -771,12 +772,12 @@ impl SecurityManager {
         &self,
         credentials: Credentials,
     ) -> Result<AuthenticationResult, SecurityError> {
-        let mut auth_manager = self.authentication.lock().unwrap();
+        let mut auth_manager = self.authentication.lock().expect("lock should not be poisoned");
         let result = auth_manager.authenticate(&credentials)?;
 
         // Log authentication attempt
         {
-            let mut audit_logger = self.audit_logger.lock().unwrap();
+            let mut audit_logger = self.audit_logger.lock().expect("lock should not be poisoned");
             audit_logger.log_event(AuditEvent {
                 event_id: uuid::Uuid::new_v4().to_string(),
                 event_type: AuditEventType::Authentication,
@@ -797,7 +798,7 @@ impl SecurityManager {
 
         // Update metrics
         {
-            let mut metrics = self.security_metrics.lock().unwrap();
+            let mut metrics = self.security_metrics.lock().expect("lock should not be poisoned");
             if result.is_success() {
                 metrics.successful_authentications += 1;
             } else {
@@ -815,12 +816,12 @@ impl SecurityManager {
         resource: &str,
         action: &str,
     ) -> Result<bool, SecurityError> {
-        let mut authz_system = self.authorization.lock().unwrap();
+        let mut authz_system = self.authorization.lock().expect("lock should not be poisoned");
         let authorized = authz_system.check_permission(user_id, resource, action)?;
 
         // Log authorization check
         {
-            let mut audit_logger = self.audit_logger.lock().unwrap();
+            let mut audit_logger = self.audit_logger.lock().expect("lock should not be poisoned");
             audit_logger.log_event(AuditEvent {
                 event_id: uuid::Uuid::new_v4().to_string(),
                 event_type: AuditEventType::Authorization,
@@ -869,13 +870,13 @@ impl SecurityManager {
         };
 
         {
-            let mut sessions = self.active_sessions.lock().unwrap();
+            let mut sessions = self.active_sessions.lock().expect("lock should not be poisoned");
             sessions.insert(session_id.clone(), session);
         }
 
         // Update metrics
         {
-            let mut metrics = self.security_metrics.lock().unwrap();
+            let mut metrics = self.security_metrics.lock().expect("lock should not be poisoned");
             metrics.active_sessions += 1;
         }
 
@@ -884,12 +885,12 @@ impl SecurityManager {
 
     /// Detect security threats
     pub fn detect_threats(&self) -> Result<Vec<ThreatEvent>, SecurityError> {
-        let mut detector = self.threat_detector.lock().unwrap();
+        let mut detector = self.threat_detector.lock().expect("lock should not be poisoned");
         let threats = detector.scan_for_threats()?;
 
         // Update metrics
         {
-            let mut metrics = self.security_metrics.lock().unwrap();
+            let mut metrics = self.security_metrics.lock().expect("lock should not be poisoned");
             metrics.threats_detected += threats.len() as u64;
         }
 
@@ -902,12 +903,12 @@ impl SecurityManager {
         data: &[u8],
         classification: DataClassification,
     ) -> Result<Vec<u8>, SecurityError> {
-        let mut protector = self.data_protector.lock().unwrap();
+        let mut protector = self.data_protector.lock().expect("lock should not be poisoned");
         let encrypted_data = protector.encrypt_data(data, classification)?;
 
         // Update metrics
         {
-            let mut metrics = self.security_metrics.lock().unwrap();
+            let mut metrics = self.security_metrics.lock().expect("lock should not be poisoned");
             metrics.data_encrypted += data.len() as u64;
         }
 
@@ -916,13 +917,13 @@ impl SecurityManager {
 
     /// Check compliance status
     pub fn check_compliance(&self) -> Result<ComplianceStatus, SecurityError> {
-        let monitor = self.compliance_monitor.lock().unwrap();
+        let monitor = self.compliance_monitor.lock().expect("lock should not be poisoned");
         Ok(monitor.get_compliance_status())
     }
 
     /// Get security metrics
     pub fn get_security_metrics(&self) -> SecurityMetrics {
-        let metrics = self.security_metrics.lock().unwrap();
+        let metrics = self.security_metrics.lock().expect("lock should not be poisoned");
         metrics.clone()
     }
 
@@ -1205,7 +1206,7 @@ impl AuthenticationResult {
 
 macro_rules! default_placeholder_type {
     ($name:ident) => {
-        #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+        #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
         pub struct $name {
             pub placeholder: bool,
         }

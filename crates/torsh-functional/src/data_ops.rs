@@ -70,7 +70,11 @@ pub fn unique(
     // Sort if requested
     let mut sorted_indices: Vec<usize> = (0..unique_values.len()).collect();
     if sorted {
-        sorted_indices.sort_by(|&a, &b| unique_values[a].partial_cmp(&unique_values[b]).unwrap());
+        sorted_indices.sort_by(|&a, &b| {
+            unique_values[a]
+                .partial_cmp(&unique_values[b])
+                .expect("numeric comparison should succeed")
+        });
 
         // Reorder unique values
         let sorted_unique: Vec<f32> = sorted_indices.iter().map(|&i| unique_values[i]).collect();
@@ -106,7 +110,10 @@ pub fn unique(
         for (idx, count) in unique_map.values() {
             if sorted {
                 // Find the sorted position
-                let sorted_pos = sorted_indices.iter().position(|&i| i == *idx).unwrap();
+                let sorted_pos = sorted_indices
+                    .iter()
+                    .position(|&i| i == *idx)
+                    .expect("idx must exist in sorted_indices as it came from the same unique_map");
                 counts_vec[sorted_pos] = *count;
             } else {
                 counts_vec[*idx] = *count;
@@ -553,20 +560,20 @@ mod tests {
         let (output, inverse, counts) = unique(&input, true, true, true, None).unwrap();
 
         // Check unique values are sorted
-        let unique_data = output.data().unwrap();
+        let unique_data = output.data().expect("tensor should have data");
         let unique_vals: Vec<f32> = unique_data.clone();
         assert_eq!(unique_vals, vec![1.0, 2.0, 3.0]);
 
         // Check counts
         if let Some(counts_tensor) = counts {
-            let counts_data = counts_tensor.data().unwrap();
+            let counts_data = counts_tensor.data().expect("tensor should have data");
             let counts_vals: Vec<f32> = counts_data.clone();
             assert_eq!(counts_vals, vec![2.0, 2.0, 2.0]);
         }
 
         // Check inverse indices can reconstruct original
         if let Some(inv) = inverse {
-            let inv_data = inv.data().unwrap();
+            let inv_data = inv.data().expect("tensor should have data");
             let inv_vals: Vec<f32> = inv_data.clone();
             let reconstructed: Vec<f32> = inv_vals
                 .iter()
@@ -581,7 +588,7 @@ mod tests {
         let input = tensor![0.0, 1.0, 1.0, 3.0, 2.0, 1.0, 3.0].unwrap();
         let output = bincount(&input, None, None).unwrap();
 
-        let data = output.data().unwrap();
+        let data = output.data().expect("tensor should have data");
         let counts: Vec<f32> = data.clone();
         assert_eq!(counts, vec![1.0, 3.0, 1.0, 2.0]);
     }
@@ -592,7 +599,7 @@ mod tests {
         let weights = tensor![1.0, 2.0, 3.0, 4.0, 5.0, 6.0].unwrap();
         let output = bincount(&input, Some(&weights), None).unwrap();
 
-        let data = output.data().unwrap();
+        let data = output.data().expect("tensor should have data");
         let weighted_counts: Vec<f32> = data.clone();
         assert_eq!(weighted_counts, vec![1.0, 5.0, 15.0]);
     }
@@ -602,11 +609,11 @@ mod tests {
         let input = tensor![1.0, 2.0, 3.0, 4.0, 5.0].unwrap();
         let (hist, edges) = histogram(&input, 5, Some(1.0), Some(5.0), false).unwrap();
 
-        let hist_data = hist.data().unwrap();
+        let hist_data = hist.data().expect("tensor should have data");
         let hist_vals: Vec<f32> = hist_data.clone();
         assert_eq!(hist_vals, vec![1.0, 1.0, 1.0, 1.0, 1.0]);
 
-        let edges_data = edges.data().unwrap();
+        let edges_data = edges.data().expect("tensor should have data");
         let edges_vals: Vec<f32> = edges_data.clone();
         assert_eq!(edges_vals.len(), 6); // bins + 1
     }
@@ -616,7 +623,7 @@ mod tests {
         let input = tensor![1.0, 2.0, 3.0, 4.0, 5.0].unwrap();
         let (hist, _) = histogram(&input, 5, Some(1.0), Some(5.0), true).unwrap();
 
-        let hist_data = hist.data().unwrap();
+        let hist_data = hist.data().expect("tensor should have data");
         let hist_vals: Vec<f32> = hist_data.clone();
 
         // With density=true, the integral of histogram * bin_width should be 1

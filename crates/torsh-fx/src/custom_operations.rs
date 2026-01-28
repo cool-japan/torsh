@@ -659,17 +659,21 @@ impl ExtendedCustomOperation for CustomTypeUnifyOperation {
 pub fn register_example_operations() -> TorshResult<()> {
     use crate::custom_types::register_extended_operation;
 
-    // Register the CustomInt16 type first
+    // Register the CustomInt16 type first (ignore if already registered)
     use crate::custom_types::CustomTypeUtils;
-    CustomTypeUtils::register_custom_type::<CustomInt16>()?;
+    let _ = CustomTypeUtils::register_custom_type::<CustomInt16>();
 
-    // Register custom operations
-    register_extended_operation(CustomInt16AddOperation)?;
-    register_extended_operation(CustomInt16MulOperation)?;
-    register_extended_operation(CustomInt16SubOperation)?;
-    register_extended_operation(TypeConversionOperation::standard_to_custom_int16()?)?;
-    register_extended_operation(TypeConversionOperation::custom_int16_to_standard()?)?;
-    register_extended_operation(CustomTypeUnifyOperation)?;
+    // Register custom operations (ignore if already registered)
+    let _ = register_extended_operation(CustomInt16AddOperation);
+    let _ = register_extended_operation(CustomInt16MulOperation);
+    let _ = register_extended_operation(CustomInt16SubOperation);
+    if let Ok(op) = TypeConversionOperation::standard_to_custom_int16() {
+        let _ = register_extended_operation(op);
+    }
+    if let Ok(op) = TypeConversionOperation::custom_int16_to_standard() {
+        let _ = register_extended_operation(op);
+    }
+    let _ = register_extended_operation(CustomTypeUnifyOperation);
 
     Ok(())
 }

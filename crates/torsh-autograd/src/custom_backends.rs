@@ -855,7 +855,10 @@ impl AutogradBackend for ReferenceBackend {
     }
 
     fn get_performance_stats(&self) -> PerformanceStats {
-        self.performance_stats.lock().unwrap().clone()
+        self.performance_stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 }
 

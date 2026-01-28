@@ -198,7 +198,7 @@ static DEVICE_REGISTRY: OnceLock<DeviceRegistry> = OnceLock::new();
 
 **Rationale**:
 - **Universal**: De facto standard for serialization in Rust
-- **Format Agnostic**: Works with JSON, CBOR, bincode, etc.
+- **Format Agnostic**: Works with JSON, CBOR, oxicode, etc.
 - **Derive Macros**: Automatic implementation for most types
 - **Performance**: Efficient zero-copy deserialization
 - **Ecosystem**: Massive ecosystem support
@@ -206,9 +206,10 @@ static DEVICE_REGISTRY: OnceLock<DeviceRegistry> = OnceLock::new();
 **Why Optional**: Not all users need serialization, reduces compile time and binary size.
 
 **Alternatives Considered**:
-1. **bincode**
-   - ✅ Fast binary format
-   - ❌ Not format-agnostic (only bincode format)
+1. **oxicode** (chosen for binary serialization)
+   - ✅ Fast binary format with 100% bincode compatibility
+   - ✅ Modern successor to bincode with advanced features
+   - ✅ SIMD optimization, compression, streaming support
 
 2. **rkyv**
    - ✅ Zero-copy deserialization

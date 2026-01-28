@@ -564,7 +564,10 @@ impl UltimateIntegrationOptimizer {
     fn perform_ultra_deep_analysis(
         &self,
     ) -> Result<SystemAnalysisResult, Box<dyn std::error::Error>> {
-        let profiler = self.ultra_profiler.lock().unwrap();
+        let profiler = self
+            .ultra_profiler
+            .lock()
+            .expect("lock should not be poisoned");
 
         // Comprehensive system profiling
         let _profiling_result = profiler.profile_tensor_operation(
@@ -592,7 +595,10 @@ impl UltimateIntegrationOptimizer {
     fn execute_hardware_acceleration(
         &self,
     ) -> Result<HardwareAccelerationResult, Box<dyn std::error::Error>> {
-        let accelerators = self.hardware_accelerators.lock().unwrap();
+        let accelerators = self
+            .hardware_accelerators
+            .lock()
+            .expect("lock should not be poisoned");
 
         let workload = AccelerationWorkload {
             workload_type: WorkloadType::TensorOperations,
@@ -615,7 +621,10 @@ impl UltimateIntegrationOptimizer {
     fn execute_multilayer_optimization(
         &self,
     ) -> Result<LayerOptimizationResult, Box<dyn std::error::Error>> {
-        let _coordinator = self.optimization_coordinator.lock().unwrap();
+        let _coordinator = self
+            .optimization_coordinator
+            .lock()
+            .expect("lock should not be poisoned");
 
         // Coordinator is assumed to be enabled (no API to check yet)
         let coordination_factor = 1.0;
@@ -642,7 +651,10 @@ impl UltimateIntegrationOptimizer {
     fn execute_platform_validation(
         &self,
     ) -> Result<PlatformValidationResult, Box<dyn std::error::Error>> {
-        let validator = self.platform_validator.read().unwrap();
+        let validator = self
+            .platform_validator
+            .read()
+            .expect("lock should not be poisoned");
 
         let optimization_config = OptimizationConfig::default();
         let validation_config = ValidationConfig::default();
@@ -662,7 +674,10 @@ impl UltimateIntegrationOptimizer {
     fn execute_learning_integration(
         &self,
     ) -> Result<LearningIntegrationResult, Box<dyn std::error::Error>> {
-        let _learning_system = self.learning_system.lock().unwrap();
+        let _learning_system = self
+            .learning_system
+            .lock()
+            .expect("lock should not be poisoned");
 
         // Assume learning system is trained and has moderate experience
         let learning_factor = 1.0;
@@ -687,7 +702,10 @@ impl UltimateIntegrationOptimizer {
     fn activate_realtime_monitoring(
         &self,
     ) -> Result<MonitoringSetupResult, Box<dyn std::error::Error>> {
-        let _monitoring = self.monitoring_engine.lock().unwrap();
+        let _monitoring = self
+            .monitoring_engine
+            .lock()
+            .expect("lock should not be poisoned");
 
         // Calculate metrics based on monitoring engine configuration
         // Estimate active monitors based on component count (simplified)
@@ -715,7 +733,10 @@ impl UltimateIntegrationOptimizer {
 
     /// Optimize global performance cache
     fn optimize_global_cache(&self) -> Result<CacheOptimizationResult, Box<dyn std::error::Error>> {
-        let cache = self.performance_cache.read().unwrap();
+        let cache = self
+            .performance_cache
+            .read()
+            .expect("lock should not be poisoned");
 
         // Calculate cache statistics from actual cache sizes
         let total_entries = cache.operation_cache.len()

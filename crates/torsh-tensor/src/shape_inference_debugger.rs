@@ -181,7 +181,10 @@ impl ShapeInferenceDebugger {
 
     /// Enable or disable tracing
     pub fn enable_tracing(&mut self, enabled: bool) {
-        self.config.write().unwrap().tracing_enabled = enabled;
+        self.config
+            .write()
+            .expect("lock should not be poisoned")
+            .tracing_enabled = enabled;
     }
 
     /// Register a named shape for reference
@@ -194,17 +197,17 @@ impl ShapeInferenceDebugger {
 
     /// Add a trace step
     fn add_trace_step(&self, step: ShapeTraceStep) {
-        let config = self.config.read().unwrap();
+        let config = self.config.read().expect("lock should not be poisoned");
         if !config.tracing_enabled {
             return;
         }
         drop(config);
 
-        let mut trace = self.trace.write().unwrap();
+        let mut trace = self.trace.write().expect("lock should not be poisoned");
         trace.push(step);
 
         // Trim if needed
-        let config = self.config.read().unwrap();
+        let config = self.config.read().expect("lock should not be poisoned");
         if trace.len() > config.max_trace_steps {
             trace.remove(0);
         }
@@ -212,7 +215,10 @@ impl ShapeInferenceDebugger {
 
     /// Get the next step number
     fn next_step(&self) -> usize {
-        let mut counter = self.step_counter.write().unwrap();
+        let mut counter = self
+            .step_counter
+            .write()
+            .expect("lock should not be poisoned");
         let step = *counter;
         *counter += 1;
         step
@@ -449,7 +455,11 @@ impl ShapeInferenceDebugger {
         }
 
         // Find maximum number of dimensions
-        let max_ndim = shapes.iter().map(|s| s.dims().len()).max().unwrap();
+        let max_ndim = shapes
+            .iter()
+            .map(|s| s.dims().len())
+            .max()
+            .expect("reduction should succeed");
 
         // Build output shape by checking each dimension (from right to left for broadcasting)
         let mut output_dims = Vec::with_capacity(max_ndim);
@@ -657,7 +667,7 @@ impl ShapeInferenceDebugger {
 
     /// Get the complete trace as a formatted string
     pub fn get_trace(&self) -> String {
-        let trace = self.trace.read().unwrap();
+        let trace = self.trace.read().expect("lock should not be poisoned");
         let mut output = String::new();
         output.push_str("=== Shape Inference Trace ===\n\n");
 
@@ -678,13 +688,19 @@ impl ShapeInferenceDebugger {
 
     /// Clear the trace
     pub fn clear_trace(&mut self) {
-        self.trace.write().unwrap().clear();
-        *self.step_counter.write().unwrap() = 0;
+        self.trace
+            .write()
+            .expect("lock should not be poisoned")
+            .clear();
+        *self
+            .step_counter
+            .write()
+            .expect("lock should not be poisoned") = 0;
     }
 
     /// Get trace statistics
     pub fn get_statistics(&self) -> TraceStatistics {
-        let trace = self.trace.read().unwrap();
+        let trace = self.trace.read().expect("lock should not be poisoned");
         let total_steps = trace.len();
         let successful_steps = trace.iter().filter(|s| s.success).count();
         let failed_steps = total_steps - successful_steps;

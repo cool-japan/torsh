@@ -267,13 +267,13 @@ impl MemoryEfficientAdam {
             || !self
                 .state
                 .get(&param_id)
-                .unwrap()
+                .expect("state should exist after contains_key check")
                 .contains_key(&momentum_key);
         let needs_velocity = !self.state.contains_key(&param_id)
             || !self
                 .state
                 .get(&param_id)
-                .unwrap()
+                .expect("state should exist after contains_key check")
                 .contains_key(&velocity_key);
 
         if needs_momentum && !self.can_allocate(param_memory) {

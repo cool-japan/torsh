@@ -954,7 +954,10 @@ impl CrossPlatformValidator {
 
     /// Detect and analyze current hardware configuration
     pub fn detect_hardware(&self) -> Result<HardwareDetectionReport, Box<dyn std::error::Error>> {
-        let detector = self.hardware_detector.lock().unwrap();
+        let detector = self
+            .hardware_detector
+            .lock()
+            .expect("lock should not be poisoned");
         detector.detect_full_hardware_configuration()
     }
 
@@ -963,7 +966,10 @@ impl CrossPlatformValidator {
         &self,
         config: &OptimizationConfig,
     ) -> Result<OptimizationReport, Box<dyn std::error::Error>> {
-        let mut optimizer = self.platform_optimizer.lock().unwrap();
+        let mut optimizer = self
+            .platform_optimizer
+            .lock()
+            .expect("lock should not be poisoned");
         optimizer.apply_hardware_optimizations(config)
     }
 
@@ -972,7 +978,10 @@ impl CrossPlatformValidator {
         &self,
         test_config: &ValidationConfig,
     ) -> Result<ValidationReport, Box<dyn std::error::Error>> {
-        let validator = self.validation_framework.lock().unwrap();
+        let validator = self
+            .validation_framework
+            .lock()
+            .expect("lock should not be poisoned");
         validator.run_comprehensive_validation(test_config)
     }
 
@@ -980,7 +989,10 @@ impl CrossPlatformValidator {
     pub fn get_optimization_recommendations(
         &self,
     ) -> Result<OptimizationRecommendations, Box<dyn std::error::Error>> {
-        let registry = self.optimization_registry.lock().unwrap();
+        let registry = self
+            .optimization_registry
+            .lock()
+            .expect("lock should not be poisoned");
         registry.generate_recommendations()
     }
 
@@ -989,7 +1001,10 @@ impl CrossPlatformValidator {
         &self,
         baseline: &PerformanceBaseline,
     ) -> Result<RegressionReport, Box<dyn std::error::Error>> {
-        let database = self.validation_database.lock().unwrap();
+        let database = self
+            .validation_database
+            .lock()
+            .expect("lock should not be poisoned");
         database.analyze_performance_regression(baseline)
     }
 

@@ -290,7 +290,7 @@ mod tests {
         if sum.shape().ndim() == 0 {
             // Sum is a scalar
             let val = sum.item();
-            let val_unwrapped = val.unwrap();
+            let val_unwrapped = val.expect("item value should be present");
             assert!(val_unwrapped >= 0.0 && val_unwrapped <= 2048.0); // Total sum across all filters
         } else {
             // Sum per dimension

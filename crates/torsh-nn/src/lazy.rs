@@ -398,15 +398,15 @@ impl LazyModule for LazyLinear {
             vec![self.out_features, in_features],
             self.device,
         )
-        .unwrap();
+        .expect("weight tensor creation should succeed");
 
         self.weight = Some(Parameter::new(weight_tensor));
 
         // Initialize bias if needed
         if self.bias {
             let bias_data = vec![0.0f32; self.out_features];
-            let bias_tensor =
-                Tensor::from_data(bias_data, vec![self.out_features], self.device).unwrap();
+            let bias_tensor = Tensor::from_data(bias_data, vec![self.out_features], self.device)
+                .expect("tensor creation should succeed");
 
             // Initialize bias to zero (common practice)
             self.bias_param = Some(Parameter::new(bias_tensor));
@@ -452,7 +452,10 @@ impl Module for LazyLinear {
             ));
         }
 
-        let weight = self.weight.as_ref().unwrap();
+        let weight = self
+            .weight
+            .as_ref()
+            .expect("weight should be initialized before forward pass");
         let weight_tensor = weight.tensor().read().clone();
 
         // Perform linear transformation: input @ weight.T + bias

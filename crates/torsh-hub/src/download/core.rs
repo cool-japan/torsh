@@ -205,7 +205,7 @@ pub fn print_progress(current: u64, total: u64) {
     let bar = "█".repeat(filled) + &"░".repeat(50 - filled);
 
     print!("\r[{}] {:.1}%", bar, percentage);
-    io::stdout().flush().unwrap();
+    io::stdout().flush().expect("stdout flush should succeed");
 }
 
 /// Async parallel download of a file with chunked downloading

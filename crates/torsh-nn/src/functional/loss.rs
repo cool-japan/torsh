@@ -1238,7 +1238,7 @@ pub fn wing_loss(
 /// * `reduction` - Reduction mode: "mean", "sum", or "none"
 ///
 /// # Formula
-/// loss = 0.5 * sum((features - centers[labels])^2)
+/// loss = 0.5 * sum((features - `centers[labels]`)^2)
 ///
 /// # Reference
 /// Wen et al., "A Discriminative Feature Learning Approach for Deep Face Recognition", ECCV 2016

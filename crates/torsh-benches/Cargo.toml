@@ -63,7 +63,8 @@ tokio = { workspace = true, features = ["full"] }
 # ✅ SciRS2 Policy: Use scirs2_core::benchmarking for all benchmark data generation
 
 # PyTorch comparisons (via Python bindings)
-pyo3 = { workspace = true, optional = true }
+# For embedding Python (calling Python from Rust), we need auto-initialize feature
+pyo3 = { workspace = true, optional = true, features = ["auto-initialize"] }
 numpy = { workspace = true, optional = true }
 
 # JSON for result serialization
@@ -80,6 +81,11 @@ walkdir = "2.5"
 
 [dev-dependencies]
 approx = { workspace = true }
+
+[build-dependencies]
+# COOLJAPAN Pure Rust Policy: Build dependencies for optional Python features
+# Only used when Python comparison features are enabled
+pyo3-build-config = { version = "0.27" }
 
 [features]
 default = ["std"]

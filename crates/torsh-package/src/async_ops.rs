@@ -74,7 +74,7 @@ impl AsyncPackageLoader {
             .map_err(|e| TorshError::IoError(format!("Failed to read file: {}", e)))?;
 
         // Deserialize package
-        let (package, _) = bincode::serde::decode_from_slice(&data, bincode::config::standard())
+        let (package, _) = oxicode::serde::decode_from_slice(&data, oxicode::config::standard())
             .map_err(|e| TorshError::SerializationError(e.to_string()))?;
 
         Ok(package)
@@ -101,7 +101,7 @@ impl AsyncPackageLoader {
                     .map_err(|e| TorshError::IoError(format!("Failed to read file: {}", e)))?;
 
                 let (package, _) =
-                    bincode::serde::decode_from_slice(&data, bincode::config::standard())
+                    oxicode::serde::decode_from_slice(&data, oxicode::config::standard())
                         .map_err(|e| TorshError::SerializationError(e.to_string()))?;
 
                 Ok::<Package, TorshError>(package)
@@ -170,7 +170,7 @@ impl AsyncPackageSaver {
 
     /// Save a package asynchronously
     pub async fn save_package<P: AsRef<Path>>(&self, package: &Package, path: P) -> Result<()> {
-        let data = bincode::serde::encode_to_vec(package, bincode::config::standard())
+        let data = oxicode::serde::encode_to_vec(package, oxicode::config::standard())
             .map_err(|e| TorshError::SerializationError(e.to_string()))?;
 
         fs::write(path, data)
@@ -188,7 +188,7 @@ impl AsyncPackageSaver {
         algorithm: CompressionAlgorithm,
         level: CompressionLevel,
     ) -> Result<()> {
-        let package_data = bincode::serde::encode_to_vec(package, bincode::config::standard())
+        let package_data = oxicode::serde::encode_to_vec(package, oxicode::config::standard())
             .map_err(|e| TorshError::SerializationError(e.to_string()))?;
 
         // Compress in a separate task to avoid blocking
@@ -215,7 +215,7 @@ impl AsyncPackageSaver {
 
         for (package, path) in packages {
             let task = tokio::spawn(async move {
-                let data = bincode::serde::encode_to_vec(&package, bincode::config::standard())
+                let data = oxicode::serde::encode_to_vec(&package, oxicode::config::standard())
                     .map_err(|e| TorshError::SerializationError(e.to_string()))?;
 
                 fs::write(&path, data)
@@ -308,7 +308,7 @@ impl BackgroundProcessor {
                 })?;
 
                 let package_data =
-                    bincode::serde::encode_to_vec(&package, bincode::config::standard())
+                    oxicode::serde::encode_to_vec(&package, oxicode::config::standard())
                         .map_err(|e| TorshError::SerializationError(e.to_string()))?;
 
                 let result = tokio::task::spawn_blocking(move || {
@@ -404,7 +404,7 @@ mod tests {
         let temp_file = tempfile::NamedTempFile::new().unwrap();
 
         // Save package synchronously for testing
-        let data = bincode::serde::encode_to_vec(&package, bincode::config::standard()).unwrap();
+        let data = oxicode::serde::encode_to_vec(&package, oxicode::config::standard()).unwrap();
         std::fs::write(temp_file.path(), data).unwrap();
 
         let loader = AsyncPackageLoader::new(4);
@@ -440,7 +440,7 @@ mod tests {
             let package = Package::new(format!("package_{}", i), "1.0.0".to_string());
             let temp_file = tempfile::NamedTempFile::new().unwrap();
             let data =
-                bincode::serde::encode_to_vec(&package, bincode::config::standard()).unwrap();
+                oxicode::serde::encode_to_vec(&package, oxicode::config::standard()).unwrap();
             std::fs::write(temp_file.path(), &data).unwrap();
             paths.push(temp_file.path().to_path_buf());
             _temp_files.push(temp_file); // Keep alive

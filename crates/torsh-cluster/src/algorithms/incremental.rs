@@ -176,7 +176,7 @@ impl OnlineKMeans {
             use std::time::{SystemTime, UNIX_EPOCH};
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .expect("system time should be after UNIX_EPOCH")
                 .as_secs()
         });
         let rng = seeded_rng(seed);
@@ -727,7 +727,7 @@ impl SlidingWindowKMeans {
             use std::time::{SystemTime, UNIX_EPOCH};
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .expect("system time should be after UNIX_EPOCH")
                 .as_secs()
         });
         let rng = seeded_rng(seed);
@@ -851,7 +851,10 @@ impl SlidingWindowKMeans {
             }
         }
 
-        let mut centroids = self.centroids.clone().unwrap();
+        let mut centroids = self
+            .centroids
+            .clone()
+            .expect("centroids should be initialized before recomputation");
 
         // Lloyd's algorithm iterations
         for _iter in 0..self.config.max_iters {
@@ -1327,7 +1330,10 @@ mod tests {
         }
 
         let result1 = sliding.get_current_result()?;
-        let centroids1 = result1.centroids.to_vec().unwrap();
+        let centroids1 = result1
+            .centroids
+            .to_vec()
+            .expect("centroids conversion should succeed");
 
         // Phase 2: Shift clusters to (10, 10) and (15, 15)
         for i in 0..30 {
@@ -1340,7 +1346,10 @@ mod tests {
         }
 
         let result2 = sliding.get_current_result()?;
-        let centroids2 = result2.centroids.to_vec().unwrap();
+        let centroids2 = result2
+            .centroids
+            .to_vec()
+            .expect("centroids conversion should succeed");
 
         // Centroids should have adapted to new distribution
         // (Old points expired from window)

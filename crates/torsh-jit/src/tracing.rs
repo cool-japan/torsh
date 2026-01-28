@@ -341,7 +341,7 @@ impl TracedValue {
         tracer: Arc<Mutex<GraphTracer>>,
     ) -> Self {
         let id = {
-            let mut t = tracer.lock().unwrap();
+            let mut t = tracer.lock().expect("lock should not be poisoned");
             t.new_value_id()
         };
 
@@ -364,7 +364,7 @@ impl TracedValue {
         tracer: Arc<Mutex<GraphTracer>>,
     ) -> Self {
         let id = {
-            let mut t = tracer.lock().unwrap();
+            let mut t = tracer.lock().expect("lock should not be poisoned");
             t.create_input(name, shape.clone(), dtype, device)
         };
 
@@ -381,7 +381,7 @@ impl TracedValue {
     /// Perform a unary operation
     pub fn unary_op(&self, op: Operation) -> JitResult<TracedValue> {
         let output_id = {
-            let mut tracer = self.tracer.lock().unwrap();
+            let mut tracer = self.tracer.lock().expect("lock should not be poisoned");
             tracer.record_operation(op, &[self.id], self.shape.clone(), self.dtype, self.device)?
         };
 
@@ -417,7 +417,7 @@ impl TracedValue {
         };
 
         let output_id = {
-            let mut tracer = self.tracer.lock().unwrap();
+            let mut tracer = self.tracer.lock().expect("lock should not be poisoned");
             tracer.record_operation(
                 op,
                 &[self.id, other.id],
@@ -474,7 +474,7 @@ impl TracedValue {
         };
 
         let output_id = {
-            let mut tracer = self.tracer.lock().unwrap();
+            let mut tracer = self.tracer.lock().expect("lock should not be poisoned");
             tracer.record_operation(
                 Operation::MatMul,
                 &[self.id, other.id],
@@ -521,7 +521,7 @@ impl TracedValue {
         );
 
         let output_id = {
-            let mut tracer = self.tracer.lock().unwrap();
+            let mut tracer = self.tracer.lock().expect("lock should not be poisoned");
             tracer.record_operation(
                 Operation::Reshape {
                     shape: new_shape.to_vec(),
@@ -545,7 +545,7 @@ impl TracedValue {
 
     /// Mark this value as an output
     pub fn mark_as_output(&self) {
-        let mut tracer = self.tracer.lock().unwrap();
+        let mut tracer = self.tracer.lock().expect("lock should not be poisoned");
         tracer.mark_output(self.id);
     }
 
@@ -602,7 +602,7 @@ where
 
     // Start tracing
     {
-        let mut t = tracer.lock().unwrap();
+        let mut t = tracer.lock().expect("lock should not be poisoned");
         t.start_tracing();
     }
 
@@ -611,7 +611,7 @@ where
 
     // Stop tracing and get graph
     let graph = {
-        let mut t = tracer.lock().unwrap();
+        let mut t = tracer.lock().expect("lock should not be poisoned");
         t.stop_tracing()
     };
 
@@ -750,7 +750,11 @@ impl Profiler {
             }
         }
 
-        bottlenecks.sort_by(|a, b| b.time_percentage.partial_cmp(&a.time_percentage).unwrap());
+        bottlenecks.sort_by(|a, b| {
+            b.time_percentage
+                .partial_cmp(&a.time_percentage)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         bottlenecks
     }
 }
@@ -761,7 +765,7 @@ macro_rules! trace {
     ($tracer:expr, $op:expr, $($input:expr),*) => {{
         let inputs = vec![$($input.id),*];
         // This would need to be expanded with proper shape/type inference
-        $tracer.lock().unwrap().record_operation($op, &inputs, Shape::new(vec![1]), DType::F32, DeviceType::Cpu)
+        $tracer.lock().expect("lock should not be poisoned").record_operation($op, &inputs, Shape::new(vec![1]), DType::F32, DeviceType::Cpu)
     }};
 }
 
@@ -1227,7 +1231,7 @@ mod tests {
         let tracer = Arc::new(Mutex::new(GraphTracer::new()));
 
         {
-            let mut t = tracer.lock().unwrap();
+            let mut t = tracer.lock().expect("lock should not be poisoned");
             t.start_tracing();
         }
 
@@ -1253,7 +1257,7 @@ mod tests {
         w.mark_as_output();
 
         let graph = {
-            let mut t = tracer.lock().unwrap();
+            let mut t = tracer.lock().expect("lock should not be poisoned");
             t.stop_tracing()
         };
 
@@ -1267,7 +1271,7 @@ mod tests {
         let tracer = Arc::new(Mutex::new(GraphTracer::new()));
 
         {
-            let mut t = tracer.lock().unwrap();
+            let mut t = tracer.lock().expect("lock should not be poisoned");
             t.start_tracing();
         }
 
@@ -1293,7 +1297,7 @@ mod tests {
         c.mark_as_output();
 
         let graph = {
-            let mut t = tracer.lock().unwrap();
+            let mut t = tracer.lock().expect("lock should not be poisoned");
             t.stop_tracing()
         };
 
@@ -1305,7 +1309,7 @@ mod tests {
         let tracer = Arc::new(Mutex::new(GraphTracer::new_with_profiling()));
 
         {
-            let mut t = tracer.lock().unwrap();
+            let mut t = tracer.lock().expect("lock should not be poisoned");
             t.start_tracing();
         }
 
@@ -1333,7 +1337,7 @@ mod tests {
         z3.mark_as_output();
 
         let (graph, analysis) = {
-            let mut t = tracer.lock().unwrap();
+            let mut t = tracer.lock().expect("lock should not be poisoned");
             let graph = t.stop_tracing();
             let analysis = t.get_profiler().map(|p| p.analyze());
             (graph, analysis)

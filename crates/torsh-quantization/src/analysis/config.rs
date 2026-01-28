@@ -238,7 +238,7 @@ impl SensitivityAnalysisResults {
         sorted_results.sort_by(|a, b| {
             b.sensitivity_score
                 .partial_cmp(&a.sensitivity_score)
-                .unwrap()
+                .expect("sensitivity scores should be comparable")
         });
 
         let num_layers = sorted_results.len();

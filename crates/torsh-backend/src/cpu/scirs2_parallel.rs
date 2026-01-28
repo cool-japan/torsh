@@ -1,23 +1,18 @@
-//! SciRS2 Parallel Operations Integration (Phase 1)
+//! SciRS2 Parallel Operations Integration
 //!
 //! This module provides parallel operations using scirs2-core's parallel processing
-//! capabilities when the `scirs2-parallel` feature is enabled. Falls back to rayon
-//! when the feature is not enabled.
+//! capabilities, fully compliant with SciRS2 POLICY.
 //!
 //! ## SciRS2 POLICY Compliance
-//! This module replaces direct rayon usage with scirs2-core::parallel_ops abstractions
-//! where possible, while maintaining backward compatibility with rayon for a gradual migration.
+//! ✅ This module uses scirs2-core::parallel_ops for ALL parallel operations
 
-// Re-export rayon functionality for now, with a path towards SciRS2
-// Once scirs2-core::parallel_ops stabilizes, we'll replace these implementations
-pub use rayon::current_num_threads;
-pub use rayon::prelude::*;
+// ✅ SciRS2 POLICY: Use scirs2_core::parallel_ops (migration complete!)
+pub use scirs2_core::parallel_ops::*;
 
 /// Get the number of threads available for parallel operations
 ///
 /// # SciRS2 POLICY
-/// This function will be migrated to use scirs2_core::parallel_ops::get_num_threads()
-/// once the API stabilizes. For now, it uses rayon as a proven parallel framework.
+/// ✅ Uses scirs2_core::parallel_ops::current_num_threads() (fully migrated)
 #[inline]
 pub fn get_parallel_threads() -> usize {
     current_num_threads()
@@ -26,8 +21,7 @@ pub fn get_parallel_threads() -> usize {
 /// Execute a parallel for loop over a range
 ///
 /// # SciRS2 POLICY
-/// This function will be migrated to use scirs2_core::parallel_ops primitives
-/// once the API stabilizes. For now, it uses rayon's proven parallel iterator trait.
+/// ✅ Uses scirs2_core::parallel_ops primitives (fully migrated)
 #[inline]
 pub fn parallel_for_range<F>(start: usize, end: usize, op: F)
 where
@@ -39,8 +33,7 @@ where
 /// Execute a parallel map over a range
 ///
 /// # SciRS2 POLICY
-/// This function will be migrated to use scirs2_core::parallel_ops primitives
-/// once the API stabilizes. For now, it uses rayon's proven parallel iterator trait.
+/// ✅ Uses scirs2_core::parallel_ops primitives (fully migrated)
 #[inline]
 pub fn parallel_map_range<F, R>(start: usize, end: usize, op: F) -> Vec<R>
 where
@@ -53,7 +46,8 @@ where
 /// Module for convenience imports
 pub mod prelude {
     pub use super::{get_parallel_threads, parallel_for_range, parallel_map_range};
-    pub use rayon::prelude::*;
+    // ✅ SciRS2 POLICY: Re-export scirs2_core::parallel_ops (fully migrated)
+    pub use scirs2_core::parallel_ops::*;
 }
 
 #[cfg(test)]
@@ -73,11 +67,11 @@ mod tests {
         let sum_clone = Arc::clone(&sum);
 
         parallel_for_range(0, 100, move |i| {
-            let mut s = sum_clone.lock().unwrap();
+            let mut s = sum_clone.lock().expect("lock should not be poisoned");
             *s += i;
         });
 
-        let result = *sum.lock().unwrap();
+        let result = *sum.lock().expect("lock should not be poisoned");
         assert_eq!(result, (0..100).sum::<usize>());
     }
 

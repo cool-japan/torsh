@@ -68,52 +68,38 @@ impl CpuDevice {
 
     /// Get total system memory in bytes
     fn get_total_memory() -> usize {
-        // Try to get system memory information
-        #[cfg(target_os = "macos")]
+        // ✅ Pure Rust: Use sysinfo instead of libc::sysctlbyname
+        #[cfg(feature = "cpu")]
         {
-            use core::mem;
-            use core::ptr;
-
-            let mut size = 0u64;
-            let mut len = mem::size_of::<u64>();
-
-            unsafe {
-                if libc::sysctlbyname(
-                    c"hw.memsize".as_ptr(),
-                    &mut size as *mut u64 as *mut libc::c_void,
-                    &mut len,
-                    ptr::null_mut(),
-                    0,
-                ) == 0
-                {
-                    return size as usize;
-                }
-            }
+            use sysinfo::System;
+            let mut sys = System::new_all();
+            sys.refresh_memory();
+            return sys.total_memory() as usize;
         }
 
-        #[cfg(all(target_os = "linux", feature = "std"))]
+        #[cfg(not(feature = "cpu"))]
         {
-            if let Ok(meminfo) = std::fs::read_to_string("/proc/meminfo") {
-                for line in meminfo.lines() {
-                    if line.starts_with("MemTotal:") {
-                        if let Some(kb_str) = line.split_whitespace().nth(1) {
-                            if let Ok(kb) = kb_str.parse::<usize>() {
-                                return kb * 1024; // Convert KB to bytes
-                            }
-                        }
-                    }
-                }
-            }
+            // Fallback for no_std or when cpu feature disabled
+            8 * 1024 * 1024 * 1024 // 8GB
         }
-
-        // Default fallback
-        8 * 1024 * 1024 * 1024 // 8GB
     }
 
     /// Get available system memory in bytes
     fn get_available_memory() -> usize {
-        // For simplicity, assume 80% of total memory is available
-        Self::get_total_memory() * 8 / 10
+        // ✅ Pure Rust: Use sysinfo for accurate available memory
+        #[cfg(feature = "cpu")]
+        {
+            use sysinfo::System;
+            let mut sys = System::new_all();
+            sys.refresh_memory();
+            return sys.available_memory() as usize;
+        }
+
+        #[cfg(not(feature = "cpu"))]
+        {
+            // Fallback: assume 80% of total memory is available
+            Self::get_total_memory() * 8 / 10
+        }
     }
 
     /// Get CPU vendor information

@@ -537,8 +537,8 @@ mod tests {
 
     #[test]
     fn test_compute_k_distances() -> ClusterResult<()> {
-        let data =
-            Array2::from_shape_vec((4, 2), vec![0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0]).unwrap();
+        let data = Array2::from_shape_vec((4, 2), vec![0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0])
+            .expect("test data shape should be valid");
 
         let k_dists = compute_k_distances(&data, 2)?;
 
@@ -605,7 +605,8 @@ mod tests {
 
     #[test]
     fn test_invalid_inputs() {
-        let data = Tensor::from_vec(vec![0.0, 0.0, 1.0, 1.0], &[2, 2]).unwrap();
+        let data = Tensor::from_vec(vec![0.0, 0.0, 1.0, 1.0], &[2, 2])
+            .expect("test tensor creation should succeed");
 
         // k too large
         assert!(suggest_epsilon(&data, 10, "elbow", None).is_err());

@@ -14,13 +14,13 @@ use torsh_tensor::Tensor;
 ///
 /// # Mathematical Formula
 /// For input x and kernel w:
-/// y[b, i] = Σ(x[b, i + k*d - p] * w[o, k]) + bias[o]
+/// `y[b, i] = Σ(x[b, i + k*d - p] * w[o, k]) + bias[o]`
 /// where b=batch, i=output position, k=kernel position, d=dilation, p=padding, o=output channel
 ///
 /// # Arguments
-/// * `input` - Sparse input tensor [batch_size, input_length]
-/// * `weight` - Dense weight tensor [out_channels, kernel_size]
-/// * `bias` - Optional bias tensor [out_channels]
+/// * `input` - Sparse input tensor \[batch_size, input_length\]
+/// * `weight` - Dense weight tensor \[out_channels, kernel_size\]
+/// * `bias` - Optional bias tensor \[out_channels\]
 /// * `stride` - Convolution stride
 /// * `padding` - Zero padding
 /// * `dilation` - Kernel dilation
@@ -127,13 +127,13 @@ pub fn sparse_conv1d(
 ///
 /// # Mathematical Formula
 /// For input x and kernel w:
-/// y[b, o, h, w] = Σ(x[b, i, h + kh*dh - ph, w + kw*dw - pw] * w[o, i, kh, kw]) + bias[o]
+/// `y[b, o, h, w] = Σ(x[b, i, h + kh*dh - ph, w + kw*dw - pw] * w[o, i, kh, kw]) + bias[o]`
 /// where b=batch, o=output channel, i=input channel, h,w=spatial positions, kh,kw=kernel positions
 ///
 /// # Arguments
-/// * `input` - Sparse input tensor [batch_size, channels, height, width]
-/// * `weight` - Dense weight tensor [out_channels, in_channels, kernel_height, kernel_width]
-/// * `bias` - Optional bias tensor [out_channels]
+/// * `input` - Sparse input tensor \[batch_size, channels, height, width\]
+/// * `weight` - Dense weight tensor \[out_channels, in_channels, kernel_height, kernel_width\]
+/// * `bias` - Optional bias tensor \[out_channels\]
 /// * `stride` - Convolution stride (height, width)
 /// * `padding` - Zero padding (height, width)
 /// * `dilation` - Kernel dilation (height, width)

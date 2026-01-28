@@ -275,9 +275,9 @@ pub mod hdf5_utils {
         use torsh_tensor::creation::arange;
 
         let tensor = arange::<f32>(0.0, 100.0, 1.0)
-            .unwrap()
+            .expect("failed to create arange tensor for sample HDF5 file")
             .reshape(&[10, 10])
-            .unwrap();
+            .expect("failed to reshape tensor to 10x10 for sample HDF5 file");
 
         HDF5TensorDataset::write_tensor(path.as_ref(), "data", &tensor)?;
 

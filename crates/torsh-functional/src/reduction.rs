@@ -636,12 +636,12 @@ pub fn count_nonzero_dim(tensor: &Tensor, dim: isize) -> TorshResult<Tensor> {
 
 /// Cumulative sum
 pub fn cumsum(tensor: &Tensor, dim: isize) -> TorshResult<Tensor> {
-    tensor.cumsum(dim.try_into().unwrap())
+    tensor.cumsum(dim.try_into().expect("dimension conversion should succeed"))
 }
 
 /// Cumulative product
 pub fn cumprod(tensor: &Tensor, dim: isize) -> TorshResult<Tensor> {
-    tensor.cumprod(dim.try_into().unwrap())
+    tensor.cumprod(dim.try_into().expect("dimension conversion should succeed"))
 }
 
 /// All elements are true (non-zero)
@@ -655,7 +655,10 @@ pub fn all_dim(
     dim: isize,
     keepdim: bool,
 ) -> TorshResult<torsh_tensor::Tensor<bool>> {
-    tensor.all_dim(dim.try_into().unwrap(), keepdim)
+    tensor.all_dim(
+        dim.try_into().expect("dimension conversion should succeed"),
+        keepdim,
+    )
 }
 
 /// Any element is true (non-zero)
@@ -669,7 +672,10 @@ pub fn any_dim(
     dim: isize,
     keepdim: bool,
 ) -> TorshResult<torsh_tensor::Tensor<bool>> {
-    tensor.any_dim(dim.try_into().unwrap(), keepdim)
+    tensor.any_dim(
+        dim.try_into().expect("dimension conversion should succeed"),
+        keepdim,
+    )
 }
 
 // ============================================================================
@@ -724,7 +730,11 @@ pub fn unique(
     // Sort if requested
     if sorted {
         let mut indices: Vec<_> = (0..unique_values.len()).collect();
-        indices.sort_by(|&a, &b| unique_values[a].partial_cmp(&unique_values[b]).unwrap());
+        indices.sort_by(|&a, &b| {
+            unique_values[a]
+                .partial_cmp(&unique_values[b])
+                .expect("numeric comparison should succeed")
+        });
 
         // Reorder unique values
         let sorted_values: Vec<_> = indices.iter().map(|&i| unique_values[i]).collect();

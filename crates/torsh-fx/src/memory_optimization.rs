@@ -136,7 +136,7 @@ impl MemoryMappedGraph {
             .map_err(|e| torsh_core::error::TorshError::IoError(e.to_string()))?;
 
         // Write header
-        let header_data = bincode::serde::encode_to_vec(&self.header, bincode::config::standard())
+        let header_data = oxicode::serde::encode_to_vec(&self.header, oxicode::config::standard())
             .map_err(|e| torsh_core::error::TorshError::SerializationError(e.to_string()))?;
         file.write_all(&header_data)
             .map_err(|e| torsh_core::error::TorshError::IoError(e.to_string()))?;
@@ -175,7 +175,7 @@ impl MemoryMappedGraph {
             .map_err(|e| torsh_core::error::TorshError::IoError(e.to_string()))?;
 
         // Calculate correct offsets accounting for the header size prefix
-        let header_data = bincode::serde::encode_to_vec(&self.header, bincode::config::standard())
+        let header_data = oxicode::serde::encode_to_vec(&self.header, oxicode::config::standard())
             .map_err(|e| torsh_core::error::TorshError::SerializationError(e.to_string()))?;
 
         let header_size_bytes = 4u32; // u32 for header size
@@ -187,7 +187,7 @@ impl MemoryMappedGraph {
 
         // Re-serialize header with correct offsets
         let updated_header_data =
-            bincode::serde::encode_to_vec(&self.header, bincode::config::standard())
+            oxicode::serde::encode_to_vec(&self.header, oxicode::config::standard())
                 .map_err(|e| torsh_core::error::TorshError::SerializationError(e.to_string()))?;
 
         // Write header size first (as u32)
@@ -233,7 +233,7 @@ impl MemoryMappedGraph {
             .map_err(|e| torsh_core::error::TorshError::IoError(e.to_string()))?;
 
         let (header, _): (GraphHeader, usize) =
-            bincode::serde::decode_from_slice(&header_data, bincode::config::standard())
+            oxicode::serde::decode_from_slice(&header_data, oxicode::config::standard())
                 .map_err(|e| torsh_core::error::TorshError::SerializationError(e.to_string()))?;
         self.header = header;
 
@@ -310,7 +310,7 @@ impl MemoryMappedGraph {
             .map(|(idx, node)| (idx.index(), node.clone()))
             .collect();
 
-        bincode::serde::encode_to_vec(&nodes, bincode::config::standard())
+        oxicode::serde::encode_to_vec(&nodes, oxicode::config::standard())
             .map_err(|e| torsh_core::error::TorshError::SerializationError(e.to_string()))
     }
 
@@ -329,18 +329,18 @@ impl MemoryMappedGraph {
             })
             .collect();
 
-        bincode::serde::encode_to_vec(&edges, bincode::config::standard())
+        oxicode::serde::encode_to_vec(&edges, oxicode::config::standard())
             .map_err(|e| torsh_core::error::TorshError::SerializationError(e.to_string()))
     }
 
     /// Deserialize graph from binary data
     fn deserialize_graph(&self, node_data: &[u8], edge_data: &[u8]) -> TorshResult<FxGraph> {
         let (nodes, _): (Vec<(usize, Node)>, usize) =
-            bincode::serde::decode_from_slice(node_data, bincode::config::standard())
+            oxicode::serde::decode_from_slice(node_data, oxicode::config::standard())
                 .map_err(|e| torsh_core::error::TorshError::SerializationError(e.to_string()))?;
 
         let (edges, _): (Vec<(usize, usize, Edge)>, usize) =
-            bincode::serde::decode_from_slice(edge_data, bincode::config::standard())
+            oxicode::serde::decode_from_slice(edge_data, oxicode::config::standard())
                 .map_err(|e| torsh_core::error::TorshError::SerializationError(e.to_string()))?;
 
         // Reconstruct graph
@@ -585,7 +585,10 @@ impl AdaptiveMemoryManager {
 
         // Check memory limits
         if let Some(limit) = self.max_memory_limit {
-            let current_usage = *self.current_memory_usage.lock().unwrap();
+            let current_usage = *self
+                .current_memory_usage
+                .lock()
+                .expect("lock should not be poisoned");
             if current_usage + required_memory > limit {
                 return Err(torsh_core::error::TorshError::InvalidArgument(
                     "Memory limit exceeded".to_string(),
@@ -598,14 +601,20 @@ impl AdaptiveMemoryManager {
         let layout = self.create_memory_layout(graph, strategy)?;
 
         // Update memory usage
-        *self.current_memory_usage.lock().unwrap() += required_memory;
+        *self
+            .current_memory_usage
+            .lock()
+            .expect("lock should not be poisoned") += required_memory;
 
         Ok(layout)
     }
 
     /// Deallocate memory for graph operations
     pub fn deallocate_graph_memory(&self, layout: &GraphMemoryLayout) {
-        let mut current_usage = self.current_memory_usage.lock().unwrap();
+        let mut current_usage = self
+            .current_memory_usage
+            .lock()
+            .expect("lock should not be poisoned");
         *current_usage = current_usage.saturating_sub(layout.total_size);
     }
 
@@ -613,7 +622,10 @@ impl AdaptiveMemoryManager {
     fn determine_strategy(&self, required_memory: usize) -> AllocationStrategy {
         match &self.allocation_strategy {
             AllocationStrategy::Adaptive => {
-                let current_usage = *self.current_memory_usage.lock().unwrap();
+                let current_usage = *self
+                    .current_memory_usage
+                    .lock()
+                    .expect("lock should not be poisoned");
                 let memory_pressure = if let Some(limit) = self.max_memory_limit {
                     current_usage as f64 / limit as f64
                 } else {

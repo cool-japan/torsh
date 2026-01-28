@@ -266,7 +266,10 @@ impl ExpertRouter {
 
         // Record routing statistics
         {
-            let mut stats = self.routing_stats.lock().unwrap();
+            let mut stats = self
+                .routing_stats
+                .lock()
+                .expect("lock should not be poisoned");
             stats.record_routing(&routing_decision);
         }
 
@@ -446,12 +449,18 @@ impl ExpertRouter {
 
     /// Get routing statistics
     pub fn get_stats(&self) -> RoutingStats {
-        self.routing_stats.lock().unwrap().clone()
+        self.routing_stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Reset routing statistics
     pub fn reset_stats(&self) {
-        let mut stats = self.routing_stats.lock().unwrap();
+        let mut stats = self
+            .routing_stats
+            .lock()
+            .expect("lock should not be poisoned");
         *stats = RoutingStats::new();
     }
 

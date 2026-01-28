@@ -149,24 +149,24 @@ pub extern "C" fn mexFunction(
 ) {
     unsafe {
         if nrhs == 0 {
-            mexPrintf(CString::new("ToRSh MATLAB Interface\n").unwrap().as_ptr());
+            mexPrintf(CString::new("ToRSh MATLAB Interface\n").expect("static string should not contain null bytes").as_ptr());
             mexPrintf(
                 CString::new("Usage: tensor = torsh_tensor(data)\n")
-                    .unwrap()
+                    .expect("static string should not contain null bytes")
                     .as_ptr(),
             );
             mexPrintf(
                 CString::new("       data = torsh_data(tensor)\n")
-                    .unwrap()
+                    .expect("static string should not contain null bytes")
                     .as_ptr(),
             );
             return;
         }
 
         if nrhs != 1 || nlhs != 1 {
-            let msg = CString::new("Exactly one input and one output required").unwrap();
+            let msg = CString::new("Exactly one input and one output required").expect("static string should not contain null bytes");
             mexErrMsgIdAndTxt(
-                CString::new("ToRSh:InvalidArgs").unwrap().as_ptr(),
+                CString::new("ToRSh:InvalidArgs").expect("static string should not contain null bytes").as_ptr(),
                 msg.as_ptr(),
             );
             return;
@@ -177,9 +177,9 @@ pub extern "C" fn mexFunction(
         let tensor = matlab_to_torsh_tensor(input_array);
 
         if tensor.is_null() {
-            let msg = CString::new("Failed to create ToRSh tensor").unwrap();
+            let msg = CString::new("Failed to create ToRSh tensor").expect("static string should not contain null bytes");
             mexErrMsgIdAndTxt(
-                CString::new("ToRSh:CreationError").unwrap().as_ptr(),
+                CString::new("ToRSh:CreationError").expect("static string should not contain null bytes").as_ptr(),
                 msg.as_ptr(),
             );
             return;
@@ -189,9 +189,9 @@ pub extern "C" fn mexFunction(
         let output_array = torsh_tensor_to_matlab(tensor);
         if output_array.is_null() {
             torsh_tensor_free(tensor);
-            let msg = CString::new("Failed to convert tensor to MATLAB array").unwrap();
+            let msg = CString::new("Failed to convert tensor to MATLAB array").expect("static string should not contain null bytes");
             mexErrMsgIdAndTxt(
-                CString::new("ToRSh:ConversionError").unwrap().as_ptr(),
+                CString::new("ToRSh:ConversionError").expect("static string should not contain null bytes").as_ptr(),
                 msg.as_ptr(),
             );
             return;
@@ -429,9 +429,9 @@ pub extern "C" fn matlab_tensor_relu(mx_array: *const MxArray) -> *mut MxArray {
 fn error_and_return_null(message: &str) {
     unsafe {
         let c_msg = CString::new(message)
-            .unwrap_or_else(|_| CString::new("Error creating error message").unwrap());
+            .unwrap_or_else(|_| CString::new("Error creating error message").expect("static fallback string should not contain null bytes"));
         mexErrMsgIdAndTxt(
-            CString::new("ToRSh:Error").unwrap().as_ptr(),
+            CString::new("ToRSh:Error").expect("static string should not contain null bytes").as_ptr(),
             c_msg.as_ptr(),
         );
     }

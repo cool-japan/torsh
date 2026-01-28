@@ -36,7 +36,8 @@ impl PyAdaGrad {
         let eps = eps.unwrap_or(1e-10);
 
         // Extract tensor parameters and wrap in Arc<RwLock>
-        let tensor_params = extract_parameters(params.clone()).unwrap();
+        let tensor_params =
+            extract_parameters(params.clone()).expect("parameter extraction should succeed");
         let wrapped_params: Vec<Arc<RwLock<_>>> = tensor_params
             .into_iter()
             .map(|tensor| Arc::new(RwLock::new(tensor)))
@@ -55,19 +56,31 @@ impl PyAdaGrad {
         Python::attach(|py| {
             param_group_data.insert(
                 "lr_decay".to_string(),
-                lr_decay.into_pyobject(py).unwrap().into_any().unbind(),
+                lr_decay
+                    .into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
             param_group_data.insert(
                 "weight_decay".to_string(),
-                weight_decay.into_pyobject(py).unwrap().into_any().unbind(),
+                weight_decay
+                    .into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
             param_group_data.insert(
                 "eps".to_string(),
-                eps.into_pyobject(py).unwrap().into_any().unbind(),
+                eps.into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
         });
 
-        let param_groups = vec![create_param_group(params, lr, param_group_data).unwrap()];
+        let param_groups = vec![create_param_group(params, lr, param_group_data)
+            .expect("param group creation should succeed")];
 
         (
             Self {
@@ -123,11 +136,17 @@ impl PyAdaGrad {
         Python::attach(|py| {
             state.insert(
                 "step".to_string(),
-                0i64.into_pyobject(py).unwrap().into_any().unbind(),
+                0i64.into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
             state.insert(
                 "sum".to_string(),
-                "{}".into_pyobject(py).unwrap().into_any().unbind(),
+                "{}".into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
         });
         Ok(state)
@@ -147,23 +166,35 @@ impl PyAdaGrad {
         Python::attach(|py| {
             defaults.insert(
                 "lr".to_string(),
-                self.lr.into_pyobject(py).unwrap().into_any().unbind(),
+                self.lr
+                    .into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
             defaults.insert(
                 "lr_decay".to_string(),
-                self.lr_decay.into_pyobject(py).unwrap().into_any().unbind(),
+                self.lr_decay
+                    .into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
             defaults.insert(
                 "weight_decay".to_string(),
                 self.weight_decay
                     .into_pyobject(py)
-                    .unwrap()
+                    .expect("Python object conversion should succeed")
                     .into_any()
                     .unbind(),
             );
             defaults.insert(
                 "eps".to_string(),
-                self.eps.into_pyobject(py).unwrap().into_any().unbind(),
+                self.eps
+                    .into_pyobject(py)
+                    .expect("Python object conversion should succeed")
+                    .into_any()
+                    .unbind(),
             );
         });
         Ok(defaults)
@@ -183,7 +214,10 @@ impl PyAdaGrad {
             for param_group in &mut self.param_groups {
                 param_group.insert(
                     "lr".to_string(),
-                    lr.into_pyobject(py).unwrap().into_any().unbind(),
+                    lr.into_pyobject(py)
+                        .expect("Python object conversion should succeed")
+                        .into_any()
+                        .unbind(),
                 );
             }
         });

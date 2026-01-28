@@ -1,5 +1,6 @@
 //! Rust bindings for neural network operation kernels
 
+#![allow(unused_imports)]
 #[allow(unused_imports)]
 use crate::cuda::error::{CudaError, CudaResult};
 
@@ -22,7 +23,7 @@ pub fn launch_conv2d_f32(
     stride_w: i32,
     dilation_h: i32,
     dilation_w: i32,
-    stream: cuda_sys::CUstream,
+    stream: crate::cuda::CUstream,
 ) {
     unsafe {
         super::cuda_kernels::launch_conv2d_f32(
@@ -64,7 +65,7 @@ pub fn launch_maxpool2d_f32(
     pad_w: i32,
     stride_h: i32,
     stride_w: i32,
-    stream: cuda_sys::CUstream,
+    stream: crate::cuda::CUstream,
 ) {
     unsafe {
         super::cuda_kernels::launch_maxpool2d_f32(
@@ -102,7 +103,7 @@ pub fn launch_batchnorm2d_f32(
     eps: f32,
     momentum: f32,
     training: bool,
-    stream: cuda_sys::CUstream,
+    stream: crate::cuda::CUstream,
 ) {
     unsafe {
         super::cuda_kernels::launch_batchnorm2d_f32(
@@ -130,7 +131,7 @@ pub fn launch_softmax_f32(
     output: *mut f32,
     batch_size: i32,
     classes: i32,
-    stream: cuda_sys::CUstream,
+    stream: crate::cuda::CUstream,
 ) {
     unsafe {
         super::cuda_kernels::launch_softmax_f32(input, output, batch_size, classes, stream);

@@ -31,18 +31,70 @@ OptiRS (ML Optimization Specialization)
     ↓ builds upon
 SciRS2 (Scientific Computing Foundation)
     ↓ builds upon (via scirs2-core ONLY)
-ndarray, rand, num-traits, etc. (External Dependencies)
+OxiBLAS (Pure Rust BLAS/LAPACK) + OxiCode + ndarray, rand, num-traits
     ⚠️ ONLY scirs2-core may import these directly
 ```
+
+## Pure Rust Migration (v0.1.1)
+
+**Major architectural milestone:** ToRSh now runs on 100% Pure Rust stack with zero system dependencies (default features).
+
+### ✅ Pure Rust Achievement (2025-12-30)
+
+**Default Features: 100% Pure Rust** - Zero C/Fortran dependencies!
+- ✅ **libc removed** (system calls) → `sysinfo` (Pure Rust)
+- ✅ **OpenBLAS/MKL removed** (Fortran BLAS) → OxiBLAS 0.1.2 (Pure Rust)
+- ✅ **bincode removed** → OxiCode 0.1.1 (Pure Rust)
+- ✅ **ndarray/rayon direct imports removed** → scirs2_core abstractions
+
+### OxiBLAS Integration - Pure Rust BLAS/LAPACK
+
+**REMOVED Dependencies (v0.1.0+):**
+- ❌ `openblas-src` / `blas-src` / `lapack-src` - System BLAS libraries
+- ❌ `accelerate-src` - macOS Accelerate Framework bindings
+- ❌ `intel-mkl-src` - Intel MKL bindings
+- ❌ `ndarray-linalg` - Replaced with scirs2-linalg independent implementation
+
+**REMOVED Dependencies (v0.1.0-beta.1+):**
+- ❌ `libc` - C standard library (torsh-backend, torsh-cli, torsh-core)
+- ❌ Optional `lapack-backend` feature in torsh-linalg
+
+**CURRENT Dependencies (v0.1.1+):**
+- ✅ `oxiblas-ndarray` v0.1.2 - Pure Rust ndarray integration
+- ✅ `oxiblas-blas` v0.1.2 - Pure Rust BLAS implementation
+- ✅ `oxiblas-lapack` v0.1.2 - Pure Rust LAPACK (supports Complex<f64>)
+- ✅ Accessed via `scirs2-core` features: `oxiblas-blas`, `oxiblas-lapack`, `oxiblas-ndarray`
+
+**Benefits:**
+- 🚀 **Zero System Dependencies** - No OpenBLAS, MKL, or system BLAS required
+- 🔧 **Easy Cross-Compilation** - Pure Rust works on all platforms
+- 📦 **Simplified Builds** - No C/Fortran compiler required
+- 🔒 **Complete Control** - Full Rust ecosystem integration
+- ⚡ **SIMD Optimized** - Competitive performance with native BLAS
+
+### OxiCode Integration - SIMD-Optimized Serialization
+
+**REMOVED Dependencies:**
+- ❌ `bincode` - Generic binary serialization
+
+**CURRENT Dependencies (COOLJAPAN Policy):**
+- ✅ `oxicode` v0.1.1 - SIMD-optimized binary serialization
+- ✅ Accessed via `scirs2-core` features: `oxicode`
+
+**Benefits:**
+- ⚡ **SIMD Acceleration** - Up to 4x faster than bincode
+- 🎯 **Scientific Data Optimized** - Specialized for numeric arrays
+- 🔒 **Type Safe** - Compile-time serialization verification
 
 ## Required SciRS2 Crates Analysis
 
 ### **ESSENTIAL (Always Required)**
 
 #### `scirs2-core` - FOUNDATION
-- **Use Cases**: Core scientific primitives, ScientificNumber trait, random number generation, tensor operations
+- **Use Cases**: Core scientific primitives, ScientificNumber trait, random number generation, tensor operations, **OxiBLAS BLAS/LAPACK**, **OxiCode serialization**
 - **ToRSh Modules**: `torsh-core`, `torsh-tensor`, all modules use core utilities
-- **Status**: ✅ REQUIRED - Foundation crate
+- **Required Features**: `["simd", "parallel", "memory_management", "serialization", "oxicode", "oxiblas-blas", "oxiblas-lapack", "oxiblas-ndarray", "validation", "types", "random"]`
+- **Status**: ✅ REQUIRED - Foundation crate with OxiBLAS 0.1.2 and OxiCode 0.1.1
 
 #### `scirs2` - MAIN INTEGRATION
 - **Use Cases**: Neural networks, autograd, linear algebra integration
@@ -82,9 +134,11 @@ ndarray, rand, num-traits, etc. (External Dependencies)
 ### **CONDITIONALLY REQUIRED**
 
 #### `scirs2-linalg` - LINEAR ALGEBRA
-- **Use Cases**: Matrix operations, decompositions, eigenvalue problems
+- **Use Cases**: Matrix operations, decompositions, eigenvalue problems, **scipy.linalg compatibility layer (35 functions)**
 - **ToRSh Modules**: `torsh-linalg`
-- **Status**: ✅ REQUIRED - Linear algebra operations
+- **Key Features**: svd, eig, eigh, qr, lu, cholesky, lstsq, pinv, matrix functions (expm, logm, sqrtm, etc.)
+- **Backend**: Built on OxiBLAS 0.1.2 (Pure Rust LAPACK)
+- **Status**: ✅ REQUIRED - Linear algebra operations with scipy compatibility
 
 #### `scirs2-neural` - ADVANCED NEURAL ARCHITECTURES
 - **Use Cases**: Cutting-edge neural network architectures, experimental layers
@@ -302,9 +356,9 @@ use scirs2_core::gpu::{GpuDevice, GpuKernel};
    - Provide migration guide if functionality moves
    - Remove after deprecation period
 
-### **Best Practices (Updated for SciRS2 v0.1.0-RC.1+)**
+### **Best Practices (SciRS2 v0.1.1 Stable)**
 
-#### 1. **UNIFIED Array Imports (scirs2-core v0.1.0-RC.1+)**
+#### 1. **UNIFIED Array Imports (scirs2-core v0.1.1)**
 
 ```rust
 // ✅ PREFERRED: Complete unified ndarray access through scirs2-core
@@ -336,7 +390,7 @@ mod tests {
 }
 ```
 
-#### 2. **UNIFIED Random Number Generation (scirs2-core v0.1.0-RC.1+)**
+#### 2. **UNIFIED Random Number Generation (scirs2-core v0.1.1)**
 
 ```rust
 // ✅ PREFERRED: Complete random functionality through scirs2-core
@@ -457,9 +511,9 @@ scirs2-neural = { workspace = true }
 ## Future Considerations
 
 ### **SciRS2 Version Management**
-- Track SciRS2 release cycle (currently on 0.1.0-rc.4)
-- Test ToRSh against SciRS2 RC releases
-- Coordinate breaking change migrations
+- Track SciRS2 release cycle (currently on 0.1.1 stable)
+- Test ToRSh against SciRS2 stable releases
+- Coordinate breaking change migrations with semver compliance
 
 ### **Performance Monitoring**
 - Benchmark impact of SciRS2 integration
@@ -498,19 +552,22 @@ use scirs2_core::random::{thread_rng, Normal, RandBeta};
 
 ---
 
-**Document Version**: 3.0 - SciRS2 POLICY Alignment
-**Last Updated**: 2025-10-03
+**Document Version**: 4.0 - SciRS2 v0.1.1 Stable Integration
+**Last Updated**: 2025-12-30
 **Based On**: [SciRS2 POLICY v3.0.0](https://github.com/cool-japan/scirs/blob/master/SCIRS2_POLICY.md)
-**SciRS2 Version**: v0.1.0-RC.1
-**Next Review**: Q1 2026
-**Owner**: ToRSh Architecture Team
+**SciRS2 Version**: v0.1.1 (Stable)
+**OxiBLAS Version**: v0.1.2 (Stable)
+**ToRSh Version**: v0.1.0-beta.1
+**Next Review**: Q2 2026
+**Owner**: ToRSh Architecture Team / COOLJAPAN OU
 
 ## 🎉 INTEGRATION SUCCESS STATUS
 
-**Current Achievement**: **96.7% COMPILATION SUCCESS (29/30 packages)** 🎯
-- **Integration Date**: September 2025
-- **SciRS2 Version**: 0.1.0-beta.3 (with scirs2-spatial fix)
-- **Status**: PRODUCTION READY - SciRS2 integration complete
+**Current Achievement**: **100% PRODUCTION READY (29/29 packages)** 🎯
+- **Integration Date**: December 2025
+- **SciRS2 Version**: 0.1.1 stable (with scipy.linalg compatibility)
+- **OxiBLAS Version**: 0.1.2 stable (Pure Rust BLAS/LAPACK)
+- **Status**: PRODUCTION READY - Complete SciRS2 integration with stable dependencies
 
 ### Successfully Integrated Packages (29/30) ✅
 
@@ -664,34 +721,35 @@ Self { rng: thread_rng() }        // For fast, non-deterministic
 
 ## Quick Reference
 
-### Current Workspace Integration
+### Current Workspace Integration (v0.1.0-beta.1)
 ```toml
 [workspace.dependencies]
-# Essential SciRS2 dependencies for ToRSh - COMPREHENSIVE INTEGRATION
-# Status: 93.3% SUCCESS (28/30 packages) - Updated to beta.3
-scirs2 = { version = "0.1.0-beta.4", features = ["neural", "autograd", "linalg"], default-features = false }
-scirs2-core = { version = "0.1.0-beta.4", default-features = false }
-scirs2-autograd = { version = "0.1.0-beta.4", default-features = false }  # Primary source for ndarray types
-scirs2-special = { version = "0.1.0-beta.4", default-features = false }
-scirs2-sparse = { version = "0.1.0-beta.4", default-features = false }
-scirs2-optimize = { version = "0.1.0-beta.4", default-features = false }
-scirs2-signal = { version = "0.1.0-beta.4", default-features = false }
-scirs2-fft = { version = "0.1.0-beta.4", default-features = false }
+# Essential SciRS2 dependencies for ToRSh - STABLE INTEGRATION
+# Status: 100% SUCCESS (29/29 packages) - SciRS2 v0.1.1 stable + OxiBLAS v0.1.2
+scirs2-core = { version = "0.1.1", features = ["simd", "parallel", "memory_management", "serialization", "oxicode", "oxiblas-blas", "oxiblas-lapack", "oxiblas-ndarray", "validation", "types", "random"] }
+scirs2-autograd = { version = "0.1.1" }
+scirs2-special = { version = "0.1.1" }
+scirs2-sparse = { version = "0.1.1" }
+scirs2-optimize = { version = "0.1.1" }
+scirs2-signal = { version = "0.1.1" }
+scirs2-fft = { version = "0.1.1" }
 
-# NEW: Comprehensive SciRS2 integration (93.3% coverage - external issue blocks 2 packages)
-scirs2-cluster = { version = "0.1.0-beta.4", default-features = false }
-scirs2-datasets = { version = "0.1.0-beta.4", default-features = false }
-scirs2-graph = { version = "0.1.0-beta.4", default-features = false }
-scirs2-metrics = { version = "0.1.0-beta.4", default-features = false }
-scirs2-series = { version = "0.1.0-beta.4", default-features = false }
-scirs2-spatial = { version = "0.1.0-beta.4", default-features = false }  # ⚠️ EXTERNAL COMPILATION ISSUE
-scirs2-stats = { version = "0.1.0-beta.4", default-features = false }
-scirs2-text = { version = "0.1.0-beta.4", default-features = false }
-scirs2-linalg = { version = "0.1.0-beta.4", default-features = false }
-scirs2-neural = { version = "0.1.0-beta.4", default-features = false }
+# Comprehensive SciRS2 integration (100% coverage - all stable)
+scirs2-cluster = { version = "0.1.1" }
+scirs2-datasets = { version = "0.1.1" }
+scirs2-graph = { version = "0.1.1" }
+scirs2-metrics = { version = "0.1.1" }
+scirs2-series = { version = "0.1.1" }
+scirs2-spatial = { version = "0.1.1" }
+scirs2-stats = { version = "0.1.1" }
+scirs2-text = { version = "0.1.1" }
+scirs2-vision = { version = "0.1.1" }
+scirs2-linalg = { version = "0.1.1" }  # Includes scipy.linalg compatibility (35 functions)
+scirs2-neural = { version = "0.1.1" }
 
-# OptiRS integration for advanced optimization
-optirs = { path = "../optirs/optirs", default-features = false }
+# OptiRS integration for advanced optimization (still RC)
+optirs = { version = "0.1.0-rc", default-features = false }
+optirs-core = { version = "0.1.0-rc", default-features = false }
 optirs-core = { path = "../optirs/optirs-core", default-features = false }
 ```
 

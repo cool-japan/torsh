@@ -471,7 +471,7 @@ impl Parameter {
 
     /// Add noise to parameter
     pub fn add_noise(&mut self, std: f32) -> Result<()> {
-        use scirs2_core::random::{thread_rng, Rng};
+        use scirs2_core::random::thread_rng;
         let mut rng = thread_rng();
         let mut tensor = self.data.write();
         let data = tensor.to_vec()?;
@@ -609,7 +609,10 @@ impl ParameterStats {
         let std = variance.sqrt();
 
         let mut sorted_data = data.to_vec();
-        sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted_data.sort_by(|a, b| {
+            a.partial_cmp(b)
+                .expect("data comparison should not involve NaN")
+        });
 
         let min = sorted_data[0];
         let max = sorted_data[sorted_data.len() - 1];

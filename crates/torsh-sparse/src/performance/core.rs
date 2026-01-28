@@ -193,8 +193,8 @@ pub mod memory {
 
         /// Record current memory usage
         pub fn record_usage(&self, usage: usize) {
-            *self.current_usage.lock().unwrap() = usage;
-            let mut peak = self.peak_usage.lock().unwrap();
+            *self.current_usage.lock().expect("lock should not be poisoned") = usage;
+            let mut peak = self.peak_usage.lock().expect("lock should not be poisoned");
             if usage > *peak {
                 *peak = usage;
             }
@@ -202,18 +202,18 @@ pub mod memory {
 
         /// Get current memory usage
         pub fn current_usage(&self) -> usize {
-            *self.current_usage.lock().unwrap()
+            *self.current_usage.lock().expect("lock should not be poisoned")
         }
 
         /// Get peak memory usage
         pub fn peak_usage(&self) -> usize {
-            *self.peak_usage.lock().unwrap()
+            *self.peak_usage.lock().expect("lock should not be poisoned")
         }
 
         /// Reset memory tracking
         pub fn reset(&self) {
-            *self.current_usage.lock().unwrap() = 0;
-            *self.peak_usage.lock().unwrap() = 0;
+            *self.current_usage.lock().expect("lock should not be poisoned") = 0;
+            *self.peak_usage.lock().expect("lock should not be poisoned") = 0;
         }
     }
 }

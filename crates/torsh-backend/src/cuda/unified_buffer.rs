@@ -3,9 +3,40 @@
 use crate::cuda::device::CudaDevice;
 use crate::cuda::error::CudaResult;
 use crate::cuda::memory::{MemoryAdvice, UnifiedAllocation};
-use crate::Buffer;
 use std::sync::Arc;
 use torsh_core::DType;
+
+/// Generic buffer trait for type-safe buffer operations
+pub trait BufferTrait<T> {
+    fn len(&self) -> usize;
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+    fn dtype(&self) -> DType;
+    fn device(&self) -> &dyn DeviceTrait;
+    fn copy_from_host(&mut self, data: &[T]) -> Result<(), crate::BackendError>;
+    fn copy_to_host(&self, data: &mut [T]) -> Result<(), crate::BackendError>;
+    fn as_any(&self) -> &dyn std::any::Any;
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
+}
+
+/// Generic device trait
+pub trait DeviceTrait: std::fmt::Debug + Send + Sync {
+    fn id(&self) -> usize;
+}
+
+impl DeviceTrait for CudaDevice {
+    fn id(&self) -> usize {
+        self.id()
+    }
+}
+
+/// Buffer operations trait
+pub trait BufferOpsTrait<T> {
+    fn fill(&mut self, value: T) -> Result<(), crate::BackendError>;
+    fn copy_from_buffer(&mut self, src: &dyn BufferTrait<T>) -> Result<(), crate::BackendError>;
+    fn set_zero(&mut self) -> Result<(), crate::BackendError>;
+}
 
 /// Debug information for unified buffers
 #[derive(Debug, Clone)]
@@ -54,7 +85,7 @@ impl<T: Clone + Send + Sync + 'static> UnifiedBuffer<T> {
 
     /// Get raw pointer to the data
     pub fn as_ptr(&self) -> *const T {
-        self.allocation.as_ptr()
+        self.allocation.as_ptr() as *const T
     }
 
     /// Get mutable raw pointer to the data
@@ -73,11 +104,12 @@ impl<T: Clone + Send + Sync + 'static> UnifiedBuffer<T> {
     }
 
     /// Prefetch data to GPU
-    pub fn prefetch_to_device(&self, device_id: Option<usize>) -> CudaResult<()> {
+    pub fn prefetch_to_device(&self, _device_id: Option<usize>) -> CudaResult<()> {
         let byte_size = self.length * std::mem::size_of::<T>();
+        // Note: device_id is now derived from the memory manager's internal device
         self.device
             .memory_manager()
-            .prefetch_to_device(self.allocation.ptr(), byte_size, device_id)
+            .prefetch_to_device(self.allocation.ptr(), byte_size)
     }
 
     /// Prefetch data to CPU
@@ -95,11 +127,12 @@ impl<T: Clone + Send + Sync + 'static> UnifiedBuffer<T> {
         device_id: Option<usize>,
     ) -> CudaResult<()> {
         let byte_size = self.length * std::mem::size_of::<T>();
+        let device = device_id.unwrap_or(0) as i32;
         self.device.memory_manager().set_memory_advice(
             self.allocation.ptr(),
             byte_size,
             advice,
-            device_id,
+            device,
         )
     }
 
@@ -130,7 +163,7 @@ impl<T: Clone + Send + Sync + 'static> UnifiedBuffer<T> {
     }
 }
 
-impl<T: Clone + Send + Sync + 'static> Buffer<T> for UnifiedBuffer<T> {
+impl<T: Clone + Send + Sync + 'static> BufferTrait<T> for UnifiedBuffer<T> {
     fn len(&self) -> usize {
         self.length
     }
@@ -139,7 +172,7 @@ impl<T: Clone + Send + Sync + 'static> Buffer<T> for UnifiedBuffer<T> {
         self.dtype
     }
 
-    fn device(&self) -> &dyn crate::Device {
+    fn device(&self) -> &dyn DeviceTrait {
         self.device.as_ref()
     }
 
@@ -188,7 +221,7 @@ impl<T: Clone + Send + Sync + 'static> Buffer<T> for UnifiedBuffer<T> {
     }
 }
 
-impl<T: Clone + Send + Sync + 'static> BufferOps<T> for UnifiedBuffer<T> {
+impl<T: Clone + Send + Sync + 'static> BufferOpsTrait<T> for UnifiedBuffer<T> {
     fn fill(&mut self, value: T) -> Result<(), crate::BackendError> {
         unsafe {
             let slice = self.as_mut_slice();
@@ -197,7 +230,7 @@ impl<T: Clone + Send + Sync + 'static> BufferOps<T> for UnifiedBuffer<T> {
         Ok(())
     }
 
-    fn copy_from_buffer(&mut self, src: &dyn Buffer<T>) -> Result<(), crate::BackendError> {
+    fn copy_from_buffer(&mut self, src: &dyn BufferTrait<T>) -> Result<(), crate::BackendError> {
         if src.len() != self.length {
             return Err(crate::BackendError::InvalidBuffer {
                 message: format!(

@@ -4,9 +4,12 @@
 //! that enable efficient data transfers between host and device by avoiding
 //! page faults and providing direct memory access.
 
-use super::allocation::{
-    pinned_size_class, AllocationStats, PinnedAllocation, PinnedMemoryFlags,
-};
+// Allow unused variables and unsafe for pinned memory stubs
+#![allow(unused_variables)]
+#![allow(unused_unsafe)]
+
+use super::allocation::{pinned_size_class, AllocationStats, PinnedAllocation, PinnedMemoryFlags};
+use crate::cuda::cuda_sys_compat as cuda_sys;
 use crate::cuda::error::{CudaError, CudaResult};
 use cust::prelude::DevicePointer;
 use std::collections::HashMap;
@@ -656,7 +659,7 @@ impl PinnedMemoryManager {
             let result =
                 cuda_sys::cudaHostAlloc(&mut ptr as *mut *mut std::ffi::c_void, size, flags);
 
-            if result != cuda_sys::cudaError_t::cudaSuccess {
+            if result != crate::cuda::cudaSuccess {
                 return Err(CudaError::Context {
                     message: format!("Failed to allocate pinned memory: {:?}", result),
                 });
@@ -680,7 +683,7 @@ impl PinnedMemoryManager {
                 0, // flags
             );
 
-            if result != cuda_sys::cudaError_t::cudaSuccess {
+            if result != crate::cuda::cudaSuccess {
                 return Err(CudaError::Context {
                     message: format!("Failed to map pinned memory to device: {:?}", result),
                 });
@@ -690,14 +693,16 @@ impl PinnedMemoryManager {
         if device_ptr.is_null() {
             Ok(None)
         } else {
-            // Convert to DevicePointer
-            // This is a simplified conversion - in practice, we'd need proper handling
-            Ok(Some(unsafe { DevicePointer::wrap(device_ptr as *mut u8) }))
+            // Convert to DevicePointer using from_raw
+            // CUdeviceptr is typically a u64 representing a device address
+            Ok(Some(unsafe {
+                DevicePointer::<u8>::from_raw(device_ptr as u64)
+            }))
         }
     }
 
     fn should_cache_allocation(&self, allocation: &PinnedAllocation) -> bool {
-        let pools = self.pools.lock().unwrap();
+        let pools = self.pools.lock().expect("lock should not be poisoned");
         if let Some(pool) = pools.get(&allocation.size) {
             pool.free_blocks.len() < self.config.max_free_blocks_per_pool
         } else {
@@ -719,8 +724,8 @@ impl PinnedMemoryManager {
 
     fn free_pinned_allocation(&self, allocation: PinnedAllocation) -> CudaResult<()> {
         unsafe {
-            let result = cuda_sys::cudaFreeHost(allocation.ptr as *mut std::ffi::c_void);
-            if result != cuda_sys::cudaError_t::cudaSuccess {
+            let result = cuda_sys::cudaFreeHost(allocation.ptr.as_ptr() as *mut std::ffi::c_void);
+            if result != crate::cuda::cudaSuccess {
                 return Err(CudaError::Context {
                     message: format!("Failed to free pinned memory: {:?}", result),
                 });
@@ -888,8 +893,9 @@ impl PinnedMemoryPool {
                 bytes_freed += allocation.size;
                 // Free the pinned memory
                 unsafe {
-                    let result = cuda_sys::cudaFreeHost(allocation.ptr as *mut std::ffi::c_void);
-                    if result != cuda_sys::cudaError_t::cudaSuccess {
+                    let result =
+                        cuda_sys::cudaFreeHost(allocation.ptr.as_ptr() as *mut std::ffi::c_void);
+                    if result != crate::cuda::cudaSuccess {
                         eprintln!(
                             "Warning: Failed to free pinned memory during cleanup: {:?}",
                             result
@@ -1035,6 +1041,7 @@ impl Default for PinnedMemoryRequest {
 
 #[cfg(test)]
 mod tests {
+    #![allow(unused_mut)]
     use super::*;
 
     #[test]

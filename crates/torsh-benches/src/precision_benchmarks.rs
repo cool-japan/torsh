@@ -5,7 +5,7 @@
 //! precision-specific optimizations.
 
 use crate::Benchmarkable;
-use criterion::black_box;
+use std::hint::black_box;
 use std::time::{Duration, Instant};
 use torsh_core::dtype::DType;
 use torsh_tensor::{creation::*, Tensor};

@@ -226,7 +226,10 @@ impl ModelPruner {
         }
 
         // Sort by norm and determine neurons to prune
-        neuron_norms.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+        neuron_norms.sort_by(|a, b| {
+            a.1.partial_cmp(&b.1)
+                .expect("neuron norms should be comparable")
+        });
         let neurons_to_prune = (output_dim as f64 * sparsity) as usize;
 
         // Create mask
@@ -272,7 +275,10 @@ impl ModelPruner {
         }
 
         // Sort by norm and determine filters to prune
-        filter_norms.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+        filter_norms.sort_by(|a, b| {
+            a.1.partial_cmp(&b.1)
+                .expect("filter norms should be comparable")
+        });
         let filters_to_prune = (out_channels as f64 * sparsity) as usize;
 
         // Create mask
@@ -469,7 +475,8 @@ impl ModelPruner {
 
         // Calculate threshold
         let mut sorted_magnitudes = flat_data.iter().map(|&x| x.abs()).collect::<Vec<_>>();
-        sorted_magnitudes.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted_magnitudes
+            .sort_by(|a, b| a.partial_cmp(b).expect("magnitudes should be comparable"));
 
         let threshold_idx = (flat_data.len() as f64 * sparsity) as usize;
         let threshold = if threshold_idx < sorted_magnitudes.len() {

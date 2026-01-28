@@ -49,10 +49,16 @@ impl OptimizedGraph {
         self.node_lookup.insert(node_id, graph_index);
 
         // Invalidate cached execution order
-        *self.execution_order.write().unwrap() = None;
+        *self
+            .execution_order
+            .write()
+            .expect("lock should not be poisoned") = None;
 
         // Update statistics
-        self.stats.write().unwrap().total_nodes += 1;
+        self.stats
+            .write()
+            .expect("lock should not be poisoned")
+            .total_nodes += 1;
 
         Ok(graph_index)
     }
@@ -81,7 +87,10 @@ impl OptimizedGraph {
         self.graph.add_edge(*from_idx, *to_idx, ());
 
         // Invalidate cached execution order
-        *self.execution_order.write().unwrap() = None;
+        *self
+            .execution_order
+            .write()
+            .expect("lock should not be poisoned") = None;
 
         Ok(())
     }
@@ -108,7 +117,10 @@ impl OptimizedGraph {
     /// # Returns
     /// * `GraphStats` - Current graph statistics
     pub fn get_stats(&self) -> GraphStats {
-        self.stats.read().unwrap().clone()
+        self.stats
+            .read()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Reset all graph statistics to default values
@@ -116,7 +128,7 @@ impl OptimizedGraph {
     /// Clears all accumulated statistics including execution times,
     /// memory usage, and optimization counts.
     pub fn reset_stats(&mut self) {
-        *self.stats.write().unwrap() = GraphStats::default();
+        *self.stats.write().expect("lock should not be poisoned") = GraphStats::default();
     }
 
     /// Get current memory usage information
@@ -198,7 +210,10 @@ impl OptimizedGraph {
     pub fn clear(&mut self) {
         self.graph.clear();
         self.node_lookup.clear();
-        *self.execution_order.write().unwrap() = None;
+        *self
+            .execution_order
+            .write()
+            .expect("lock should not be poisoned") = None;
 
         // Reset memory tracker
         {
@@ -296,7 +311,10 @@ impl OptimizedGraph {
             ));
         }
 
-        *self.execution_order.write().unwrap() = Some(execution_order);
+        *self
+            .execution_order
+            .write()
+            .expect("lock should not be poisoned") = Some(execution_order);
         tracing::debug!("Execution order computed successfully");
 
         Ok(())
@@ -310,10 +328,14 @@ impl OptimizedGraph {
     /// # Returns
     /// * `Result<Vec<NodeId>>` - Execution order or error if not computed
     pub fn get_execution_order(&self) -> Result<Vec<NodeId>> {
-        self.execution_order.read().unwrap().clone().ok_or_else(|| {
-            TorshError::AutogradError(
-                "Execution order not computed. Call optimize() first.".to_string(),
-            )
-        })
+        self.execution_order
+            .read()
+            .expect("lock should not be poisoned")
+            .clone()
+            .ok_or_else(|| {
+                TorshError::AutogradError(
+                    "Execution order not computed. Call optimize() first.".to_string(),
+                )
+            })
     }
 }

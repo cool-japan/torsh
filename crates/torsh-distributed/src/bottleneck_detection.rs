@@ -439,7 +439,7 @@ impl BottleneckDetector {
         // Detect GPU bottleneck
         if let Some(gpu_usage) = avg_gpu_usage {
             if gpu_usage > self.config.thresholds.high_gpu_usage_pct {
-                let confidence = (gpu_usage / 100.0).min(1.0);
+                let confidence = (gpu_usage / 100.0_f64).min(1.0_f64);
                 let bottleneck = Bottleneck::new(
                     BottleneckType::Compute,
                     if gpu_usage > 98.0 {
@@ -698,7 +698,9 @@ where
         *guard = Some(BottleneckDetector::new());
     }
 
-    f(guard.as_mut().unwrap())
+    f(guard
+        .as_mut()
+        .expect("global bottleneck detector should be initialized"))
 }
 
 /// Initialize the global bottleneck detector with custom configuration
@@ -750,9 +752,11 @@ mod tests {
 
     #[test]
     fn test_custom_config() {
-        let mut config = BottleneckDetectionConfig::default();
-        config.min_confidence = 0.9;
-        config.analysis_window_size = 50;
+        let config = BottleneckDetectionConfig {
+            min_confidence: 0.9,
+            analysis_window_size: 50,
+            ..Default::default()
+        };
 
         let detector = BottleneckDetector::with_config(config.clone());
         assert_eq!(detector.config.min_confidence, 0.9);

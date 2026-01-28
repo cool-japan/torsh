@@ -3,6 +3,12 @@
 //! This crate provides a comprehensive graph transformation framework built on a modular architecture.
 //! The FX graph system has been refactored into specialized modules for maintainability and performance.
 
+// Version information
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const VERSION_MAJOR: u32 = 0;
+pub const VERSION_MINOR: u32 = 1;
+pub const VERSION_PATCH: u32 = 0;
+
 use torsh_core::Result;
 
 /// Convenience type alias for Results in this crate

@@ -4,6 +4,9 @@
 //! batch normalization, activation, and pooling operations. All operations
 //! are implemented with proper error handling and feature-conditional compilation.
 
+// Allow unused imports as they are used conditionally with the cudnn feature
+#![allow(unused_imports)]
+
 use cust::prelude::DevicePointer;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -24,6 +27,50 @@ use super::types::{
 
 #[cfg(feature = "cudnn")]
 use cudnn_sys::*;
+
+// Import compatibility layer for missing cudnn-sys functions and types
+#[cfg(feature = "cudnn")]
+use super::compat::{
+    cudnnBatchNormMode_t, cudnnBatchNormalizationForwardInference,
+    cudnnBatchNormalizationForwardTraining, cudnnForwardMode_t, cudnnNormAlgo_t, cudnnNormMode_t,
+    cudnnNormOps_t, cudnnNormalizationForwardInference, cudnnRNNForward,
+    cudnnSetConvolutionGroupCount,
+};
+// Note: cudnnAddMode_t comes from cudnn_sys::* (not compat)
+
+/// Convert compat convolution forward algorithm to cudnn_sys type
+/// Note: cudnn-sys 0.0.3 doesn't have WINOGRAD variants, so we use GEMM fallback
+#[cfg(feature = "cudnn")]
+fn to_sys_conv_fwd_algo(
+    algo: super::compat::cudnnConvolutionFwdAlgo_t,
+) -> cudnnConvolutionFwdAlgo_t {
+    match algo {
+        super::compat::cudnnConvolutionFwdAlgo_t::CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM => {
+            cudnnConvolutionFwdAlgo_t::CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM
+        }
+        super::compat::cudnnConvolutionFwdAlgo_t::CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_PRECOMP_GEMM => {
+            cudnnConvolutionFwdAlgo_t::CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_PRECOMP_GEMM
+        }
+        super::compat::cudnnConvolutionFwdAlgo_t::CUDNN_CONVOLUTION_FWD_ALGO_GEMM => {
+            cudnnConvolutionFwdAlgo_t::CUDNN_CONVOLUTION_FWD_ALGO_GEMM
+        }
+        super::compat::cudnnConvolutionFwdAlgo_t::CUDNN_CONVOLUTION_FWD_ALGO_DIRECT => {
+            cudnnConvolutionFwdAlgo_t::CUDNN_CONVOLUTION_FWD_ALGO_DIRECT
+        }
+        super::compat::cudnnConvolutionFwdAlgo_t::CUDNN_CONVOLUTION_FWD_ALGO_FFT => {
+            cudnnConvolutionFwdAlgo_t::CUDNN_CONVOLUTION_FWD_ALGO_FFT
+        }
+        super::compat::cudnnConvolutionFwdAlgo_t::CUDNN_CONVOLUTION_FWD_ALGO_FFT_TILING => {
+            cudnnConvolutionFwdAlgo_t::CUDNN_CONVOLUTION_FWD_ALGO_FFT_TILING
+        }
+        // WINOGRAD variants and COUNT not available in cudnn-sys 0.0.3, use GEMM fallback
+        super::compat::cudnnConvolutionFwdAlgo_t::CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD |
+        super::compat::cudnnConvolutionFwdAlgo_t::CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD_NONFUSED |
+        super::compat::cudnnConvolutionFwdAlgo_t::CUDNN_CONVOLUTION_FWD_ALGO_COUNT => {
+            cudnnConvolutionFwdAlgo_t::CUDNN_CONVOLUTION_FWD_ALGO_GEMM
+        }
+    }
+}
 
 /// cuDNN operations interface
 ///
@@ -192,22 +239,22 @@ impl CudnnOps {
             let alpha = 1.0f32;
             let beta = 0.0f32;
 
-            let handle = self.handle.lock().unwrap();
+            let handle = self.handle.lock().expect("lock should not be poisoned");
             let status = unsafe {
                 cudnnConvolutionForward(
                     handle.raw(),
                     &alpha as *const f32 as *const std::ffi::c_void,
                     input_desc.raw(),
-                    input.as_raw_mut() as *const std::ffi::c_void,
+                    input.as_raw() as *const std::ffi::c_void,
                     weight_desc.raw(),
-                    weight.as_raw_mut() as *const std::ffi::c_void,
+                    weight.as_raw() as *const std::ffi::c_void,
                     conv_desc.raw(),
                     cudnnConvolutionFwdAlgo_t::CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM,
                     std::ptr::null_mut(),
                     0,
                     &beta as *const f32 as *const std::ffi::c_void,
                     output_desc.raw(),
-                    output.as_raw_mut() as *mut std::ffi::c_void,
+                    output.as_raw() as *mut std::ffi::c_void,
                 )
             };
 
@@ -226,12 +273,13 @@ impl CudnnOps {
                 let status = unsafe {
                     cudnnAddTensor(
                         handle.raw(),
+                        cudnnAddMode_t::CUDNN_ADD_SAME_C,
                         &alpha as *const f32 as *const std::ffi::c_void,
                         bias_desc.raw(),
-                        bias_ptr.as_raw_mut() as *const std::ffi::c_void,
+                        bias_ptr.as_raw() as *const std::ffi::c_void,
                         &alpha as *const f32 as *const std::ffi::c_void,
                         output_desc.raw(),
-                        output.as_raw_mut() as *mut std::ffi::c_void,
+                        output.as_raw() as *mut std::ffi::c_void,
                     )
                 };
 
@@ -340,7 +388,7 @@ impl CudnnOps {
             let alpha = 1.0f32;
             let beta = 0.0f32;
 
-            let handle = self.handle.lock().unwrap();
+            let handle = self.handle.lock().expect("lock should not be poisoned");
             let status = if training {
                 unsafe {
                     cudnnBatchNormalizationForwardTraining(
@@ -349,15 +397,15 @@ impl CudnnOps {
                         &alpha as *const f32 as *const std::ffi::c_void,
                         &beta as *const f32 as *const std::ffi::c_void,
                         input_desc.raw(),
-                        input.as_raw_mut() as *const std::ffi::c_void,
+                        input.as_raw() as *const std::ffi::c_void,
                         output_desc.raw(),
-                        output.as_raw_mut() as *mut std::ffi::c_void,
+                        output.as_raw() as *mut std::ffi::c_void,
                         scale_bias_desc.raw(),
-                        scale.as_raw_mut() as *const std::ffi::c_void,
-                        bias.as_raw_mut() as *const std::ffi::c_void,
+                        scale.as_raw() as *const std::ffi::c_void,
+                        bias.as_raw() as *const std::ffi::c_void,
                         exponential_average_factor,
-                        running_mean.as_raw_mut() as *mut std::ffi::c_void,
-                        running_var.as_raw_mut() as *mut std::ffi::c_void,
+                        running_mean.as_raw() as *mut std::ffi::c_void,
+                        running_var.as_raw() as *mut std::ffi::c_void,
                         epsilon,
                         std::ptr::null_mut(),
                         std::ptr::null_mut(),
@@ -371,14 +419,14 @@ impl CudnnOps {
                         &alpha as *const f32 as *const std::ffi::c_void,
                         &beta as *const f32 as *const std::ffi::c_void,
                         input_desc.raw(),
-                        input.as_raw_mut() as *const std::ffi::c_void,
+                        input.as_raw() as *const std::ffi::c_void,
                         output_desc.raw(),
-                        output.as_raw_mut() as *mut std::ffi::c_void,
+                        output.as_raw() as *mut std::ffi::c_void,
                         scale_bias_desc.raw(),
-                        scale.as_raw_mut() as *const std::ffi::c_void,
-                        bias.as_raw_mut() as *const std::ffi::c_void,
-                        running_mean.as_raw_mut() as *const std::ffi::c_void,
-                        running_var.as_raw_mut() as *const std::ffi::c_void,
+                        scale.as_raw() as *const std::ffi::c_void,
+                        bias.as_raw() as *const std::ffi::c_void,
+                        running_mean.as_raw() as *const std::ffi::c_void,
+                        running_var.as_raw() as *const std::ffi::c_void,
                         epsilon,
                     )
                 }
@@ -464,23 +512,28 @@ impl CudnnOps {
             let mut output_desc = TensorDescriptor::new()?;
             output_desc.set_4d(DType::F32, shape.0, shape.1, shape.2, shape.3)?;
 
-            let mut act_desc = ActivationDescriptor::new()?;
-            act_desc.set(mode, NanPropagation::NotPropagateNan, 0.0)?;
+            // cudnn-sys 0.0.3 uses old API that takes mode directly, not descriptor
+            let cudnn_mode = match mode {
+                ActivationMode::Sigmoid => cudnnActivationMode_t::CUDNN_ACTIVATION_SIGMOID,
+                ActivationMode::Relu => cudnnActivationMode_t::CUDNN_ACTIVATION_RELU,
+                ActivationMode::Tanh => cudnnActivationMode_t::CUDNN_ACTIVATION_TANH,
+                _ => cudnnActivationMode_t::CUDNN_ACTIVATION_RELU, // Default fallback
+            };
 
             let alpha = 1.0f32;
             let beta = 0.0f32;
 
-            let handle = self.handle.lock().unwrap();
+            let handle = self.handle.lock().expect("lock should not be poisoned");
             let status = unsafe {
                 cudnnActivationForward(
                     handle.raw(),
-                    act_desc.raw(),
+                    cudnn_mode,
                     &alpha as *const f32 as *const std::ffi::c_void,
                     input_desc.raw(),
-                    input.as_raw_mut() as *const std::ffi::c_void,
+                    input.as_raw() as *const std::ffi::c_void,
                     &beta as *const f32 as *const std::ffi::c_void,
                     output_desc.raw(),
-                    output.as_raw_mut() as *mut std::ffi::c_void,
+                    output.as_raw() as *mut std::ffi::c_void,
                 )
             };
 
@@ -580,7 +633,7 @@ impl CudnnOps {
             let mut pool_desc = PoolingDescriptor::new()?;
             pool_desc.set_2d(
                 mode,
-                NanPropagation::NotPropagateNan,
+                NanPropagation::NotPropagate,
                 window_size.0,
                 window_size.1,
                 padding.0,
@@ -592,17 +645,17 @@ impl CudnnOps {
             let alpha = 1.0f32;
             let beta = 0.0f32;
 
-            let handle = self.handle.lock().unwrap();
+            let handle = self.handle.lock().expect("lock should not be poisoned");
             let status = unsafe {
                 cudnnPoolingForward(
                     handle.raw(),
                     pool_desc.raw(),
                     &alpha as *const f32 as *const std::ffi::c_void,
                     input_desc.raw(),
-                    input.as_raw_mut() as *const std::ffi::c_void,
+                    input.as_raw() as *const std::ffi::c_void,
                     &beta as *const f32 as *const std::ffi::c_void,
                     output_desc.raw(),
-                    output.as_raw_mut() as *mut std::ffi::c_void,
+                    output.as_raw() as *mut std::ffi::c_void,
                 )
             };
 
@@ -693,7 +746,7 @@ impl CudnnOps {
     ) -> CudaResult<()> {
         #[cfg(feature = "cudnn")]
         {
-            let handle = self.handle.lock().unwrap();
+            let handle = self.handle.lock().expect("lock should not be poisoned");
             let alpha = 1.0f32;
             let beta = 0.0f32;
 
@@ -706,16 +759,16 @@ impl CudnnOps {
                     &alpha as *const f32 as *const std::ffi::c_void,
                     &beta as *const f32 as *const std::ffi::c_void,
                     x_desc.raw(),
-                    x.as_raw_mut() as *const std::ffi::c_void,
+                    x.as_raw() as *const std::ffi::c_void,
                     scale_bias_desc.raw(),
-                    scale.as_raw_mut() as *const std::ffi::c_void,
-                    bias.as_raw_mut() as *const std::ffi::c_void,
+                    scale.as_raw() as *const std::ffi::c_void,
+                    bias.as_raw() as *const std::ffi::c_void,
                     epsilon,
                     x_desc.raw(),
-                    y.as_raw_mut() as *mut std::ffi::c_void,
+                    y.as_raw() as *mut std::ffi::c_void,
                     scale_bias_desc.raw(),
-                    mean.as_raw_mut() as *mut std::ffi::c_void,
-                    inv_variance.as_raw_mut() as *mut std::ffi::c_void,
+                    mean.as_raw() as *mut std::ffi::c_void,
+                    inv_variance.as_raw() as *mut std::ffi::c_void,
                     std::ptr::null_mut(), // activationDesc
                     std::ptr::null_mut(), // workspace
                     0,                    // workspaceSizeInBytes
@@ -829,22 +882,22 @@ impl CudnnOps {
             let alpha = 1.0f32;
             let beta = 0.0f32;
 
-            let handle = self.handle.lock().unwrap();
+            let handle = self.handle.lock().expect("lock should not be poisoned");
             let status = unsafe {
                 cudnnConvolutionForward(
                     handle.raw(),
                     &alpha as *const f32 as *const std::ffi::c_void,
                     input_desc.raw(),
-                    input.as_raw_mut() as *const std::ffi::c_void,
+                    input.as_raw() as *const std::ffi::c_void,
                     filter_desc.raw(),
-                    filter.as_raw_mut() as *const std::ffi::c_void,
+                    filter.as_raw() as *const std::ffi::c_void,
                     conv_desc.raw(),
                     cudnnConvolutionFwdAlgo_t::CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM,
                     std::ptr::null_mut(),
                     0,
                     &beta as *const f32 as *const std::ffi::c_void,
                     output_desc.raw(),
-                    output.as_raw_mut() as *mut std::ffi::c_void,
+                    output.as_raw() as *mut std::ffi::c_void,
                 )
             };
 
@@ -860,12 +913,13 @@ impl CudnnOps {
                 let status = unsafe {
                     cudnnAddTensor(
                         handle.raw(),
+                        cudnnAddMode_t::CUDNN_ADD_SAME_C,
                         &alpha as *const f32 as *const std::ffi::c_void,
                         bias_desc.raw(),
-                        bias_ptr.as_raw_mut() as *const std::ffi::c_void,
+                        bias_ptr.as_raw() as *const std::ffi::c_void,
                         &alpha as *const f32 as *const std::ffi::c_void,
                         output_desc.raw(),
-                        output.as_raw_mut() as *mut std::ffi::c_void,
+                        output.as_raw() as *mut std::ffi::c_void,
                     )
                 };
 
@@ -946,7 +1000,7 @@ impl CudnnOps {
     ) -> CudaResult<usize> {
         #[cfg(feature = "cudnn")]
         {
-            let handle = self.handle.lock().unwrap();
+            let handle = self.handle.lock().expect("lock should not be poisoned");
             let mut size: usize = 0;
 
             let status = unsafe {
@@ -956,7 +1010,7 @@ impl CudnnOps {
                     filter_desc.raw(),
                     conv_desc.raw(),
                     output_desc.raw(),
-                    algorithm.to_cudnn(),
+                    to_sys_conv_fwd_algo(algorithm.to_cudnn()),
                     &mut size,
                 )
             };
@@ -1031,7 +1085,7 @@ impl CudnnOps {
     ) -> CudaResult<Vec<ConvolutionForwardAlgorithmPerformance>> {
         #[cfg(feature = "cudnn")]
         {
-            let handle = self.handle.lock().unwrap();
+            let handle = self.handle.lock().expect("lock should not be poisoned");
             let mut returned_algo_count: i32 = 0;
             let mut perf_results = vec![
                 ConvolutionForwardAlgorithmPerformance::default();
@@ -1165,38 +1219,37 @@ impl CudnnOps {
     ) -> CudaResult<()> {
         #[cfg(feature = "cudnn")]
         {
-            let handle = self.handle.lock().unwrap();
+            let handle = self.handle.lock().expect("lock should not be poisoned");
             let status = unsafe {
                 cudnnRNNForward(
                     handle.raw(),
                     rnn_desc.raw(),
                     forward_mode.to_cudnn(),
                     dev_seq_lengths
-                        .map(|p| p.as_raw_mut())
-                        .unwrap_or(std::ptr::null_mut()) as *const i32,
+                        .map(|p| p.as_raw() as *const i32)
+                        .unwrap_or(std::ptr::null()),
                     x_desc.raw(),
-                    x.as_raw_mut() as *const std::ffi::c_void,
+                    x.as_raw() as *const std::ffi::c_void,
                     y_desc.raw(),
-                    y.as_raw_mut() as *mut std::ffi::c_void,
+                    y.as_raw() as *mut std::ffi::c_void,
                     h_desc.raw(),
-                    hx.map(|p| p.as_raw_mut()).unwrap_or(std::ptr::null_mut())
-                        as *const std::ffi::c_void,
-                    hy.map(|p| p.as_raw_mut()).unwrap_or(std::ptr::null_mut())
-                        as *mut std::ffi::c_void,
+                    hx.map(|p| p.as_raw() as *const std::ffi::c_void)
+                        .unwrap_or(std::ptr::null()),
+                    hy.map(|p| p.as_raw() as *mut std::ffi::c_void)
+                        .unwrap_or(std::ptr::null_mut()),
                     c_desc.raw(),
-                    cx.map(|p| p.as_raw_mut()).unwrap_or(std::ptr::null_mut())
-                        as *const std::ffi::c_void,
-                    cy.map(|p| p.as_raw_mut()).unwrap_or(std::ptr::null_mut())
-                        as *mut std::ffi::c_void,
+                    cx.map(|p| p.as_raw() as *const std::ffi::c_void)
+                        .unwrap_or(std::ptr::null()),
+                    cy.map(|p| p.as_raw() as *mut std::ffi::c_void)
+                        .unwrap_or(std::ptr::null_mut()),
                     weight_space_size,
-                    weight_space.as_raw_mut() as *const std::ffi::c_void,
+                    weight_space.as_raw() as *const std::ffi::c_void,
                     work_space_size,
-                    work_space.as_raw_mut() as *mut std::ffi::c_void,
+                    work_space.as_raw() as *mut std::ffi::c_void,
                     reserve_space_size,
                     reserve_space
-                        .map(|p| p.as_raw_mut())
-                        .unwrap_or(std::ptr::null_mut())
-                        as *mut std::ffi::c_void,
+                        .map(|p| p.as_raw() as *mut std::ffi::c_void)
+                        .unwrap_or(std::ptr::null_mut()),
                 )
             };
 

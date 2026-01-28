@@ -286,6 +286,7 @@ fn get_torsh_info() -> TorshInfo {
 }
 
 fn get_feature_info() -> FeatureInfo {
+    #[allow(unused_mut)]
     let mut enabled_features = Vec::new();
     #[allow(unused_mut)]
     let mut disabled_features = Vec::new();
@@ -572,71 +573,84 @@ async fn check_permissions(config: &Config) -> DiagnosticResult {
 
 async fn check_disk_space(config: &Config) -> DiagnosticResult {
     use byte_unit::Byte;
+    use sysinfo::Disks;
 
     // Check disk space for cache directory
     let cache_dir = &config.general.cache_dir;
 
-    // For Unix-like systems, we can use statvfs
-    #[cfg(unix)]
-    {
-        use std::ffi::CString;
-        use std::mem;
+    // ✅ Pure Rust: Use sysinfo instead of libc::statvfs
+    let disks = Disks::new_with_refreshed_list();
 
-        if let Ok(cache_path) = CString::new(cache_dir.to_string_lossy().as_bytes()) {
-            let mut statvfs: libc::statvfs = unsafe { mem::zeroed() };
-            let result = unsafe { libc::statvfs(cache_path.as_ptr(), &mut statvfs) };
+    // Find the disk containing the cache directory
+    let cache_path = cache_dir
+        .canonicalize()
+        .unwrap_or_else(|_| cache_dir.clone());
+    let mut target_disk = None;
+    let mut longest_mount_len = 0;
 
-            if result == 0 {
-                let block_size = statvfs.f_frsize;
-                let total_blocks = statvfs.f_blocks as u64;
-                let available_blocks = statvfs.f_bavail as u64;
-
-                let total_bytes = total_blocks * block_size;
-                let available_bytes = available_blocks * block_size;
-                let used_bytes = total_bytes - available_bytes;
-
-                let usage_percent = (used_bytes as f64 / total_bytes as f64) * 100.0;
-
-                let status = if usage_percent > 90.0 {
-                    DiagnosticStatus::Fail
-                } else if usage_percent > 80.0 {
-                    DiagnosticStatus::Warning
-                } else {
-                    DiagnosticStatus::Pass
-                };
-
-                let message = if usage_percent > 90.0 {
-                    "Very low disk space available (>90% used)".to_string()
-                } else if usage_percent > 80.0 {
-                    "Low disk space warning (>80% used)".to_string()
-                } else {
-                    "Sufficient disk space available".to_string()
-                };
-
-                return DiagnosticResult {
-                    name: "Disk Space".to_string(),
-                    status,
-                    message,
-                    details: Some(serde_json::json!({
-                        "cache_dir": cache_dir.display().to_string(),
-                        "total_space": Byte::from_u128(total_bytes as u128).unwrap_or_else(|| Byte::from_u128(0).unwrap()).get_appropriate_unit(byte_unit::UnitType::Binary).to_string(),
-                        "available_space": Byte::from_u128(available_bytes as u128).unwrap_or_else(|| Byte::from_u128(0).unwrap()).get_appropriate_unit(byte_unit::UnitType::Binary).to_string(),
-                        "used_space": Byte::from_u128(used_bytes as u128).unwrap_or_else(|| Byte::from_u128(0).unwrap()).get_appropriate_unit(byte_unit::UnitType::Binary).to_string(),
-                        "usage_percent": format!("{:.1}%", usage_percent),
-                    })),
-                };
+    for disk in disks.list() {
+        let mount_point = disk.mount_point();
+        if cache_path.starts_with(mount_point) {
+            let mount_len = mount_point.as_os_str().len();
+            if mount_len > longest_mount_len {
+                target_disk = Some((
+                    disk.total_space(),
+                    disk.available_space(),
+                    mount_point.to_path_buf(),
+                ));
+                longest_mount_len = mount_len;
             }
         }
     }
 
-    // Fallback for other platforms or if statvfs fails
+    if let Some((total_bytes, available_bytes, mount_point)) = target_disk {
+        let used_bytes = total_bytes.saturating_sub(available_bytes);
+
+        let usage_percent = if total_bytes > 0 {
+            (used_bytes as f64 / total_bytes as f64) * 100.0
+        } else {
+            0.0
+        };
+
+        let status = if usage_percent > 90.0 {
+            DiagnosticStatus::Fail
+        } else if usage_percent > 80.0 {
+            DiagnosticStatus::Warning
+        } else {
+            DiagnosticStatus::Pass
+        };
+
+        let message = if usage_percent > 90.0 {
+            "Very low disk space available (>90% used)".to_string()
+        } else if usage_percent > 80.0 {
+            "Low disk space warning (>80% used)".to_string()
+        } else {
+            "Sufficient disk space available".to_string()
+        };
+
+        return DiagnosticResult {
+            name: "Disk Space".to_string(),
+            status,
+            message,
+            details: Some(serde_json::json!({
+                "cache_dir": cache_dir.display().to_string(),
+                "mount_point": mount_point.display().to_string(),
+                "total_space": Byte::from_u128(total_bytes as u128).unwrap_or_else(|| Byte::from_u128(0).expect("zero bytes should always be valid")).get_appropriate_unit(byte_unit::UnitType::Binary).to_string(),
+                "available_space": Byte::from_u128(available_bytes as u128).unwrap_or_else(|| Byte::from_u128(0).expect("zero bytes should always be valid")).get_appropriate_unit(byte_unit::UnitType::Binary).to_string(),
+                "used_space": Byte::from_u128(used_bytes as u128).unwrap_or_else(|| Byte::from_u128(0).expect("zero bytes should always be valid")).get_appropriate_unit(byte_unit::UnitType::Binary).to_string(),
+                "usage_percent": format!("{:.1}%", usage_percent),
+            })),
+        };
+    }
+
+    // Fallback if disk not found
     DiagnosticResult {
         name: "Disk Space".to_string(),
         status: DiagnosticStatus::Warning,
         message: "Could not determine disk space usage".to_string(),
         details: Some(serde_json::json!({
             "cache_dir": cache_dir.display().to_string(),
-            "note": "Disk space check not available on this platform"
+            "note": "Could not find disk containing cache directory"
         })),
     }
 }

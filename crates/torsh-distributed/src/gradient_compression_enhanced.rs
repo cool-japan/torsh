@@ -204,13 +204,14 @@ impl EnhancedGradientCompressor {
         // Use partial sort instead of full sort for better performance
         if k_elements < indexed_values.len() {
             // Only partially sort to find top-k elements
-            indexed_values
-                .select_nth_unstable_by(k_elements, |a, b| b.1.partial_cmp(&a.1).unwrap());
+            indexed_values.select_nth_unstable_by(k_elements, |a, b| {
+                b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
+            });
             indexed_values.truncate(k_elements);
         }
 
         // Sort the selected elements
-        indexed_values.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        indexed_values.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
         let mut indices = Vec::with_capacity(k_elements);
         let mut values = Vec::with_capacity(k_elements);
@@ -237,7 +238,7 @@ impl EnhancedGradientCompressor {
                 error_norm: 0.0,
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .expect("time should be after UNIX_EPOCH")
                     .as_secs(),
             },
         })
@@ -286,7 +287,7 @@ impl EnhancedGradientCompressor {
                 error_norm: 0.0,
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .expect("time should be after UNIX_EPOCH")
                     .as_secs(),
             },
         })
@@ -341,7 +342,7 @@ impl EnhancedGradientCompressor {
                 error_norm: 0.0,
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .expect("time should be after UNIX_EPOCH")
                     .as_secs(),
             },
         })
@@ -393,7 +394,7 @@ impl EnhancedGradientCompressor {
                 error_norm: 0.0,
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .expect("time should be after UNIX_EPOCH")
                     .as_secs(),
             },
         })
@@ -437,7 +438,7 @@ impl EnhancedGradientCompressor {
                 error_norm: 0.0,
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .expect("time should be after UNIX_EPOCH")
                     .as_secs(),
             },
         })
@@ -686,7 +687,7 @@ impl EnhancedGradientCompressor {
                 original_norm: gradient.norm()?.item()?,
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .expect("time should be after UNIX_EPOCH")
                     .as_secs(),
             },
         };

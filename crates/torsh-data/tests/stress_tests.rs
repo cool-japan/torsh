@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 use torsh_data::dataloader::{simple_dataloader, simple_random_dataloader};
 use torsh_data::prelude::*;
 // SciRS2 POLICY compliant random generation
-use scirs2_core::random::{thread_rng, Rng};
+use scirs2_core::random::thread_rng;
 use torsh_tensor::creation::{ones, zeros};
 
 /// Stress test configuration
@@ -136,16 +136,16 @@ impl OperationCounter {
     }
 
     fn increment_completed(&self) {
-        *self.completed.lock().unwrap() += 1;
+        *self.completed.lock().expect("lock should not be poisoned") += 1;
     }
 
     fn increment_failed(&self) {
-        *self.failed.lock().unwrap() += 1;
+        *self.failed.lock().expect("lock should not be poisoned") += 1;
     }
 
     fn get_counts(&self) -> (u64, u64) {
-        let completed = *self.completed.lock().unwrap();
-        let failed = *self.failed.lock().unwrap();
+        let completed = *self.completed.lock().expect("lock should not be poisoned");
+        let failed = *self.failed.lock().expect("lock should not be poisoned");
         (completed, failed)
     }
 }

@@ -380,7 +380,12 @@ impl DType {
     /// let _ = DType::F64.to_cudnn_data_type();
     /// let _ = DType::F16.to_cudnn_data_type();
     /// ```
-    #[cfg(feature = "cudnn")]
+    /// Only available on x86_64 Linux/Windows where cuDNN SDK is supported
+    #[cfg(all(
+        feature = "cudnn",
+        target_arch = "x86_64",
+        any(target_os = "linux", target_os = "windows")
+    ))]
     pub fn to_cudnn_data_type(self) -> cudnn_sys::cudnnDataType_t {
         match self {
             DType::F32 => cudnn_sys::cudnnDataType_t::CUDNN_DATA_FLOAT,

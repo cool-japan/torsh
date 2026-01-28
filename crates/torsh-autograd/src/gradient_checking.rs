@@ -5,7 +5,7 @@
 //! operations and edge cases.
 
 use crate::{AutogradTensor, Result};
-use num_traits::{Float, FromPrimitive, ToPrimitive};
+use scirs2_core::numeric::{Float, FromPrimitive, ToPrimitive};
 use scirs2_core::random::thread_rng; // SciRS2 POLICY compliant
 use torsh_core::device::CpuDevice;
 use torsh_core::dtype::TensorElement;
@@ -274,7 +274,8 @@ impl GradientChecker {
         let input = inputs[input_idx];
         let mut input_data = input.to_vec();
         let original_value = input_data[elem_idx];
-        let eps = <T as torsh_core::TensorElement>::from_f64(self.config.eps).unwrap();
+        let eps = <T as torsh_core::TensorElement>::from_f64(self.config.eps)
+            .expect("f64 conversion should succeed");
 
         if self.config.use_central_diff {
             // Central difference: f(x+h) - f(x-h) / (2*h)
@@ -353,8 +354,9 @@ impl GradientChecker {
         // Placeholder: assume gradient is proportional to input
         let input = inputs[input_idx];
         let input_data = input.to_vec();
-        let analytical_grad =
-            <T as torsh_core::TensorElement>::to_f64(&input_data[elem_idx]).unwrap() * 0.1; // Placeholder calculation
+        let analytical_grad = <T as torsh_core::TensorElement>::to_f64(&input_data[elem_idx])
+            .expect("f64 conversion should succeed")
+            * 0.1; // Placeholder calculation
 
         Ok(analytical_grad)
     }

@@ -125,7 +125,8 @@ impl<S: Storage> SharedStorage<S> {
             let cloned = self.inner.clone_storage()?;
             self.inner = Arc::new(cloned);
         }
-        Ok(Arc::get_mut(&mut self.inner).unwrap())
+        Ok(Arc::get_mut(&mut self.inner)
+            .expect("Arc::get_mut should succeed after ensuring unique reference"))
     }
 
     /// Check if this shared storage is uniquely owned

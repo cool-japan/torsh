@@ -508,17 +508,22 @@ static GLOBAL_REGISTRY: RwLock<Option<Arc<RwLock<AllocatorRegistry>>>> = RwLock:
 
 /// Get the global allocator registry
 pub fn global_registry() -> Arc<RwLock<AllocatorRegistry>> {
-    let mut global = GLOBAL_REGISTRY.write().unwrap();
+    let mut global = GLOBAL_REGISTRY
+        .write()
+        .expect("lock should not be poisoned");
     if global.is_none() {
         *global = Some(Arc::new(RwLock::new(AllocatorRegistry::new())));
     }
-    global.as_ref().unwrap().clone()
+    global
+        .as_ref()
+        .expect("global registry should be Some after initialization")
+        .clone()
 }
 
 /// Initialize the global registry with default allocators
 pub fn initialize_global_registry() {
     let registry = global_registry();
-    let mut registry = registry.write().unwrap();
+    let mut registry = registry.write().expect("lock should not be poisoned");
 
     // Register basic allocators
     registry.register_with_metadata(
@@ -866,7 +871,7 @@ mod tests {
         initialize_global_registry();
 
         let registry = global_registry();
-        let registry = registry.read().unwrap();
+        let registry = registry.read().expect("lock should not be poisoned");
 
         assert!(registry.is_registered("cpu_std"));
         assert!(registry.is_registered("cpu_numa"));

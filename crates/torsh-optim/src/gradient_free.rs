@@ -170,7 +170,11 @@ impl NelderMead {
         {
             // Sort simplex by function values
             let mut indices: Vec<usize> = (0..simplex.len()).collect();
-            indices.sort_by(|&a, &b| values[a].partial_cmp(&values[b]).unwrap());
+            indices.sort_by(|&a, &b| {
+                values[a]
+                    .partial_cmp(&values[b])
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
 
             let best_idx = indices[0];
             let worst_idx = indices[n];

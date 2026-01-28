@@ -538,7 +538,10 @@ impl ProfilerManager {
         }
 
         let session_id = {
-            let mut counter = self.session_counter.lock().unwrap();
+            let mut counter = self
+                .session_counter
+                .lock()
+                .expect("lock should not be poisoned");
             *counter += 1;
             format!("session_{}", *counter)
         };
@@ -556,12 +559,12 @@ impl ProfilerManager {
         };
 
         {
-            let mut sessions = self.sessions.lock().unwrap();
+            let mut sessions = self.sessions.lock().expect("lock should not be poisoned");
             sessions.insert(session_id.clone(), session);
         }
 
         {
-            let mut stats = self.stats.lock().unwrap();
+            let mut stats = self.stats.lock().expect("lock should not be poisoned");
             stats.total_sessions += 1;
             stats.active_sessions += 1;
         }
@@ -578,13 +581,13 @@ impl ProfilerManager {
 
     /// Stop a profiling session
     pub fn stop_session(&mut self, session_id: &str) -> JitResult<()> {
-        let mut sessions = self.sessions.lock().unwrap();
+        let mut sessions = self.sessions.lock().expect("lock should not be poisoned");
 
         if let Some(session) = sessions.get_mut(session_id) {
             session.duration = Some(session.start_time.elapsed());
             session.status = SessionStatus::Completed;
 
-            let mut stats = self.stats.lock().unwrap();
+            let mut stats = self.stats.lock().expect("lock should not be poisoned");
             stats.active_sessions = stats.active_sessions.saturating_sub(1);
         } else {
             return Err(JitError::RuntimeError(format!(
@@ -595,7 +598,7 @@ impl ProfilerManager {
 
         // Stop external profilers if no active sessions
         let active_count = {
-            let stats = self.stats.lock().unwrap();
+            let stats = self.stats.lock().expect("lock should not be poisoned");
             stats.active_sessions
         };
 
@@ -610,13 +613,13 @@ impl ProfilerManager {
 
     /// Record a performance event
     pub fn record_event(&mut self, session_id: &str, event: PerformanceEvent) -> JitResult<()> {
-        let mut sessions = self.sessions.lock().unwrap();
+        let mut sessions = self.sessions.lock().expect("lock should not be poisoned");
 
         if let Some(session) = sessions.get_mut(session_id) {
             if session.events.len() < self.config.max_events_per_session {
                 session.events.push(event);
 
-                let mut stats = self.stats.lock().unwrap();
+                let mut stats = self.stats.lock().expect("lock should not be poisoned");
                 stats.total_events += 1;
             }
         }
@@ -630,7 +633,7 @@ impl ProfilerManager {
             return Ok(());
         }
 
-        let mut sessions = self.sessions.lock().unwrap();
+        let mut sessions = self.sessions.lock().expect("lock should not be poisoned");
 
         if let Some(session) = sessions.get_mut(session_id) {
             session.call_stacks.push(call_stack);
@@ -676,7 +679,7 @@ impl ProfilerManager {
 
     /// Export profiling data
     pub fn export_session_data(&self, session_id: &str, output_path: &str) -> JitResult<()> {
-        let sessions = self.sessions.lock().unwrap();
+        let sessions = self.sessions.lock().expect("lock should not be poisoned");
 
         if let Some(session) = sessions.get(session_id) {
             match self.config.output_format {
@@ -691,7 +694,7 @@ impl ProfilerManager {
                 }
             }
 
-            let mut stats = self.stats.lock().unwrap();
+            let mut stats = self.stats.lock().expect("lock should not be poisoned");
             stats.export_count += 1;
         }
 
@@ -848,19 +851,19 @@ impl ProfilerManager {
 
     /// Get session data
     pub fn get_session(&self, session_id: &str) -> Option<ProfilingSession> {
-        let sessions = self.sessions.lock().unwrap();
+        let sessions = self.sessions.lock().expect("lock should not be poisoned");
         sessions.get(session_id).cloned()
     }
 
     /// Get performance counters
     pub fn get_counters(&self) -> PerformanceCounters {
-        let counters = self.counters.lock().unwrap();
+        let counters = self.counters.lock().expect("lock should not be poisoned");
         counters.clone()
     }
 
     /// Get profiler statistics
     pub fn get_stats(&self) -> ProfilerStats {
-        let stats = self.stats.lock().unwrap();
+        let stats = self.stats.lock().expect("lock should not be poisoned");
         stats.clone()
     }
 
@@ -869,7 +872,7 @@ impl ProfilerManager {
     where
         F: FnOnce(&mut PerformanceCounters),
     {
-        let mut counters = self.counters.lock().unwrap();
+        let mut counters = self.counters.lock().expect("lock should not be poisoned");
         update_fn(&mut *counters);
     }
 }
@@ -891,12 +894,12 @@ impl SamplingProfiler {
         let samples = self.samples.clone();
         let config = self.config.clone();
 
-        *running.lock().unwrap() = true;
+        *running.lock().expect("lock should not be poisoned") = true;
 
         let thread_handle = std::thread::spawn(move || {
             let mut last_sample_time = Instant::now();
 
-            while *running.lock().unwrap() {
+            while *running.lock().expect("lock should not be poisoned") {
                 let now = Instant::now();
 
                 // Collect sample with actual system information
@@ -911,7 +914,7 @@ impl SamplingProfiler {
                 };
 
                 {
-                    let mut samples_guard = samples.lock().unwrap();
+                    let mut samples_guard = samples.lock().expect("lock should not be poisoned");
                     samples_guard.push(sample);
                 }
 
@@ -927,7 +930,7 @@ impl SamplingProfiler {
 
     /// Stop sampling
     pub fn stop(&mut self) -> JitResult<()> {
-        *self.running.lock().unwrap() = false;
+        *self.running.lock().expect("lock should not be poisoned") = false;
 
         if let Some(handle) = self.thread_handle.take() {
             handle.join().map_err(|_| {
@@ -940,7 +943,7 @@ impl SamplingProfiler {
 
     /// Get collected samples
     pub fn get_samples(&self) -> Vec<Sample> {
-        let samples = self.samples.lock().unwrap();
+        let samples = self.samples.lock().expect("lock should not be poisoned");
         samples.clone()
     }
 

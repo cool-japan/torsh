@@ -16,9 +16,9 @@ use super::core::tensor_to_array2;
 /// LU decomposition with partial pivoting
 ///
 /// Computes the LU decomposition of a square matrix A:
-/// ```
+/// ```text
 /// P A = L U
-/// ```
+/// ```text
 ///
 /// ## Mathematical Background
 ///
@@ -72,9 +72,9 @@ pub fn lu(tensor: &Tensor) -> TorshResult<(Tensor, Tensor, Tensor)> {
 /// QR Decomposition
 ///
 /// Computes the QR decomposition of a matrix A:
-/// ```
+/// ```text
 /// A = QR
-/// ```
+/// ```text
 ///
 /// ## Mathematical Definition
 ///
@@ -93,11 +93,11 @@ pub fn lu(tensor: &Tensor) -> TorshResult<(Tensor, Tensor, Tensor)> {
 /// ## Gram-Schmidt Process
 ///
 /// The QR decomposition can be computed via Gram-Schmidt orthogonalization:
-/// ```
+/// ```text
 /// q₁ = a₁ / ||a₁||
 /// q₂ = (a₂ - (q₁·a₂)q₁) / ||(a₂ - (q₁·a₂)q₁)||
 /// qₖ = (aₖ - Σᵢ₌₁ᵏ⁻¹(qᵢ·aₖ)qᵢ) / ||aₖ - Σᵢ₌₁ᵏ⁻¹(qᵢ·aₖ)qᵢ||
-/// ```
+/// ```text
 ///
 /// ## Parameters
 /// - `tensor`: Input matrix A (m×n)
@@ -167,10 +167,10 @@ pub fn qr(tensor: &Tensor, reduced: bool) -> TorshResult<(Tensor, Tensor)> {
 /// Cholesky Decomposition
 ///
 /// Computes the Cholesky decomposition of a positive definite matrix A:
-/// ```
+/// ```text
 /// A = L L^T  (lower form)
 /// A = U^T U  (upper form)
-/// ```
+/// ```text
 ///
 /// ## Mathematical Definition
 ///
@@ -188,12 +188,12 @@ pub fn qr(tensor: &Tensor, reduced: bool) -> TorshResult<(Tensor, Tensor)> {
 /// ## Cholesky Algorithm
 ///
 /// For lower triangular L where A = L L^T:
-/// ```
+/// ```text
 /// for i = 0 to n-1:
 ///     Lᵢᵢ = √(Aᵢᵢ - Σⱼ₌₀ⁱ⁻¹ Lᵢⱼ²)
 ///     for k = i+1 to n-1:
 ///         Lₖᵢ = (Aₖᵢ - Σⱼ₌₀ⁱ⁻¹ Lₖⱼ Lᵢⱼ) / Lᵢᵢ
-/// ```
+/// ```text
 ///
 /// ## Parameters
 /// - `tensor`: Input matrix A (n×n, must be symmetric positive definite)
@@ -235,9 +235,9 @@ pub fn cholesky(tensor: &Tensor, upper: bool) -> TorshResult<Tensor> {
 /// Singular Value Decomposition (SVD)
 ///
 /// Computes the singular value decomposition of a matrix A:
-/// ```
+/// ```text
 /// A = U Σ V^T
-/// ```
+/// ```text
 ///
 /// ## Mathematical Definition
 ///
@@ -284,9 +284,9 @@ pub fn svd(tensor: &Tensor, full_matrices: bool) -> TorshResult<(Tensor, Tensor,
 /// Eigenvalue decomposition for square matrices
 ///
 /// Computes the eigenvalue decomposition of a square matrix A:
-/// ```
+/// ```text
 /// A V = V Λ  or  A = V Λ V⁻¹
-/// ```
+/// ```text
 ///
 /// ## Mathematical Background
 ///

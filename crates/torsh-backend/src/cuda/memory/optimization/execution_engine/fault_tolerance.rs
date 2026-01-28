@@ -9,9 +9,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
-    Arc, Mutex,
+    Arc, Mutex, RwLock,
 };
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 use uuid;
 
 use super::config::{CheckpointConfig, FaultToleranceConfig, RetryConfig};
@@ -296,11 +296,11 @@ pub struct CircuitBreaker {
     /// Current state
     pub state: CircuitBreakerState,
 
-    /// Failure count in current window
-    pub failure_count: AtomicUsize,
+    /// Failure count in current window (simplified for Clone)
+    pub failure_count: usize,
 
-    /// Success count in current window
-    pub success_count: AtomicUsize,
+    /// Success count in current window (simplified for Clone)
+    pub success_count: usize,
 
     /// Failure threshold
     pub failure_threshold: usize,
@@ -317,8 +317,8 @@ pub struct CircuitBreaker {
     /// Last state change time
     pub last_state_change: Instant,
 
-    /// Half-open test count
-    pub half_open_test_count: AtomicUsize,
+    /// Half-open test count (simplified for Clone)
+    pub half_open_test_count: usize,
 
     /// Configuration
     pub config: CircuitBreakerConfiguration,
@@ -414,7 +414,7 @@ pub struct Checkpoint {
 // === Enumerations and Configuration Types ===
 
 /// Types of failure monitors
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum MonitorType {
     /// Hardware failure monitoring
     Hardware,
@@ -585,7 +585,7 @@ pub enum RecoveryPriority {
 }
 
 /// Health check types
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum HealthCheckType {
     Heartbeat,
     ResourceCheck,
@@ -729,13 +729,13 @@ impl FaultToleranceManager {
     ) -> Result<FailureHandlingResult, FaultToleranceError> {
         // Detect and classify the failure
         let failure_classification = {
-            let mut detector = self.failure_detector.lock().unwrap();
+            let mut detector = self.failure_detector.lock().expect("lock should not be poisoned");
             detector.classify_failure(&failure)?
         };
 
         // Check if retry is appropriate
         let retry_decision = {
-            let mut retry_manager = self.retry_manager.lock().unwrap();
+            let mut retry_manager = self.retry_manager.lock().expect("lock should not be poisoned");
             retry_manager.should_retry(task_id, &failure_classification)?
         };
 
@@ -748,7 +748,7 @@ impl FaultToleranceManager {
             RetryDecision::NoRetry(reason) => {
                 // Initiate recovery if possible
                 let recovery_result = {
-                    let mut recovery = self.recovery_orchestrator.lock().unwrap();
+                    let mut recovery = self.recovery_orchestrator.lock().expect("lock should not be poisoned");
                     recovery.attempt_recovery(&failure_classification)?
                 };
 
@@ -771,12 +771,12 @@ impl FaultToleranceManager {
         task_id: TaskId,
         state_data: Vec<u8>,
     ) -> Result<String, FaultToleranceError> {
-        let mut checkpoint_manager = self.checkpoint_manager.lock().unwrap();
+        let mut checkpoint_manager = self.checkpoint_manager.lock().expect("lock should not be poisoned");
         let checkpoint_id = checkpoint_manager.create_checkpoint(task_id, state_data)?;
 
         // Update statistics
         {
-            let mut stats = self.statistics.lock().unwrap();
+            let mut stats = self.statistics.lock().expect("lock should not be poisoned");
             stats.checkpoints_created += 1;
         }
 
@@ -789,12 +789,12 @@ impl FaultToleranceManager {
         task_id: TaskId,
         checkpoint_id: &str,
     ) -> Result<Vec<u8>, FaultToleranceError> {
-        let mut checkpoint_manager = self.checkpoint_manager.lock().unwrap();
+        let mut checkpoint_manager = self.checkpoint_manager.lock().expect("lock should not be poisoned");
         let state_data = checkpoint_manager.restore_checkpoint(task_id, checkpoint_id)?;
 
         // Update statistics
         {
-            let mut stats = self.statistics.lock().unwrap();
+            let mut stats = self.statistics.lock().expect("lock should not be poisoned");
             stats.checkpoints_restored += 1;
         }
 
@@ -803,13 +803,13 @@ impl FaultToleranceManager {
 
     /// Get current system health status
     pub fn get_system_health(&self) -> SystemHealthStatus {
-        let health_monitor = self.health_monitor.lock().unwrap();
+        let health_monitor = self.health_monitor.lock().expect("lock should not be poisoned");
         health_monitor.get_current_health_status()
     }
 
     /// Get fault tolerance statistics
     pub fn get_statistics(&self) -> FaultToleranceStatistics {
-        let stats = self.statistics.lock().unwrap();
+        let stats = self.statistics.lock().expect("lock should not be poisoned");
         stats.clone()
     }
 
@@ -824,7 +824,7 @@ impl FaultToleranceManager {
         &self,
         failure: &FailureClassification,
     ) -> Result<(), FaultToleranceError> {
-        let mut circuit_breakers = self.circuit_breaker_manager.lock().unwrap();
+        let mut circuit_breakers = self.circuit_breaker_manager.lock().expect("lock should not be poisoned");
         circuit_breakers.record_failure(&failure.component, &failure.failure_type)?;
         Ok(())
     }
@@ -1044,14 +1044,14 @@ impl CircuitBreakerManager {
         CircuitBreaker {
             name: component.to_string(),
             state: CircuitBreakerState::Closed,
-            failure_count: AtomicUsize::new(0),
-            success_count: AtomicUsize::new(0),
+            failure_count: 0,
+            success_count: 0,
             failure_threshold: component_config.failure_threshold,
             success_threshold: component_config.success_threshold,
             window_duration: component_config.window_duration,
             window_start: Instant::now(),
             last_state_change: Instant::now(),
-            half_open_test_count: AtomicUsize::new(0),
+            half_open_test_count: 0,
             config: component_config,
         }
     }
@@ -1060,8 +1060,8 @@ impl CircuitBreakerManager {
         &mut self,
         circuit_breaker: &mut CircuitBreaker,
     ) -> Result<(), FaultToleranceError> {
-        let failure_count = circuit_breaker.failure_count.load(Ordering::Relaxed);
-        let success_count = circuit_breaker.success_count.load(Ordering::Relaxed);
+        let failure_count = circuit_breaker.failure_count;
+        let success_count = circuit_breaker.success_count;
 
         match circuit_breaker.state {
             CircuitBreakerState::Closed => {
@@ -1079,9 +1079,7 @@ impl CircuitBreakerManager {
                 {
                     circuit_breaker.state = CircuitBreakerState::HalfOpen;
                     circuit_breaker.last_state_change = Instant::now();
-                    circuit_breaker
-                        .half_open_test_count
-                        .store(0, Ordering::Relaxed);
+                    circuit_breaker.half_open_test_count = 0;
                     self.performance_metrics
                         .record_state_change(&circuit_breaker.name, CircuitBreakerState::HalfOpen);
                 }
@@ -1090,8 +1088,8 @@ impl CircuitBreakerManager {
                 if success_count >= circuit_breaker.success_threshold {
                     circuit_breaker.state = CircuitBreakerState::Closed;
                     circuit_breaker.last_state_change = Instant::now();
-                    circuit_breaker.failure_count.store(0, Ordering::Relaxed);
-                    circuit_breaker.success_count.store(0, Ordering::Relaxed);
+                    circuit_breaker.failure_count = 0;
+                    circuit_breaker.success_count = 0;
                     self.performance_metrics
                         .record_state_change(&circuit_breaker.name, CircuitBreakerState::Closed);
                 } else if failure_count > 0 {
@@ -1271,7 +1269,7 @@ pub enum RecoveryResult {
 
 macro_rules! default_placeholder_type {
     ($name:ident) => {
-        #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+        #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
         pub struct $name {
             pub placeholder: bool,
         }
@@ -1303,7 +1301,21 @@ default_placeholder_type!(AnomalyDetector);
 default_placeholder_type!(FailureClassifier);
 default_placeholder_type!(FailureMetrics);
 default_placeholder_type!(FailureRecord);
-default_placeholder_type!(FailureClassification);
+/// Failure classification for fault tolerance analysis
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FailureClassification {
+    /// Type of failure
+    pub failure_type: FailureType,
+    /// Component where failure occurred
+    pub component: String,
+    /// Severity level
+    pub severity: FailureSeverity,
+    /// When the failure occurred
+    #[serde(skip)]
+    pub timestamp: Instant,
+    /// Additional context
+    pub context: HashMap<String, String>,
+}
 default_placeholder_type!(FailureSeverity);
 default_placeholder_type!(RetryStrategyEngine);
 default_placeholder_type!(RetryPolicyEnforcer);
@@ -1314,6 +1326,13 @@ default_placeholder_type!(CircuitBreakerStateMonitor);
 default_placeholder_type!(FailureThresholdCalculator);
 default_placeholder_type!(RecoveryConditionChecker);
 default_placeholder_type!(CircuitBreakerMetrics);
+
+impl CircuitBreakerMetrics {
+    /// Record a state change in the circuit breaker
+    pub fn record_state_change(&mut self, _name: &str, _state: CircuitBreakerState) {
+        // Placeholder implementation - would record metrics in production
+    }
+}
 default_placeholder_type!(RecoveryExecutionEngine);
 default_placeholder_type!(RecoveryStateMachine);
 default_placeholder_type!(ResourceRecoveryManager);

@@ -249,7 +249,9 @@ impl<T: TensorElement + Into<f64> + From<f64>> Tensor<T> {
 
         // Extract the first half + 1 coefficients
         let mut new_shape = shape.dims().to_vec();
-        *new_shape.last_mut().unwrap() = output_size;
+        *new_shape
+            .last_mut()
+            .expect("shape should have at least one dimension") = output_size;
 
         full_fft.slice_last_dim_complex(0, output_size)
     }
@@ -316,7 +318,9 @@ impl<T: TensorElement + Into<f64> + From<f64>> Tensor<T> {
 
         // Create new shape
         let mut new_dims = dims.to_vec();
-        *new_dims.last_mut().unwrap() = size;
+        *new_dims
+            .last_mut()
+            .expect("shape should have at least one dimension") = size;
 
         // Extract the data (simplified - would need proper strided slicing)
         let input_data = self.to_vec()?;
@@ -349,7 +353,9 @@ impl<T: TensorElement + Into<f64> + From<f64>> Tensor<T> {
 
         // For now, just pad with zeros (proper implementation would use conjugate symmetry)
         let mut new_dims = shape.dims().to_vec();
-        *new_dims.last_mut().unwrap() = output_size;
+        *new_dims
+            .last_mut()
+            .expect("shape should have at least one dimension") = output_size;
 
         let input_data = self.to_vec()?;
         let mut output_data = Vec::with_capacity(input_data.len() * output_size / input_size);

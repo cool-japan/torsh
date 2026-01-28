@@ -154,7 +154,7 @@ pub fn robust_scale(data: &Tensor) -> ClusterResult<Tensor> {
         }
 
         // Sort to compute quantiles
-        feature_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        feature_values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         let median = if n_samples % 2 == 0 {
             (feature_values[n_samples / 2 - 1] + feature_values[n_samples / 2]) / 2.0

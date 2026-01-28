@@ -3,6 +3,11 @@
 //! This module provides advanced thread cooperation mechanisms using CUDA Cooperative Groups,
 //! enabling more efficient synchronization and communication patterns within GPU kernels.
 
+// Allow unused imports - these are used for future CUDA API calls
+#![allow(unused_imports)]
+
+use crate::cuda::cuda_sys_compat as cuda_sys;
+use crate::cuda::cuda_sys_compat::CUDA_SUCCESS;
 use crate::error::{BackendError, BackendResult};
 use cust::stream::Stream;
 use std::collections::HashMap;
@@ -104,8 +109,8 @@ pub struct CooperativeKernelConfig {
     pub block_dim: (u32, u32, u32),
     /// Shared memory size per block
     pub shared_memory_size: usize,
-    /// Stream for kernel execution
-    pub stream: Option<Stream>,
+    /// Stream for kernel execution (wrapped in Arc for Clone support)
+    pub stream: Option<Arc<Stream>>,
     /// Whether to use grid-wide cooperation
     pub grid_cooperation: bool,
     /// Cluster dimensions (for cluster groups)
@@ -124,6 +129,17 @@ pub struct CooperativeGroupsContext {
     performance_stats: Arc<Mutex<CooperativeGroupsStats>>,
     /// Next kernel ID
     next_kernel_id: Arc<Mutex<u64>>,
+}
+
+impl std::fmt::Debug for CooperativeGroupsContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CooperativeGroupsContext")
+            .field("capabilities", &self.capabilities)
+            .field("active_kernels", &"<mutex>")
+            .field("performance_stats", &"<mutex>")
+            .field("next_kernel_id", &"<mutex>")
+            .finish()
+    }
 }
 
 /// State tracking for cooperative kernels
@@ -163,7 +179,7 @@ pub struct KernelPerformanceMetrics {
 }
 
 /// Performance statistics for cooperative groups
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct CooperativeGroupsStats {
     /// Total kernels launched
     pub total_kernels_launched: u64,
@@ -182,7 +198,7 @@ pub struct CooperativeGroupsStats {
 }
 
 /// Memory efficiency statistics
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct MemoryEfficiencyStats {
     /// Average memory bandwidth utilization
     pub avg_bandwidth_utilization: f32,
@@ -289,24 +305,27 @@ impl CooperativeGroupsContext {
     /// Validate cooperative kernel configuration
     pub fn validate_config(&self, config: &CooperativeKernelConfig) -> BackendResult<()> {
         if !self.capabilities.supported {
-            return Err(BackendError::UnsupportedOperation(
-                "Cooperative groups not supported on this device".to_string(),
-            ));
+            return Err(BackendError::UnsupportedOperation {
+                op: "cooperative_groups".to_string(),
+                dtype: "device_not_supported".to_string(),
+            });
         }
 
         // Check if grid cooperation is supported
         if config.grid_cooperation && !self.capabilities.grid_sync_supported {
-            return Err(BackendError::UnsupportedOperation(
-                "Grid-wide cooperation not supported on this device".to_string(),
-            ));
+            return Err(BackendError::UnsupportedOperation {
+                op: "grid_cooperation".to_string(),
+                dtype: "device_not_supported".to_string(),
+            });
         }
 
         // Check cluster dimensions
         if let Some(cluster_dim) = &config.cluster_dim {
             if !self.capabilities.cluster_groups_supported {
-                return Err(BackendError::UnsupportedOperation(
-                    "Cluster groups not supported on this device".to_string(),
-                ));
+                return Err(BackendError::UnsupportedOperation {
+                    op: "cluster_groups".to_string(),
+                    dtype: "device_not_supported".to_string(),
+                });
             }
 
             let cluster_size = cluster_dim.0 * cluster_dim.1 * cluster_dim.2;
@@ -340,16 +359,18 @@ impl CooperativeGroupsContext {
         match desc.group_type {
             CooperativeGroupType::Grid => {
                 if !self.capabilities.grid_sync_supported {
-                    return Err(BackendError::UnsupportedOperation(
-                        "Grid groups not supported on this device".to_string(),
-                    ));
+                    return Err(BackendError::UnsupportedOperation {
+                        op: "grid_groups".to_string(),
+                        dtype: "device_not_supported".to_string(),
+                    });
                 }
             }
             CooperativeGroupType::Cluster => {
                 if !self.capabilities.cluster_groups_supported {
-                    return Err(BackendError::UnsupportedOperation(
-                        "Cluster groups not supported on this device".to_string(),
-                    ));
+                    return Err(BackendError::UnsupportedOperation {
+                        op: "cluster_groups".to_string(),
+                        dtype: "device_not_supported".to_string(),
+                    });
                 }
             }
             CooperativeGroupType::CoalescedThreads => {
@@ -366,9 +387,10 @@ impl CooperativeGroupsContext {
         if desc.sync_requirements.memory_scope == MemoryScope::System
             && !self.capabilities.device_barriers_supported
         {
-            return Err(BackendError::UnsupportedOperation(
-                "System-wide memory scope not supported on this device".to_string(),
-            ));
+            return Err(BackendError::UnsupportedOperation {
+                op: "system_memory_scope".to_string(),
+                dtype: "device_not_supported".to_string(),
+            });
         }
 
         Ok(())
@@ -388,7 +410,10 @@ impl CooperativeGroupsContext {
 
         // Generate kernel ID
         let kernel_id = {
-            let mut next_id = self.next_kernel_id.lock().unwrap();
+            let mut next_id = self
+                .next_kernel_id
+                .lock()
+                .expect("lock should not be poisoned");
             let id = *next_id;
             *next_id += 1;
             id
@@ -414,13 +439,19 @@ impl CooperativeGroupsContext {
                 };
 
                 {
-                    let mut active_kernels = self.active_kernels.lock().unwrap();
+                    let mut active_kernels = self
+                        .active_kernels
+                        .lock()
+                        .expect("lock should not be poisoned");
                     active_kernels.insert(kernel_id, kernel_state);
                 }
 
                 // Update statistics
                 {
-                    let mut stats = self.performance_stats.lock().unwrap();
+                    let mut stats = self
+                        .performance_stats
+                        .lock()
+                        .expect("lock should not be poisoned");
                     stats.total_kernels_launched += 1;
                     if config.grid_cooperation {
                         stats.grid_cooperative_kernels += 1;
@@ -445,31 +476,32 @@ impl CooperativeGroupsContext {
     ) -> BackendResult<()> {
         use cust::sys as cuda_sys;
 
-        // Prepare launch parameters
-        let mut launch_params = cuda_sys::CUDA_LAUNCH_PARAMS {
-            function: kernel_func as *mut c_void,
-            gridDimX: config.grid_dim.0,
-            gridDimY: config.grid_dim.1,
-            gridDimZ: config.grid_dim.2,
-            blockDimX: config.block_dim.0,
-            blockDimY: config.block_dim.1,
-            blockDimZ: config.block_dim.2,
-            sharedMemBytes: config.shared_memory_size,
-            hStream: config
-                .stream
-                .as_ref()
-                .map(|s| s.as_inner() as *mut c_void)
-                .unwrap_or(std::ptr::null_mut()),
-            kernelParams: kernel_params.as_ptr() as *mut *mut c_void,
-        };
+        // Get stream handle
+        let stream_handle = config
+            .stream
+            .as_ref()
+            .map(|s| s.as_inner() as cuda_sys::CUstream)
+            .unwrap_or(std::ptr::null_mut());
 
-        // Launch cooperative kernel
-        let result = cuda_sys::cuLaunchCooperativeKernel(&mut launch_params as *mut _);
+        // Launch cooperative kernel with individual arguments
+        let result = cuda_sys::cuLaunchCooperativeKernel(
+            kernel_func as cuda_sys::CUfunction,
+            config.grid_dim.0,
+            config.grid_dim.1,
+            config.grid_dim.2,
+            config.block_dim.0,
+            config.block_dim.1,
+            config.block_dim.2,
+            config.shared_memory_size as u32,
+            stream_handle,
+            kernel_params.as_ptr() as *mut *mut c_void,
+        );
 
-        if result != cuda_sys::CUDA_SUCCESS {
-            return Err(BackendError::ComputeError {
-                reason: format!("Failed to launch cooperative kernel: {:?}", result),
-            });
+        if result != cuda_sys::cudaError_enum::CUDA_SUCCESS {
+            return Err(BackendError::ComputeError(format!(
+                "Failed to launch cooperative kernel: {:?}",
+                result
+            )));
         }
 
         Ok(())
@@ -486,7 +518,7 @@ impl CooperativeGroupsContext {
 
         // For regular kernels, use standard launch
         let result = cuda_sys::cuLaunchKernel(
-            kernel_func as *mut c_void,
+            kernel_func as cuda_sys::CUfunction,
             config.grid_dim.0,
             config.grid_dim.1,
             config.grid_dim.2,
@@ -497,16 +529,17 @@ impl CooperativeGroupsContext {
             config
                 .stream
                 .as_ref()
-                .map(|s| s.as_inner() as *mut c_void)
+                .map(|s| s.as_inner() as cuda_sys::CUstream)
                 .unwrap_or(std::ptr::null_mut()),
             kernel_params.as_ptr() as *mut *mut c_void,
             std::ptr::null_mut(),
         );
 
-        if result != cuda_sys::CUDA_SUCCESS {
-            return Err(BackendError::ComputeError {
-                reason: format!("Failed to launch kernel: {:?}", result),
-            });
+        if result != cuda_sys::cudaError_enum::CUDA_SUCCESS {
+            return Err(BackendError::ComputeError(format!(
+                "Failed to launch kernel: {:?}",
+                result
+            )));
         }
 
         Ok(())
@@ -518,7 +551,10 @@ impl CooperativeGroupsContext {
         kernel_id: u64,
         sync_type: SynchronizationType,
     ) -> BackendResult<()> {
-        let mut active_kernels = self.active_kernels.lock().unwrap();
+        let mut active_kernels = self
+            .active_kernels
+            .lock()
+            .expect("lock should not be poisoned");
 
         if let Some(kernel_state) = active_kernels.get_mut(&kernel_id) {
             kernel_state.sync_events += 1;
@@ -538,7 +574,10 @@ impl CooperativeGroupsContext {
 
     /// Finish kernel execution and collect performance metrics
     pub fn finish_kernel(&self, kernel_id: u64) -> BackendResult<KernelPerformanceMetrics> {
-        let mut active_kernels = self.active_kernels.lock().unwrap();
+        let mut active_kernels = self
+            .active_kernels
+            .lock()
+            .expect("lock should not be poisoned");
 
         if let Some(kernel_state) = active_kernels.remove(&kernel_id) {
             let execution_time = kernel_state.launched_at.elapsed();
@@ -555,7 +594,10 @@ impl CooperativeGroupsContext {
 
             // Update global statistics
             {
-                let mut stats = self.performance_stats.lock().unwrap();
+                let mut stats = self
+                    .performance_stats
+                    .lock()
+                    .expect("lock should not be poisoned");
                 stats.total_sync_events += kernel_state.sync_events as u64;
 
                 // Update averages
@@ -581,12 +623,19 @@ impl CooperativeGroupsContext {
 
     /// Get performance statistics
     pub fn performance_stats(&self) -> CooperativeGroupsStats {
-        self.performance_stats.lock().unwrap().clone()
+        (*self
+            .performance_stats
+            .lock()
+            .expect("lock should not be poisoned"))
+        .clone()
     }
 
     /// Clear performance statistics
     pub fn clear_stats(&self) {
-        let mut stats = self.performance_stats.lock().unwrap();
+        let mut stats = self
+            .performance_stats
+            .lock()
+            .expect("lock should not be poisoned");
         *stats = CooperativeGroupsStats::default();
     }
 
@@ -596,9 +645,10 @@ impl CooperativeGroupsContext {
         workload: &CooperativeWorkload,
     ) -> BackendResult<CooperativeKernelConfig> {
         if !self.capabilities.supported {
-            return Err(BackendError::UnsupportedOperation(
-                "Cooperative groups not supported".to_string(),
-            ));
+            return Err(BackendError::UnsupportedOperation {
+                op: "cooperative_groups".to_string(),
+                dtype: "not_supported".to_string(),
+            });
         }
 
         let mut config = CooperativeKernelConfig {

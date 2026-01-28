@@ -59,7 +59,7 @@ impl PrefetchScheduler {
         };
 
         {
-            let mut queue = self.prefetch_queue.lock().unwrap();
+            let mut queue = self.prefetch_queue.lock().expect("lock should not be poisoned");
 
             // Insert based on priority (higher priority first)
             let insert_pos = queue.iter().position(|req| req.priority < priority)
@@ -82,10 +82,10 @@ impl PrefetchScheduler {
 
         // Collect requests that need processing
         {
-            let mut queue = self.prefetch_queue.lock().unwrap();
+            let mut queue = self.prefetch_queue.lock().expect("lock should not be poisoned");
             let max_concurrent = self.config.prefetch_buffer_size.min(4); // Limit concurrent tasks
 
-            let active_count = self.active_prefetch_tasks.lock().unwrap().len();
+            let active_count = self.active_prefetch_tasks.lock().expect("lock should not be poisoned").len();
             let can_process = max_concurrent.saturating_sub(active_count);
 
             for _ in 0..can_process {
@@ -113,7 +113,7 @@ impl PrefetchScheduler {
 
         // Record start time in performance metrics
         {
-            let mut metrics = self.performance_metrics.lock().unwrap();
+            let mut metrics = self.performance_metrics.lock().expect("lock should not be poisoned");
             metrics.prefetch_started(&layer_name, start_time);
         }
 
@@ -128,7 +128,7 @@ impl PrefetchScheduler {
 
         // Store the task handle
         {
-            let mut active_tasks = self.active_prefetch_tasks.lock().unwrap();
+            let mut active_tasks = self.active_prefetch_tasks.lock().expect("lock should not be poisoned");
             active_tasks.insert(layer_name.clone(), task);
         }
 
@@ -144,7 +144,7 @@ impl PrefetchScheduler {
 
         // Check which tasks are completed
         {
-            let mut active_tasks = self.active_prefetch_tasks.lock().unwrap();
+            let mut active_tasks = self.active_prefetch_tasks.lock().expect("lock should not be poisoned");
             let mut to_remove = Vec::new();
 
             for (layer_name, task) in active_tasks.iter() {
@@ -165,11 +165,11 @@ impl PrefetchScheduler {
             let end_time = Instant::now();
             match task.await {
                 Ok(Ok(())) => {
-                    let mut metrics = self.performance_metrics.lock().unwrap();
+                    let mut metrics = self.performance_metrics.lock().expect("lock should not be poisoned");
                     metrics.prefetch_completed(&layer_name, end_time, true);
                 }
                 Ok(Err(_)) | Err(_) => {
-                    let mut metrics = self.performance_metrics.lock().unwrap();
+                    let mut metrics = self.performance_metrics.lock().expect("lock should not be poisoned");
                     metrics.prefetch_completed(&layer_name, end_time, false);
                 }
             }
@@ -220,7 +220,7 @@ impl PrefetchScheduler {
             let layer_name_clone = layer_name.clone();
 
             let task = tokio::spawn(async move {
-                let _permit = sem.acquire().await.unwrap();
+                let _permit = sem.acquire().await.expect("semaphore should not be closed");
                 Self::prefetch_layer_data(&layer_name_clone, process_group).await
             });
 
@@ -331,14 +331,14 @@ impl PrefetchScheduler {
 
     /// Update execution history for a layer
     async fn update_execution_history(&self, layer_name: &str) {
-        let mut history = self.execution_history.lock().unwrap();
+        let mut history = self.execution_history.lock().expect("lock should not be poisoned");
         let entry = history.entry(layer_name.to_string()).or_insert_with(ExecutionHistory::new);
         entry.record_execution(Instant::now());
     }
 
     /// Calculate priority for a layer based on historical patterns
     async fn calculate_layer_priority(&self, layer_name: &str, distance: usize) -> PrefetchPriority {
-        let history = self.execution_history.lock().unwrap();
+        let history = self.execution_history.lock().expect("lock should not be poisoned");
 
         if let Some(layer_history) = history.get(layer_name) {
             // Higher priority for frequently accessed layers
@@ -378,7 +378,7 @@ impl PrefetchScheduler {
         let base_distance = self.config.prefetch_buffer_size / 4; // Conservative estimate
 
         // Adjust based on performance history
-        let metrics = self.performance_metrics.lock().unwrap();
+        let metrics = self.performance_metrics.lock().expect("lock should not be poisoned");
         let success_rate = metrics.overall_success_rate();
 
         let adjusted_distance = if success_rate > 0.9 {
@@ -398,7 +398,7 @@ impl PrefetchScheduler {
     pub async fn cancel_prefetch(&self, layer_name: &str) -> TorshResult<bool> {
         // Remove from queue if not yet started
         {
-            let mut queue = self.prefetch_queue.lock().unwrap();
+            let mut queue = self.prefetch_queue.lock().expect("lock should not be poisoned");
             if let Some(pos) = queue.iter().position(|req| req.layer_name == layer_name) {
                 queue.remove(pos);
                 info!("   ❌ Cancelled queued prefetch for layer: {}", layer_name);
@@ -408,7 +408,7 @@ impl PrefetchScheduler {
 
         // Cancel active task if running
         {
-            let mut active_tasks = self.active_prefetch_tasks.lock().unwrap();
+            let mut active_tasks = self.active_prefetch_tasks.lock().expect("lock should not be poisoned");
             if let Some(task) = active_tasks.remove(layer_name) {
                 task.abort();
                 info!("   ❌ Cancelled active prefetch for layer: {}", layer_name);
@@ -421,10 +421,10 @@ impl PrefetchScheduler {
 
     /// Get prefetch scheduler statistics
     pub fn get_statistics(&self) -> PrefetchSchedulerStats {
-        let queue_length = self.prefetch_queue.lock().unwrap().len();
-        let active_tasks = self.active_prefetch_tasks.lock().unwrap().len();
-        let metrics = self.performance_metrics.lock().unwrap().clone();
-        let history_entries = self.execution_history.lock().unwrap().len();
+        let queue_length = self.prefetch_queue.lock().expect("lock should not be poisoned").len();
+        let active_tasks = self.active_prefetch_tasks.lock().expect("lock should not be poisoned").len();
+        let metrics = self.performance_metrics.lock().expect("lock should not be poisoned").clone();
+        let history_entries = self.execution_history.lock().expect("lock should not be poisoned").len();
 
         PrefetchSchedulerStats {
             queue_length,
@@ -441,13 +441,13 @@ impl PrefetchScheduler {
     pub async fn clear_all(&self) -> TorshResult<()> {
         // Clear queue
         {
-            let mut queue = self.prefetch_queue.lock().unwrap();
+            let mut queue = self.prefetch_queue.lock().expect("lock should not be poisoned");
             queue.clear();
         }
 
         // Cancel all active tasks
         let active_tasks: Vec<_> = {
-            let mut tasks = self.active_prefetch_tasks.lock().unwrap();
+            let mut tasks = self.active_prefetch_tasks.lock().expect("lock should not be poisoned");
             tasks.drain().collect()
         };
 
@@ -512,8 +512,8 @@ impl ExecutionHistory {
             return 0.0;
         }
 
-        let time_span = self.access_times.back().unwrap()
-            .duration_since(*self.access_times.front().unwrap());
+        let time_span = self.access_times.back().expect("access_times should have at least 2 elements")
+            .duration_since(*self.access_times.front().expect("access_times should have at least 2 elements"));
 
         if time_span.is_zero() {
             return 1.0;

@@ -15,7 +15,8 @@ use crate::cuda::memory::allocation::{
 };
 use crate::cuda::memory::device_memory::CudaMemoryManager as DeviceMemoryManager;
 use crate::cuda::memory::memory_pools::UnifiedMemoryPoolManager;
-use crate::cuda::memory::optimization::{
+// Use placeholder types (optimization module disabled)
+use super::{
     CudaMemoryOptimizationEngine, MLOptimizationConfig, OptimizationResult, OptimizationStrategy,
 };
 use crate::cuda::memory::pinned_memory::PinnedMemoryManager;
@@ -307,14 +308,20 @@ impl Default for MemoryPressureThresholds {
 impl CudaMemoryManagerCoordinator {
     /// Create a new memory manager coordinator
     pub fn new(config: CudaMemoryManagerConfig) -> Result<Self, String> {
-        let statistics_manager = Arc::new(CudaMemoryStatisticsManager::new()?);
+        let statistics_manager = Arc::new(CudaMemoryStatisticsManager::new(
+            crate::cuda::memory::statistics::StatisticsConfig::default()
+        ));
         let optimization_engine = Arc::new(CudaMemoryOptimizationEngine::new(
             config.optimization_config.clone(),
-        )?);
+        ));
 
-        let unified_manager = Arc::new(UnifiedMemoryManager::new()?);
-        let pinned_manager = Arc::new(PinnedMemoryManager::new()?);
-        let pool_manager = Arc::new(UnifiedMemoryPoolManager::new()?);
+        let unified_manager = Arc::new(UnifiedMemoryManager::new());
+        let pinned_manager = Arc::new(PinnedMemoryManager::new(
+            crate::cuda::memory::pinned_memory::PinnedMemoryConfig::default()
+        )?);
+        let pool_manager = Arc::new(UnifiedMemoryPoolManager::new(
+            crate::cuda::memory::memory_pools::PoolManagerConfig::default()
+        ));
 
         let coordinator = Self {
             config,
@@ -642,7 +649,7 @@ impl CudaMemoryManagerCoordinator {
                     return Err("No devices available".to_string());
                 }
 
-                let mut best_device = *device_managers.keys().next().unwrap();
+                let mut best_device = *device_managers.keys().next().expect("device_managers should not be empty after is_empty check");
                 let mut max_free = 0;
 
                 for (&device_id, manager) in device_managers.iter() {

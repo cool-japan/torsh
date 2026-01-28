@@ -133,7 +133,10 @@ impl PerformanceTestSuite {
                 let metrics = self
                     .benchmark_all_reduce_single(world_size, tensor_shape)
                     .await?;
-                self.results.lock().unwrap().push(metrics);
+                self.results
+                    .lock()
+                    .expect("lock should not be poisoned")
+                    .push(metrics);
             }
         }
         Ok(())
@@ -204,7 +207,10 @@ impl PerformanceTestSuite {
                 let metrics = self
                     .benchmark_operation_scaling(op_name, op_type, world_size)
                     .await?;
-                self.results.lock().unwrap().push(metrics);
+                self.results
+                    .lock()
+                    .expect("lock should not be poisoned")
+                    .push(metrics);
             }
         }
 
@@ -277,7 +283,10 @@ impl PerformanceTestSuite {
                 let metrics = self
                     .benchmark_compression_single(method.clone(), tensor_shape)
                     .await?;
-                self.results.lock().unwrap().push(metrics);
+                self.results
+                    .lock()
+                    .expect("lock should not be poisoned")
+                    .push(metrics);
             }
         }
 
@@ -341,7 +350,10 @@ impl PerformanceTestSuite {
 
         for strategy in strategies {
             let metrics = self.benchmark_scheduler_single(strategy).await?;
-            self.results.lock().unwrap().push(metrics);
+            self.results
+                .lock()
+                .expect("lock should not be poisoned")
+                .push(metrics);
         }
 
         Ok(())
@@ -418,7 +430,10 @@ impl PerformanceTestSuite {
 
     /// Get all performance results
     pub fn get_results(&self) -> Vec<PerformanceMetrics> {
-        self.results.lock().unwrap().clone()
+        self.results
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Print performance summary

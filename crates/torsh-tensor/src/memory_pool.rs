@@ -12,10 +12,6 @@ use torsh_core::{device::DeviceType, dtype::TensorElement, error::Result};
 use scirs2_core::memory::GlobalBufferPool;
 use scirs2_core::memory::LeakDetector;
 // ✅ SciRS2 memory_efficient features - conditionally available
-#[cfg(feature = "memory_efficient")]
-use scirs2_core::memory_efficient::{};
-#[cfg(feature = "memory_efficient")]
-use scirs2_core::memory_efficient::{};
 
 // Fallback for when memory_efficient feature is not available
 #[cfg(not(feature = "memory_efficient"))]
@@ -492,7 +488,7 @@ impl<T: TensorElement> Tensor<T> {
         T: Clone + Default,
     {
         let binding = get_memory_pool();
-        let mut pool = binding.lock().unwrap();
+        let mut pool = binding.lock().expect("lock should not be poisoned");
         pool.create_large_tensor::<T>(shape, device)
     }
 
@@ -502,7 +498,7 @@ impl<T: TensorElement> Tensor<T> {
         T: Clone + Default,
     {
         let binding = get_memory_pool();
-        let mut pool = binding.lock().unwrap();
+        let mut pool = binding.lock().expect("lock should not be poisoned");
         pool.create_lazy_tensor::<T>(shape, device)
     }
 
@@ -511,7 +507,7 @@ impl<T: TensorElement> Tensor<T> {
     // where
     //     T: Clone,
     // {
-    //     let pool = get_memory_pool().lock().unwrap();
+    //     let pool = get_memory_pool().lock().expect("lock should not be poisoned");
     //     pool.create_zero_copy_view(self, offset, new_shape)
     // }
 
@@ -677,14 +673,14 @@ impl<T: TensorElement + Copy + Default> PooledTensor<T> {
         // Allocate from pool
         let pool = get_memory_pool();
         let data = {
-            let mut pool_guard = pool.lock().unwrap();
+            let mut pool_guard = pool.lock().expect("lock should not be poisoned");
             pool_guard.allocate::<T>(numel)
         };
 
         let tensor = Tensor::from_data(data, shape.to_vec(), device)?;
         let type_id = std::any::TypeId::of::<T>();
         let size_class = {
-            let pool_guard = pool.lock().unwrap();
+            let pool_guard = pool.lock().expect("lock should not be poisoned");
             pool_guard.find_size_class(numel * std::mem::size_of::<T>())
         };
 
@@ -741,7 +737,7 @@ impl<T: TensorElement + std::default::Default> Drop for PooledTensor<T> {
             // Try to return memory to pool
             if let Ok(data) = self.tensor.to_vec() {
                 let pool = get_memory_pool();
-                let mut pool_guard = pool.lock().unwrap();
+                let mut pool_guard = pool.lock().expect("lock should not be poisoned");
                 pool_guard.deallocate(data);
             }
         }
@@ -764,20 +760,30 @@ impl<T: TensorElement + Copy + Default> Tensor<T> {
 /// Global functions for pool management
 pub fn clear_memory_pool() {
     if let Some(pool) = MEMORY_POOL.get() {
-        pool.lock().unwrap().clear();
+        pool.lock().expect("lock should not be poisoned").clear();
     }
 }
 
 pub fn get_pool_statistics() -> PoolStatistics {
-    get_memory_pool().lock().unwrap().get_statistics().clone()
+    get_memory_pool()
+        .lock()
+        .expect("lock should not be poisoned")
+        .get_statistics()
+        .clone()
 }
 
 pub fn get_pool_hit_rate() -> f64 {
-    get_memory_pool().lock().unwrap().hit_rate()
+    get_memory_pool()
+        .lock()
+        .expect("lock should not be poisoned")
+        .hit_rate()
 }
 
 pub fn cleanup_memory_pool() {
-    get_memory_pool().lock().unwrap().cleanup();
+    get_memory_pool()
+        .lock()
+        .expect("lock should not be poisoned")
+        .cleanup();
 }
 
 #[cfg(test)]

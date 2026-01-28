@@ -350,7 +350,7 @@ impl AggregationEngine {
         };
 
         // Update metrics
-        let mut metrics = self.metrics.lock().unwrap();
+        let mut metrics = self.metrics.lock().expect("lock should not be poisoned");
         metrics.total_aggregations += 1;
         metrics.total_aggregation_time += start_time.elapsed();
         metrics.average_worker_count = (metrics.average_worker_count
@@ -402,7 +402,7 @@ impl AggregationEngine {
             let quality_score = self.compute_gradient_quality(&gradient);
 
             if quality_score < self.quality_threshold {
-                let mut metrics = self.metrics.lock().unwrap();
+                let mut metrics = self.metrics.lock().expect("lock should not be poisoned");
                 metrics.quality_rejections += 1;
                 continue;
             }
@@ -413,7 +413,7 @@ impl AggregationEngine {
                 let staleness = Duration::from_millis(idx as u64 * 100);
 
                 if staleness > self.max_staleness {
-                    let mut metrics = self.metrics.lock().unwrap();
+                    let mut metrics = self.metrics.lock().expect("lock should not be poisoned");
                     metrics.staleness_adjustments += 1;
                     continue;
                 }
@@ -469,7 +469,7 @@ impl AggregationEngine {
         // Check if Byzantine threshold is exceeded
         let byzantine_ratio = byzantine_count as f64 / (filtered.len() + byzantine_count) as f64;
         if byzantine_ratio > self.byzantine_threshold {
-            let mut metrics = self.metrics.lock().unwrap();
+            let mut metrics = self.metrics.lock().expect("lock should not be poisoned");
             metrics.byzantine_faults_detected += 1;
             return Err(AggregationError::ByzantineFaultDetected);
         }
@@ -720,7 +720,10 @@ impl AggregationEngine {
     /// * `worker_id` - ID of the worker
     /// * `quality_score` - Quality score of the gradient from this worker
     pub fn update_worker_contribution(&mut self, worker_id: u32, quality_score: f64) {
-        let mut contributions = self.worker_contributions.lock().unwrap();
+        let mut contributions = self
+            .worker_contributions
+            .lock()
+            .expect("lock should not be poisoned");
         let contribution = contributions
             .entry(worker_id)
             .or_insert_with(|| WorkerContribution {
@@ -740,7 +743,10 @@ impl AggregationEngine {
         contribution.last_seen = Instant::now();
 
         // Update quality weights
-        let mut quality_weights = self.quality_weights.lock().unwrap();
+        let mut quality_weights = self
+            .quality_weights
+            .lock()
+            .expect("lock should not be poisoned");
         quality_weights.insert(worker_id, contribution.quality_score);
     }
 
@@ -750,12 +756,15 @@ impl AggregationEngine {
     ///
     /// A clone of the current aggregation metrics.
     pub fn get_metrics(&self) -> AggregationMetrics {
-        self.metrics.lock().unwrap().clone()
+        self.metrics
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Resets aggregation metrics.
     pub fn reset_metrics(&mut self) {
-        let mut metrics = self.metrics.lock().unwrap();
+        let mut metrics = self.metrics.lock().expect("lock should not be poisoned");
         *metrics = AggregationMetrics::default();
     }
 
@@ -765,7 +774,10 @@ impl AggregationEngine {
     ///
     /// A clone of the current worker contributions map.
     pub fn get_worker_contributions(&self) -> HashMap<u32, WorkerContribution> {
-        self.worker_contributions.lock().unwrap().clone()
+        self.worker_contributions
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 }
 

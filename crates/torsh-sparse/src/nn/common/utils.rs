@@ -242,7 +242,10 @@ impl SparseWeightGenerator {
         }
 
         // Sort by magnitude (descending)
-        weight_positions.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+        weight_positions.sort_by(|a, b| {
+            b.0.partial_cmp(&a.0)
+                .expect("f32 comparison should succeed")
+        });
 
         // Keep only the largest magnitude weights
         let mut row_indices = Vec::new();

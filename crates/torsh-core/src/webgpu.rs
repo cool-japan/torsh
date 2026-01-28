@@ -506,7 +506,11 @@ impl PipelineCache {
             self.cache.remove(0);
         }
 
-        &self.cache.last().unwrap().1
+        &self
+            .cache
+            .last()
+            .expect("cache should have at least one entry after push")
+            .1
     }
 
     /// Simple hash function for shader source

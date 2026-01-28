@@ -11,6 +11,8 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant, SystemTime};
 
 use super::config::ProfilingConfig;
+use crate::cuda::memory::optimization::config::{AnalysisConfig, MetricsConfig};
+use crate::cuda::memory::optimization::monitoring::{AlertSystemConfig, DashboardConfig};
 
 /// Task execution status for monitoring
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -710,25 +712,25 @@ impl PerformanceMonitoringManager {
     pub fn start_monitoring(&self) -> Result<(), PerformanceMonitoringError> {
         // Start metrics collection
         {
-            let mut collector = self.metrics_collector.lock().unwrap();
+            let mut collector = self.metrics_collector.lock().expect("lock should not be poisoned");
             collector.start_collection()?;
         }
 
         // Start bottleneck detection
         {
-            let mut detector = self.bottleneck_detector.lock().unwrap();
+            let mut detector = self.bottleneck_detector.lock().expect("lock should not be poisoned");
             detector.start_detection()?;
         }
 
         // Start resource monitoring
         {
-            let mut monitor = self.resource_monitor.lock().unwrap();
+            let mut monitor = self.resource_monitor.lock().expect("lock should not be poisoned");
             monitor.start_monitoring()?;
         }
 
         // Update statistics
         {
-            let mut stats = self.statistics.lock().unwrap();
+            let mut stats = self.statistics.lock().expect("lock should not be poisoned");
             stats.monitoring_started_at = Some(SystemTime::now());
             stats.monitoring_sessions += 1;
         }
@@ -738,13 +740,13 @@ impl PerformanceMonitoringManager {
 
     /// Collect current performance metrics
     pub fn collect_metrics(&self) -> Result<Vec<MetricDataPoint>, PerformanceMonitoringError> {
-        let collector = self.metrics_collector.lock().unwrap();
+        let collector = self.metrics_collector.lock().expect("lock should not be poisoned");
         collector.collect_current_metrics()
     }
 
     /// Detect performance bottlenecks
     pub fn detect_bottlenecks(&self) -> Result<Vec<BottleneckRecord>, PerformanceMonitoringError> {
-        let mut detector = self.bottleneck_detector.lock().unwrap();
+        let mut detector = self.bottleneck_detector.lock().expect("lock should not be poisoned");
         detector.analyze_and_detect()
     }
 
@@ -752,7 +754,7 @@ impl PerformanceMonitoringManager {
     pub fn get_optimization_recommendations(
         &self,
     ) -> Result<Vec<OptimizationRecommendation>, PerformanceMonitoringError> {
-        let mut recommender = self.optimization_recommender.lock().unwrap();
+        let mut recommender = self.optimization_recommender.lock().expect("lock should not be poisoned");
         recommender.generate_recommendations()
     }
 
@@ -762,12 +764,12 @@ impl PerformanceMonitoringManager {
         session_type: ProfilingSessionType,
         components: Vec<String>,
     ) -> Result<String, PerformanceMonitoringError> {
-        let mut profiler = self.profiler.lock().unwrap();
+        let mut profiler = self.profiler.lock().expect("lock should not be poisoned");
         let session_id = profiler.start_session(session_type, components)?;
 
         // Update statistics
         {
-            let mut stats = self.statistics.lock().unwrap();
+            let mut stats = self.statistics.lock().expect("lock should not be poisoned");
             stats.profiling_sessions_started += 1;
         }
 
@@ -776,13 +778,13 @@ impl PerformanceMonitoringManager {
 
     /// Get system performance status
     pub fn get_performance_status(&self) -> SystemPerformanceStatus {
-        let state = self.system_performance_state.read().unwrap();
+        let state = self.system_performance_state.read().expect("lock should not be poisoned");
         state.get_current_status()
     }
 
     /// Get performance statistics
     pub fn get_performance_statistics(&self) -> PerformanceStatistics {
-        let stats = self.statistics.lock().unwrap();
+        let stats = self.statistics.lock().expect("lock should not be poisoned");
         stats.clone()
     }
 
@@ -792,7 +794,7 @@ impl PerformanceMonitoringManager {
         chart_type: ChartType,
         time_range: Duration,
     ) -> Result<DashboardData, PerformanceMonitoringError> {
-        let provider = self.dashboard_provider.lock().unwrap();
+        let provider = self.dashboard_provider.lock().expect("lock should not be poisoned");
         provider.generate_dashboard_data(chart_type, time_range)
     }
 }
@@ -987,7 +989,7 @@ pub enum PerformanceMonitoringError {
 
 macro_rules! default_placeholder_type {
     ($name:ident) => {
-        #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+        #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
         pub struct $name {
             pub placeholder: bool,
         }

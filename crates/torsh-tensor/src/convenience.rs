@@ -173,7 +173,9 @@ impl<T: TensorElement + Copy + torsh_core::FloatElement> TensorConvenience<T> fo
         if self.numel() != 1 {
             panic!("Can only call item() on tensors with one element");
         }
-        let data = self.to_vec().unwrap();
+        let data = self
+            .to_vec()
+            .expect("tensor to vec conversion should succeed");
         data[0]
     }
 

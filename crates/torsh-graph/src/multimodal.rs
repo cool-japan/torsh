@@ -205,17 +205,33 @@ impl CrossModalGraphAttention {
             let input_dim = modality_dims.get(modality).copied().unwrap_or(feature_dim);
             modality_projections.insert(
                 *modality,
-                Parameter::new(randn(&[input_dim, feature_dim]).unwrap()),
+                Parameter::new(
+                    randn(&[input_dim, feature_dim])
+                        .expect("failed to create modality projection tensor"),
+                ),
             );
         }
 
-        let query_weights = Parameter::new(randn(&[feature_dim, attention_dim]).unwrap());
-        let key_weights = Parameter::new(randn(&[feature_dim, attention_dim]).unwrap());
-        let value_weights = Parameter::new(randn(&[feature_dim, attention_dim]).unwrap());
-        let output_projection = Parameter::new(randn(&[attention_dim, feature_dim]).unwrap());
+        let query_weights = Parameter::new(
+            randn(&[feature_dim, attention_dim]).expect("failed to create query_weights tensor"),
+        );
+        let key_weights = Parameter::new(
+            randn(&[feature_dim, attention_dim]).expect("failed to create key_weights tensor"),
+        );
+        let value_weights = Parameter::new(
+            randn(&[feature_dim, attention_dim]).expect("failed to create value_weights tensor"),
+        );
+        let output_projection = Parameter::new(
+            randn(&[attention_dim, feature_dim])
+                .expect("failed to create output_projection tensor"),
+        );
 
-        let layer_norm_weight = Parameter::new(ones(&[feature_dim]).unwrap());
-        let layer_norm_bias = Parameter::new(zeros::<f32>(&[feature_dim]).unwrap());
+        let layer_norm_weight = Parameter::new(
+            ones(&[feature_dim]).expect("failed to create layer_norm_weight tensor"),
+        );
+        let layer_norm_bias = Parameter::new(
+            zeros::<f32>(&[feature_dim]).expect("failed to create layer_norm_bias tensor"),
+        );
 
         Self {
             modalities,
@@ -269,16 +285,18 @@ impl CrossModalGraphAttention {
 
         for &(node_id, features) in modality_data {
             if node_id < num_nodes {
-                let feature_data = features.to_vec().unwrap();
+                let feature_data = features.to_vec().expect("conversion should succeed");
                 let input_tensor = from_vec(
                     feature_data,
                     &[1, features.shape().dims().iter().product::<usize>()],
                     torsh_core::device::DeviceType::Cpu,
                 )
-                .unwrap();
+                .expect("input tensor creation should succeed");
 
-                let projected = input_tensor.matmul(&projection.clone_data()).unwrap();
-                let projected_data_vec = projected.to_vec().unwrap();
+                let projected = input_tensor
+                    .matmul(&projection.clone_data())
+                    .expect("operation should succeed");
+                let projected_data_vec = projected.to_vec().expect("conversion should succeed");
 
                 for (i, &val) in projected_data_vec.iter().enumerate() {
                     if i < self.feature_dim {
@@ -293,57 +311,71 @@ impl CrossModalGraphAttention {
             &[num_nodes, self.feature_dim],
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap()
+        .expect("projected features tensor creation should succeed")
     }
 
     /// Apply cross-modal attention mechanism
     fn apply_cross_modal_attention(&self, modality_features: &HashMap<Modality, Tensor>) -> Tensor {
         if modality_features.is_empty() {
-            return zeros::<f32>(&[1, self.feature_dim]).unwrap();
+            return zeros::<f32>(&[1, self.feature_dim])
+                .expect("empty attention features tensor creation should succeed");
         }
 
         // For simplicity, use the first modality as the base
-        let first_modality = modality_features.keys().next().unwrap();
+        let first_modality = modality_features
+            .keys()
+            .next()
+            .expect("modality_features should not be empty");
         let base_features = &modality_features[first_modality];
         let _num_nodes = base_features.shape().dims()[0];
 
         // Compute queries, keys, and values
         let queries = base_features
             .matmul(&self.query_weights.clone_data())
-            .unwrap();
+            .expect("operation should succeed");
         let _keys = base_features
             .matmul(&self.key_weights.clone_data())
-            .unwrap();
+            .expect("operation should succeed");
         let values = base_features
             .matmul(&self.value_weights.clone_data())
-            .unwrap();
+            .expect("operation should succeed");
 
         // Apply attention across all modalities
         let mut attended_values = values.clone();
 
         for (modality, features) in modality_features {
             if *modality != *first_modality {
-                let modal_keys = features.matmul(&self.key_weights.clone_data()).unwrap();
-                let modal_values = features.matmul(&self.value_weights.clone_data()).unwrap();
+                let modal_keys = features
+                    .matmul(&self.key_weights.clone_data())
+                    .expect("operation should succeed");
+                let modal_values = features
+                    .matmul(&self.value_weights.clone_data())
+                    .expect("operation should succeed");
 
                 // Simplified attention computation
-                let attention_scores = queries.matmul(&modal_keys.t().unwrap()).unwrap();
+                let attention_scores = queries
+                    .matmul(&modal_keys.t().expect("operation should succeed"))
+                    .expect("operation should succeed");
                 let attention_weights = self.softmax(&attention_scores);
-                let attended = attention_weights.matmul(&modal_values).unwrap();
+                let attended = attention_weights
+                    .matmul(&modal_values)
+                    .expect("operation should succeed");
 
-                attended_values = attended_values.add(&attended).unwrap();
+                attended_values = attended_values
+                    .add(&attended)
+                    .expect("operation should succeed");
             }
         }
 
         // Output projection
         attended_values
             .matmul(&self.output_projection.clone_data())
-            .unwrap()
+            .expect("operation should succeed")
     }
 
     /// Softmax activation
     fn softmax(&self, x: &Tensor) -> Tensor {
-        let data = x.to_vec().unwrap();
+        let data = x.to_vec().expect("conversion should succeed");
         let max_val = data.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
 
         let exp_data: Vec<f32> = data.iter().map(|&val| (val - max_val).exp()).collect();
@@ -356,12 +388,12 @@ impl CrossModalGraphAttention {
             x.shape().dims(),
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap()
+        .expect("softmax tensor creation should succeed")
     }
 
     /// Layer normalization
     fn layer_norm(&self, x: &Tensor) -> Tensor {
-        let data = x.to_vec().unwrap();
+        let data = x.to_vec().expect("conversion should succeed");
         let num_features = self.feature_dim;
         let num_samples = data.len() / num_features;
 
@@ -390,14 +422,14 @@ impl CrossModalGraphAttention {
             x.shape().dims(),
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("normalized tensor creation should succeed");
 
         // Apply learned parameters
         normalized_tensor
             .mul(&self.layer_norm_weight.clone_data())
-            .unwrap()
+            .expect("operation should succeed")
             .add(&self.layer_norm_bias.clone_data())
-            .unwrap()
+            .expect("operation should succeed")
     }
 }
 
@@ -407,7 +439,10 @@ impl GraphLayer for CrossModalGraphAttention {
         let mut mm_graph = MultiModalGraphData::new(graph.clone());
 
         for node_id in 0..graph.num_nodes {
-            let node_features = graph.x.slice_tensor(0, node_id, node_id + 1).unwrap();
+            let node_features = graph
+                .x
+                .slice_tensor(0, node_id, node_id + 1)
+                .expect("node feature slice should succeed");
             let node_data =
                 MultiModalNodeData::new(node_id).add_modality(Modality::Graph, node_features);
             mm_graph.add_node_data(node_data);
@@ -465,7 +500,9 @@ impl MultiModalFusion {
         feature_dim: usize,
     ) -> Self {
         let fusion_weights = match fusion_strategy {
-            FusionStrategy::WeightedSum => Some(Parameter::new(ones(&[modalities.len()]).unwrap())),
+            FusionStrategy::WeightedSum => Some(Parameter::new(
+                ones(&[modalities.len()]).expect("failed to create fusion_weights tensor"),
+            )),
             _ => None,
         };
 
@@ -473,7 +510,9 @@ impl MultiModalFusion {
             FusionStrategy::GatedFusion => {
                 let mut gates = Vec::new();
                 for _ in 0..modalities.len() {
-                    gates.push(Parameter::new(randn(&[feature_dim, 1]).unwrap()));
+                    gates.push(Parameter::new(
+                        randn(&[feature_dim, 1]).expect("failed to create gate tensor"),
+                    ));
                 }
                 Some(gates)
             }
@@ -506,7 +545,7 @@ impl MultiModalFusion {
 
         for &modality in &self.modalities {
             if let Some(features) = modality_features.get(&modality) {
-                concatenated_data.extend(features.to_vec().unwrap());
+                concatenated_data.extend(features.to_vec().expect("conversion should succeed"));
             } else {
                 // Pad with zeros for missing modalities
                 concatenated_data.extend(vec![0.0f32; self.feature_dim]);
@@ -524,7 +563,7 @@ impl MultiModalFusion {
             &[num_nodes, self.modalities.len() * self.feature_dim],
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap()
+        .expect("concatenated features tensor creation should succeed")
     }
 
     /// Element-wise sum of features
@@ -534,14 +573,17 @@ impl MultiModalFusion {
         for &modality in &self.modalities {
             if let Some(features) = modality_features.get(&modality) {
                 if let Some(ref sum) = sum_features {
-                    sum_features = Some(sum.add(features).unwrap());
+                    sum_features = Some(sum.add(features).expect("operation should succeed"));
                 } else {
                     sum_features = Some(features.clone());
                 }
             }
         }
 
-        sum_features.unwrap_or_else(|| zeros::<f32>(&[1, self.feature_dim]).unwrap())
+        sum_features.unwrap_or_else(|| {
+            zeros::<f32>(&[1, self.feature_dim])
+                .expect("fallback sum features tensor creation should succeed")
+        })
     }
 
     /// Weighted sum of features
@@ -549,26 +591,34 @@ impl MultiModalFusion {
         let weights = self
             .fusion_weights
             .as_ref()
-            .unwrap()
+            .expect("fusion weights should be present for weighted sum")
             .clone_data()
             .to_vec()
-            .unwrap();
+            .expect("fusion weights conversion should succeed");
         let mut weighted_sum: Option<Tensor> = None;
 
         for (i, &modality) in self.modalities.iter().enumerate() {
             if let Some(features) = modality_features.get(&modality) {
                 let weight = weights.get(i).copied().unwrap_or(1.0);
-                let weighted_features = features.mul_scalar(weight).unwrap();
+                let weighted_features = features
+                    .mul_scalar(weight)
+                    .expect("operation should succeed");
 
                 if let Some(ref sum) = weighted_sum {
-                    weighted_sum = Some(sum.add(&weighted_features).unwrap());
+                    weighted_sum = Some(
+                        sum.add(&weighted_features)
+                            .expect("operation should succeed"),
+                    );
                 } else {
                     weighted_sum = Some(weighted_features);
                 }
             }
         }
 
-        weighted_sum.unwrap_or_else(|| zeros::<f32>(&[1, self.feature_dim]).unwrap())
+        weighted_sum.unwrap_or_else(|| {
+            zeros::<f32>(&[1, self.feature_dim])
+                .expect("fallback weighted sum tensor creation should succeed")
+        })
     }
 
     /// Attention-based fusion
@@ -577,7 +627,8 @@ impl MultiModalFusion {
         let available_features: Vec<&Tensor> = modality_features.values().collect();
 
         if available_features.is_empty() {
-            return zeros::<f32>(&[1, self.feature_dim]).unwrap();
+            return zeros::<f32>(&[1, self.feature_dim])
+                .expect("empty attention fusion tensor creation should succeed");
         }
 
         // Compute attention weights based on feature norms
@@ -585,7 +636,7 @@ impl MultiModalFusion {
         let mut total_norm = 0.0;
 
         for features in &available_features {
-            let data = features.to_vec().unwrap();
+            let data = features.to_vec().expect("conversion should succeed");
             let norm: f32 = data.iter().map(|&x| x * x).sum::<f32>().sqrt();
             attention_weights.push(norm);
             total_norm += norm;
@@ -601,46 +652,59 @@ impl MultiModalFusion {
         // Apply attention weights
         let mut attended_features: Option<Tensor> = None;
         for (features, &weight) in available_features.iter().zip(attention_weights.iter()) {
-            let weighted = features.mul_scalar(weight).unwrap();
+            let weighted = features
+                .mul_scalar(weight)
+                .expect("operation should succeed");
 
             if let Some(ref sum) = attended_features {
-                attended_features = Some(sum.add(&weighted).unwrap());
+                attended_features = Some(sum.add(&weighted).expect("operation should succeed"));
             } else {
                 attended_features = Some(weighted);
             }
         }
 
-        attended_features.unwrap_or_else(|| zeros::<f32>(&[1, self.feature_dim]).unwrap())
+        attended_features.unwrap_or_else(|| {
+            zeros::<f32>(&[1, self.feature_dim])
+                .expect("fallback attended features tensor creation should succeed")
+        })
     }
 
     /// Gated fusion
     fn gated_fusion_features(&self, modality_features: &HashMap<Modality, Tensor>) -> Tensor {
-        let gates = self.gating_network.as_ref().unwrap();
+        let gates = self
+            .gating_network
+            .as_ref()
+            .expect("gating network should be present for gated fusion");
         let mut gated_sum: Option<Tensor> = None;
 
         for (i, &modality) in self.modalities.iter().enumerate() {
             if let Some(features) = modality_features.get(&modality) {
                 let gate = &gates[i];
-                let gate_values = features.matmul(&gate.clone_data()).unwrap();
+                let gate_values = features
+                    .matmul(&gate.clone_data())
+                    .expect("operation should succeed");
                 let gate_probs = self.sigmoid(&gate_values);
 
                 // Apply gating
-                let gated_features = features.mul(&gate_probs).unwrap();
+                let gated_features = features.mul(&gate_probs).expect("operation should succeed");
 
                 if let Some(ref sum) = gated_sum {
-                    gated_sum = Some(sum.add(&gated_features).unwrap());
+                    gated_sum = Some(sum.add(&gated_features).expect("operation should succeed"));
                 } else {
                     gated_sum = Some(gated_features);
                 }
             }
         }
 
-        gated_sum.unwrap_or_else(|| zeros::<f32>(&[1, self.feature_dim]).unwrap())
+        gated_sum.unwrap_or_else(|| {
+            zeros::<f32>(&[1, self.feature_dim])
+                .expect("fallback gated sum tensor creation should succeed")
+        })
     }
 
     /// Sigmoid activation
     fn sigmoid(&self, x: &Tensor) -> Tensor {
-        let data = x.to_vec().unwrap();
+        let data = x.to_vec().expect("conversion should succeed");
         let sigmoid_data: Vec<f32> = data.iter().map(|&val| 1.0 / (1.0 + (-val).exp())).collect();
 
         from_vec(
@@ -648,7 +712,7 @@ impl MultiModalFusion {
             x.shape().dims(),
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap()
+        .expect("sigmoid tensor creation should succeed")
     }
 }
 
@@ -674,7 +738,10 @@ impl MultiModalContrastiveLearning {
             let input_dim = modality_dims.get(&modality).copied().unwrap_or(128);
             modality_projectors.insert(
                 modality,
-                Parameter::new(randn(&[input_dim, projection_dim]).unwrap()),
+                Parameter::new(
+                    randn(&[input_dim, projection_dim])
+                        .expect("failed to create modality projector tensor"),
+                ),
             );
         }
 
@@ -696,17 +763,23 @@ impl MultiModalContrastiveLearning {
         // Project features to common space
         let proj1 = features1
             .matmul(&self.modality_projectors[&modality1].clone_data())
-            .unwrap();
+            .expect("operation should succeed");
         let proj2 = features2
             .matmul(&self.modality_projectors[&modality2].clone_data())
-            .unwrap();
+            .expect("operation should succeed");
 
         // Compute similarity matrix
-        let similarity = proj1.matmul(&proj2.t().unwrap()).unwrap();
-        let scaled_similarity = similarity.div_scalar(self.temperature).unwrap();
+        let similarity = proj1
+            .matmul(&proj2.t().expect("operation should succeed"))
+            .expect("operation should succeed");
+        let scaled_similarity = similarity
+            .div_scalar(self.temperature)
+            .expect("operation should succeed");
 
         // Simplified contrastive loss computation
-        let sim_data = scaled_similarity.to_vec().unwrap();
+        let sim_data = scaled_similarity
+            .to_vec()
+            .expect("conversion should succeed");
         let max_sim = sim_data.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
         let exp_sims: Vec<f32> = sim_data.iter().map(|&x| (x - max_sim).exp()).collect();
         let sum_exp: f32 = exp_sims.iter().sum();
@@ -776,7 +849,8 @@ pub mod utils {
         let mut rng = scirs2_core::random::thread_rng();
 
         // Create base graph
-        let base_features = randn(&[num_nodes, base_feature_dim]).unwrap();
+        let base_features = randn(&[num_nodes, base_feature_dim])
+            .expect("base features tensor creation should succeed");
         let mut edge_data = Vec::new();
 
         for _ in 0..(num_nodes * 2) {
@@ -791,7 +865,7 @@ pub mod utils {
             &[2, num_nodes * 2],
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("edge index tensor creation should succeed");
 
         let graph = GraphData::new(base_features, edge_index);
         let mut mm_graph = MultiModalGraphData::new(graph);
@@ -814,7 +888,8 @@ pub mod utils {
 
                 // Only add modality data with some probability for missing modality simulation
                 if rng.gen_range(0.0..1.0) < 0.8 {
-                    let features = randn(&[feature_dim]).unwrap();
+                    let features = randn(&[feature_dim])
+                        .expect("modality features tensor creation should succeed");
                     node_data = node_data.add_modality(modality, features);
                 }
             }
@@ -840,7 +915,7 @@ pub mod utils {
 
         // Representation diversity (simplified)
         for (modality, tensor) in representations {
-            let data = tensor.to_vec().unwrap();
+            let data = tensor.to_vec().expect("conversion should succeed");
             let mean: f32 = data.iter().sum::<f32>() / data.len() as f32;
             let variance: f32 =
                 data.iter().map(|&x| (x - mean).powi(2)).sum::<f32>() / data.len() as f32;
@@ -871,8 +946,8 @@ pub mod utils {
 
     /// Compute similarity between two tensors
     fn compute_tensor_similarity(tensor1: &Tensor, tensor2: &Tensor) -> f32 {
-        let data1 = tensor1.to_vec().unwrap();
-        let data2 = tensor2.to_vec().unwrap();
+        let data1 = tensor1.to_vec().expect("conversion should succeed");
+        let data2 = tensor2.to_vec().expect("conversion should succeed");
 
         if data1.len() != data2.len() {
             return 0.0;
@@ -916,19 +991,21 @@ pub mod utils {
             .collect();
 
         for _ in 0..num_tasks.min(common_nodes.len()) {
-            let &node_id = common_nodes.choose(&mut rng).unwrap();
+            let &node_id = common_nodes
+                .choose(&mut rng)
+                .expect("collection should not be empty");
 
             let source_features = source_data
                 .iter()
                 .find(|&&(id, _)| id == node_id)
                 .map(|(_, tensor)| (*tensor).clone())
-                .unwrap();
+                .expect("value should be present");
 
             let target_features = target_data
                 .iter()
                 .find(|&&(id, _)| id == node_id)
                 .map(|(_, tensor)| (*tensor).clone())
-                .unwrap();
+                .expect("value should be present");
 
             tasks.push((node_id, source_features, target_features));
         }
@@ -1123,8 +1200,14 @@ mod tests {
 
         for (node_id, source, target) in &tasks {
             assert!(*node_id < 3);
-            assert!(!source.to_vec().unwrap().is_empty());
-            assert!(!target.to_vec().unwrap().is_empty());
+            assert!(!source
+                .to_vec()
+                .expect("conversion should succeed")
+                .is_empty());
+            assert!(!target
+                .to_vec()
+                .expect("conversion should succeed")
+                .is_empty());
         }
     }
 }

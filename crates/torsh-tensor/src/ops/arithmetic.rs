@@ -21,24 +21,36 @@ impl<
     > Tensor<T>
 {
     /// Element-wise addition with broadcasting (ops module implementation)
+    ///
+    /// # SIMD Optimization (Phase 3/4)
+    /// For f32 tensors with matching shapes, uses adaptive SIMD dispatch:
+    /// - Small tensors (<512): Scalar (SIMD overhead not worth it)
+    /// - Medium tensors (512-65K): Phase 3 SIMD (uninit buffer + scirs2 API)
+    /// - Large tensors (>65K): Parallel SIMD (Rayon + SIMD chunks)
     pub fn add_op(&self, other: &Self) -> Result<Self> {
-        // Try SIMD optimization for f32 tensors with identical shapes
-        let mut result = if self.shape() == other.shape()
-            && std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>()
-        {
+        let mut result = if self.shape() == other.shape() {
+            // 🚀 Phase 3/4: Use adaptive SIMD for f32 tensors
             #[cfg(feature = "simd")]
             {
-                if should_use_simd(self.numel()) {
-                    self.element_wise_op_simd_f32(other, SimdOpType::Add)
-                        .unwrap_or_else(|_| self.element_wise_op(other, |a, b| a + b).unwrap())
-                } else {
-                    self.element_wise_op(other, |a, b| a + b)?
+                if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
+                    // Use Phase 4 adaptive dispatch for f32
+                    return {
+                        let mut result = self.add_adaptive(other)?;
+                        // Track the operation for gradient computation
+                        if self.requires_grad || other.requires_grad {
+                            use std::sync::Arc;
+                            result.requires_grad = true;
+                            result.operation = crate::Operation::Add {
+                                lhs: Arc::new(self.clone()),
+                                rhs: Arc::new(other.clone()),
+                            };
+                        }
+                        Ok(result)
+                    };
                 }
             }
-            #[cfg(not(feature = "simd"))]
-            {
-                self.element_wise_op(other, |a, b| a + b)?
-            }
+            // Fallback to scalar for non-f32 types
+            self.element_wise_op(other, |a, b| a + b)?
         } else {
             self.broadcast_binary_op(other, |a, b| a + b)?
         };
@@ -62,19 +74,22 @@ impl<
     }
 
     /// Element-wise subtraction with broadcasting
+    ///
+    /// # SIMD Optimization (Phase 3/4)
+    /// For f32 tensors with matching shapes, uses adaptive SIMD dispatch:
+    /// - Small tensors (<512): Scalar (SIMD overhead not worth it)
+    /// - Medium tensors (512-65K): Phase 7 direct SIMD
+    /// - Large tensors (>65K): Parallel SIMD
     pub fn sub(&self, other: &Self) -> Result<Self> {
-        // Try SIMD optimization for f32 tensors with identical shapes
-        if self.shape() == other.shape()
-            && std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>()
-        {
+        if self.shape() == other.shape() {
+            // 🚀 Phase 3/4: Use adaptive SIMD for f32 tensors
             #[cfg(feature = "simd")]
             {
-                if should_use_simd(self.numel()) {
-                    return self
-                        .element_wise_op_simd_f32(other, SimdOpType::Sub)
-                        .or_else(|_| self.element_wise_op(other, |a, b| a - b));
+                if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
+                    return self.sub_adaptive(other);
                 }
             }
+            // Fallback to scalar for non-f32 types
             self.element_wise_op(other, |a, b| a - b)
         } else {
             self.broadcast_binary_op(other, |a, b| a - b)
@@ -82,24 +97,36 @@ impl<
     }
 
     /// Element-wise multiplication with broadcasting (ops module implementation)
+    ///
+    /// # SIMD Optimization (Phase 3/4)
+    /// For f32 tensors with matching shapes, uses adaptive SIMD dispatch:
+    /// - Small tensors (<512): Scalar (SIMD overhead not worth it)
+    /// - Medium tensors (512-65K): Phase 3 SIMD (uninit buffer + scirs2 API)
+    /// - Large tensors (>65K): Parallel SIMD (Rayon + SIMD chunks)
     pub fn mul_op(&self, other: &Self) -> Result<Self> {
-        // Try SIMD optimization for f32 tensors with identical shapes
-        let mut result = if self.shape() == other.shape()
-            && std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>()
-        {
+        let mut result = if self.shape() == other.shape() {
+            // 🚀 Phase 3/4: Use adaptive SIMD for f32 tensors
             #[cfg(feature = "simd")]
             {
-                if should_use_simd(self.numel()) {
-                    self.element_wise_op_simd_f32(other, SimdOpType::Mul)
-                        .unwrap_or_else(|_| self.element_wise_op(other, |a, b| a * b).unwrap())
-                } else {
-                    self.element_wise_op(other, |a, b| a * b)?
+                if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
+                    // Use Phase 4 adaptive dispatch for f32
+                    return {
+                        let mut result = self.mul_adaptive(other)?;
+                        // Track the operation for gradient computation
+                        if self.requires_grad || other.requires_grad {
+                            use std::sync::Arc;
+                            result.requires_grad = true;
+                            result.operation = crate::Operation::Mul {
+                                lhs: Arc::new(self.clone()),
+                                rhs: Arc::new(other.clone()),
+                            };
+                        }
+                        Ok(result)
+                    };
                 }
             }
-            #[cfg(not(feature = "simd"))]
-            {
-                self.element_wise_op(other, |a, b| a * b)?
-            }
+            // Fallback to scalar for non-f32 types
+            self.element_wise_op(other, |a, b| a * b)?
         } else {
             self.broadcast_binary_op(other, |a, b| a * b)?
         };
@@ -123,19 +150,22 @@ impl<
     }
 
     /// Element-wise division with broadcasting
+    ///
+    /// # SIMD Optimization (Phase 3/4)
+    /// For f32 tensors with matching shapes, uses adaptive SIMD dispatch:
+    /// - Small tensors (<512): Scalar (SIMD overhead not worth it)
+    /// - Medium tensors (512-65K): Phase 7 direct SIMD
+    /// - Large tensors (>65K): Parallel SIMD
     pub fn div(&self, other: &Self) -> Result<Self> {
-        // Try SIMD optimization for f32 tensors with identical shapes
-        if self.shape() == other.shape()
-            && std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>()
-        {
+        if self.shape() == other.shape() {
+            // 🚀 Phase 3/4: Use adaptive SIMD for f32 tensors
             #[cfg(feature = "simd")]
             {
-                if should_use_simd(self.numel()) {
-                    return self
-                        .element_wise_op_simd_f32(other, SimdOpType::Div)
-                        .or_else(|_| self.element_wise_op(other, |a, b| a / b));
+                if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
+                    return self.div_adaptive(other);
                 }
             }
+            // Fallback to scalar for non-f32 types
             self.element_wise_op(other, |a, b| a / b)
         } else {
             self.broadcast_binary_op(other, |a, b| a / b)
@@ -333,7 +363,7 @@ impl<
         let data = self.data()?;
         let result_data: Vec<T> = data
             .iter()
-            .map(|&x| x.powf(T::from_f64(exponent as f64).unwrap()))
+            .map(|&x| x.powf(T::from_f64(exponent as f64).expect("f64 conversion should succeed")))
             .collect();
 
         Self::from_data(
@@ -433,5 +463,295 @@ impl<
             .sum();
 
         Ok(result)
+    }
+}
+
+// ✅ In-place operations for PyTorch compatibility
+impl<
+        T: TensorElement
+            + Copy
+            + Default
+            + std::ops::Add<Output = T>
+            + std::ops::Sub<Output = T>
+            + std::ops::Mul<Output = T>
+            + std::ops::Div<Output = T>,
+    > Tensor<T>
+{
+    /// In-place addition: self += other
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to PyTorch's `tensor.add_(other)`
+    ///
+    /// # Errors
+    /// - Returns error if `requires_grad` is true (in-place ops break autograd)
+    /// - Returns error if shapes are incompatible
+    pub fn add_(&mut self, other: &Self) -> Result<&mut Self> {
+        if self.requires_grad {
+            return Err(TorshError::InvalidArgument(
+                "In-place operation on tensor that requires grad is not allowed".to_string(),
+            ));
+        }
+
+        if self.shape() != other.shape() {
+            return Err(TorshError::ShapeMismatch {
+                expected: self.shape().to_vec(),
+                got: other.shape().to_vec(),
+            });
+        }
+
+        let other_data = other.data()?;
+
+        // Perform in-place addition
+        for i in 0..other_data.len() {
+            let current = self.storage.get(i)?;
+            self.storage.set(i, current + other_data[i])?;
+        }
+
+        Ok(self)
+    }
+
+    /// In-place subtraction: self -= other
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to PyTorch's `tensor.sub_(other)`
+    pub fn sub_(&mut self, other: &Self) -> Result<&mut Self> {
+        if self.requires_grad {
+            return Err(TorshError::InvalidArgument(
+                "In-place operation on tensor that requires grad is not allowed".to_string(),
+            ));
+        }
+
+        if self.shape() != other.shape() {
+            return Err(TorshError::ShapeMismatch {
+                expected: self.shape().to_vec(),
+                got: other.shape().to_vec(),
+            });
+        }
+
+        let other_data = other.data()?;
+
+        for i in 0..other_data.len() {
+            let current = self.storage.get(i)?;
+            self.storage.set(i, current - other_data[i])?;
+        }
+
+        Ok(self)
+    }
+
+    /// In-place multiplication: self *= other
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to PyTorch's `tensor.mul_(other)`
+    pub fn mul_(&mut self, other: &Self) -> Result<&mut Self> {
+        if self.requires_grad {
+            return Err(TorshError::InvalidArgument(
+                "In-place operation on tensor that requires grad is not allowed".to_string(),
+            ));
+        }
+
+        if self.shape() != other.shape() {
+            return Err(TorshError::ShapeMismatch {
+                expected: self.shape().to_vec(),
+                got: other.shape().to_vec(),
+            });
+        }
+
+        let other_data = other.data()?;
+
+        for i in 0..other_data.len() {
+            let current = self.storage.get(i)?;
+            self.storage.set(i, current * other_data[i])?;
+        }
+
+        Ok(self)
+    }
+
+    /// In-place division: self /= other
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to PyTorch's `tensor.div_(other)`
+    pub fn div_(&mut self, other: &Self) -> Result<&mut Self> {
+        if self.requires_grad {
+            return Err(TorshError::InvalidArgument(
+                "In-place operation on tensor that requires grad is not allowed".to_string(),
+            ));
+        }
+
+        if self.shape() != other.shape() {
+            return Err(TorshError::ShapeMismatch {
+                expected: self.shape().to_vec(),
+                got: other.shape().to_vec(),
+            });
+        }
+
+        let other_data = other.data()?;
+
+        for i in 0..other_data.len() {
+            let current = self.storage.get(i)?;
+            self.storage.set(i, current / other_data[i])?;
+        }
+
+        Ok(self)
+    }
+
+    /// In-place scalar addition: self += scalar
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to PyTorch's `tensor.add_(scalar)`
+    pub fn add_scalar_(&mut self, scalar: T) -> Result<&mut Self> {
+        if self.requires_grad {
+            return Err(TorshError::InvalidArgument(
+                "In-place operation on tensor that requires grad is not allowed".to_string(),
+            ));
+        }
+
+        let len = self.storage.len();
+        for i in 0..len {
+            let current = self.storage.get(i)?;
+            self.storage.set(i, current + scalar)?;
+        }
+
+        Ok(self)
+    }
+
+    /// In-place scalar multiplication: self *= scalar
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to PyTorch's `tensor.mul_(scalar)`
+    pub fn mul_scalar_(&mut self, scalar: T) -> Result<&mut Self> {
+        if self.requires_grad {
+            return Err(TorshError::InvalidArgument(
+                "In-place operation on tensor that requires grad is not allowed".to_string(),
+            ));
+        }
+
+        let len = self.storage.len();
+        for i in 0..len {
+            let current = self.storage.get(i)?;
+            self.storage.set(i, current * scalar)?;
+        }
+
+        Ok(self)
+    }
+
+    /// In-place scalar division: self /= scalar
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to PyTorch's `tensor.div_(scalar)`
+    pub fn div_scalar_(&mut self, scalar: T) -> Result<&mut Self> {
+        if self.requires_grad {
+            return Err(TorshError::InvalidArgument(
+                "In-place operation on tensor that requires grad is not allowed".to_string(),
+            ));
+        }
+
+        let len = self.storage.len();
+        for i in 0..len {
+            let current = self.storage.get(i)?;
+            self.storage.set(i, current / scalar)?;
+        }
+
+        Ok(self)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use torsh_core::device::DeviceType;
+
+    #[test]
+    fn test_add_inplace() {
+        let mut a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+        let b = Tensor::from_data(vec![4.0f32, 5.0, 6.0], vec![3], DeviceType::Cpu).unwrap();
+
+        a.add_(&b).unwrap();
+        let result = a.data().unwrap();
+
+        assert_eq!(result, vec![5.0, 7.0, 9.0]);
+    }
+
+    #[test]
+    fn test_mul_inplace() {
+        let mut a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+        let b = Tensor::from_data(vec![2.0f32, 3.0, 4.0], vec![3], DeviceType::Cpu).unwrap();
+
+        a.mul_(&b).unwrap();
+        let result = a.data().unwrap();
+
+        assert_eq!(result, vec![2.0, 6.0, 12.0]);
+    }
+
+    #[test]
+    fn test_sub_inplace() {
+        let mut a = Tensor::from_data(vec![5.0f32, 7.0, 9.0], vec![3], DeviceType::Cpu).unwrap();
+        let b = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+
+        a.sub_(&b).unwrap();
+        let result = a.data().unwrap();
+
+        assert_eq!(result, vec![4.0, 5.0, 6.0]);
+    }
+
+    #[test]
+    fn test_div_inplace() {
+        let mut a = Tensor::from_data(vec![6.0f32, 12.0, 18.0], vec![3], DeviceType::Cpu).unwrap();
+        let b = Tensor::from_data(vec![2.0f32, 3.0, 6.0], vec![3], DeviceType::Cpu).unwrap();
+
+        a.div_(&b).unwrap();
+        let result = a.data().unwrap();
+
+        assert_eq!(result, vec![3.0, 4.0, 3.0]);
+    }
+
+    #[test]
+    fn test_add_scalar_inplace() {
+        let mut tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+
+        tensor.add_scalar_(10.0).unwrap();
+        let result = tensor.data().unwrap();
+
+        assert_eq!(result, vec![11.0, 12.0, 13.0]);
+    }
+
+    #[test]
+    fn test_mul_scalar_inplace() {
+        let mut tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+
+        tensor.mul_scalar_(2.0).unwrap();
+        let result = tensor.data().unwrap();
+
+        assert_eq!(result, vec![2.0, 4.0, 6.0]);
+    }
+
+    #[test]
+    fn test_div_scalar_inplace() {
+        let mut tensor = Tensor::from_data(vec![10.0f32, 20.0, 30.0], vec![3], DeviceType::Cpu).unwrap();
+
+        tensor.div_scalar_(10.0).unwrap();
+        let result = tensor.data().unwrap();
+
+        assert_eq!(result, vec![1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn test_inplace_method_chaining() {
+        let mut tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+        let b = Tensor::from_data(vec![1.0f32, 1.0, 1.0], vec![3], DeviceType::Cpu).unwrap();
+
+        // Test method chaining
+        tensor.add_(&b).unwrap().mul_scalar_(2.0).unwrap();
+        let result = tensor.data().unwrap();
+
+        assert_eq!(result, vec![4.0, 6.0, 8.0]); // (1+1)*2, (2+1)*2, (3+1)*2
+    }
+
+    #[test]
+    fn test_inplace_shape_mismatch_error() {
+        let mut a = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu).unwrap();
+        let b = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+
+        assert!(a.add_(&b).is_err());
+        assert!(a.mul_(&b).is_err());
     }
 }

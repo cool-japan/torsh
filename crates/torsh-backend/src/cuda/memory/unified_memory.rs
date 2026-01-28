@@ -4,10 +4,14 @@
 //! automatic data migration, prefetching optimization, and memory advice
 //! for optimal performance across host and device execution.
 
+// Allow unused variables for unified memory stubs
+#![allow(unused_variables)]
+
 use super::allocation::{
     AccessFrequency, AllocationRequest, AllocationStats, AllocationType, DataLocality,
     MigrationStats, UnifiedAllocation,
 };
+use crate::cuda::cuda_sys_compat as cuda_sys;
 use crate::cuda::error::{CudaError, CudaResult};
 use std::collections::HashMap;
 use std::sync::{
@@ -614,7 +618,7 @@ impl UnifiedMemoryManager {
             let mut allocations = self.allocations.lock().map_err(|_| CudaError::Context {
                 message: "Failed to acquire allocations lock".to_string(),
             })?;
-            allocations.insert(ptr, allocation.clone());
+            allocations.insert(ptr as usize, allocation.clone());
         }
 
         // Update statistics
@@ -623,7 +627,7 @@ impl UnifiedMemoryManager {
         // Initialize migration tracking if enabled
         if self.config.enable_migration_tracking {
             if let Ok(mut tracker) = self.migration_tracker.lock() {
-                tracker.initialize_allocation(ptr, request.size);
+                tracker.initialize_allocation(ptr as usize, request.size);
             }
         }
 
@@ -638,26 +642,27 @@ impl UnifiedMemoryManager {
     /// Deallocate unified memory
     pub fn deallocate_unified(&self, allocation: UnifiedAllocation) -> CudaResult<()> {
         let ptr = allocation.ptr;
+        let ptr_usize = ptr.as_ptr() as usize;
 
         // Remove from tracking
         {
             let mut allocations = self.allocations.lock().map_err(|_| CudaError::Context {
                 message: "Failed to acquire allocations lock".to_string(),
             })?;
-            allocations.remove(&ptr);
+            allocations.remove(&ptr_usize);
         }
 
         // Clean up migration tracking
         if self.config.enable_migration_tracking {
             if let Ok(mut tracker) = self.migration_tracker.lock() {
-                tracker.cleanup_allocation(ptr);
+                tracker.cleanup_allocation(ptr_usize);
             }
         }
 
         // Free unified memory
         unsafe {
-            let result = cuda_sys::cudaFree(ptr as *mut std::ffi::c_void);
-            if result != cuda_sys::cudaError_t::cudaSuccess {
+            let result = cuda_sys::cudaFree(ptr.as_ptr() as *mut std::ffi::c_void);
+            if result != crate::cuda::cudaSuccess {
                 return Err(CudaError::Context {
                     message: format!("Failed to free unified memory: {:?}", result),
                 });
@@ -684,10 +689,10 @@ impl UnifiedMemoryManager {
                 ptr as *const std::ffi::c_void,
                 size,
                 target_device,
-                0 as cuda_sys::cudaStream_t,
+                0 as crate::cuda::cudaStream_t,
             );
 
-            if result != cuda_sys::cudaError_t::cudaSuccess {
+            if result != crate::cuda::cudaSuccess {
                 return Err(CudaError::Context {
                     message: format!("Failed to prefetch memory: {:?}", result),
                 });
@@ -709,10 +714,10 @@ impl UnifiedMemoryManager {
                 ptr as *const std::ffi::c_void,
                 size,
                 cuda_sys::cudaCpuDeviceId as i32,
-                0 as cuda_sys::cudaStream_t,
+                0 as crate::cuda::cudaStream_t,
             );
 
-            if result != cuda_sys::cudaError_t::cudaSuccess {
+            if result != crate::cuda::cudaSuccess {
                 return Err(CudaError::Context {
                     message: format!("Failed to prefetch memory to host: {:?}", result),
                 });
@@ -742,7 +747,7 @@ impl UnifiedMemoryManager {
             let result =
                 cuda_sys::cudaMemAdvise(ptr as *const std::ffi::c_void, size, cuda_advice, device);
 
-            if result != cuda_sys::cudaError_t::cudaSuccess {
+            if result != crate::cuda::cudaSuccess {
                 return Err(CudaError::Context {
                     message: format!("Failed to set memory advice: {:?}", result),
                 });
@@ -751,7 +756,8 @@ impl UnifiedMemoryManager {
 
         // Track advice effectiveness
         if self.config.enable_adaptive_advice {
-            self.advice_manager.track_advice_application(ptr, advice);
+            self.advice_manager
+                .track_advice_application(ptr as usize, advice);
         }
 
         Ok(())
@@ -776,13 +782,15 @@ impl UnifiedMemoryManager {
             message: "Failed to acquire allocations lock".to_string(),
         })?;
 
-        for (ptr, allocation) in allocations.iter() {
+        for (ptr_usize, _allocation) in allocations.iter() {
             // Analyze access patterns
             if let Ok(tracker) = self.migration_tracker.lock() {
-                if let Some(pattern) = tracker.access_patterns.get(ptr) {
+                if let Some(pattern) = tracker.access_patterns.get(ptr_usize) {
                     // Apply optimizations based on patterns
                     if let Some(optimization) = self.suggest_optimization(pattern) {
-                        if let Ok(improvement) = self.apply_optimization(*ptr, optimization) {
+                        if let Ok(improvement) =
+                            self.apply_optimization(*ptr_usize as *mut u8, optimization)
+                        {
                             optimizations_applied += 1;
                             total_improvement += improvement;
                         }
@@ -815,7 +823,7 @@ impl UnifiedMemoryManager {
                 cuda_sys::cudaMemAttachGlobal,
             );
 
-            if result != cuda_sys::cudaError_t::cudaSuccess {
+            if result != crate::cuda::cudaSuccess {
                 return Err(CudaError::Context {
                     message: format!("Failed to allocate managed memory: {:?}", result),
                 });
@@ -984,7 +992,7 @@ impl MigrationTracker {
         }
     }
 
-    fn initialize_allocation(&mut self, ptr: *mut u8, size: usize) {
+    fn initialize_allocation(&mut self, ptr: usize, _size: usize) {
         let pattern = AccessPattern {
             access_history: Vec::new(),
             dominant_location: Location::Host,
@@ -997,7 +1005,7 @@ impl MigrationTracker {
         self.access_patterns.insert(ptr, pattern);
     }
 
-    fn cleanup_allocation(&mut self, ptr: *mut u8) {
+    fn cleanup_allocation(&mut self, ptr: usize) {
         self.access_patterns.remove(&ptr);
     }
 }
@@ -1056,7 +1064,7 @@ impl AdviceManager {
         }
     }
 
-    fn track_advice_application(&self, ptr: *mut u8, advice: MemoryAdvice) {
+    fn track_advice_application(&self, ptr: usize, advice: MemoryAdvice) {
         // Track the effectiveness of applied advice
         if let Ok(mut settings) = self.advice_settings.lock() {
             let setting = settings.entry(ptr).or_insert_with(|| MemoryAdviceSettings {

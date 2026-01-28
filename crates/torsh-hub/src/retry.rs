@@ -8,7 +8,6 @@
 //! - Circuit breaker pattern for cascading failures
 //! - Retry budget to prevent retry storms
 
-use scirs2_core::random::Rng;
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
 use torsh_core::error::{Result, TorshError};
@@ -486,7 +485,7 @@ mod tests {
         let result = retry_with_backoff_async(&config, move || {
             let attempts = attempts_clone.clone();
             async move {
-                let mut count = attempts.lock().unwrap();
+                let mut count = attempts.lock().expect("lock should not be poisoned");
                 *count += 1;
                 let current = *count;
                 drop(count);
@@ -501,6 +500,6 @@ mod tests {
         .await;
 
         assert_eq!(result.unwrap(), 100);
-        assert_eq!(*attempts.lock().unwrap(), 2);
+        assert_eq!(*attempts.lock().expect("lock should not be poisoned"), 2);
     }
 }

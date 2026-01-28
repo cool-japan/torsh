@@ -292,7 +292,10 @@ impl Zero3CpuOffloadManager {
             // Record layer performance
             let layer_duration = layer_start.elapsed();
             {
-                let mut stats = self.performance_stats.lock().unwrap();
+                let mut stats = self
+                    .performance_stats
+                    .lock()
+                    .expect("lock should not be poisoned");
                 stats.record_layer_execution(layer_name.clone(), layer_duration);
             }
 
@@ -305,7 +308,10 @@ impl Zero3CpuOffloadManager {
         // Record overall forward pass performance
         let total_duration = start_time.elapsed();
         {
-            let mut stats = self.performance_stats.lock().unwrap();
+            let mut stats = self
+                .performance_stats
+                .lock()
+                .expect("lock should not be poisoned");
             stats.record_forward_pass(total_duration, input.numel());
         }
 
@@ -366,7 +372,10 @@ impl Zero3CpuOffloadManager {
 
             let layer_duration = layer_start.elapsed();
             {
-                let mut stats = self.performance_stats.lock().unwrap();
+                let mut stats = self
+                    .performance_stats
+                    .lock()
+                    .expect("lock should not be poisoned");
                 stats.record_layer_backward(layer_name.clone(), layer_duration);
             }
         }
@@ -376,7 +385,10 @@ impl Zero3CpuOffloadManager {
 
         let total_duration = start_time.elapsed();
         {
-            let mut stats = self.performance_stats.lock().unwrap();
+            let mut stats = self
+                .performance_stats
+                .lock()
+                .expect("lock should not be poisoned");
             stats.record_backward_pass(total_duration, grad_output.numel());
         }
 
@@ -438,7 +450,10 @@ impl Zero3CpuOffloadManager {
 
         let duration = start_time.elapsed();
         {
-            let mut stats = self.performance_stats.lock().unwrap();
+            let mut stats = self
+                .performance_stats
+                .lock()
+                .expect("lock should not be poisoned");
             stats.record_optimizer_step(duration, owned_param_grads.len());
         }
 
@@ -451,7 +466,10 @@ impl Zero3CpuOffloadManager {
     /// Returns detailed performance metrics including timing, throughput,
     /// memory usage, and efficiency measurements.
     pub fn get_performance_stats(&self) -> Zero3PerformanceStats {
-        self.performance_stats.lock().unwrap().clone()
+        self.performance_stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Get memory usage statistics
@@ -544,7 +562,11 @@ impl Zero3CpuOffloadManager {
         let bias = if let Some(ref bias_data) = cpu_params.bias_data {
             Some(Tensor::from_data(
                 bias_data.clone(),
-                cpu_params.bias_shape.as_ref().unwrap().clone(),
+                cpu_params
+                    .bias_shape
+                    .as_ref()
+                    .expect("bias_shape should be present when bias_data exists")
+                    .clone(),
                 DeviceType::Cuda(0),
             )?)
         } else {
@@ -554,7 +576,10 @@ impl Zero3CpuOffloadManager {
         // Record transfer metrics
         let transfer_duration = transfer_start.elapsed();
         {
-            let mut stats = self.performance_stats.lock().unwrap();
+            let mut stats = self
+                .performance_stats
+                .lock()
+                .expect("lock should not be poisoned");
             stats.record_parameter_transfer(
                 transfer_duration,
                 cpu_params.size_bytes,
@@ -625,7 +650,10 @@ impl Zero3CpuOffloadManager {
         // Record transfer metrics
         let offload_duration = offload_start.elapsed();
         {
-            let mut stats = self.performance_stats.lock().unwrap();
+            let mut stats = self
+                .performance_stats
+                .lock()
+                .expect("lock should not be poisoned");
             stats.record_parameter_transfer(
                 offload_duration,
                 compressed_data.size_bytes,
@@ -759,7 +787,10 @@ impl Zero3CpuOffloadManager {
 
         let sync_duration = sync_start.elapsed();
         {
-            let mut stats = self.performance_stats.lock().unwrap();
+            let mut stats = self
+                .performance_stats
+                .lock()
+                .expect("lock should not be poisoned");
             stats.record_gradient_sync(
                 sync_duration,
                 gradients_count,
@@ -825,7 +856,10 @@ impl Zero3CpuOffloadManager {
 
         let broadcast_duration = broadcast_start.elapsed();
         {
-            let mut stats = self.performance_stats.lock().unwrap();
+            let mut stats = self
+                .performance_stats
+                .lock()
+                .expect("lock should not be poisoned");
             stats.record_communication(
                 CommunicationOperation::Broadcast,
                 broadcast_duration,

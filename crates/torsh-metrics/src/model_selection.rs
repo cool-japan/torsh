@@ -244,12 +244,20 @@ impl MultiModelComparison {
         // Find best models
         let best_by_aic = models
             .iter()
-            .min_by(|a, b| a.aic.partial_cmp(&b.aic).unwrap())
+            .min_by(|a, b| {
+                a.aic
+                    .partial_cmp(&b.aic)
+                    .expect("AIC values should be comparable")
+            })
             .map(|m| m.model_name.clone());
 
         let best_by_bic = models
             .iter()
-            .min_by(|a, b| a.bic.partial_cmp(&b.bic).unwrap())
+            .min_by(|a, b| {
+                a.bic
+                    .partial_cmp(&b.bic)
+                    .expect("BIC values should be comparable")
+            })
             .map(|m| m.model_name.clone());
 
         // Compute AIC weights
@@ -395,12 +403,20 @@ impl CVModelComparison {
         let best_model = if higher_is_better {
             models
                 .iter()
-                .max_by(|a, b| a.mean_score.partial_cmp(&b.mean_score).unwrap())
+                .max_by(|a, b| {
+                    a.mean_score
+                        .partial_cmp(&b.mean_score)
+                        .expect("mean score values should be comparable")
+                })
                 .map(|m| m.model_name.clone())
         } else {
             models
                 .iter()
-                .min_by(|a, b| a.mean_score.partial_cmp(&b.mean_score).unwrap())
+                .min_by(|a, b| {
+                    a.mean_score
+                        .partial_cmp(&b.mean_score)
+                        .expect("mean score values should be comparable")
+                })
                 .map(|m| m.model_name.clone())
         };
 

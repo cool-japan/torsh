@@ -239,7 +239,10 @@ impl RuntimeConfig {
 
     /// Get the current debug level
     pub fn debug_level(&self) -> DebugLevel {
-        self.inner.lock().unwrap().debug_level
+        self.inner
+            .lock()
+            .expect("lock should not be poisoned")
+            .debug_level
     }
 
     /// Set the debug level
@@ -252,12 +255,18 @@ impl RuntimeConfig {
     /// RuntimeConfig::global().set_debug_level(DebugLevel::Verbose);
     /// ```
     pub fn set_debug_level(&self, level: DebugLevel) {
-        self.inner.lock().unwrap().debug_level = level;
+        self.inner
+            .lock()
+            .expect("lock should not be poisoned")
+            .debug_level = level;
     }
 
     /// Get the current validation level
     pub fn validation_level(&self) -> ValidationLevel {
-        self.inner.lock().unwrap().validation_level
+        self.inner
+            .lock()
+            .expect("lock should not be poisoned")
+            .validation_level
     }
 
     /// Set the validation level
@@ -270,12 +279,18 @@ impl RuntimeConfig {
     /// RuntimeConfig::global().set_validation_level(ValidationLevel::Maximum);
     /// ```
     pub fn set_validation_level(&self, level: ValidationLevel) {
-        self.inner.lock().unwrap().validation_level = level;
+        self.inner
+            .lock()
+            .expect("lock should not be poisoned")
+            .validation_level = level;
     }
 
     /// Get the current monitoring scope
     pub fn monitoring_scope(&self) -> MonitoringScope {
-        self.inner.lock().unwrap().monitoring_scope
+        self.inner
+            .lock()
+            .expect("lock should not be poisoned")
+            .monitoring_scope
     }
 
     /// Set the monitoring scope
@@ -288,22 +303,34 @@ impl RuntimeConfig {
     /// RuntimeConfig::global().set_monitoring_scope(MonitoringScope::Comprehensive);
     /// ```
     pub fn set_monitoring_scope(&self, scope: MonitoringScope) {
-        self.inner.lock().unwrap().monitoring_scope = scope;
+        self.inner
+            .lock()
+            .expect("lock should not be poisoned")
+            .monitoring_scope = scope;
     }
 
     /// Get memory tracking configuration
     pub fn memory_tracking(&self) -> MemoryTrackingConfig {
-        self.inner.lock().unwrap().memory_tracking
+        self.inner
+            .lock()
+            .expect("lock should not be poisoned")
+            .memory_tracking
     }
 
     /// Set memory tracking configuration
     pub fn set_memory_tracking(&self, config: MemoryTrackingConfig) {
-        self.inner.lock().unwrap().memory_tracking = config;
+        self.inner
+            .lock()
+            .expect("lock should not be poisoned")
+            .memory_tracking = config;
     }
 
     /// Get the current log level
     pub fn log_level(&self) -> LogLevel {
-        self.inner.lock().unwrap().log_level
+        self.inner
+            .lock()
+            .expect("lock should not be poisoned")
+            .log_level
     }
 
     /// Set the log level
@@ -317,27 +344,42 @@ impl RuntimeConfig {
     /// RuntimeConfig::global().set_log_level(LogLevel::Debug);
     /// ```
     pub fn set_log_level(&self, level: LogLevel) {
-        self.inner.lock().unwrap().log_level = level;
+        self.inner
+            .lock()
+            .expect("lock should not be poisoned")
+            .log_level = level;
     }
 
     /// Check if currently running in test mode
     pub fn is_testing(&self) -> bool {
-        self.inner.lock().unwrap().is_testing
+        self.inner
+            .lock()
+            .expect("lock should not be poisoned")
+            .is_testing
     }
 
     /// Set testing mode
     pub fn set_testing(&self, testing: bool) {
-        self.inner.lock().unwrap().is_testing = testing;
+        self.inner
+            .lock()
+            .expect("lock should not be poisoned")
+            .is_testing = testing;
     }
 
     /// Check if warnings should panic in debug mode
     pub fn panic_on_warnings(&self) -> bool {
-        self.inner.lock().unwrap().panic_on_warnings
+        self.inner
+            .lock()
+            .expect("lock should not be poisoned")
+            .panic_on_warnings
     }
 
     /// Set whether to panic on warnings in debug mode
     pub fn set_panic_on_warnings(&self, panic: bool) {
-        self.inner.lock().unwrap().panic_on_warnings = panic;
+        self.inner
+            .lock()
+            .expect("lock should not be poisoned")
+            .panic_on_warnings = panic;
     }
 
     /// Get configuration for a specific operation
@@ -355,7 +397,7 @@ impl RuntimeConfig {
     pub fn get_operation_config(&self, operation: &str) -> Option<OperationConfig> {
         self.inner
             .lock()
-            .unwrap()
+            .expect("runtime config lock should not be poisoned")
             .operation_configs
             .get(operation)
             .cloned()
@@ -376,7 +418,7 @@ impl RuntimeConfig {
     pub fn set_operation_config(&self, operation: impl Into<String>, config: OperationConfig) {
         self.inner
             .lock()
-            .unwrap()
+            .expect("runtime config lock should not be poisoned")
             .operation_configs
             .insert(operation.into(), config);
     }
@@ -385,19 +427,23 @@ impl RuntimeConfig {
     pub fn remove_operation_config(&self, operation: &str) -> Option<OperationConfig> {
         self.inner
             .lock()
-            .unwrap()
+            .expect("runtime config lock should not be poisoned")
             .operation_configs
             .remove(operation)
     }
 
     /// Clear all operation-specific configurations
     pub fn clear_operation_configs(&self) {
-        self.inner.lock().unwrap().operation_configs.clear();
+        self.inner
+            .lock()
+            .expect("lock should not be poisoned")
+            .operation_configs
+            .clear();
     }
 
     /// Check if an operation should collect metrics
     pub fn should_collect_metrics(&self, operation: &str) -> bool {
-        let guard = self.inner.lock().unwrap();
+        let guard = self.inner.lock().expect("lock should not be poisoned");
 
         // Check operation-specific config first
         if let Some(op_config) = guard.operation_configs.get(operation) {
@@ -421,7 +467,7 @@ impl RuntimeConfig {
 
     /// Check if an operation should perform validation
     pub fn should_validate(&self, operation: &str) -> bool {
-        let guard = self.inner.lock().unwrap();
+        let guard = self.inner.lock().expect("lock should not be poisoned");
 
         // Check operation-specific config first
         if let Some(op_config) = guard.operation_configs.get(operation) {
@@ -434,25 +480,25 @@ impl RuntimeConfig {
 
     /// Check if essential validation should be performed
     pub fn should_validate_essential(&self) -> bool {
-        let guard = self.inner.lock().unwrap();
+        let guard = self.inner.lock().expect("lock should not be poisoned");
         guard.validation_level >= ValidationLevel::Essential
     }
 
     /// Check if standard validation should be performed
     pub fn should_validate_standard(&self) -> bool {
-        let guard = self.inner.lock().unwrap();
+        let guard = self.inner.lock().expect("lock should not be poisoned");
         guard.validation_level >= ValidationLevel::Standard
     }
 
     /// Check if strict validation should be performed
     pub fn should_validate_strict(&self) -> bool {
-        let guard = self.inner.lock().unwrap();
+        let guard = self.inner.lock().expect("lock should not be poisoned");
         guard.validation_level >= ValidationLevel::Strict
     }
 
     /// Check if maximum validation should be performed
     pub fn should_validate_maximum(&self) -> bool {
-        let guard = self.inner.lock().unwrap();
+        let guard = self.inner.lock().expect("lock should not be poisoned");
         guard.validation_level >= ValidationLevel::Maximum
     }
 
@@ -470,7 +516,7 @@ impl RuntimeConfig {
     /// RuntimeConfig::global().apply_preset(ConfigPreset::Production);
     /// ```
     pub fn apply_preset(&self, preset: ConfigPreset) {
-        let mut guard = self.inner.lock().unwrap();
+        let mut guard = self.inner.lock().expect("lock should not be poisoned");
         match preset {
             ConfigPreset::Development => {
                 guard.debug_level = DebugLevel::Verbose;
@@ -534,12 +580,12 @@ impl RuntimeConfig {
 
     /// Reset to default configuration
     pub fn reset(&self) {
-        *self.inner.lock().unwrap() = RuntimeConfigInternal::default();
+        *self.inner.lock().expect("lock should not be poisoned") = RuntimeConfigInternal::default();
     }
 
     /// Get a snapshot of the current configuration (for debugging)
     pub fn snapshot(&self) -> RuntimeConfigSnapshot {
-        let guard = self.inner.lock().unwrap();
+        let guard = self.inner.lock().expect("lock should not be poisoned");
         RuntimeConfigSnapshot {
             debug_level: guard.debug_level,
             validation_level: guard.validation_level,

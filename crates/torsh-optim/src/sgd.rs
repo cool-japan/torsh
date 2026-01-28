@@ -81,7 +81,9 @@ impl Optimizer for SGD {
                     continue;
                 }
 
-                let grad = param.grad().unwrap();
+                let grad = param
+                    .grad()
+                    .expect("gradient should exist after has_grad check");
                 let param_id = format!("{:p}", param_arc.as_ref());
 
                 // Apply weight decay to gradient if specified
@@ -111,7 +113,10 @@ impl Optimizer for SGD {
                         );
                     }
 
-                    let mut buf = state.get("momentum_buffer").unwrap().clone();
+                    let mut buf = state
+                        .get("momentum_buffer")
+                        .expect("momentum_buffer state should exist")
+                        .clone();
 
                     // Update momentum buffer: buf = momentum * buf + (1 - dampening) * d_p
                     buf.mul_scalar_(self.momentum)

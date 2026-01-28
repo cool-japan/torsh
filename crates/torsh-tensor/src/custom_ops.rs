@@ -5,7 +5,7 @@
 //! operations and integrate them seamlessly with the existing tensor API.
 
 use crate::{core_ops::Tensor, TensorElement};
-use num_traits::FromPrimitive;
+use scirs2_core::numeric::FromPrimitive;
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -289,8 +289,11 @@ impl CustomOperationRegistry {
 
         // Store the operation and metadata
         {
-            let mut ops = self.operations.write().unwrap();
-            let mut meta = self.metadata.write().unwrap();
+            let mut ops = self
+                .operations
+                .write()
+                .expect("lock should not be poisoned");
+            let mut meta = self.metadata.write().expect("lock should not be poisoned");
 
             if ops.contains_key(&key) {
                 return Err(TorshError::InvalidArgument(format!(
@@ -323,7 +326,7 @@ impl CustomOperationRegistry {
         let type_id = TypeId::of::<T>();
         let key = (type_id, name.to_string());
 
-        let ops = self.operations.read().unwrap();
+        let ops = self.operations.read().expect("lock should not be poisoned");
         ops.get(&key).and_then(|arc_any| {
             // Downcast Arc<dyn Any> to Arc<dyn CustomOperation<T>>
             arc_any
@@ -340,14 +343,14 @@ impl CustomOperationRegistry {
         let type_id = TypeId::of::<T>();
         let key = (type_id, name.to_string());
 
-        let meta = self.metadata.read().unwrap();
+        let meta = self.metadata.read().expect("lock should not be poisoned");
         meta.get(&key).cloned()
     }
 
     /// List all registered operations for a given type
     pub fn list_operations<T: TensorElement + 'static>(&self) -> Vec<String> {
         let type_id = TypeId::of::<T>();
-        let meta = self.metadata.read().unwrap();
+        let meta = self.metadata.read().expect("lock should not be poisoned");
 
         meta.keys()
             .filter(|(tid, _)| *tid == type_id)
@@ -360,8 +363,11 @@ impl CustomOperationRegistry {
         let type_id = TypeId::of::<T>();
         let key = (type_id, name.to_string());
 
-        let mut ops = self.operations.write().unwrap();
-        let mut meta = self.metadata.write().unwrap();
+        let mut ops = self
+            .operations
+            .write()
+            .expect("lock should not be poisoned");
+        let mut meta = self.metadata.write().expect("lock should not be poisoned");
 
         if ops.remove(&key).is_none() {
             return Err(TorshError::InvalidArgument(format!(
@@ -379,20 +385,23 @@ impl CustomOperationRegistry {
         let type_id = TypeId::of::<T>();
         let key = (type_id, name.to_string());
 
-        let ops = self.operations.read().unwrap();
+        let ops = self.operations.read().expect("lock should not be poisoned");
         ops.contains_key(&key)
     }
 
     /// Get total number of registered operations
     pub fn count(&self) -> usize {
-        let ops = self.operations.read().unwrap();
+        let ops = self.operations.read().expect("lock should not be poisoned");
         ops.len()
     }
 
     /// Clear all registered operations
     pub fn clear(&self) {
-        let mut ops = self.operations.write().unwrap();
-        let mut meta = self.metadata.write().unwrap();
+        let mut ops = self
+            .operations
+            .write()
+            .expect("lock should not be poisoned");
+        let mut meta = self.metadata.write().expect("lock should not be poisoned");
         ops.clear();
         meta.clear();
     }

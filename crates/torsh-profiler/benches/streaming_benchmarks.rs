@@ -238,10 +238,7 @@ fn bench_config_creation(c: &mut Criterion) {
     });
 
     group.bench_function("custom_config", |b| {
-        use torsh_profiler::{
-            AdaptiveBitrateConfig, AdvancedFeatures, CompressionAlgorithm, CompressionConfig,
-            ProtocolConfig, QualityConfig,
-        };
+        use torsh_profiler::{AdaptiveBitrateConfig, CompressionAlgorithm, CompressionConfig};
 
         b.iter(|| {
             let mut config = StreamingConfig::default();

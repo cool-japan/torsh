@@ -289,7 +289,9 @@ impl<T: FloatElement, F: TransformableFunction<T>> JitFunction<T, F> {
 
         // Execute the compiled function
         let cache = self.context.compiled_functions.read()?;
-        let compiled = cache.get(&self.signature).unwrap();
+        let compiled = cache
+            .get(&self.signature)
+            .expect("compiled function should exist after insertion");
         self.execute_compiled(compiled, input)
     }
 

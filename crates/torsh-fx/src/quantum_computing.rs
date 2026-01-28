@@ -294,7 +294,10 @@ impl QuantumComputingBackend {
         };
 
         // Record execution history
-        let mut history = self.execution_history.lock().unwrap();
+        let mut history = self
+            .execution_history
+            .lock()
+            .expect("lock should not be poisoned");
         history.push(result.clone());
 
         Ok(result)

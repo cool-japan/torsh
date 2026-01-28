@@ -29,7 +29,7 @@ thiserror = { workspace = true }
 anyhow = { workspace = true }
 
 # Async and concurrency
-async-trait = "0.1"
+async-trait = { workspace = true }
 futures = { workspace = true }
 tokio = { workspace = true, optional = true, features = ["time"] }
 
@@ -48,17 +48,29 @@ sha2 = { workspace = true }
 # ⚠️ SciRS2 POLICY: rayon is LEGACY - use scirs2-core::parallel_ops for new code
 rayon = { workspace = true, optional = true }  # DEPRECATED: Use scirs2-core::parallel_ops
 num_cpus = { version = "1.17", optional = true }
-libc = { workspace = true, optional = true }
+# libc = { workspace = true, optional = true }  # REMOVED: Pure Rust (SciRS2 ecosystem)
+# ✅ Pure Rust: sysinfo replaces libc for system information
+sysinfo = { workspace = true, optional = true }
 raw-cpuid = { version = "11.6", optional = true }
 # ⚠️ SciRS2 POLICY: wide is LEGACY - use scirs2-core::simd_ops for new code
 wide = { version = "1.1", optional = true }  # DEPRECATED: Use scirs2-core::simd_ops
 spin = { version = "0.10", optional = true }
 
-# CUDA backend dependencies (feature-gated, actual availability checked at runtime by build.rs)
+# CUDA backend dependencies (feature-gated)
+half = { workspace = true, optional = true }
+
+# WebGPU backend dependencies (cross-platform)
+wgpu = { workspace = true, optional = true }
+bytemuck = { workspace = true, optional = true }
+log = { workspace = true, optional = true }
+md5 = { workspace = true, optional = true }
+
+# CUDA dependencies only on x86_64 Linux/Windows (CUDA SDK not available on macOS/ARM)
+# Following scirs2-core pattern: CUDA requires x86_64 architecture
+[target.'cfg(all(target_arch = "x86_64", any(target_os = "linux", target_os = "windows")))'.dependencies]
 cust = { workspace = true, optional = true }
 cuda-sys = { workspace = true, optional = true }
 cudnn-sys = { workspace = true, optional = true }
-half = { workspace = true, optional = true }
 
 # Metal backend dependencies (Apple platforms only)
 [target.'cfg(target_os = "macos")'.dependencies]
@@ -66,12 +78,6 @@ metal = { workspace = true, optional = true }
 objc2 = { version = "0.6", optional = true }
 objc2-metal = { version = "0.3", optional = true }
 objc2-metal-performance-shaders = { version = "0.3", optional = true }
-
-# WebGPU backend dependencies
-wgpu = { workspace = true, optional = true }
-bytemuck = { workspace = true, optional = true }
-log = { workspace = true, optional = true }
-md5 = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }
@@ -95,8 +101,11 @@ serialize = ["dep:serde", "dep:serde_json", "torsh-core/serialize"]
 tracing = ["dep:tracing"]
 
 # Backend features
-cpu = ["dep:rayon", "dep:num_cpus", "dep:libc", "dep:raw-cpuid", "dep:spin", "dep:bytemuck"]
-cuda = ["dep:cust", "dep:cuda-sys", "dep:half"]
+# ✅ Pure Rust: libc removed, sysinfo added (SciRS2 Pure Rust ecosystem)
+cpu = ["dep:rayon", "dep:num_cpus", "dep:sysinfo", "dep:raw-cpuid", "dep:spin", "dep:bytemuck"]
+# CUDA feature is platform-conditional - only works on x86_64 Linux and Windows
+# Following scirs2-core pattern: cust/cuda-sys dependencies are in target-specific section
+cuda = ["dep:cust", "dep:cuda-sys", "dep:half", "serialize", "dep:chrono", "tracing"]
 cudnn = ["cuda", "dep:cudnn-sys"]  # cuDNN requires CUDA
 metal = ["dep:metal", "dep:objc2", "dep:objc2-metal", "dep:objc2-metal-performance-shaders"]
 rocm = []

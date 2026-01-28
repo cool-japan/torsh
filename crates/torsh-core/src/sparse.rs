@@ -698,7 +698,10 @@ impl SparseStorage for CsrStorage {
         let mut cols = Vec::with_capacity(self.nnz());
 
         for row in 0..self.indices.nrows() {
-            let range = self.indices.row_range(row).unwrap();
+            let range = self
+                .indices
+                .row_range(row)
+                .expect("row index should be valid within nrows bound");
             for col_idx in range {
                 rows.push(row);
                 cols.push(self.indices.col_indices[col_idx]);

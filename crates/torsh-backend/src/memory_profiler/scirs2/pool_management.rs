@@ -489,7 +489,7 @@ impl ScirS2PoolInfo {
                 .advanced_analytics
                 .efficiency_timeline
                 .last()
-                .unwrap()
+                .expect("efficiency_timeline should have at least 2 elements")
                 .1;
             let previous = self.advanced_analytics.efficiency_timeline
                 [self.advanced_analytics.efficiency_timeline.len() - 2]

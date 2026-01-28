@@ -262,7 +262,10 @@ impl StreamingKMeans {
             .iter()
             .enumerate()
             .map(|(i, c)| (i, c.distance(point)))
-            .min_by(|(_, d1), (_, d2)| d1.partial_cmp(d2).unwrap())
+            .min_by(|(_, d1), (_, d2)| {
+                d1.partial_cmp(d2)
+                    .expect("distances should be comparable (no NaN values)")
+            })
             .ok_or_else(|| TorshError::operation_error("No centroids available"))?;
 
         // Update the nearest centroid
@@ -285,7 +288,10 @@ impl StreamingKMeans {
             .iter()
             .enumerate()
             .map(|(i, c)| (i, c.distance(point)))
-            .min_by(|(_, d1), (_, d2)| d1.partial_cmp(d2).unwrap())
+            .min_by(|(_, d1), (_, d2)| {
+                d1.partial_cmp(d2)
+                    .expect("distances should be comparable (no NaN values)")
+            })
             .map(|(i, _)| i)
             .ok_or_else(|| TorshError::operation_error("No centroids available"))
     }

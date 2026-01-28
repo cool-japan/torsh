@@ -3,7 +3,7 @@
 use crate::{Tensor, TensorElement, FloatElement};
 use torsh_core::Device;
 use torsh_core::error::{Result, TorshError};
-use num_traits::{Float, Zero, One, cast::ToPrimitive};
+use scirs2_core::numeric::{Float, Zero, One, cast::ToPrimitive};
 use std::f64::consts;
 
 impl<T: FloatElement + Default> Tensor<T> {
@@ -481,8 +481,8 @@ impl<T: FloatElement + Default> Tensor<T> {
         T: One + std::ops::Sub<Output = T>
     {
         let erf_result = self.erf();
-        let ones = Self::ones(&self.shape().dims(), self.device()).unwrap();
-        ones.sub(&erf_result).unwrap()
+        let ones = Self::ones(&self.shape().dims(), self.device()).expect("ones tensor creation should succeed");
+        ones.sub(&erf_result).expect("erfc subtraction should succeed")
     }
 
     /// Gamma function using Lanczos approximation
@@ -519,7 +519,7 @@ impl<T: FloatElement + Default> Tensor<T> {
 
     /// Determines if values are finite (not infinite or NaN)
     pub fn isfinite(&self) -> Tensor<bool> {
-        let mut result = Tensor::<bool>::zeros(&self.shape().dims(), self.device()).unwrap();
+        let mut result = Tensor::<bool>::zeros(&self.shape().dims(), self.device()).expect("zeros tensor creation should succeed for isfinite");
         for i in 0..self.numel() {
             if let Ok(val) = self.get_item_flat(i) {
                 let is_finite = if let Some(val_f64) = <T as TensorElement>::to_f64(&val) {
@@ -535,7 +535,7 @@ impl<T: FloatElement + Default> Tensor<T> {
 
     /// Determines if values are infinite
     pub fn isinf(&self) -> Tensor<bool> {
-        let mut result = Tensor::<bool>::zeros(&self.shape().dims(), self.device()).unwrap();
+        let mut result = Tensor::<bool>::zeros(&self.shape().dims(), self.device()).expect("zeros tensor creation should succeed for isinf");
         for i in 0..self.numel() {
             if let Ok(val) = self.get_item_flat(i) {
                 let is_inf = if let Some(val_f64) = <T as TensorElement>::to_f64(&val) {
@@ -551,7 +551,7 @@ impl<T: FloatElement + Default> Tensor<T> {
 
     /// Determines if values are NaN
     pub fn isnan(&self) -> Tensor<bool> {
-        let mut result = Tensor::<bool>::zeros(&self.shape().dims(), self.device()).unwrap();
+        let mut result = Tensor::<bool>::zeros(&self.shape().dims(), self.device()).expect("zeros tensor creation should succeed for isnan");
         for i in 0..self.numel() {
             if let Ok(val) = self.get_item_flat(i) {
                 let is_nan = if let Some(val_f64) = <T as TensorElement>::to_f64(&val) {
@@ -706,5 +706,267 @@ fn lanczos_lgamma(z: f64) -> f64 {
         let t = z + LANCZOS_G + 0.5;
         let log_sqrt_2pi = 0.5 * (2.0 * std::f64::consts::PI).ln();
         log_sqrt_2pi + (z + 0.5) * t.ln() - t + x.ln()
+    }
+}
+
+// ✅ NaN/Inf detection operations for PyTorch compatibility
+impl<T: TensorElement + Copy> Tensor<T> {
+    /// Check if elements are NaN
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to `torch.isnan(tensor)`
+    pub fn isnan(&self) -> Result<Tensor<bool>>
+    where
+        T: FloatElement,
+    {
+        let data = self.data()?;
+        let result: Vec<bool> = data.iter().map(|&x| x.is_nan()).collect();
+        Tensor::<bool>::from_data(result, self.shape().to_vec(), self.device())
+    }
+
+    /// Check if elements are infinite
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to `torch.isinf(tensor)`
+    pub fn isinf(&self) -> Result<Tensor<bool>>
+    where
+        T: FloatElement,
+    {
+        let data = self.data()?;
+        let result: Vec<bool> = data.iter().map(|&x| x.is_infinite()).collect();
+        Tensor::<bool>::from_data(result, self.shape().to_vec(), self.device())
+    }
+
+    /// Check if elements are finite (not NaN and not infinite)
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to `torch.isfinite(tensor)`
+    pub fn isfinite(&self) -> Result<Tensor<bool>>
+    where
+        T: FloatElement,
+    {
+        let data = self.data()?;
+        let result: Vec<bool> = data.iter().map(|&x| x.is_finite()).collect();
+        Tensor::<bool>::from_data(result, self.shape().to_vec(), self.device())
+    }
+
+    /// Check if two tensors are element-wise equal within tolerance
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to `torch.allclose(tensor, other, rtol, atol)`
+    pub fn allclose(&self, other: &Self, rtol: f64, atol: f64) -> Result<bool>
+    where
+        T: FloatElement,
+    {
+        if self.shape() != other.shape() {
+            return Ok(false);
+        }
+
+        let self_data = self.data()?;
+        let other_data = other.data()?;
+
+        for (&a, &b) in self_data.iter().zip(other_data.iter()) {
+            let a_f64 = a.to_f64().ok_or_else(|| {
+                TorshError::ConversionError("Cannot convert to f64".to_string())
+            })?;
+            let b_f64 = b.to_f64().ok_or_else(|| {
+                TorshError::ConversionError("Cannot convert to f64".to_string())
+            })?;
+
+            let diff = (a_f64 - b_f64).abs();
+            let threshold = atol + rtol * b_f64.abs();
+
+            if diff > threshold {
+                return Ok(false);
+            }
+        }
+
+        Ok(true)
+    }
+
+    /// Check if two tensors are element-wise close within tolerance
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to `torch.isclose(tensor, other, rtol, atol)`
+    pub fn isclose(&self, other: &Self, rtol: f64, atol: f64) -> Result<Tensor<bool>>
+    where
+        T: FloatElement,
+    {
+        if self.shape() != other.shape() {
+            return Err(TorshError::ShapeMismatch {
+                expected: self.shape().to_vec(),
+                got: other.shape().to_vec(),
+            });
+        }
+
+        let self_data = self.data()?;
+        let other_data = other.data()?;
+
+        let result: Vec<bool> = self_data
+            .iter()
+            .zip(other_data.iter())
+            .map(|(&a, &b)| {
+                let a_f64 = a.to_f64().unwrap_or(0.0);
+                let b_f64 = b.to_f64().unwrap_or(0.0);
+
+                let diff = (a_f64 - b_f64).abs();
+                let threshold = atol + rtol * b_f64.abs();
+
+                diff <= threshold
+            })
+            .collect();
+
+        Tensor::<bool>::from_data(result, self.shape().to_vec(), self.device())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use torsh_core::device::DeviceType;
+
+    #[test]
+    fn test_isnan_with_nan() {
+        let tensor = Tensor::from_data(
+            vec![1.0f32, f32::NAN, 3.0, f32::NAN],
+            vec![4],
+            DeviceType::Cpu,
+        ).unwrap();
+
+        let result = tensor.isnan().unwrap();
+        let data = result.data().unwrap();
+
+        assert_eq!(data, vec![false, true, false, true]);
+    }
+
+    #[test]
+    fn test_isnan_no_nan() {
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+
+        let result = tensor.isnan().unwrap();
+        let data = result.data().unwrap();
+
+        assert_eq!(data, vec![false, false, false]);
+    }
+
+    #[test]
+    fn test_isinf_with_inf() {
+        let tensor = Tensor::from_data(
+            vec![1.0f32, f32::INFINITY, -f32::INFINITY, 3.0],
+            vec![4],
+            DeviceType::Cpu,
+        ).unwrap();
+
+        let result = tensor.isinf().unwrap();
+        let data = result.data().unwrap();
+
+        assert_eq!(data, vec![false, true, true, false]);
+    }
+
+    #[test]
+    fn test_isinf_no_inf() {
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+
+        let result = tensor.isinf().unwrap();
+        let data = result.data().unwrap();
+
+        assert_eq!(data, vec![false, false, false]);
+    }
+
+    #[test]
+    fn test_isfinite_mixed() {
+        let tensor = Tensor::from_data(
+            vec![1.0f32, f32::NAN, f32::INFINITY, 3.0],
+            vec![4],
+            DeviceType::Cpu,
+        ).unwrap();
+
+        let result = tensor.isfinite().unwrap();
+        let data = result.data().unwrap();
+
+        assert_eq!(data, vec![true, false, false, true]);
+    }
+
+    #[test]
+    fn test_isfinite_all_finite() {
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+
+        let result = tensor.isfinite().unwrap();
+        let data = result.data().unwrap();
+
+        assert_eq!(data, vec![true, true, true]);
+    }
+
+    #[test]
+    fn test_allclose_identical() {
+        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+        let b = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+
+        let result = a.allclose(&b, 1e-5, 1e-8).unwrap();
+
+        assert!(result);
+    }
+
+    #[test]
+    fn test_allclose_within_tolerance() {
+        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+        let b = Tensor::from_data(vec![1.00001f32, 2.00001, 3.00001], vec![3], DeviceType::Cpu).unwrap();
+
+        let result = a.allclose(&b, 1e-3, 1e-3).unwrap();
+
+        assert!(result);
+    }
+
+    #[test]
+    fn test_allclose_exceeds_tolerance() {
+        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+        let b = Tensor::from_data(vec![1.1f32, 2.1, 3.1], vec![3], DeviceType::Cpu).unwrap();
+
+        let result = a.allclose(&b, 1e-5, 1e-5).unwrap();
+
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_allclose_shape_mismatch() {
+        let a = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu).unwrap();
+        let b = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+
+        let result = a.allclose(&b, 1e-5, 1e-8).unwrap();
+
+        assert!(!result); // Shape mismatch should return false
+    }
+
+    #[test]
+    fn test_isclose_identical() {
+        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+        let b = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+
+        let result = a.isclose(&b, 1e-5, 1e-8).unwrap();
+        let data = result.data().unwrap();
+
+        assert_eq!(data, vec![true, true, true]);
+    }
+
+    #[test]
+    fn test_isclose_mixed() {
+        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+        let b = Tensor::from_data(vec![1.00001f32, 2.1, 3.00001], vec![3], DeviceType::Cpu).unwrap();
+
+        let result = a.isclose(&b, 1e-3, 1e-3).unwrap();
+        let data = result.data().unwrap();
+
+        // First and third are close, middle is not
+        assert_eq!(data, vec![true, false, true]);
+    }
+
+    #[test]
+    fn test_isclose_shape_mismatch() {
+        let a = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu).unwrap();
+        let b = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+
+        let result = a.isclose(&b, 1e-5, 1e-8);
+
+        assert!(result.is_err()); // Shape mismatch should return error
     }
 }

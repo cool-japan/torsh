@@ -154,7 +154,7 @@ impl WebGpuBuffer {
         });
 
         // Wait for the mapping to complete
-        let _ = self.device.device().poll(wgpu::PollType::Wait);
+        let _ = self.device.device().poll(wgpu::Maintain::Wait);
 
         // Check if mapping succeeded by trying to get mapped data
         *self.mapping_state.write() = MappingState::MappedRead;
@@ -189,7 +189,7 @@ impl WebGpuBuffer {
         });
 
         // Wait for the mapping to complete
-        let _ = self.device.device().poll(wgpu::PollType::Wait);
+        let _ = self.device.device().poll(wgpu::Maintain::Wait);
 
         // Check if mapping succeeded by trying to get mapped data
         *self.mapping_state.write() = MappingState::MappedWrite;

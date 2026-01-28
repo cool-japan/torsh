@@ -19,7 +19,7 @@ use super::types::{format_bytes, ModelInfo, ModelResult};
 // ✅ UNIFIED ACCESS (v0.1.0-RC.1+): Complete ndarray/random functionality through scirs2-core
 // SciRS2 ecosystem - MUST use instead of rand/ndarray (SCIRS2 POLICY COMPLIANT)
 use scirs2_core::ndarray::{Array1, Array2, Array3};
-use scirs2_core::random::{thread_rng, Rng};
+use scirs2_core::random::thread_rng;
 
 // ToRSh dependencies for real model operations
 
@@ -811,7 +811,9 @@ async fn perform_inference(
     // In a real implementation, this would use torsh-tensor and torsh-autograd
 
     // Flatten input for processing
-    let flattened_input = input.as_slice().unwrap();
+    let flattened_input = input
+        .as_slice()
+        .expect("input array should be contiguous for inference");
     let input_size = flattened_input.len().min(model.tensors[0].ncols());
 
     // Simple forward pass simulation using SciRS2

@@ -173,7 +173,10 @@ impl Optimizer for RAdam {
                     param_state.insert("exp_avg".to_string(), exp_avg.clone());
                     exp_avg
                 } else {
-                    param_state.get("exp_avg").unwrap().clone()
+                    param_state
+                        .get("exp_avg")
+                        .expect("exp_avg state should exist")
+                        .clone()
                 };
 
                 let exp_avg_sq = if !param_state.contains_key("exp_avg_sq") {
@@ -181,7 +184,10 @@ impl Optimizer for RAdam {
                     param_state.insert("exp_avg_sq".to_string(), exp_avg_sq.clone());
                     exp_avg_sq
                 } else {
-                    param_state.get("exp_avg_sq").unwrap().clone()
+                    param_state
+                        .get("exp_avg_sq")
+                        .expect("exp_avg_sq state should exist")
+                        .clone()
                 };
 
                 // Apply weight decay

@@ -182,8 +182,8 @@ impl BenchmarkResults {
         let total_throughput: f64 = self.results.iter().map(|r| r.throughput).sum();
         self.summary.avg_throughput = total_throughput / self.results.len() as f64;
 
-        let best = self.results.iter().max_by(|a, b| a.throughput.partial_cmp(&b.throughput).unwrap()).unwrap();
-        let worst = self.results.iter().min_by(|a, b| a.throughput.partial_cmp(&b.throughput).unwrap()).unwrap();
+        let best = self.results.iter().max_by(|a, b| a.throughput.partial_cmp(&b.throughput).unwrap_or(std::cmp::Ordering::Equal)).expect("results should not be empty after check");
+        let worst = self.results.iter().min_by(|a, b| a.throughput.partial_cmp(&b.throughput).unwrap_or(std::cmp::Ordering::Equal)).expect("results should not be empty after check");
 
         self.summary.best_operation = best.operation.clone();
         self.summary.worst_operation = worst.operation.clone();

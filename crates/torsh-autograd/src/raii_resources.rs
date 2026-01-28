@@ -1834,7 +1834,11 @@ impl MemoryPressureMonitor {
             return MemoryPressureStats::default();
         }
 
-        let current_pressure = self.pressure_history.last().unwrap().pressure_level;
+        let current_pressure = self
+            .pressure_history
+            .last()
+            .expect("pressure_history checked to be non-empty")
+            .pressure_level;
         let average_pressure = self
             .pressure_history
             .iter()

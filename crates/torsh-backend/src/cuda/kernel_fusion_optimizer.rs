@@ -452,25 +452,25 @@ impl AdvancedKernelFusionOptimizer {
     pub fn initialize(&self) -> Result<(), KernelFusionError> {
         // Initialize dependency analyzer
         {
-            let mut analyzer = self.dependency_analyzer.lock().unwrap();
+            let mut analyzer = self.dependency_analyzer.lock().expect("lock should not be poisoned");
             analyzer.initialize_analysis()?;
         }
 
         // Initialize fusion detection
         {
-            let mut detector = self.fusion_detector.lock().unwrap();
+            let mut detector = self.fusion_detector.lock().expect("lock should not be poisoned");
             detector.initialize_detection()?;
         }
 
         // Initialize kernel generation
         {
-            let mut generator = self.kernel_generator.lock().unwrap();
+            let mut generator = self.kernel_generator.lock().expect("lock should not be poisoned");
             generator.initialize_generation()?;
         }
 
         // Warm up the fusion cache
         {
-            let mut cache = self.fusion_cache.write().unwrap();
+            let mut cache = self.fusion_cache.write().expect("lock should not be poisoned");
             cache.warm_cache()?;
         }
 
@@ -486,26 +486,26 @@ impl AdvancedKernelFusionOptimizer {
 
         // 1. Analyze operation dependencies
         let dependency_graph = {
-            let mut analyzer = self.dependency_analyzer.lock().unwrap();
+            let mut analyzer = self.dependency_analyzer.lock().expect("lock should not be poisoned");
             analyzer.analyze_dependencies(operations)?
         };
 
         // 2. Detect fusion opportunities
         let opportunities = {
-            let mut detector = self.fusion_detector.lock().unwrap();
+            let mut detector = self.fusion_detector.lock().expect("lock should not be poisoned");
             detector.detect_opportunities(&dependency_graph)?
         };
 
         // 3. Analyze execution patterns
         let patterns = {
-            let mut pattern_analyzer = self.pattern_analyzer.lock().unwrap();
+            let mut pattern_analyzer = self.pattern_analyzer.lock().expect("lock should not be poisoned");
             pattern_analyzer.analyze_execution_patterns(operations)?
         };
 
         // 4. Predict performance for each opportunity
         let mut optimized_opportunities = Vec::new();
         {
-            let mut predictor = self.performance_predictor.lock().unwrap();
+            let mut predictor = self.performance_predictor.lock().expect("lock should not be poisoned");
             for opportunity in opportunities {
                 let performance_prediction =
                     predictor.predict_fusion_performance(&opportunity, &patterns)?;
@@ -522,7 +522,7 @@ impl AdvancedKernelFusionOptimizer {
 
         // Update statistics
         {
-            let mut stats = self.statistics.lock().unwrap();
+            let mut stats = self.statistics.lock().expect("lock should not be poisoned");
             stats.fusion_opportunities_detected += optimized_opportunities.len() as u64;
             stats.patterns_analyzed += 1;
         }
@@ -542,14 +542,14 @@ impl AdvancedKernelFusionOptimizer {
 
         // 2. Select optimal fusion strategy
         let strategy = {
-            let mut selector = self.strategy_selector.lock().unwrap();
+            let mut selector = self.strategy_selector.lock().expect("lock should not be poisoned");
             selector.select_optimal_strategy(&opportunities, operations)?
         };
 
         // 3. Generate fused kernels
         let mut fused_kernels = Vec::new();
         {
-            let mut generator = self.kernel_generator.lock().unwrap();
+            let mut generator = self.kernel_generator.lock().expect("lock should not be poisoned");
             for opportunity in &opportunities {
                 // Check fusion cache first
                 let cache_key = self.generate_fusion_signature(opportunity);
@@ -563,7 +563,7 @@ impl AdvancedKernelFusionOptimizer {
 
                 // Optimize the generated kernel
                 let optimized_kernel = {
-                    let mut code_generator = self.code_generator.lock().unwrap();
+                    let mut code_generator = self.code_generator.lock().expect("lock should not be poisoned");
                     code_generator.optimize_kernel_code(&fused_kernel)?
                 };
 
@@ -575,7 +575,7 @@ impl AdvancedKernelFusionOptimizer {
 
         // 4. Optimize memory bandwidth for fused kernels
         let bandwidth_optimized_kernels = {
-            let mut bandwidth_optimizer = self.bandwidth_optimizer.lock().unwrap();
+            let mut bandwidth_optimizer = self.bandwidth_optimizer.lock().expect("lock should not be poisoned");
             bandwidth_optimizer.optimize_kernel_bandwidth(&fused_kernels)?
         };
 
@@ -597,7 +597,7 @@ impl AdvancedKernelFusionOptimizer {
 
         // Update optimization history
         {
-            let mut history = self.optimization_history.lock().unwrap();
+            let mut history = self.optimization_history.lock().expect("lock should not be poisoned");
             let record = FusionOptimizationRecord {
                 optimization_id: result.optimization_id.clone(),
                 timestamp: SystemTime::now(),
@@ -622,7 +622,7 @@ impl AdvancedKernelFusionOptimizer {
 
         // Update statistics
         {
-            let mut stats = self.statistics.lock().unwrap();
+            let mut stats = self.statistics.lock().expect("lock should not be poisoned");
             stats.total_fusions_performed += result.fused_kernels.len() as u64;
             if result.performance_improvement > 0.0 {
                 stats.successful_fusions += 1;
@@ -639,9 +639,9 @@ impl AdvancedKernelFusionOptimizer {
 
     /// Get fusion optimization status
     pub fn get_optimization_status(&self) -> KernelFusionStatus {
-        let stats = self.statistics.lock().unwrap().clone();
+        let stats = self.statistics.lock().expect("lock should not be poisoned").clone();
         let cache_stats = {
-            let cache = self.fusion_cache.read().unwrap();
+            let cache = self.fusion_cache.read().expect("lock should not be poisoned");
             cache.get_cache_statistics()
         };
 
@@ -686,7 +686,7 @@ impl AdvancedKernelFusionOptimizer {
         &self,
         signature: &FusionSignature,
     ) -> Result<Option<FusionKernel>, KernelFusionError> {
-        let cache = self.fusion_cache.read().unwrap();
+        let cache = self.fusion_cache.read().expect("lock should not be poisoned");
         Ok(cache.get_cached_kernel(signature))
     }
 
@@ -695,7 +695,7 @@ impl AdvancedKernelFusionOptimizer {
         signature: &FusionSignature,
         kernel: &FusionKernel,
     ) -> Result<(), KernelFusionError> {
-        let mut cache = self.fusion_cache.write().unwrap();
+        let mut cache = self.fusion_cache.write().expect("lock should not be poisoned");
         cache.cache_kernel(signature.clone(), kernel.clone())
     }
 
@@ -785,7 +785,7 @@ pub enum KernelFusionError {
 
 macro_rules! default_placeholder_type {
     ($name:ident) => {
-        #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+        #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
         pub struct $name {
             pub placeholder: bool,
         }

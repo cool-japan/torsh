@@ -11,9 +11,9 @@ use torsh_tensor::{creation::ones, Tensor};
 /// ## Mathematical Background
 ///
 /// Solves the linear system:
-/// ```
+/// ```text
 /// A x = b
-/// ```
+/// ```text
 /// where A is an n×n matrix, b is an n×m matrix (multiple right-hand sides),
 /// and x is the n×m solution matrix.
 ///
@@ -88,19 +88,19 @@ pub fn solve(a: &Tensor, b: &Tensor) -> TorshResult<Tensor> {
 ///
 /// ### Forward Substitution (Lower Triangular)
 /// For Lx = b where L is lower triangular:
-/// ```
+/// ```text
 /// x₁ = b₁ / L₁₁
 /// x₂ = (b₂ - L₂₁x₁) / L₂₂
 /// xᵢ = (bᵢ - Σⱼ₌₁ⁱ⁻¹ Lᵢⱼxⱼ) / Lᵢᵢ
-/// ```
+/// ```text
 ///
 /// ### Backward Substitution (Upper Triangular)
 /// For Ux = b where U is upper triangular:
-/// ```
+/// ```text
 /// xₙ = bₙ / Uₙₙ
 /// xₙ₋₁ = (bₙ₋₁ - Uₙ₋₁,ₙxₙ) / Uₙ₋₁,ₙ₋₁
 /// xᵢ = (bᵢ - Σⱼ₌ᵢ₊₁ⁿ Uᵢⱼxⱼ) / Uᵢᵢ
-/// ```
+/// ```text
 ///
 /// ## Computational Complexity
 /// - Time: O(n²) for n×n triangular matrix
@@ -167,9 +167,9 @@ pub fn triangular_solve(
 /// ## Mathematical Background
 ///
 /// Solves the least squares problem:
-/// ```
+/// ```text
 /// minimize ||Ax - b||₂²
-/// ```
+/// ```text
 ///
 /// For an m×n matrix A with m ≥ n (overdetermined system), the least squares
 /// solution minimizes the sum of squared residuals.
@@ -177,24 +177,24 @@ pub fn triangular_solve(
 /// ## Solution Methods
 ///
 /// ### Normal Equations
-/// ```
+/// ```text
 /// A^T A x = A^T b
 /// x = (A^T A)⁻¹ A^T b
-/// ```
+/// ```text
 /// - Fast for well-conditioned problems
 /// - Can be unstable for ill-conditioned A
 ///
 /// ### QR Decomposition
-/// ```
+/// ```text
 /// A = QR  →  ||QRx - b||₂ = ||Rx - Q^T b||₂
-/// ```
+/// ```text
 /// - More stable than normal equations
 /// - Standard choice for most problems
 ///
 /// ### SVD Decomposition
-/// ```
+/// ```text
 /// A = UΣV^T  →  x = VΣ⁺U^T b
-/// ```
+/// ```text
 /// - Most stable, handles rank-deficient cases
 /// - Slowest but most robust method
 ///

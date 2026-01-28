@@ -167,7 +167,7 @@ impl<T: FloatElement> Tensor<T> {
         let outer_size: usize = shape[..actual_dim].iter().product();
         let inner_size: usize = shape[actual_dim + 1..].iter().product();
 
-        let mut result_data = vec![T::from_f64(0.0).unwrap(); data.len()];
+        let mut result_data = vec![T::from_f64(0.0).expect("f64 conversion should succeed"); data.len()];
 
         for outer in 0..outer_size {
             for inner in 0..inner_size {
@@ -183,8 +183,8 @@ impl<T: FloatElement> Tensor<T> {
                 }
 
                 // Compute exp(x - max) and sum
-                let mut exp_sum = T::from_f64(0.0).unwrap();
-                let mut exp_values = vec![T::from_f64(0.0).unwrap(); dim_size];
+                let mut exp_sum = T::from_f64(0.0).expect("f64 conversion should succeed");
+                let mut exp_values = vec![T::from_f64(0.0).expect("f64 conversion should succeed"); dim_size];
 
                 for d in 0..dim_size {
                     let idx = base_idx + d * inner_size;
@@ -234,7 +234,7 @@ impl<T: FloatElement> Tensor<T> {
         let outer_size: usize = shape[..actual_dim].iter().product();
         let inner_size: usize = shape[actual_dim + 1..].iter().product();
 
-        let mut result_data = vec![T::from_f64(0.0).unwrap(); data.len()];
+        let mut result_data = vec![T::from_f64(0.0).expect("f64 conversion should succeed"); data.len()];
 
         for outer in 0..outer_size {
             for inner in 0..inner_size {
@@ -250,7 +250,7 @@ impl<T: FloatElement> Tensor<T> {
                 }
 
                 // Compute log(sum(exp(x - max)))
-                let mut exp_sum = T::from_f64(0.0).unwrap();
+                let mut exp_sum = T::from_f64(0.0).expect("f64 conversion should succeed");
                 for d in 0..dim_size {
                     let idx = base_idx + d * inner_size;
                     exp_sum = exp_sum + (data[idx] - max_val).exp();

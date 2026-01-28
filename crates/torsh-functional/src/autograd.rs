@@ -417,13 +417,15 @@ where
 {
     get_global_registry()
         .lock()
-        .unwrap()
+        .expect("autograd registry lock should not be poisoned")
         .register(name, function);
 }
 
 /// Apply a globally registered function
 pub fn apply_registered_function(name: &str, inputs: &[Tensor]) -> TorshResult<Vec<Tensor>> {
-    let registry = get_global_registry().lock().unwrap();
+    let registry = get_global_registry()
+        .lock()
+        .expect("lock should not be poisoned");
     let function = registry.get(name).ok_or_else(|| {
         TorshError::invalid_argument_with_context(
             &format!("Function '{}' not found in registry", name),

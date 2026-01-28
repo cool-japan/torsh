@@ -741,21 +741,29 @@ mod tests {
 
     #[test]
     fn test_expert_parallelism_config_validation() {
-        let mut config = ExpertParallelismConfig::default();
-
         // Test invalid num_experts
-        config.num_experts = 0;
-        assert!(config.validate().is_err());
+        let config1 = ExpertParallelismConfig {
+            num_experts: 0,
+            ..Default::default()
+        };
+        assert!(config1.validate().is_err());
 
         // Test invalid num_experts_per_token
-        config.num_experts = 8;
-        config.num_experts_per_token = 10;
-        assert!(config.validate().is_err());
+        let config2 = ExpertParallelismConfig {
+            num_experts: 8,
+            num_experts_per_token: 10,
+            ..Default::default()
+        };
+        assert!(config2.validate().is_err());
 
         // Test invalid capacity_factor
-        config.num_experts_per_token = 2;
-        config.capacity_factor = -1.0;
-        assert!(config.validate().is_err());
+        let config3 = ExpertParallelismConfig {
+            num_experts: 8,
+            num_experts_per_token: 2,
+            capacity_factor: -1.0,
+            ..Default::default()
+        };
+        assert!(config3.validate().is_err());
     }
 
     #[test]
@@ -797,21 +805,29 @@ mod tests {
 
     #[test]
     fn test_expert_parameters_validation() {
-        let mut params = ExpertParameters::default();
-
         // Test invalid dimensions
-        params.input_dim = 0;
-        assert!(params.validate().is_err());
+        let params1 = ExpertParameters {
+            input_dim: 0,
+            ..Default::default()
+        };
+        assert!(params1.validate().is_err());
 
         // Test invalid dropout
-        params.input_dim = 512;
-        params.dropout = 1.5;
-        assert!(params.validate().is_err());
+        let params2 = ExpertParameters {
+            input_dim: 512,
+            dropout: 1.5,
+            ..Default::default()
+        };
+        assert!(params2.validate().is_err());
 
         // Test invalid activation
-        params.dropout = 0.1;
-        params.activation = "invalid".to_string();
-        assert!(params.validate().is_err());
+        let params3 = ExpertParameters {
+            input_dim: 512,
+            dropout: 0.1,
+            activation: "invalid".to_string(),
+            ..Default::default()
+        };
+        assert!(params3.validate().is_err());
     }
 
     #[test]

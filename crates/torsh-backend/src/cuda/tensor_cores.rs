@@ -3,14 +3,18 @@
 //! This module provides high-performance tensor operations using NVIDIA Tensor Cores
 //! available on Volta, Turing, Ampere, and later GPU architectures.
 
+use crate::cuda::error::BackendError;
 use crate::cuda::stream::CudaStream;
 use crate::error::BackendResult;
 use half::f16;
-// Note: scirs2-core provides GPU support through gpu::backends::cuda, not a top-level cuda module
-// use scirs2_core::gpu::backends::cuda;
-// use scirs2_core::tensor_cores;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+
+// Placeholder type for SciRS2 CUDA device integration
+// TODO: Replace with actual scirs2_core::gpu::backends::cuda::CudaDevice when available
+pub struct SciRs2CudaDevice {
+    device_id: u32,
+}
 
 /// Tensor Core compute capability requirements
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -152,20 +156,9 @@ impl TensorCoreDType {
     }
 }
 
-impl From<TensorCoreDType> for tensor::DType {
-    fn from(dtype: TensorCoreDType) -> Self {
-        match dtype {
-            TensorCoreDType::F16 => tensor::DType::F16,
-            TensorCoreDType::BF16 => tensor::DType::BF16,
-            TensorCoreDType::TF32 => tensor::DType::F32, // Map TF32 to F32 for compatibility
-            TensorCoreDType::Int8 => tensor::DType::I8,
-            TensorCoreDType::Int4 => tensor::DType::I8, // Map Int4 to I8 for compatibility
-            TensorCoreDType::Int1 => tensor::DType::U8, // Map Int1 to U8 for compatibility
-            TensorCoreDType::FP8E4M3 => tensor::DType::F16, // Map FP8 to F16 for compatibility
-            TensorCoreDType::FP8E5M2 => tensor::DType::F16, // Map FP8 to F16 for compatibility
-        }
-    }
-}
+// Note: Conversion to scirs2_core tensor DType will be implemented
+// when scirs2_core::gpu module provides the appropriate types.
+// impl From<TensorCoreDType> for tensor::DType { ... }
 
 /// Tensor Core operation types
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -237,12 +230,12 @@ pub struct TensorCoreContext {
     stats: Arc<Mutex<TensorCoreStats>>,
     /// Operation cache for optimization
     op_cache: HashMap<String, TensorCoreGemmConfig>,
-    /// SciRS2 CUDA device for actual computation
-    scirs2_device: Option<Arc<SciRs2CudaDevice>>,
+    /// Device ID for CUDA operations
+    device_id: u32,
 }
 
 /// Performance statistics for Tensor Core operations
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct TensorCoreStats {
     /// Total number of Tensor Core operations executed
     pub total_ops: u64,
@@ -293,15 +286,12 @@ impl TensorCoreContext {
             TensorCoreCapability::from_compute_capability(compute_major, compute_minor);
         let enabled = capability.is_supported();
 
-        // Try to initialize SciRS2 CUDA device
-        let scirs2_device = cuda::get_device(0).ok().map(Arc::new);
-
         Self {
             capability,
-            enabled: enabled && scirs2_device.is_some(),
+            enabled,
             stats: Arc::new(Mutex::new(TensorCoreStats::default())),
             op_cache: HashMap::new(),
-            scirs2_device,
+            device_id: 0,
         }
     }
 
@@ -311,15 +301,12 @@ impl TensorCoreContext {
             TensorCoreCapability::from_compute_capability(compute_major, compute_minor);
         let enabled = capability.is_supported();
 
-        // Try to initialize SciRS2 CUDA device with specific device ID
-        let scirs2_device = cuda::get_device(device_id).ok().map(Arc::new);
-
         Self {
             capability,
-            enabled: enabled && scirs2_device.is_some(),
+            enabled,
             stats: Arc::new(Mutex::new(TensorCoreStats::default())),
             op_cache: HashMap::new(),
-            scirs2_device,
+            device_id,
         }
     }
 
@@ -340,12 +327,12 @@ impl TensorCoreContext {
 
     /// Get performance statistics
     pub fn stats(&self) -> TensorCoreStats {
-        self.stats.lock().unwrap().clone()
+        (*self.stats.lock().expect("lock should not be poisoned")).clone()
     }
 
     /// Reset performance statistics
     pub fn reset_stats(&self) {
-        let mut stats = self.stats.lock().unwrap();
+        let mut stats = self.stats.lock().expect("lock should not be poisoned");
         *stats = TensorCoreStats::default();
     }
 
@@ -394,7 +381,7 @@ impl TensorCoreContext {
         let flops = 2 * config.a_shape.0 * config.a_shape.1 * config.b_shape.1;
 
         {
-            let mut stats = self.stats.lock().unwrap();
+            let mut stats = self.stats.lock().expect("lock should not be poisoned");
             stats.total_ops += 1;
             stats.total_compute_time_us += elapsed_us;
             stats.total_flops += flops as u64;
@@ -404,68 +391,26 @@ impl TensorCoreContext {
     }
 
     /// Launch Tensor Core GEMM operation
+    ///
+    /// Note: This is a placeholder implementation. Full tensor core GEMM support
+    /// requires integration with scirs2_core::gpu module when available.
     fn launch_tensor_core_gemm(
         &self,
         config: &TensorCoreGemmConfig,
-        a_ptr: *const f16,
-        b_ptr: *const f16,
-        c_ptr: *mut f32,
-        stream: &CudaStream,
+        _a_ptr: *const f16,
+        _b_ptr: *const f16,
+        _c_ptr: *mut f32,
+        _stream: &CudaStream,
     ) -> BackendResult<()> {
-        let device = self.scirs2_device.as_ref().ok_or_else(|| {
-            BackendError::BackendError("SciRS2 CUDA device not initialized".to_string())
-        })?;
+        // Validate configuration
+        let _ = config;
 
-        // Create tensor views for SciRS2
-        let a_shape = [config.a_shape.0, config.a_shape.1];
-        let b_shape = [config.b_shape.0, config.b_shape.1];
-        let c_shape = [config.c_shape.0, config.c_shape.1];
-
-        // Use SciRS2's CUDA tensor core GEMM implementation
-        unsafe {
-            // Create SciRS2 tensor views from raw pointers
-            let a_tensor = tensor::from_raw_ptr(
-                a_ptr as *const u8,
-                &a_shape,
-                &[config.a_shape.1, 1], // Row-major strides
-                tensor::DType::F16,
-            )
-            .map_err(|e| BackendError::BackendError(format!("Failed to create tensor A: {}", e)))?;
-
-            let b_tensor = tensor::from_raw_ptr(
-                b_ptr as *const u8,
-                &b_shape,
-                &[config.b_shape.1, 1], // Row-major strides
-                tensor::DType::F16,
-            )
-            .map_err(|e| BackendError::BackendError(format!("Failed to create tensor B: {}", e)))?;
-
-            let mut c_tensor = tensor::from_raw_ptr_mut(
-                c_ptr as *mut u8,
-                &c_shape,
-                &[config.c_shape.1, 1], // Row-major strides
-                tensor::DType::F32,
-            )
-            .map_err(|e| BackendError::BackendError(format!("Failed to create tensor C: {}", e)))?;
-
-            // Perform tensor core GEMM operation via SciRS2
-            cuda::tensor_ops::gemm_tensor_core(
-                device.as_ref(),
-                &a_tensor,
-                &b_tensor,
-                &mut c_tensor,
-                config.alpha,
-                config.beta,
-                config.trans_a,
-                config.trans_b,
-                config.dtype.into(),
-            )
-            .map_err(|e| {
-                BackendError::BackendError(format!("SciRS2 tensor core GEMM failed: {}", e))
-            })?;
-        }
-
-        Ok(())
+        // TODO: Implement tensor core GEMM when scirs2_core::gpu module is available
+        // For now, return an error indicating the feature is not yet implemented
+        Err(BackendError::BackendError(
+            "Tensor Core GEMM not yet implemented - requires scirs2_core::gpu integration"
+                .to_string(),
+        ))
     }
 
     /// Validate GEMM configuration
@@ -547,7 +492,7 @@ impl TensorCoreContext {
             * weight_shape.3;
 
         {
-            let mut stats = self.stats.lock().unwrap();
+            let mut stats = self.stats.lock().expect("lock should not be poisoned");
             stats.total_ops += 1;
             stats.total_compute_time_us += elapsed_us;
             stats.total_flops += flops as u64;
@@ -557,102 +502,27 @@ impl TensorCoreContext {
     }
 
     /// Launch Tensor Core convolution
+    ///
+    /// Note: This is a placeholder implementation. Full tensor core convolution support
+    /// requires integration with scirs2_core::gpu module when available.
     fn launch_tensor_core_conv(
         &self,
-        input: *const f16,
-        weight: *const f16,
-        output: *mut f32,
-        input_shape: (usize, usize, usize, usize),
-        weight_shape: (usize, usize, usize, usize),
-        output_shape: (usize, usize, usize, usize),
-        padding: (usize, usize),
-        stride: (usize, usize),
-        stream: &CudaStream,
+        _input: *const f16,
+        _weight: *const f16,
+        _output: *mut f32,
+        _input_shape: (usize, usize, usize, usize),
+        _weight_shape: (usize, usize, usize, usize),
+        _output_shape: (usize, usize, usize, usize),
+        _padding: (usize, usize),
+        _stride: (usize, usize),
+        _stream: &CudaStream,
     ) -> BackendResult<()> {
-        let device = self.scirs2_device.as_ref().ok_or_else(|| {
-            BackendError::BackendError("SciRS2 CUDA device not initialized".to_string())
-        })?;
-
-        // Create tensor views for SciRS2
-        let input_shape_arr = [input_shape.0, input_shape.1, input_shape.2, input_shape.3];
-        let weight_shape_arr = [
-            weight_shape.0,
-            weight_shape.1,
-            weight_shape.2,
-            weight_shape.3,
-        ];
-        let output_shape_arr = [
-            output_shape.0,
-            output_shape.1,
-            output_shape.2,
-            output_shape.3,
-        ];
-
-        // Use SciRS2's CUDA tensor core convolution implementation
-        unsafe {
-            // Create SciRS2 tensor views from raw pointers
-            let input_tensor = tensor::from_raw_ptr(
-                input as *const u8,
-                &input_shape_arr,
-                &[
-                    input_shape.1 * input_shape.2 * input_shape.3,
-                    input_shape.2 * input_shape.3,
-                    input_shape.3,
-                    1,
-                ], // NCHW strides
-                tensor::DType::F16,
-            )
-            .map_err(|e| {
-                BackendError::BackendError(format!("Failed to create input tensor: {}", e))
-            })?;
-
-            let weight_tensor = tensor::from_raw_ptr(
-                weight as *const u8,
-                &weight_shape_arr,
-                &[
-                    weight_shape.1 * weight_shape.2 * weight_shape.3,
-                    weight_shape.2 * weight_shape.3,
-                    weight_shape.3,
-                    1,
-                ], // KCHW strides
-                tensor::DType::F16,
-            )
-            .map_err(|e| {
-                BackendError::BackendError(format!("Failed to create weight tensor: {}", e))
-            })?;
-
-            let mut output_tensor = tensor::from_raw_ptr_mut(
-                output as *mut u8,
-                &output_shape_arr,
-                &[
-                    output_shape.1 * output_shape.2 * output_shape.3,
-                    output_shape.2 * output_shape.3,
-                    output_shape.3,
-                    1,
-                ], // NCHW strides
-                tensor::DType::F32,
-            )
-            .map_err(|e| {
-                BackendError::BackendError(format!("Failed to create output tensor: {}", e))
-            })?;
-
-            // Perform tensor core convolution operation via SciRS2
-            cuda::neural_ops::conv2d_tensor_core(
-                device.as_ref(),
-                &input_tensor,
-                &weight_tensor,
-                &mut output_tensor,
-                &[padding.0, padding.1, padding.0, padding.1], // [pad_left, pad_right, pad_top, pad_bottom]
-                &[stride.0, stride.1],                         // [stride_h, stride_w]
-                &[1, 1], // [dilation_h, dilation_w] - default to 1
-                1,       // groups - default to 1
-            )
-            .map_err(|e| {
-                BackendError::BackendError(format!("SciRS2 tensor core convolution failed: {}", e))
-            })?;
-        }
-
-        Ok(())
+        // TODO: Implement tensor core convolution when scirs2_core::gpu module is available
+        // For now, return an error indicating the feature is not yet implemented
+        Err(BackendError::BackendError(
+            "Tensor Core convolution not yet implemented - requires scirs2_core::gpu integration"
+                .to_string(),
+        ))
     }
 
     /// Auto-tune Tensor Core operations for optimal performance
@@ -680,7 +550,7 @@ impl TensorCoreContext {
                 continue; // Skip integer types for auto-tuning
             }
 
-            for &(m, n, k) in &tile_sizes {
+            for &(m, _n, k) in &tile_sizes {
                 for &(rows, cols) in input_shapes {
                     // Skip if dimensions don't fit
                     if rows < m || cols < k {
@@ -746,13 +616,13 @@ impl TensorCoreContext {
 
         if self.op_cache.contains_key(&cache_key) {
             {
-                let mut stats = self.stats.lock().unwrap();
+                let mut stats = self.stats.lock().expect("lock should not be poisoned");
                 stats.cache_hits += 1;
             }
             self.op_cache.get(&cache_key)
         } else {
             {
-                let mut stats = self.stats.lock().unwrap();
+                let mut stats = self.stats.lock().expect("lock should not be poisoned");
                 stats.cache_misses += 1;
             }
             None

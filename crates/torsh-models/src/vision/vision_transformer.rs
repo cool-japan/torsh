@@ -214,7 +214,7 @@ impl Module for TransformerEncoderBlock {
     }
 
     fn train(&mut self) {
-        *self.training.write().unwrap() = true;
+        *self.training.write().expect("lock should not be poisoned") = true;
         self.norm1.train();
         self.attn.train();
         self.norm2.train();
@@ -223,7 +223,7 @@ impl Module for TransformerEncoderBlock {
     }
 
     fn eval(&mut self) {
-        *self.training.write().unwrap() = false;
+        *self.training.write().expect("lock should not be poisoned") = false;
         self.norm1.eval();
         self.attn.eval();
         self.norm2.eval();
@@ -245,7 +245,7 @@ impl Module for TransformerEncoderBlock {
     }
 
     fn training(&self) -> bool {
-        *self.training.read().unwrap()
+        *self.training.read().expect("lock should not be poisoned")
     }
 
     fn to_device(&mut self, device: DeviceType) -> Result<()> {
@@ -314,7 +314,8 @@ impl VisionTransformer {
             })
             .collect::<Vec<_>>();
         let cls_token_tensor =
-            Tensor::from_data(cls_token_data, vec![1, 1, embed_dim], DeviceType::Cpu).unwrap();
+            Tensor::from_data(cls_token_data, vec![1, 1, embed_dim], DeviceType::Cpu)
+                .expect("tensor creation should succeed");
         let cls_token = Parameter::new(cls_token_tensor);
 
         // Positional embedding (num_patches + 1 for class token)
@@ -333,7 +334,7 @@ impl VisionTransformer {
             vec![1, pos_embed_length, embed_dim],
             DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("tensor creation should succeed");
         let pos_embed = Parameter::new(pos_embed_tensor);
 
         let dropout = Dropout::new(dropout_rate);

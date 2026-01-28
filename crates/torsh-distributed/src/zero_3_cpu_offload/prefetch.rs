@@ -73,11 +73,18 @@ impl PrefetchScheduler {
 
         // Add to queue
         {
-            let mut queue = self.prefetch_queue.lock().unwrap();
+            let mut queue = self
+                .prefetch_queue
+                .lock()
+                .expect("lock should not be poisoned");
             queue.push_back(request.clone());
 
             // Maintain queue size limit
-            let max_queue_size = self.adaptive_config.lock().unwrap().max_queue_size;
+            let max_queue_size = self
+                .adaptive_config
+                .lock()
+                .expect("lock should not be poisoned")
+                .max_queue_size;
             while queue.len() > max_queue_size {
                 if let Some(dropped) = queue.pop_front() {
                     info!(
@@ -123,7 +130,9 @@ impl PrefetchScheduler {
 
         // Add to active operations
         {
-            let mut active = active_prefetches.lock().unwrap();
+            let mut active = active_prefetches
+                .lock()
+                .expect("lock should not be poisoned");
             active.push(operation);
         }
 
@@ -135,7 +144,7 @@ impl PrefetchScheduler {
 
             // Update metrics
             {
-                let mut metrics_guard = metrics.lock().unwrap();
+                let mut metrics_guard = metrics.lock().expect("lock should not be poisoned");
                 let duration = start_time.elapsed();
 
                 match result {
@@ -155,7 +164,9 @@ impl PrefetchScheduler {
 
             // Remove from active operations
             {
-                let mut active = active_prefetches.lock().unwrap();
+                let mut active = active_prefetches
+                    .lock()
+                    .expect("lock should not be poisoned");
                 active.retain(|op| op.layer_name != layer_name);
             }
         });
@@ -165,8 +176,15 @@ impl PrefetchScheduler {
 
     /// Check if a new prefetch operation can be started
     async fn can_start_prefetch(&self) -> TorshResult<bool> {
-        let adaptive_config = self.adaptive_config.lock().unwrap();
-        let active_count = self.active_prefetches.lock().unwrap().len();
+        let adaptive_config = self
+            .adaptive_config
+            .lock()
+            .expect("lock should not be poisoned");
+        let active_count = self
+            .active_prefetches
+            .lock()
+            .expect("lock should not be poisoned")
+            .len();
 
         // Check concurrent prefetch limit
         if active_count >= adaptive_config.max_concurrent_prefetches {
@@ -230,7 +248,10 @@ impl PrefetchScheduler {
         );
 
         #[allow(clippy::await_holding_lock)]
-        let adaptive_config = self.adaptive_config.lock().unwrap();
+        let adaptive_config = self
+            .adaptive_config
+            .lock()
+            .expect("lock should not be poisoned");
         let max_concurrent = adaptive_config.max_concurrent_prefetches;
         drop(adaptive_config);
 
@@ -244,13 +265,13 @@ impl PrefetchScheduler {
             let metrics = self.metrics.clone();
 
             let task = tokio::spawn(async move {
-                let _permit = sem.acquire().await.unwrap();
+                let _permit = sem.acquire().await.expect("semaphore should not be closed");
                 let start_time = std::time::Instant::now();
                 let result = Self::prefetch_layer_data(&layer_name, process_group).await;
 
                 // Record metrics
                 {
-                    let mut metrics_guard = metrics.lock().unwrap();
+                    let mut metrics_guard = metrics.lock().expect("lock should not be poisoned");
                     let duration = start_time.elapsed();
                     match result {
                         Ok(()) => metrics_guard.record_successful_prefetch(duration, 0),
@@ -291,7 +312,7 @@ impl PrefetchScheduler {
 
         // Update batch metrics
         {
-            let mut metrics = self.metrics.lock().unwrap();
+            let mut metrics = self.metrics.lock().expect("lock should not be poisoned");
             metrics.record_batch_prefetch(successful, failed);
         }
 
@@ -369,7 +390,10 @@ impl PrefetchScheduler {
 
         #[allow(clippy::await_holding_lock)]
         // Execute prefetches with priority consideration
-        let adaptive_config = self.adaptive_config.lock().unwrap();
+        let adaptive_config = self
+            .adaptive_config
+            .lock()
+            .expect("lock should not be poisoned");
         let max_concurrent = adaptive_config.max_concurrent_prefetches;
         drop(adaptive_config);
 
@@ -390,13 +414,13 @@ impl PrefetchScheduler {
 
             let task = tokio::spawn(async move {
                 tokio::time::sleep(delay).await; // Priority-based delay
-                let _permit = sem.acquire().await.unwrap();
+                let _permit = sem.acquire().await.expect("semaphore should not be closed");
                 let start_time = std::time::Instant::now();
                 let result = Self::prefetch_layer_data(&request.layer_name, process_group).await;
 
                 // Record metrics
                 {
-                    let mut metrics_guard = metrics.lock().unwrap();
+                    let mut metrics_guard = metrics.lock().expect("lock should not be poisoned");
                     let duration = start_time.elapsed();
                     match result {
                         Ok(()) => metrics_guard
@@ -453,9 +477,16 @@ impl PrefetchScheduler {
         // 6. Current memory pressure
         // 7. Prefetch success/failure rates
 
-        let adaptive_config = self.adaptive_config.lock().unwrap();
+        let adaptive_config = self
+            .adaptive_config
+            .lock()
+            .expect("lock should not be poisoned");
         let base_distance = adaptive_config.base_prefetch_distance;
-        let current_performance = self.metrics.lock().unwrap().get_success_rate();
+        let current_performance = self
+            .metrics
+            .lock()
+            .expect("lock should not be poisoned")
+            .get_success_rate();
 
         // Adjust based on recent prefetch performance
         let performance_multiplier = if current_performance > 0.9 {
@@ -474,7 +505,10 @@ impl PrefetchScheduler {
         // Update adaptive configuration
         drop(adaptive_config);
         {
-            let mut adaptive_config = self.adaptive_config.lock().unwrap();
+            let mut adaptive_config = self
+                .adaptive_config
+                .lock()
+                .expect("lock should not be poisoned");
             adaptive_config.current_prefetch_distance = optimal_distance;
         }
 
@@ -483,8 +517,15 @@ impl PrefetchScheduler {
 
     /// Adaptive prefetch management based on system performance
     pub async fn adapt_prefetch_strategy(&self) -> TorshResult<()> {
-        let metrics = self.metrics.lock().unwrap().clone();
-        let mut adaptive_config = self.adaptive_config.lock().unwrap();
+        let metrics = self
+            .metrics
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone();
+        let mut adaptive_config = self
+            .adaptive_config
+            .lock()
+            .expect("lock should not be poisoned");
 
         info!("   <  Adapting prefetch strategy based on performance");
 
@@ -509,7 +550,11 @@ impl PrefetchScheduler {
         }
 
         // Adapt queue size based on utilization
-        let queue_size = self.prefetch_queue.lock().unwrap().len();
+        let queue_size = self
+            .prefetch_queue
+            .lock()
+            .expect("lock should not be poisoned")
+            .len();
         if queue_size > adaptive_config.max_queue_size * 3 / 4 {
             // Queue is mostly full, increase size
             adaptive_config.max_queue_size = (adaptive_config.max_queue_size + 2).min(32);
@@ -556,7 +601,10 @@ impl PrefetchScheduler {
 
         // Clear prefetch queue
         {
-            let mut queue = self.prefetch_queue.lock().unwrap();
+            let mut queue = self
+                .prefetch_queue
+                .lock()
+                .expect("lock should not be poisoned");
             let cancelled_count = queue.len();
             queue.clear();
             if cancelled_count > 0 {
@@ -574,7 +622,7 @@ impl PrefetchScheduler {
         // 4. Free allocated resources
 
         {
-            let mut metrics = self.metrics.lock().unwrap();
+            let mut metrics = self.metrics.lock().expect("lock should not be poisoned");
             metrics.record_cancellation();
         }
 
@@ -583,9 +631,18 @@ impl PrefetchScheduler {
 
     /// Get current prefetch queue status
     pub fn get_queue_status(&self) -> PrefetchQueueStatus {
-        let queue = self.prefetch_queue.lock().unwrap();
-        let active = self.active_prefetches.lock().unwrap();
-        let adaptive_config = self.adaptive_config.lock().unwrap();
+        let queue = self
+            .prefetch_queue
+            .lock()
+            .expect("lock should not be poisoned");
+        let active = self
+            .active_prefetches
+            .lock()
+            .expect("lock should not be poisoned");
+        let adaptive_config = self
+            .adaptive_config
+            .lock()
+            .expect("lock should not be poisoned");
 
         PrefetchQueueStatus {
             queued_requests: queue.len(),
@@ -598,12 +655,18 @@ impl PrefetchScheduler {
 
     /// Get prefetch performance metrics
     pub fn get_metrics(&self) -> PrefetchMetrics {
-        self.metrics.lock().unwrap().clone()
+        self.metrics
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Get adaptive configuration
     pub fn get_adaptive_config(&self) -> AdaptivePrefetchConfig {
-        self.adaptive_config.lock().unwrap().clone()
+        self.adaptive_config
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     // Helper methods

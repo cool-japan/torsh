@@ -451,7 +451,7 @@ impl SparseLayerNorm {
                                     .to_string(),
                             )
                         })?
-                        .get(&[col % self.weight.as_ref().unwrap().shape().numel()])?;
+                        .get(&[col % self.weight.as_ref().expect("weight should be present").shape().numel()])?;
                     let bias = self
                         .bias
                         .as_ref()
@@ -461,7 +461,7 @@ impl SparseLayerNorm {
                                     .to_string(),
                             )
                         })?
-                        .get(&[col % self.bias.as_ref().unwrap().shape().numel()])?;
+                        .get(&[col % self.bias.as_ref().expect("bias should be present").shape().numel()])?;
                     normalized_val * weight + bias
                 } else {
                     normalized_val

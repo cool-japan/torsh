@@ -643,8 +643,14 @@ impl ResumableInterpreter {
     ) -> TorshResult<Vec<Tensor>> {
         // For simplicity, fall back to regular execution
         // In a full implementation, this would execute node by node with checkpointing
-        self.interpreter
-            .run(&self.current_checkpoint.as_ref().unwrap().graph, inputs)
+        self.interpreter.run(
+            &self
+                .current_checkpoint
+                .as_ref()
+                .expect("checkpoint should be set before execution")
+                .graph,
+            inputs,
+        )
     }
 
     /// Extract execution checkpoint from general checkpoint data

@@ -56,10 +56,22 @@ impl DistanceMetric {
     /// Compute distance between two points
     pub fn compute(&self, a: &ArrayView2<f64>, b: &ArrayView2<f64>) -> Result<f64> {
         let distance = match self {
-            DistanceMetric::Euclidean => euclidean(a.as_slice().unwrap(), b.as_slice().unwrap()),
-            DistanceMetric::Manhattan => manhattan(a.as_slice().unwrap(), b.as_slice().unwrap()),
-            DistanceMetric::Cosine => cosine(a.as_slice().unwrap(), b.as_slice().unwrap()),
-            _ => euclidean(a.as_slice().unwrap(), b.as_slice().unwrap()), // Fallback to euclidean
+            DistanceMetric::Euclidean => euclidean(
+                a.as_slice().expect("slice conversion should succeed"),
+                b.as_slice().expect("slice conversion should succeed"),
+            ),
+            DistanceMetric::Manhattan => manhattan(
+                a.as_slice().expect("slice conversion should succeed"),
+                b.as_slice().expect("slice conversion should succeed"),
+            ),
+            DistanceMetric::Cosine => cosine(
+                a.as_slice().expect("slice conversion should succeed"),
+                b.as_slice().expect("slice conversion should succeed"),
+            ),
+            _ => euclidean(
+                a.as_slice().expect("slice conversion should succeed"),
+                b.as_slice().expect("slice conversion should succeed"),
+            ), // Fallback to euclidean
         };
 
         Ok(distance)
@@ -170,7 +182,7 @@ impl SpatialProcessor {
                 .query(
                     &query_point
                         .as_slice()
-                        .unwrap()
+                        .expect("slice conversion should succeed")
                         .iter()
                         .map(|&x| x as f32)
                         .collect::<Vec<f32>>(),
@@ -203,7 +215,7 @@ impl SpatialProcessor {
                 .query(
                     &descriptor
                         .as_slice()
-                        .unwrap()
+                        .expect("slice conversion should succeed")
                         .iter()
                         .map(|&x| x as f32)
                         .collect::<Vec<f32>>(),

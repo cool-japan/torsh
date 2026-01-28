@@ -144,7 +144,7 @@ async fn async_retry_example() -> Result<(), Box<dyn std::error::Error>> {
     let result = retry_with_backoff_async(&config, move || {
         let attempts = attempts_clone.clone();
         async move {
-            let mut count = attempts.lock().unwrap();
+            let mut count = attempts.lock().expect("lock should not be poisoned");
             *count += 1;
             let current = *count;
             drop(count);

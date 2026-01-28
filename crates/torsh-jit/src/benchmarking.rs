@@ -877,8 +877,12 @@ impl BenchmarkSuite {
         sorted_times.sort();
 
         let median_time = sorted_times[sorted_times.len() / 2];
-        let min_time = *sorted_times.first().unwrap();
-        let max_time = *sorted_times.last().unwrap();
+        let min_time = *sorted_times
+            .first()
+            .expect("sorted_times should not be empty");
+        let max_time = *sorted_times
+            .last()
+            .expect("sorted_times should not be empty");
 
         // Calculate percentiles
         let p95_index = (sorted_times.len() as f64 * 0.95) as usize;
@@ -1022,7 +1026,7 @@ impl BenchmarkSuite {
                 OutputFormat::Binary => {
                     // Updated for bincode v2: use encode_to_vec with default config
                     let binary =
-                        bincode::serde::encode_to_vec(&*results, bincode::config::standard())
+                        oxicode::serde::encode_to_vec(&*results, oxicode::config::standard())
                             .map_err(|e| {
                                 JitError::RuntimeError(format!(
                                     "Binary serialization failed: {}",

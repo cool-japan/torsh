@@ -196,7 +196,7 @@ pub mod fs {
     /// Get file size as human-readable string
     pub fn format_file_size(size: u64) -> String {
         Byte::from_u128(size as u128)
-            .unwrap_or_else(|| Byte::from_u128(0).unwrap())
+            .unwrap_or_else(|| Byte::from_u128(0).expect("zero bytes should always be valid"))
             .get_appropriate_unit(byte_unit::UnitType::Binary)
             .to_string()
     }
@@ -317,7 +317,7 @@ pub mod system {
     fn format_memory(memory_kb: u64) -> String {
         let memory_bytes = memory_kb * 1024;
         Byte::from_u128(memory_bytes as u128)
-            .unwrap_or_else(|| Byte::from_u128(0).unwrap())
+            .unwrap_or_else(|| Byte::from_u128(0).expect("zero bytes should always be valid"))
             .get_appropriate_unit(byte_unit::UnitType::Binary)
             .to_string()
     }

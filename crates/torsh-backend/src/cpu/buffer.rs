@@ -267,7 +267,7 @@ impl CpuBuffer {
     /// - No mutable references to the buffer exist when using this pointer
     /// - The buffer is not resized while using this pointer
     pub unsafe fn as_ptr(&self) -> *const u8 {
-        let data = self.data.read().unwrap();
+        let data = self.data.read().expect("lock should not be poisoned");
         data.as_ptr()
     }
 
@@ -280,7 +280,7 @@ impl CpuBuffer {
     /// - No other references to the buffer exist when using this pointer
     /// - The buffer is not resized while using this pointer
     pub unsafe fn as_mut_ptr(&self) -> *mut u8 {
-        let mut data = self.data.write().unwrap();
+        let mut data = self.data.write().expect("lock should not be poisoned");
         data.as_mut_ptr()
     }
 }

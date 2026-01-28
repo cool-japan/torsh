@@ -410,7 +410,7 @@ pub fn normalize_window(window: &Tensor, norm_type: &str) -> Result<Tensor> {
     match norm_type {
         "magnitude" => {
             let sum = window.sum()?;
-            let sum_val = sum.item().unwrap();
+            let sum_val = sum.item().expect("item value should be present");
 
             // Manually divide each element to avoid tensor shape issues
             for i in 0..window_len {
@@ -422,7 +422,7 @@ pub fn normalize_window(window: &Tensor, norm_type: &str) -> Result<Tensor> {
         "power" => {
             let power_sum = window.pow_scalar(2.0)?.sum()?;
             let norm_factor = power_sum.sqrt()?;
-            let norm_val = norm_factor.item().unwrap();
+            let norm_val = norm_factor.item().expect("item value should be present");
 
             // Manually divide each element to avoid tensor shape issues
             for i in 0..window_len {
@@ -445,14 +445,14 @@ mod tests {
 
     #[test]
     fn test_hamming_window() {
-        let window = hamming_window(10, false).unwrap();
+        let window = hamming_window(10, false).expect("hamming_window should succeed");
         assert_eq!(window.shape().dims(), &[10]);
 
         // Check symmetry
         for i in 0..5 {
             assert_relative_eq!(
-                window.get_1d(i).unwrap(),
-                window.get_1d(9 - i).unwrap(),
+                window.get_1d(i).expect("get_1d should succeed"),
+                window.get_1d(9 - i).expect("get_1d should succeed"),
                 epsilon = 1e-6
             );
         }
@@ -460,12 +460,20 @@ mod tests {
 
     #[test]
     fn test_hann_window() {
-        let window = hann_window(10, false).unwrap();
+        let window = hann_window(10, false).expect("hann_window should succeed");
         assert_eq!(window.shape().dims(), &[10]);
 
         // Check endpoints
-        assert_relative_eq!(window.get_1d(0).unwrap(), 0.0, epsilon = 1e-6);
-        assert_relative_eq!(window.get_1d(9).unwrap(), 0.0, epsilon = 1e-6);
+        assert_relative_eq!(
+            window.get_1d(0).expect("get_1d should succeed"),
+            0.0,
+            epsilon = 1e-6
+        );
+        assert_relative_eq!(
+            window.get_1d(9).expect("get_1d should succeed"),
+            0.0,
+            epsilon = 1e-6
+        );
     }
 
     #[test]
@@ -473,7 +481,11 @@ mod tests {
         let window = hamming_window(10, false)?;
         let normalized = normalize_window(&window, "magnitude")?;
         let sum = normalized.sum()?;
-        assert_relative_eq!(sum.item().unwrap(), 1.0, epsilon = 1e-5);
+        assert_relative_eq!(
+            sum.item().expect("item value should be present"),
+            1.0,
+            epsilon = 1e-5
+        );
         Ok(())
     }
 
@@ -485,7 +497,7 @@ mod tests {
 
         // Periodic and symmetric should be different
         let diff = periodic.sub(&symmetric)?.abs()?.sum()?;
-        assert!(diff.item().unwrap() > 0.01);
+        assert!(diff.item().expect("item value should be present") > 0.01);
         Ok(())
     }
 
@@ -694,13 +706,13 @@ mod tests {
         // Test that Tukey with alpha=0 equals rectangular
         let tukey_rect = tukey_window(n, 0.0, false)?;
         let diff = rect.sub(&tukey_rect)?.abs()?.sum()?;
-        assert!(diff.item().unwrap() < 1e-6);
+        assert!(diff.item().expect("item value should be present") < 1e-6);
 
         // Test that Tukey with alpha=1 equals Hann
         let tukey_hann = tukey_window(n, 1.0, false)?;
         let hann = hann_window(n, false)?;
         let diff = hann.sub(&tukey_hann)?.abs()?.sum()?;
-        assert!(diff.item().unwrap() < 1e-5);
+        assert!(diff.item().expect("item value should be present") < 1e-5);
 
         Ok(())
     }
@@ -720,13 +732,17 @@ mod tests {
 
         // Power normalization: sum of squares should be 1
         let power_sum = normalized.pow_scalar(2.0)?.sum()?;
-        assert_relative_eq!(power_sum.item().unwrap(), 1.0, epsilon = 1e-5);
+        assert_relative_eq!(
+            power_sum.item().expect("item value should be present"),
+            1.0,
+            epsilon = 1e-5
+        );
         Ok(())
     }
 
     #[test]
     fn test_invalid_normalization() {
-        let window = hamming_window(10, false).unwrap();
+        let window = hamming_window(10, false).expect("hamming_window should succeed");
         let result = normalize_window(&window, "invalid");
         assert!(result.is_err());
     }
@@ -822,7 +838,7 @@ mod tests {
 
         // Periodic and symmetric should be different
         let diff = periodic.sub(&symmetric)?.abs()?.sum()?;
-        assert!(diff.item().unwrap() > 0.01);
+        assert!(diff.item().expect("item value should be present") > 0.01);
         Ok(())
     }
 
@@ -847,12 +863,20 @@ mod tests {
         // Test magnitude normalization
         let normalized = normalize_window(&window, "magnitude")?;
         let sum = normalized.sum()?;
-        assert_relative_eq!(sum.item().unwrap(), 1.0, epsilon = 1e-5);
+        assert_relative_eq!(
+            sum.item().expect("item value should be present"),
+            1.0,
+            epsilon = 1e-5
+        );
 
         // Test power normalization
         let power_normalized = normalize_window(&window, "power")?;
         let power_sum = power_normalized.pow_scalar(2.0)?.sum()?;
-        assert_relative_eq!(power_sum.item().unwrap(), 1.0, epsilon = 1e-5);
+        assert_relative_eq!(
+            power_sum.item().expect("item value should be present"),
+            1.0,
+            epsilon = 1e-5
+        );
 
         Ok(())
     }

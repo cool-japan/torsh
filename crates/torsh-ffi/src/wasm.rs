@@ -113,7 +113,7 @@
 // Framework infrastructure - components designed for future use
 #![allow(dead_code)]
 
-use bincode::config;
+use oxicode::config;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -484,7 +484,7 @@ impl WasmLinear {
             ));
         }
 
-        let last_dim = *input_shape.last().unwrap();
+        let last_dim = *input_shape.last().expect("input_shape should not be empty");
         if last_dim != self.in_features {
             return Err(format!(
                 "Input feature size {} doesn't match layer input size {}",
@@ -768,12 +768,12 @@ pub mod utils {
 
     /// Serialize tensor for transfer to JavaScript
     pub fn tensor_to_bytes(tensor: &WasmTensor) -> Vec<u8> {
-        bincode::serde::encode_to_vec(tensor, config::standard()).unwrap_or_default()
+        oxicode::serde::encode_to_vec(tensor, config::standard()).unwrap_or_default()
     }
 
     /// Deserialize tensor from bytes
     pub fn tensor_from_bytes(bytes: &[u8]) -> Result<WasmTensor, String> {
-        bincode::serde::decode_from_slice(bytes, config::standard())
+        oxicode::serde::decode_from_slice(bytes, config::standard())
             .map(|(tensor, _)| tensor)
             .map_err(|e| format!("Deserialization failed: {}", e))
     }

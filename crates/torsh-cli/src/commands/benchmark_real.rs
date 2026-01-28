@@ -22,7 +22,7 @@ use crate::utils::progress;
 
 // ✅ UNIFIED ACCESS (v0.1.0-RC.1+): Complete ndarray/random functionality through scirs2-core
 use scirs2_core::ndarray::{Array2, Array4};
-use scirs2_core::random::{thread_rng, Rng};
+use scirs2_core::random::thread_rng;
 
 /// Benchmark configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -411,7 +411,10 @@ async fn measure_memory_usage(device: &str) -> Result<f64> {
 /// Calculate latency metrics from samples
 fn calculate_latency_metrics(latencies: &[f64]) -> LatencyMetrics {
     let mut sorted = latencies.to_vec();
-    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    sorted.sort_by(|a, b| {
+        a.partial_cmp(b)
+            .expect("latency values should be comparable")
+    });
 
     let mean = sorted.iter().sum::<f64>() / sorted.len() as f64;
     let median = sorted[sorted.len() / 2];
@@ -542,14 +545,19 @@ fn analyze_results(results: &[ConfigBenchmark]) -> Result<BenchmarkSummary> {
             a.throughput
                 .samples_per_second
                 .partial_cmp(&b.throughput.samples_per_second)
-                .unwrap()
+                .expect("throughput values should be comparable")
         })
-        .unwrap();
+        .expect("results should not be empty for throughput analysis");
 
     let best_latency = results
         .iter()
-        .min_by(|a, b| a.latency.mean_ms.partial_cmp(&b.latency.mean_ms).unwrap())
-        .unwrap();
+        .min_by(|a, b| {
+            a.latency
+                .mean_ms
+                .partial_cmp(&b.latency.mean_ms)
+                .expect("latency values should be comparable")
+        })
+        .expect("results should not be empty for latency analysis");
 
     // Calculate efficiency score (throughput / latency)
     let most_efficient = results
@@ -557,9 +565,11 @@ fn analyze_results(results: &[ConfigBenchmark]) -> Result<BenchmarkSummary> {
         .max_by(|a, b| {
             let score_a = a.throughput.samples_per_second / a.latency.mean_ms;
             let score_b = b.throughput.samples_per_second / b.latency.mean_ms;
-            score_a.partial_cmp(&score_b).unwrap()
+            score_a
+                .partial_cmp(&score_b)
+                .expect("efficiency scores should be comparable")
         })
-        .unwrap();
+        .expect("results should not be empty for efficiency analysis");
 
     // Device comparison
     let mut device_comparison = HashMap::new();

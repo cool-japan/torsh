@@ -153,7 +153,7 @@ pub fn decode_architecture(
 /// ## Continuous Relaxation
 ///
 /// Instead of discrete operation selection, DARTS uses:
-/// ```
+/// ```text
 /// mixed_op(x) = Σₒ (exp(α_o) / Σₒ' exp(α_o')) · op_o(x)
 /// ```
 ///
@@ -166,7 +166,7 @@ pub fn decode_architecture(
 ///
 /// # Arguments
 /// * `x` - Input tensor
-/// * `alpha` - Architecture weights [num_operations]
+/// * `alpha` - Architecture weights \[num_operations\]
 /// * `operations` - List of operation tensors to mix
 ///
 /// # Returns

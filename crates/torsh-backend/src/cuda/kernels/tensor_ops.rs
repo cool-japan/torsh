@@ -1,5 +1,6 @@
 //! Rust bindings for tensor operation kernels
 
+#![allow(unused_imports)]
 #[allow(unused_imports)]
 use crate::cuda::error::{CudaError, CudaResult};
 use half::f16;
@@ -14,10 +15,10 @@ pub fn launch_elementwise_add_f32(
     b: *mut f32,
     output: *mut f32,
     size: usize,
-    stream: cuda_sys::CUstream,
+    stream: crate::cuda::CUstream,
 ) {
     unsafe {
-        super::cuda_kernels::launch_elementwise_add_f32(a, b, output, size, stream);
+        super::cuda_kernels::launch_elementwise_add_f32(a, b, output, size as i32, stream);
     }
 }
 
@@ -27,10 +28,10 @@ pub fn launch_elementwise_mul_f32(
     b: *mut f32,
     output: *mut f32,
     size: usize,
-    stream: cuda_sys::CUstream,
+    stream: crate::cuda::CUstream,
 ) {
     unsafe {
-        super::cuda_kernels::launch_elementwise_mul_f32(a, b, output, size, stream);
+        super::cuda_kernels::launch_elementwise_mul_f32(a, b, output, size as i32, stream);
     }
 }
 
@@ -40,10 +41,10 @@ pub fn launch_elementwise_sub_f32(
     b: *mut f32,
     output: *mut f32,
     size: usize,
-    stream: cuda_sys::CUstream,
+    stream: crate::cuda::CUstream,
 ) {
     unsafe {
-        super::cuda_kernels::launch_elementwise_sub_f32(a, b, output, size, stream);
+        super::cuda_kernels::launch_elementwise_sub_f32(a, b, output, size as i32, stream);
     }
 }
 
@@ -53,10 +54,10 @@ pub fn launch_elementwise_div_f32(
     b: *mut f32,
     output: *mut f32,
     size: usize,
-    stream: cuda_sys::CUstream,
+    stream: crate::cuda::CUstream,
 ) {
     unsafe {
-        super::cuda_kernels::launch_elementwise_div_f32(a, b, output, size, stream);
+        super::cuda_kernels::launch_elementwise_div_f32(a, b, output, size as i32, stream);
     }
 }
 
@@ -65,10 +66,10 @@ pub fn launch_elementwise_relu_f32(
     input: *mut f32,
     output: *mut f32,
     size: usize,
-    stream: cuda_sys::CUstream,
+    stream: crate::cuda::CUstream,
 ) {
     unsafe {
-        super::cuda_kernels::launch_elementwise_relu_f32(input, output, size, stream);
+        super::cuda_kernels::launch_elementwise_relu_f32(input, output, size as i32, stream);
     }
 }
 
@@ -77,10 +78,10 @@ pub fn launch_elementwise_sigmoid_f32(
     input: *mut f32,
     output: *mut f32,
     size: usize,
-    stream: cuda_sys::CUstream,
+    stream: crate::cuda::CUstream,
 ) {
     unsafe {
-        super::cuda_kernels::launch_elementwise_sigmoid_f32(input, output, size, stream);
+        super::cuda_kernels::launch_elementwise_sigmoid_f32(input, output, size as i32, stream);
     }
 }
 
@@ -89,10 +90,10 @@ pub fn launch_elementwise_tanh_f32(
     input: *mut f32,
     output: *mut f32,
     size: usize,
-    stream: cuda_sys::CUstream,
+    stream: crate::cuda::CUstream,
 ) {
     unsafe {
-        super::cuda_kernels::launch_elementwise_tanh_f32(input, output, size, stream);
+        super::cuda_kernels::launch_elementwise_tanh_f32(input, output, size as i32, stream);
     }
 }
 
@@ -101,10 +102,10 @@ pub fn launch_elementwise_gelu_f32(
     input: *mut f32,
     output: *mut f32,
     size: usize,
-    stream: cuda_sys::CUstream,
+    stream: crate::cuda::CUstream,
 ) {
     unsafe {
-        super::cuda_kernels::launch_elementwise_gelu_f32(input, output, size, stream);
+        super::cuda_kernels::launch_elementwise_gelu_f32(input, output, size as i32, stream);
     }
 }
 
@@ -114,7 +115,7 @@ pub fn launch_transpose_f32(
     output: *mut f32,
     rows: i32,
     cols: i32,
-    stream: cuda_sys::CUstream,
+    stream: crate::cuda::CUstream,
 ) {
     unsafe {
         super::cuda_kernels::launch_transpose_f32(input, output, rows, cols, stream);
@@ -127,15 +128,20 @@ pub fn launch_scalar_mul_f32(
     output: *mut f32,
     scalar: f32,
     size: usize,
-    stream: cuda_sys::CUstream,
+    stream: crate::cuda::CUstream,
 ) {
     unsafe {
-        super::cuda_kernels::launch_scalar_mul_f32(input, output, scalar, size, stream);
+        super::cuda_kernels::launch_scalar_mul_f32(input, output, scalar, size as i32, stream);
     }
 }
 
 /// Launch ReLU activation kernel (alias for compatibility)
-pub fn launch_relu_f32(input: *mut f32, output: *mut f32, size: usize, stream: cuda_sys::CUstream) {
+pub fn launch_relu_f32(
+    input: *mut f32,
+    output: *mut f32,
+    size: usize,
+    stream: crate::cuda::CUstream,
+) {
     launch_elementwise_relu_f32(input, output, size, stream);
 }
 
@@ -144,13 +150,18 @@ pub fn launch_sigmoid_f32(
     input: *mut f32,
     output: *mut f32,
     size: usize,
-    stream: cuda_sys::CUstream,
+    stream: crate::cuda::CUstream,
 ) {
     launch_elementwise_sigmoid_f32(input, output, size, stream);
 }
 
 /// Launch tanh activation kernel (alias for compatibility)
-pub fn launch_tanh_f32(input: *mut f32, output: *mut f32, size: usize, stream: cuda_sys::CUstream) {
+pub fn launch_tanh_f32(
+    input: *mut f32,
+    output: *mut f32,
+    size: usize,
+    stream: crate::cuda::CUstream,
+) {
     launch_elementwise_tanh_f32(input, output, size, stream);
 }
 
@@ -159,10 +170,16 @@ pub fn launch_f32_to_f16(
     input: *mut f32,
     output: *mut f16,
     size: usize,
-    stream: cuda_sys::CUstream,
+    stream: crate::cuda::CUstream,
 ) {
     unsafe {
-        super::cuda_kernels::launch_f32_to_f16(input, output, size, stream);
+        // Cast f16 pointer to u16 pointer (they have the same representation)
+        super::cuda_kernels::launch_f32_to_f16(
+            input as *const f32,
+            output as *mut u16,
+            size as i32,
+            stream,
+        );
     }
 }
 
@@ -171,10 +188,11 @@ pub fn launch_f16_to_f32(
     input: *mut f16,
     output: *mut f32,
     size: usize,
-    stream: cuda_sys::CUstream,
+    stream: crate::cuda::CUstream,
 ) {
     unsafe {
-        super::cuda_kernels::launch_f16_to_f32(input, output, size, stream);
+        // Cast f16 pointer to u16 pointer (they have the same representation)
+        super::cuda_kernels::launch_f16_to_f32(input as *const u16, output, size as i32, stream);
     }
 }
 

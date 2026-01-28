@@ -445,7 +445,6 @@ pub enum FfiError {
     DeviceTransfer { message: String },
 }
 
-#[cfg(feature = "python")]
 impl From<FfiError> for pyo3::PyErr {
     fn from(err: FfiError) -> Self {
         match err {
@@ -535,12 +534,10 @@ impl From<torsh_core::error::TorshError> for FfiError {
     }
 }
 
-#[cfg(feature = "python")]
 pub fn fmt_error_to_pyerr(err: std::fmt::Error) -> pyo3::PyErr {
     pyo3::exceptions::PyRuntimeError::new_err(format!("Formatting error: {}", err))
 }
 
-#[cfg(feature = "python")]
 pub fn torsh_error_to_pyerr(err: torsh_core::error::TorshError) -> pyo3::PyErr {
     pyo3::exceptions::PyRuntimeError::new_err(format!("Tensor error: {}", err))
 }
@@ -548,7 +545,6 @@ pub fn torsh_error_to_pyerr(err: torsh_core::error::TorshError) -> pyo3::PyErr {
 /// Result type for FFI operations
 pub type FfiResult<T> = Result<T, FfiError>;
 
-#[cfg(feature = "python")]
 pub mod python_exceptions {
     //! Custom Python exception classes for better error handling
 

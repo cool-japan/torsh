@@ -26,8 +26,8 @@ use torsh_distributed::{
     training_analytics_dashboard::{DashboardConfig, TrainingAnalyticsDashboard},
     TorshResult,
 };
-use torsh_tensor::creation::{ones, randn};
-use tracing::{info, Level};
+use torsh_tensor::creation::randn;
+// use tracing::{info, Level};
 // Note: tracing_subscriber would need to be added as dependency for full logging
 
 #[tokio::main]
@@ -197,7 +197,7 @@ async fn demo_network_aware_compression() -> TorshResult<()> {
 
     for (phase_name, training_metrics) in scenarios {
         let start_time = Instant::now();
-        let (compressed, metrics) = network_compressor
+        let (_compressed, metrics) = network_compressor
             .compress_gradient_adaptive(&test_gradient, Some(training_metrics.clone()))?;
         let total_time = start_time.elapsed();
 
@@ -443,38 +443,36 @@ async fn demo_distributed_monitoring() -> TorshResult<()> {
     tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
 
     // Get current metrics
-    if let Ok(metrics) = monitor.get_current_metrics() {
-        if let Some(node_metrics) = metrics {
-            println!("\n  📊 Current Node Metrics:");
-            println!(
-                "    CPU Utilization: {:.1}%",
-                node_metrics.system_metrics.cpu_utilization
-            );
-            println!(
-                "    GPU Utilization: {:.1}%",
-                node_metrics.system_metrics.gpu_utilization
-            );
-            println!(
-                "    Memory Usage: {:.1}MB",
-                node_metrics.system_metrics.memory_usage_mb
-            );
-            println!(
-                "    Training Epoch: {}",
-                node_metrics.training_metrics.epoch
-            );
-            println!(
-                "    Current Loss: {:.6}",
-                node_metrics.training_metrics.loss
-            );
-            println!(
-                "    Throughput: {:.2} samples/sec",
-                node_metrics.training_metrics.throughput_samples_per_sec
-            );
-            println!(
-                "    Gradient Norm: {:.6}",
-                node_metrics.training_metrics.gradient_norm
-            );
-        }
+    if let Ok(Some(node_metrics)) = monitor.get_current_metrics() {
+        println!("\n  📊 Current Node Metrics:");
+        println!(
+            "    CPU Utilization: {:.1}%",
+            node_metrics.system_metrics.cpu_utilization
+        );
+        println!(
+            "    GPU Utilization: {:.1}%",
+            node_metrics.system_metrics.gpu_utilization
+        );
+        println!(
+            "    Memory Usage: {:.1}MB",
+            node_metrics.system_metrics.memory_usage_mb
+        );
+        println!(
+            "    Training Epoch: {}",
+            node_metrics.training_metrics.epoch
+        );
+        println!(
+            "    Current Loss: {:.6}",
+            node_metrics.training_metrics.loss
+        );
+        println!(
+            "    Throughput: {:.2} samples/sec",
+            node_metrics.training_metrics.throughput_samples_per_sec
+        );
+        println!(
+            "    Gradient Norm: {:.6}",
+            node_metrics.training_metrics.gradient_norm
+        );
     }
 
     // Get cluster summary
@@ -598,7 +596,7 @@ async fn demo_distributed_memory_optimization() -> TorshResult<()> {
     println!("Simulating memory-intensive training operations...");
 
     // Create large tensors to simulate memory usage
-    let large_tensors = vec![
+    let large_tensors = [
         randn::<f32>(&[1000, 1000])?,
         randn::<f32>(&[1500, 1500])?,
         randn::<f32>(&[800, 800])?,

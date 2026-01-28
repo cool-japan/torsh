@@ -84,7 +84,7 @@ impl DebuggerInterface {
     /// The parsed debug command
     pub fn get_user_command(&mut self) -> JitResult<DebugCommand> {
         print!("(torsh-debug) ");
-        io::stdout().flush().unwrap();
+        io::stdout().flush().expect("stdout flush should succeed");
 
         let mut input = String::new();
         io::stdin()
@@ -551,7 +551,7 @@ impl DebuggerInterface {
     pub fn clear_screen(&self) {
         // Clear screen using ANSI escape sequences
         print!("\x1B[2J\x1B[1;1H");
-        io::stdout().flush().unwrap();
+        io::stdout().flush().expect("stdout flush should succeed");
     }
 
     /// Show error message

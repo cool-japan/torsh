@@ -20,7 +20,7 @@ use crate::utils::{fs, progress};
 
 // ✅ UNIFIED ACCESS (v0.1.0-RC.1+): Complete ndarray/random functionality through scirs2-core
 use scirs2_core::ndarray::Array2;
-use scirs2_core::random::{thread_rng, Rng};
+use scirs2_core::random::thread_rng;
 
 /// Dataset operations
 #[derive(Debug, Clone)]
@@ -268,7 +268,9 @@ async fn prepare_csv_dataset(input_dir: &Path, output_dir: &Path) -> Result<Data
 
     // Copy processed data
     for csv_file in &csv_files {
-        let file_name = csv_file.file_name().unwrap();
+        let file_name = csv_file
+            .file_name()
+            .expect("CSV file path should have a file name");
         let output_path = output_dir.join(file_name);
         tokio::fs::copy(csv_file, output_path).await?;
     }
@@ -382,7 +384,9 @@ pub async fn split_dataset(
     // Copy files to splits
     for (i, &idx) in indices.iter().enumerate() {
         let source = &samples[idx];
-        let file_name = source.file_name().unwrap();
+        let file_name = source
+            .file_name()
+            .expect("sample file path should have a file name");
 
         let dest_dir = if i < train_size {
             &train_dir
@@ -590,7 +594,11 @@ pub async fn transform_dataset(
         let data = load_sample_data(file_path).await?;
         let transformed = apply_transformations(&data, transformations)?;
 
-        let output_path = output_dir.join(file_path.file_name().unwrap());
+        let output_path = output_dir.join(
+            file_path
+                .file_name()
+                .expect("file path should have a file name"),
+        );
         save_sample_data(&transformed, &output_path).await?;
 
         pb.inc(1);

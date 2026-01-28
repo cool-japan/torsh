@@ -13,7 +13,7 @@ use proptest::strategy::{Just, Strategy};
 #[allow(unused_imports)]
 use crate::{AutogradTensor, Result};
 #[allow(unused_imports)]
-use num_traits::{Float, FromPrimitive, One, Zero};
+use scirs2_core::numeric::{Float, FromPrimitive, One, Zero};
 #[allow(unused_imports)]
 use torsh_core::device::CpuDevice;
 #[allow(unused_imports)]

@@ -409,8 +409,8 @@ impl MixedOperation {
             let max_idx = soft_weights
                 .iter()
                 .enumerate()
-                .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-                .unwrap()
+                .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+                .expect("soft_weights should not be empty")
                 .0;
 
             let mut hard_weights = vec![0.0; self.alpha_weights.len()];
@@ -452,7 +452,7 @@ impl MixedOperation {
         }
 
         Ok(MixedOperationOutput {
-            output: total_output.unwrap(),
+            output: total_output.expect("total_output should be set after processing operations"),
             operation_outputs: outputs,
             weights_used: weights,
         })
@@ -501,8 +501,8 @@ impl MixedOperation {
         let (idx, &weight) = weights
             .iter()
             .enumerate()
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-            .unwrap();
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .expect("weights should not be empty");
         (idx, &self.operation_names[idx], weight)
     }
 
@@ -660,8 +660,14 @@ impl DARTS {
                 let edge = SearchEdge::new(i, j, ops_clone, temperature);
                 edges.push(edge);
 
-                node_connections.get_mut(&i).unwrap().push(edge_idx);
-                node_connections.get_mut(&j).unwrap().push(edge_idx);
+                node_connections
+                    .get_mut(&i)
+                    .expect("node i should exist in connections")
+                    .push(edge_idx);
+                node_connections
+                    .get_mut(&j)
+                    .expect("node j should exist in connections")
+                    .push(edge_idx);
                 edge_idx += 1;
             }
         }

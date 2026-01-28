@@ -91,7 +91,10 @@ fn rank_correlation(x: &[f64], y: &[f64]) -> f64 {
 fn assign_ranks(values: &[f64]) -> Vec<f64> {
     let n = values.len();
     let mut indexed: Vec<(usize, f64)> = values.iter().copied().enumerate().collect();
-    indexed.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+    indexed.sort_by(|a, b| {
+        a.1.partial_cmp(&b.1)
+            .expect("values should be comparable for ranking")
+    });
 
     let mut ranks = vec![0.0; n];
     let mut i = 0;
@@ -263,7 +266,10 @@ pub fn explanation_completeness(
         .enumerate()
         .map(|(i, &v)| (i, v.abs()))
         .collect();
-    attr_indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+    attr_indexed.sort_by(|a, b| {
+        b.1.partial_cmp(&a.1)
+            .expect("attribution values should be comparable")
+    });
     let top_attr: std::collections::HashSet<usize> =
         attr_indexed.iter().take(top_k).map(|(i, _)| *i).collect();
 
@@ -273,7 +279,10 @@ pub fn explanation_completeness(
         .enumerate()
         .map(|(i, &v)| (i, v.abs()))
         .collect();
-    true_indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+    true_indexed.sort_by(|a, b| {
+        b.1.partial_cmp(&a.1)
+            .expect("importance values should be comparable")
+    });
     let top_true: std::collections::HashSet<usize> =
         true_indexed.iter().take(top_k).map(|(i, _)| *i).collect();
 

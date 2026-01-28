@@ -62,7 +62,7 @@ impl AutoTuner {
         // Find the best format
         let (best_format, best_score) = candidate_scores
             .into_iter()
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).expect("score comparison should succeed"))
             .ok_or_else(|| TorshError::InvalidArgument("No valid format found".to_string()))?;
 
         // Generate reasoning

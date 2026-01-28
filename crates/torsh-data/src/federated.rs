@@ -679,7 +679,10 @@ impl<T: torsh_core::dtype::TensorElement> Dataset for SingleTensorDataset<T> {
             ));
         }
         // Return the first tensor (assuming single tensor datasets for federated learning)
-        Ok(items.into_iter().next().unwrap())
+        Ok(items
+            .into_iter()
+            .next()
+            .expect("items is not empty as checked above"))
     }
 }
 

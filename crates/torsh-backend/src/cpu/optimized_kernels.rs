@@ -1,7 +1,8 @@
 //! Optimized kernels for CPU backend without external BLAS dependency
 
 use crate::cpu::error::CpuResult;
-use rayon::prelude::*;
+// ✅ SciRS2 POLICY: Use scirs2_core::parallel_ops instead of direct rayon
+use scirs2_core::parallel_ops::*;
 use torsh_core::error::{Result, TorshError};
 
 // Re-export commonly used functions for easier access

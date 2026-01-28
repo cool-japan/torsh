@@ -17,14 +17,12 @@ pub mod tensor;
 pub mod types;
 
 // Re-export core types for backward compatibility
-pub use device::{DeviceProperties, DeviceType};
-pub use memory::{MemoryPool, MemoryPoolStats, MEMORY_POOL};
-pub use storage::TensorStorage;
+pub use device::DeviceType;
+pub use memory::{MemoryPoolStats, MEMORY_POOL};
 pub use tensor::PyTensor;
-pub use types::{FrameworkTypeInfo, TypeMapper, TYPE_MAPPER};
+pub use types::TYPE_MAPPER;
 
 // Re-export for Python module registration
-pub use tensor::PyTensor as Tensor;
 
 use crate::error::FfiResult;
 use pyo3::prelude::*;
@@ -169,7 +167,7 @@ pub fn randn(shape: Vec<usize>, dtype: Option<torsh_core::DType>) -> FfiResult<P
             unsafe {
                 if HAS_SPARE {
                     HAS_SPARE = false;
-                    SPARE.unwrap()
+                    SPARE.expect("SPARE should be Some when HAS_SPARE is true")
                 } else {
                     HAS_SPARE = true;
                     let u = fastrand::f32();

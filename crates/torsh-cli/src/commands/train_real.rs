@@ -17,7 +17,7 @@ use crate::utils::progress;
 
 // ✅ UNIFIED ACCESS (v0.1.0-RC.1+): Complete ndarray/random functionality through scirs2-core
 use scirs2_core::ndarray::{Array2, Array3};
-use scirs2_core::random::{thread_rng, Distribution, Normal, Rng};
+use scirs2_core::random::{thread_rng, Distribution, Normal};
 
 /// Training configuration loaded from YAML/TOML
 #[derive(Debug, Clone, Serialize, Deserialize)]

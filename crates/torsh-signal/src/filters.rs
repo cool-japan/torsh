@@ -511,8 +511,8 @@ mod tests {
 
     #[test]
     fn test_convolve1d_invalid_kernel_size() {
-        let input = ones(&[5]).unwrap();
-        let kernel = ones(&[10]).unwrap(); // Kernel larger than input
+        let input = ones(&[5]).expect("tensor creation should succeed");
+        let kernel = ones(&[10]).expect("tensor creation should succeed"); // Kernel larger than input
 
         let result = convolve1d(&input, &kernel, "full", "auto");
         assert!(result.is_err());
@@ -520,8 +520,8 @@ mod tests {
 
     #[test]
     fn test_convolve1d_invalid_mode() {
-        let input = ones(&[10]).unwrap();
-        let kernel = ones(&[3]).unwrap();
+        let input = ones(&[10]).expect("tensor creation should succeed");
+        let kernel = ones(&[3]).expect("tensor creation should succeed");
 
         let result = convolve1d(&input, &kernel, "invalid", "auto");
         assert!(result.is_err());
@@ -567,7 +567,7 @@ mod tests {
 
     #[test]
     fn test_lowpass_filter_invalid_dimension() {
-        let signal = ones(&[10, 10]).unwrap(); // 2D tensor
+        let signal = ones(&[10, 10]).expect("tensor creation should succeed"); // 2D tensor
         let result = lowpass_filter(&signal, 1000.0, 8000.0, 4);
         assert!(result.is_err());
     }
@@ -592,7 +592,7 @@ mod tests {
 
     #[test]
     fn test_bandpass_filter_invalid_cutoffs() {
-        let signal = ones(&[100]).unwrap();
+        let signal = ones(&[100]).expect("tensor creation should succeed");
 
         // High cutoff less than low cutoff
         let result = bandpass_filter(&signal, 2000.0, 500.0, 8000.0, 4);
@@ -614,7 +614,7 @@ mod tests {
 
     #[test]
     fn test_bandstop_filter_invalid_cutoffs() {
-        let signal = ones(&[100]).unwrap();
+        let signal = ones(&[100]).expect("tensor creation should succeed");
 
         let result = bandstop_filter(&signal, 2000.0, 500.0, 8000.0, 4);
         assert!(result.is_err());
@@ -631,14 +631,14 @@ mod tests {
 
     #[test]
     fn test_median_filter_even_window() {
-        let signal = ones(&[100]).unwrap();
+        let signal = ones(&[100]).expect("tensor creation should succeed");
         let result = median_filter(&signal, 6); // Even window size
         assert!(result.is_err());
     }
 
     #[test]
     fn test_median_filter_invalid_dimension() {
-        let signal = ones(&[10, 10]).unwrap(); // 2D tensor
+        let signal = ones(&[10, 10]).expect("tensor creation should succeed"); // 2D tensor
         let result = median_filter(&signal, 5);
         assert!(result.is_err());
     }
@@ -654,7 +654,7 @@ mod tests {
 
     #[test]
     fn test_gaussian_filter_invalid_sigma() {
-        let signal = ones(&[100]).unwrap();
+        let signal = ones(&[100]).expect("tensor creation should succeed");
 
         let result = gaussian_filter(&signal, 0.0);
         assert!(result.is_err());
@@ -674,7 +674,7 @@ mod tests {
 
     #[test]
     fn test_savgol_filter_invalid_window() {
-        let signal = ones(&[100]).unwrap();
+        let signal = ones(&[100]).expect("tensor creation should succeed");
 
         // Even window length
         let result = savgol_filter(&signal, 6, 2);
@@ -687,7 +687,7 @@ mod tests {
 
     #[test]
     fn test_savgol_filter_invalid_polyorder() {
-        let signal = ones(&[100]).unwrap();
+        let signal = ones(&[100]).expect("tensor creation should succeed");
 
         // Polynomial order >= window length
         let result = savgol_filter(&signal, 5, 5);

@@ -211,7 +211,10 @@ impl WeightedRandomSampler {
     /// Generate weighted random indices.
     fn generate_indices(&mut self, count: usize) -> Vec<usize> {
         self.build_alias_table();
-        let alias_table = self.alias_table.as_ref().unwrap();
+        let alias_table = self
+            .alias_table
+            .as_ref()
+            .expect("alias table should be built");
 
         let mut rng = rng_utils::create_rng(self.generator);
         let mut indices = Vec::with_capacity(count);

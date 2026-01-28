@@ -4,18 +4,21 @@
 //! particularly HDF5 which is widely used in scientific computing for its
 //! support of hierarchical data, compression, and metadata.
 
+// Imports needed by both real implementations and stubs
+#[allow(unused_imports)]
 use super::common::{SerializationFormat, SerializationOptions, TensorMetadata};
+#[allow(unused_imports)]
 use crate::{Tensor, TensorElement};
+#[allow(unused_imports)]
 use std::path::Path;
-use torsh_core::{
-    device::DeviceType,
-    error::{Result, TorshError},
-};
+#[allow(unused_imports)]
+use torsh_core::error::{Result, TorshError};
 
 /// HDF5 format implementation
 #[cfg(feature = "serialize-hdf5")]
 pub mod hdf5 {
     use super::*;
+    use crate::DeviceType;
     use ::hdf5::{types::VarLenUnicode, Dataset, File, Group, H5Type};
 
     /// Serialize tensor to HDF5 format
@@ -150,10 +153,10 @@ pub mod hdf5 {
         let device = read_device_from_attributes(&dataset)?;
 
         // Create tensor
-        let mut tensor = Tensor::from_data(data, shape_dims, device)?;
+        let tensor = Tensor::from_data(data, shape_dims, device)?;
 
         // Set requires_grad if available
-        if let Ok(requires_grad) = dataset
+        if let Ok(_requires_grad) = dataset
             .attr("requires_grad")
             .and_then(|attr| attr.read_scalar::<bool>())
         {

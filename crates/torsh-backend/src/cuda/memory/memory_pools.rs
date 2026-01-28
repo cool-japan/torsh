@@ -4,6 +4,9 @@
 //! including device, unified, and pinned memory pools with intelligent optimization,
 //! automatic cleanup, and performance analytics.
 
+// Allow unused variables for pool manager stubs
+#![allow(unused_variables)]
+
 use super::allocation::{CudaAllocation, PinnedAllocation, UnifiedAllocation};
 use crate::cuda::error::{CudaError, CudaResult};
 use std::collections::HashMap;
@@ -182,7 +185,7 @@ pub struct DevicePoolConfig {
 }
 
 /// Pool growth strategies
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PoolGrowthStrategy {
     /// Fixed size pool
     Fixed { size: usize },

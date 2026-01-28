@@ -712,7 +712,10 @@ impl ModelValidator {
         let data = tensor.to_vec()?;
         let mut indexed_data: Vec<(usize, f32)> =
             data.iter().enumerate().map(|(i, &v)| (i, v)).collect();
-        indexed_data.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        indexed_data.sort_by(|a, b| {
+            b.1.partial_cmp(&a.1)
+                .expect("tensor values should be comparable")
+        });
 
         Ok(indexed_data.iter().take(k).map(|(i, _)| *i).collect())
     }

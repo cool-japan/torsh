@@ -356,7 +356,7 @@ impl CheckpointManager {
         checkpoint: &ModelCheckpoint,
         filepath: &Path,
     ) -> Result<()> {
-        let serialized = bincode::serde::encode_to_vec(checkpoint, bincode::config::standard()).map_err(|e| {
+        let serialized = oxicode::serde::encode_to_vec(checkpoint, oxicode::config::standard()).map_err(|e| {
             TorshError::SerializationError(format!("Failed to serialize checkpoint: {}", e))
         })?;
 
@@ -404,7 +404,7 @@ impl CheckpointManager {
             data
         };
 
-        let (checkpoint, _): (ModelCheckpoint, usize) = bincode::serde::decode_from_slice(&deserialized_data, bincode::config::standard()).map_err(|e| {
+        let (checkpoint, _): (ModelCheckpoint, usize) = oxicode::serde::decode_from_slice(&deserialized_data, oxicode::config::standard()).map_err(|e| {
             TorshError::SerializationError(format!("Failed to deserialize checkpoint: {}", e))
         })?;
 

@@ -201,7 +201,7 @@ impl BackendCore for WebGpuBackend {
     fn performance_hints(&self) -> crate::backend::PerformanceHints {
         crate::backend::PerformanceHints {
             preferred_workgroup_size: (64, 1, 1),
-            memory_alignment: 4,
+            memory_alignment: 256, // WebGPU requires 256-byte alignment for buffer offsets
             prefer_vectorized: true,
             prefer_async: true,
             optimal_batch_size: 256,
@@ -569,7 +569,18 @@ impl crate::backend::BackendOps for WebGpuBackend {
     }
 
     fn available_ops(&self) -> Vec<&str> {
-        vec!["matmul", "conv2d", "elementwise", "reduction"]
+        vec![
+            "elementwise_add",
+            "elementwise_mul",
+            "elementwise_sub",
+            "elementwise_div",
+            "matmul",
+            "conv2d",
+            "relu",
+            "softmax",
+            "batch_norm",
+            "reduction",
+        ]
     }
 
     fn supports_op(&self, op_name: &str) -> bool {

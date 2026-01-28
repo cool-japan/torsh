@@ -490,10 +490,8 @@ impl GraphDatasetCollection {
 
     /// Add noise to node features for data augmentation
     pub fn add_feature_noise(graph: &GraphData, noise_level: f32) -> GraphData {
-        use scirs2_core::random::Rng;
-
         let mut rng = scirs2_core::random::thread_rng();
-        let features = graph.x.to_vec().unwrap();
+        let features = graph.x.to_vec().expect("conversion should succeed");
         let noisy_features: Vec<f32> = features
             .iter()
             .map(|&x| x + (rng.random::<f32>() - 0.5) * 2.0 * noise_level)
@@ -558,7 +556,6 @@ impl GraphSampler {
         let mut indices: Vec<usize> = (0..graphs.len()).collect();
 
         if self.shuffle {
-            use scirs2_core::random::Rng;
             let mut rng = scirs2_core::random::thread_rng();
             for i in (1..indices.len()).rev() {
                 let j = (rng.random::<f64>() * (i + 1) as f64) as usize;

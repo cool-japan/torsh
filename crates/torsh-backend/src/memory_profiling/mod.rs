@@ -229,11 +229,11 @@ impl MemoryProfiler {
                 }
                 Err(_) => {
                     // Create a placeholder - in practice, we might want to use a null object pattern
-                    Arc::new(Mutex::new(MemoryProfilingIntegrations::new(IntegrationConfiguration::default()).unwrap()))
+                    Arc::new(Mutex::new(MemoryProfilingIntegrations::new(IntegrationConfiguration::default()).expect("default MemoryProfilingIntegrations should always succeed")))
                 }
             }
         } else {
-            Arc::new(Mutex::new(MemoryProfilingIntegrations::new(IntegrationConfiguration::default()).unwrap()))
+            Arc::new(Mutex::new(MemoryProfilingIntegrations::new(IntegrationConfiguration::default()).expect("default MemoryProfilingIntegrations should always succeed")))
         };
 
         Self {

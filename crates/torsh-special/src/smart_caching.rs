@@ -47,13 +47,13 @@ where
         F: FnOnce() -> V,
     {
         {
-            let mut cache = self.cache.lock().unwrap();
+            let mut cache = self.cache.lock().expect("lock should not be poisoned");
 
             // Check if key exists and is not expired
             if let Some(entry) = cache.get_mut(&key) {
                 if entry.timestamp.elapsed() < self.ttl {
                     entry.access_count += 1;
-                    *self.hit_count.lock().unwrap() += 1;
+                    *self.hit_count.lock().expect("lock should not be poisoned") += 1;
                     return entry.value.clone();
                 } else {
                     // Remove expired entry
@@ -64,7 +64,7 @@ where
 
         // Cache miss - compute the value
         let value = compute_fn();
-        *self.miss_count.lock().unwrap() += 1;
+        *self.miss_count.lock().expect("lock should not be poisoned") += 1;
 
         // Store in cache
         self.insert(key, value.clone());
@@ -73,7 +73,7 @@ where
 
     /// Insert a value into the cache
     pub fn insert(&self, key: K, value: V) {
-        let mut cache = self.cache.lock().unwrap();
+        let mut cache = self.cache.lock().expect("lock should not be poisoned");
 
         // If cache is full, remove least recently used entries
         if cache.len() >= self.max_size {
@@ -113,8 +113,8 @@ where
 
     /// Get cache hit rate
     pub fn hit_rate(&self) -> f64 {
-        let hits = *self.hit_count.lock().unwrap() as f64;
-        let misses = *self.miss_count.lock().unwrap() as f64;
+        let hits = *self.hit_count.lock().expect("lock should not be poisoned") as f64;
+        let misses = *self.miss_count.lock().expect("lock should not be poisoned") as f64;
         let total = hits + misses;
 
         if total > 0.0 {
@@ -126,20 +126,23 @@ where
 
     /// Clear the cache
     pub fn clear(&self) {
-        self.cache.lock().unwrap().clear();
-        *self.hit_count.lock().unwrap() = 0;
-        *self.miss_count.lock().unwrap() = 0;
+        self.cache
+            .lock()
+            .expect("lock should not be poisoned")
+            .clear();
+        *self.hit_count.lock().expect("lock should not be poisoned") = 0;
+        *self.miss_count.lock().expect("lock should not be poisoned") = 0;
     }
 
     /// Get cache statistics
     pub fn stats(&self) -> CacheStats {
-        let cache = self.cache.lock().unwrap();
+        let cache = self.cache.lock().expect("lock should not be poisoned");
         CacheStats {
             size: cache.len(),
             max_size: self.max_size,
             hit_rate: self.hit_rate(),
-            hits: *self.hit_count.lock().unwrap(),
-            misses: *self.miss_count.lock().unwrap(),
+            hits: *self.hit_count.lock().expect("lock should not be poisoned"),
+            misses: *self.miss_count.lock().expect("lock should not be poisoned"),
         }
     }
 }

@@ -7,9 +7,10 @@
 //! - Smart stream allocation strategies
 //! - Workload-aware optimization
 
-use crate::cuda::error::{CudaError, CudaResult};
+use crate::cuda::error::{CudaError, CudaResult, CustResultExt};
 use crate::cuda::memory::CudaAllocation;
 use crate::cuda::{CudaEvent, CudaStream, StreamPriority};
+use cust::memory::DevicePointer;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -122,7 +123,10 @@ impl AdvancedStreamPool {
         };
 
         // Update metrics
-        let mut metrics = self.pool_metrics.lock().unwrap();
+        let mut metrics = self
+            .pool_metrics
+            .lock()
+            .expect("lock should not be poisoned");
         metrics.total_allocations += 1;
 
         stream
@@ -215,12 +219,18 @@ impl AdvancedStreamPool {
 
     /// Get pool-wide metrics
     pub fn metrics(&self) -> PoolMetrics {
-        self.pool_metrics.lock().unwrap().clone()
+        self.pool_metrics
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Record workload completion time for optimization
     pub fn record_workload_completion(&self, workload: WorkloadType, duration: Duration) {
-        let mut history = self.workload_history.lock().unwrap();
+        let mut history = self
+            .workload_history
+            .lock()
+            .expect("lock should not be poisoned");
         let workload_times = history.entry(workload).or_insert_with(Vec::new);
         workload_times.push(duration);
 
@@ -232,7 +242,10 @@ impl AdvancedStreamPool {
 
     /// Get average completion time for workload type
     pub fn average_workload_time(&self, workload: WorkloadType) -> Option<Duration> {
-        let history = self.workload_history.lock().unwrap();
+        let history = self
+            .workload_history
+            .lock()
+            .expect("lock should not be poisoned");
         if let Some(times) = history.get(&workload) {
             if !times.is_empty() {
                 let total = times.iter().sum::<Duration>();
@@ -244,8 +257,14 @@ impl AdvancedStreamPool {
 
     /// Optimize pool configuration based on usage patterns
     pub fn optimize_configuration(&mut self) -> CudaResult<()> {
-        let history = self.workload_history.lock().unwrap();
-        let mut metrics = self.pool_metrics.lock().unwrap();
+        let history = self
+            .workload_history
+            .lock()
+            .expect("lock should not be poisoned");
+        let mut metrics = self
+            .pool_metrics
+            .lock()
+            .expect("lock should not be poisoned");
 
         // Calculate effectiveness for each workload type
         for (workload, times) in history.iter() {
@@ -354,7 +373,7 @@ impl StreamOrderedAllocator {
         }
 
         // Allocate new memory
-        let ptr = unsafe { cust::memory::cuda_malloc(size)? };
+        let ptr: DevicePointer<u8> = unsafe { cust::memory::cuda_malloc(size).cuda_result()? };
         let allocation = CudaAllocation::new(ptr, size, Self::size_class(size));
 
         // Track allocation
@@ -430,12 +449,25 @@ impl StreamOrderedAllocator {
 type StreamCallback = Box<dyn FnOnce() + Send + 'static>;
 
 /// Multi-stream coordinator for complex synchronization patterns
-#[derive(Debug)]
 pub struct MultiStreamCoordinator {
     streams: Vec<Arc<CudaStream>>,
     barrier_events: Vec<Arc<CudaEvent>>,
     execution_graph: HashMap<u64, Vec<u64>>, // Stream ID -> dependent stream IDs
     completion_callbacks: HashMap<u64, Vec<StreamCallback>>,
+}
+
+impl std::fmt::Debug for MultiStreamCoordinator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MultiStreamCoordinator")
+            .field("streams", &self.streams)
+            .field("barrier_events", &self.barrier_events)
+            .field("execution_graph", &self.execution_graph)
+            .field(
+                "completion_callbacks",
+                &format!("<{} callbacks>", self.completion_callbacks.len()),
+            )
+            .finish()
+    }
 }
 
 impl MultiStreamCoordinator {
@@ -717,8 +749,10 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore = "Requires CUDA hardware - run with --ignored flag"]
     fn test_advanced_stream_pool() {
         if crate::cuda::is_available() {
+            let _device = Arc::new(crate::cuda::device::CudaDevice::new(0).unwrap());
             let pool = AdvancedStreamPool::new(8);
             assert!(pool.is_ok());
 
@@ -746,6 +780,7 @@ mod tests {
     #[test]
     fn test_stream_ordered_allocator() {
         if crate::cuda::is_available() {
+            let _device = Arc::new(crate::cuda::device::CudaDevice::new(0).unwrap());
             let mut allocator = StreamOrderedAllocator::new();
             let stream1 = CudaStream::new().unwrap();
             let stream2 = CudaStream::new().unwrap();
@@ -766,8 +801,10 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Requires CUDA hardware - run with --ignored flag"]
     fn test_multi_stream_coordinator() {
         if crate::cuda::is_available() {
+            let _device = Arc::new(crate::cuda::device::CudaDevice::new(0).unwrap());
             let stream1 = Arc::new(CudaStream::new().unwrap());
             let stream2 = Arc::new(CudaStream::new().unwrap());
             let streams = vec![stream1.clone(), stream2.clone()];
@@ -789,8 +826,10 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Requires CUDA hardware - run with --ignored flag"]
     fn test_stream_profiler() {
         if crate::cuda::is_available() {
+            let _device = Arc::new(crate::cuda::device::CudaDevice::new(0).unwrap());
             let mut profiler = StreamProfiler::new();
             let stream = CudaStream::new().unwrap();
 

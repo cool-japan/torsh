@@ -180,14 +180,25 @@ impl Module for DQN {
 
         if self.config.dueling {
             // Dueling architecture: V(s) + A(s,a) - mean(A(s,*))
-            let value = self.value_stream.as_ref().unwrap().forward(&x)?;
-            let advantage = self.advantage_stream.as_ref().unwrap().forward(&x)?;
+            let value = self
+                .value_stream
+                .as_ref()
+                .expect("value_stream should be set when dueling is enabled")
+                .forward(&x)?;
+            let advantage = self
+                .advantage_stream
+                .as_ref()
+                .expect("advantage_stream should be set when dueling is enabled")
+                .forward(&x)?;
             let advantage_mean = advantage.mean(Some(&[1]), false)?.unsqueeze(1)?;
             let q_values = value.add(&advantage)?.sub(&advantage_mean)?;
             Ok(q_values)
         } else {
             // Standard architecture: direct Q-value output
-            let final_layer = self.layers.last().unwrap();
+            let final_layer = self
+                .layers
+                .last()
+                .expect("DQN should have at least one layer");
             final_layer.forward(&x)
         }
     }
@@ -373,7 +384,11 @@ impl PPOActor {
         if self.config.continuous_actions {
             // Continuous actions: sample from Gaussian distribution
             let mean = action_logits;
-            let log_std = self.log_std_head.as_ref().unwrap().forward(state)?;
+            let log_std = self
+                .log_std_head
+                .as_ref()
+                .expect("log_std_head should be set for continuous actions")
+                .forward(state)?;
             let std = log_std.exp()?;
 
             // Sample action: mean + std * noise
@@ -410,7 +425,11 @@ impl PPOActor {
 
         if self.config.continuous_actions {
             let mean = action_logits;
-            let log_std = self.log_std_head.as_ref().unwrap().forward(state)?;
+            let log_std = self
+                .log_std_head
+                .as_ref()
+                .expect("log_std_head should be set for continuous actions")
+                .forward(state)?;
             let std = log_std.exp()?;
             self.gaussian_log_prob(action, &mean, &std)
         } else {
@@ -770,7 +789,12 @@ impl PPO {
         let entropy = if self.config.continuous_actions {
             // For continuous: 0.5 * log(2πe * σ²)
             let _action_logits = self.actor.forward(states)?;
-            let log_std = self.actor.log_std_head.as_ref().unwrap().forward(states)?;
+            let log_std = self
+                .actor
+                .log_std_head
+                .as_ref()
+                .expect("log_std_head should be set for continuous actions")
+                .forward(states)?;
             let constant_term = creation::tensor_scalar(
                 0.5 * (2.0 * std::f32::consts::PI * std::f32::consts::E).ln(),
             )?;
@@ -1025,7 +1049,7 @@ impl A3C {
             let log_std = self
                 .log_std_head
                 .as_ref()
-                .unwrap()
+                .expect("log_std_head should be set for continuous actions")
                 .forward(&shared_features)?;
             let std = log_std.exp()?;
 
@@ -1090,7 +1114,7 @@ impl A3C {
             let log_std = self
                 .log_std_head
                 .as_ref()
-                .unwrap()
+                .expect("log_std_head should be set for continuous actions")
                 .forward(&shared_features)?;
             let std = log_std.exp()?;
             let var = std.pow(2.0)?;
@@ -1130,7 +1154,7 @@ impl A3C {
             let log_std = self
                 .log_std_head
                 .as_ref()
-                .unwrap()
+                .expect("log_std_head should be set for continuous actions")
                 .forward(&shared_features)?;
             let constant_term = creation::tensor_scalar(
                 0.5 * (2.0 * std::f32::consts::PI * std::f32::consts::E).ln(),

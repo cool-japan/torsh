@@ -466,7 +466,10 @@ impl<M: Module> ModelEnsemble<M> {
 
         let _weighted_majority = weighted_votes
             .into_iter()
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+            .max_by(|(_, a), (_, b)| {
+                a.partial_cmp(b)
+                    .expect("weighted votes should be comparable")
+            })
             .map(|(class, _)| class)
             .unwrap_or(0);
 
@@ -661,7 +664,10 @@ impl<M: Module> ModelEnsemble<M> {
         let (argmax, _) = float_data
             .iter()
             .enumerate()
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+            .max_by(|(_, a), (_, b)| {
+                a.partial_cmp(b)
+                    .expect("tensor values should be comparable")
+            })
             .unwrap_or((0, &0.0));
 
         Ok(argmax)

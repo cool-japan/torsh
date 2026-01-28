@@ -62,7 +62,10 @@ impl VisionModelUtils {
         let mut indexed_probs: Vec<(usize, f32)> = probabilities.into_iter().enumerate().collect();
 
         // Sort by probability in descending order
-        indexed_probs.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        indexed_probs.sort_by(|a, b| {
+            b.1.partial_cmp(&a.1)
+                .expect("probabilities should be comparable")
+        });
 
         // Take top k and add class names if available
         indexed_probs
@@ -96,7 +99,9 @@ impl VisionModelUtils {
         models.sort_by(|a, b| {
             let score_a = Self::calculate_efficiency_score(a).unwrap_or(0.0);
             let score_b = Self::calculate_efficiency_score(b).unwrap_or(0.0);
-            score_b.partial_cmp(&score_a).unwrap()
+            score_b
+                .partial_cmp(&score_a)
+                .expect("efficiency scores should be comparable")
         });
 
         models
@@ -124,7 +129,9 @@ impl VisionModelUtils {
             .max_by(|a, b| {
                 let score_a = Self::calculate_efficiency_score(a).unwrap_or(0.0);
                 let score_b = Self::calculate_efficiency_score(b).unwrap_or(0.0);
-                score_a.partial_cmp(&score_b).unwrap()
+                score_a
+                    .partial_cmp(&score_b)
+                    .expect("efficiency scores should be comparable")
             })
     }
 }

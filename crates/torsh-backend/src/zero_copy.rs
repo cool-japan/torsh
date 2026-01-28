@@ -14,8 +14,9 @@ use torsh_core::device::DeviceType;
 #[cfg(feature = "cuda")]
 use crate::cuda::CudaDevice as SciRs2CudaDevice;
 
-// Temporary mock for scirs2_cuda when CUDA is not available
-#[cfg(all(feature = "cuda", not(cuda_available)))]
+// Temporary mock for scirs2_cuda (actual crate not yet available)
+// This mock provides stub implementations until scirs2_cuda is implemented
+#[cfg(feature = "cuda")]
 mod scirs2_cuda {
     // Mock CUDA device type for fallback scenarios
     #[derive(Debug)]
@@ -544,7 +545,10 @@ impl ZeroCopyManager {
         let device_key = format!("{}:{}", device.device_type(), device.id());
 
         {
-            let mut caps = self.capabilities.write().unwrap();
+            let mut caps = self
+                .capabilities
+                .write()
+                .expect("lock should not be poisoned");
             caps.insert(device_key.clone(), capabilities);
         }
 
@@ -593,7 +597,10 @@ impl ZeroCopyManager {
     /// Get device capabilities
     pub fn get_capabilities(&self, device: &Device) -> Option<ZeroCopyCapabilities> {
         let device_key = format!("{}:{}", device.device_type(), device.id());
-        let caps = self.capabilities.read().unwrap();
+        let caps = self
+            .capabilities
+            .read()
+            .expect("lock should not be poisoned");
         caps.get(&device_key).copied()
     }
 
@@ -646,7 +653,7 @@ impl ZeroCopyManager {
 
         // Update statistics
         {
-            let mut stats = self.stats.write().unwrap();
+            let mut stats = self.stats.write().expect("lock should not be poisoned");
             stats.update_transfer(transfer.size as u64, elapsed_us, was_zero_copy, was_error);
         }
 
@@ -746,37 +753,13 @@ impl ZeroCopyManager {
         match transfer.destination_device.device_type() {
             #[cfg(feature = "cuda")]
             DeviceType::Cuda(_) => {
-                if let Some(cuda_device) = self.cuda_devices.get(&device_key) {
-                    // Use SciRS2 CUDA unified memory
-                    #[allow(unused_unsafe)]
-                    unsafe {
-                        scirs2_cuda::memory::prefetch_async(
-                            cuda_device.as_ref(),
-                            transfer.source_ptr,
-                            transfer.size,
-                        )
-                        .await
-                        .map_err(|e| {
-                            BackendError::BackendError(format!(
-                                "CUDA unified memory prefetch failed: {}",
-                                e
-                            ))
-                        })?;
-
-                        // Set memory advice for optimal access
-                        scirs2_cuda::memory::set_advice(
-                            transfer.source_ptr,
-                            transfer.size,
-                            scirs2_cuda::memory::MemoryAdvice::SetPreferredLocation(
-                                transfer.destination_device.id() as u32,
-                            ),
-                        )
-                        .await
-                        .map_err(|e| {
-                            BackendError::BackendError(format!("CUDA memory advice failed: {}", e))
-                        })?;
-                    }
-                    Ok(true)
+                if self.cuda_devices.get(&device_key).is_some() {
+                    // TODO: Implement when scirs2_cuda memory operations are available
+                    // For now, return an error indicating the feature is not yet implemented
+                    Err(BackendError::BackendError(
+                        "CUDA unified memory prefetch not yet implemented - requires scirs2_cuda"
+                            .to_string(),
+                    ))
                 } else {
                     Err(BackendError::BackendError(
                         "CUDA device not registered for unified memory".to_string(),
@@ -914,8 +897,12 @@ impl ZeroCopyManager {
         // For peer-to-peer transfers, devices can directly access each other's memory
         // This is particularly efficient with technologies like NVLink
 
-        let source_caps = self.get_capabilities(&transfer.source_device).unwrap();
-        let dest_caps = self.get_capabilities(&transfer.destination_device).unwrap();
+        let source_caps = self
+            .get_capabilities(&transfer.source_device)
+            .expect("source device capabilities should exist");
+        let dest_caps = self
+            .get_capabilities(&transfer.destination_device)
+            .expect("destination device capabilities should exist");
 
         if !source_caps.peer_to_peer || !dest_caps.peer_to_peer {
             return Err(BackendError::BackendError(
@@ -954,7 +941,7 @@ impl ZeroCopyManager {
 
         // Update statistics for fallback transfer
         {
-            let mut stats = self.stats.write().unwrap();
+            let mut stats = self.stats.write().expect("lock should not be poisoned");
             stats.update_transfer(transfer.size as u64, elapsed_us, false, false);
         }
 
@@ -1077,23 +1064,13 @@ impl ZeroCopyManager {
         ) {
             #[cfg(feature = "cuda")]
             (DeviceType::Cuda(_), DeviceType::Cuda(_)) => {
-                if let (Some(_src_device), Some(_dst_device)) = (
-                    self.cuda_devices.get(&source_key),
-                    self.cuda_devices.get(&dest_key),
-                ) {
-                    // Use SciRS2 CUDA peer-to-peer transfer
-                    unsafe {
-                        scirs2_cuda::memory::copy_peer_to_peer(
-                            transfer.source_ptr,
-                            transfer.destination_ptr,
-                            transfer.size,
-                        )
-                        .await
-                        .map_err(|e| {
-                            BackendError::BackendError(format!("CUDA P2P transfer failed: {}", e))
-                        })?;
-                    }
-                    Ok(true)
+                if self.cuda_devices.get(&source_key).is_some()
+                    && self.cuda_devices.get(&dest_key).is_some()
+                {
+                    // TODO: Implement when scirs2_cuda memory operations are available
+                    Err(BackendError::BackendError(
+                        "CUDA P2P transfer not yet implemented - requires scirs2_cuda".to_string(),
+                    ))
                 } else {
                     Err(BackendError::BackendError(
                         "CUDA devices not registered for P2P transfer".to_string(),
@@ -1127,40 +1104,12 @@ impl ZeroCopyManager {
     async fn launch_cuda_async_transfer(
         &self,
         _cuda_device: &SciRs2CudaDevice,
-        transfer: &ZeroCopyTransfer,
+        _transfer: &ZeroCopyTransfer,
     ) -> BackendResult<bool> {
-        unsafe {
-            match transfer.direction {
-                TransferDirection::HostToDevice => {
-                    scirs2_cuda::memory::copy_host_to_device_async(
-                        transfer.source_ptr,
-                        transfer.destination_ptr,
-                        transfer.size,
-                    )
-                    .await
-                    .map_err(|e| {
-                        BackendError::BackendError(format!("CUDA H2D async transfer failed: {}", e))
-                    })?;
-                }
-                TransferDirection::DeviceToHost => {
-                    scirs2_cuda::memory::copy_device_to_host_async(
-                        transfer.source_ptr,
-                        transfer.destination_ptr,
-                        transfer.size,
-                    )
-                    .await
-                    .map_err(|e| {
-                        BackendError::BackendError(format!("CUDA D2H async transfer failed: {}", e))
-                    })?;
-                }
-                _ => {
-                    return Err(BackendError::InvalidArgument(
-                        "Invalid transfer direction for CUDA async transfer".to_string(),
-                    ));
-                }
-            }
-        }
-        Ok(true)
+        // TODO: Implement when scirs2_cuda memory operations are available
+        Err(BackendError::BackendError(
+            "CUDA async transfer not yet implemented - requires scirs2_cuda".to_string(),
+        ))
     }
 
     /// Launch CUDA synchronous transfer
@@ -1168,39 +1117,12 @@ impl ZeroCopyManager {
     async fn launch_cuda_sync_transfer(
         &self,
         _cuda_device: &SciRs2CudaDevice,
-        transfer: &ZeroCopyTransfer,
+        _transfer: &ZeroCopyTransfer,
     ) -> BackendResult<bool> {
-        #[allow(unused_unsafe)]
-        unsafe {
-            match transfer.direction {
-                TransferDirection::HostToDevice => {
-                    scirs2_cuda::memory::copy_host_to_device(
-                        transfer.source_ptr,
-                        transfer.destination_ptr,
-                        transfer.size,
-                    )
-                    .map_err(|e| {
-                        BackendError::BackendError(format!("CUDA H2D sync transfer failed: {}", e))
-                    })?;
-                }
-                TransferDirection::DeviceToHost => {
-                    scirs2_cuda::memory::copy_device_to_host(
-                        transfer.source_ptr,
-                        transfer.destination_ptr,
-                        transfer.size,
-                    )
-                    .map_err(|e| {
-                        BackendError::BackendError(format!("CUDA D2H sync transfer failed: {}", e))
-                    })?;
-                }
-                _ => {
-                    return Err(BackendError::InvalidArgument(
-                        "Invalid transfer direction for CUDA sync transfer".to_string(),
-                    ));
-                }
-            }
-        }
-        Ok(true)
+        // TODO: Implement when scirs2_cuda memory operations are available
+        Err(BackendError::BackendError(
+            "CUDA sync transfer not yet implemented - requires scirs2_cuda".to_string(),
+        ))
     }
 
     /// Launch CUDA streaming transfer
@@ -1383,12 +1305,15 @@ impl ZeroCopyManager {
 
     /// Get transfer statistics
     pub fn get_stats(&self) -> ZeroCopyStats {
-        self.stats.read().unwrap().clone()
+        self.stats
+            .read()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Reset transfer statistics
     pub fn reset_stats(&self) {
-        let mut stats = self.stats.write().unwrap();
+        let mut stats = self.stats.write().expect("lock should not be poisoned");
         *stats = ZeroCopyStats::default();
     }
 
@@ -1749,7 +1674,11 @@ mod tests {
     #[test]
     fn test_zero_copy_manager_creation() {
         let manager = ZeroCopyManager::new();
-        assert!(manager.capabilities.read().unwrap().is_empty());
+        assert!(manager
+            .capabilities
+            .read()
+            .expect("lock should not be poisoned")
+            .is_empty());
 
         let stats = manager.get_stats();
         assert_eq!(stats.total_transfers, 0);

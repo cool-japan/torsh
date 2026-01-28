@@ -322,7 +322,8 @@ pub fn logsumexp(input: &Tensor, dim: Option<i32>, keepdim: bool) -> TorshResult
     if keepdim || dim.is_none() {
         max_vals.add_op(&log_sum)
     } else {
-        let max_squeezed = max_vals.squeeze(dim.unwrap())?;
+        let max_squeezed = max_vals
+            .squeeze(dim.expect("dim should be Some in else branch of dim.is_none() check"))?;
         max_squeezed.add_op(&log_sum)
     }
 }
@@ -597,7 +598,7 @@ mod tests {
         )
         .unwrap();
         let result = spherical_j0(&input).unwrap();
-        let data = result.data().unwrap();
+        let data = result.data().expect("tensor should have data");
 
         // j₀(0) = 1
         assert_relative_eq!(data[0], 1.0, epsilon = 1e-6);
@@ -610,7 +611,7 @@ mod tests {
     fn test_spherical_bessel_j1() {
         let input = Tensor::from_data(vec![0.0f32, 1.0], vec![2], DeviceType::Cpu).unwrap();
         let result = spherical_j1(&input).unwrap();
-        let data = result.data().unwrap();
+        let data = result.data().expect("tensor should have data");
 
         // j₁(0) = 0
         assert_relative_eq!(data[0], 0.0, epsilon = 1e-6);
@@ -626,7 +627,7 @@ mod tests {
 
         // logsumexp should be approximately log(e¹ + e² + e³) = log(e³(e⁻² + e⁻¹ + 1))
         let expected = 3.0 + ((-2.0f32).exp() + (-1.0f32).exp() + 1.0).ln();
-        let data = result.data().unwrap();
+        let data = result.data().expect("tensor should have data");
         assert_relative_eq!(data[0], expected, epsilon = 1e-6);
     }
 
@@ -634,7 +635,7 @@ mod tests {
     fn test_normal_cdf() {
         let input = Tensor::from_data(vec![0.0f32, 1.0, -1.0], vec![3], DeviceType::Cpu).unwrap();
         let result = normal_cdf(&input).unwrap();
-        let data = result.data().unwrap();
+        let data = result.data().expect("tensor should have data");
 
         // Φ(0) = 0.5
         assert_relative_eq!(data[0], 0.5, epsilon = 1e-6);

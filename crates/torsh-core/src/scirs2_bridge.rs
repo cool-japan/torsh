@@ -655,7 +655,7 @@ impl SharedBufferManager {
     /// * `id` - Unique buffer identifier
     /// * `buffer` - Shared buffer data
     pub fn register_buffer(&self, id: usize, buffer: Arc<[u8]>) {
-        let mut buffers = self.buffers.lock().unwrap();
+        let mut buffers = self.buffers.lock().expect("lock should not be poisoned");
         buffers.insert(id, buffer);
     }
 
@@ -669,7 +669,7 @@ impl SharedBufferManager {
     ///
     /// Shared buffer if found
     pub fn get_buffer(&self, id: usize) -> Option<Arc<[u8]>> {
-        let buffers = self.buffers.lock().unwrap();
+        let buffers = self.buffers.lock().expect("lock should not be poisoned");
         buffers.get(&id).cloned()
     }
 
@@ -679,19 +679,19 @@ impl SharedBufferManager {
     ///
     /// * `id` - Buffer identifier
     pub fn remove_buffer(&self, id: usize) {
-        let mut buffers = self.buffers.lock().unwrap();
+        let mut buffers = self.buffers.lock().expect("lock should not be poisoned");
         buffers.remove(&id);
     }
 
     /// Get total number of registered buffers
     pub fn buffer_count(&self) -> usize {
-        let buffers = self.buffers.lock().unwrap();
+        let buffers = self.buffers.lock().expect("lock should not be poisoned");
         buffers.len()
     }
 
     /// Get total bytes in all buffers
     pub fn total_bytes(&self) -> usize {
-        let buffers = self.buffers.lock().unwrap();
+        let buffers = self.buffers.lock().expect("lock should not be poisoned");
         buffers.values().map(|b| b.len()).sum()
     }
 }

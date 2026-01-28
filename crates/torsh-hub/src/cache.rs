@@ -303,7 +303,11 @@ impl CacheManager {
 
         for (key, repo, name, version) in models_info {
             let model_path = self.get_model_path(&repo, &name, &version);
-            let metadata = self.metadata.models.get_mut(&key).unwrap();
+            let metadata = self
+                .metadata
+                .models
+                .get_mut(&key)
+                .expect("model metadata should exist in cache");
             let compressed_path = model_path.with_extension("torsh.gz");
 
             if model_path.exists() && !compressed_path.exists() {

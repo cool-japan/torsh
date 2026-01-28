@@ -205,13 +205,13 @@ pub async fn init_rpc(
         }
     }
 
-    let listener = listener.unwrap();
+    let listener = listener.expect("listener should be successfully bound");
 
     let (shutdown_tx, mut shutdown_rx) = mpsc::channel::<()>(1);
 
     // Update worker with shutdown channel
     {
-        let mut worker_guard = worker_arc.lock().unwrap();
+        let mut worker_guard = worker_arc.lock().expect("lock should not be poisoned");
         if let Some(ref mut worker) = *worker_guard {
             worker.shutdown_tx = Some(shutdown_tx);
         }
@@ -263,8 +263,13 @@ pub async fn init_rpc(
                                 other_rank, target_addr
                             );
                             let connections = {
-                                let worker_guard = worker_arc.lock().unwrap();
-                                worker_guard.as_ref().unwrap().connections.clone()
+                                let worker_guard =
+                                    worker_arc.lock().expect("lock should not be poisoned");
+                                worker_guard
+                                    .as_ref()
+                                    .expect("worker should be initialized")
+                                    .connections
+                                    .clone()
                             };
                             let mut connections_guard = connections.write().await;
                             connections_guard.insert(other_rank, stream);
@@ -318,7 +323,7 @@ async fn handle_connection(mut stream: TcpStream, worker: Arc<Mutex<Option<RpcWo
 
                 // Try to deserialize the message
                 let result: Result<(RpcMessage, usize), _> =
-                    bincode::serde::decode_from_slice(data, bincode::config::standard());
+                    oxicode::serde::decode_from_slice(data, oxicode::config::standard());
                 match result {
                     Ok((message, _)) => {
                         if let Err(e) = handle_rpc_message(message, &mut stream, &worker).await {
@@ -352,8 +357,8 @@ async fn handle_rpc_message(
         } => {
             // Get a clone of the function registry to avoid holding locks across await
             let function_registry = {
-                let worker_guard = worker.lock().unwrap();
-                let worker_ref = worker_guard.as_ref().unwrap();
+                let worker_guard = worker.lock().expect("lock should not be poisoned");
+                let worker_ref = worker_guard.as_ref().expect("worker should be initialized");
                 worker_ref.function_registry.clone()
             };
 
@@ -368,7 +373,7 @@ async fn handle_rpc_message(
 
             let response = RpcMessage::FunctionResponse { id, result };
             let response_data =
-                bincode::serde::encode_to_vec(&response, bincode::config::standard()).map_err(
+                oxicode::serde::encode_to_vec(&response, oxicode::config::standard()).map_err(
                     |e| {
                         TorshDistributedError::communication_error(
                             "rpc",
@@ -390,8 +395,8 @@ async fn handle_rpc_message(
         } => {
             // Get clones to avoid holding locks across await
             let (function_registry, remote_refs) = {
-                let worker_guard = worker.lock().unwrap();
-                let worker_ref = worker_guard.as_ref().unwrap();
+                let worker_guard = worker.lock().expect("lock should not be poisoned");
+                let worker_ref = worker_guard.as_ref().expect("worker should be initialized");
                 (
                     worker_ref.function_registry.clone(),
                     worker_ref.remote_refs.clone(),
@@ -418,7 +423,7 @@ async fn handle_rpc_message(
 
             let response = RpcMessage::RemoteRefResponse { id, result };
             let response_data =
-                bincode::serde::encode_to_vec(&response, bincode::config::standard()).map_err(
+                oxicode::serde::encode_to_vec(&response, oxicode::config::standard()).map_err(
                     |e| {
                         TorshDistributedError::communication_error(
                             "rpc",
@@ -434,8 +439,8 @@ async fn handle_rpc_message(
 
         RpcMessage::DeleteRRef { rref_id } => {
             let remote_refs = {
-                let worker_guard = worker.lock().unwrap();
-                let worker_ref = worker_guard.as_ref().unwrap();
+                let worker_guard = worker.lock().expect("lock should not be poisoned");
+                let worker_ref = worker_guard.as_ref().expect("worker should be initialized");
                 worker_ref.remote_refs.clone()
             };
 
@@ -446,7 +451,7 @@ async fn handle_rpc_message(
         RpcMessage::Ping => {
             let response = RpcMessage::Pong;
             let response_data =
-                bincode::serde::encode_to_vec(&response, bincode::config::standard()).map_err(
+                oxicode::serde::encode_to_vec(&response, oxicode::config::standard()).map_err(
                     |e| {
                         TorshDistributedError::communication_error(
                             "rpc",
@@ -463,9 +468,12 @@ async fn handle_rpc_message(
         _ => {
             // Handle responses by forwarding to pending requests
             if let RpcMessage::FunctionResponse { id, result } = message {
-                let worker_guard = worker.lock().unwrap();
-                let worker_ref = worker_guard.as_ref().unwrap();
-                let mut pending = worker_ref.pending_requests.lock().unwrap();
+                let worker_guard = worker.lock().expect("lock should not be poisoned");
+                let worker_ref = worker_guard.as_ref().expect("worker should be initialized");
+                let mut pending = worker_ref
+                    .pending_requests
+                    .lock()
+                    .expect("lock should not be poisoned");
 
                 if let Some(sender) = pending.remove(&id) {
                     let _ = sender.send(result);
@@ -482,7 +490,7 @@ pub async fn shutdown() -> TorshResult<()> {
     let worker_arc = get_rpc_worker()?;
 
     let (shutdown_tx, remote_refs) = {
-        let mut worker_guard = worker_arc.lock().unwrap();
+        let mut worker_guard = worker_arc.lock().expect("lock should not be poisoned");
         if let Some(worker) = worker_guard.take() {
             (worker.shutdown_tx, Some(worker.remote_refs))
         } else {
@@ -513,19 +521,19 @@ where
 {
     let worker_arc = get_rpc_worker()?;
     let function_registry = {
-        let worker_guard = worker_arc.lock().unwrap();
-        let worker_ref = worker_guard.as_ref().unwrap();
+        let worker_guard = worker_arc.lock().expect("lock should not be poisoned");
+        let worker_ref = worker_guard.as_ref().expect("worker should be initialized");
         worker_ref.function_registry.clone()
     };
 
     let wrapper = move |args_bytes: &[u8]| -> Result<Vec<u8>, String> {
         let (args, _): (Args, usize) =
-            bincode::serde::decode_from_slice(args_bytes, bincode::config::standard())
+            oxicode::serde::decode_from_slice(args_bytes, oxicode::config::standard())
                 .map_err(|e| format!("Deserialization error: {}", e))?;
 
         let result = func(args)?;
 
-        bincode::serde::encode_to_vec(&result, bincode::config::standard())
+        oxicode::serde::encode_to_vec(&result, oxicode::config::standard())
             .map_err(|e| format!("Serialization error: {}", e))
     };
 
@@ -545,7 +553,7 @@ where
 
     // Serialize arguments
     let args_bytes =
-        bincode::serde::encode_to_vec(&args, bincode::config::standard()).map_err(|e| {
+        oxicode::serde::encode_to_vec(&args, oxicode::config::standard()).map_err(|e| {
             TorshDistributedError::communication_error("rpc", format!("Serialization error: {}", e))
         })?;
 
@@ -560,15 +568,15 @@ where
     };
 
     // Serialize message
-    let message_bytes = bincode::serde::encode_to_vec(&message, bincode::config::standard())
+    let message_bytes = oxicode::serde::encode_to_vec(&message, oxicode::config::standard())
         .map_err(|e| {
             TorshDistributedError::communication_error("rpc", format!("Serialization error: {}", e))
         })?;
 
     // Get clones to avoid holding locks across await
     let (connections, pending_requests) = {
-        let worker_guard = worker_arc.lock().unwrap();
-        let worker_ref = worker_guard.as_ref().unwrap();
+        let worker_guard = worker_arc.lock().expect("lock should not be poisoned");
+        let worker_ref = worker_guard.as_ref().expect("worker should be initialized");
         (
             worker_ref.connections.clone(),
             worker_ref.pending_requests.clone(),
@@ -578,7 +586,9 @@ where
     // Create response channel and register pending request
     let (response_tx, response_rx) = oneshot::channel();
     {
-        let mut pending = pending_requests.lock().unwrap();
+        let mut pending = pending_requests
+            .lock()
+            .expect("lock should not be poisoned");
         pending.insert(request_id, response_tx);
     }
 
@@ -608,7 +618,7 @@ where
     match result {
         Ok(result_bytes) => {
             let (value, _): (Ret, usize) =
-                bincode::serde::decode_from_slice(&result_bytes, bincode::config::standard())
+                oxicode::serde::decode_from_slice(&result_bytes, oxicode::config::standard())
                     .map_err(|e| {
                         TorshDistributedError::communication_error(
                             "rpc",
@@ -634,7 +644,7 @@ where
 
     // Serialize arguments
     let args_bytes =
-        bincode::serde::encode_to_vec(&args, bincode::config::standard()).map_err(|e| {
+        oxicode::serde::encode_to_vec(&args, oxicode::config::standard()).map_err(|e| {
             TorshDistributedError::communication_error("rpc", format!("Serialization error: {}", e))
         })?;
 
@@ -651,15 +661,15 @@ where
     };
 
     // Serialize message
-    let message_bytes = bincode::serde::encode_to_vec(&message, bincode::config::standard())
+    let message_bytes = oxicode::serde::encode_to_vec(&message, oxicode::config::standard())
         .map_err(|e| {
             TorshDistributedError::communication_error("rpc", format!("Serialization error: {}", e))
         })?;
 
     // Get clones to avoid holding locks across await
     let (connections, pending_requests) = {
-        let worker_guard = worker_arc.lock().unwrap();
-        let worker_ref = worker_guard.as_ref().unwrap();
+        let worker_guard = worker_arc.lock().expect("lock should not be poisoned");
+        let worker_ref = worker_guard.as_ref().expect("worker should be initialized");
         (
             worker_ref.connections.clone(),
             worker_ref.pending_requests.clone(),
@@ -669,7 +679,9 @@ where
     // Create response channel and register pending request
     let (response_tx, response_rx) = oneshot::channel();
     {
-        let mut pending = pending_requests.lock().unwrap();
+        let mut pending = pending_requests
+            .lock()
+            .expect("lock should not be poisoned");
         pending.insert(request_id, response_tx);
     }
 
@@ -699,7 +711,7 @@ where
     match result {
         Ok(returned_rref_id) => {
             let (actual_rref_id, _): (String, usize) =
-                bincode::serde::decode_from_slice(&returned_rref_id, bincode::config::standard())
+                oxicode::serde::decode_from_slice(&returned_rref_id, oxicode::config::standard())
                     .map_err(|e| {
                     TorshDistributedError::communication_error(
                         "rpc",
@@ -720,8 +732,8 @@ where
 pub async fn delete_rref<T>(rref: RRef<T>) -> TorshResult<()> {
     let worker_arc = get_rpc_worker()?;
     let connections = {
-        let worker_guard = worker_arc.lock().unwrap();
-        let worker_ref = worker_guard.as_ref().unwrap();
+        let worker_guard = worker_arc.lock().expect("lock should not be poisoned");
+        let worker_ref = worker_guard.as_ref().expect("worker should be initialized");
         worker_ref.connections.clone()
     };
 
@@ -729,7 +741,7 @@ pub async fn delete_rref<T>(rref: RRef<T>) -> TorshResult<()> {
         rref_id: rref.id().to_string(),
     };
 
-    let message_bytes = bincode::serde::encode_to_vec(&message, bincode::config::standard())
+    let message_bytes = oxicode::serde::encode_to_vec(&message, oxicode::config::standard())
         .map_err(|e| {
             TorshDistributedError::communication_error("rpc", format!("Serialization error: {}", e))
         })?;
@@ -766,16 +778,16 @@ pub fn reset_rpc() {
 /// Get current worker rank
 pub fn get_worker_rank() -> TorshResult<u32> {
     let worker_arc = get_rpc_worker()?;
-    let worker_guard = worker_arc.lock().unwrap();
-    let worker_ref = worker_guard.as_ref().unwrap();
+    let worker_guard = worker_arc.lock().expect("lock should not be poisoned");
+    let worker_ref = worker_guard.as_ref().expect("worker should be initialized");
     Ok(worker_ref.rank)
 }
 
 /// Get world size
 pub fn get_world_size() -> TorshResult<u32> {
     let worker_arc = get_rpc_worker()?;
-    let worker_guard = worker_arc.lock().unwrap();
-    let worker_ref = worker_guard.as_ref().unwrap();
+    let worker_guard = worker_arc.lock().expect("lock should not be poisoned");
+    let worker_ref = worker_guard.as_ref().expect("worker should be initialized");
     Ok(worker_ref.world_size)
 }
 
@@ -846,7 +858,7 @@ mod tests {
         // Verify functions are registered
         let function_registry = {
             let worker_arc = get_rpc_worker()?;
-            let worker_guard = worker_arc.lock().unwrap();
+            let worker_guard = worker_arc.lock().expect("lock should not be poisoned");
             let worker_ref = worker_guard.as_ref().unwrap();
             worker_ref.function_registry.clone()
         }; // Guard dropped here
@@ -872,11 +884,11 @@ mod tests {
 
         // Test serialization
         let serialized =
-            bincode::serde::encode_to_vec(&message, bincode::config::standard()).unwrap();
+            oxicode::serde::encode_to_vec(&message, oxicode::config::standard()).unwrap();
 
         // Test deserialization
         let (deserialized, _): (RpcMessage, usize) =
-            bincode::serde::decode_from_slice(&serialized, bincode::config::standard()).unwrap();
+            oxicode::serde::decode_from_slice(&serialized, oxicode::config::standard()).unwrap();
 
         match (message, deserialized) {
             (

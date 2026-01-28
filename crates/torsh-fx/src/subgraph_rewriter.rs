@@ -235,7 +235,10 @@ impl SubgraphRewriter {
         }
 
         let first_node_idx = pattern_match.nodes[0];
-        let _last_node_idx = *pattern_match.nodes.last().unwrap();
+        let _last_node_idx = *pattern_match
+            .nodes
+            .last()
+            .expect("pattern_match.nodes should not be empty");
 
         // Get the arguments from the first node
         let args = if let Some(Node::Call(_, args)) = graph.get_node(first_node_idx) {

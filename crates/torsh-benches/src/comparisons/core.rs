@@ -4,7 +4,7 @@
 //! ToRSh performance against other tensor libraries.
 
 use crate::{BenchResult, Benchmarkable};
-use criterion::black_box;
+use std::hint::black_box;
 use std::collections::HashMap;
 
 /// Comparison benchmark runner

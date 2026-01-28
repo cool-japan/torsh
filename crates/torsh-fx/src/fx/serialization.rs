@@ -489,7 +489,7 @@ impl FxGraph {
     /// Serialize graph to binary format
     pub fn to_binary(&self) -> TorshResult<Vec<u8>> {
         let serializable = SerializableGraph::from_graph(self);
-        bincode::serde::encode_to_vec(&serializable, bincode::config::standard()).map_err(|e| {
+        oxicode::serde::encode_to_vec(&serializable, oxicode::config::standard()).map_err(|e| {
             torsh_core::error::TorshError::SerializationError(format!(
                 "Failed to serialize graph to binary: {}",
                 e
@@ -500,7 +500,7 @@ impl FxGraph {
     /// Deserialize graph from binary format
     pub fn from_binary(data: &[u8]) -> TorshResult<Self> {
         let (serializable, _): (SerializableGraph, usize) =
-            bincode::serde::decode_from_slice(data, bincode::config::standard()).map_err(|e| {
+            oxicode::serde::decode_from_slice(data, oxicode::config::standard()).map_err(|e| {
                 torsh_core::error::TorshError::SerializationError(format!(
                     "Failed to deserialize graph from binary: {}",
                     e

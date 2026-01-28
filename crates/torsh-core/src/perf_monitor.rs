@@ -281,7 +281,10 @@ impl RealTimeMonitor {
         }
 
         let mut sorted: Vec<f64> = durations.iter().map(|d| d.as_micros() as f64).collect();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted.sort_by(|a, b| {
+            a.partial_cmp(b)
+                .expect("duration values should be comparable (no NaN)")
+        });
 
         let p95_idx = (sorted.len() as f64 * 0.95) as usize;
         let p99_idx = (sorted.len() as f64 * 0.99) as usize;
@@ -375,7 +378,7 @@ pub fn get_monitor() -> Arc<Mutex<RealTimeMonitor>> {
 /// Configure the global monitor
 pub fn configure_monitor(config: MonitorConfig) {
     let monitor = get_monitor();
-    *monitor.lock().unwrap() = RealTimeMonitor::new(config);
+    *monitor.lock().expect("lock should not be poisoned") = RealTimeMonitor::new(config);
 }
 
 /// Record an operation for monitoring
@@ -383,14 +386,14 @@ pub fn record_operation(operation: &str, duration: Duration) {
     let monitor = get_monitor();
     monitor
         .lock()
-        .unwrap()
+        .expect("monitor lock should not be poisoned")
         .record_operation(operation, duration);
 }
 
 /// Get current performance metrics
 pub fn get_current_metrics() -> RealtimeMetrics {
     let monitor = get_monitor();
-    let guard = monitor.lock().unwrap();
+    let guard = monitor.lock().expect("lock should not be poisoned");
     guard.get_metrics()
 }
 
@@ -399,14 +402,14 @@ pub fn set_baseline(operation: &str, baseline_time_us: f64) {
     let monitor = get_monitor();
     monitor
         .lock()
-        .unwrap()
+        .expect("monitor lock should not be poisoned")
         .set_baseline(operation, baseline_time_us);
 }
 
 /// Get recent performance alerts
 pub fn get_recent_alerts(max_count: usize) -> Vec<PerformanceAlert> {
     let monitor = get_monitor();
-    let guard = monitor.lock().unwrap();
+    let guard = monitor.lock().expect("lock should not be poisoned");
     guard.get_alerts(max_count)
 }
 
@@ -509,7 +512,10 @@ mod tests {
         }
         // Check that operation was recorded
         let monitor = get_monitor();
-        let counts = &monitor.lock().unwrap().operation_counts;
+        let counts = &monitor
+            .lock()
+            .expect("lock should not be poisoned")
+            .operation_counts;
         assert!(counts.contains_key("test_scope"));
     }
 

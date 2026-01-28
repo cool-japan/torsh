@@ -1,7 +1,7 @@
 //! Python optimizer wrappers
 
 use crate::error::FfiError;
-use crate::python::tensor::PyTensor;
+use crate::tensor::PyTensor;
 use pyo3::prelude::*;
 
 /// Base optimizer class

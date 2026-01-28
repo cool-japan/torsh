@@ -240,7 +240,7 @@ impl<T: TensorElement> Tensor<T> {
             result.shape = Shape::new(vec![]);
             result
         } else {
-            self.reshape_v2(&new_dims).unwrap()
+            self.reshape_v2(&new_dims).expect("reshape should succeed")
         }
     }
 
@@ -284,7 +284,7 @@ impl<T: TensorElement> Tensor<T> {
     /// Flattens the tensor to 1D (new modular implementation)
     pub fn flatten_v2(&self) -> Self {
         let total_elements = self.numel();
-        self.reshape_v2(&[total_elements]).unwrap()
+        self.reshape_v2(&[total_elements]).expect("reshape should succeed")
     }
 
     /// Flattens starting from a specific dimension

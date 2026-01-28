@@ -13,7 +13,6 @@ pub use registry::*;
 // pub use t5::*;
 // pub use transformer::*;
 
-use scirs2_core::random::Rng;
 use torsh_core::{device::DeviceType, Result};
 use torsh_tensor::creation::randn;
 use torsh_tensor::Tensor;
@@ -524,12 +523,12 @@ pub mod integration {
                 }
                 PoolingStrategy::CLS => {
                     // Take first token (CLS token)
-                    hidden_states.narrow(1, 0, 1).unwrap().squeeze(1)
+                    hidden_states.narrow(1, 0, 1)?.squeeze(1)
                 }
                 PoolingStrategy::Last => {
                     // Take last token
                     let seq_len = hidden_states.size(1)? as i64;
-                    hidden_states.narrow(1, seq_len - 1, 1).unwrap().squeeze(1)
+                    hidden_states.narrow(1, seq_len - 1, 1)?.squeeze(1)
                 }
             }
         }
@@ -614,7 +613,7 @@ pub mod integration {
                 for (beam_idx, beam_tokens) in beam_tokens.iter().enumerate() {
                     let logits = self.forward_model(beam_tokens)?;
                     let seq_len = logits.size(1)? as i64;
-                    let next_token_logits = logits.narrow(1, seq_len - 1, 1).unwrap();
+                    let next_token_logits = logits.narrow(1, seq_len - 1, 1)?;
 
                     // Apply temperature if needed
                     let next_token_logits = if config.temperature != 1.0 {
@@ -628,7 +627,7 @@ pub mod integration {
                     // Get top-k candidates for this beam
                     let vocab_size = self.model.vocab_size();
                     for token_id in 0..vocab_size.min(config.top_k.unwrap_or(vocab_size)) {
-                        let prob = probs.narrow(-1, token_id as i64, 1).unwrap();
+                        let prob = probs.narrow(-1, token_id as i64, 1)?;
                         let prob_scalar = prob.item()?;
                         let score = beam_scores[beam_idx] + prob_scalar.ln();
 
@@ -637,7 +636,8 @@ pub mod integration {
                 }
 
                 // Select top beams
-                all_candidates.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+                all_candidates
+                    .sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
                 all_candidates.truncate(num_beams);
 
                 // Update beams
@@ -766,7 +766,8 @@ pub mod integration {
                     .enumerate()
                     .map(|(i, &p)| (i, p))
                     .collect();
-                indexed_probs.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+                indexed_probs
+                    .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
                 // Find nucleus - accumulate probabilities until reaching top_p
                 let mut cumsum = 0.0;
@@ -1293,7 +1294,11 @@ pub mod integration {
             }
 
             // Sort by weight descending
-            flows.sort_by(|a, b| b.weight.partial_cmp(&a.weight).unwrap());
+            flows.sort_by(|a, b| {
+                b.weight
+                    .partial_cmp(&a.weight)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
 
             flows
         }
@@ -1361,10 +1366,8 @@ pub mod integration {
                     let head_idx = head_idx.unwrap_or(0);
 
                     let attention_slice = attention_weights
-                        .narrow(0, batch_idx as i64, 1)
-                        .unwrap()
-                        .narrow(1, head_idx as i64, 1)
-                        .unwrap()
+                        .narrow(0, batch_idx as i64, 1)?
+                        .narrow(1, head_idx as i64, 1)?
                         .squeeze(0)?
                         .squeeze(0)?; // Note: after squeezing dim 0, the old dim 1 becomes dim 0
 
@@ -1377,12 +1380,9 @@ pub mod integration {
                     let head_idx = head_idx.unwrap_or(0);
 
                     let attention_slice = attention_weights
-                        .narrow(0, batch_idx as i64, 1)
-                        .unwrap()
-                        .narrow(1, layer_idx as i64, 1)
-                        .unwrap()
-                        .narrow(2, head_idx as i64, 1)
-                        .unwrap()
+                        .narrow(0, batch_idx as i64, 1)?
+                        .narrow(1, layer_idx as i64, 1)?
+                        .narrow(2, head_idx as i64, 1)?
                         .squeeze(0)?
                         .squeeze(0)?
                         .squeeze(0)?; // Squeeze three times as we have three size-1 dimensions

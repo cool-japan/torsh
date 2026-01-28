@@ -367,7 +367,7 @@ impl HardwareTuner {
         recommendations.sort_by(|a, b| {
             b.expected_improvement
                 .partial_cmp(&a.expected_improvement)
-                .unwrap()
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         Ok(recommendations)

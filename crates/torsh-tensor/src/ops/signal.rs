@@ -44,8 +44,8 @@ where
     /// use torsh_tensor::Tensor;
     /// use torsh_core::device::DeviceType;
     ///
-    /// let signal = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu).unwrap();
-    /// let kernel = Tensor::from_data(vec![1.0f32, 0.5], vec![2], DeviceType::Cpu).unwrap();
+    /// let signal = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu).expect("tensor creation should succeed");
+    /// let kernel = Tensor::from_data(vec![1.0f32, 0.5], vec![2], DeviceType::Cpu).expect("tensor creation should succeed");
     /// let correlation = signal.correlate1d(&kernel, "same").unwrap();
     /// ```
     #[allow(clippy::needless_range_loop)]
@@ -132,7 +132,7 @@ where
     /// use torsh_tensor::Tensor;
     /// use torsh_core::device::DeviceType;
     ///
-    /// let noisy_signal = Tensor::from_data(vec![1.0f32, 5.0, 2.0, 8.0, 3.0], vec![5], DeviceType::Cpu).unwrap();
+    /// let noisy_signal = Tensor::from_data(vec![1.0f32, 5.0, 2.0, 8.0, 3.0], vec![5], DeviceType::Cpu).expect("tensor creation should succeed");
     /// let smoothed = noisy_signal.moving_average(3).unwrap();
     /// ```
     pub fn moving_average(&self, window_size: usize) -> Result<Self> {
@@ -195,7 +195,7 @@ where
     /// use torsh_tensor::Tensor;
     /// use torsh_core::device::DeviceType;
     ///
-    /// let signal = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu).unwrap();
+    /// let signal = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu).expect("tensor creation should succeed");
     /// let smoothed = signal.gaussian_filter(1.0, 5).unwrap();
     /// ```
     pub fn gaussian_filter(&self, sigma: f64, kernel_size: usize) -> Result<Self> {
@@ -263,7 +263,7 @@ where
     /// use torsh_tensor::Tensor;
     /// use torsh_core::device::DeviceType;
     ///
-    /// let noisy_signal = Tensor::from_data(vec![1.0f32, 100.0, 2.0, 3.0, 200.0, 4.0], vec![6], DeviceType::Cpu).unwrap();
+    /// let noisy_signal = Tensor::from_data(vec![1.0f32, 100.0, 2.0, 3.0, 200.0, 4.0], vec![6], DeviceType::Cpu).expect("tensor creation should succeed");
     /// let denoised = noisy_signal.median_filter(3).unwrap();
     /// ```
     pub fn median_filter(&self, window_size: usize) -> Result<Self> {

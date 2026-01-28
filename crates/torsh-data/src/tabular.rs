@@ -636,7 +636,10 @@ pub mod preprocessing {
                     }
                     ImputeStrategy::Median => {
                         let mut sorted = feature_values.clone();
-                        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                        sorted.sort_by(|a, b| {
+                            a.partial_cmp(b)
+                                .expect("comparison should succeed for finite values")
+                        });
                         let mid = sorted.len() / 2;
                         self.fill_values[feature_idx] = if sorted.len() % 2 == 0 {
                             (sorted[mid - 1] + sorted[mid]) / 2.0
@@ -819,7 +822,10 @@ pub mod preprocessing {
                 .map(|(idx, &score)| (idx, score))
                 .collect();
 
-            feature_scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+            feature_scores.sort_by(|a, b| {
+                b.1.partial_cmp(&a.1)
+                    .expect("comparison should succeed for finite values")
+            });
             self.selected_features = feature_scores
                 .into_iter()
                 .take(self.k)

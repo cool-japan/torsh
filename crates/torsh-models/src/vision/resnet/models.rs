@@ -57,7 +57,11 @@ impl ResNet {
             layer4: Sequential::new(),
             avgpool: AdaptiveAvgPool2d::new((Some(1), Some(1))),
             fc: Linear::new(
-                config.stage_channels().last().unwrap() * config.expansion(),
+                config
+                    .stage_channels()
+                    .last()
+                    .expect("stage channels should not be empty")
+                    * config.expansion(),
                 config.num_classes,
                 true,
             ),
@@ -219,7 +223,11 @@ impl ResNet {
     /// Get the feature dimensions
     pub fn feature_dim(&self) -> usize {
         // stage_channels() already includes expansion for bottleneck architectures
-        *self.config.stage_channels().last().unwrap()
+        *self
+            .config
+            .stage_channels()
+            .last()
+            .expect("stage channels should not be empty")
     }
 
     /// Get the configuration

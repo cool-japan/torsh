@@ -18,41 +18,26 @@ name = "torsh"
 path = "src/main.rs"
 
 [dependencies]
-# Core ToRSh dependencies
-torsh-core = { workspace = true }
-torsh-tensor = { workspace = true }
-torsh-autograd = { workspace = true }
+# Core ToRSh dependency - meta-crate with all features
+torsh = { workspace = true, features = ["nn", "optim", "data", "vision", "text", "quantization", "jit", "profiler", "hub"] }
 
 # SciRS2 ecosystem dependencies (following SCIRS2 POLICY)
 # Must use SciRS2 as foundation instead of rand/ndarray
 # ✅ UNIFIED ACCESS: Use scirs2-core 0.1.0-RC.1+ for complete ndarray/random functionality
 scirs2-core = { workspace = true, features = ["simd", "parallel"] }
-scirs2-autograd = { workspace = true }
-scirs2-neural = { workspace = true, optional = true }
 scirs2-linalg = { workspace = true, optional = true }
-scirs2-optimize = { workspace = true, optional = true }
 scirs2-metrics = { workspace = true, optional = true }
-numrs2 = { workspace = true }
-torsh-nn = { path = "../torsh-nn", version = "0.1.0-alpha.2", optional = true }
-torsh-optim = { path = "../torsh-optim", version = "0.1.0-alpha.2", optional = true }
-torsh-data = { path = "../torsh-data", version = "0.1.0-alpha.2", optional = true }
-torsh-vision = { path = "../torsh-vision", version = "0.1.0-alpha.2", optional = true }
-torsh-text = { path = "../torsh-text", version = "0.1.0-alpha.2", optional = true }
-torsh-quantization = { path = "../torsh-quantization", version = "0.1.0-alpha.2", optional = true }
-torsh-jit = { path = "../torsh-jit", version = "0.1.0-alpha.2", optional = true }
-torsh-profiler = { path = "../torsh-profiler", version = "0.1.0-alpha.2", optional = true }
-torsh-hub = { path = "../torsh-hub", version = "0.1.0-alpha.2", optional = true }
 
 # CLI framework
-clap = { version = "4.5.53", features = ["derive", "env", "color"] }
+clap = { version = "4.5.54", features = ["derive", "env", "color"] }
 clap_complete = "4.5"
 
 # Async runtime
-tokio = { version = "1.48", features = ["full"] }
+tokio = { workspace = true }
 
 # Serialization
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 serde_yaml = "0.9"
 toml = "0.9"
 
@@ -64,49 +49,48 @@ glob = "0.3"
 indicatif = "0.18"
 console = "0.16"
 dialoguer = "0.12"
-colored = "3.0"
+colored = "3.1"
 
 # Logging
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 # Error handling
-anyhow = "1.0"
-thiserror = "2.0"
+anyhow = { workspace = true }
+thiserror = { workspace = true }
 
 # Utilities
-chrono = { version = "0.4.42", features = ["serde"] }
+chrono = { workspace = true }
 humantime = "2.3"
 byte-unit = "5.2"
-uuid = { version = "1.19", features = ["v4", "serde"] }
+uuid = { workspace = true }
 fastrand = "2.3"
 
 # Networking for model downloads
-reqwest = { version = "0.12", features = ["json", "stream"] }
-futures-util = "0.3"
+reqwest = { version = "0.13", features = ["json", "stream"] }
+futures-util = { workspace = true }
 
-# System info
-sysinfo = "0.37"
-libc = "0.2"
+# System info - Pure Rust (libc removed for SciRS2 Pure Rust ecosystem)
+sysinfo = { workspace = true }
 
 # Directory utilities
 dirs = "6.0"
 
 [features]
-default = ["nn", "optim", "data", "vision", "text"]
+default = ["nn", "optim", "data", "vision", "text", "quantization", "jit", "hub", "profiler", "linalg", "metrics"]
 
-# Core modules
-nn = ["dep:torsh-nn", "dep:scirs2-neural"]
-optim = ["dep:torsh-optim", "dep:scirs2-optimize"]
-data = ["dep:torsh-data"]
-vision = ["dep:torsh-vision"]
-text = ["dep:torsh-text"]
+# Core features (from torsh dependency)
+nn = []
+optim = []
+data = []
+vision = []
+text = []
 
 # Advanced features
-quantization = ["dep:torsh-quantization"]
-jit = ["dep:torsh-jit"]
-profiler = ["dep:torsh-profiler"]
-hub = ["dep:torsh-hub"]
+quantization = []
+jit = []
+hub = []
+profiler = []
 linalg = ["dep:scirs2-linalg"]
 metrics = ["dep:scirs2-metrics"]
 
@@ -114,6 +98,6 @@ metrics = ["dep:scirs2-metrics"]
 dev = []
 
 [dev-dependencies]
-tempfile = "3.23"
+tempfile = { workspace = true }
 assert_cmd = "2.1"
 predicates = "3.1"

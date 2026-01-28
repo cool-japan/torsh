@@ -1120,7 +1120,7 @@ impl ModelZoo {
         let best_mirror = available_mirrors
             .iter()
             .min_by_key(|status| status.response_time_ms)
-            .unwrap();
+            .expect("available_mirrors is non-empty, so min_by_key should return Some");
 
         // Construct mirror URL
         let mirror_url = model_url.replace("https://torsh.rs", &best_mirror.url);
@@ -1667,11 +1667,11 @@ impl ModelZoo {
                 sha256: info.sha256.clone(),
                 started_at: SystemTime::now()
                     .duration_since(UNIX_EPOCH)
-                    .unwrap()
+                    .expect("SystemTime should be after UNIX_EPOCH")
                     .as_secs(),
                 modified_at: SystemTime::now()
                     .duration_since(UNIX_EPOCH)
-                    .unwrap()
+                    .expect("SystemTime should be after UNIX_EPOCH")
                     .as_secs(),
             };
             self.save_download_metadata(&metadata, metadata_path)?;
@@ -1841,7 +1841,8 @@ impl ModelZoo {
 
 /// List all available models
 pub fn list_available_models() -> Vec<ModelInfo> {
-    let zoo = ModelZoo::new(std::env::temp_dir()).unwrap();
+    let zoo = ModelZoo::new(std::env::temp_dir())
+        .expect("Failed to initialize ModelZoo with temp directory");
     zoo.list_models().into_iter().cloned().collect()
 }
 

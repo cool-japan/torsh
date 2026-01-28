@@ -185,7 +185,7 @@ impl AutoTuner {
             .min_by(|(_, a), (_, b)| {
                 let a_score = self.calculate_balanced_score(a, memory_weight);
                 let b_score = self.calculate_balanced_score(b, memory_weight);
-                a_score.partial_cmp(&b_score).unwrap()
+                a_score.partial_cmp(&b_score).expect("score comparison should succeed")
             })
             .map(|(&format, _)| format)
             .unwrap_or(SparseFormat::Csr);
@@ -315,7 +315,7 @@ impl AutoTuner {
             .min_by(|(_, a), (_, b)| {
                 let a_score = self.calculate_weighted_score(a, time_weight, memory_weight);
                 let b_score = self.calculate_weighted_score(b, time_weight, memory_weight);
-                a_score.partial_cmp(&b_score).unwrap()
+                a_score.partial_cmp(&b_score).expect("score comparison should succeed")
             })
             .map(|(&format, _)| format)
             .unwrap_or(SparseFormat::Csr)

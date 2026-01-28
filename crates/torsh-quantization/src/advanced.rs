@@ -104,18 +104,27 @@ impl DynamicQuantizationScaler {
 
         // Update statistics with current activation
         {
-            let stats = self.activation_stats.get_mut(&layer_key).unwrap();
+            let stats = self
+                .activation_stats
+                .get_mut(&layer_key)
+                .expect("activation stats should exist for layer_key after insertion");
             Self::update_activation_stats(&self.config, stats, &data)?;
         }
 
         // Adjust quantization parameters if needed
         if self.inference_steps > self.config.warmup_steps {
-            let stats = self.activation_stats.get_mut(&layer_key).unwrap();
+            let stats = self
+                .activation_stats
+                .get_mut(&layer_key)
+                .expect("activation stats should exist for layer_key after insertion");
             Self::adjust_quantization_params(&self.config, stats)?;
         }
 
         // Quantize using current parameters
-        let stats = self.activation_stats.get(&layer_key).unwrap();
+        let stats = self
+            .activation_stats
+            .get(&layer_key)
+            .expect("activation stats should exist for layer_key");
         let (quantized, _, _) = crate::quantize::quantize_per_tensor_affine(
             tensor,
             stats.current_scale,
@@ -456,7 +465,10 @@ impl QuantizationAwarePruner {
 
         // Calculate magnitude threshold for pruning
         let mut magnitudes: Vec<f32> = weights.iter().map(|&w| w.abs()).collect();
-        magnitudes.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        magnitudes.sort_by(|a, b| {
+            a.partial_cmp(b)
+                .expect("magnitude values should be comparable")
+        });
 
         let threshold_idx = (magnitudes.len() as f32 * self.current_sparsity) as usize;
         let threshold = if threshold_idx < magnitudes.len() {

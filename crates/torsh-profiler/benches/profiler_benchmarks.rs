@@ -234,7 +234,7 @@ fn bench_statistics(c: &mut Criterion) {
         b.iter(|| {
             use torsh_profiler::get_global_stats;
             let stats = get_global_stats();
-            black_box(stats);
+            let _ = black_box(stats);
         });
     });
 

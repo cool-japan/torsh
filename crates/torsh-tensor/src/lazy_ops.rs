@@ -152,7 +152,7 @@ impl<T: TensorElement + Into<f32> + std::iter::Sum + num_traits::FromPrimitive +
     /// Get the computed shape of the tensor (computed lazily)
     pub fn shape(&self) -> Result<Shape> {
         {
-            let cached = self.cached_shape.read().unwrap();
+            let cached = self.cached_shape.read().expect("lock should not be poisoned");
             if let Some(ref shape) = *cached {
                 return Ok(shape.clone());
             }
@@ -161,7 +161,7 @@ impl<T: TensorElement + Into<f32> + std::iter::Sum + num_traits::FromPrimitive +
         let shape = self.compute_shape(&self.operation)?;
 
         {
-            let mut cached = self.cached_shape.write().unwrap();
+            let mut cached = self.cached_shape.write().expect("lock should not be poisoned");
             *cached = Some(shape.clone());
         }
 
@@ -182,7 +182,7 @@ impl<T: TensorElement + Into<f32> + std::iter::Sum + num_traits::FromPrimitive +
 
         // Create a temporary instance for evaluation
         let temp_instance = LazyTensor {
-            operation: LazyOp::Identity(Arc::new(Tensor::zeros(&[1], torsh_core::device::DeviceType::Cpu).unwrap())), // Dummy
+            operation: LazyOp::Identity(Arc::new(Tensor::zeros(&[1], torsh_core::device::DeviceType::Cpu).expect("tensor creation should succeed"))), // Dummy
             cached_shape: RwLock::new(None),
             optimization_passes: Vec::new(),
         };

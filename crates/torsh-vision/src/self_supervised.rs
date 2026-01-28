@@ -10,7 +10,7 @@
 use crate::{
     ColorJitter, Compose, RandomCrop, RandomHorizontalFlip, RandomResizedCrop, Result, Transform,
 };
-use scirs2_core::random::{thread_rng, Random, Rng}; // SciRS2 Policy compliance
+use scirs2_core::random::{thread_rng, Random}; // SciRS2 Policy compliance
 use torsh_tensor::Tensor;
 
 // Re-export for convenience

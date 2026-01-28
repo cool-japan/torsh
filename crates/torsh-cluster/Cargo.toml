@@ -27,9 +27,6 @@ scirs2-stats = { workspace = true }
 scirs2-metrics = { workspace = true }
 scirs2-linalg = { workspace = true }
 
-# Numerical computing
-numrs2 = { workspace = true }
-
 # ✅ SciRS2 POLICY: All parallel operations use scirs2_core::parallel_ops
 # rayon = { workspace = true }  # REMOVED: Use scirs2_core::parallel_ops instead
 

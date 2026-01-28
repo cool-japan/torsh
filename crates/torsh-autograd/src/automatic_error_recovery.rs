@@ -668,7 +668,10 @@ impl AutomaticErrorRecovery {
 
     /// Get current recovery statistics
     pub fn get_statistics(&self) -> RecoveryStatistics {
-        self.statistics.read().unwrap().clone()
+        self.statistics
+            .read()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Update recovery strategy for a failure type (learning)
@@ -693,7 +696,10 @@ impl AutomaticErrorRecovery {
 
     /// Get list of active recoveries
     pub fn get_active_recoveries(&self) -> HashMap<String, RecoveryContext> {
-        self.active_recoveries.lock().unwrap().clone()
+        self.active_recoveries
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Clear recovery history and statistics

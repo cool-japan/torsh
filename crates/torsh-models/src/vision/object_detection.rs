@@ -205,7 +205,7 @@ impl Module for PositionalEncoding {
         let d_model = x.size(2)?;
 
         // Get positional encoding for the sequence length
-        let encoding_data = self.encoding.data.read().unwrap();
+        let encoding_data = self.encoding.data.read().expect("lock should not be poisoned");
         let pos_enc = encoding_data.slice(&[
             (0, seq_len.min(self.max_len) as i64),
             (0, d_model as i64),
@@ -736,7 +736,7 @@ impl Module for DETRTransformer {
         let memory = self.encoder.forward(&src_with_pos)?; // (B, seq_len, hidden_dim)
 
         // Prepare object queries for decoder
-        let queries_data = self.object_queries.data.read().unwrap();
+        let queries_data = self.object_queries.data.read().expect("lock should not be poisoned");
         let queries = queries_data
             .unsqueeze(0)? // (1, num_queries, hidden_dim)
             .expand(&[batch_size, self.num_queries, self.hidden_dim])?; // (B, num_queries, hidden_dim)
@@ -942,7 +942,7 @@ impl DETR {
     /// Get number of parameters
     pub fn num_parameters(&self) -> usize {
         self.parameters().values().map(|p| {
-            let data = p.data.read().unwrap();
+            let data = p.data.read().expect("lock should not be poisoned");
             data.numel()
         }).sum()
     }

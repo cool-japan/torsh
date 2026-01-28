@@ -27,23 +27,23 @@ polars = { workspace = true, optional = true }
 
 # Image processing
 image = { version = "0.25", optional = true }
-imageproc = { version = "0.25", optional = true }
+imageproc = { version = "0.26", optional = true }
 
 # Parallel processing
 rayon = { workspace = true }
 crossbeam = { workspace = true }
 
 # Async support
-tokio = { version = "1.48", features = ["rt", "rt-multi-thread", "time", "sync", "macros"], optional = true }
+tokio = { version = "1.49", features = ["rt", "rt-multi-thread", "time", "sync", "macros"], optional = true }
 futures = { version = "0.3", optional = true }
 
 # File I/O
 csv = { version = "1.4", optional = true }
 hdf5 = { version = "0.8", optional = true }
-parquet = { version = "57.1", optional = true }
-arrow = { version = "57.1", optional = true }
+parquet = { version = "57.2", optional = true }
+arrow = { version = "57.2", optional = true }
 memmap2 = { version = "0.9", optional = true }
-tempfile = { version = "3.23", optional = true }
+tempfile = { version = "3.24", optional = true }
 
 # Utilities - SciRS2 POLICY COMPLIANCE
 # rand = { workspace = true }       # REMOVED: Use scirs2_core::random instead (SciRS2 POLICY)
@@ -66,7 +66,7 @@ js-sys = { version = "0.3", optional = true }
 web-sys = { version = "0.3", optional = true }
 
 [dev-dependencies]
-tempfile = "3.23"
+tempfile = "3.24"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.3" }

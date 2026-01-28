@@ -40,7 +40,10 @@ impl SpectralGraphAnalysis {
     /// Compute graph Laplacian matrix
     pub fn compute_laplacian(graph: &GraphData, laplacian_type: LaplacianType) -> Array2<f32> {
         let num_nodes = graph.num_nodes;
-        let edge_data = graph.edge_index.to_vec().unwrap();
+        let edge_data = graph
+            .edge_index
+            .to_vec()
+            .expect("conversion should succeed");
 
         // Build adjacency matrix
         let mut adj = Array2::zeros((num_nodes, num_nodes));
@@ -170,7 +173,7 @@ impl SpectralGraphAnalysis {
             &[num_nodes, num_components],
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap()
+        .expect("from_vec embeddings should succeed")
     }
 
     /// Compute graph spectrum (eigenvalues) - simplified version
@@ -197,7 +200,7 @@ impl SpectralGraphAnalysis {
 
         // Get spectral embedding
         let embedding = Self::spectral_embedding(graph, num_clusters);
-        let embedding_data = embedding.to_vec().unwrap();
+        let embedding_data = embedding.to_vec().expect("conversion should succeed");
 
         // K-means clustering on embedding (simplified)
         let mut labels = vec![0; num_nodes];
@@ -282,11 +285,15 @@ impl ChebConv {
         let mut weights = Vec::new();
 
         for _ in 0..k {
-            weights.push(Parameter::new(randn(&[in_features, out_features]).unwrap()));
+            weights.push(Parameter::new(
+                randn(&[in_features, out_features]).expect("randn weights should succeed"),
+            ));
         }
 
         let bias = if use_bias {
-            Some(Parameter::new(zeros(&[out_features]).unwrap()))
+            Some(Parameter::new(
+                zeros(&[out_features]).expect("zeros bias should succeed"),
+            ))
         } else {
             None
         };
@@ -314,7 +321,7 @@ impl ChebConv {
             &[num_nodes, num_nodes],
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("from_vec laplacian should succeed");
 
         // Compute Chebyshev polynomials
         let mut chebyshev_polynomials = Vec::new();
@@ -324,29 +331,40 @@ impl ChebConv {
 
         // T_1 = L @ X
         if self.k > 1 {
-            let t1 = lap_tensor.matmul(&graph.x).unwrap();
+            let t1 = lap_tensor
+                .matmul(&graph.x)
+                .expect("operation should succeed");
             chebyshev_polynomials.push(t1);
         }
 
         // T_k = 2 * L @ T_{k-1} - T_{k-2}
         for i in 2..self.k {
-            let term1 = lap_tensor.matmul(&chebyshev_polynomials[i - 1]).unwrap();
-            let term1_scaled = term1.mul_scalar(2.0).unwrap();
-            let t_k = term1_scaled.sub(&chebyshev_polynomials[i - 2]).unwrap();
+            let term1 = lap_tensor
+                .matmul(&chebyshev_polynomials[i - 1])
+                .expect("operation should succeed");
+            let term1_scaled = term1.mul_scalar(2.0).expect("operation should succeed");
+            let t_k = term1_scaled
+                .sub(&chebyshev_polynomials[i - 2])
+                .expect("operation should succeed");
             chebyshev_polynomials.push(t_k);
         }
 
         // Compute output: sum of weighted Chebyshev polynomials
-        let mut output = zeros::<f32>(&[num_nodes, self.out_features]).unwrap();
+        let mut output =
+            zeros::<f32>(&[num_nodes, self.out_features]).expect("zeros output should succeed");
 
         for (i, t_k) in chebyshev_polynomials.iter().enumerate().take(self.k) {
-            let weighted = t_k.matmul(&self.weights[i].clone_data()).unwrap();
-            output = output.add(&weighted).unwrap();
+            let weighted = t_k
+                .matmul(&self.weights[i].clone_data())
+                .expect("operation should succeed");
+            output = output.add(&weighted).expect("operation should succeed");
         }
 
         // Add bias
         if let Some(ref bias) = self.bias {
-            output = output.add(&bias.clone_data()).unwrap();
+            output = output
+                .add(&bias.clone_data())
+                .expect("operation should succeed");
         }
 
         let mut output_graph = graph.clone();
@@ -395,11 +413,17 @@ impl SpectralConv {
         num_filters: usize,
         use_bias: bool,
     ) -> Self {
-        let spectral_weights = Parameter::new(randn(&[num_filters, in_features]).unwrap());
-        let spatial_weight = Parameter::new(randn(&[in_features, out_features]).unwrap());
+        let spectral_weights = Parameter::new(
+            randn(&[num_filters, in_features]).expect("randn spectral_weights should succeed"),
+        );
+        let spatial_weight = Parameter::new(
+            randn(&[in_features, out_features]).expect("randn spatial_weight should succeed"),
+        );
 
         let bias = if use_bias {
-            Some(Parameter::new(zeros(&[out_features]).unwrap()))
+            Some(Parameter::new(
+                zeros(&[out_features]).expect("zeros bias should succeed"),
+            ))
         } else {
             None
         };
@@ -426,17 +450,21 @@ impl SpectralConv {
         // Result: [num_nodes, in_features]
         let filtered = spectral_features
             .matmul(&self.spectral_weights.clone_data())
-            .unwrap();
+            .expect("operation should succeed");
 
         // Combine with spatial features
-        let combined = filtered.add(&graph.x).unwrap();
+        let combined = filtered.add(&graph.x).expect("operation should succeed");
 
         // Apply spatial transform
-        let mut output = combined.matmul(&self.spatial_weight.clone_data()).unwrap();
+        let mut output = combined
+            .matmul(&self.spatial_weight.clone_data())
+            .expect("operation should succeed");
 
         // Add bias
         if let Some(ref bias) = self.bias {
-            output = output.add(&bias.clone_data()).unwrap();
+            output = output
+                .add(&bias.clone_data())
+                .expect("operation should succeed");
         }
 
         let mut output_graph = graph.clone();
@@ -475,7 +503,11 @@ impl GraphSignalProcessing {
         let embedding = SpectralGraphAnalysis::spectral_embedding(graph, num_nodes);
 
         // Project signal onto spectral basis
-        embedding.t().unwrap().matmul(signal).unwrap()
+        embedding
+            .t()
+            .expect("operation should succeed")
+            .matmul(signal)
+            .expect("operation should succeed")
     }
 
     /// Inverse graph Fourier transform
@@ -484,7 +516,9 @@ impl GraphSignalProcessing {
         let embedding = SpectralGraphAnalysis::spectral_embedding(graph, num_nodes);
 
         // Project back to spatial domain
-        embedding.matmul(spectral_signal).unwrap()
+        embedding
+            .matmul(spectral_signal)
+            .expect("operation should succeed")
     }
 
     /// Low-pass filter on graph signal
@@ -493,7 +527,7 @@ impl GraphSignalProcessing {
         let spectral = Self::graph_fourier_transform(graph, signal);
 
         // Apply low-pass filter (zero out high frequencies)
-        let mut filtered_data = spectral.to_vec().unwrap();
+        let mut filtered_data = spectral.to_vec().expect("conversion should succeed");
         let _signal_dim = signal.shape().dims()[1];
 
         for i in cutoff..filtered_data.len() {
@@ -505,7 +539,7 @@ impl GraphSignalProcessing {
             spectral.shape().dims(),
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("from_vec filtered_spectral should succeed");
 
         // Transform back to spatial domain
         Self::inverse_graph_fourier_transform(graph, &filtered_spectral)
@@ -517,7 +551,7 @@ impl GraphSignalProcessing {
         let spectral = Self::graph_fourier_transform(graph, signal);
 
         // Apply high-pass filter (zero out low frequencies)
-        let mut filtered_data = spectral.to_vec().unwrap();
+        let mut filtered_data = spectral.to_vec().expect("conversion should succeed");
 
         for i in 0..cutoff.min(filtered_data.len()) {
             filtered_data[i] = 0.0;
@@ -528,7 +562,7 @@ impl GraphSignalProcessing {
             spectral.shape().dims(),
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("from_vec filtered_spectral should succeed");
 
         // Transform back to spatial domain
         Self::inverse_graph_fourier_transform(graph, &filtered_spectral)

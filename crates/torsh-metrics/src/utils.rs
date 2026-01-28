@@ -128,7 +128,7 @@ pub fn bootstrap_ci(
         use std::time::{SystemTime, UNIX_EPOCH};
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after UNIX_EPOCH")
             .as_secs()
     }));
 
@@ -144,7 +144,10 @@ pub fn bootstrap_ci(
         bootstrap_scores.push(sample_sum / n as f64);
     }
 
-    bootstrap_scores.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    bootstrap_scores.sort_by(|a, b| {
+        a.partial_cmp(b)
+            .expect("bootstrap scores should be comparable")
+    });
 
     let alpha = (1.0 - confidence) / 2.0;
     let lower_idx = ((alpha * n_bootstrap as f64) as usize).max(0);
@@ -163,7 +166,10 @@ pub fn find_optimal_threshold(
     let targets_vec = targets.to_vec()?;
 
     let mut thresholds: Vec<f32> = probs_vec.clone();
-    thresholds.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    thresholds.sort_by(|a, b| {
+        a.partial_cmp(b)
+            .expect("threshold values should be comparable")
+    });
     thresholds.dedup();
 
     let mut best_threshold = 0.5_f32;

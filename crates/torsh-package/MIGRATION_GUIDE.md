@@ -172,7 +172,7 @@ impl Module for MyModel {
 let mut package = Package::new("my-model".to_string(), "1.0.0".to_string());
 
 // Serialize model
-let model_bytes = bincode::serialize(&model)?;
+let model_bytes = oxicode::encode(&model)?;
 package.add_resource("model", &model_bytes, ResourceType::ModelWeights)?;
 
 // Add source code

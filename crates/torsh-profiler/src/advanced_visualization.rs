@@ -234,7 +234,10 @@ impl AdvancedVisualizationExporter {
         let durations: Vec<_> = history
             .iter()
             .map(|s| {
-                serde_json::Value::Number(serde_json::Number::from_f64(s.avg_duration_us).unwrap())
+                serde_json::Value::Number(
+                    serde_json::Number::from_f64(s.avg_duration_us)
+                        .expect("avg_duration_us should be a valid f64 for JSON serialization"),
+                )
             })
             .collect();
 
@@ -242,7 +245,8 @@ impl AdvancedVisualizationExporter {
             .iter()
             .map(|s| {
                 serde_json::Value::Number(
-                    serde_json::Number::from_f64(s.avg_memory_bytes / 1_048_576.0).unwrap(),
+                    serde_json::Number::from_f64(s.avg_memory_bytes / 1_048_576.0)
+                        .expect("avg_memory_bytes should be a valid f64 for JSON serialization"),
                 )
             })
             .collect();

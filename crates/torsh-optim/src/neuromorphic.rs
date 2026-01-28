@@ -176,7 +176,10 @@ impl STDPOptimizer {
 
     /// Detect spikes based on gradient magnitude
     fn detect_spike(&mut self, param_key: &str, gradient: &Tensor) -> OptimizerResult<bool> {
-        let state = self.spike_states.get_mut(param_key).unwrap();
+        let state = self
+            .spike_states
+            .get_mut(param_key)
+            .expect("spike_states should exist for param_key");
 
         // Calculate "membrane potential" as a function of gradient magnitude
         let grad_norm = gradient.norm()?.item()?;
@@ -225,7 +228,10 @@ impl STDPOptimizer {
         param_key: &str,
         gradient: &Tensor,
     ) -> OptimizerResult<()> {
-        let trace = self.eligibility_traces.get_mut(param_key).unwrap();
+        let trace = self
+            .eligibility_traces
+            .get_mut(param_key)
+            .expect("eligibility_traces should exist for param_key");
 
         // Exponential decay: e(t+1) = λ * e(t) + grad
         let decay = 0.95; // Decay factor
@@ -456,7 +462,10 @@ impl EventDrivenOptimizer {
 
     /// Check if parameter should spike (update)
     fn should_spike(&mut self, param_key: &str, gradient: &Tensor) -> OptimizerResult<bool> {
-        let steps = self.steps_since_spike.get(param_key).unwrap();
+        let steps = self
+            .steps_since_spike
+            .get(param_key)
+            .expect("steps_since_spike should exist for param_key");
 
         // Check refractory period
         if *steps < self.config.refractory_period {
@@ -514,7 +523,10 @@ impl Optimizer for EventDrivenOptimizer {
                     self.steps_since_spike.insert(param_key.clone(), 0);
 
                     // Update momentum buffer
-                    let buffer = self.momentum_buffers.get_mut(&param_key).unwrap();
+                    let buffer = self
+                        .momentum_buffers
+                        .get_mut(&param_key)
+                        .expect("momentum_buffers should exist for param_key");
                     *buffer = buffer.mul_scalar(self.momentum)?;
                     *buffer = buffer.add(&grad)?;
 
@@ -678,7 +690,10 @@ impl TemporalCreditOptimizer {
     /// Update eligibility traces
     fn update_traces(&mut self, gradients: &HashMap<String, Tensor>) -> OptimizerResult<()> {
         for (key, grad) in gradients {
-            let trace = self.eligibility_traces.get_mut(key).unwrap();
+            let trace = self
+                .eligibility_traces
+                .get_mut(key)
+                .expect("eligibility_traces should exist for key");
 
             // e(t+1) = λ * γ * e(t) + ∇L
             let decay_factor = (self.config.trace_decay * self.config.discount_factor) as f32;

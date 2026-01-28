@@ -65,8 +65,8 @@ impl GraphEditDistance {
 
     /// Compute feature distance between graphs
     fn compute_feature_distance(&self, graph1: &GraphData, graph2: &GraphData) -> f32 {
-        let f1_data = graph1.x.to_vec().unwrap();
-        let f2_data = graph2.x.to_vec().unwrap();
+        let f1_data = graph1.x.to_vec().expect("conversion should succeed");
+        let f2_data = graph2.x.to_vec().expect("conversion should succeed");
 
         let min_len = f1_data.len().min(f2_data.len());
         let mut dist = 0.0;
@@ -127,13 +127,31 @@ impl GraphEditDistance {
         graph2: &GraphData,
         node2: usize,
     ) -> f32 {
-        let f1 = graph1.x.slice_tensor(0, node1, node1 + 1).unwrap();
-        let f2 = graph2.x.slice_tensor(0, node2, node2 + 1).unwrap();
+        let f1 = graph1
+            .x
+            .slice_tensor(0, node1, node1 + 1)
+            .expect("node1 slice should succeed");
+        let f2 = graph2
+            .x
+            .slice_tensor(0, node2, node2 + 1)
+            .expect("node2 slice should succeed");
 
         // Cosine similarity
-        let dot = f1.dot(&f2.t().unwrap()).unwrap().item().unwrap();
-        let norm1 = f1.norm().unwrap().item().unwrap();
-        let norm2 = f2.norm().unwrap().item().unwrap();
+        let dot = f1
+            .dot(&f2.t().expect("transpose should succeed"))
+            .expect("dot product should succeed")
+            .item()
+            .expect("tensor should have single item");
+        let norm1 = f1
+            .norm()
+            .expect("norm1 computation should succeed")
+            .item()
+            .expect("tensor should have single item");
+        let norm2 = f2
+            .norm()
+            .expect("norm2 computation should succeed")
+            .item()
+            .expect("tensor should have single item");
 
         if norm1 > 0.0 && norm2 > 0.0 {
             dot / (norm1 * norm2)
@@ -207,7 +225,10 @@ impl GraphKernel {
     ) -> Vec<Vec<usize>> {
         let mut rng = scirs2_core::random::thread_rng();
         let mut walks = Vec::new();
-        let edge_data = graph.edge_index.to_vec().unwrap();
+        let edge_data = graph
+            .edge_index
+            .to_vec()
+            .expect("conversion should succeed");
 
         // Build adjacency list
         let mut adj_list: HashMap<usize, Vec<usize>> = HashMap::new();
@@ -269,7 +290,10 @@ impl GraphKernel {
         let mut distribution = vec![0.0; max_path_len];
 
         // Simplified: use BFS to compute some shortest paths
-        let edge_data = graph.edge_index.to_vec().unwrap();
+        let edge_data = graph
+            .edge_index
+            .to_vec()
+            .expect("conversion should succeed");
         let mut adj_list: HashMap<usize, Vec<usize>> = HashMap::new();
 
         for i in (0..edge_data.len()).step_by(2) {
@@ -365,7 +389,10 @@ impl GraphKernel {
         let labels = vec![0; num_nodes]; // Initial labels
 
         // Build adjacency list
-        let edge_data = graph.edge_index.to_vec().unwrap();
+        let edge_data = graph
+            .edge_index
+            .to_vec()
+            .expect("conversion should succeed");
         let mut adj_list: HashMap<usize, Vec<usize>> = HashMap::new();
 
         for i in (0..edge_data.len()).step_by(2) {
@@ -420,7 +447,10 @@ impl GraphKernel {
         let mut counts = HashMap::new();
 
         // Build adjacency list
-        let edge_data = graph.edge_index.to_vec().unwrap();
+        let edge_data = graph
+            .edge_index
+            .to_vec()
+            .expect("conversion should succeed");
         let mut adj_list: HashMap<usize, Vec<usize>> = HashMap::new();
 
         for i in (0..edge_data.len()).step_by(2) {
@@ -488,19 +518,39 @@ pub struct GraphMatchingNetwork {
 impl GraphMatchingNetwork {
     /// Create a new graph matching network
     pub fn new(node_embedding_dim: usize, hidden_dim: usize, use_bias: bool) -> Self {
-        let node_encoder1 = Parameter::new(randn(&[node_embedding_dim, hidden_dim]).unwrap());
-        let node_encoder2 = Parameter::new(randn(&[hidden_dim, hidden_dim]).unwrap());
+        let node_encoder1 = Parameter::new(
+            randn(&[node_embedding_dim, hidden_dim])
+                .expect("failed to create node_encoder1 tensor"),
+        );
+        let node_encoder2 = Parameter::new(
+            randn(&[hidden_dim, hidden_dim]).expect("failed to create node_encoder2 tensor"),
+        );
 
-        let attention_query = Parameter::new(randn(&[hidden_dim, hidden_dim]).unwrap());
-        let attention_key = Parameter::new(randn(&[hidden_dim, hidden_dim]).unwrap());
-        let attention_value = Parameter::new(randn(&[hidden_dim, hidden_dim]).unwrap());
+        let attention_query = Parameter::new(
+            randn(&[hidden_dim, hidden_dim]).expect("failed to create attention_query tensor"),
+        );
+        let attention_key = Parameter::new(
+            randn(&[hidden_dim, hidden_dim]).expect("failed to create attention_key tensor"),
+        );
+        let attention_value = Parameter::new(
+            randn(&[hidden_dim, hidden_dim]).expect("failed to create attention_value tensor"),
+        );
 
-        let matching_layer1 = Parameter::new(randn(&[hidden_dim * 2, hidden_dim]).unwrap());
-        let matching_layer2 = Parameter::new(randn(&[hidden_dim, (hidden_dim / 2)]).unwrap());
-        let output_layer = Parameter::new(randn(&[(hidden_dim / 2), 1]).unwrap());
+        let matching_layer1 = Parameter::new(
+            randn(&[hidden_dim * 2, hidden_dim]).expect("failed to create matching_layer1 tensor"),
+        );
+        let matching_layer2 = Parameter::new(
+            randn(&[hidden_dim, (hidden_dim / 2)])
+                .expect("failed to create matching_layer2 tensor"),
+        );
+        let output_layer = Parameter::new(
+            randn(&[(hidden_dim / 2), 1]).expect("failed to create output_layer tensor"),
+        );
 
         let bias = if use_bias {
-            Some(Parameter::new(zeros(&[1]).unwrap()))
+            Some(Parameter::new(
+                zeros(&[1]).expect("failed to create bias tensor"),
+            ))
         } else {
             None
         };
@@ -531,12 +581,16 @@ impl GraphMatchingNetwork {
         let attended2 = self.cross_attention(&h2, &h1);
 
         // Pool to graph-level representations
-        let g1 = attended1.mean(Some(&[0]), false).unwrap();
-        let g2 = attended2.mean(Some(&[0]), false).unwrap();
+        let g1 = attended1
+            .mean(Some(&[0]), false)
+            .expect("mean pooling g1 should succeed");
+        let g2 = attended2
+            .mean(Some(&[0]), false)
+            .expect("mean pooling g2 should succeed");
 
         // Concatenate
-        let g1_data = g1.to_vec().unwrap();
-        let g2_data = g2.to_vec().unwrap();
+        let g1_data = g1.to_vec().expect("conversion should succeed");
+        let g2_data = g2.to_vec().expect("conversion should succeed");
         let mut concat_data = g1_data;
         concat_data.extend(g2_data);
 
@@ -545,30 +599,42 @@ impl GraphMatchingNetwork {
             &[1, self.hidden_dim * 2],
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("concat tensor creation should succeed");
 
         // Matching layers
-        let mut h = concat.matmul(&self.matching_layer1.clone_data()).unwrap();
+        let mut h = concat
+            .matmul(&self.matching_layer1.clone_data())
+            .expect("operation should succeed");
         h = self.relu(&h);
 
-        h = h.matmul(&self.matching_layer2.clone_data()).unwrap();
+        h = h
+            .matmul(&self.matching_layer2.clone_data())
+            .expect("operation should succeed");
         h = self.relu(&h);
 
-        let mut score = h.matmul(&self.output_layer.clone_data()).unwrap();
+        let mut score = h
+            .matmul(&self.output_layer.clone_data())
+            .expect("operation should succeed");
         if let Some(ref bias) = self.bias {
-            score = score.add(&bias.clone_data()).unwrap();
+            score = score
+                .add(&bias.clone_data())
+                .expect("operation should succeed");
         }
 
         // Sigmoid activation
-        let score_val = score.item().unwrap();
+        let score_val = score.item().expect("tensor should have single item");
         1.0 / (1.0 + (-score_val).exp())
     }
 
     /// Encode graph features
     fn encode_graph(&self, x: &Tensor) -> Tensor {
-        let mut h = x.matmul(&self.node_encoder1.clone_data()).unwrap();
+        let mut h = x
+            .matmul(&self.node_encoder1.clone_data())
+            .expect("operation should succeed");
         h = self.relu(&h);
-        h = h.matmul(&self.node_encoder2.clone_data()).unwrap();
+        h = h
+            .matmul(&self.node_encoder2.clone_data())
+            .expect("operation should succeed");
         self.relu(&h)
     }
 
@@ -576,28 +642,31 @@ impl GraphMatchingNetwork {
     fn cross_attention(&self, query_graph: &Tensor, key_value_graph: &Tensor) -> Tensor {
         let _q = query_graph
             .matmul(&self.attention_query.clone_data())
-            .unwrap();
+            .expect("attention query matmul should succeed");
         let _k = key_value_graph
             .matmul(&self.attention_key.clone_data())
-            .unwrap();
+            .expect("attention key matmul should succeed");
         let v = key_value_graph
             .matmul(&self.attention_value.clone_data())
-            .unwrap();
+            .expect("attention value matmul should succeed");
 
         // Simplified attention: mean pooling
         // In practice, would compute q @ k^T / sqrt(d), then softmax, then @ v
-        v.mean(Some(&[0]), false).unwrap().unsqueeze(0).unwrap()
+        v.mean(Some(&[0]), false)
+            .expect("mean should succeed")
+            .unsqueeze(0)
+            .expect("unsqueeze should succeed")
     }
 
     fn relu(&self, x: &Tensor) -> Tensor {
-        let data = x.to_vec().unwrap();
+        let data = x.to_vec().expect("conversion should succeed");
         let activated: Vec<f32> = data.iter().map(|&v| v.max(0.0)).collect();
         from_vec(
             activated,
             x.shape().dims(),
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap()
+        .expect("relu tensor creation should succeed")
     }
 
     fn parameters(&self) -> Vec<Tensor> {
@@ -631,7 +700,9 @@ pub struct SiameseGraphNetwork {
 impl SiameseGraphNetwork {
     /// Create a new Siamese graph network
     pub fn new(input_dim: usize, hidden_dim: usize, output_dim: usize) -> Self {
-        let embedding_network = Parameter::new(randn(&[input_dim, hidden_dim]).unwrap());
+        let embedding_network = Parameter::new(
+            randn(&[input_dim, hidden_dim]).expect("failed to create embedding_network tensor"),
+        );
 
         Self {
             embedding_network,
@@ -645,11 +716,12 @@ impl SiameseGraphNetwork {
         let mut h = graph
             .x
             .matmul(&self.embedding_network.clone_data())
-            .unwrap();
+            .expect("embedding matmul should succeed");
         h = self.relu(&h);
 
         // Global pooling
-        h.mean(Some(&[0]), false).unwrap()
+        h.mean(Some(&[0]), false)
+            .expect("mean pooling should succeed")
     }
 
     /// Compute contrastive loss between similar and dissimilar pairs
@@ -664,8 +736,12 @@ impl SiameseGraphNetwork {
         let emb2 = self.embed(graph2);
 
         // Euclidean distance
-        let diff = emb1.sub(&emb2).unwrap();
-        let dist_sq = diff.dot(&diff).unwrap().item().unwrap();
+        let diff = emb1.sub(&emb2).expect("operation should succeed");
+        let dist_sq = diff
+            .dot(&diff)
+            .expect("dot product should succeed")
+            .item()
+            .expect("tensor should have single item");
         let dist = dist_sq.sqrt();
 
         if is_similar {
@@ -678,14 +754,14 @@ impl SiameseGraphNetwork {
     }
 
     fn relu(&self, x: &Tensor) -> Tensor {
-        let data = x.to_vec().unwrap();
+        let data = x.to_vec().expect("conversion should succeed");
         let activated: Vec<f32> = data.iter().map(|&v| v.max(0.0)).collect();
         from_vec(
             activated,
             x.shape().dims(),
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap()
+        .expect("siamese relu tensor creation should succeed")
     }
 
     fn parameters(&self) -> Vec<Tensor> {

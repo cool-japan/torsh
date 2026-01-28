@@ -37,7 +37,10 @@ impl ParameterPartitioner {
 
         // Create partitions for each parameter
         for param_name in &model_params.parameter_names {
-            let param_shape = model_params.parameter_shapes.get(param_name).unwrap();
+            let param_shape = model_params
+                .parameter_shapes
+                .get(param_name)
+                .expect("parameter shape should exist for parameter name");
             let partitions = Self::create_parameter_partitions(
                 param_name,
                 param_shape,
@@ -227,7 +230,10 @@ impl CpuParameterStore {
 
     /// Store a parameter in CPU memory
     pub async fn store(&self, param_name: &str, data: &CpuParameterData) -> TorshResult<()> {
-        let mut params = self.stored_parameters.write().unwrap();
+        let mut params = self
+            .stored_parameters
+            .write()
+            .expect("lock should not be poisoned");
 
         // Check memory budget
         let new_memory_usage = self.memory_used() + data.size_bytes;
@@ -258,7 +264,10 @@ impl CpuParameterStore {
 
     /// Fetch a parameter from CPU memory
     pub async fn fetch(&self, param_name: &str) -> TorshResult<CpuParameterData> {
-        let params = self.stored_parameters.read().unwrap();
+        let params = self
+            .stored_parameters
+            .read()
+            .expect("lock should not be poisoned");
         params.get(param_name).cloned().ok_or_else(|| {
             TorshDistributedError::invalid_argument(
                 "param_name",
@@ -270,7 +279,10 @@ impl CpuParameterStore {
 
     /// Remove a parameter from CPU memory
     pub async fn remove(&self, param_name: &str) -> TorshResult<Option<CpuParameterData>> {
-        let mut params = self.stored_parameters.write().unwrap();
+        let mut params = self
+            .stored_parameters
+            .write()
+            .expect("lock should not be poisoned");
         if let Some(data) = params.remove(param_name) {
             self.memory_used
                 .fetch_sub(data.size_bytes, std::sync::atomic::Ordering::SeqCst);
@@ -284,7 +296,7 @@ impl CpuParameterStore {
     pub fn contains(&self, param_name: &str) -> bool {
         self.stored_parameters
             .read()
-            .unwrap()
+            .expect("lock should not be poisoned")
             .contains_key(param_name)
     }
 
@@ -295,7 +307,10 @@ impl CpuParameterStore {
 
     /// Get the number of stored parameters
     pub fn parameter_count(&self) -> usize {
-        self.stored_parameters.read().unwrap().len()
+        self.stored_parameters
+            .read()
+            .expect("lock should not be poisoned")
+            .len()
     }
 
     /// Get memory utilization as a percentage
@@ -307,7 +322,7 @@ impl CpuParameterStore {
     pub fn get_parameter_names(&self) -> Vec<String> {
         self.stored_parameters
             .read()
-            .unwrap()
+            .expect("lock should not be poisoned")
             .keys()
             .cloned()
             .collect()
@@ -315,7 +330,10 @@ impl CpuParameterStore {
 
     /// Clear all stored parameters
     pub async fn clear(&self) -> TorshResult<()> {
-        let mut params = self.stored_parameters.write().unwrap();
+        let mut params = self
+            .stored_parameters
+            .write()
+            .expect("lock should not be poisoned");
         params.clear();
         self.memory_used
             .store(0, std::sync::atomic::Ordering::SeqCst);
@@ -324,7 +342,10 @@ impl CpuParameterStore {
 
     /// Get CPU store statistics
     pub fn get_statistics(&self) -> CpuParameterStoreStats {
-        let params = self.stored_parameters.read().unwrap();
+        let params = self
+            .stored_parameters
+            .read()
+            .expect("lock should not be poisoned");
         let compression_ratios: Vec<f32> = params
             .values()
             .map(|data| data.compression.ratio())
@@ -442,10 +463,13 @@ impl GpuParameterCache {
 
     /// Get a parameter from the cache
     pub async fn get(&self, param_name: &str) -> TorshResult<Option<LayerParameters>> {
-        let params = self.cached_parameters.read().unwrap();
+        let params = self
+            .cached_parameters
+            .read()
+            .expect("lock should not be poisoned");
         if let Some(layer_params) = params.get(param_name) {
             // Update LRU
-            let mut lru = self.cache_lru.lock().unwrap();
+            let mut lru = self.cache_lru.lock().expect("lock should not be poisoned");
             if let Some(pos) = lru.iter().position(|x| x == param_name) {
                 lru.remove(pos);
             }
@@ -474,12 +498,15 @@ impl GpuParameterCache {
         }
 
         {
-            let mut cached = self.cached_parameters.write().unwrap();
+            let mut cached = self
+                .cached_parameters
+                .write()
+                .expect("lock should not be poisoned");
             cached.insert(param_name.to_string(), params.clone());
         }
 
         {
-            let mut lru = self.cache_lru.lock().unwrap();
+            let mut lru = self.cache_lru.lock().expect("lock should not be poisoned");
             lru.push_back(param_name.to_string());
         }
 
@@ -496,7 +523,10 @@ impl GpuParameterCache {
 
     /// Remove a parameter from the cache
     pub async fn remove(&self, param_name: &str) -> TorshResult<()> {
-        let mut cached = self.cached_parameters.write().unwrap();
+        let mut cached = self
+            .cached_parameters
+            .write()
+            .expect("lock should not be poisoned");
         if let Some(params) = cached.remove(param_name) {
             let param_size = params.weight.numel() * std::mem::size_of::<f32>()
                 + params
@@ -508,7 +538,7 @@ impl GpuParameterCache {
                 .fetch_sub(param_size, std::sync::atomic::Ordering::SeqCst);
         }
 
-        let mut lru = self.cache_lru.lock().unwrap();
+        let mut lru = self.cache_lru.lock().expect("lock should not be poisoned");
         if let Some(pos) = lru.iter().position(|x| x == param_name) {
             lru.remove(pos);
         }
@@ -519,7 +549,7 @@ impl GpuParameterCache {
     /// Evict the least recently used parameter
     async fn evict_lru_parameter(&self) -> TorshResult<()> {
         let param_to_evict = {
-            let mut lru = self.cache_lru.lock().unwrap();
+            let mut lru = self.cache_lru.lock().expect("lock should not be poisoned");
             lru.pop_front()
         };
 
@@ -535,7 +565,7 @@ impl GpuParameterCache {
     pub fn contains(&self, param_name: &str) -> bool {
         self.cached_parameters
             .read()
-            .unwrap()
+            .expect("lock should not be poisoned")
             .contains_key(param_name)
     }
 
@@ -546,7 +576,10 @@ impl GpuParameterCache {
 
     /// Get the number of cached parameters
     pub fn parameter_count(&self) -> usize {
-        self.cached_parameters.read().unwrap().len()
+        self.cached_parameters
+            .read()
+            .expect("lock should not be poisoned")
+            .len()
     }
 
     /// Get memory utilization as a percentage
@@ -556,7 +589,7 @@ impl GpuParameterCache {
 
     /// Get cache hit rate (requires tracking)
     pub fn get_cache_statistics(&self) -> GpuParameterCacheStats {
-        let lru = self.cache_lru.lock().unwrap();
+        let lru = self.cache_lru.lock().expect("lock should not be poisoned");
 
         GpuParameterCacheStats {
             parameter_count: self.parameter_count(),
@@ -569,10 +602,13 @@ impl GpuParameterCache {
 
     /// Clear the entire cache
     pub async fn clear(&self) -> TorshResult<()> {
-        let mut cached = self.cached_parameters.write().unwrap();
+        let mut cached = self
+            .cached_parameters
+            .write()
+            .expect("lock should not be poisoned");
         cached.clear();
 
-        let mut lru = self.cache_lru.lock().unwrap();
+        let mut lru = self.cache_lru.lock().expect("lock should not be poisoned");
         lru.clear();
 
         self.memory_used

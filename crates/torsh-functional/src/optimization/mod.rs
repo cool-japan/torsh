@@ -10,7 +10,7 @@
 //!
 //! - [`utilities`]: Basic tensor operations used by optimization algorithms
 //! - [`line_search`]: Line search methods (backtracking, Wolfe conditions)
-//! - [`gradient_descent`]: Gradient descent variants (basic, momentum, Adam)
+//! - [`mod@gradient_descent`]: Gradient descent variants (basic, momentum, Adam)
 //! - [`quasi_newton`]: Quasi-Newton methods (L-BFGS)
 //! - [`adaptive`]: Adaptive algorithm selection based on problem characteristics
 //!

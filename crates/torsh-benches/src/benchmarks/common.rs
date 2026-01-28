@@ -7,7 +7,7 @@
 // Framework infrastructure - components designed for future use
 #![allow(dead_code)]
 use crate::BenchConfig;
-use criterion::black_box;
+use std::hint::black_box;
 use torsh_core::device::DeviceType;
 use torsh_core::dtype::DType;
 use torsh_tensor::{creation::*, Tensor};

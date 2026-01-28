@@ -518,7 +518,11 @@ impl QuantizationBenchmarkSuite {
     fn find_best_throughput(&self) -> Option<BenchmarkResult> {
         self.results
             .iter()
-            .max_by(|a, b| a.throughput_eps.partial_cmp(&b.throughput_eps).unwrap())
+            .max_by(|a, b| {
+                a.throughput_eps
+                    .partial_cmp(&b.throughput_eps)
+                    .expect("throughput values should be comparable")
+            })
             .cloned()
     }
 
@@ -530,10 +534,15 @@ impl QuantizationBenchmarkSuite {
             .max_by(|a, b| {
                 a.accuracy_metrics
                     .as_ref()
-                    .unwrap()
+                    .expect("accuracy metrics should exist")
                     .psnr
-                    .partial_cmp(&b.accuracy_metrics.as_ref().unwrap().psnr)
-                    .unwrap()
+                    .partial_cmp(
+                        &b.accuracy_metrics
+                            .as_ref()
+                            .expect("accuracy metrics should exist")
+                            .psnr,
+                    )
+                    .expect("psnr values should be comparable")
             })
             .cloned()
     }
@@ -546,7 +555,9 @@ impl QuantizationBenchmarkSuite {
             .min_by(|a, b| {
                 let eff_a = a.memory_usage_bytes as f64 / a.data_size as f64;
                 let eff_b = b.memory_usage_bytes as f64 / b.data_size as f64;
-                eff_a.partial_cmp(&eff_b).unwrap()
+                eff_a
+                    .partial_cmp(&eff_b)
+                    .expect("memory efficiency values should be comparable")
             })
             .cloned()
     }

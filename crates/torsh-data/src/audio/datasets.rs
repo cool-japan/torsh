@@ -369,8 +369,16 @@ impl LibriSpeech {
                         // Load transcription file
                         let transcription_file = format!(
                             "{}-{}.trans.txt",
-                            speaker_path.file_name().unwrap().to_str().unwrap(),
-                            chapter_path.file_name().unwrap().to_str().unwrap()
+                            speaker_path
+                                .file_name()
+                                .expect("speaker path should have file name")
+                                .to_str()
+                                .expect("path should be valid UTF-8"),
+                            chapter_path
+                                .file_name()
+                                .expect("chapter path should have file name")
+                                .to_str()
+                                .expect("path should be valid UTF-8")
                         );
                         let transcription_path = chapter_path.join(&transcription_file);
 

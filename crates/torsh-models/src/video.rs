@@ -658,8 +658,10 @@ pub struct VideoTransformerBlock {
 impl VideoTransformerBlock {
     pub fn new(hidden_dim: usize, num_heads: usize, mlp_ratio: usize, dropout_rate: f64) -> Self {
         let attention = MultiheadAttention::new(hidden_dim, num_heads);
-        let norm1 = LayerNorm::new(vec![hidden_dim], 1e-6, true, DeviceType::Cpu).unwrap();
-        let norm2 = LayerNorm::new(vec![hidden_dim], 1e-6, true, DeviceType::Cpu).unwrap();
+        let norm1 = LayerNorm::new(vec![hidden_dim], 1e-6, true, DeviceType::Cpu)
+            .expect("failed to create VideoTransformerBlock norm1");
+        let norm2 = LayerNorm::new(vec![hidden_dim], 1e-6, true, DeviceType::Cpu)
+            .expect("failed to create VideoTransformerBlock norm2");
 
         let mlp_hidden_dim = hidden_dim * mlp_ratio;
         let mlp = vec![
@@ -798,13 +800,16 @@ impl VideoTransformer {
         let patch_embedding = Linear::new(config.input_dim, config.hidden_dim, true);
 
         // Learnable parameters
-        let cls_token =
-            Parameter::new(torsh_tensor::creation::randn(&[1, 1, config.hidden_dim]).unwrap());
+        let cls_token = Parameter::new(
+            torsh_tensor::creation::randn(&[1, 1, config.hidden_dim])
+                .expect("failed to create VideoTransformer cls_token"),
+        );
 
         let num_patches = (config.num_frames / config.temporal_patch_size)
             * ((224 / config.patch_size) * (224 / config.patch_size)); // Assuming 224x224 input
         let positional_embeddings = Parameter::new(
-            torsh_tensor::creation::randn(&[1, num_patches + 1, config.hidden_dim]).unwrap(),
+            torsh_tensor::creation::randn(&[1, num_patches + 1, config.hidden_dim])
+                .expect("failed to create VideoTransformer positional embeddings"),
         );
 
         let temporal_embeddings = Parameter::new(
@@ -813,7 +818,7 @@ impl VideoTransformer {
                 config.num_frames / config.temporal_patch_size,
                 config.hidden_dim,
             ])
-            .unwrap(),
+            .expect("failed to create VideoTransformer temporal embeddings"),
         );
 
         // Transformer blocks
@@ -827,7 +832,8 @@ impl VideoTransformer {
             ));
         }
 
-        let norm = LayerNorm::new(vec![config.hidden_dim], 1e-6, true, DeviceType::Cpu).unwrap();
+        let norm = LayerNorm::new(vec![config.hidden_dim], 1e-6, true, DeviceType::Cpu)
+            .expect("failed to create VideoTransformer layer norm");
         let head = Linear::new(config.hidden_dim, config.num_classes, true);
 
         Self {

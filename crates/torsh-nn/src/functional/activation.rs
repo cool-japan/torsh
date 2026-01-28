@@ -244,7 +244,7 @@ pub fn selu(input: &Tensor) -> Result<Tensor> {
 /// Tensor with dropout applied (during training) or original tensor (during evaluation)
 pub fn dropout(input: &Tensor, p: f32, training: bool) -> Result<Tensor> {
     // ✅ SciRS2 Policy Compliant - Using scirs2_core::random
-    use scirs2_core::random::{thread_rng, Rng};
+    use scirs2_core::random::thread_rng;
 
     if !training || p == 0.0 {
         return Ok(input.clone());

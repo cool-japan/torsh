@@ -8,7 +8,7 @@ use torsh_tensor::{
 // Direct implementation of graph algorithms for now
 
 /// Helper function to convert tensor to 2D Vec format
-/// Assumes tensor is of shape [rows, cols] and returns Vec<Vec<T>>
+/// Assumes tensor is of shape \[rows, cols\] and returns `Vec<Vec<T>>`
 pub fn tensor_to_vec2<T: Clone + torsh_core::TensorElement>(
     tensor: &Tensor<T>,
 ) -> Result<Vec<Vec<T>>, Box<dyn std::error::Error>> {
@@ -36,7 +36,7 @@ pub fn tensor_to_vec2<T: Clone + torsh_core::TensorElement>(
 /// Compute graph Laplacian
 pub fn graph_laplacian(edge_index: &Tensor, num_nodes: usize, normalized: bool) -> Tensor {
     // Simplified graph Laplacian implementation for compilation compatibility
-    let edge_data = tensor_to_vec2::<f32>(edge_index).unwrap();
+    let edge_data = tensor_to_vec2::<f32>(edge_index).expect("conversion should succeed");
 
     // Build adjacency matrix manually with proper indexing
     let mut adjacency_data = vec![0.0; num_nodes * num_nodes];
@@ -112,7 +112,7 @@ pub fn graph_laplacian(edge_index: &Tensor, num_nodes: usize, normalized: bool) 
 pub fn degree_matrix(edge_index: &Tensor, num_nodes: usize) -> Tensor {
     // Count degrees for each node
     let mut degrees = vec![0.0; num_nodes];
-    let edge_data = tensor_to_vec2::<f32>(edge_index).unwrap();
+    let edge_data = tensor_to_vec2::<f32>(edge_index).expect("conversion should succeed");
 
     // Count edges (both directions for undirected graphs)
     for j in 0..edge_data[0].len() {
@@ -210,7 +210,7 @@ pub mod connectivity {
     /// Build adjacency list from edge index
     pub(crate) fn build_adjacency_list(edge_index: &Tensor, num_nodes: usize) -> Vec<Vec<usize>> {
         let mut adjacency_list = vec![Vec::new(); num_nodes];
-        let edge_data = tensor_to_vec2::<f32>(edge_index).unwrap();
+        let edge_data = tensor_to_vec2::<f32>(edge_index).expect("conversion should succeed");
 
         for j in 0..edge_data[0].len() {
             let src = edge_data[0][j] as usize;
@@ -590,7 +590,7 @@ pub mod sampling {
         }
 
         // Extract subgraph edges
-        let edge_data = tensor_to_vec2::<f32>(edge_index).unwrap();
+        let edge_data = tensor_to_vec2::<f32>(edge_index).expect("conversion should succeed");
         let mut subgraph_edges = Vec::new();
 
         for j in 0..edge_data[0].len() {
@@ -694,7 +694,7 @@ pub mod memory_efficient {
             let binding = adjacency.shape();
             let shape = binding.dims();
             let num_nodes = shape[0];
-            let data = adjacency.to_vec().unwrap();
+            let data = adjacency.to_vec().expect("conversion should succeed");
             let mut edge_list = Vec::new();
             let mut edge_weights = Vec::new();
 
@@ -753,7 +753,7 @@ pub mod memory_efficient {
     /// Memory-efficient graph laplacian computation
     pub fn sparse_laplacian(edge_index: &Tensor, num_nodes: usize, normalized: bool) -> SparseGraph {
         // Use coordinate format (COO) to build Laplacian efficiently
-        let edge_data = tensor_to_vec2::<f32>(edge_index).unwrap();
+        let edge_data = tensor_to_vec2::<f32>(edge_index).expect("conversion should succeed");
         let mut edges = Vec::new();
         let mut values = Vec::new();
 

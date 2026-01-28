@@ -3,7 +3,7 @@
 //! This module provides sophisticated gradient filtering methods that help stabilize
 //! training by reducing noise, handling outliers, and providing adaptive smoothing.
 
-use num_traits::{Float, FromPrimitive, ToPrimitive};
+use scirs2_core::numeric::{Float, FromPrimitive, ToPrimitive};
 #[allow(unused_imports)]
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
@@ -95,12 +95,17 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive + Float> AdvancedGradientFilt
     /// Create a new advanced gradient filter
     pub fn new(config: FilterConfig<T>) -> Self {
         let adaptive_params = AdaptiveParams {
-            noise_variance: T::from(1e-6).unwrap_or_else(|| T::from(0.0).unwrap()),
-            snr_estimate: T::from(10.0).unwrap_or_else(|| T::from(1.0).unwrap()),
-            adaptation_rate: T::from(0.01).unwrap_or_else(|| T::from(0.0).unwrap()),
+            noise_variance: T::from(1e-6)
+                .unwrap_or_else(|| T::from(0.0).expect("numeric conversion should succeed")),
+            snr_estimate: T::from(10.0)
+                .unwrap_or_else(|| T::from(1.0).expect("numeric conversion should succeed")),
+            adaptation_rate: T::from(0.01)
+                .unwrap_or_else(|| T::from(0.0).expect("numeric conversion should succeed")),
             param_bounds: (
-                T::from(1e-8).unwrap_or_else(|| T::from(0.0).unwrap()),
-                T::from(100.0).unwrap_or_else(|| T::from(1.0).unwrap()),
+                T::from(1e-8)
+                    .unwrap_or_else(|| T::from(0.0).expect("numeric conversion should succeed")),
+                T::from(100.0)
+                    .unwrap_or_else(|| T::from(1.0).expect("numeric conversion should succeed")),
             ),
         };
 
@@ -129,20 +134,28 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive + Float> AdvancedGradientFilt
 
     /// Apply Kalman filtering for optimal gradient estimation under noise
     fn apply_kalman_filter(&self, gradients: &[Vec<T>]) -> Result<Vec<Vec<T>>> {
-        let mut states = self.kalman_states.lock().unwrap();
+        let mut states = self
+            .kalman_states
+            .lock()
+            .expect("lock should not be poisoned");
 
         // Initialize Kalman states if needed
         if states.is_empty() {
             for grad in gradients {
                 let state = KalmanState {
                     estimate: grad.clone(),
-                    covariance: vec![T::from(1.0).unwrap(); grad.len()],
+                    covariance: vec![
+                        T::from(1.0).expect("numeric conversion should succeed");
+                        grad.len()
+                    ],
                     process_noise: self.config.primary_param,
-                    measurement_noise: self
-                        .config
-                        .secondary_param
-                        .unwrap_or_else(|| T::from(0.1).unwrap()),
-                    gain: vec![T::from(0.5).unwrap(); grad.len()],
+                    measurement_noise: self.config.secondary_param.unwrap_or_else(|| {
+                        T::from(0.1).expect("numeric conversion should succeed")
+                    }),
+                    gain: vec![
+                        T::from(0.5).expect("numeric conversion should succeed");
+                        grad.len()
+                    ],
                 };
                 states.push(state);
             }
@@ -176,7 +189,9 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive + Float> AdvancedGradientFilt
 
                 // Update estimates
                 state.estimate[j] = predicted_estimate + kalman_gain * innovation;
-                state.covariance[j] = (T::from(1.0).unwrap() - kalman_gain) * predicted_covariance;
+                state.covariance[j] = (T::from(1.0).expect("numeric conversion should succeed")
+                    - kalman_gain)
+                    * predicted_covariance;
                 state.gain[j] = kalman_gain;
 
                 filtered_grad.push(state.estimate[j]);
@@ -200,23 +215,28 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive + Float> AdvancedGradientFilt
             let mut filtered_grad = Vec::new();
 
             for (i, &center_val) in grad.iter().enumerate() {
-                let mut weighted_sum = T::from(0.0).unwrap();
-                let mut weight_sum = T::from(0.0).unwrap();
+                let mut weighted_sum = T::from(0.0).expect("numeric conversion should succeed");
+                let mut weight_sum = T::from(0.0).expect("numeric conversion should succeed");
 
                 // Define neighborhood window
                 let start = i.saturating_sub(window_size / 2);
                 let end = (i + window_size / 2 + 1).min(grad.len());
 
                 for (j, &grad_val) in grad.iter().enumerate().take(end).skip(start) {
-                    let spatial_dist = T::from((i as f64 - j as f64).abs()).unwrap();
+                    let spatial_dist = T::from((i as f64 - j as f64).abs())
+                        .expect("numeric conversion should succeed");
                     let intensity_dist = (center_val - grad_val).abs();
 
                     // Bilateral weight calculation
                     let spatial_weight = (-spatial_dist * spatial_dist
-                        / (sigma_spatial * sigma_spatial * T::from(2.0).unwrap()))
+                        / (sigma_spatial
+                            * sigma_spatial
+                            * T::from(2.0).expect("numeric conversion should succeed")))
                     .exp();
                     let intensity_weight = (-intensity_dist * intensity_dist
-                        / (sigma_intensity * sigma_intensity * T::from(2.0).unwrap()))
+                        / (sigma_intensity
+                            * sigma_intensity
+                            * T::from(2.0).expect("numeric conversion should succeed")))
                     .exp();
                     let weight = spatial_weight * intensity_weight;
 
@@ -224,11 +244,12 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive + Float> AdvancedGradientFilt
                     weight_sum = weight_sum + weight;
                 }
 
-                let filtered_val = if weight_sum > T::from(1e-10).unwrap() {
-                    weighted_sum / weight_sum
-                } else {
-                    center_val
-                };
+                let filtered_val =
+                    if weight_sum > T::from(1e-10).expect("numeric conversion should succeed") {
+                        weighted_sum / weight_sum
+                    } else {
+                        center_val
+                    };
 
                 filtered_grad.push(filtered_val);
             }
@@ -246,16 +267,15 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive + Float> AdvancedGradientFilt
 
         for grad in gradients {
             // Estimate signal variance
-            let mean = grad
-                .iter()
-                .copied()
-                .fold(T::from(0.0).unwrap(), |acc, x| acc + x)
-                / T::from(grad.len()).unwrap();
-            let signal_variance = grad
-                .iter()
-                .map(|&x| (x - mean) * (x - mean))
-                .fold(T::from(0.0).unwrap(), |acc, x| acc + x)
-                / T::from(grad.len()).unwrap();
+            let mean = grad.iter().copied().fold(
+                T::from(0.0).expect("numeric conversion should succeed"),
+                |acc, x| acc + x,
+            ) / T::from(grad.len()).expect("numeric conversion should succeed");
+            let signal_variance = grad.iter().map(|&x| (x - mean) * (x - mean)).fold(
+                T::from(0.0).expect("numeric conversion should succeed"),
+                |acc, x| acc + x,
+            ) / T::from(grad.len())
+                .expect("numeric conversion should succeed");
 
             // Wiener filter coefficient
             let wiener_coeff = signal_variance / (signal_variance + noise_variance);
@@ -321,7 +341,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive + Float> AdvancedGradientFilt
 
                     let median = if window.len() % 2 == 0 {
                         (window[window.len() / 2 - 1] + window[window.len() / 2])
-                            / T::from(2.0).unwrap()
+                            / T::from(2.0).expect("numeric conversion should succeed")
                     } else {
                         window[window.len() / 2]
                     };
@@ -379,7 +399,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive + Float> AdvancedGradientFilt
         let ripple = self
             .config
             .secondary_param
-            .unwrap_or_else(|| T::from(0.5).unwrap());
+            .unwrap_or_else(|| T::from(0.5).expect("numeric conversion should succeed"));
         let order = self.config.order;
 
         // Generate Chebyshev filter coefficients
@@ -406,7 +426,8 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive + Float> AdvancedGradientFilt
 
             // Reconstruct using only low-frequency modes (noise reduction)
             let num_modes_to_keep = (modes.len() as f64 * 0.7) as usize; // Keep 70% of modes
-            let mut reconstructed = vec![T::from(0.0).unwrap(); grad.len()];
+            let mut reconstructed =
+                vec![T::from(0.0).expect("numeric conversion should succeed"); grad.len()];
 
             for mode in modes.iter().take(num_modes_to_keep.min(modes.len())) {
                 for (i, &val) in mode.iter().enumerate() {
@@ -431,29 +452,30 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive + Float> AdvancedGradientFilt
         // Simplified coefficient generation for common cases
         match (window_size, poly_order) {
             (3, 2) => Ok(vec![
-                T::from(-1.0 / 6.0).unwrap(),
-                T::from(2.0 / 3.0).unwrap(),
-                T::from(-1.0 / 6.0).unwrap(),
+                T::from(-1.0 / 6.0).expect("numeric conversion should succeed"),
+                T::from(2.0 / 3.0).expect("numeric conversion should succeed"),
+                T::from(-1.0 / 6.0).expect("numeric conversion should succeed"),
             ]),
             (5, 2) => Ok(vec![
-                T::from(-3.0 / 35.0).unwrap(),
-                T::from(12.0 / 35.0).unwrap(),
-                T::from(17.0 / 35.0).unwrap(),
-                T::from(12.0 / 35.0).unwrap(),
-                T::from(-3.0 / 35.0).unwrap(),
+                T::from(-3.0 / 35.0).expect("numeric conversion should succeed"),
+                T::from(12.0 / 35.0).expect("numeric conversion should succeed"),
+                T::from(17.0 / 35.0).expect("numeric conversion should succeed"),
+                T::from(12.0 / 35.0).expect("numeric conversion should succeed"),
+                T::from(-3.0 / 35.0).expect("numeric conversion should succeed"),
             ]),
             (7, 2) => Ok(vec![
-                T::from(-2.0 / 21.0).unwrap(),
-                T::from(3.0 / 21.0).unwrap(),
-                T::from(6.0 / 21.0).unwrap(),
-                T::from(7.0 / 21.0).unwrap(),
-                T::from(6.0 / 21.0).unwrap(),
-                T::from(3.0 / 21.0).unwrap(),
-                T::from(-2.0 / 21.0).unwrap(),
+                T::from(-2.0 / 21.0).expect("numeric conversion should succeed"),
+                T::from(3.0 / 21.0).expect("numeric conversion should succeed"),
+                T::from(6.0 / 21.0).expect("numeric conversion should succeed"),
+                T::from(7.0 / 21.0).expect("numeric conversion should succeed"),
+                T::from(6.0 / 21.0).expect("numeric conversion should succeed"),
+                T::from(3.0 / 21.0).expect("numeric conversion should succeed"),
+                T::from(-2.0 / 21.0).expect("numeric conversion should succeed"),
             ]),
             _ => {
                 // For other cases, use simple moving average
-                let coeff = T::from(1.0).unwrap() / T::from(window_size).unwrap();
+                let coeff = T::from(1.0).expect("numeric conversion should succeed")
+                    / T::from(window_size).expect("numeric conversion should succeed");
                 Ok(vec![coeff; window_size])
             }
         }
@@ -465,8 +487,8 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive + Float> AdvancedGradientFilt
         let half_window = coeffs.len() / 2;
 
         for i in 0..signal.len() {
-            let mut sum = T::from(0.0).unwrap();
-            let mut weight_sum = T::from(0.0).unwrap();
+            let mut sum = T::from(0.0).expect("numeric conversion should succeed");
+            let mut weight_sum = T::from(0.0).expect("numeric conversion should succeed");
 
             for (j, &coeff) in coeffs.iter().enumerate() {
                 let signal_idx = i + j;
@@ -476,11 +498,13 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive + Float> AdvancedGradientFilt
                 }
             }
 
-            result.push(if weight_sum.abs() > T::from(1e-10).unwrap() {
-                sum / weight_sum
-            } else {
-                signal[i]
-            });
+            result.push(
+                if weight_sum.abs() > T::from(1e-10).expect("numeric conversion should succeed") {
+                    sum / weight_sum
+                } else {
+                    signal[i]
+                },
+            );
         }
 
         result
@@ -495,16 +519,23 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive + Float> AdvancedGradientFilt
         // Simplified Butterworth filter design
         // In practice, this would use proper bilinear transform and pole placement
         let normalized_cutoff = cutoff
-            .min(T::from(0.5).unwrap())
-            .max(T::from(0.01).unwrap());
+            .min(T::from(0.5).expect("numeric conversion should succeed"))
+            .max(T::from(0.01).expect("numeric conversion should succeed"));
 
         // Simple first-order approximation
-        let alpha = (T::from(std::f64::consts::PI).unwrap() * normalized_cutoff).tan()
-            / (T::from(1.0).unwrap()
-                + (T::from(std::f64::consts::PI).unwrap() * normalized_cutoff).tan());
+        let alpha = (T::from(std::f64::consts::PI).expect("numeric conversion should succeed")
+            * normalized_cutoff)
+            .tan()
+            / (T::from(1.0).expect("numeric conversion should succeed")
+                + (T::from(std::f64::consts::PI).expect("numeric conversion should succeed")
+                    * normalized_cutoff)
+                    .tan());
 
         let b_coeffs = vec![alpha, alpha];
-        let a_coeffs = vec![T::from(1.0).unwrap(), alpha - T::from(1.0).unwrap()];
+        let a_coeffs = vec![
+            T::from(1.0).expect("numeric conversion should succeed"),
+            alpha - T::from(1.0).expect("numeric conversion should succeed"),
+        ];
 
         // For higher orders, cascade multiple first-order sections
         if order > 1 {
@@ -528,9 +559,12 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive + Float> AdvancedGradientFilt
 
     /// Apply IIR filter with given coefficients
     fn apply_iir_filter(&self, signal: &[T], b_coeffs: &[T], a_coeffs: &[T]) -> Vec<T> {
-        let mut output = vec![T::from(0.0).unwrap(); signal.len()];
-        let mut x_history = vec![T::from(0.0).unwrap(); b_coeffs.len()];
-        let mut y_history = vec![T::from(0.0).unwrap(); a_coeffs.len()];
+        let mut output =
+            vec![T::from(0.0).expect("numeric conversion should succeed"); signal.len()];
+        let mut x_history =
+            vec![T::from(0.0).expect("numeric conversion should succeed"); b_coeffs.len()];
+        let mut y_history =
+            vec![T::from(0.0).expect("numeric conversion should succeed"); a_coeffs.len()];
 
         for (i, &input) in signal.iter().enumerate() {
             // Shift input history
@@ -540,7 +574,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive + Float> AdvancedGradientFilt
             x_history[0] = input;
 
             // Compute output
-            let mut y = T::from(0.0).unwrap();
+            let mut y = T::from(0.0).expect("numeric conversion should succeed");
             for (j, &b) in b_coeffs.iter().enumerate() {
                 if j < x_history.len() {
                     y = y + b * x_history[j];
@@ -573,16 +607,18 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive + Float> AdvancedGradientFilt
             let mode = self.extract_imf(&residue)?;
 
             // Check stopping criteria
-            let mode_energy: T = mode
-                .iter()
-                .map(|&x| x * x)
-                .fold(T::from(0.0).unwrap(), |acc, x| acc + x);
-            let residue_energy: T = residue
-                .iter()
-                .map(|&x| x * x)
-                .fold(T::from(0.0).unwrap(), |acc, x| acc + x);
+            let mode_energy: T = mode.iter().map(|&x| x * x).fold(
+                T::from(0.0).expect("numeric conversion should succeed"),
+                |acc, x| acc + x,
+            );
+            let residue_energy: T = residue.iter().map(|&x| x * x).fold(
+                T::from(0.0).expect("numeric conversion should succeed"),
+                |acc, x| acc + x,
+            );
 
-            if mode_energy < residue_energy * T::from(0.01).unwrap() {
+            if mode_energy
+                < residue_energy * T::from(0.01).expect("numeric conversion should succeed")
+            {
                 break;
             }
 
@@ -617,7 +653,8 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive + Float> AdvancedGradientFilt
             // Calculate mean envelope
             let mut mean_envelope = Vec::new();
             for i in 0..h.len() {
-                let mean = (upper_envelope[i] + lower_envelope[i]) / T::from(2.0).unwrap();
+                let mean = (upper_envelope[i] + lower_envelope[i])
+                    / T::from(2.0).expect("numeric conversion should succeed");
                 mean_envelope.push(mean);
             }
 
@@ -632,11 +669,14 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive + Float> AdvancedGradientFilt
                 .iter()
                 .zip(h.iter())
                 .map(|(&new, &old)| (new - old) * (new - old))
-                .fold(T::from(0.0).unwrap(), |acc, x| acc + x);
+                .fold(
+                    T::from(0.0).expect("numeric conversion should succeed"),
+                    |acc, x| acc + x,
+                );
 
             h = new_h;
 
-            if diff_norm < T::from(1e-6).unwrap() {
+            if diff_norm < T::from(1e-6).expect("numeric conversion should succeed") {
                 break;
             }
         }
@@ -662,7 +702,8 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive + Float> AdvancedGradientFilt
 
     /// Interpolate envelope through extrema points
     fn interpolate_envelope(&self, signal: &[T], extrema: &[usize]) -> Vec<T> {
-        let mut envelope = vec![T::from(0.0).unwrap(); signal.len()];
+        let mut envelope =
+            vec![T::from(0.0).expect("numeric conversion should succeed"); signal.len()];
 
         if extrema.is_empty() {
             return signal.to_vec();
@@ -687,14 +728,14 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive + Float> AdvancedGradientFilt
             if left_idx == right_idx {
                 *envelope_val = signal[extrema[left_idx]];
             } else {
-                let x1 = T::from(extrema[left_idx]).unwrap();
+                let x1 = T::from(extrema[left_idx]).expect("numeric conversion should succeed");
                 let y1 = signal[extrema[left_idx]];
-                let x2 = T::from(extrema[right_idx]).unwrap();
+                let x2 = T::from(extrema[right_idx]).expect("numeric conversion should succeed");
                 let y2 = signal[extrema[right_idx]];
-                let x = T::from(i).unwrap();
+                let x = T::from(i).expect("numeric conversion should succeed");
 
                 // Linear interpolation
-                if (x2 - x1).abs() > T::from(1e-10).unwrap() {
+                if (x2 - x1).abs() > T::from(1e-10).expect("numeric conversion should succeed") {
                     *envelope_val = y1 + (y2 - y1) * (x - x1) / (x2 - x1);
                 } else {
                     *envelope_val = y1;
@@ -711,7 +752,10 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive + Float> AdvancedGradientFilt
             return Ok(());
         }
 
-        let mut params = self.adaptive_params.lock().unwrap();
+        let mut params = self
+            .adaptive_params
+            .lock()
+            .expect("lock should not be poisoned");
 
         // Estimate noise characteristics
         let mut all_values = Vec::new();
@@ -724,40 +768,51 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive + Float> AdvancedGradientFilt
         }
 
         // Calculate statistics
-        let mean = all_values
-            .iter()
-            .copied()
-            .fold(T::from(0.0).unwrap(), |acc, x| acc + x)
-            / T::from(all_values.len()).unwrap();
-        let variance = all_values
-            .iter()
-            .map(|&x| (x - mean) * (x - mean))
-            .fold(T::from(0.0).unwrap(), |acc, x| acc + x)
-            / T::from(all_values.len()).unwrap();
+        let mean = all_values.iter().copied().fold(
+            T::from(0.0).expect("numeric conversion should succeed"),
+            |acc, x| acc + x,
+        ) / T::from(all_values.len()).expect("numeric conversion should succeed");
+        let variance = all_values.iter().map(|&x| (x - mean) * (x - mean)).fold(
+            T::from(0.0).expect("numeric conversion should succeed"),
+            |acc, x| acc + x,
+        ) / T::from(all_values.len()).expect("numeric conversion should succeed");
 
         // Update noise estimate with exponential moving average
         params.noise_variance = params.adaptation_rate * variance
-            + (T::from(1.0).unwrap() - params.adaptation_rate) * params.noise_variance;
+            + (T::from(1.0).expect("numeric conversion should succeed") - params.adaptation_rate)
+                * params.noise_variance;
 
         // Update SNR estimate
         let signal_power = mean * mean;
-        params.snr_estimate = if params.noise_variance > T::from(1e-10).unwrap() {
-            signal_power / params.noise_variance
-        } else {
-            T::from(100.0).unwrap() // High SNR if very low noise
-        };
+        params.snr_estimate =
+            if params.noise_variance > T::from(1e-10).expect("numeric conversion should succeed") {
+                signal_power / params.noise_variance
+            } else {
+                T::from(100.0).expect("numeric conversion should succeed") // High SNR if very low noise
+            };
 
         Ok(())
     }
 
     /// Get current filter statistics
     pub fn get_filter_statistics(&self) -> FilterStatistics<T> {
-        let params = self.adaptive_params.lock().unwrap();
+        let params = self
+            .adaptive_params
+            .lock()
+            .expect("lock should not be poisoned");
         FilterStatistics {
             noise_variance: params.noise_variance,
             snr_estimate: params.snr_estimate,
-            num_kalman_states: self.kalman_states.lock().unwrap().len(),
-            history_length: self.gradient_history.lock().unwrap().len(),
+            num_kalman_states: self
+                .kalman_states
+                .lock()
+                .expect("lock should not be poisoned")
+                .len(),
+            history_length: self
+                .gradient_history
+                .lock()
+                .expect("lock should not be poisoned")
+                .len(),
         }
     }
 }

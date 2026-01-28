@@ -238,7 +238,7 @@ impl OnnxModel {
                 .map(|input| InputShape {
                     name: input.name.clone(),
                     shape: Self::extract_shape_from_value_type(&input.input_type),
-                    data_type: format!("{:?}", input.input_type),
+                    data_type: format!("{:?}", &input.input_type),
                 })
                 .collect(),
             output_shapes: session
@@ -247,7 +247,7 @@ impl OnnxModel {
                 .map(|output| OutputShape {
                     name: output.name.clone(),
                     shape: Self::extract_shape_from_value_type(&output.output_type),
-                    data_type: format!("{:?}", output.output_type),
+                    data_type: format!("{:?}", &output.output_type),
                 })
                 .collect(),
         };
@@ -360,7 +360,7 @@ impl OnnxModel {
             .map(|input| InputShape {
                 name: input.name.clone(),
                 shape: Self::extract_shape_from_value_type(&input.input_type),
-                data_type: format!("{:?}", input.input_type),
+                data_type: format!("{:?}", &input.input_type),
             })
             .collect();
 
@@ -370,7 +370,7 @@ impl OnnxModel {
             .map(|output| OutputShape {
                 name: output.name.clone(),
                 shape: Self::extract_shape_from_value_type(&output.output_type),
-                data_type: format!("{:?}", output.output_type),
+                data_type: format!("{:?}", &output.output_type),
             })
             .collect();
 
@@ -509,7 +509,7 @@ impl torsh_nn::Module for OnnxToTorshWrapper {
     fn forward(&self, input: &Tensor<f32>) -> Result<Tensor<f32>> {
         // For simplicity, assume single input/output
         let (input_name, output_name) = {
-            let onnx_model = self.onnx_model.read().unwrap();
+            let onnx_model = self.onnx_model.read().expect("lock should not be poisoned");
             if onnx_model.input_names.len() != 1 || onnx_model.output_names.len() != 1 {
                 return Err(TorshError::InvalidArgument(
                     "OnnxToTorshWrapper only supports models with single input and output"
@@ -525,7 +525,11 @@ impl torsh_nn::Module for OnnxToTorshWrapper {
         let mut inputs = HashMap::new();
         inputs.insert(input_name, input.clone());
 
-        let outputs = self.onnx_model.write().unwrap().forward(&inputs)?;
+        let outputs = self
+            .onnx_model
+            .write()
+            .expect("lock should not be poisoned")
+            .forward(&inputs)?;
 
         Ok(outputs
             .get(&output_name)

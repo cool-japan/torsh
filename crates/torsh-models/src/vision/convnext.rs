@@ -162,7 +162,7 @@ impl Module for ConvNeXtBlock {
 
         // Layer scale
         if let Some(ref gamma) = self.gamma {
-            let gamma_data = gamma.data.read().unwrap();
+            let gamma_data = gamma.data.read().expect("lock should not be poisoned");
             x = x.mul(&gamma_data)?;
         }
 
@@ -619,7 +619,7 @@ impl ConvNeXt {
     /// Get number of parameters
     pub fn num_parameters(&self) -> usize {
         self.parameters().values().map(|p| {
-            let data = p.data.read().unwrap();
+            let data = p.data.read().expect("lock should not be poisoned");
             data.numel()
         }).sum()
     }

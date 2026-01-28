@@ -196,8 +196,8 @@ impl IsolationForest {
 
     /// Fit the model and predict anomalies
     pub fn fit_predict(&mut self, series: &TimeSeries) -> AnomalyResult {
-        let scores = zeros(&[series.len()]).unwrap();
-        let is_anomaly = zeros(&[series.len()]).unwrap();
+        let scores = zeros(&[series.len()]).expect("tensor creation should succeed");
+        let is_anomaly = zeros(&[series.len()]).expect("tensor creation should succeed");
 
         AnomalyResult {
             scores,
@@ -232,8 +232,8 @@ impl LSTMAnomaly {
     /// Detect anomalies
     pub fn predict(&self, series: &TimeSeries) -> AnomalyResult {
         // Calculate reconstruction errors
-        let scores = zeros(&[series.len()]).unwrap();
-        let is_anomaly = zeros(&[series.len()]).unwrap();
+        let scores = zeros(&[series.len()]).expect("tensor creation should succeed");
+        let is_anomaly = zeros(&[series.len()]).expect("tensor creation should succeed");
 
         AnomalyResult {
             scores,

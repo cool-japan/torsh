@@ -118,7 +118,9 @@ impl Module for LazySequential {
         }
 
         let modules_guard = self.modules.lock();
-        let modules = modules_guard.as_ref().unwrap();
+        let modules = modules_guard
+            .as_ref()
+            .expect("modules should be initialized before forward pass");
 
         let mut output = input.clone();
         for module in modules {

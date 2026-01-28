@@ -36,6 +36,7 @@ pub mod activation;
 pub mod loss;
 pub mod comparison;
 pub mod shape;
+pub mod manipulation; // ✅ NEW: cat, stack, flip, roll, etc.
 pub mod quantization;
 pub mod signal;
 pub mod conversion;
@@ -52,6 +53,7 @@ pub use activation::*;
 pub use loss::*;
 pub use comparison::*;
 pub use shape::*;
+pub use manipulation::*; // ✅ NEW
 pub use quantization::*;
 pub use signal::*;
 pub use conversion::*;
@@ -67,7 +69,7 @@ pub use simd::*;
 use crate::{FloatElement, Tensor, TensorElement};
 use torsh_core::error::{Result, TorshError};
 use torsh_core::dtype::DType;
-use num_traits::ToPrimitive;
+use scirs2_core::numeric::ToPrimitive;
 
 // Import SIMD operations for performance optimization
 #[cfg(feature = "simd")]

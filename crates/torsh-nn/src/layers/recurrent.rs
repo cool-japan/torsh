@@ -34,8 +34,8 @@ impl RNN {
 
             let weight_ih = crate::init::xavier_uniform(&[hidden_size, input_dim]);
             let weight_hh = crate::init::xavier_uniform(&[hidden_size, hidden_size]);
-            let bias_ih = zeros(&[hidden_size]).unwrap();
-            let bias_hh = zeros(&[hidden_size]).unwrap();
+            let bias_ih = zeros(&[hidden_size]).expect("zeros tensor for bias_ih should succeed");
+            let bias_hh = zeros(&[hidden_size]).expect("zeros tensor for bias_hh should succeed");
 
             base.register_parameter(format!("weight_ih_l{}", layer), Parameter::new(weight_ih?));
             base.register_parameter(format!("weight_hh_l{}", layer), Parameter::new(weight_hh?));
@@ -87,7 +87,8 @@ impl Module for RNN {
         };
 
         // Initialize hidden state
-        let _h0 = zeros::<f32>(&[self.num_layers, batch_size, self.hidden_size]).unwrap();
+        let _h0 = zeros::<f32>(&[self.num_layers, batch_size, self.hidden_size])
+            .expect("zeros tensor for hidden state should succeed");
 
         // Simplified RNN computation - real implementation would unroll over time steps
         let output_shape = if self.batch_first {
@@ -96,7 +97,7 @@ impl Module for RNN {
             [seq_len, batch_size, self.hidden_size]
         };
 
-        let output = zeros(&output_shape).unwrap();
+        let output = zeros(&output_shape).expect("zeros tensor for output should succeed");
         Ok(output)
     }
 

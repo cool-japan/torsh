@@ -658,7 +658,11 @@ impl SciRS2VisionProcessor {
         }
 
         // Sort by response and keep top features
-        keypoints.sort_by(|a, b| b.response.partial_cmp(&a.response).unwrap());
+        keypoints.sort_by(|a, b| {
+            b.response
+                .partial_cmp(&a.response)
+                .expect("comparison should succeed")
+        });
         keypoints.truncate(max_features);
         Ok(keypoints)
     }
@@ -1180,7 +1184,7 @@ impl SciRS2VisionProcessor {
                         (end_y - tile_y, end_x - tile_x, 1),
                         tile.iter().cloned().collect(),
                     )
-                    .unwrap();
+                    .expect("array creation should succeed");
                     enhanced_tile = self.histogram_equalization(&enhanced_tile)?;
 
                     result
@@ -1273,7 +1277,7 @@ impl SciRS2VisionProcessor {
         let (tmpl_h, tmpl_w) = template.dim();
         let mut result = Array2::zeros((img_h - tmpl_h + 1, img_w - tmpl_w + 1));
 
-        let template_mean = template.mean().unwrap();
+        let template_mean = template.mean().expect("mean should succeed");
         let template_std = (template.mapv(|x| (x - template_mean).powi(2)).sum()
             / (tmpl_h * tmpl_w) as f32)
             .sqrt();
@@ -1281,7 +1285,7 @@ impl SciRS2VisionProcessor {
         for i in 0..(img_h - tmpl_h + 1) {
             for j in 0..(img_w - tmpl_w + 1) {
                 let patch = image.slice(s![i..i + tmpl_h, j..j + tmpl_w]);
-                let patch_mean = patch.mean().unwrap();
+                let patch_mean = patch.mean().expect("mean should succeed");
                 let patch_std = (patch.mapv(|x| (x - patch_mean).powi(2)).sum()
                     / (tmpl_h * tmpl_w) as f32)
                     .sqrt();

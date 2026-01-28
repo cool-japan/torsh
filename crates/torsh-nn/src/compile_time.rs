@@ -536,7 +536,9 @@ mod tests {
         let input = Tensor::from_vec(vec![-1.0, 0.0, 1.0, 2.0], &[4]).unwrap();
         let output = activation.apply(&input).unwrap();
 
-        let result: Vec<f32> = output.to_vec().unwrap();
+        let result: Vec<f32> = output
+            .to_vec()
+            .expect("tensor to vec conversion should succeed");
         assert_eq!(result, vec![0.0, 0.0, 1.0, 2.0]);
     }
 
@@ -554,7 +556,9 @@ mod tests {
         assert_eq!(output.shape().dims(), &[2, 5]);
 
         // Verify ReLU was applied (no negative values)
-        let result: Vec<f32> = output.to_vec().unwrap();
+        let result: Vec<f32> = output
+            .to_vec()
+            .expect("tensor to vec conversion should succeed");
         assert!(result.iter().all(|&x| x >= 0.0));
     }
 

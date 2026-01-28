@@ -25,11 +25,11 @@ fn test_scirs2_parallel_for_range() {
     let data_clone = Arc::clone(&data);
 
     parallel_for_range(0, 1000, move |i| {
-        let mut d = data_clone.lock().unwrap();
+        let mut d = data_clone.lock().expect("lock should not be poisoned");
         d[i] = (i * i) as i32;
     });
 
-    let result = data.lock().unwrap();
+    let result = data.lock().expect("lock should not be poisoned");
     for i in 0..1000 {
         assert_eq!(result[i], (i * i) as i32);
     }
@@ -286,12 +286,12 @@ fn test_scirs2_integrated_parallel_simd() {
 
         aligned_add_f32(&a[start..end], &b[start..end], &mut temp_result);
 
-        let mut res = result_clone.lock().unwrap();
+        let mut res = result_clone.lock().expect("lock should not be poisoned");
         res[start..end].copy_from_slice(&temp_result);
     });
 
     // Verify results
-    let final_result = result.lock().unwrap();
+    let final_result = result.lock().expect("lock should not be poisoned");
     for &val in final_result.iter() {
         assert_eq!(val, 3.0);
     }

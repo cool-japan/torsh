@@ -55,6 +55,17 @@ pub fn zeros<T: TensorElement>(shape: &[usize]) -> Result<Tensor<T>> {
     Tensor::from_data(data, shape.to_vec(), DeviceType::Cpu)
 }
 
+/// Create a mutable tensor of zeros (uses InMemory storage for mutability)
+///
+/// This is useful for operations that need to write to the tensor element-by-element,
+/// as it bypasses SimdOptimized storage which is immutable.
+pub fn zeros_mut<T: TensorElement>(shape: &[usize]) -> Tensor<T> {
+    let size = shape.iter().product();
+    let data = vec![T::zero(); size];
+
+    Tensor::from_data_fast(data, shape.to_vec(), DeviceType::Cpu)
+}
+
 /// Create a tensor of zeros on a specific device
 pub fn zeros_device<T: TensorElement>(shape: &[usize], device: DeviceType) -> Result<Tensor<T>> {
     let size = shape.iter().product();
@@ -126,10 +137,10 @@ pub fn linspace<T: FloatElement>(start: T, end: T, steps: usize) -> Result<Tenso
     }
 
     let mut values = Vec::with_capacity(steps);
-    let step_size = (end - start) / T::from(steps - 1).unwrap();
+    let step_size = (end - start) / T::from(steps - 1).expect("numeric conversion should succeed");
 
     for i in 0..steps {
-        let value = start + step_size * T::from(i).unwrap();
+        let value = start + step_size * T::from(i).expect("numeric conversion should succeed");
         values.push(value);
     }
 

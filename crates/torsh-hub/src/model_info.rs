@@ -55,11 +55,15 @@ impl FromStr for Version {
     fn from_str(s: &str) -> Result<Self> {
         let version_str = s.trim_start_matches('v');
         let mut parts = version_str.splitn(2, '+');
-        let version_part = parts.next().unwrap();
+        let version_part = parts
+            .next()
+            .expect("splitn always returns at least one element");
         let build = parts.next().map(|s| s.to_string());
 
         let mut parts = version_part.splitn(2, '-');
-        let version_core = parts.next().unwrap();
+        let version_core = parts
+            .next()
+            .expect("splitn always returns at least one element");
         let pre_release = parts.next().map(|s| s.to_string());
 
         let version_parts: Vec<&str> = version_core.split('.').collect();
@@ -890,7 +894,9 @@ impl ModelCardManager {
             let entry = entry?;
             if let Some(filename) = entry.file_name().to_str() {
                 if filename.ends_with(".json") {
-                    let model_id = filename.strip_suffix(".json").unwrap();
+                    let model_id = filename
+                        .strip_suffix(".json")
+                        .expect("filename should end with .json as checked");
                     cards.push(model_id.to_string());
                 }
             }

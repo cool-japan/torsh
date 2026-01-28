@@ -30,7 +30,9 @@ pub fn global_profiler() -> &'static Mutex<Profiler> {
 #[macro_export]
 macro_rules! profile {
     ($name:expr, $inputs:expr, $operation:expr) => {{
-        let mut profiler = $crate::profiling::global_profiler().lock().unwrap();
+        let mut profiler = $crate::profiling::global_profiler()
+            .lock()
+            .expect("lock should not be poisoned");
         profiler.start_operation($name, $inputs)?;
         let result = $operation;
         let output_refs: Vec<_> = [&result].iter().map(|t| *t).collect();
@@ -104,7 +106,7 @@ mod tests {
     #[test]
     fn test_global_profiler() {
         let profiler_ref = global_profiler();
-        let _profiler = profiler_ref.lock().unwrap();
+        let _profiler = profiler_ref.lock().expect("lock should not be poisoned");
         // Just test that we can get the global profiler without panicking
     }
 }

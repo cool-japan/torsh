@@ -258,6 +258,7 @@ pub mod numpy {
         ///
         /// # Returns
         /// * `Result<usize>` - Element size in bytes
+        #[allow(dead_code)]
         fn element_size(&self) -> Result<usize> {
             let size_str = &self.dtype[2..]; // Remove '<f', '<i', etc.
             size_str.parse().map_err(|_| {

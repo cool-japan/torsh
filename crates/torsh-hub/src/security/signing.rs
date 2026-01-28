@@ -117,19 +117,19 @@ impl SecurityManager {
         // Create signature
         let signature = match key_pair.algorithm {
             SignatureAlgorithm::RsaSha256 => {
-                sign_with_rsa_sha256(&file_hash, key_pair.private_key.as_ref().unwrap())?
+                sign_with_rsa_sha256(&file_hash, key_pair.private_key.as_ref().expect("RSA private key required for signing"))?
             }
             SignatureAlgorithm::Ed25519 => {
-                sign_with_ed25519(&file_hash, key_pair.private_key.as_ref().unwrap())?
+                sign_with_ed25519(&file_hash, key_pair.private_key.as_ref().expect("Ed25519 private key required for signing"))?
             }
             SignatureAlgorithm::EcdsaP256 => {
-                sign_with_ecdsa_p256(&file_hash, key_pair.private_key.as_ref().unwrap())?
+                sign_with_ecdsa_p256(&file_hash, key_pair.private_key.as_ref().expect("ECDSA P256 private key required for signing"))?
             }
         };
 
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after UNIX epoch")
             .as_secs();
 
         Ok(ModelSignature {

@@ -5,7 +5,7 @@
 //! and thermal throttling detection.
 
 use crate::Benchmarkable;
-use criterion::black_box;
+use std::hint::black_box;
 // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
 use scirs2_core::random::Random;
 use std::sync::{Arc, Mutex};
@@ -82,19 +82,23 @@ impl Benchmarkable for MultiGPUBench {
             let tensor = match self.config.memory_distribution {
                 MemoryDistribution::Replicated => {
                     // Same tensor on all GPUs
-                    randn::<f32>(&[self.tensor_size, self.tensor_size]).unwrap()
+                    randn::<f32>(&[self.tensor_size, self.tensor_size])
+                        .expect("failed to create replicated GPU tensor")
                 }
                 MemoryDistribution::Partitioned => {
                     // Different slice for each GPU
                     let slice_size = self.tensor_size / self.config.num_gpus;
-                    randn::<f32>(&[slice_size, self.tensor_size]).unwrap()
+                    randn::<f32>(&[slice_size, self.tensor_size])
+                        .expect("failed to create partitioned GPU tensor")
                 }
                 MemoryDistribution::Hybrid => {
                     // Hybrid approach
                     if gpu_id == 0 {
-                        randn::<f32>(&[self.tensor_size, self.tensor_size]).unwrap()
+                        randn::<f32>(&[self.tensor_size, self.tensor_size])
+                            .expect("failed to create hybrid GPU tensor for GPU 0")
                     } else {
-                        randn::<f32>(&[self.tensor_size / 2, self.tensor_size]).unwrap()
+                        randn::<f32>(&[self.tensor_size / 2, self.tensor_size])
+                            .expect("failed to create hybrid GPU tensor")
                     }
                 }
             };
@@ -184,7 +188,7 @@ impl MultiGPUBench {
                     _ => tensor.clone(),
                 };
 
-                let mut results = results.lock().unwrap();
+                let mut results = results.lock().expect("lock should not be poisoned");
                 results.push((i, result));
             });
 
@@ -193,10 +197,10 @@ impl MultiGPUBench {
 
         // Wait for all threads to complete
         for handle in handles {
-            handle.join().unwrap();
+            handle.join().expect("failed to join GPU worker thread");
         }
 
-        let mut results = results.lock().unwrap();
+        let mut results = results.lock().expect("lock should not be poisoned");
         results.sort_by_key(|(i, _)| *i);
         results.iter().map(|(_, tensor)| tensor.clone()).collect()
     }
@@ -258,7 +262,8 @@ impl CPUGPUComparisonBench {
     }
 
     pub fn benchmark_cpu(&mut self) -> Duration {
-        let tensor = randn::<f32>(&[self.tensor_size, self.tensor_size]).unwrap();
+        let tensor = randn::<f32>(&[self.tensor_size, self.tensor_size])
+            .expect("failed to create CPU benchmark tensor");
 
         let start = Instant::now();
         for _ in 0..self.num_iterations {
@@ -275,7 +280,8 @@ impl CPUGPUComparisonBench {
     }
 
     pub fn benchmark_gpu(&mut self) -> Duration {
-        let tensor = randn::<f32>(&[self.tensor_size, self.tensor_size]).unwrap();
+        let tensor = randn::<f32>(&[self.tensor_size, self.tensor_size])
+            .expect("failed to create GPU benchmark tensor");
 
         let start = Instant::now();
         for _ in 0..self.num_iterations {
@@ -329,7 +335,7 @@ impl MemoryBandwidthBench {
     }
 
     pub fn measure_read_bandwidth(&self) -> f64 {
-        let data = randn::<f32>(&[self.data_size]).unwrap();
+        let data = randn::<f32>(&[self.data_size]).expect("failed to create bandwidth test tensor");
         let iterations = 10;
 
         let start = Instant::now();
@@ -412,8 +418,10 @@ impl ThermalThrottlingBench {
             let measurement_start = Instant::now();
 
             // Stress workload
-            let tensor1 = randn::<f32>(&[tensor_size, tensor_size]).unwrap();
-            let tensor2 = randn::<f32>(&[tensor_size, tensor_size]).unwrap();
+            let tensor1 = randn::<f32>(&[tensor_size, tensor_size])
+                .expect("failed to create stress test tensor 1");
+            let tensor2 = randn::<f32>(&[tensor_size, tensor_size])
+                .expect("failed to create stress test tensor 2");
             let result = mock_intensive_computation(&tensor1, &tensor2);
             black_box(result);
 
@@ -478,7 +486,7 @@ impl ThermalBenchmarkResult {
     pub fn peak_temperature(&self) -> f32 {
         self.temperature_measurements
             .iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .max_by(|a, b| a.partial_cmp(b).expect("NaN in temperature measurements"))
             .copied()
             .unwrap_or(0.0)
     }
@@ -570,22 +578,22 @@ fn mock_block_read(data: &Tensor<f32>, _block_size: usize) -> f32 {
 
 fn mock_sequential_write(size: usize) -> Tensor<f32> {
     // Simulate sequential memory write
-    zeros::<f32>(&[size]).unwrap()
+    zeros::<f32>(&[size]).expect("failed to create sequential write tensor")
 }
 
 fn mock_random_write(size: usize) -> Tensor<f32> {
     // Simulate random memory write
-    ones::<f32>(&[size]).unwrap()
+    ones::<f32>(&[size]).expect("failed to create random write tensor")
 }
 
 fn mock_strided_write(size: usize, _stride: usize) -> Tensor<f32> {
     // Simulate strided memory write
-    zeros::<f32>(&[size]).unwrap()
+    zeros::<f32>(&[size]).expect("failed to create strided write tensor")
 }
 
 fn mock_block_write(size: usize, _block_size: usize) -> Tensor<f32> {
     // Simulate block memory write
-    ones::<f32>(&[size]).unwrap()
+    ones::<f32>(&[size]).expect("failed to create block write tensor")
 }
 
 fn mock_intensive_computation(a: &Tensor<f32>, b: &Tensor<f32>) -> Tensor<f32> {

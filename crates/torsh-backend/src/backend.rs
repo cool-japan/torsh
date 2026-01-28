@@ -899,7 +899,7 @@ impl DeviceEnumerator {
                                 .unwrap_or(std::cmp::Ordering::Equal)
                         })
                         .cloned()
-                        .unwrap();
+                        .expect("devices should not be empty after is_empty check");
 
                     return Ok((*device_type, best_device));
                 }
@@ -963,10 +963,16 @@ impl DeviceEnumerator {
         match device_type {
             #[cfg(feature = "cpu")]
             DeviceType::Cpu => true,
-            #[cfg(feature = "cuda")]
+            #[cfg(cuda_available)]
             DeviceType::Cuda(device_id) => {
-                crate::cuda::CudaBackend::new(device_id as usize).is_ok()
+                crate::cuda::CudaBackend::new(crate::cuda::CudaBackendConfig {
+                    device_id: device_id as usize,
+                    ..Default::default()
+                })
+                .is_ok()
             }
+            #[cfg(all(feature = "cuda", not(cuda_available)))]
+            DeviceType::Cuda(_) => false, // CUDA feature enabled but not available on this platform
             #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
             DeviceType::Metal(_) => crate::metal::MetalBackend::new().is_ok(),
             #[cfg(feature = "webgpu")]
@@ -1278,10 +1284,17 @@ impl dyn Backend {
         match device_type {
             #[cfg(feature = "cpu")]
             DeviceType::Cpu => Ok(Box::new(crate::cpu::CpuBackend::new()?)),
-            #[cfg(feature = "cuda")]
-            DeviceType::Cuda(device_id) => {
-                Ok(Box::new(crate::cuda::CudaBackend::new(device_id as usize)?))
-            }
+            #[cfg(cuda_available)]
+            DeviceType::Cuda(device_id) => Ok(Box::new(crate::cuda::CudaBackend::new(
+                crate::cuda::CudaBackendConfig {
+                    device_id: device_id as usize,
+                    ..Default::default()
+                },
+            )?)),
+            #[cfg(all(feature = "cuda", not(cuda_available)))]
+            DeviceType::Cuda(_) => Err(TorshError::BackendError(
+                "CUDA backend not available on this platform".to_string(),
+            )),
             #[cfg(all(feature = "metal", target_os = "macos", target_arch = "aarch64"))]
             DeviceType::Metal(_) => Ok(Box::new(crate::metal::MetalBackend::new()?)),
             #[cfg(feature = "webgpu")]

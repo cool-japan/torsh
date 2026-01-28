@@ -326,10 +326,16 @@ impl FullyShardedDataParallel {
 
                     // Concatenate all gathered tensors
                     let gathered_tensor = if gathered_tensors.len() == 1 {
-                        gathered_tensors.into_iter().next().unwrap()
+                        gathered_tensors
+                            .into_iter()
+                            .next()
+                            .expect("gathered_tensors should not be empty")
                     } else {
                         // For simplicity, just use the first tensor (mock behavior)
-                        gathered_tensors.into_iter().next().unwrap()
+                        gathered_tensors
+                            .into_iter()
+                            .next()
+                            .expect("gathered_tensors should not be empty")
                     };
 
                     // Reshape to original shape
@@ -350,7 +356,10 @@ impl FullyShardedDataParallel {
                     );
 
                     // Update statistics
-                    let mut stats = self.memory_stats.lock().unwrap();
+                    let mut stats = self
+                        .memory_stats
+                        .lock()
+                        .expect("lock should not be poisoned");
                     stats.num_all_gathers += 1;
                 }
             }
@@ -387,7 +396,10 @@ impl FullyShardedDataParallel {
                 }
 
                 // Update statistics
-                let mut stats = self.memory_stats.lock().unwrap();
+                let mut stats = self
+                    .memory_stats
+                    .lock()
+                    .expect("lock should not be poisoned");
                 stats.num_reduce_scatters += 1;
             }
 
@@ -427,7 +439,7 @@ impl FullyShardedDataParallel {
 
     /// Set training mode
     pub fn train(&self, mode: bool) {
-        *self.training.lock().unwrap() = mode;
+        *self.training.lock().expect("lock should not be poisoned") = mode;
         let mut module_guard = self.module.write();
         if mode {
             module_guard.train();
@@ -438,12 +450,15 @@ impl FullyShardedDataParallel {
 
     /// Check if in training mode
     pub fn is_training(&self) -> bool {
-        *self.training.lock().unwrap()
+        *self.training.lock().expect("lock should not be poisoned")
     }
 
     /// Get memory statistics
     pub fn memory_stats(&self) -> MemoryStats {
-        let stats = self.memory_stats.lock().unwrap();
+        let stats = self
+            .memory_stats
+            .lock()
+            .expect("lock should not be poisoned");
         MemoryStats {
             peak_memory_mb: stats.peak_memory_mb,
             current_memory_mb: stats.current_memory_mb,
@@ -529,15 +544,15 @@ impl Module for FullyShardedDataParallel {
     }
 
     fn training(&self) -> bool {
-        *self.training.lock().unwrap()
+        *self.training.lock().expect("lock should not be poisoned")
     }
 
     fn train(&mut self) {
-        *self.training.lock().unwrap() = true;
+        *self.training.lock().expect("lock should not be poisoned") = true;
     }
 
     fn eval(&mut self) {
-        *self.training.lock().unwrap() = false;
+        *self.training.lock().expect("lock should not be poisoned") = false;
     }
 
     fn to_device(&mut self, _device: DeviceType) -> torsh_core::Result<()> {

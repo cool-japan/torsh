@@ -935,20 +935,16 @@ impl QuantumEnhancedQuantizer {
         }
 
         // Calculate final metrics
-        if let Some(&min_gap) = self
-            .adiabatic_controller
-            .energy_gaps
-            .iter()
-            .min_by(|a, b| a.partial_cmp(b).unwrap())
-        {
+        if let Some(&min_gap) = self.adiabatic_controller.energy_gaps.iter().min_by(|a, b| {
+            a.partial_cmp(b)
+                .expect("energy gap values should be comparable")
+        }) {
             self.enhanced_metrics.adiabatic_metrics.min_energy_gap = min_gap;
         }
-        if let Some(&max_gap) = self
-            .adiabatic_controller
-            .energy_gaps
-            .iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
-        {
+        if let Some(&max_gap) = self.adiabatic_controller.energy_gaps.iter().max_by(|a, b| {
+            a.partial_cmp(b)
+                .expect("energy gap values should be comparable")
+        }) {
             self.enhanced_metrics.adiabatic_metrics.max_energy_gap = max_gap;
         }
 

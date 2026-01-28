@@ -248,7 +248,7 @@ impl GRUForecaster {
 
     /// Forecast future values
     pub fn forecast(&self, _series: &TimeSeries, steps: usize) -> TimeSeries {
-        let values = zeros(&[steps, 1]).unwrap();
+        let values = zeros(&[steps, 1]).expect("tensor creation should succeed");
         TimeSeries::new(values)
     }
 }

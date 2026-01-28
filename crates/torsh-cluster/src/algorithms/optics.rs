@@ -284,7 +284,7 @@ impl OPTICS {
             }
         }
 
-        distances.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        distances.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         if distances.len() < self.config.min_samples {
             f64::INFINITY
@@ -655,10 +655,10 @@ mod tests {
             0.0, 0.0, 0.1, 0.1, 0.0, 0.2, 0.2, 0.0, 0.1, 0.2, // Cluster 2
             5.0, 5.0, 5.1, 5.1, 5.0, 5.2, 5.2, 5.0, 5.1, 5.2,
         ];
-        let tensor = Tensor::from_vec(data, &[10, 2]).unwrap();
+        let tensor = Tensor::from_vec(data, &[10, 2]).expect("test tensor creation should succeed");
 
         let optics = OPTICS::new(0.5, 2);
-        let result = optics.fit(&tensor).unwrap();
+        let result = optics.fit(&tensor).expect("OPTICS fit should succeed");
 
         // Should find 2 clusters
         assert!(result.n_clusters >= 1);
@@ -709,10 +709,10 @@ mod tests {
     fn test_optics_reachability_ordering() {
         // Create dataset with clear structure
         let data = vec![0.0, 0.0, 0.1, 0.0, 0.0, 0.1, 5.0, 5.0, 5.1, 5.0, 5.0, 5.1];
-        let tensor = Tensor::from_vec(data, &[6, 2]).unwrap();
+        let tensor = Tensor::from_vec(data, &[6, 2]).expect("test tensor creation should succeed");
 
         let optics = OPTICS::new(1.0, 2);
-        let result = optics.fit(&tensor).unwrap();
+        let result = optics.fit(&tensor).expect("OPTICS fit should succeed");
 
         // All points should be in the ordering
         assert_eq!(result.ordering.len(), 6);

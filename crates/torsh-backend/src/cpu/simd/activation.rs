@@ -220,11 +220,19 @@ fn simd_fast_tanh_f32x8(x: f32x8) -> f32x8 {
         x_sign * (f32x8::splat(1.0) - f32x8::splat(2.0) / (exp_2abs + f32x8::splat(1.0)));
 
     // Use small approximation for |x| < 2, large for |x| >= 2
-    let abs_threshold = f32x8::splat(2.0);
-    let use_small = abs_x.cmp_lt(abs_threshold);
-
-    // Blend results based on magnitude using SIMD blend
-    use_small.blend(small_approx, large_approx)
+    // Blend based on threshold
+    let abs_arr = abs_x.to_array();
+    let small_arr = small_approx.to_array();
+    let large_arr = large_approx.to_array();
+    let mut out_arr = [0.0f32; 8];
+    for i in 0..8 {
+        out_arr[i] = if abs_arr[i] < 2.0 {
+            small_arr[i]
+        } else {
+            large_arr[i]
+        };
+    }
+    f32x8::from(out_arr)
 }
 
 // Fallback implementations when SIMD is not available

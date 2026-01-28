@@ -492,7 +492,7 @@ impl OnnxExporter {
     /// Export model to ONNX binary format (protobuf would be used in real implementation)
     pub fn export_to_binary(&self, graph: &FxGraph) -> TorshResult<Vec<u8>> {
         let model = self.export(graph)?;
-        bincode::serde::encode_to_vec(&model, bincode::config::standard()).map_err(|e| {
+        oxicode::serde::encode_to_vec(&model, oxicode::config::standard()).map_err(|e| {
             TorshError::SerializationError(format!(
                 "Failed to serialize ONNX model to binary: {}",
                 e

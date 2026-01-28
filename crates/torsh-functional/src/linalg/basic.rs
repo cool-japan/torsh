@@ -206,7 +206,7 @@ pub fn norm(
 /// Batch matrix multiplication (BMM)
 ///
 /// Performs matrix multiplication on batches of matrices:
-/// ```
+/// ```text
 /// output[i] = input[i] @ mat2[i]
 /// ```
 ///
@@ -314,7 +314,7 @@ pub fn bmm(input: &Tensor, mat2: &Tensor) -> TorshResult<Tensor> {
 /// ## Mathematical Background
 ///
 /// This operation combines scaled matrix addition with batch matrix multiplication:
-/// ```
+/// ```text
 /// output = β × input + α × (batch1 @ batch2)
 /// ```
 ///

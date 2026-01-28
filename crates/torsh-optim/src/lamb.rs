@@ -5,7 +5,7 @@
 //! element-wise, combining the benefits of LARS and Adam.
 //!
 //! Reference: "Large Batch Optimization for Deep Learning: Training BERT in 76 minutes"
-//! https://arxiv.org/abs/1904.00962
+//! <https://arxiv.org/abs/1904.00962>
 
 use crate::{
     Optimizer, OptimizerError, OptimizerResult, OptimizerState, ParamGroup, ParamGroupState,
@@ -177,8 +177,14 @@ impl Optimizer for LAMB {
                 }
 
                 // Get momentum states
-                let exp_avg = self.exp_avg.get_mut(&param_key).unwrap();
-                let exp_avg_sq = self.exp_avg_sq.get_mut(&param_key).unwrap();
+                let exp_avg = self
+                    .exp_avg
+                    .get_mut(&param_key)
+                    .expect("exp_avg state should exist");
+                let exp_avg_sq = self
+                    .exp_avg_sq
+                    .get_mut(&param_key)
+                    .expect("exp_avg_sq state should exist");
 
                 // Add weight decay to gradient
                 let grad_with_decay = if weight_decay != 0.0 {
@@ -324,12 +330,18 @@ impl Optimizer for LAMB {
         for (key, param_state) in state.state {
             if key.ends_with("_exp_avg") {
                 if let Some(tensor) = param_state.get("exp_avg") {
-                    let param_key = key.strip_suffix("_exp_avg").unwrap().to_string();
+                    let param_key = key
+                        .strip_suffix("_exp_avg")
+                        .expect("suffix should exist after ends_with check")
+                        .to_string();
                     self.exp_avg.insert(param_key, tensor.clone());
                 }
             } else if key.ends_with("_exp_avg_sq") {
                 if let Some(tensor) = param_state.get("exp_avg_sq") {
-                    let param_key = key.strip_suffix("_exp_avg_sq").unwrap().to_string();
+                    let param_key = key
+                        .strip_suffix("_exp_avg_sq")
+                        .expect("suffix should exist after ends_with check")
+                        .to_string();
                     self.exp_avg_sq.insert(param_key, tensor.clone());
                 }
             }

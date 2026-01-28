@@ -1,10 +1,27 @@
+# Following QuantRS2 architecture for Python extension module support
+# This enables dynamic lookup for Python symbols, allowing Python extension
+# modules (like torsh-ffi) to build successfully with cargo build
+
 [target.aarch64-apple-darwin]
-rustflags = [
-  "-C", "link-args=-L/opt/homebrew/lib -lomp -framework Accelerate"
-]
+rustflags = ["-C", "link-arg=-Wl,-undefined,dynamic_lookup"]
+
+[target.aarch64-apple-darwin.env]
+CXXFLAGS = "-stdlib=libc++"
+LDFLAGS = "-lc++"
+
+[target.x86_64-apple-darwin.env]
+CXXFLAGS = "-stdlib=libc++"
+LDFLAGS = "-lc++"
+
+# Pure Rust Policy: No C/Fortran dependencies by default
+# OpenMP and Accelerate framework should only be used with feature flags
+# [target.aarch64-apple-darwin]
+# rustflags = [
+#   "-C", "link-args=-L/opt/homebrew/lib -lomp -framework Accelerate"
+# ]
 
 [env]
-LIBRARY_PATH = "/opt/homebrew/lib"
-CPATH = "/opt/homebrew/include"
-OPENBLAS_NO_LAPACK = "1"
-BLAS_SRC = "accelerate"
+# LIBRARY_PATH = "/opt/homebrew/lib"
+# CPATH = "/opt/homebrew/include"
+# OPENBLAS_NO_LAPACK = "1"
+# BLAS_SRC = "accelerate"

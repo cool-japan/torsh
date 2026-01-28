@@ -158,7 +158,10 @@ impl<T: Clone + Default + PartialEq> SparseMatrix<T> {
         // Build row_ptr array (cumulative sum)
         csr.row_indices.push(0);
         for count in row_counts {
-            let last = *csr.row_indices.last().unwrap();
+            let last = *csr
+                .row_indices
+                .last()
+                .expect("row_indices should not be empty after initial push");
             csr.row_indices.push(last + count);
         }
 
@@ -211,7 +214,10 @@ impl<T: Clone + Default + PartialEq> SparseMatrix<T> {
         // Build col_ptr array (cumulative sum)
         csc.col_indices.push(0);
         for count in col_counts {
-            let last = *csc.col_indices.last().unwrap();
+            let last = *csc
+                .col_indices
+                .last()
+                .expect("col_indices should not be empty after initial push");
             csc.col_indices.push(last + count);
         }
 
@@ -1141,12 +1147,12 @@ impl AdvancedSparseOps {
     ) -> BackendResult<()> {
         match matrix.format {
             SparseFormat::Csr => {
-                use rayon::prelude::*;
+                // ✅ SciRS2 POLICY: Use scirs2_core::parallel_ops instead of direct rayon
+                use scirs2_core::parallel_ops::*;
 
                 // Parallel iteration over rows
                 let row_chunks: Vec<_> = (0..matrix.rows).collect();
-                let chunk_size =
-                    (matrix.rows + rayon::current_num_threads() - 1) / rayon::current_num_threads();
+                let chunk_size = (matrix.rows + current_num_threads() - 1) / current_num_threads();
 
                 row_chunks.par_chunks(chunk_size).for_each(|chunk| {
                     for &row in chunk {

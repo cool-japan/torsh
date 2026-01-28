@@ -19,9 +19,13 @@ pub struct GCNConv {
 impl GCNConv {
     /// Create a new GCN convolution layer
     pub fn new(in_features: usize, out_features: usize, bias: bool) -> Self {
-        let weight = Parameter::new(randn(&[in_features, out_features]).unwrap());
+        let weight = Parameter::new(
+            randn(&[in_features, out_features]).expect("failed to create weight tensor"),
+        );
         let bias = if bias {
-            Some(Parameter::new(zeros(&[out_features]).unwrap()))
+            Some(Parameter::new(
+                zeros(&[out_features]).expect("failed to create bias tensor"),
+            ))
         } else {
             None
         };
@@ -50,12 +54,19 @@ impl GCNConv {
         let laplacian = crate::utils::graph_laplacian(&graph.edge_index, graph.num_nodes, true);
 
         // Apply graph convolution: L @ X @ W
-        let x_transformed = graph.x.matmul(&self.weight.clone_data()).unwrap();
-        let mut output_features = laplacian.matmul(&x_transformed).unwrap();
+        let x_transformed = graph
+            .x
+            .matmul(&self.weight.clone_data())
+            .expect("operation should succeed");
+        let mut output_features = laplacian
+            .matmul(&x_transformed)
+            .expect("operation should succeed");
 
         // Add bias if present
         if let Some(ref bias) = self.bias {
-            output_features = output_features.add(&bias.clone_data()).unwrap();
+            output_features = output_features
+                .add(&bias.clone_data())
+                .expect("operation should succeed");
         }
 
         // Create output graph with transformed features

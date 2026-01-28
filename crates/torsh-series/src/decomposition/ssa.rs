@@ -20,7 +20,7 @@ impl SSA {
 
     /// Decompose time series using SSA
     pub fn fit(&self, series: &TimeSeries) -> Vec<Tensor> {
-        let data = series.values.to_vec().unwrap();
+        let data = series.values.to_vec().expect("conversion should succeed");
         let n = data.len();
 
         if self.window_length >= n || self.window_length < 2 {
@@ -137,7 +137,8 @@ impl SSA {
                 }
             }
 
-            let tensor = Tensor::from_vec(reconstructed, &[n]).unwrap();
+            let tensor =
+                Tensor::from_vec(reconstructed, &[n]).expect("tensor creation should succeed");
             reconstructed_components.push(tensor);
         }
 
@@ -149,16 +150,16 @@ impl SSA {
         let components = self.fit(series);
 
         if components.is_empty() {
-            return zeros(&[steps, series.num_features()]).unwrap();
+            return zeros(&[steps, series.num_features()]).expect("tensor creation should succeed");
         }
 
         // Simple extrapolation using the trend of the first component
         let main_component = &components[0];
-        let data = main_component.to_vec().unwrap();
+        let data = main_component.to_vec().expect("conversion should succeed");
         let n = data.len();
 
         if n < 2 {
-            return zeros(&[steps, series.num_features()]).unwrap();
+            return zeros(&[steps, series.num_features()]).expect("tensor creation should succeed");
         }
 
         // Linear extrapolation based on last few points
@@ -178,7 +179,7 @@ impl SSA {
             forecast.push(last_value + trend * (i + 1) as f32);
         }
 
-        Tensor::from_vec(forecast, &[steps]).unwrap()
+        Tensor::from_vec(forecast, &[steps]).expect("tensor creation should succeed")
     }
 }
 

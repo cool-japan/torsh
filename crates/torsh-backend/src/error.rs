@@ -567,6 +567,14 @@ impl ErrorStatistics {
     }
 }
 
+/// Convert cust CUDA error to BackendError
+/// Note: We can't implement From trait due to orphan rules (both types are external)
+/// Only available on x86_64 Linux/Windows where CUDA SDK is supported
+#[cfg(cuda_available)]
+pub fn cust_error_to_backend(error: cust::error::CudaError) -> BackendError {
+    BackendError::Backend(format!("CUDA error: {}", error))
+}
+
 /// Backend-specific error conversion utilities
 pub mod conversion {
     use super::*;

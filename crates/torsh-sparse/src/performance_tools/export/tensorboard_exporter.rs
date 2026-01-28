@@ -303,7 +303,7 @@ impl TensorBoardExporter {
                 .iter()
                 .map(|m| m.duration.as_secs_f64() * 1000.0)
                 .collect();
-            times.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            times.sort_by(|a, b| a.partial_cmp(b).expect("f64 comparison should succeed"));
 
             // Simple histogram representation
             let min_time = times[0];

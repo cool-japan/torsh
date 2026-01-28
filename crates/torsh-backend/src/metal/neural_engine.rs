@@ -413,10 +413,16 @@ impl NeuralEngineContext {
 
         // Check cache first
         {
-            let cache = self.model_cache.lock().unwrap();
+            let cache = self
+                .model_cache
+                .lock()
+                .expect("lock should not be poisoned");
             if cache.contains_key(&operation_key) {
                 // Update cache statistics
-                let mut stats = self.performance_stats.lock().unwrap();
+                let mut stats = self
+                    .performance_stats
+                    .lock()
+                    .expect("lock should not be poisoned");
                 stats.compilation_stats.cache_hit_rate =
                     stats.compilation_stats.cache_hit_rate * 0.9 + 0.1;
                 return Ok(operation_key);
@@ -430,13 +436,19 @@ impl NeuralEngineContext {
 
         // Cache the compiled model
         {
-            let mut cache = self.model_cache.lock().unwrap();
+            let mut cache = self
+                .model_cache
+                .lock()
+                .expect("lock should not be poisoned");
             cache.insert(operation_key.clone(), compiled_model);
         }
 
         // Update compilation statistics
         {
-            let mut stats = self.performance_stats.lock().unwrap();
+            let mut stats = self
+                .performance_stats
+                .lock()
+                .expect("lock should not be poisoned");
             stats.compilation_stats.models_compiled += 1;
             stats.compilation_stats.total_compilation_time_ms +=
                 compilation_time.as_millis() as u64;
@@ -470,7 +482,10 @@ impl NeuralEngineContext {
 
         // Get compiled model from cache
         let model = {
-            let mut cache = self.model_cache.lock().unwrap();
+            let mut cache = self
+                .model_cache
+                .lock()
+                .expect("lock should not be poisoned");
             let model_entry = cache.get_mut(operation_key).ok_or_else(|| {
                 BackendError::InvalidArgument(format!("Operation not found: {}", operation_key))
             })?;
@@ -486,7 +501,10 @@ impl NeuralEngineContext {
 
         // Update performance statistics
         {
-            let mut stats = self.performance_stats.lock().unwrap();
+            let mut stats = self
+                .performance_stats
+                .lock()
+                .expect("lock should not be poisoned");
             stats.total_operations += 1;
             stats.total_execution_time_us += execution_time.as_micros() as u64;
             stats.avg_throughput = stats.total_operations as f64
@@ -623,16 +641,26 @@ impl NeuralEngineContext {
 
     /// Get performance statistics
     pub fn performance_stats(&self) -> NeuralEngineStats {
-        (*self.performance_stats.lock().unwrap()).clone()
+        (*self
+            .performance_stats
+            .lock()
+            .expect("lock should not be poisoned"))
+        .clone()
     }
 
     /// Clear model cache
     pub fn clear_cache(&mut self) {
-        let mut cache = self.model_cache.lock().unwrap();
+        let mut cache = self
+            .model_cache
+            .lock()
+            .expect("lock should not be poisoned");
         cache.clear();
 
         // Reset compilation stats
-        let mut stats = self.performance_stats.lock().unwrap();
+        let mut stats = self
+            .performance_stats
+            .lock()
+            .expect("lock should not be poisoned");
         stats.compilation_stats = CompilationStats::default();
     }
 }
@@ -691,7 +719,7 @@ impl NeuralEngineOpsBuilder {
         output_shape: &Shape,
         transpose_weight: bool,
     ) -> BackendResult<String> {
-        let mut context = self.context.lock().unwrap();
+        let mut context = self.context.lock().expect("lock should not be poisoned");
 
         let input_spec = TensorSpec {
             name: "input".to_string(),
@@ -734,7 +762,7 @@ impl NeuralEngineOpsBuilder {
         head_dim: usize,
         dropout: f32,
     ) -> BackendResult<String> {
-        let mut context = self.context.lock().unwrap();
+        let mut context = self.context.lock().expect("lock should not be poisoned");
 
         let batch_size = 1; // Will be dynamically handled
         let embed_dim = num_heads * head_dim;
@@ -769,13 +797,13 @@ impl NeuralEngineOpsBuilder {
         inputs: &[NeuralEngineBuffer],
         outputs: &mut [NeuralEngineBuffer],
     ) -> BackendResult<()> {
-        let mut context = self.context.lock().unwrap();
+        let mut context = self.context.lock().expect("lock should not be poisoned");
         context.execute_operation(operation_key, inputs, outputs)
     }
 
     /// Check if Neural Engine is available
     pub fn is_available(&self) -> bool {
-        let context = self.context.lock().unwrap();
+        let context = self.context.lock().expect("lock should not be poisoned");
         context.is_available()
     }
 }

@@ -93,7 +93,10 @@ impl OptimizedGraph {
         }
 
         // Update graph statistics
-        self.stats.write().unwrap().peak_memory_bytes = memory_tracker.peak_memory;
+        self.stats
+            .write()
+            .expect("lock should not be poisoned")
+            .peak_memory_bytes = memory_tracker.peak_memory;
 
         tracing::debug!(
             "Memory planning complete - Peak usage: {} bytes, Budget: {} bytes, Efficiency: {:.2}%",

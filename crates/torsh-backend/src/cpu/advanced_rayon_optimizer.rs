@@ -1,15 +1,17 @@
-//! Advanced Rayon Parallel Processing Optimization Engine
+//! Advanced Parallel Processing Optimization Engine
 //!
-//! This module provides enterprise-grade parallel processing optimizations using Rayon,
+//! This module provides enterprise-grade parallel processing optimizations using SciRS2,
 //! featuring intelligent thread pool management, work-stealing optimization, load balancing,
 //! NUMA-aware scheduling, cache-conscious task distribution, and adaptive parallel strategies
 //! to maximize CPU utilization and minimize synchronization overhead.
+//!
+//! ✅ SciRS2 POLICY: Uses scirs2_core::parallel_ops instead of direct rayon
 
 // Framework infrastructure - components designed for future use
 #![allow(dead_code)]
 use crate::error::{BackendError, BackendResult};
-use rayon::prelude::*;
-use rayon::{ThreadPool, ThreadPoolBuilder};
+// ✅ SciRS2 POLICY: Use scirs2_core::parallel_ops instead of direct rayon
+use scirs2_core::parallel_ops::*;
 use std::collections::HashMap;
 use std::sync::{atomic::AtomicU64, Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};

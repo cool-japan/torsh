@@ -246,7 +246,10 @@ pub mod utils {
     pub fn storage_system_stats() -> StorageSystemStats {
         let pool_stats = pooled_memory_stats();
         let registry = global_registry();
-        let registry_stats = registry.read().unwrap().statistics();
+        let registry_stats = registry
+            .read()
+            .expect("lock should not be poisoned")
+            .statistics();
 
         StorageSystemStats {
             pooled_memory_types: pool_stats.len(),

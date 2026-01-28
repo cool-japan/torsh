@@ -459,7 +459,7 @@ impl AdvancedMonitor {
         let std_dev = variance.sqrt();
 
         let mut sorted = values.to_vec();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         let min = sorted[0];
         let max = sorted[sorted.len() - 1];
@@ -767,7 +767,7 @@ impl AdvancedMonitor {
                 peak_memory_mb: recent_metrics
                     .iter()
                     .map(|m| m.memory.peak_memory_mb)
-                    .max_by(|a, b| a.partial_cmp(b).unwrap())
+                    .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
                     .unwrap_or(0.0),
             },
             io: IoMetrics {

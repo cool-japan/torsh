@@ -209,8 +209,9 @@ pub struct MemoryUsageSnapshot {
 }
 
 /// Memory pressure levels
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub enum MemoryPressureLevel {
+    #[default]
     None,
     Low,
     Medium,
@@ -2282,10 +2283,26 @@ impl CudaMemoryStatisticsManager {
 
     /// Get comprehensive statistics report
     pub fn get_comprehensive_report(&self) -> StatisticsReport {
-        let device_stats = self.device_stats.read().unwrap().clone();
-        let unified_stats = self.unified_stats.lock().unwrap().clone();
-        let pinned_stats = self.pinned_stats.lock().unwrap().clone();
-        let global_stats = self.global_stats.lock().unwrap().clone();
+        let device_stats = self
+            .device_stats
+            .read()
+            .expect("lock should not be poisoned")
+            .clone();
+        let unified_stats = self
+            .unified_stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone();
+        let pinned_stats = self
+            .pinned_stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone();
+        let global_stats = self
+            .global_stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone();
 
         StatisticsReport {
             device_statistics: device_stats,
@@ -3106,7 +3123,10 @@ mod tests {
         manager.update_device_stats(0, &stats);
 
         // Verify update was recorded
-        let device_stats = manager.device_stats.read().unwrap();
+        let device_stats = manager
+            .device_stats
+            .read()
+            .expect("lock should not be poisoned");
         assert!(device_stats.contains_key(&0));
     }
 }

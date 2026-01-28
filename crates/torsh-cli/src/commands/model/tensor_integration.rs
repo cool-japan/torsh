@@ -14,8 +14,8 @@ use tracing::{debug, info};
 use scirs2_core::random::{thread_rng, Distribution, Normal};
 
 // ToRSh tensor integration
-use torsh_core::device::DeviceType;
-use torsh_tensor::Tensor;
+use torsh::core::device::DeviceType;
+use torsh::tensor::Tensor;
 
 use super::types::{DType, Device, LayerInfo, ModelMetadata, TensorInfo, TorshModel};
 
@@ -87,7 +87,7 @@ impl ModelTensor {
     pub fn to_bytes(&self) -> Result<Vec<u8>> {
         // Use torsh-tensor's built-in serialization when available
         // For now, convert to raw bytes
-        let data_vec = self.data.to_vec()?;
+        let data_vec: Vec<f32> = self.data.to_vec()?;
         let mut bytes = Vec::with_capacity(data_vec.len() * 4);
 
         for value in data_vec {

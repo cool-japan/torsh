@@ -16,7 +16,7 @@
 
 </div>
 
-> **⚠️ Alpha Release Notice**: This is our second alpha release (v0.1.0-alpha.2) with SciRS2 RC.3 integration, dependency upgrades, and 100% test pass rate. APIs may change as we move towards beta. Your feedback is invaluable!
+> **🎉 Beta Release Announcement**: ToRSh has graduated to beta! v0.1.0-beta.1 brings stable SciRS2 0.1.1 integration, OxiBLAS 0.1.2, production-ready core components, and API stabilization. **NEW**: Default features are now 100% Pure Rust with zero C/Fortran dependencies! Core APIs are now stabilizing for production use. Your feedback is invaluable!
 
 ## 🚀 What is ToRSh?
 
@@ -103,12 +103,12 @@ Add ToRSh to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-torsh = "0.1.0-alpha.2"
-torsh-nn = "0.1.0-alpha.2"      # Neural networks
-torsh-graph = "0.1.0-alpha.2"   # Graph neural networks
-torsh-series = "0.1.0-alpha.2"  # Time series analysis
-torsh-vision = "0.1.0-alpha.2"  # Computer vision
-torsh-metrics = "0.1.0-alpha.2" # Evaluation metrics
+torsh = "0.1.0-beta.1"
+torsh-nn = "0.1.0-beta.1"      # Neural networks
+torsh-graph = "0.1.0-beta.1"   # Graph neural networks
+torsh-series = "0.1.0-beta.1"  # Time series analysis
+torsh-vision = "0.1.0-beta.1"  # Computer vision
+torsh-metrics = "0.1.0-beta.1" # Evaluation metrics
 ```
 
 ## 🚀 Quick Start
@@ -525,9 +525,9 @@ ToRSh consistently outperforms PyTorch in key metrics:
 
 *Benchmarks run on Apple M2 Pro, averaged over 1000 iterations*
 
-## 🤝 Alpha Feedback & Contributing
+## 🤝 Feedback & Contributing
 
-**We need your help to make ToRSh better!** As an alpha release, your feedback is crucial for shaping the future of this project.
+**We need your help to make ToRSh better!** Your feedback is crucial for shaping the future of this project.
 
 ### How to Provide Feedback
 

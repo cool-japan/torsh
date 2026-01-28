@@ -692,7 +692,7 @@ impl TrainingAnalyticsDashboard {
 
             let timestamp = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .expect("time should be after UNIX_EPOCH")
                 .as_millis() as u64;
             trend_analyzer.update_loss(timestamp, analytics.performance.avg_loss);
             trend_analyzer.update_throughput(timestamp, analytics.performance.cluster_throughput);
@@ -747,7 +747,7 @@ impl TrainingAnalyticsDashboard {
             // Cleanup old data
             let retention_cutoff = (SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .expect("time should be after UNIX_EPOCH")
                 .as_millis() as u64)
                 .saturating_sub(self.config.retention_period.as_millis() as u64);
 
@@ -777,7 +777,7 @@ impl TrainingAnalyticsDashboard {
     ) -> TorshResult<TrainingAnalytics> {
         let timestamp_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after UNIX_EPOCH")
             .as_millis() as u64;
 
         // Get current monitoring data
@@ -1171,7 +1171,7 @@ impl TrainingAnalyticsDashboard {
             config: self.config.clone(),
             export_timestamp_ms: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .expect("time should be after UNIX_EPOCH")
                 .as_millis() as u64,
         })
     }
@@ -1189,7 +1189,10 @@ impl TrainingAnalyticsDashboard {
 
         // Calculate summary statistics
         let total_runtime = if !analytics_history.is_empty() {
-            let start_time = analytics_history.first().unwrap().timestamp_ms;
+            let start_time = analytics_history
+                .first()
+                .expect("analytics_history should not be empty")
+                .timestamp_ms;
             let end_time = current_analytics.timestamp_ms;
             Duration::from_millis(end_time - start_time)
         } else {
@@ -1235,7 +1238,7 @@ impl TrainingAnalyticsDashboard {
             optimization_recommendations: current_analytics.efficiency.recommendations,
             generated_at: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .expect("time should be after UNIX_EPOCH")
                 .as_millis() as u64,
         })
     }
@@ -1319,7 +1322,7 @@ mod tests {
         for i in 0..20 {
             let timestamp = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .expect("time should be after UNIX_EPOCH")
                 .as_millis() as u64
                 + i * 1000;
             analyzer.update_loss(timestamp, 2.0 - i as f32 * 0.1); // Decreasing loss

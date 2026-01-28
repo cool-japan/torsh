@@ -4,20 +4,28 @@
 //! implementations that dispatch to format-specific modules based on the
 //! requested serialization format.
 
+#[cfg(feature = "serialize-arrow")]
+use super::data_science;
+#[cfg(feature = "serialize-onnx")]
+use super::ml_formats;
 use super::{
     binary,
     common::{SerializationFormat, SerializationOptions},
-    data_science, ml_formats, scientific, text_formats,
+    text_formats,
 };
+// Note: scientific module contains HDF5 support which requires H5Type bound.
+// Direct usage via scientific::hdf5::serialize_hdf5/deserialize_hdf5 requires H5Type.
+#[allow(unused_imports)]
+#[cfg(feature = "serialize-hdf5")]
+use super::scientific;
 use crate::{Tensor, TensorElement};
 use std::path::Path;
 use torsh_core::error::{Result, TorshError};
 
 /// Main serialization implementation for Tensor (with serialize feature)
+/// Note: HDF5 support requires the `serialize-hdf5` feature and hdf5::H5Type bound
 #[cfg(feature = "serialize")]
-impl<T: TensorElement + serde::Serialize + for<'a> serde::Deserialize<'a> + hdf5::H5Type>
-    Tensor<T>
-{
+impl<T: TensorElement + serde::Serialize + for<'a> serde::Deserialize<'a>> Tensor<T> {
     /// Serialize tensor to bytes using the specified format
     ///
     /// # Arguments
@@ -96,8 +104,11 @@ impl<T: TensorElement + serde::Serialize + for<'a> serde::Deserialize<'a> + hdf5
             }
             #[cfg(feature = "serialize-hdf5")]
             SerializationFormat::Hdf5 => {
-                let dataset_name = "tensor";
-                scientific::hdf5::serialize_hdf5(self, path, dataset_name, options)?;
+                // HDF5 serialization requires T: H5Type trait bound
+                // This generic impl cannot have that bound, so return an error
+                return Err(TorshError::SerializationError(
+                    "HDF5 format requires hdf5::H5Type trait bound. Use binary or numpy format instead, or call scientific::hdf5::serialize_hdf5 directly with H5Type-compatible types".to_string(),
+                ));
             }
             #[cfg(feature = "serialize-arrow")]
             SerializationFormat::Arrow => {
@@ -175,8 +186,10 @@ impl<T: TensorElement + serde::Serialize + for<'a> serde::Deserialize<'a> + hdf5
             }
             #[cfg(feature = "serialize-hdf5")]
             SerializationFormat::Hdf5 => {
-                let dataset_name = "tensor";
-                scientific::hdf5::deserialize_hdf5(path, dataset_name)
+                // HDF5 deserialization requires T: H5Type trait bound
+                Err(TorshError::SerializationError(
+                    "HDF5 format requires hdf5::H5Type trait bound. Use binary or numpy format instead, or call scientific::hdf5::deserialize_hdf5 directly with H5Type-compatible types".to_string(),
+                ))
             }
             #[cfg(feature = "serialize-arrow")]
             SerializationFormat::Arrow => data_science::arrow::deserialize_arrow(path),
@@ -286,8 +299,10 @@ impl<T: TensorElement> Tensor<T> {
             }
             #[cfg(feature = "serialize-hdf5")]
             SerializationFormat::Hdf5 => {
-                let dataset_name = "tensor";
-                scientific::hdf5::serialize_hdf5(self, path, dataset_name, options)?;
+                // HDF5 serialization requires T: H5Type trait bound
+                return Err(TorshError::SerializationError(
+                    "HDF5 format requires hdf5::H5Type trait bound. Use binary or numpy format instead, or call scientific::hdf5::serialize_hdf5 directly with H5Type-compatible types".to_string(),
+                ));
             }
             #[cfg(feature = "serialize-arrow")]
             SerializationFormat::Arrow => {
@@ -353,8 +368,10 @@ impl<T: TensorElement> Tensor<T> {
             )),
             #[cfg(feature = "serialize-hdf5")]
             SerializationFormat::Hdf5 => {
-                let dataset_name = "tensor";
-                scientific::hdf5::deserialize_hdf5(path, dataset_name)
+                // HDF5 deserialization requires T: H5Type trait bound
+                Err(TorshError::SerializationError(
+                    "HDF5 format requires hdf5::H5Type trait bound. Use binary or numpy format instead, or call scientific::hdf5::deserialize_hdf5 directly with H5Type-compatible types".to_string(),
+                ))
             }
             #[cfg(feature = "serialize-arrow")]
             SerializationFormat::Arrow => data_science::arrow::deserialize_arrow(path),

@@ -122,7 +122,12 @@ impl MetalBackend {
             // Get capabilities from the global context
             crate::metal::neural_engine::NeuralEngineContext::global()
                 .ok()
-                .map(|ctx| ctx.lock().unwrap().capabilities().clone())
+                .map(|ctx| {
+                    ctx.lock()
+                        .expect("lock should not be poisoned")
+                        .capabilities()
+                        .clone()
+                })
         })
     }
 
@@ -1264,8 +1269,16 @@ impl MemoryManager for MetalMemoryManager {
             allocations_moved: 0,
             bytes_moved: 0,
             duration_ms: 0.0,
-            largest_free_before: self.stats.lock().unwrap().available_memory,
-            largest_free_after: self.stats.lock().unwrap().available_memory,
+            largest_free_before: self
+                .stats
+                .lock()
+                .expect("lock should not be poisoned")
+                .available_memory,
+            largest_free_after: self
+                .stats
+                .lock()
+                .expect("lock should not be poisoned")
+                .available_memory,
             free_blocks_before: 1,
             free_blocks_after: 1,
             success: true,

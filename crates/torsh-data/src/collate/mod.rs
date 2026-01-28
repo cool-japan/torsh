@@ -13,6 +13,9 @@
 //! # Strategies
 //!
 //! - **Simple Stacking**: Basic tensor stacking along batch dimension
+
+// Allow unused imports for conditional features
+#![allow(unused_imports)]
 //! - **Optimized**: High-performance collation with parallel processing and memory mapping
 //! - **Dynamic**: Variable-length sequence handling with padding and packing
 //! - **Cached**: Memory pool-based collation for reduced allocation overhead

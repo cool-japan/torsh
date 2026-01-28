@@ -15,7 +15,7 @@
 
 use crate::TorshResult;
 // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
-use scirs2_core::random::Rng;
+
 use torsh_tensor::Tensor;
 
 /// Neural codec engine for advanced tensor compression
@@ -262,7 +262,10 @@ impl NeuralCodec {
         // Apply vector quantization if using VQ-VAE
         let (quantized_latent, indices) = if self.codebook.is_some() {
             // Use actual vector quantization for VQ-VAE
-            let mut codebook = self.codebook.take().unwrap();
+            let mut codebook = self
+                .codebook
+                .take()
+                .expect("codebook should exist when using VQ-VAE");
             let result = self.vector_quantize(&latent, &mut codebook)?;
             self.codebook = Some(codebook);
             result

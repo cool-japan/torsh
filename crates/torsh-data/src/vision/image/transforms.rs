@@ -165,6 +165,7 @@ impl Transform<DynamicImage> for RandomHorizontalFlip {
         #[cfg(feature = "image-support")]
         {
             // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
+            #[allow(unused_imports)] // Rng trait needed for random() method
             use scirs2_core::random::{Random, Rng};
             let mut rng = Random::seed(0);
             if rng.random::<f32>() < self.prob {
@@ -202,6 +203,7 @@ impl Transform<DynamicImage> for RandomVerticalFlip {
         #[cfg(feature = "image-support")]
         {
             // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
+            #[allow(unused_imports)] // Rng trait needed for random() method
             use scirs2_core::random::{Random, Rng};
             let mut rng = Random::seed(0);
             if rng.random::<f32>() < self.prob {
@@ -239,7 +241,8 @@ impl Transform<DynamicImage> for RandomRotation {
         #[cfg(all(feature = "image-support", feature = "imageproc"))]
         {
             // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
-            use scirs2_core::random::Random;
+            #[allow(unused_imports)] // Rng trait needed for random() method
+            use scirs2_core::random::{Random, Rng};
             let mut rng = Random::seed(0);
             let angle_deg = rng.gen_range(-self.degrees..=self.degrees);
             let angle_rad = angle_deg.to_radians();
@@ -262,7 +265,8 @@ impl Transform<DynamicImage> for RandomRotation {
         #[cfg(all(feature = "image-support", not(feature = "imageproc")))]
         {
             // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
-            use scirs2_core::random::Random;
+            #[allow(unused_imports)] // Rng trait needed for random() method
+            use scirs2_core::random::{Random, Rng};
             let mut rng = Random::seed(0);
             let _angle = rng.gen_range(-self.degrees..=self.degrees);
             // imageproc not available, return input unchanged

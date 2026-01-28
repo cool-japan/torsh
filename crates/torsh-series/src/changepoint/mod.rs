@@ -99,7 +99,7 @@ impl PELT {
 
             if let Some(&(min_cost, s_star)) = costs
                 .iter()
-                .min_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap())
+                .min_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             {
                 f[t] = min_cost;
                 cp[t] = s_star;
@@ -153,7 +153,7 @@ impl PELT {
             }
             CostFunction::L1 => {
                 let mut sorted = segment.to_vec();
-                sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
                 let median = sorted[sorted.len() / 2];
                 segment
                     .iter()
@@ -240,7 +240,7 @@ impl BinarySegmentation {
                 }
             }
 
-            let (start, end) = segments.pop().unwrap();
+            let (start, end) = segments.pop().expect("segments was checked non-empty");
             if end - start < 2 * self.min_segment_length {
                 continue;
             }
@@ -301,7 +301,7 @@ impl BinarySegmentation {
             }
             CostFunction::L1 => {
                 let mut sorted = segment.to_vec();
-                sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
                 let median = sorted[sorted.len() / 2];
                 segment
                     .iter()

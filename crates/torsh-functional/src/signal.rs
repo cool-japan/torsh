@@ -89,7 +89,7 @@
 //! - m = frame index
 //! - k = frequency bin
 //! - H = hop size
-//! - w[n] = window function
+//! - `w[n]` = window function
 //!
 //! **Time-frequency resolution trade-off**:
 //! - Δt ≈ N/fₛ (time resolution)
@@ -101,14 +101,14 @@
 //! P[k] = (1/N) |X[k]|²
 //! ```
 //! - **Properties**: Biased, inconsistent estimator
-//! - **Variance**: σ² ≈ P²[k] (does not decrease with N)
+//! - **Variance**: σ² ≈ P²\[k\] (does not decrease with N)
 //!
 //! ### Welch's Method (Averaged Periodogram)
 //! ```text
 //! P_welch[k] = (1/L) Σᵢ₌₀ᴸ⁻¹ Pᵢ[k]
 //! ```
 //! - **Properties**: Reduced variance, biased
-//! - **Variance**: σ² ≈ P²[k] / L
+//! - **Variance**: σ² ≈ P²\[k\] / L
 //! - **Trade-off**: Frequency resolution vs variance reduction
 //!
 //! ## Correlation and Convolution
@@ -125,7 +125,7 @@
 //! R_xx[k] = Σₙ x[n] x*[n + k]
 //! ```
 //! - **Use case**: Periodicity detection, power spectrum estimation
-//! - **Properties**: R_xx[0] = signal power, R_xx[-k] = R*_xx[k]
+//! - **Properties**: `R_xx[0]` = signal power, `R_xx[-k]` = `R*_xx[k]`
 //!
 //! ### Convolution
 //! ```text
@@ -282,7 +282,7 @@
 //! ```text
 //! w[n+1] = w[n] + μ·e[n]·x[n]
 //! ```
-//! where e[n] = d[n] - w^T[n]x[n] is the error.
+//! where `e[n] = d[n] - w^T[n]x[n]` is the error.
 //!
 //! **Applications**:
 //! - Echo cancellation

@@ -447,7 +447,7 @@ impl StorageManager {
             }
         }
 
-        Err(last_error.unwrap())
+        Err(last_error.expect("last_error is set when retries exhausted"))
     }
 
     /// Retrieve data with caching and retry logic
@@ -487,7 +487,7 @@ impl StorageManager {
             }
         }
 
-        Err(last_error.unwrap())
+        Err(last_error.expect("last_error is set when retries exhausted"))
     }
 
     /// Delete data with retry logic
@@ -515,7 +515,7 @@ impl StorageManager {
             }
         }
 
-        Err(last_error.unwrap())
+        Err(last_error.expect("last_error is set when retries exhausted"))
     }
 
     /// Check if a key exists

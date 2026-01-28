@@ -482,7 +482,10 @@ impl OptimizedCIFARDataset {
     fn load_cifar_sample(&self, index: usize) -> Result<(Tensor<f32>, usize)> {
         // Check cache first
         {
-            let cache = self.cached_data.lock().unwrap();
+            let cache = self
+                .cached_data
+                .lock()
+                .expect("lock should not be poisoned");
             if let Some(cached_item) = cache.get(&index) {
                 return Ok(cached_item.clone());
             }
@@ -497,7 +500,10 @@ impl OptimizedCIFARDataset {
 
         // Cache the result
         {
-            let mut cache = self.cached_data.lock().unwrap();
+            let mut cache = self
+                .cached_data
+                .lock()
+                .expect("lock should not be poisoned");
             if cache.len() < self.config.max_cache_items {
                 cache.insert(index, (tensor.clone(), label));
             }
@@ -516,7 +522,7 @@ impl OptimizedCIFARDataset {
         let batch_file = if self.is_train {
             self.data_path
                 .parent()
-                .unwrap()
+                .expect("data_path should have parent")
                 .join(format!("data_batch_{}.bin", batch_idx + 1))
         } else {
             self.data_path.clone()
@@ -626,12 +632,18 @@ impl OptimizedDataset for OptimizedCIFARDataset {
     }
 
     fn clear_cache(&self) {
-        let mut cache = self.cached_data.lock().unwrap();
+        let mut cache = self
+            .cached_data
+            .lock()
+            .expect("lock should not be poisoned");
         cache.clear();
     }
 
     fn cache_stats(&self) -> CacheStatistics {
-        let cache = self.cached_data.lock().unwrap();
+        let cache = self
+            .cached_data
+            .lock()
+            .expect("lock should not be poisoned");
         CacheStatistics {
             cache_hits: 0, // Would need to track this
             cache_misses: 0,

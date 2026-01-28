@@ -863,8 +863,12 @@ impl AdvancedProfiler {
 
             let sum: u64 = times.iter().sum();
             let count = times.len();
-            let min = *sorted_times.first().unwrap();
-            let max = *sorted_times.last().unwrap();
+            let min = *sorted_times
+                .first()
+                .expect("sorted_times should not be empty after is_empty check");
+            let max = *sorted_times
+                .last()
+                .expect("sorted_times should not be empty after is_empty check");
             let avg = sum as f64 / count as f64;
 
             let median = if count % 2 == 0 {

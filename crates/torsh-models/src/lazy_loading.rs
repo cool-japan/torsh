@@ -97,7 +97,7 @@ impl LazyTensor {
     pub fn get(&self) -> ModelResult<Tensor> {
         // Check if cached
         {
-            let cache = self.cached.read().unwrap();
+            let cache = self.cached.read().expect("lock should not be poisoned");
             if let Some(tensor) = cache.as_ref() {
                 return Ok(tensor.clone());
             }
@@ -108,7 +108,7 @@ impl LazyTensor {
 
         // Cache it
         {
-            let mut cache = self.cached.write().unwrap();
+            let mut cache = self.cached.write().expect("lock should not be poisoned");
             *cache = Some(tensor.clone());
         }
 
@@ -215,13 +215,13 @@ impl LazyTensor {
 
     /// Clear the cache to free memory
     pub fn clear_cache(&self) {
-        let mut cache = self.cached.write().unwrap();
+        let mut cache = self.cached.write().expect("lock should not be poisoned");
         *cache = None;
     }
 
     /// Check if tensor is cached
     pub fn is_cached(&self) -> bool {
-        let cache = self.cached.read().unwrap();
+        let cache = self.cached.read().expect("lock should not be poisoned");
         cache.is_some()
     }
 
@@ -347,7 +347,10 @@ impl LazyModelLoader {
 
     /// Update access order for LRU eviction
     fn update_access_order(&self, name: &str) {
-        let mut access_order = self.access_order.write().unwrap();
+        let mut access_order = self
+            .access_order
+            .write()
+            .expect("lock should not be poisoned");
 
         // Remove if already present
         if let Some(pos) = access_order.iter().position(|n| n == name) {
@@ -360,7 +363,10 @@ impl LazyModelLoader {
 
     /// Add to cache and evict if necessary
     fn add_to_cache(&self, size: usize) -> ModelResult<()> {
-        let mut current_size = self.current_cache_size.write().unwrap();
+        let mut current_size = self
+            .current_cache_size
+            .write()
+            .expect("lock should not be poisoned");
         *current_size += size;
 
         // Evict least recently used tensors if cache is full
@@ -376,7 +382,10 @@ impl LazyModelLoader {
 
     /// Evict least recently used tensor
     fn evict_lru(&self) -> ModelResult<bool> {
-        let mut access_order = self.access_order.write().unwrap();
+        let mut access_order = self
+            .access_order
+            .write()
+            .expect("lock should not be poisoned");
 
         if access_order.is_empty() {
             return Ok(false);
@@ -389,7 +398,10 @@ impl LazyModelLoader {
             let tensor_size = tensor.size;
             tensor.clear_cache();
 
-            let mut current_size = self.current_cache_size.write().unwrap();
+            let mut current_size = self
+                .current_cache_size
+                .write()
+                .expect("lock should not be poisoned");
             *current_size = current_size.saturating_sub(tensor_size);
         }
 
@@ -414,10 +426,16 @@ impl LazyModelLoader {
             tensor.clear_cache();
         }
 
-        let mut current_size = self.current_cache_size.write().unwrap();
+        let mut current_size = self
+            .current_cache_size
+            .write()
+            .expect("lock should not be poisoned");
         *current_size = 0;
 
-        let mut access_order = self.access_order.write().unwrap();
+        let mut access_order = self
+            .access_order
+            .write()
+            .expect("lock should not be poisoned");
         access_order.clear();
     }
 
@@ -425,7 +443,10 @@ impl LazyModelLoader {
     pub fn cache_stats(&self) -> CacheStats {
         let cached_count = self.tensors.values().filter(|t| t.is_cached()).count();
         let total_count = self.tensors.len();
-        let current_size = *self.current_cache_size.read().unwrap();
+        let current_size = *self
+            .current_cache_size
+            .read()
+            .expect("lock should not be poisoned");
 
         CacheStats {
             cached_tensors: cached_count,

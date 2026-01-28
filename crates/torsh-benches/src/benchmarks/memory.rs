@@ -338,18 +338,20 @@ impl Benchmarkable for ConcurrentMemoryBench {
 
                     match zeros::<f32>(&shape) {
                         Ok(_tensor) => {
-                            let mut successful = successful_ops.lock().unwrap();
+                            let mut successful =
+                                successful_ops.lock().expect("lock should not be poisoned");
                             *successful += 1;
                         }
                         Err(_) => {
-                            let mut failed = failed_ops.lock().unwrap();
+                            let mut failed =
+                                failed_ops.lock().expect("lock should not be poisoned");
                             *failed += 1;
                         }
                     }
                 }
 
                 let thread_duration = thread_start.elapsed();
-                let mut total = total_time.lock().unwrap();
+                let mut total = total_time.lock().expect("lock should not be poisoned");
                 *total += thread_duration;
             });
 
@@ -362,9 +364,9 @@ impl Benchmarkable for ConcurrentMemoryBench {
         }
 
         let total_duration = start_time.elapsed();
-        let successful = *successful_ops.lock().unwrap();
-        let failed = *failed_ops.lock().unwrap();
-        let cumulative_thread_time = *total_time.lock().unwrap();
+        let successful = *successful_ops.lock().expect("lock should not be poisoned");
+        let failed = *failed_ops.lock().expect("lock should not be poisoned");
+        let cumulative_thread_time = *total_time.lock().expect("lock should not be poisoned");
 
         ConcurrentResult {
             thread_count,

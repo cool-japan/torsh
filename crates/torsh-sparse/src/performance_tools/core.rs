@@ -388,19 +388,39 @@ impl SparseProfiler {
             (SparseFormat::Csr, SparseFormat::Csr) => {
                 // CSR x CSR multiplication
                 Ok(self.csr_multiply_simplified(
-                    lhs.as_any().downcast_ref::<CsrTensor>().unwrap(),
-                    rhs.as_any().downcast_ref::<CsrTensor>().unwrap(),
+                    lhs.as_any()
+                        .downcast_ref::<CsrTensor>()
+                        .expect("CSR tensor downcast should succeed"),
+                    rhs.as_any()
+                        .downcast_ref::<CsrTensor>()
+                        .expect("CSR tensor downcast should succeed"),
                 )?)
             }
             _ => {
                 // Convert to CSR and multiply
                 let lhs_csr = match lhs.format() {
-                    SparseFormat::Csr => lhs.as_any().downcast_ref::<CsrTensor>().unwrap().clone(),
-                    _ => CsrTensor::from_coo(lhs.as_any().downcast_ref::<CooTensor>().unwrap())?,
+                    SparseFormat::Csr => lhs
+                        .as_any()
+                        .downcast_ref::<CsrTensor>()
+                        .expect("CSR tensor downcast should succeed")
+                        .clone(),
+                    _ => CsrTensor::from_coo(
+                        lhs.as_any()
+                            .downcast_ref::<CooTensor>()
+                            .expect("COO tensor downcast should succeed"),
+                    )?,
                 };
                 let rhs_csr = match rhs.format() {
-                    SparseFormat::Csr => rhs.as_any().downcast_ref::<CsrTensor>().unwrap().clone(),
-                    _ => CsrTensor::from_coo(rhs.as_any().downcast_ref::<CooTensor>().unwrap())?,
+                    SparseFormat::Csr => rhs
+                        .as_any()
+                        .downcast_ref::<CsrTensor>()
+                        .expect("CSR tensor downcast should succeed")
+                        .clone(),
+                    _ => CsrTensor::from_coo(
+                        rhs.as_any()
+                            .downcast_ref::<CooTensor>()
+                            .expect("COO tensor downcast should succeed"),
+                    )?,
                 };
                 Ok(self.csr_multiply_simplified(&lhs_csr, &rhs_csr)?)
             }

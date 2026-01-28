@@ -325,7 +325,7 @@ pub fn eemd_decompose(
     // Run EMD with added noise
     use scirs2_core::random::{thread_rng, Distribution, Normal};
     let mut rng = thread_rng();
-    let noise_dist = Normal::new(0.0, noise_std as f64).unwrap();
+    let noise_dist = Normal::new(0.0, noise_std as f64).expect("distribution should succeed");
 
     for _trial in 0..num_ensembles {
         // Add noise to signal

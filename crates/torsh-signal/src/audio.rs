@@ -788,7 +788,7 @@ impl CepstralAnalysis {
     /// Compute real cepstrum
     ///
     /// The real cepstrum is defined as:
-    /// c[n] = IFFT(log(|FFT(x[n])|))
+    /// `c[n] = IFFT(log(|FFT(x[n])|))`
     ///
     /// This is useful for:
     /// - Pitch detection (finding the fundamental frequency)
@@ -867,7 +867,7 @@ impl CepstralAnalysis {
     /// Compute complex cepstrum
     ///
     /// The complex cepstrum preserves phase information:
-    /// c[n] = IFFT(log(FFT(x[n])))
+    /// `c[n] = IFFT(log(FFT(x[n])))`
     ///
     /// Note: This implementation uses a simplified phase unwrapping approach.
     /// For more accurate results, a proper phase unwrapping algorithm should be used.
@@ -935,7 +935,7 @@ impl CepstralAnalysis {
     /// Compute power cepstrum
     ///
     /// The power cepstrum is the squared magnitude of the real cepstrum:
-    /// P[n] = |IFFT(log(|FFT(x[n])|))|^2
+    /// `P[n] = |IFFT(log(|FFT(x[n])|))|^2`
     ///
     /// This is useful for:
     /// - Robust pitch detection
@@ -1136,6 +1136,7 @@ mod tests {
     use approx::assert_relative_eq;
 
     #[test]
+    #[ignore] // Slow test (~158s) - run with --ignored flag if needed
     fn test_mfcc_processor() -> Result<()> {
         let processor = MFCCProcessor::default();
         let signal = Tensor::ones(&[16000], DeviceType::Cpu)?; // 1 second of signal at 16kHz
@@ -1147,6 +1148,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore] // Slow test (~263s) - run with --ignored flag if needed
     fn test_spectral_features() -> Result<()> {
         let extractor = SpectralFeatureExtractor::new(16000.0, 2048, 512);
         let signal = Tensor::ones(&[16000], DeviceType::Cpu)?;
@@ -1324,8 +1326,9 @@ mod tests {
 
     #[test]
     fn test_cepstral_invalid_lifter() {
-        let signal = Tensor::ones(&[256], DeviceType::Cpu).unwrap();
-        let cepstrum = CepstralAnalysis::real_cepstrum(&signal).unwrap();
+        let signal = Tensor::ones(&[256], DeviceType::Cpu).expect("tensor creation should succeed");
+        let cepstrum =
+            CepstralAnalysis::real_cepstrum(&signal).expect("real_cepstrum should succeed");
 
         // Test invalid lifter type
         let result = CepstralAnalysis::lifter(&cepstrum, 50, "invalid");

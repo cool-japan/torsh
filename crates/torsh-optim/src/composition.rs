@@ -640,7 +640,9 @@ impl ComposedOptimizer {
             for (param_name, param_tensor) in vote_dict {
                 combined
                     .entry(param_name.clone())
-                    .and_modify(|t: &mut Tensor| *t = t.add(param_tensor).unwrap())
+                    .and_modify(|t: &mut Tensor| {
+                        *t = t.add(param_tensor).expect("tensor add should succeed")
+                    })
                     .or_insert(param_tensor.clone());
                 *param_counts.entry(param_name.clone()).or_insert(0) += 1;
             }
@@ -844,7 +846,10 @@ impl Optimizer for ComposedOptimizer {
 
             for (param_id, param_state) in &state.state {
                 if param_id.starts_with(&prefix) {
-                    let unprefixed_id = param_id.strip_prefix(&prefix).unwrap().to_string();
+                    let unprefixed_id = param_id
+                        .strip_prefix(&prefix)
+                        .expect("prefix should exist after starts_with check")
+                        .to_string();
                     optimizer_state.insert(unprefixed_id, param_state.clone());
                 }
             }

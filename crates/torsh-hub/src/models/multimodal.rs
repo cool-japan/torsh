@@ -1023,8 +1023,8 @@ mod tests {
         println!("Norm shape: {:?}", norm.shape().dims());
 
         // Manual element-wise division for proper broadcasting
-        let visual_data = visual_features.to_vec().unwrap();
-        let norm_data = norm.to_vec().unwrap();
+        let visual_data = visual_features.to_vec().expect("conversion should succeed");
+        let norm_data = norm.to_vec().expect("conversion should succeed");
         let visual_shape = visual_features.shape();
         let shape = visual_shape.dims();
         let batch_size = shape[0];

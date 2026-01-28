@@ -101,19 +101,19 @@ impl DeviceManager {
 
     /// Get device by ID
     pub fn get_device(&self, device_id: &str) -> Option<Arc<dyn Device>> {
-        let devices = self.devices.read().unwrap();
+        let devices = self.devices.read().expect("lock should not be poisoned");
         devices.get(device_id).cloned()
     }
 
     /// Get all devices
     pub fn get_all_devices(&self) -> Vec<Arc<dyn Device>> {
-        let devices = self.devices.read().unwrap();
+        let devices = self.devices.read().expect("lock should not be poisoned");
         devices.values().cloned().collect()
     }
 
     /// Get devices by type
     pub fn get_devices_by_type(&self, device_type: DeviceType) -> Vec<Arc<dyn Device>> {
-        let devices = self.devices.read().unwrap();
+        let devices = self.devices.read().expect("lock should not be poisoned");
         devices
             .values()
             .filter(|device| device.device_type() == device_type)
@@ -138,7 +138,7 @@ impl DeviceManager {
 
     /// Get devices that are currently available
     pub fn get_available_devices(&self) -> Result<Vec<Arc<dyn Device>>> {
-        let devices = self.devices.read().unwrap();
+        let devices = self.devices.read().expect("lock should not be poisoned");
         let mut available = Vec::new();
 
         for device in devices.values() {
@@ -163,9 +163,15 @@ impl DeviceManager {
         let health = DeviceHealth::new();
 
         {
-            let mut devices = self.devices.write().unwrap();
-            let mut states = self.device_states.write().unwrap();
-            let mut health_map = self.device_health.write().unwrap();
+            let mut devices = self.devices.write().expect("lock should not be poisoned");
+            let mut states = self
+                .device_states
+                .write()
+                .expect("lock should not be poisoned");
+            let mut health_map = self
+                .device_health
+                .write()
+                .expect("lock should not be poisoned");
 
             devices.insert(device_id.clone(), arc_device);
             states.insert(device_id.clone(), lifecycle);
@@ -177,9 +183,15 @@ impl DeviceManager {
 
     /// Remove a device from the manager
     pub fn remove_device(&self, device_id: &str) -> Option<Arc<dyn Device>> {
-        let mut devices = self.devices.write().unwrap();
-        let mut states = self.device_states.write().unwrap();
-        let mut health_map = self.device_health.write().unwrap();
+        let mut devices = self.devices.write().expect("lock should not be poisoned");
+        let mut states = self
+            .device_states
+            .write()
+            .expect("lock should not be poisoned");
+        let mut health_map = self
+            .device_health
+            .write()
+            .expect("lock should not be poisoned");
 
         states.remove(device_id);
         health_map.remove(device_id);
@@ -188,14 +200,17 @@ impl DeviceManager {
 
     /// Get device count
     pub fn device_count(&self) -> usize {
-        let devices = self.devices.read().unwrap();
+        let devices = self.devices.read().expect("lock should not be poisoned");
         devices.len()
     }
 
     /// Get manager statistics
     pub fn statistics(&self) -> ManagerStatistics {
-        let devices = self.devices.read().unwrap();
-        let health_map = self.device_health.read().unwrap();
+        let devices = self.devices.read().expect("lock should not be poisoned");
+        let health_map = self
+            .device_health
+            .read()
+            .expect("lock should not be poisoned");
 
         let total_devices = devices.len();
         let available_devices = devices
@@ -224,7 +239,7 @@ impl DeviceManager {
 
     /// Synchronize all devices
     pub fn synchronize_all(&self) -> Result<()> {
-        let devices = self.devices.read().unwrap();
+        let devices = self.devices.read().expect("lock should not be poisoned");
         for device in devices.values() {
             device.synchronize()?;
         }
@@ -233,7 +248,7 @@ impl DeviceManager {
 
     /// Reset all devices
     pub fn reset_all(&self) -> Result<()> {
-        let devices = self.devices.read().unwrap();
+        let devices = self.devices.read().expect("lock should not be poisoned");
         for device in devices.values() {
             device.reset()?;
         }
@@ -297,7 +312,7 @@ impl DeviceManager {
     }
 
     fn start_health_monitoring(&self) -> Result<()> {
-        let devices = self.devices.read().unwrap();
+        let devices = self.devices.read().expect("lock should not be poisoned");
         for (device_id, device) in devices.iter() {
             self.health_monitor
                 .add_device(device_id.clone(), device.clone())?;
@@ -306,7 +321,10 @@ impl DeviceManager {
     }
 
     fn is_device_healthy(&self, device: &dyn Device) -> Result<bool> {
-        let health_map = self.device_health.read().unwrap();
+        let health_map = self
+            .device_health
+            .read()
+            .expect("lock should not be poisoned");
         let device_id = device.device_id();
         Ok(health_map
             .get(&device_id)
@@ -506,13 +524,19 @@ impl HealthMonitor {
     }
 
     pub fn add_device(&self, device_id: String, device: Arc<dyn Device>) -> Result<()> {
-        let mut devices = self.monitored_devices.lock().unwrap();
+        let mut devices = self
+            .monitored_devices
+            .lock()
+            .expect("lock should not be poisoned");
         devices.insert(device_id, device);
         Ok(())
     }
 
     pub fn remove_device(&self, device_id: &str) {
-        let mut devices = self.monitored_devices.lock().unwrap();
+        let mut devices = self
+            .monitored_devices
+            .lock()
+            .expect("lock should not be poisoned");
         devices.remove(device_id);
     }
 
@@ -714,7 +738,8 @@ pub mod utils {
             .map(|device| {
                 let caps = device.capabilities().unwrap_or_else(|_| {
                     // Fallback capabilities
-                    DeviceCapabilities::detect(device.device_type()).unwrap()
+                    DeviceCapabilities::detect(device.device_type())
+                        .expect("CPU device capabilities detection should always succeed")
                 });
 
                 format!(

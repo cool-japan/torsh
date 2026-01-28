@@ -156,7 +156,10 @@ impl BootstrapCI {
             };
         }
 
-        bootstrap_scores.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        bootstrap_scores.sort_by(|a, b| {
+            a.partial_cmp(b)
+                .expect("bootstrap scores should be comparable")
+        });
 
         // Calculate confidence interval
         let alpha = 1.0 - self.confidence_level;
@@ -669,7 +672,10 @@ impl MultipleComparisonCorrection {
             p_values.iter().enumerate().map(|(i, &p)| (i, p)).collect();
 
         // Sort by p-value
-        indexed_p.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+        indexed_p.sort_by(|a, b| {
+            a.1.partial_cmp(&b.1)
+                .expect("p-values should be comparable")
+        });
 
         let mut corrected = vec![0.0; n];
 

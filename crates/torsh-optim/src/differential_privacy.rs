@@ -5,7 +5,7 @@
 //! and other DP-aware optimization algorithms.
 //!
 //! Reference: "Deep Learning with Differential Privacy" by Abadi et al.
-//! https://arxiv.org/abs/1607.00133
+//! <https://arxiv.org/abs/1607.00133>
 
 use crate::{OptimizerError, OptimizerResult};
 use serde::{Deserialize, Serialize};
@@ -268,7 +268,7 @@ impl DPManager {
         }
 
         let mut sorted_norms = self.state.gradient_norms.clone();
-        sorted_norms.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted_norms.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         let quantile_idx = (sorted_norms.len() as f64 * self.config.clipping_quantile) as usize;
         sorted_norms[quantile_idx.min(sorted_norms.len() - 1)]

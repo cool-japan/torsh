@@ -167,7 +167,7 @@ impl MinimalExecutionEngine {
 
     /// Start the execution engine
     pub fn start(&self) -> Result<(), MinimalEngineError> {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock().expect("lock should not be poisoned");
 
         match *state {
             EngineState::Running => return Ok(()), // Already running
@@ -188,7 +188,7 @@ impl MinimalExecutionEngine {
 
         // Update statistics
         {
-            let mut stats = self.stats.lock().unwrap();
+            let mut stats = self.stats.lock().expect("lock should not be poisoned");
             stats.last_updated = SystemTime::now();
         }
 
@@ -197,7 +197,7 @@ impl MinimalExecutionEngine {
 
     /// Stop the execution engine
     pub fn stop(&self) -> Result<(), MinimalEngineError> {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock().expect("lock should not be poisoned");
 
         match *state {
             EngineState::Stopped => return Ok(()), // Already stopped
@@ -213,7 +213,7 @@ impl MinimalExecutionEngine {
 
         // Cancel all active tasks
         {
-            let mut tasks = self.active_tasks.lock().unwrap();
+            let mut tasks = self.active_tasks.lock().expect("lock should not be poisoned");
             for task in tasks.values_mut() {
                 if task.status == TaskStatus::Running || task.status == TaskStatus::Pending {
                     task.status = TaskStatus::Cancelled;
@@ -229,7 +229,7 @@ impl MinimalExecutionEngine {
     pub fn submit_task(&self, mut task: MinimalTask) -> Result<String, MinimalEngineError> {
         // Check engine state
         {
-            let state = self.state.lock().unwrap();
+            let state = self.state.lock().expect("lock should not be poisoned");
             if *state != EngineState::Running {
                 return Err(MinimalEngineError::EngineNotRunning);
             }
@@ -237,7 +237,7 @@ impl MinimalExecutionEngine {
 
         // Check capacity
         {
-            let tasks = self.active_tasks.lock().unwrap();
+            let tasks = self.active_tasks.lock().expect("lock should not be poisoned");
             if tasks.len() >= self.config.max_concurrent_tasks {
                 return Err(MinimalEngineError::SystemError(
                     "Maximum concurrent tasks reached".to_string(),
@@ -253,7 +253,7 @@ impl MinimalExecutionEngine {
 
         // Add to active tasks
         {
-            let mut tasks = self.active_tasks.lock().unwrap();
+            let mut tasks = self.active_tasks.lock().expect("lock should not be poisoned");
             tasks.insert(task_id.clone(), task);
         }
 
@@ -264,7 +264,7 @@ impl MinimalExecutionEngine {
     pub fn execute_task(&self, task_id: &str) -> Result<TaskResult, MinimalEngineError> {
         // Get and update task
         let task = {
-            let mut tasks = self.active_tasks.lock().unwrap();
+            let mut tasks = self.active_tasks.lock().expect("lock should not be poisoned");
             match tasks.get_mut(task_id) {
                 Some(task) => {
                     if task.status != TaskStatus::Pending {
@@ -289,7 +289,7 @@ impl MinimalExecutionEngine {
 
         // Update task status
         {
-            let mut tasks = self.active_tasks.lock().unwrap();
+            let mut tasks = self.active_tasks.lock().expect("lock should not be poisoned");
             if let Some(active_task) = tasks.get_mut(task_id) {
                 active_task.status = if result.success {
                     TaskStatus::Completed
@@ -302,7 +302,7 @@ impl MinimalExecutionEngine {
 
         // Update statistics
         {
-            let mut stats = self.stats.lock().unwrap();
+            let mut stats = self.stats.lock().expect("lock should not be poisoned");
             stats.tasks_processed += 1;
             stats.last_updated = SystemTime::now();
 
@@ -332,13 +332,13 @@ impl MinimalExecutionEngine {
 
     /// Get current engine state
     pub fn get_state(&self) -> EngineState {
-        *self.state.lock().unwrap()
+        *self.state.lock().expect("lock should not be poisoned")
     }
 
     /// Get current statistics
     pub fn get_statistics(&self) -> MinimalStatistics {
-        let mut stats = self.stats.lock().unwrap();
-        stats.active_task_count = self.active_tasks.lock().unwrap().len();
+        let mut stats = self.stats.lock().expect("lock should not be poisoned");
+        stats.active_task_count = self.active_tasks.lock().expect("lock should not be poisoned").len();
         stats.clone()
     }
 
@@ -346,7 +346,7 @@ impl MinimalExecutionEngine {
     pub fn get_active_tasks(&self) -> Vec<MinimalTask> {
         self.active_tasks
             .lock()
-            .unwrap()
+            .expect("active_tasks lock should not be poisoned")
             .values()
             .cloned()
             .collect()
@@ -354,12 +354,12 @@ impl MinimalExecutionEngine {
 
     /// Get task by ID
     pub fn get_task(&self, task_id: &str) -> Option<MinimalTask> {
-        self.active_tasks.lock().unwrap().get(task_id).cloned()
+        self.active_tasks.lock().expect("lock should not be poisoned").get(task_id).cloned()
     }
 
     /// Cancel a task
     pub fn cancel_task(&self, task_id: &str) -> Result<(), MinimalEngineError> {
-        let mut tasks = self.active_tasks.lock().unwrap();
+        let mut tasks = self.active_tasks.lock().expect("lock should not be poisoned");
         match tasks.get_mut(task_id) {
             Some(task) => {
                 if task.status == TaskStatus::Pending || task.status == TaskStatus::Running {

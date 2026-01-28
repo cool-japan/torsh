@@ -824,7 +824,11 @@ fn compute_average_precision(
 
     // Sort predictions by confidence (descending)
     let mut sorted_predictions = predictions.to_vec();
-    sorted_predictions.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap());
+    sorted_predictions.sort_by(|a, b| {
+        b.confidence
+            .partial_cmp(&a.confidence)
+            .expect("comparison should succeed")
+    });
 
     let mut tp = vec![false; sorted_predictions.len()];
     let mut gt_matched = vec![false; ground_truth.len()];

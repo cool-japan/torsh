@@ -402,22 +402,38 @@ impl JitCompiler {
 
         // Check if we have a compiled version
         {
-            let kernels = self.kernels.read().unwrap();
+            let kernels = self.kernels.read().expect("lock should not be poisoned");
             if let Some(jit_kernel) = kernels.get(&spec_hash) {
-                self.stats.lock().unwrap().cache_hits += 1;
+                self.stats
+                    .lock()
+                    .expect("lock should not be poisoned")
+                    .cache_hits += 1;
                 return Ok(Arc::new(jit_kernel.clone()));
             }
         }
 
-        self.stats.lock().unwrap().cache_misses += 1;
+        self.stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .cache_misses += 1;
 
         // Check code cache if enabled
         if let Some(ref cache) = self.code_cache {
-            if let Some(cached_kernel) = cache.lock().unwrap().get(&spec_hash) {
+            if let Some(cached_kernel) = cache
+                .lock()
+                .expect("lock should not be poisoned")
+                .get(&spec_hash)
+            {
                 let jit_kernel = JitKernel::new(cached_kernel, self.config.initial_tier);
                 let result = Arc::new(jit_kernel.clone());
-                self.kernels.write().unwrap().insert(spec_hash, jit_kernel);
-                self.stats.lock().unwrap().cache_hits += 1;
+                self.kernels
+                    .write()
+                    .expect("lock should not be poisoned")
+                    .insert(spec_hash, jit_kernel);
+                self.stats
+                    .lock()
+                    .expect("lock should not be poisoned")
+                    .cache_hits += 1;
                 return Ok(result);
             }
         }
@@ -429,19 +445,28 @@ impl JitCompiler {
         let kernel = self
             .kernel_generator
             .lock()
-            .unwrap()
+            .expect("kernel_generator lock should not be poisoned")
             .generate_kernel(optimized_spec)?;
 
         let jit_kernel = JitKernel::new(kernel.clone(), tier);
 
         // Store in code cache if enabled
         if let Some(ref cache) = self.code_cache {
-            cache.lock().unwrap().insert(spec_hash.clone(), kernel);
+            cache
+                .lock()
+                .expect("lock should not be poisoned")
+                .insert(spec_hash.clone(), kernel);
         }
 
         let result = Arc::new(jit_kernel.clone());
-        self.kernels.write().unwrap().insert(spec_hash, jit_kernel);
-        self.stats.lock().unwrap().compilations += 1;
+        self.kernels
+            .write()
+            .expect("lock should not be poisoned")
+            .insert(spec_hash, jit_kernel);
+        self.stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .compilations += 1;
 
         Ok(result)
     }
@@ -453,7 +478,7 @@ impl JitCompiler {
         execution_time: Duration,
         input_sizes: &[usize],
     ) -> BackendResult<()> {
-        let mut kernels = self.kernels.write().unwrap();
+        let mut kernels = self.kernels.write().expect("lock should not be poisoned");
 
         if let Some(jit_kernel) = kernels.get_mut(spec_hash) {
             jit_kernel
@@ -466,7 +491,10 @@ impl JitCompiler {
 
                 // Only recompile if benefit is positive and significant
                 if benefit > 0.01 {
-                    self.stats.lock().unwrap().recompilations += 1;
+                    self.stats
+                        .lock()
+                        .expect("lock should not be poisoned")
+                        .recompilations += 1;
                     // Trigger async recompilation (drop lock first to avoid deadlock)
                     // In production, this would spawn a background task
                 }
@@ -538,23 +566,29 @@ impl JitCompiler {
 
     /// Get compilation statistics
     pub fn statistics(&self) -> JitStatistics {
-        self.stats.lock().unwrap().clone()
+        self.stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Clear all compiled kernels and caches
     pub fn clear(&self) {
-        self.kernels.write().unwrap().clear();
+        self.kernels
+            .write()
+            .expect("lock should not be poisoned")
+            .clear();
         if let Some(ref cache) = self.code_cache {
-            cache.lock().unwrap().clear();
+            cache.lock().expect("lock should not be poisoned").clear();
         }
-        *self.stats.lock().unwrap() = JitStatistics::default();
+        *self.stats.lock().expect("lock should not be poisoned") = JitStatistics::default();
     }
 
     /// Get current cache size in bytes
     pub fn cache_size_bytes(&self) -> usize {
         self.kernels
             .read()
-            .unwrap()
+            .expect("kernels RwLock should not be poisoned")
             .values()
             .map(|k| k.size_bytes)
             .sum()
@@ -564,7 +598,7 @@ impl JitCompiler {
     pub fn evict_if_needed(&self) {
         let cache_size = self.cache_size_bytes();
         if cache_size > self.config.max_cache_size {
-            let mut kernels = self.kernels.write().unwrap();
+            let mut kernels = self.kernels.write().expect("lock should not be poisoned");
 
             // Sort by last used time and evict oldest
             let mut kernel_ages: Vec<_> = kernels
@@ -580,7 +614,10 @@ impl JitCompiler {
                 kernels.remove(key);
             }
 
-            self.stats.lock().unwrap().evictions += evict_count;
+            self.stats
+                .lock()
+                .expect("lock should not be poisoned")
+                .evictions += evict_count;
         }
     }
 }

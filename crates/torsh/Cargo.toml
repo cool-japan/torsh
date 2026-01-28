@@ -85,8 +85,8 @@ rocm = ["backend", "torsh-backend/rocm"]
 serialize = ["torsh-core/serialize", "torsh-tensor/serialize"]
 serialize-hdf5 = ["serialize", "torsh-tensor/serialize-hdf5"]
 serialize-arrow = ["serialize", "torsh-tensor/serialize-arrow"]
-serialize-onnx = ["serialize", "torsh-tensor/serialize-onnx"]
-serialize-all = ["serialize", "serialize-hdf5", "serialize-arrow", "serialize-onnx"]
+serialize-onnx = ["serialize", "torsh-tensor/serialize-onnx"]  # DEPRECATED: Stub feature only, ONNX serialization disabled due to security issues
+serialize-all = ["serialize", "serialize-hdf5", "serialize-arrow"]  # Note: serialize-onnx excluded from 'all' due to security issues
 
 # Performance features - optimization flags
 simd = ["torsh-core/simd", "torsh-tensor/simd"]

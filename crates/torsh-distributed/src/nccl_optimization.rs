@@ -7,11 +7,11 @@
 //! - Performance profiling and bandwidth monitoring
 //! - Communication/computation overlap
 
-use crate::backend::{Backend, BackendType, ReduceOp};
+use crate::backend::ReduceOp;
 use crate::{ProcessGroup, TorshDistributedError, TorshResult};
-use log::{debug, info, warn};
+use log::info;
 use std::collections::{HashMap, VecDeque};
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 use torsh_core::dtype::FloatElement;
@@ -126,6 +126,7 @@ impl CudaStream {
 pub struct CudaEvent {
     event_id: u64,
     stream_id: u64,
+    #[allow(dead_code)]
     device_id: i32,
     recorded_at: Instant,
 }
@@ -172,6 +173,7 @@ impl CudaEvent {
 
 /// GPU memory pool for efficient tensor allocations
 pub struct GpuMemoryPool {
+    #[allow(dead_code)]
     device_id: i32,
     free_blocks: RwLock<HashMap<usize, VecDeque<GpuMemoryBlock>>>,
     allocated_blocks: RwLock<HashMap<u64, GpuMemoryBlock>>,
@@ -180,10 +182,12 @@ pub struct GpuMemoryPool {
 }
 
 #[derive(Debug, Clone)]
-struct GpuMemoryBlock {
+pub struct GpuMemoryBlock {
     block_id: u64,
     size: usize,
+    #[allow(dead_code)]
     device_id: i32,
+    #[allow(dead_code)]
     allocated_at: Instant,
 }
 
@@ -202,10 +206,16 @@ impl GpuMemoryPool {
     pub fn allocate(&self, size: usize) -> TorshResult<GpuMemoryBlock> {
         // Try to reuse existing block
         {
-            let mut free_blocks = self.free_blocks.write().unwrap();
+            let mut free_blocks = self
+                .free_blocks
+                .write()
+                .expect("lock should not be poisoned");
             if let Some(blocks) = free_blocks.get_mut(&size) {
                 if let Some(block) = blocks.pop_front() {
-                    let mut allocated_blocks = self.allocated_blocks.write().unwrap();
+                    let mut allocated_blocks = self
+                        .allocated_blocks
+                        .write()
+                        .expect("lock should not be poisoned");
                     allocated_blocks.insert(block.block_id, block.clone());
                     return Ok(block);
                 }
@@ -231,11 +241,13 @@ impl GpuMemoryPool {
             return Err(TorshDistributedError::backend_error(
                 "gpu_memory",
                 format!("Allocation size {} exceeds available GPU memory", size),
-            )
-            .into());
+            ));
         }
 
-        let mut allocated_blocks = self.allocated_blocks.write().unwrap();
+        let mut allocated_blocks = self
+            .allocated_blocks
+            .write()
+            .expect("lock should not be poisoned");
         allocated_blocks.insert(block.block_id, block.clone());
 
         // Update statistics
@@ -253,17 +265,20 @@ impl GpuMemoryPool {
     /// Deallocate GPU memory block (return to pool)
     pub fn deallocate(&self, block: GpuMemoryBlock) -> TorshResult<()> {
         {
-            let mut allocated_blocks = self.allocated_blocks.write().unwrap();
+            let mut allocated_blocks = self
+                .allocated_blocks
+                .write()
+                .expect("lock should not be poisoned");
             allocated_blocks.remove(&block.block_id);
         }
 
         let block_size = block.size;
         {
-            let mut free_blocks = self.free_blocks.write().unwrap();
-            free_blocks
-                .entry(block.size)
-                .or_insert_with(VecDeque::new)
-                .push_back(block);
+            let mut free_blocks = self
+                .free_blocks
+                .write()
+                .expect("lock should not be poisoned");
+            free_blocks.entry(block.size).or_default().push_back(block);
         }
 
         self.total_allocated
@@ -274,8 +289,14 @@ impl GpuMemoryPool {
 
     /// Get memory usage statistics
     pub fn get_stats(&self) -> MemoryPoolStats {
-        let allocated_blocks = self.allocated_blocks.read().unwrap();
-        let free_blocks = self.free_blocks.read().unwrap();
+        let allocated_blocks = self
+            .allocated_blocks
+            .read()
+            .expect("lock should not be poisoned");
+        let free_blocks = self
+            .free_blocks
+            .read()
+            .expect("lock should not be poisoned");
 
         let active_blocks = allocated_blocks.len();
         let free_block_count: usize = free_blocks.values().map(|v| v.len()).sum();
@@ -305,27 +326,36 @@ pub struct MemoryPoolStats {
 
 /// Advanced NCCL operation scheduler with stream management
 pub struct NcclScheduler {
+    #[allow(dead_code)]
     device_id: i32,
+    #[allow(dead_code)]
     compute_stream: CudaStream,
     comm_streams: Vec<CudaStream>,
     memory_pool: Arc<GpuMemoryPool>,
     pending_ops: Mutex<VecDeque<ScheduledNcclOp>>,
     performance_stats: Arc<Mutex<NcclPerformanceStats>>,
+    #[allow(dead_code)]
     overlap_enabled: bool,
 }
 
 #[derive(Debug)]
 struct ScheduledNcclOp {
+    #[allow(dead_code)]
     op_id: u64,
+    #[allow(dead_code)]
     op_type: NcclOpType,
+    #[allow(dead_code)]
     tensor_size: usize,
+    #[allow(dead_code)]
     stream_id: u64,
+    #[allow(dead_code)]
     scheduled_at: Instant,
     priority: SchedulePriority,
 }
 
 #[derive(Debug, Clone, Copy)]
-enum NcclOpType {
+#[allow(dead_code)]
+pub enum NcclOpType {
     AllReduce(ReduceOp),
     Broadcast { src_rank: u32 },
     ReduceScatter(ReduceOp),
@@ -333,7 +363,8 @@ enum NcclOpType {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-enum SchedulePriority {
+#[allow(dead_code)]
+pub enum SchedulePriority {
     Low = 0,
     Normal = 1,
     High = 2,
@@ -392,7 +423,7 @@ impl NcclScheduler {
 
         // Execute optimized all-reduce
         let result = self
-            .execute_optimized_all_reduce(tensor, op, group, &stream)
+            .execute_optimized_all_reduce(tensor, op, group, stream)
             .await;
 
         // Record performance statistics
@@ -426,7 +457,7 @@ impl NcclScheduler {
             .await;
 
         let result = self
-            .execute_optimized_broadcast(tensor, src_rank, group, &stream)
+            .execute_optimized_broadcast(tensor, src_rank, group, stream)
             .await;
 
         let duration = start_time.elapsed();
@@ -466,7 +497,7 @@ impl NcclScheduler {
         // Execute operations in fused batches
         for batch in sorted_ops.chunks(8) {
             // Max 8 operations per fusion
-            self.execute_fused_batch(batch, group, &stream).await?;
+            self.execute_fused_batch(batch, group, stream).await?;
         }
 
         // Record fusion performance
@@ -474,7 +505,10 @@ impl NcclScheduler {
         let total_size: usize = sorted_ops.iter().map(|op| op.tensor_size).sum();
 
         {
-            let mut stats = self.performance_stats.lock().unwrap();
+            let mut stats = self
+                .performance_stats
+                .lock()
+                .expect("lock should not be poisoned");
             stats.record_fusion(sorted_ops.len(), total_size, duration);
         }
 
@@ -528,7 +562,10 @@ impl NcclScheduler {
             priority,
         };
 
-        let mut pending_ops = self.pending_ops.lock().unwrap();
+        let mut pending_ops = self
+            .pending_ops
+            .lock()
+            .expect("lock should not be poisoned");
 
         // Insert based on priority (higher priority operations go first)
         let insert_pos = pending_ops
@@ -569,7 +606,7 @@ impl NcclScheduler {
     async fn execute_ring_all_reduce<T: FloatElement>(
         &self,
         tensor: &mut Tensor<T>,
-        op: ReduceOp,
+        _op: ReduceOp,
         _group: &ProcessGroup,
         stream: &CudaStream,
     ) -> TorshResult<()> {
@@ -619,7 +656,7 @@ impl NcclScheduler {
     async fn execute_tree_all_reduce<T: FloatElement>(
         &self,
         tensor: &mut Tensor<T>,
-        op: ReduceOp,
+        _op: ReduceOp,
         _group: &ProcessGroup,
         stream: &CudaStream,
     ) -> TorshResult<()> {
@@ -681,7 +718,7 @@ impl NcclScheduler {
     async fn execute_hierarchical_all_reduce<T: FloatElement>(
         &self,
         tensor: &mut Tensor<T>,
-        op: ReduceOp,
+        _op: ReduceOp,
         _group: &ProcessGroup,
         stream: &CudaStream,
     ) -> TorshResult<()> {
@@ -769,7 +806,7 @@ impl NcclScheduler {
         if tensor_size_bytes > 64 * 1024 {
             // Pipeline broadcast: split tensor into chunks and overlap transfers
             let num_chunks = 8;
-            let chunk_size = (tensor.numel() + num_chunks - 1) / num_chunks;
+            let chunk_size = tensor.numel().div_ceil(num_chunks);
             let chunk_size_bytes = chunk_size * std::mem::size_of::<T>();
 
             // Binary tree broadcast with pipelining
@@ -966,13 +1003,19 @@ impl NcclScheduler {
         tensor_size: usize,
         duration: Duration,
     ) {
-        let mut stats = self.performance_stats.lock().unwrap();
+        let mut stats = self
+            .performance_stats
+            .lock()
+            .expect("lock should not be poisoned");
         stats.record_operation(op_id, op_type, tensor_size, duration);
     }
 
     /// Get comprehensive performance statistics
     pub fn get_performance_stats(&self) -> NcclPerformanceStats {
-        self.performance_stats.lock().unwrap().clone()
+        self.performance_stats
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Get memory pool statistics
@@ -1173,10 +1216,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_scheduled_all_reduce() {
-        let pg = init_process_group(BackendType::Nccl, 0, 1, "127.0.0.1", 29500).unwrap();
+        let pg = init_process_group(BackendType::Nccl, 0, 1, "127.0.0.1", 29500)
+            .await
+            .unwrap();
         let scheduler = NcclScheduler::new(0, 2);
 
-        let mut tensor: Tensor<f32> = Tensor::from_vec(vec![1.0; 1000], &[1000]);
+        let mut tensor: Tensor<f32> = Tensor::from_vec(vec![1.0; 1000], &[1000]).unwrap();
         let result = scheduler
             .schedule_all_reduce(&mut tensor, ReduceOp::Sum, &pg, SchedulePriority::High)
             .await;
@@ -1189,7 +1234,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_fused_operations() {
-        let pg = init_process_group(BackendType::Nccl, 0, 1, "127.0.0.1", 29500).unwrap();
+        let pg = init_process_group(BackendType::Nccl, 0, 1, "127.0.0.1", 29500)
+            .await
+            .unwrap();
         let scheduler = NcclScheduler::new(0, 2);
 
         let fused_ops = vec![

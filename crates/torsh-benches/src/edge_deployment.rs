@@ -4,7 +4,7 @@
 //! including mobile inference, embedded systems, and resource-constrained environments.
 
 use crate::{BenchConfig, BenchRunner, Benchmarkable};
-use criterion::black_box;
+use std::hint::black_box;
 use std::time::{Duration, Instant};
 use torsh_core::dtype::DType;
 use torsh_tensor::{creation::*, Tensor};

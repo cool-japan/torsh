@@ -328,47 +328,47 @@ impl IntegratedOptimizationExecutionEngine {
     pub async fn initialize(&self) -> Result<(), IntegratedExecutionError> {
         // Update engine state
         {
-            let mut state = self.engine_state.write().unwrap();
+            let mut state = self.engine_state.write().expect("lock should not be poisoned");
             state.status = EngineStatus::Initializing;
         }
 
         // Initialize hardware management
         {
-            let hardware_manager = self.hardware_manager.lock().unwrap();
+            let hardware_manager = self.hardware_manager.lock().expect("lock should not be poisoned");
             hardware_manager.initialize_hardware()
                 .map_err(|e| IntegratedExecutionError::HardwareInitializationError(format!("{:?}", e)))?;
         }
 
         // Initialize security system
         {
-            let security_manager = self.security_manager.lock().unwrap();
+            let security_manager = self.security_manager.lock().expect("lock should not be poisoned");
             // Security initialization would happen here
         }
 
         // Start performance monitoring
         {
-            let performance_monitor = self.performance_monitor.lock().unwrap();
+            let performance_monitor = self.performance_monitor.lock().expect("lock should not be poisoned");
             performance_monitor.start_monitoring()
                 .map_err(|e| IntegratedExecutionError::PerformanceMonitoringError(format!("{:?}", e)))?;
         }
 
         // Start load balancing
         {
-            let load_balancer = self.load_balancer.lock().unwrap();
+            let load_balancer = self.load_balancer.lock().expect("lock should not be poisoned");
             load_balancer.start_load_balancing()
                 .map_err(|e| IntegratedExecutionError::LoadBalancingError(format!("{:?}", e)))?;
         }
 
         // Initialize task management
         {
-            let task_manager = self.task_manager.lock().unwrap();
+            let task_manager = self.task_manager.lock().expect("lock should not be poisoned");
             task_manager.initialize()
                 .map_err(|e| IntegratedExecutionError::TaskManagementError(format!("{:?}", e)))?;
         }
 
         // Update engine state
         {
-            let mut state = self.engine_state.write().unwrap();
+            let mut state = self.engine_state.write().expect("lock should not be poisoned");
             state.status = EngineStatus::Running;
             state.initialized_at = Some(SystemTime::now());
             state.last_activity = SystemTime::now();
@@ -381,7 +381,7 @@ impl IntegratedOptimizationExecutionEngine {
     pub async fn execute_optimization(&self, task: OptimizationTask) -> Result<ExecutionResult, IntegratedExecutionError> {
         // Convert legacy task to new task format
         let new_task_id = {
-            let mut task_manager = self.task_manager.lock().unwrap();
+            let mut task_manager = self.task_manager.lock().expect("lock should not be poisoned");
             task_manager.submit_task(
                 task.task_type.clone(),
                 task.parameters.clone(),
@@ -392,7 +392,7 @@ impl IntegratedOptimizationExecutionEngine {
         // Allocate resources
         let resource_requirements = self.determine_resource_requirements(&task)?;
         let resource_allocation = {
-            let mut resource_manager = self.resource_manager.lock().unwrap();
+            let mut resource_manager = self.resource_manager.lock().expect("lock should not be poisoned");
             resource_manager.allocate_resources(resource_requirements)
                 .map_err(|e| IntegratedExecutionError::ResourceAllocationError(format!("{:?}", e)))?
         };
@@ -410,7 +410,7 @@ impl IntegratedOptimizationExecutionEngine {
         };
 
         {
-            let mut active_opts = self.active_optimizations.write().unwrap();
+            let mut active_opts = self.active_optimizations.write().expect("lock should not be poisoned");
             active_opts.insert(optimization_id.clone(), active_optimization);
         }
 
@@ -419,7 +419,7 @@ impl IntegratedOptimizationExecutionEngine {
 
         // Update statistics
         {
-            let mut stats = self.statistics.lock().unwrap();
+            let mut stats = self.statistics.lock().expect("lock should not be poisoned");
             stats.total_tasks_executed += 1;
             if execution_result.quality_score > 0.7 {
                 stats.successful_tasks += 1;
@@ -430,7 +430,7 @@ impl IntegratedOptimizationExecutionEngine {
 
         // Clean up active optimization
         {
-            let mut active_opts = self.active_optimizations.write().unwrap();
+            let mut active_opts = self.active_optimizations.write().expect("lock should not be poisoned");
             if let Some(mut opt) = active_opts.remove(&optimization_id) {
                 opt.status = OptimizationStatus::Completed;
                 opt.progress = 1.0;
@@ -439,7 +439,7 @@ impl IntegratedOptimizationExecutionEngine {
 
         // Release resources
         {
-            let mut resource_manager = self.resource_manager.lock().unwrap();
+            let mut resource_manager = self.resource_manager.lock().expect("lock should not be poisoned");
             resource_manager.release_resources(&resource_allocation)
                 .map_err(|e| IntegratedExecutionError::ResourceAllocationError(format!("{:?}", e)))?;
         }
@@ -449,27 +449,27 @@ impl IntegratedOptimizationExecutionEngine {
 
     /// Get current system status
     pub fn get_system_status(&self) -> IntegratedSystemStatus {
-        let engine_state = self.engine_state.read().unwrap();
-        let statistics = self.statistics.lock().unwrap();
+        let engine_state = self.engine_state.read().expect("lock should not be poisoned");
+        let statistics = self.statistics.lock().expect("lock should not be poisoned");
 
         // Get component status
         let hardware_health = {
-            let hardware_manager = self.hardware_manager.lock().unwrap();
+            let hardware_manager = self.hardware_manager.lock().expect("lock should not be poisoned");
             hardware_manager.get_hardware_statistics()
         };
 
         let performance_metrics = {
-            let performance_monitor = self.performance_monitor.lock().unwrap();
+            let performance_monitor = self.performance_monitor.lock().expect("lock should not be poisoned");
             performance_monitor.get_performance_statistics()
         };
 
         let security_metrics = {
-            let security_manager = self.security_manager.lock().unwrap();
+            let security_manager = self.security_manager.lock().expect("lock should not be poisoned");
             security_manager.get_security_metrics()
         };
 
         let load_balancing_stats = {
-            let load_balancer = self.load_balancer.lock().unwrap();
+            let load_balancer = self.load_balancer.lock().expect("lock should not be poisoned");
             load_balancer.get_statistics()
         };
 
@@ -495,21 +495,21 @@ impl IntegratedOptimizationExecutionEngine {
     pub async fn optimize_system_performance(&self) -> Result<OptimizationReport, IntegratedExecutionError> {
         // Get current performance status
         let bottlenecks = {
-            let performance_monitor = self.performance_monitor.lock().unwrap();
+            let performance_monitor = self.performance_monitor.lock().expect("lock should not be poisoned");
             performance_monitor.detect_bottlenecks()
                 .map_err(|e| IntegratedExecutionError::PerformanceMonitoringError(format!("{:?}", e)))?
         };
 
         // Get optimization recommendations
         let recommendations = {
-            let performance_monitor = self.performance_monitor.lock().unwrap();
+            let performance_monitor = self.performance_monitor.lock().expect("lock should not be poisoned");
             performance_monitor.get_optimization_recommendations()
                 .map_err(|e| IntegratedExecutionError::PerformanceMonitoringError(format!("{:?}", e)))?
         };
 
         // Optimize load balancing
         let new_strategy = {
-            let load_balancer = self.load_balancer.lock().unwrap();
+            let load_balancer = self.load_balancer.lock().expect("lock should not be poisoned");
             load_balancer.adapt_strategy()
                 .map_err(|e| IntegratedExecutionError::LoadBalancingError(format!("{:?}", e)))?
         };

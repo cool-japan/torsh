@@ -730,7 +730,7 @@ impl VisualizationGenerator {
 
             // Calculate statistics for box plot
             let mut times: Vec<f64> = group.iter().map(|r| r.mean_time_ns / 1_000_000.0).collect();
-            times.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            times.sort_by(|a, b| a.partial_cmp(b).expect("NaN values in benchmark times"));
 
             let min = times[0];
             let max = times[times.len() - 1];

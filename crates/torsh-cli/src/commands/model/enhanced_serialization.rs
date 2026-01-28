@@ -12,7 +12,7 @@ use std::path::Path;
 use tracing::{debug, info, warn};
 
 // ToRSh integration
-use torsh_core::device::DeviceType;
+use torsh::core::device::DeviceType;
 
 use super::tensor_integration::ModelTensor;
 use super::types::{DType, Device, LayerInfo, ModelMetadata, TensorInfo, TorshModel};

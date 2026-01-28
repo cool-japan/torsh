@@ -237,10 +237,10 @@ impl<T: TensorElement + FloatElement> Tensor<T> {
     /// ```rust
     /// # use torsh_tensor::Tensor;
     /// # use torsh_core::device::DeviceType;
-    /// let clean = Tensor::from_data(vec![1.0, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+    /// let clean = Tensor::from_data(vec![1.0, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("tensor creation should succeed");
     /// assert!(!clean.has_nan_inf());
     ///
-    /// let dirty = Tensor::from_data(vec![1.0, f32::NAN, 3.0], vec![3], DeviceType::Cpu).unwrap();
+    /// let dirty = Tensor::from_data(vec![1.0, f32::NAN, 3.0], vec![3], DeviceType::Cpu).expect("tensor creation should succeed");
     /// assert!(dirty.has_nan_inf());
     /// ```
     pub fn has_nan_inf(&self) -> bool {
@@ -277,7 +277,7 @@ impl<T: TensorElement + FloatElement> Tensor<T> {
     ///     vec![1.0, f32::NAN, f32::INFINITY, -f32::INFINITY],
     ///     vec![4],
     ///     DeviceType::Cpu
-    /// ).unwrap();
+    /// ).expect("tensor creation should succeed");
     ///
     /// let config = NanInfConfig::detailed();
     /// let report = tensor.check_nan_inf_with_config(&config);
@@ -342,7 +342,8 @@ impl<T: TensorElement + FloatElement> Tensor<T> {
                     flat_index: flat_idx,
                     coordinates,
                     value: val_f64,
-                    issue_type: issue_type.unwrap(),
+                    issue_type: issue_type
+                        .expect("issue_type should be Some when is_issue is true"),
                 });
             }
 
@@ -369,11 +370,11 @@ impl<T: TensorElement + FloatElement> Tensor<T> {
     /// ```rust
     /// # use torsh_tensor::Tensor;
     /// # use torsh_core::device::DeviceType;
-    /// let tensor = Tensor::from_data(vec![1.0, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+    /// let tensor = Tensor::from_data(vec![1.0, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("tensor creation should succeed");
     /// tensor.assert_finite(); // OK
     ///
     /// // This would panic:
-    /// // let bad = Tensor::from_data(vec![1.0, f32::NAN], vec![2], DeviceType::Cpu).unwrap();
+    /// // let bad = Tensor::from_data(vec![1.0, f32::NAN], vec![2], DeviceType::Cpu).expect("tensor creation should succeed");
     /// // bad.assert_finite(); // Panics!
     /// ```
     pub fn assert_finite(&self) {

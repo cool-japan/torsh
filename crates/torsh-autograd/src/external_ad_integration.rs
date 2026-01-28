@@ -252,7 +252,7 @@ impl AutogradBridge {
         &self,
         library: T,
     ) -> Result<(), TorshError> {
-        let mut registry = self.registry.lock().unwrap();
+        let mut registry = self.registry.lock().expect("lock should not be poisoned");
         registry.register(library)
     }
 
@@ -262,7 +262,7 @@ impl AutogradBridge {
         graph: ComputationGraph,
         inputs: Vec<&dyn AutogradTensor<T>>,
     ) -> Result<Vec<Box<dyn AutogradTensor<T>>>, TorshError> {
-        let registry = self.registry.lock().unwrap();
+        let registry = self.registry.lock().expect("lock should not be poisoned");
 
         let library = registry
             .get_active_library()
@@ -301,7 +301,7 @@ impl AutogradBridge {
 
     /// Get summary of available external libraries
     pub fn library_summary(&self) -> String {
-        let registry = self.registry.lock().unwrap();
+        let registry = self.registry.lock().expect("lock should not be poisoned");
         let libraries = registry.list_libraries();
         let capabilities = registry.get_all_capabilities();
 

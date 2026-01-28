@@ -831,7 +831,7 @@ impl MetricAggregator {
         }
 
         let mut sorted_values = self.values.clone();
-        sorted_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted_values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         self.stats.count = self.values.len();
         self.stats.min = sorted_values[0];

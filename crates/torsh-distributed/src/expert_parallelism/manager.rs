@@ -8,7 +8,7 @@ use crate::expert_parallelism::{
 use crate::ProcessGroup;
 use crate::TorshResult;
 use log::{debug, info};
-use scirs2_core::random::{thread_rng, Rng};
+use scirs2_core::random::thread_rng;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio;

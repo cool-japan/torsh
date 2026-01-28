@@ -4,7 +4,7 @@
 //! including 1D convolution, 2D convolution, and graph convolution layers.
 
 use crate::{CooTensor, CsrTensor, SparseTensor, TorshResult};
-use scirs2_core::random::Rng;
+
 use torsh_core::{Shape, TorshError};
 use torsh_tensor::{
     creation::{randn, zeros},

@@ -557,7 +557,7 @@ pub fn flash_attention(
             let block_output = block_outputs
                 .into_iter()
                 .reduce(|acc, x| acc.add_op(&x).unwrap_or(acc))
-                .unwrap();
+                .expect("block_outputs is non-empty so reduce should return Some");
             outputs.push(block_output);
         }
     }

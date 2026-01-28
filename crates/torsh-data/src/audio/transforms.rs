@@ -237,7 +237,7 @@ pub mod transforms {
             // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
             // Rng trait is needed for gen_range() method
             #[allow(unused_imports)]
-            use scirs2_core::random::Random;
+            use scirs2_core::random::{Random, Rng};
             let mut rng = Random::seed(42);
 
             let noisy_samples: Vec<f32> = input

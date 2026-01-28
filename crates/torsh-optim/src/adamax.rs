@@ -130,7 +130,10 @@ impl Optimizer for AdaMax {
                     self.state
                         .insert(param_ptr, AdaMaxState { exp_avg, exp_inf });
                 }
-                let state = self.state.get_mut(&param_ptr).unwrap();
+                let state = self
+                    .state
+                    .get_mut(&param_ptr)
+                    .expect("state should exist after insert");
 
                 // Apply weight decay
                 let mut grad_with_decay = grad.clone();

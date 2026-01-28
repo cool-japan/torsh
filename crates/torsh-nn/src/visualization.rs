@@ -194,8 +194,13 @@ impl NetworkGraph {
 
         // Build adjacency list and calculate in-degrees
         for edge in &self.edges {
-            adj_list.get_mut(&edge.from).unwrap().push(edge.to.clone());
-            *in_degree.get_mut(&edge.to).unwrap() += 1;
+            adj_list
+                .get_mut(&edge.from)
+                .expect("edge.from should exist in adj_list")
+                .push(edge.to.clone());
+            *in_degree
+                .get_mut(&edge.to)
+                .expect("edge.to should exist in in_degree") += 1;
         }
 
         // Kahn's algorithm
@@ -214,7 +219,9 @@ impl NetworkGraph {
 
             if let Some(neighbors) = adj_list.get(&node_id) {
                 for neighbor in neighbors {
-                    let degree = in_degree.get_mut(neighbor).unwrap();
+                    let degree = in_degree
+                        .get_mut(neighbor)
+                        .expect("neighbor should exist in in_degree");
                     *degree -= 1;
                     if *degree == 0 {
                         queue.push(neighbor.clone());

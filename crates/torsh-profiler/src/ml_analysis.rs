@@ -11,7 +11,7 @@ use torsh_core::TorshError;
 
 // ✅ SciRS2 Enhanced Imports - Following SciRS2 Policy
 // Using available SciRS2-core features for enhanced performance analysis
-use scirs2_core::random::Random;
+use scirs2_core::random::{Random, Rng};
 
 /// Configuration for ML-based analysis
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -91,7 +91,10 @@ impl StatisticalFeatures {
         let std_dev = variance.sqrt();
 
         let mut sorted = values.to_vec();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted.sort_by(|a, b| {
+            a.partial_cmp(b)
+                .expect("values should be comparable (no NaN values)")
+        });
 
         let min = sorted[0];
         let max = sorted[sorted.len() - 1];

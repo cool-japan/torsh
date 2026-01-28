@@ -1114,7 +1114,7 @@ impl BatchProcessor {
                 chunk
                     .iter()
                     .map(|text| {
-                        let mut proc = processor.lock().unwrap();
+                        let mut proc = processor.lock().expect("lock should not be poisoned");
                         proc(text)
                     })
                     .collect::<Result<Vec<T>>>()

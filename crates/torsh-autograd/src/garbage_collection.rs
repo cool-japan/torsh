@@ -246,7 +246,8 @@ impl<T: FloatElement + Send + Sync + 'static> GradientGarbageCollector<T> {
                         }
                         GcTrigger::MemoryPressure => {
                             // Simplified memory pressure check
-                            let current_count = gradients.read().unwrap().len();
+                            let current_count =
+                                gradients.read().expect("lock should not be poisoned").len();
                             current_count > 1000 // Arbitrary threshold
                         }
                         GcTrigger::Adaptive => {
@@ -286,7 +287,7 @@ impl<T: FloatElement + Send + Sync + 'static> GradientGarbageCollector<T> {
 
         // Collect unreferenced gradients
         let to_remove: Vec<GradientId> = {
-            let gradients_read = gradients.read().unwrap();
+            let gradients_read = gradients.read().expect("lock should not be poisoned");
             gradients_read
                 .iter()
                 .filter_map(|(id, grad_ref)| {
@@ -309,7 +310,7 @@ impl<T: FloatElement + Send + Sync + 'static> GradientGarbageCollector<T> {
 
         // Remove collected gradients
         {
-            let mut gradients_write = gradients.write().unwrap();
+            let mut gradients_write = gradients.write().expect("lock should not be poisoned");
             for id in to_remove {
                 if let Some(grad_ref) = gradients_write.remove(&id) {
                     collected_count += 1;
@@ -320,13 +321,14 @@ impl<T: FloatElement + Send + Sync + 'static> GradientGarbageCollector<T> {
 
         // Update statistics
         {
-            let mut stats_write = stats.write().unwrap();
+            let mut stats_write = stats.write().expect("lock should not be poisoned");
             stats_write.total_gc_runs += 1;
             stats_write.total_gradients_collected += collected_count;
             stats_write.total_memory_freed += freed_memory;
             stats_write.last_gc_time = Some(start_time);
             stats_write.last_gc_memory_freed = freed_memory;
-            stats_write.current_gradient_count = gradients.read().unwrap().len();
+            stats_write.current_gradient_count =
+                gradients.read().expect("lock should not be poisoned").len();
 
             // Update average GC time
             let gc_time_ms = start_time.elapsed().as_millis() as f64;
@@ -376,13 +378,13 @@ impl<T: FloatElement + Send + Sync + 'static> GradientGarbageCollector<T> {
 
         // Add to tracking
         {
-            let mut gradients = self.gradients.write().unwrap();
+            let mut gradients = self.gradients.write().expect("lock should not be poisoned");
             gradients.insert(id, grad_ref);
         }
 
         // Update statistics
         {
-            let mut stats = self.stats.write().unwrap();
+            let mut stats = self.stats.write().expect("lock should not be poisoned");
             stats.current_gradient_count += 1;
             if stats.current_gradient_count > stats.peak_gradient_count {
                 stats.peak_gradient_count = stats.current_gradient_count;
@@ -400,7 +402,10 @@ impl<T: FloatElement + Send + Sync + 'static> GradientGarbageCollector<T> {
             self.config.strategy,
             GcStrategy::Generational | GcStrategy::Adaptive
         ) {
-            let mut generations = self.generations.write().unwrap();
+            let mut generations = self
+                .generations
+                .write()
+                .expect("lock should not be poisoned");
             if let Some(gen0) = generations.get_mut(0) {
                 gen0.gradients.insert(id);
             }
@@ -411,7 +416,7 @@ impl<T: FloatElement + Send + Sync + 'static> GradientGarbageCollector<T> {
 
     /// Increment reference count for a gradient
     pub fn retain_gradient(&self, id: GradientId) -> Result<()> {
-        let gradients = self.gradients.read().unwrap();
+        let gradients = self.gradients.read().expect("lock should not be poisoned");
         if let Some(grad_ref) = gradients.get(&id) {
             let mut ref_count = grad_ref.ref_count.lock();
             *ref_count += 1;
@@ -437,7 +442,7 @@ impl<T: FloatElement + Send + Sync + 'static> GradientGarbageCollector<T> {
 
     /// Decrement reference count for a gradient
     pub fn release_gradient(&self, id: GradientId) -> Result<()> {
-        let gradients = self.gradients.read().unwrap();
+        let gradients = self.gradients.read().expect("lock should not be poisoned");
         if let Some(grad_ref) = gradients.get(&id) {
             let mut ref_count = grad_ref.ref_count.lock();
             if *ref_count > 0 {
@@ -453,7 +458,7 @@ impl<T: FloatElement + Send + Sync + 'static> GradientGarbageCollector<T> {
 
     /// Get gradient data (with access tracking)
     pub fn get_gradient(&self, id: GradientId) -> Result<Arc<RwLock<Vec<T>>>> {
-        let gradients = self.gradients.read().unwrap();
+        let gradients = self.gradients.read().expect("lock should not be poisoned");
         if let Some(grad_ref) = gradients.get(&id) {
             *grad_ref.last_accessed.lock() = Instant::now();
             Ok(grad_ref.data.clone())
@@ -466,7 +471,7 @@ impl<T: FloatElement + Send + Sync + 'static> GradientGarbageCollector<T> {
 
     /// Mark gradient for deletion
     pub fn mark_for_deletion(&self, id: GradientId) -> Result<()> {
-        let gradients = self.gradients.read().unwrap();
+        let gradients = self.gradients.read().expect("lock should not be poisoned");
         if let Some(grad_ref) = gradients.get(&id) {
             *grad_ref.marked_for_deletion.lock() = true;
             Ok(())
@@ -479,13 +484,13 @@ impl<T: FloatElement + Send + Sync + 'static> GradientGarbageCollector<T> {
 
     /// Add gradient to root set (prevent collection)
     pub fn add_to_root_set(&self, id: GradientId) {
-        let mut root_set = self.root_set.write().unwrap();
+        let mut root_set = self.root_set.write().expect("lock should not be poisoned");
         root_set.insert(id);
     }
 
     /// Remove gradient from root set
     pub fn remove_from_root_set(&self, id: GradientId) {
-        let mut root_set = self.root_set.write().unwrap();
+        let mut root_set = self.root_set.write().expect("lock should not be poisoned");
         root_set.remove(&id);
     }
 
@@ -508,8 +513,8 @@ impl<T: FloatElement + Send + Sync + 'static> GradientGarbageCollector<T> {
         let mut freed_memory = 0;
 
         let to_remove: Vec<GradientId> = {
-            let gradients = self.gradients.read().unwrap();
-            let root_set = self.root_set.read().unwrap();
+            let gradients = self.gradients.read().expect("lock should not be poisoned");
+            let root_set = self.root_set.read().expect("lock should not be poisoned");
 
             gradients
                 .iter()
@@ -532,7 +537,7 @@ impl<T: FloatElement + Send + Sync + 'static> GradientGarbageCollector<T> {
 
         // Remove collected gradients
         {
-            let mut gradients = self.gradients.write().unwrap();
+            let mut gradients = self.gradients.write().expect("lock should not be poisoned");
             for id in to_remove {
                 if let Some(grad_ref) = gradients.remove(&id) {
                     collected_count += 1;
@@ -562,7 +567,7 @@ impl<T: FloatElement + Send + Sync + 'static> GradientGarbageCollector<T> {
 
         // Start with root set
         {
-            let root_set = self.root_set.read().unwrap();
+            let root_set = self.root_set.read().expect("lock should not be poisoned");
             for &id in root_set.iter() {
                 marked.insert(id);
             }
@@ -581,7 +586,7 @@ impl<T: FloatElement + Send + Sync + 'static> GradientGarbageCollector<T> {
 
         // Sweep phase: collect unmarked gradients
         let to_remove: Vec<GradientId> = {
-            let gradients = self.gradients.read().unwrap();
+            let gradients = self.gradients.read().expect("lock should not be poisoned");
             gradients
                 .keys()
                 .filter(|id| !marked.contains(id))
@@ -591,7 +596,7 @@ impl<T: FloatElement + Send + Sync + 'static> GradientGarbageCollector<T> {
 
         // Remove collected gradients
         {
-            let mut gradients = self.gradients.write().unwrap();
+            let mut gradients = self.gradients.write().expect("lock should not be poisoned");
             for id in to_remove {
                 if let Some(grad_ref) = gradients.remove(&id) {
                     collected_count += 1;
@@ -618,8 +623,11 @@ impl<T: FloatElement + Send + Sync + 'static> GradientGarbageCollector<T> {
 
         // Collect each generation based on frequency
         {
-            let mut generations = self.generations.write().unwrap();
-            let stats = self.stats.read().unwrap();
+            let mut generations = self
+                .generations
+                .write()
+                .expect("lock should not be poisoned");
+            let stats = self.stats.read().expect("lock should not be poisoned");
 
             for generation in generations.iter_mut() {
                 if stats.total_gc_runs % generation.collection_frequency == 0 {
@@ -649,7 +657,7 @@ impl<T: FloatElement + Send + Sync + 'static> GradientGarbageCollector<T> {
         let mut freed_memory = 0;
 
         let to_remove: Vec<GradientId> = {
-            let gradients = self.gradients.read().unwrap();
+            let gradients = self.gradients.read().expect("lock should not be poisoned");
             generation
                 .gradients
                 .iter()
@@ -674,7 +682,7 @@ impl<T: FloatElement + Send + Sync + 'static> GradientGarbageCollector<T> {
         for id in to_remove {
             generation.gradients.remove(&id);
 
-            let mut gradients = self.gradients.write().unwrap();
+            let mut gradients = self.gradients.write().expect("lock should not be poisoned");
             if let Some(grad_ref) = gradients.remove(&id) {
                 collected_count += 1;
                 freed_memory += grad_ref.size_bytes;
@@ -686,11 +694,14 @@ impl<T: FloatElement + Send + Sync + 'static> GradientGarbageCollector<T> {
 
     /// Promote gradients to next generation
     fn promote_gradients(&self) -> Result<()> {
-        let mut generations = self.generations.write().unwrap();
+        let mut generations = self
+            .generations
+            .write()
+            .expect("lock should not be poisoned");
 
         for i in 0..generations.len() - 1 {
             let to_promote: Vec<GradientId> = {
-                let gradients = self.gradients.read().unwrap();
+                let gradients = self.gradients.read().expect("lock should not be poisoned");
                 generations[i]
                     .gradients
                     .iter()
@@ -721,7 +732,7 @@ impl<T: FloatElement + Send + Sync + 'static> GradientGarbageCollector<T> {
 
     /// Adaptive garbage collection
     fn adaptive_gc(&self) -> Result<GcResult> {
-        let stats = self.stats.read().unwrap();
+        let stats = self.stats.read().expect("lock should not be poisoned");
         let current_count = stats.current_gradient_count;
         let memory_pressure = current_count > 1000; // Simplified
 
@@ -742,13 +753,17 @@ impl<T: FloatElement + Send + Sync + 'static> GradientGarbageCollector<T> {
 
     /// Update GC statistics
     fn update_gc_stats(&self, start_time: Instant, collected_count: usize, freed_memory: usize) {
-        let mut stats = self.stats.write().unwrap();
+        let mut stats = self.stats.write().expect("lock should not be poisoned");
         stats.total_gc_runs += 1;
         stats.total_gradients_collected += collected_count;
         stats.total_memory_freed += freed_memory;
         stats.last_gc_time = Some(start_time);
         stats.last_gc_memory_freed = freed_memory;
-        stats.current_gradient_count = self.gradients.read().unwrap().len();
+        stats.current_gradient_count = self
+            .gradients
+            .read()
+            .expect("lock should not be poisoned")
+            .len();
 
         let gc_time_ms = start_time.elapsed().as_millis() as f64;
         stats.average_gc_time_ms = (stats.average_gc_time_ms * (stats.total_gc_runs - 1) as f64
@@ -758,28 +773,37 @@ impl<T: FloatElement + Send + Sync + 'static> GradientGarbageCollector<T> {
 
     /// Get garbage collection statistics
     pub fn get_gc_stats(&self) -> GcStats {
-        self.stats.read().unwrap().clone()
+        self.stats
+            .read()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Get current gradient count
     pub fn get_gradient_count(&self) -> usize {
-        self.gradients.read().unwrap().len()
+        self.gradients
+            .read()
+            .expect("lock should not be poisoned")
+            .len()
     }
 
     /// Get memory usage information
     pub fn get_memory_usage(&self) -> usize {
-        let gradients = self.gradients.read().unwrap();
+        let gradients = self.gradients.read().expect("lock should not be poisoned");
         gradients.values().map(|g| g.size_bytes).sum()
     }
 
     /// Check if a gradient exists
     pub fn contains_gradient(&self, id: GradientId) -> bool {
-        self.gradients.read().unwrap().contains_key(&id)
+        self.gradients
+            .read()
+            .expect("lock should not be poisoned")
+            .contains_key(&id)
     }
 
     /// Get reference count for a gradient
     pub fn get_reference_count(&self, id: GradientId) -> Option<usize> {
-        let gradients = self.gradients.read().unwrap();
+        let gradients = self.gradients.read().expect("lock should not be poisoned");
         gradients.get(&id).map(|g| *g.ref_count.lock())
     }
 }

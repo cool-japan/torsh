@@ -27,7 +27,7 @@ scirs2-neural = { workspace = true }   # Advanced neural architectures
 num-traits = { workspace = true }
 parking_lot = { workspace = true }
 indexmap = { workspace = true }
-bytemuck = "1.24"
+bytemuck = { workspace = true }
 num_cpus = "1.17"
 
 # Error handling
@@ -37,9 +37,9 @@ anyhow = { workspace = true }
 # Serialization and compression
 serde = { workspace = true, features = ["derive"], optional = true }
 serde_json = { workspace = true, optional = true }
-bincode = { workspace = true, optional = true }
-chrono = { version = "0.4", features = ["serde"], optional = true }
-flate2 = { version = "1.1", optional = true }
+oxicode = { workspace = true, optional = true }
+chrono = { workspace = true, optional = true }
+flate2 = { workspace = true, optional = true }
 safetensors = { workspace = true, optional = true }
 
 # Checksum verification
@@ -53,13 +53,13 @@ hashbrown = { version = "0.16", default-features = false, features = ["alloc"] }
 
 [dev-dependencies]
 approx = { workspace = true }
-tempfile = "3.23"
+tempfile = { workspace = true }
 criterion = { version = "0.8", features = ["html_reports"] }
 
 [features]
 default = ["std"]
 std = ["torsh-core/std", "torsh-tensor/std"]
-serialize = ["serde", "serde_json", "bincode", "chrono", "flate2", "torsh-core/serialize"]
+serialize = ["serde", "serde_json", "oxicode", "chrono", "flate2", "torsh-core/serialize"]
 safetensors = ["dep:safetensors", "serialize"]
 
 # Hardware acceleration features (forward-looking, currently stubbed)

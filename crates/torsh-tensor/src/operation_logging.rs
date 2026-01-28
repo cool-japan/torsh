@@ -11,7 +11,10 @@
 //! - **Minimal Overhead**: Conditional compilation and async logging for minimal performance impact
 //! - **Thread-Safe**: Concurrent operation logging from multiple threads
 //! - **Hierarchical Tracing**: Track nested operation chains and call stacks
-//!
+
+// Allow unused_mut in test code
+#![allow(unused_mut)]
+
 //! # Examples
 //!
 //! ```rust,ignore
@@ -283,18 +286,24 @@ impl OperationLogger {
         device: DeviceType,
     ) -> OperationContext {
         let id = {
-            let mut next_id = self.next_id.lock().unwrap();
+            let mut next_id = self.next_id.lock().expect("lock should not be poisoned");
             let id = *next_id;
             *next_id += 1;
             id
         };
 
         let parent_id = {
-            let stack = self.operation_stack.lock().unwrap();
+            let stack = self
+                .operation_stack
+                .lock()
+                .expect("lock should not be poisoned");
             stack.last().copied()
         };
 
-        self.operation_stack.lock().unwrap().push(id);
+        self.operation_stack
+            .lock()
+            .expect("lock should not be poisoned")
+            .push(id);
 
         OperationContext {
             id,
@@ -319,7 +328,10 @@ impl OperationLogger {
 
         // Remove from stack
         {
-            let mut stack = self.operation_stack.lock().unwrap();
+            let mut stack = self
+                .operation_stack
+                .lock()
+                .expect("lock should not be poisoned");
             stack.pop();
         }
 
@@ -358,7 +370,7 @@ impl OperationLogger {
 
         // Update statistics
         {
-            let mut stats = self.stats.write().unwrap();
+            let mut stats = self.stats.write().expect("lock should not be poisoned");
             stats.total_operations += 1;
             stats.total_duration_us += entry.duration_us;
             stats.total_memory_allocated += entry.memory_allocated;
@@ -369,7 +381,10 @@ impl OperationLogger {
                 .entry(entry.operation.clone())
                 .or_insert(0) += 1;
 
-            let count = *stats.operations_by_type.get(&entry.operation).unwrap();
+            let count = *stats
+                .operations_by_type
+                .get(&entry.operation)
+                .expect("operation should exist after insertion");
             let current_avg = stats
                 .avg_duration_by_type
                 .get(&entry.operation)
@@ -387,7 +402,7 @@ impl OperationLogger {
 
         // Store entry
         {
-            let mut entries = self.entries.write().unwrap();
+            let mut entries = self.entries.write().expect("lock should not be poisoned");
             entries.push(entry);
 
             // Trim if exceeding max entries
@@ -417,18 +432,27 @@ impl OperationLogger {
 
     /// Get current statistics
     pub fn get_statistics(&self) -> LogStatistics {
-        self.stats.read().unwrap().clone()
+        self.stats
+            .read()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Get all log entries
     pub fn get_entries(&self) -> Vec<OperationLogEntry> {
-        self.entries.read().unwrap().clone()
+        self.entries
+            .read()
+            .expect("lock should not be poisoned")
+            .clone()
     }
 
     /// Clear all log entries
     pub fn clear(&self) {
-        self.entries.write().unwrap().clear();
-        *self.stats.write().unwrap() = LogStatistics::default();
+        self.entries
+            .write()
+            .expect("lock should not be poisoned")
+            .clear();
+        *self.stats.write().expect("lock should not be poisoned") = LogStatistics::default();
     }
 
     /// Export logs to file
@@ -565,7 +589,7 @@ static GLOBAL_LOGGER: once_cell::sync::Lazy<Mutex<Option<OperationLogger>>> =
 
 /// Initialize global logger
 pub fn init_global_logger(config: LogConfig) {
-    let mut global = GLOBAL_LOGGER.lock().unwrap();
+    let mut global = GLOBAL_LOGGER.lock().expect("lock should not be poisoned");
     *global = Some(OperationLogger::with_config(config));
 }
 
@@ -697,7 +721,7 @@ mod tests {
 
         // Log multiple operations
         for i in 0..5 {
-            let mut ctx = logger.start_operation("test_op", DeviceType::Cpu);
+            let ctx = logger.start_operation("test_op", DeviceType::Cpu);
             ctx.finish(vec![i]);
         }
 
@@ -710,8 +734,8 @@ mod tests {
     fn test_nested_operations() {
         let logger = OperationLogger::new();
 
-        let mut ctx1 = logger.start_operation("outer", DeviceType::Cpu);
-        let mut ctx2 = logger.start_operation("inner", DeviceType::Cpu);
+        let ctx1 = logger.start_operation("outer", DeviceType::Cpu);
+        let ctx2 = logger.start_operation("inner", DeviceType::Cpu);
         ctx2.finish(vec![1]);
         ctx1.finish(vec![2]);
 
@@ -727,7 +751,7 @@ mod tests {
     fn test_json_export() {
         let logger = OperationLogger::new().with_format(LogFormat::Json);
 
-        let mut ctx = logger.start_operation("test", DeviceType::Cpu);
+        let ctx = logger.start_operation("test", DeviceType::Cpu);
         ctx.finish(vec![1, 2, 3]);
 
         let temp_dir = std::env::temp_dir();

@@ -496,7 +496,7 @@ mod tests {
 
         // Result should be ones * 2 + 2 - 1 = ones * 3
         let expected = 3.0;
-        let data = computed.data().unwrap();
+        let data = computed.data().expect("tensor should have data");
         for &val in data.iter() {
             assert!((val - expected).abs() < 1e-6);
         }
@@ -537,7 +537,7 @@ mod tests {
             .unwrap();
 
         let expected = 4.0; // (1 + 1) * 2 = 4
-        let data = result.data().unwrap();
+        let data = result.data().expect("tensor should have data");
         for &val in data.iter() {
             assert!((val - expected).abs() < 1e-6);
         }

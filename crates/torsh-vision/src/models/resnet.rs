@@ -346,7 +346,7 @@ impl ResNet {
         Self::new::<BasicBlock>(
             &[2, 2, 2, 2],
             config,
-            |in_p, p, s, d| BasicBlock::new(in_p, p, s, d).unwrap(),
+            |in_p, p, s, d| BasicBlock::new(in_p, p, s, d).expect("block creation should succeed"),
             BasicBlock::expansion(),
         )
     }
@@ -355,7 +355,7 @@ impl ResNet {
         Self::new::<BasicBlock>(
             &[3, 4, 6, 3],
             config,
-            |in_p, p, s, d| BasicBlock::new(in_p, p, s, d).unwrap(),
+            |in_p, p, s, d| BasicBlock::new(in_p, p, s, d).expect("block creation should succeed"),
             BasicBlock::expansion(),
         )
     }
@@ -364,7 +364,7 @@ impl ResNet {
         Self::new::<Bottleneck>(
             &[3, 4, 6, 3],
             config,
-            |in_p, p, s, d| Bottleneck::new(in_p, p, s, d).unwrap(),
+            |in_p, p, s, d| Bottleneck::new(in_p, p, s, d).expect("block creation should succeed"),
             Bottleneck::expansion(),
         )
     }
@@ -373,7 +373,7 @@ impl ResNet {
         Self::new::<Bottleneck>(
             &[3, 4, 23, 3],
             config,
-            |in_p, p, s, d| Bottleneck::new(in_p, p, s, d).unwrap(),
+            |in_p, p, s, d| Bottleneck::new(in_p, p, s, d).expect("block creation should succeed"),
             Bottleneck::expansion(),
         )
     }
@@ -382,7 +382,7 @@ impl ResNet {
         Self::new::<Bottleneck>(
             &[3, 8, 36, 3],
             config,
-            |in_p, p, s, d| Bottleneck::new(in_p, p, s, d).unwrap(),
+            |in_p, p, s, d| Bottleneck::new(in_p, p, s, d).expect("block creation should succeed"),
             Bottleneck::expansion(),
         )
     }

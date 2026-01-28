@@ -47,7 +47,7 @@
 
 use crate::backend::BackendType;
 use crate::{ProcessGroup, ReduceOp, TorshDistributedError, TorshResult};
-use log::{debug, info, warn};
+use log::info;
 use torsh_core::dtype::FloatElement;
 use torsh_tensor::Tensor;
 
@@ -171,11 +171,19 @@ where
         + std::ops::Div<Output = T>,
 {
     let backend = group.backend();
-    let backend_guard = backend.read();
 
-    if !backend_guard.is_ready() {
-        return Err(TorshDistributedError::BackendNotInitialized.into());
-    }
+    // Check backend readiness and get info without holding the lock across await
+    let (rank, world_size, device_id) = {
+        let backend_guard = backend.read();
+        if !backend_guard.is_ready() {
+            return Err(TorshDistributedError::BackendNotInitialized);
+        }
+        let device_id = backend_guard
+            .as_any()
+            .downcast_ref::<NcclBackend>()
+            .map(|b| b.device_id());
+        (backend_guard.rank(), backend_guard.world_size(), device_id)
+    };
 
     // Enhanced mock implementation of NCCL all-reduce
     // In a real implementation, this would:
@@ -187,18 +195,18 @@ where
         "NCCL All-Reduce: {} elements, op: {:?}, rank: {}, world_size: {}",
         tensor.numel(),
         op,
-        backend_guard.rank(),
-        backend_guard.world_size()
+        rank,
+        world_size
     );
 
     // Enhanced mock implementation with realistic behavior
-    if let Some(nccl_backend) = backend_guard.as_any().downcast_ref::<NcclBackend>() {
+    if let Some(dev_id) = device_id {
         // Simulate GPU synchronization delay
         tokio::time::sleep(tokio::time::Duration::from_micros(10)).await;
 
         tracing::debug!(
             "NCCL All-Reduce completed on device {} ({} elements)",
-            nccl_backend.device_id(),
+            dev_id,
             tensor.numel()
         );
     }
@@ -208,18 +216,17 @@ where
         ReduceOp::Sum => {
             // In real NCCL, this would sum across all ranks
             // For mock: simulate the effect by scaling based on world size
-            let world_size = backend_guard.world_size() as f32;
+            let ws = world_size as f32;
             let current_data = tensor.to_vec()?;
             let simulated_sum: Vec<T> = current_data
                 .iter()
-                .map(|&x| x * T::from(world_size).unwrap_or_default())
+                .map(|&x| x * T::from(ws).unwrap_or_default())
                 .collect();
             *tensor = Tensor::from_vec(simulated_sum, tensor.shape().dims())?;
         }
         ReduceOp::Product => {
             // In real NCCL, this would multiply across all ranks
             // For mock: simulate by raising to power of world size
-            let world_size = backend_guard.world_size();
             let current_data = tensor.to_vec()?;
             let simulated_product: Vec<T> = current_data
                 .iter()
@@ -243,8 +250,7 @@ where
                 arg: "reduce_op".to_string(),
                 reason: format!("Unsupported reduce operation: {:?}", op),
                 expected: "Sum, Product, Min, or Max".to_string(),
-            }
-            .into());
+            });
         }
     }
 
@@ -258,45 +264,54 @@ async fn nccl_broadcast_impl<T: FloatElement>(
     group: &ProcessGroup,
 ) -> TorshResult<()> {
     let backend = group.backend();
-    let backend_guard = backend.read();
+    let (rank, device_id) = {
+        let backend_guard = backend.read();
 
-    if !backend_guard.is_ready() {
-        return Err(TorshDistributedError::BackendNotInitialized.into());
-    }
-
-    if src_rank >= backend_guard.world_size() {
-        return Err(TorshDistributedError::RankOutOfBounds {
-            rank: src_rank,
-            world_size: backend_guard.world_size(),
+        if !backend_guard.is_ready() {
+            return Err(TorshDistributedError::BackendNotInitialized);
         }
-        .into());
-    }
 
-    // Enhanced mock implementation of NCCL broadcast
-    // In a real implementation, this would call ncclBcast with appropriate parameters
+        if src_rank >= backend_guard.world_size() {
+            return Err(TorshDistributedError::RankOutOfBounds {
+                rank: src_rank,
+                world_size: backend_guard.world_size(),
+            });
+        }
 
-    tracing::debug!(
-        "NCCL Broadcast: {} elements from rank {} to rank {}",
-        tensor.numel(),
-        src_rank,
-        backend_guard.rank()
-    );
+        // Enhanced mock implementation of NCCL broadcast
+        // In a real implementation, this would call ncclBcast with appropriate parameters
+
+        let rank = backend_guard.rank();
+        let device_id = backend_guard
+            .as_any()
+            .downcast_ref::<NcclBackend>()
+            .map(|b| b.device_id());
+
+        tracing::debug!(
+            "NCCL Broadcast: {} elements from rank {} to rank {}",
+            tensor.numel(),
+            src_rank,
+            rank
+        );
+
+        (rank, device_id)
+    }; // Drop backend_guard before await
 
     // Enhanced mock implementation with realistic behavior
-    if let Some(nccl_backend) = backend_guard.as_any().downcast_ref::<NcclBackend>() {
+    if let Some(device_id) = device_id {
         // Simulate GPU synchronization delay
         tokio::time::sleep(tokio::time::Duration::from_micros(5)).await;
 
         tracing::debug!(
             "NCCL Broadcast completed on device {} ({} elements)",
-            nccl_backend.device_id(),
+            device_id,
             tensor.numel()
         );
     }
 
     // In a real broadcast, non-source ranks would receive the tensor data from src_rank
     // For mock implementation, we simulate receiving "broadcast" data
-    if backend_guard.rank() != src_rank {
+    if rank != src_rank {
         // Simulate receiving broadcast data by applying a predictable transformation
         // This helps verify that broadcast operations are being called correctly
         let current_data = tensor.to_vec()?;
@@ -315,7 +330,7 @@ async fn nccl_broadcast_impl<T: FloatElement>(
 
         tracing::debug!(
             "Rank {} received broadcast data from rank {}",
-            backend_guard.rank(),
+            rank,
             src_rank
         );
     } else {
@@ -332,30 +347,38 @@ async fn nccl_reduce_scatter_impl<T: FloatElement>(
     group: &ProcessGroup,
 ) -> TorshResult<()> {
     let backend = group.backend();
-    let backend_guard = backend.read();
+    let (world_size, rank, tensor_size_bytes, device_id) = {
+        let backend_guard = backend.read();
 
-    if !backend_guard.is_ready() {
-        return Err(TorshDistributedError::BackendNotInitialized.into());
-    }
+        if !backend_guard.is_ready() {
+            return Err(TorshDistributedError::BackendNotInitialized);
+        }
 
-    // Enhanced NCCL reduce-scatter algorithm simulation
-    // Simulates the actual ncclReduceScatter operation with realistic timing and algorithm steps
+        // Enhanced NCCL reduce-scatter algorithm simulation
+        // Simulates the actual ncclReduceScatter operation with realistic timing and algorithm steps
 
-    let world_size = backend_guard.world_size() as usize;
-    let rank = backend_guard.rank() as usize;
-    let tensor_size_bytes = input.numel() * std::mem::size_of::<T>();
+        let world_size = backend_guard.world_size() as usize;
+        let rank = backend_guard.rank() as usize;
+        let tensor_size_bytes = input.numel() * std::mem::size_of::<T>();
+        let device_id = backend_guard
+            .as_any()
+            .downcast_ref::<NcclBackend>()
+            .map(|b| b.device_id());
 
-    info!(
-        "🔀 NCCL Reduce-Scatter: {} elements, op: {:?}, rank: {}/{}",
-        input.numel(),
-        op,
-        rank,
-        world_size
-    );
+        info!(
+            "🔀 NCCL Reduce-Scatter: {} elements, op: {:?}, rank: {}/{}",
+            input.numel(),
+            op,
+            rank,
+            world_size
+        );
+
+        (world_size, rank, tensor_size_bytes, device_id)
+    }; // Drop backend_guard before await
 
     // Simulate reduce-scatter algorithm phases
     // Phase 1: Reduce-scatter ring algorithm
-    for step in 0..world_size - 1 {
+    for _step in 0..world_size - 1 {
         // Send chunk to next rank, receive from previous rank
         let chunk_size_bytes = tensor_size_bytes / world_size;
 
@@ -374,19 +397,15 @@ async fn nccl_reduce_scatter_impl<T: FloatElement>(
     }
 
     #[cfg(feature = "nccl")]
-    if let Some(nccl_backend) = backend_guard.as_any().downcast_ref::<NcclBackend>() {
-        info!(
-            "    NCCL Reduce-Scatter completed on device {}",
-            nccl_backend.device_id()
-        );
+    if let Some(device_id) = device_id {
+        info!("    NCCL Reduce-Scatter completed on device {}", device_id);
     } else {
         info!("    NCCL Reduce-Scatter completed (mock implementation)");
     }
 
     // Mock implementation: each rank gets a portion of the input
-    let world_size = backend_guard.world_size() as usize;
     let chunk_size = input.numel() / world_size;
-    let _start_idx = backend_guard.rank() as usize * chunk_size;
+    let _start_idx = rank * chunk_size;
     let _end_idx = (_start_idx + chunk_size).min(input.numel());
 
     // Implement proper tensor slicing for reduce-scatter
@@ -410,34 +429,41 @@ async fn nccl_all_gather_impl<T: FloatElement>(
     group: &ProcessGroup,
 ) -> TorshResult<()> {
     let backend = group.backend();
-    let backend_guard = backend.read();
+    let (device_id, world_size) = {
+        let backend_guard = backend.read();
 
-    if !backend_guard.is_ready() {
-        return Err(TorshDistributedError::BackendNotInitialized.into());
-    }
+        if !backend_guard.is_ready() {
+            return Err(TorshDistributedError::BackendNotInitialized);
+        }
 
-    // Enhanced mock implementation of NCCL all-gather
-    // In a real implementation, this would call ncclAllGather with appropriate parameters
+        // Enhanced mock implementation of NCCL all-gather
+        // In a real implementation, this would call ncclAllGather with appropriate parameters
 
-    tracing::debug!(
-        "NCCL All-Gather: {} elements from rank {}",
-        input.numel(),
-        backend_guard.rank()
-    );
+        let rank = backend_guard.rank();
+        let world_size = backend_guard.world_size();
+        let device_id = backend_guard
+            .as_any()
+            .downcast_ref::<NcclBackend>()
+            .map(|b| b.device_id());
+
+        tracing::debug!(
+            "NCCL All-Gather: {} elements from rank {}",
+            input.numel(),
+            rank
+        );
+
+        (device_id, world_size)
+    }; // Drop backend_guard before await
 
     // Enhanced mock implementation with realistic behavior
-    if let Some(nccl_backend) = backend_guard.as_any().downcast_ref::<NcclBackend>() {
+    if let Some(device_id) = device_id {
         // Simulate GPU synchronization delay
         tokio::time::sleep(tokio::time::Duration::from_micros(15)).await;
 
-        tracing::debug!(
-            "NCCL All-Gather completed on device {}",
-            nccl_backend.device_id()
-        );
+        tracing::debug!("NCCL All-Gather completed on device {}", device_id);
     }
 
     // Enhanced mock implementation: simulate gathering from different ranks
-    let world_size = backend_guard.world_size();
     output.clear();
 
     for rank in 0..world_size {
@@ -536,8 +562,7 @@ impl NcclBatch {
                 Err(TorshDistributedError::feature_not_available(
                     "Batch operations",
                     "nccl feature flag",
-                )
-                .into())
+                ))
             }
         }
     }
@@ -632,25 +657,31 @@ mod tests {
 
     #[tokio::test]
     async fn test_nccl_all_reduce() {
-        let pg = init_process_group(BackendType::Nccl, 0, 1, "127.0.0.1", 29500).unwrap();
+        let pg = init_process_group(BackendType::Nccl, 0, 1, "127.0.0.1", 29500)
+            .await
+            .unwrap();
 
-        let mut tensor: Tensor<f32> = Tensor::from_vec(vec![0.0; 10], &[10]);
+        let mut tensor: Tensor<f32> = Tensor::from_vec(vec![0.0; 10], &[10]).unwrap();
         let result = nccl_all_reduce(&mut tensor, ReduceOp::Sum, &pg).await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
     async fn test_nccl_broadcast() {
-        let pg = init_process_group(BackendType::Nccl, 0, 1, "127.0.0.1", 29500).unwrap();
+        let pg = init_process_group(BackendType::Nccl, 0, 1, "127.0.0.1", 29500)
+            .await
+            .unwrap();
 
-        let mut tensor: Tensor<f32> = Tensor::from_vec(vec![0.0; 10], &[10]);
+        let mut tensor: Tensor<f32> = Tensor::from_vec(vec![0.0; 10], &[10]).unwrap();
         let result = nccl_broadcast(&mut tensor, 0, &pg).await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
     async fn test_nccl_batch() {
-        let pg = init_process_group(BackendType::Nccl, 0, 1, "127.0.0.1", 29500).unwrap();
+        let pg = init_process_group(BackendType::Nccl, 0, 1, "127.0.0.1", 29500)
+            .await
+            .unwrap();
 
         let mut batch = NcclBatch::new();
         batch

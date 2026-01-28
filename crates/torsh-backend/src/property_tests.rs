@@ -73,6 +73,10 @@ mod tests {
         }
 
         /// Test associativity of addition: (a + b) + c = a + (b + c)
+        ///
+        /// Note: Floating-point addition is not perfectly associative due to rounding errors,
+        /// especially when there is significant cancellation (large values adding to small results).
+        /// We use a relaxed tolerance to account for this fundamental property of IEEE 754.
         #[test]
         fn test_addition_associative(
             a in MIN_FLOAT..MAX_FLOAT,
@@ -81,7 +85,17 @@ mod tests {
         ) {
             let result1 = (a + b) + c;
             let result2 = a + (b + c);
-            prop_assert!(approx_eq(result1, result2),
+
+            // Use relaxed tolerance for associativity due to catastrophic cancellation
+            let abs_diff = (result1 - result2).abs();
+            let max_val = result1.abs().max(result2.abs());
+            let tolerance = if max_val > 1.0 {
+                abs_diff / max_val < 1e-3  // 0.1% relative error for large values
+            } else {
+                abs_diff < 1e-3  // Absolute error for small values
+            };
+
+            prop_assert!(tolerance,
                 "Addition not associative: ({} + {}) + {} = {} but {} + ({} + {}) = {}",
                 a, b, c, result1, a, b, c, result2);
         }

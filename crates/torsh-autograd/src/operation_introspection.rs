@@ -204,7 +204,9 @@ mod system_time_serde {
     where
         S: Serializer,
     {
-        let duration = time.duration_since(UNIX_EPOCH).unwrap();
+        let duration = time
+            .duration_since(UNIX_EPOCH)
+            .expect("system time should be after UNIX_EPOCH");
         duration.as_secs().serialize(serializer)
     }
 

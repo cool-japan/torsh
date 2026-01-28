@@ -282,6 +282,19 @@ pub trait FftExecutor: Send + Sync {
 /// Default FFT operations implementation
 pub struct DefaultFftOps;
 
+impl DefaultFftOps {
+    /// Create a new DefaultFftOps instance
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for DefaultFftOps {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[async_trait::async_trait]
 impl FftOps for DefaultFftOps {
     async fn create_fft_plan(

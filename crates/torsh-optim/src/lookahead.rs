@@ -6,7 +6,7 @@
 //! of the "fast weights" optimized by the base optimizer.
 //!
 //! Reference: "Lookahead Optimizer: k steps forward, 1 step back"
-//! https://arxiv.org/abs/1907.08610
+//! <https://arxiv.org/abs/1907.08610>
 
 use crate::{Optimizer, OptimizerResult, OptimizerState, ParamGroup, ParamGroupState};
 use parking_lot::RwLock;
@@ -220,7 +220,10 @@ impl<O: Optimizer> Optimizer for Lookahead<O> {
         for (key, param_state) in state.state {
             if key.starts_with("lookahead_") {
                 if let Some(tensor) = param_state.get("slow_weight") {
-                    let param_key = key.strip_prefix("lookahead_").unwrap().to_string();
+                    let param_key = key
+                        .strip_prefix("lookahead_")
+                        .expect("prefix should exist after starts_with check")
+                        .to_string();
                     self.slow_weights.insert(param_key, tensor.clone());
                 }
             } else {

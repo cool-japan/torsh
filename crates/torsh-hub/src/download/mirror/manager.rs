@@ -405,7 +405,7 @@ impl MirrorManager {
         let mut results = Vec::new();
         let current_time = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after UNIX epoch")
             .as_secs();
 
         for mirror in &mut self.config.mirrors {
@@ -429,7 +429,7 @@ impl MirrorManager {
     async fn should_benchmark(&self) -> bool {
         let current_time = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after UNIX epoch")
             .as_secs();
 
         current_time - self.selection_state.last_benchmark > self.config.benchmark_interval
@@ -467,7 +467,7 @@ impl MirrorManager {
             // Update last successful connection timestamp
             let current_time = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .expect("system time should be after UNIX epoch")
                 .as_secs();
             mirror.last_successful_connection = Some(current_time);
 
@@ -507,7 +507,7 @@ impl MirrorManager {
             // Add failure snapshot
             let current_time = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .expect("system time should be after UNIX epoch")
                 .as_secs();
             let snapshot = PerformanceSnapshot {
                 timestamp: current_time,
@@ -660,7 +660,7 @@ impl MirrorManager {
         let mut health_statuses = Vec::new();
         let current_time = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after UNIX epoch")
             .as_secs();
 
         for mirror in &self.config.mirrors {
@@ -733,7 +733,7 @@ impl MirrorManager {
         if let Some(last_snapshot) = mirror.performance_history.last() {
             let current_time = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .expect("system time should be after UNIX epoch")
                 .as_secs();
 
             if current_time - last_snapshot.timestamp > 7200 {

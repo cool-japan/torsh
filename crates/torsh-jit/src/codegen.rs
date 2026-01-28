@@ -360,12 +360,16 @@ struct CraneliftBackend {
 impl CraneliftBackend {
     fn new() -> Self {
         let mut flag_builder = settings::builder();
-        flag_builder.set("use_colocated_libcalls", "false").unwrap();
-        flag_builder.set("is_pic", "false").unwrap();
-        let isa_builder = cranelift_native::builder().unwrap();
+        flag_builder
+            .set("use_colocated_libcalls", "false")
+            .expect("setting should be valid");
+        flag_builder
+            .set("is_pic", "false")
+            .expect("setting should be valid");
+        let isa_builder = cranelift_native::builder().expect("native builder should succeed");
         let isa = isa_builder
             .finish(settings::Flags::new(flag_builder))
-            .unwrap();
+            .expect("ISA creation should succeed");
 
         let mut ctx = codegen::Context::new();
         ctx.func.signature.call_conv = isa.default_call_conv();

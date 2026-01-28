@@ -44,7 +44,7 @@ impl Default for NetworkMetrics {
             stability_score: 1.0,
             timestamp_ms: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .expect("time should be after UNIX_EPOCH")
                 .as_millis() as u64,
         }
     }
@@ -138,7 +138,7 @@ impl NetworkProfiler {
             stability_score: stability,
             timestamp_ms: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .expect("time should be after UNIX_EPOCH")
                 .as_millis() as u64,
         };
 
@@ -169,7 +169,7 @@ impl NetworkProfiler {
         let base_bandwidth = 1000.0; // 1 Gbps
         let variation = (std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after UNIX_EPOCH")
             .as_millis()
             % 100) as f32
             / 100.0;
@@ -183,7 +183,7 @@ impl NetworkProfiler {
         let base_latency = 1.0; // 1ms base latency
         let variation = (std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after UNIX_EPOCH")
             .as_millis()
             % 50) as f32
             / 50.0;
@@ -197,7 +197,7 @@ impl NetworkProfiler {
         let base_loss = 0.001; // 0.1% base loss
         let variation = (std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after UNIX_EPOCH")
             .as_millis()
             % 20) as f32
             / 20.0;
@@ -302,7 +302,7 @@ impl NetworkProfiler {
             stability_score: avg_stability,
             timestamp_ms: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .expect("time should be after UNIX_EPOCH")
                 .as_millis() as u64,
         })
     }
@@ -799,7 +799,7 @@ mod tests {
             stability_score: 0.95,
             timestamp_ms: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .expect("time should be after UNIX_EPOCH")
                 .as_millis() as u64,
         };
 
@@ -811,7 +811,7 @@ mod tests {
             stability_score: 0.6,
             timestamp_ms: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .expect("time should be after UNIX_EPOCH")
                 .as_millis() as u64,
         };
 
@@ -840,7 +840,7 @@ mod tests {
             stability_score: 0.95,
             timestamp_ms: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .expect("time should be after UNIX_EPOCH")
                 .as_millis() as u64,
         };
 

@@ -145,7 +145,7 @@ impl ActivationFactory {
             "relu" => Some(Box::new(ReLU::new())),
             "leaky_relu" | "leakyrelu" => Some(Box::new(LeakyReLU::default())),
             "relu6" => Some(Box::new(ReLU6::new())),
-            "prelu" => Some(Box::new(PReLU::default_params().unwrap())),
+            "prelu" => Some(Box::new(PReLU::default_params().expect("PReLU default params should succeed"))),
             "elu" => Some(Box::new(ELU::default())),
             "selu" => Some(Box::new(SELU::new())),
 

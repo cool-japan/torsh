@@ -467,7 +467,8 @@ impl BroadcastOps {
 
         let memory_required = Self::estimate_broadcast_memory(shape1, shape2, element_size).ok();
 
-        let info = Self::get_broadcast_info(shape1, shape2).unwrap();
+        let info = Self::get_broadcast_info(shape1, shape2)
+            .expect("broadcast info should be available after shape validation");
         let pattern = Self::detect_broadcast_pattern(shape1, shape2);
         let cost = Self::estimate_operation_cost(&pattern, &broadcast_shape, element_size);
 
@@ -606,7 +607,7 @@ impl BroadcastCache {
             shape2: shape2.to_vec(),
         };
 
-        let mut cache = BROADCAST_CACHE.lock().unwrap();
+        let mut cache = BROADCAST_CACHE.lock().expect("lock should not be poisoned");
 
         // Check if entry exists and is not expired
         if let Some(entry) = cache.get_mut(&key) {
@@ -669,13 +670,13 @@ impl BroadcastCache {
 
     /// Clear the cache
     pub fn clear() {
-        let mut cache = BROADCAST_CACHE.lock().unwrap();
+        let mut cache = BROADCAST_CACHE.lock().expect("lock should not be poisoned");
         cache.clear();
     }
 
     /// Get cache statistics
     pub fn get_stats() -> BroadcastCacheStats {
-        let cache = BROADCAST_CACHE.lock().unwrap();
+        let cache = BROADCAST_CACHE.lock().expect("lock should not be poisoned");
         let total_accesses: usize = cache.values().map(|entry| entry.access_count).sum();
 
         BroadcastCacheStats {
