@@ -80,7 +80,7 @@ default-members = [
 ]
 
 [workspace.package]
-version = "0.1.0-beta.1"
+version = "0.1.0-rc.1"
 edition = "2021"
 authors = ["COOLJAPAN OU (Team KitaSan)"]
 license = "MIT OR Apache-2.0"
@@ -90,37 +90,37 @@ rust-version = "1.76"
 
 [workspace.dependencies]
 # Internal ToRSh crates - workspace management
-torsh = { version = "0.1.0-beta.1", path = "crates/torsh" }
-torsh-core = { version = "0.1.0-beta.1", path = "crates/torsh-core" }
-torsh-backend = { version = "0.1.0-beta.1", path = "crates/torsh-backend" }
-torsh-tensor = { version = "0.1.0-beta.1", path = "crates/torsh-tensor" }
-torsh-autograd = { version = "0.1.0-beta.1", path = "crates/torsh-autograd" }
-torsh-linalg = { version = "0.1.0-beta.1", path = "crates/torsh-linalg" }
-torsh-optim = { version = "0.1.0-beta.1", path = "crates/torsh-optim" }
-torsh-sparse = { version = "0.1.0-beta.1", path = "crates/torsh-sparse" }
-torsh-special = { version = "0.1.0-beta.1", path = "crates/torsh-special" }
-torsh-functional = { version = "0.1.0-beta.1", path = "crates/torsh-functional" }
-torsh-data = { version = "0.1.0-beta.1", path = "crates/torsh-data" }
-torsh-nn = { version = "0.1.0-beta.1", path = "crates/torsh-nn" }
-torsh-vision = { version = "0.1.0-beta.1", path = "crates/torsh-vision" }
-torsh-text = { version = "0.1.0-beta.1", path = "crates/torsh-text" }
-torsh-graph = { version = "0.1.0-beta.1", path = "crates/torsh-graph" }
-torsh-series = { version = "0.1.0-beta.1", path = "crates/torsh-series" }
-torsh-signal = { version = "0.1.0-beta.1", path = "crates/torsh-signal" }
-torsh-cluster = { version = "0.1.0-beta.1", path = "crates/torsh-cluster" }
-torsh-metrics = { version = "0.1.0-beta.1", path = "crates/torsh-metrics" }
-torsh-jit = { version = "0.1.0-beta.1", path = "crates/torsh-jit" }
-torsh-distributed = { version = "0.1.0-beta.1", path = "crates/torsh-distributed" }
-torsh-quantization = { version = "0.1.0-beta.1", path = "crates/torsh-quantization" }
-torsh-fx = { version = "0.1.0-beta.1", path = "crates/torsh-fx" }
-torsh-hub = { version = "0.1.0-beta.1", path = "crates/torsh-hub" }
-torsh-utils = { version = "0.1.0-beta.1", path = "crates/torsh-utils" }
-torsh-package = { version = "0.1.0-beta.1", path = "crates/torsh-package" }
-torsh-profiler = { version = "0.1.0-beta.1", path = "crates/torsh-profiler" }
-torsh-python = { version = "0.1.0-beta.1", path = "crates/torsh-python" }
-torsh-ffi = { version = "0.1.0-beta.1", path = "crates/torsh-ffi" }
-torsh-models = { version = "0.1.0-beta.1", path = "crates/torsh-models" }
-torsh-benches = { version = "0.1.0-beta.1", path = "crates/torsh-benches" }
+torsh = { version = "0.1.0-rc.1", path = "crates/torsh" }
+torsh-core = { version = "0.1.0-rc.1", path = "crates/torsh-core" }
+torsh-backend = { version = "0.1.0-rc.1", path = "crates/torsh-backend" }
+torsh-tensor = { version = "0.1.0-rc.1", path = "crates/torsh-tensor" }
+torsh-autograd = { version = "0.1.0-rc.1", path = "crates/torsh-autograd" }
+torsh-linalg = { version = "0.1.0-rc.1", path = "crates/torsh-linalg" }
+torsh-optim = { version = "0.1.0-rc.1", path = "crates/torsh-optim" }
+torsh-sparse = { version = "0.1.0-rc.1", path = "crates/torsh-sparse" }
+torsh-special = { version = "0.1.0-rc.1", path = "crates/torsh-special" }
+torsh-functional = { version = "0.1.0-rc.1", path = "crates/torsh-functional" }
+torsh-data = { version = "0.1.0-rc.1", path = "crates/torsh-data" }
+torsh-nn = { version = "0.1.0-rc.1", path = "crates/torsh-nn" }
+torsh-vision = { version = "0.1.0-rc.1", path = "crates/torsh-vision" }
+torsh-text = { version = "0.1.0-rc.1", path = "crates/torsh-text" }
+torsh-graph = { version = "0.1.0-rc.1", path = "crates/torsh-graph" }
+torsh-series = { version = "0.1.0-rc.1", path = "crates/torsh-series" }
+torsh-signal = { version = "0.1.0-rc.1", path = "crates/torsh-signal" }
+torsh-cluster = { version = "0.1.0-rc.1", path = "crates/torsh-cluster" }
+torsh-metrics = { version = "0.1.0-rc.1", path = "crates/torsh-metrics" }
+torsh-jit = { version = "0.1.0-rc.1", path = "crates/torsh-jit" }
+torsh-distributed = { version = "0.1.0-rc.1", path = "crates/torsh-distributed" }
+torsh-quantization = { version = "0.1.0-rc.1", path = "crates/torsh-quantization" }
+torsh-fx = { version = "0.1.0-rc.1", path = "crates/torsh-fx" }
+torsh-hub = { version = "0.1.0-rc.1", path = "crates/torsh-hub" }
+torsh-utils = { version = "0.1.0-rc.1", path = "crates/torsh-utils" }
+torsh-package = { version = "0.1.0-rc.1", path = "crates/torsh-package" }
+torsh-profiler = { version = "0.1.0-rc.1", path = "crates/torsh-profiler" }
+torsh-python = { version = "0.1.0-rc.1", path = "crates/torsh-python" }
+torsh-ffi = { version = "0.1.0-rc.1", path = "crates/torsh-ffi" }
+torsh-models = { version = "0.1.0-rc.1", path = "crates/torsh-models" }
+torsh-benches = { version = "0.1.0-rc.1", path = "crates/torsh-benches" }
 
 # Core dependencies - CRATES.IO VERSION 0.1.1 (Stable) with SIMD, OxiBLAS 0.1.2, and OxiCode support
 # NOTE: scirs2 meta crate removed to speed up compilation - use specific sub-crates instead
@@ -147,9 +147,7 @@ scirs2-neural = { version = "0.1.3" }
 # OptiRS - Advanced ML optimization (now available on crates.io - still in RC)
 optirs = { version = "0.1.0", default-features = false }
 optirs-core = { version = "0.1.0", default-features = false }
-# polars 0.52 has a bug in polars-expr datetime dispatch (missing DataType import)
-# Using 0.48 until the bug is fixed upstream
-polars = { version = "0.48", features = ["lazy"] }
+# polars = { version = "0.48", features = ["lazy"] }  # REMOVED: COOLJAPAN policy - torsh-data now uses csv crate instead (lighter and policy-compliant)
 
 # Parallelism and async
 # ⚠️ SciRS2 POLICY: Use scirs2-core::parallel_ops for parallel operations

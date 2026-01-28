@@ -3,7 +3,8 @@
 //! Comprehensive benchmarks for the real-time streaming capabilities
 //! including adaptive bitrate, compression, and buffering performance.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use std::hint::black_box;
 use std::time::Instant;
 use torsh_profiler::{
     create_high_performance_streaming_engine, create_low_latency_streaming_engine,

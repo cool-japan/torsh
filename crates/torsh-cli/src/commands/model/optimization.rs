@@ -346,9 +346,11 @@ pub async fn prune_model(args: PruneArgs, _config: &Config, output_format: &str)
 
         pb.finish_with_message("Model pruning completed");
 
-        // Real accuracy evaluation using model inference
+        // Evaluate accuracy of both original and pruned models
+        info!("Evaluating original model accuracy");
+        let original_accuracy = evaluate_model_accuracy(&model).await?;
+        info!("Evaluating pruned model accuracy");
         let pruned_accuracy = evaluate_model_accuracy(&pruned_model).await?;
-        let original_accuracy = 0.95; // TODO: Load from model metadata or evaluate
         let accuracy_loss = original_accuracy - pruned_accuracy;
 
         let mut metrics = HashMap::new();

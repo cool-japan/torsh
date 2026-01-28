@@ -84,14 +84,16 @@ impl AdvancedAdam {
 
 impl Optimizer for AdvancedAdam {
     fn step(&mut self) -> OptimizerResult<()> {
-        // TODO: Implement proper advanced Adam step
-        // Requires storing parameters in optimizer state
+        // NOTE: Full implementation deferred to v0.2.0
+        // Reason: Requires parameter storage architecture redesign
+        // Current design doesn't store parameters, making step() implementation incomplete
+        // See ROADMAP.md for full implementation plan
         self.step_count += 1;
         Ok(())
     }
 
     fn zero_grad(&mut self) {
-        // TODO: Implement zero_grad - requires storing parameters in optimizer
+        // NOTE: Requires parameter storage - see ROADMAP.md for v0.2.0 implementation
     }
 
     fn get_lr(&self) -> Vec<f32> {
@@ -107,8 +109,8 @@ impl Optimizer for AdvancedAdam {
         _params: Vec<Arc<RwLock<Tensor>>>,
         _options: HashMap<String, f32>,
     ) {
-        // TODO: Implement parameter group management
-        // For now, this is a placeholder implementation
+        // NOTE: Parameter group management deferred to v0.2.0 - see ROADMAP.md
+        // Will be implemented with full parameter storage architecture
     }
 
     fn state_dict(&self) -> OptimizerResult<OptimizerState> {
@@ -123,8 +125,8 @@ impl Optimizer for AdvancedAdam {
         Ok(OptimizerState {
             optimizer_type: "AdvancedAdam".to_string(),
             version: "1.0".to_string(),
-            param_groups: vec![],  // TODO: Implement parameter groups
-            state: HashMap::new(), // TODO: Implement per-parameter state
+            param_groups: vec![], // NOTE: Deferred to v0.2.0 - requires parameter storage
+            state: HashMap::new(), // NOTE: Deferred to v0.2.0 - requires per-parameter state tracking
             global_state,
         })
     }
@@ -156,7 +158,8 @@ impl Optimizer for AdvancedAdam {
             self.step_count = *step_count as u64;
         }
 
-        // TODO: Load parameter groups and per-parameter state
+        // NOTE: Parameter groups and per-parameter state loading deferred to v0.2.0
+        // Requires full state persistence architecture - see ROADMAP.md
         Ok(())
     }
 }
@@ -199,13 +202,14 @@ impl LAMB {
 
 impl Optimizer for LAMB {
     fn step(&mut self) -> OptimizerResult<()> {
-        // TODO: Implement LAMB step
+        // NOTE: Full LAMB implementation deferred to v0.2.0
+        // Requires parameter storage architecture - see ROADMAP.md
         self.step_count += 1;
         Ok(())
     }
 
     fn zero_grad(&mut self) {
-        // TODO: Implement zero_grad
+        // NOTE: Requires parameter storage - see ROADMAP.md for v0.2.0 implementation
     }
 
     fn get_lr(&self) -> Vec<f32> {
@@ -221,7 +225,7 @@ impl Optimizer for LAMB {
         _params: Vec<Arc<RwLock<Tensor>>>,
         _options: HashMap<String, f32>,
     ) {
-        // TODO: Implement parameter group management for LAMB
+        // NOTE: Parameter group management deferred to v0.2.0 - see ROADMAP.md
     }
 
     fn state_dict(&self) -> OptimizerResult<OptimizerState> {
@@ -269,7 +273,8 @@ impl Optimizer for LAMB {
             self.step_count = *step_count as u64;
         }
 
-        // TODO: Load parameter groups and per-parameter state
+        // NOTE: Parameter groups and per-parameter state loading deferred to v0.2.0
+        // Requires full state persistence architecture - see ROADMAP.md
         Ok(())
     }
 }

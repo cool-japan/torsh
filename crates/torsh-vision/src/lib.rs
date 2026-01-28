@@ -1,3 +1,28 @@
+//! Computer vision operations for ToRSh
+//!
+//! This crate provides PyTorch-compatible computer vision functionality including:
+//! - Image transformations and augmentations
+//! - Pre-trained models and model architectures
+//! - Dataset loaders for common vision datasets
+//! - Spatial operations and feature matching
+//! - Video processing capabilities
+//! - 3D visualization utilities
+//!
+//! Built on top of the SciRS2 ecosystem for high-performance image processing.
+//!
+//! # Examples
+//!
+//! ```rust,ignore
+//! use torsh_vision::transforms::*;
+//!
+//! // Create a standard image transformation pipeline
+//! let transform = Compose::new(vec![
+//!     Box::new(Resize::new((224, 224))),
+//!     Box::new(ToTensor::new()),
+//!     Box::new(Normalize::new(vec![0.485, 0.456, 0.406], vec![0.229, 0.224, 0.225])),
+//! ]);
+//! ```
+
 #![allow(clippy::all)]
 #![allow(dead_code)]
 #![allow(unused_imports)]

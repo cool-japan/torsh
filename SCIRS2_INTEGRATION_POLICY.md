@@ -191,9 +191,22 @@ OxiBLAS (Pure Rust BLAS/LAPACK) + OxiCode + ndarray, rand, num-traits
 - **Status**: ✅ REQUIRED - Advanced vision capabilities
 
 #### `scirs2-text` - NLP PROCESSING
-- **Use Cases**: Tokenization, text features, language models
+- **Use Cases**: Tokenization, text features, language models, sentiment analysis, named entity recognition
 - **ToRSh Modules**: `torsh-text` (enhanced)
 - **Status**: ✅ REQUIRED - NLP capabilities
+- **Integration Status** (v0.1.0-rc.1):
+  - ✅ **Core Functionality**: Basic text processing, metrics, tokenization fully implemented
+  - ⏳ **Pending scirs2-text v0.2.0+**: Advanced NLP features using placeholder implementations
+    - Embeddings generation (line 96 of scirs2_text_integration.rs)
+    - Sentiment analysis (line 142)
+    - Named entity recognition (line 216)
+    - Text classification (line 269)
+    - Text summarization (line 308)
+    - Language detection (line 356)
+    - Topic modeling (line 552)
+    - Document clustering (line 578)
+    - Text paraphrasing (line 601)
+  - 📋 **Note**: Placeholder implementations provide basic functionality. Full features will be enabled when scirs2-text v0.2.0+ provides production-ready APIs
 
 ### **DOMAIN-SPECIFIC (Optional)**
 

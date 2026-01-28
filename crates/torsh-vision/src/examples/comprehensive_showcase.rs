@@ -485,21 +485,21 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // TODO: Fix depends on ViT architecture with TransformerBlock tensor slicing issues
+    #[ignore = "KNOWN ISSUE: TransformerBlock tensor slicing - FlashMultiHeadAttention uses complex 5D tensor reshaping with narrow/squeeze operations that fail in batch scenarios. Deferred to v0.2.0 for attention mechanism refactor. See: /tmp/torsh_vision_todo_categorization.md"]
     fn test_advanced_models() {
         let result = demonstrate_advanced_models();
         assert!(result.is_ok());
     }
 
     #[test]
-    #[ignore] // Slow test (>60s)
+    #[ignore = "SLOW TEST: Exceeds 60s runtime due to comprehensive augmentation pipeline testing. Use `cargo test -- --ignored` to run explicitly."]
     fn test_data_augmentation() {
         let result = demonstrate_data_augmentation();
         assert!(result.is_ok());
     }
 
     #[test]
-    #[ignore] // TODO: Fix depends on ViT architecture with TransformerBlock tensor slicing issues
+    #[ignore = "KNOWN ISSUE: TransformerBlock tensor slicing - FlashMultiHeadAttention uses complex 5D tensor reshaping with narrow/squeeze operations that fail in batch scenarios. Deferred to v0.2.0 for attention mechanism refactor. See: /tmp/torsh_vision_todo_categorization.md"]
     fn test_end_to_end_workflow() {
         let result = demonstrate_end_to_end_workflow();
         assert!(result.is_ok());

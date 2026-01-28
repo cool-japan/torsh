@@ -56,7 +56,9 @@ pub use perplexity::{
 };
 pub use rouge::{RougeMetrics, RougeScore, RougeType};
 pub use semantic::{SemanticAnalysisConfig, SemanticAnalysisResult, SemanticAnalyzer};
-// TODO: Import correct types from overlap, coherence, fluency modules when available
+pub use overlap::{OverlapConfig, OverlapResult, WordOverlapCalculator};
+pub use coherence::{CoherenceAnalyzer, CoherenceConfig, CoherenceResult};
+pub use fluency::{FluentTextAnalyzer as FluencyAnalyzer, AnalysisConfig as FluencyConfig, ComprehensiveFluencyAnalysis as FluencyResult};
 
 use scirs2_core::ndarray::{array, Array1, Array2};
 use scirs2_core::random::{rng, Random};
@@ -65,14 +67,50 @@ use std::collections::HashMap;
 /// Comprehensive evaluation configuration for all metrics
 #[derive(Debug, Clone)]
 pub struct EvaluationConfig {
-    // TODO: Add proper config types when modules are fully implemented
+    pub bleu_config: BleuConfig,
+    pub rouge_config: RougeConfig,
     pub perplexity_config: PerplexityConfig,
     pub edit_distance_config: EditDistanceConfig,
     pub bert_score_config: BertScoreConfig,
     pub semantic_config: SemanticAnalysisConfig,
+    pub overlap_config: OverlapConfig,
+    pub coherence_config: CoherenceConfig,
+    pub fluency_config: FluencyConfig,
     pub weights: EvaluationWeights,
     pub enable_confidence_intervals: bool,
     pub enable_statistical_analysis: bool,
+}
+
+/// Configuration for BLEU score calculation
+#[derive(Debug, Clone)]
+pub struct BleuConfig {
+    pub max_ngram: usize,
+    pub smooth: bool,
+}
+
+impl Default for BleuConfig {
+    fn default() -> Self {
+        Self {
+            max_ngram: 4,
+            smooth: true,
+        }
+    }
+}
+
+/// Configuration for ROUGE score calculation
+#[derive(Debug, Clone)]
+pub struct RougeConfig {
+    pub rouge_types: Vec<RougeType>,
+    pub use_stemming: bool,
+}
+
+impl Default for RougeConfig {
+    fn default() -> Self {
+        Self {
+            rouge_types: vec![RougeType::Rouge1, RougeType::Rouge2, RougeType::RougeL],
+            use_stemming: false,
+        }
+    }
 }
 
 /// Weights for combining different metric scores
@@ -108,11 +146,15 @@ impl Default for EvaluationWeights {
 impl Default for EvaluationConfig {
     fn default() -> Self {
         Self {
-            // TODO: Add proper defaults when modules are fully implemented
+            bleu_config: BleuConfig::default(),
+            rouge_config: RougeConfig::default(),
             perplexity_config: PerplexityConfig::default(),
             edit_distance_config: EditDistanceConfig::default(),
             bert_score_config: BertScoreConfig::default(),
             semantic_config: SemanticAnalysisConfig::default(),
+            overlap_config: OverlapConfig::default(),
+            coherence_config: CoherenceConfig::default(),
+            fluency_config: FluencyConfig::default(),
             weights: EvaluationWeights::default(),
             enable_confidence_intervals: true,
             enable_statistical_analysis: true,
@@ -124,14 +166,43 @@ impl Default for EvaluationConfig {
 #[derive(Debug, Clone)]
 pub struct ComprehensiveEvaluationResult {
     pub overall_score: f64,
-    // TODO: Add proper result types when modules are fully implemented
+    pub bleu_result: BleuResult,
+    pub rouge_result: RougeResult,
     pub perplexity_result: Option<SequencePerplexityMetrics>,
+    pub edit_distance_result: EditDistanceResult,
     pub bert_score_result: BertScoreResult,
     pub semantic_result: SemanticAnalysisResult,
+    pub overlap_result: OverlapResult,
+    pub coherence_result: CoherenceResult,
+    pub fluency_result: FluencyResult,
     pub metric_breakdown: HashMap<String, f64>,
     pub confidence_intervals: Option<ConfidenceIntervals>,
     pub statistical_summary: Option<StatisticalSummary>,
     pub quality_assessment: QualityAssessment,
+}
+
+/// BLEU evaluation result
+#[derive(Debug, Clone)]
+pub struct BleuResult {
+    pub bleu_score: f64,
+    pub precision_scores: Vec<f64>,
+}
+
+/// ROUGE evaluation result
+#[derive(Debug, Clone)]
+pub struct RougeResult {
+    pub rouge_score: f64,
+    pub rouge1: f64,
+    pub rouge2: f64,
+    pub rougeL: f64,
+}
+
+/// Edit distance evaluation result
+#[derive(Debug, Clone)]
+pub struct EditDistanceResult {
+    pub distance: usize,
+    pub normalized_distance: f64,
+    pub similarity: f64,
 }
 
 /// Confidence intervals for metric reliability
@@ -180,11 +251,11 @@ pub enum QualityLevel {
 pub struct TextEvaluator {
     config: EvaluationConfig,
     bleu_calculator: BleuScore,
-    rouge_calculator: RougeCalculator,
+    rouge_calculator: RougeScore,
     perplexity_calculator: PerplexityCalculator,
-    edit_distance_calculator: EditDistanceCalculator,
+    edit_distance_calculator: EditDistance,
     bert_score_calculator: BertScore,
-    semantic_calculator: SemanticSimilarity,
+    semantic_calculator: SemanticAnalyzer,
     overlap_calculator: WordOverlapCalculator,
     coherence_analyzer: CoherenceAnalyzer,
     fluency_analyzer: FluencyAnalyzer,
@@ -193,16 +264,15 @@ pub struct TextEvaluator {
 impl TextEvaluator {
     /// Create a new text evaluator with custom configuration
     pub fn new(config: EvaluationConfig) -> Self {
-        let bleu_calculator = BleuScore::new(config.bleu_config.clone());
-        let rouge_calculator = RougeCalculator::new(config.rouge_config.clone());
+        let bleu_calculator = BleuScore::default();
+        let rouge_calculator = RougeScore::default();
         let perplexity_calculator = PerplexityCalculator::new(config.perplexity_config.clone());
-        let edit_distance_calculator =
-            EditDistanceCalculator::new(config.edit_distance_config.clone());
+        let edit_distance_calculator = EditDistance::new(config.edit_distance_config.clone());
         let bert_score_calculator = BertScore::new(config.bert_score_config.clone());
-        let semantic_calculator = SemanticSimilarity::new(config.semantic_config.clone());
+        let semantic_calculator = SemanticAnalyzer::new(config.semantic_config.clone());
         let overlap_calculator = WordOverlapCalculator::new(config.overlap_config.clone());
         let coherence_analyzer = CoherenceAnalyzer::new(config.coherence_config.clone());
-        let fluency_analyzer = FluencyAnalyzer::new(config.fluency_config.clone());
+        let fluency_analyzer = FluencyAnalyzer::with_config(config.fluency_config.clone());
 
         Self {
             config,

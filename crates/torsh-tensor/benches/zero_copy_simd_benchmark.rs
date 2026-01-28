@@ -9,7 +9,8 @@
 //! - Compare against scalar baseline
 //! - Validate Phase 1 architecture enabled SIMD success
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use std::hint::black_box;
 #[cfg(feature = "simd")]
 use torsh_tensor::Tensor;
 

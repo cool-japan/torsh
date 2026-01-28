@@ -356,6 +356,8 @@ impl<T: FloatElement + Default> Tensor<T> {
         for i in 0..result.numel() {
             if let Ok(val) = result.get_item_flat(i) {
                 if let Some(val_f64) = <T as TensorElement>::to_f64(&val) {
+                    // Safe fallback: if conversion fails, use original value
+                    // This preserves data rather than failing the operation
                     let std_val = T::from(val_f64.sqrt()).unwrap_or(val);
                     let _ = result.set_item_flat(i, std_val);
                 }
@@ -416,6 +418,8 @@ impl<T: FloatElement + Default> Tensor<T> {
         for i in 0..abs_tensor.numel() {
             if let Ok(val) = abs_tensor.get_item_flat(i) {
                 if let Some(val_f64) = <T as TensorElement>::to_f64(&val) {
+                    // Safe fallback: if conversion fails, use original value
+                    // This preserves data rather than failing the operation
                     let abs_val = T::from(val_f64.abs()).unwrap_or(val);
                     let _ = abs_tensor.set_item_flat(i, abs_val);
                 }
@@ -441,6 +445,8 @@ impl<T: FloatElement + Default> Tensor<T> {
         for i in 0..result.numel() {
             if let Ok(val) = result.get_item_flat(i) {
                 if let Some(val_f64) = <T as TensorElement>::to_f64(&val) {
+                    // Safe fallback: if conversion fails, use original value
+                    // This preserves data rather than failing the operation
                     let norm_val = T::from(val_f64.sqrt()).unwrap_or(val);
                     let _ = result.set_item_flat(i, norm_val);
                 }
@@ -466,6 +472,8 @@ impl<T: FloatElement + Default> Tensor<T> {
         for i in 0..powered_tensor.numel() {
             if let Ok(val) = powered_tensor.get_item_flat(i) {
                 if let Some(val_f64) = <T as TensorElement>::to_f64(&val) {
+                    // Safe fallback: if conversion fails, use original value
+                    // This preserves data rather than failing the operation
                     let powered_val = T::from(val_f64.abs().powf(p)).unwrap_or(val);
                     let _ = powered_tensor.set_item_flat(i, powered_val);
                 }
@@ -479,6 +487,8 @@ impl<T: FloatElement + Default> Tensor<T> {
         for i in 0..result.numel() {
             if let Ok(val) = result.get_item_flat(i) {
                 if let Some(val_f64) = <T as TensorElement>::to_f64(&val) {
+                    // Safe fallback: if conversion fails, use original value
+                    // This preserves data rather than failing the operation
                     let norm_val = T::from(val_f64.powf(1.0 / p)).unwrap_or(val);
                     let _ = result.set_item_flat(i, norm_val);
                 }
@@ -919,6 +929,8 @@ impl<T: FloatElement + Default> Tensor<T> {
             return Ok(<T as num_traits::One>::one());
         }
 
+        // Safe fallback: if empty, return multiplicative identity (1)
+        // This is the correct mathematical definition for empty product
         let result = data
             .iter()
             .copied()
@@ -944,6 +956,8 @@ impl<T: FloatElement + Default> Tensor<T> {
         }
 
         // Sort the data
+        // Safe fallback: if partial_cmp returns None (NaN), treat as equal
+        // This ensures stable sorting even with NaN values
         data.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         let len = data.len();
@@ -1014,6 +1028,8 @@ impl<T: FloatElement + Default> Tensor<T> {
                 }
 
                 // Sort to find median
+                // Safe fallback: if partial_cmp returns None (NaN), treat as equal
+                // This ensures stable sorting even with NaN values
                 indexed_slice.sort_by(|a, b| {
                     a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal)
                 });
@@ -1158,6 +1174,7 @@ impl<T: FloatElement + Default> Tensor<T> {
                         match a.2.cmp(&b.2) {
                             std::cmp::Ordering::Equal => {
                                 // If same frequency, prefer smaller value
+                                // Safe fallback: if partial_cmp returns None (NaN), treat as equal
                                 b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal)
                             }
                             other => other,

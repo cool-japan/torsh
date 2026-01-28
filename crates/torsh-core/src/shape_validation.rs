@@ -1180,11 +1180,20 @@ pub fn init_global_validator(config: ValidationConfig) -> Result<()> {
 }
 
 /// Get reference to global validator
+///
+/// # Panics
+///
+/// This function will not panic even if the mutex is poisoned. In case of a poisoned
+/// mutex (which occurs when a thread panicked while holding the lock), this function
+/// recovers the inner validator state, as shape validation is safe to continue.
 pub fn get_global_validator() -> std::sync::MutexGuard<'static, ShapeValidator> {
     GLOBAL_VALIDATOR
         .get_or_init(|| std::sync::Mutex::new(ShapeValidator::new()))
         .lock()
-        .unwrap()
+        .unwrap_or_else(|poisoned| {
+            // Recover from poisoned mutex - shape validation is safe to continue
+            poisoned.into_inner()
+        })
 }
 
 /// Convenience macros for validation

@@ -339,13 +339,16 @@ impl<
     pub fn div_scalar(&self, scalar: f32) -> Result<Self> {
         let self_data = self.data()?;
 
+        let scalar_t = T::from_f64(scalar as f64).ok_or_else(|| {
+            TorshError::ConversionError(format!(
+                "Cannot convert scalar {} to target type",
+                scalar
+            ))
+        })?;
+
         let result_data: Vec<T> = self_data
             .iter()
-            .map(|&a| {
-                let scalar_t = T::from_f64(scalar as f64)
-                    .unwrap_or_else(|| panic!("Cannot convert f32 to type"));
-                a / scalar_t
-            })
+            .map(|&a| a / scalar_t)
             .collect();
 
         Self::from_data(
@@ -361,9 +364,16 @@ impl<
         T: FloatElement,
     {
         let data = self.data()?;
+        let exp_t = T::from_f64(exponent as f64).ok_or_else(|| {
+            TorshError::ConversionError(format!(
+                "Cannot convert exponent {} to target type",
+                exponent
+            ))
+        })?;
+
         let result_data: Vec<T> = data
             .iter()
-            .map(|&x| x.powf(T::from_f64(exponent as f64).expect("f64 conversion should succeed")))
+            .map(|&x| x.powf(exp_t))
             .collect();
 
         Self::from_data(
@@ -378,8 +388,18 @@ impl<
     where
         T: PartialOrd,
     {
-        let min_t = T::from_f64(min as f64).unwrap_or_else(|| panic!("Cannot convert min to type"));
-        let max_t = T::from_f64(max as f64).unwrap_or_else(|| panic!("Cannot convert max to type"));
+        let min_t = T::from_f64(min as f64).ok_or_else(|| {
+            TorshError::ConversionError(format!(
+                "Cannot convert min value {} to target type",
+                min
+            ))
+        })?;
+        let max_t = T::from_f64(max as f64).ok_or_else(|| {
+            TorshError::ConversionError(format!(
+                "Cannot convert max value {} to target type",
+                max
+            ))
+        })?;
 
         let data = self.data()?;
         let result_data: Vec<T> = data.iter().map(|&item| {
