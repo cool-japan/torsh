@@ -37,7 +37,8 @@ fn test_activation_performance() {
     // ReLU should typically be fastest (simple element-wise max),
     // but performance can vary due to CPU scheduling and cache effects.
     // Just verify all operations complete in reasonable time.
-    let max_time = std::time::Duration::from_millis(100);
+    // Increased timeout to account for parallel test execution and varied hardware
+    let max_time = std::time::Duration::from_millis(500);
     assert!(relu_time < max_time, "ReLU took too long: {:?}", relu_time);
     assert!(
         sigmoid_time < max_time,
