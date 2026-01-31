@@ -37,7 +37,7 @@ scirs2-autograd.workspace = true
 # tensorflow = { version = "0.21", optional = true }  # DISABLED: tensorflow-sys build issues - use ONNX Runtime (ort) instead
 futures = { workspace = true }
 futures-util = { workspace = true }
-clap = { version = "4.5.55", features = ["derive"] }
+clap = { version = "4.5.56", features = ["derive"] }
 uuid = { workspace = true }
 indicatif = "0.18"
 
