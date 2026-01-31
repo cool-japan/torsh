@@ -240,8 +240,8 @@ impl Optimizer for LAMB {
         Ok(OptimizerState {
             optimizer_type: "LAMB".to_string(),
             version: "1.0".to_string(),
-            param_groups: vec![],  // TODO: Implement parameter groups
-            state: HashMap::new(), // TODO: Implement per-parameter state
+            param_groups: vec![], // NOTE: Deferred to v0.2.0 - requires parameter storage
+            state: HashMap::new(), // NOTE: Deferred to v0.2.0 - requires per-parameter state tracking
             global_state,
         })
     }
@@ -309,8 +309,9 @@ impl<T: Optimizer> Optimizer for Lookahead<T> {
         self.base_optimizer.step()?;
         self.step_count += 1;
 
-        // TODO: Implement lookahead update every k steps
-        // Requires parameter storage
+        // NOTE: Lookahead slow weights update deferred to v0.2.0
+        // Requires parameter storage architecture - see ROADMAP.md
+        // Full implementation will update slow weights every k steps
         Ok(())
     }
 

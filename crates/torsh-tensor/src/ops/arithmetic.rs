@@ -68,7 +68,77 @@ impl<
         Ok(result)
     }
 
-    /// Element-wise addition with broadcasting (standard API)
+    /// Performs element-wise addition of two tensors with broadcasting support.
+    ///
+    /// Adds corresponding elements from `self` and `other`. If the tensors have
+    /// different shapes, broadcasting rules are applied to make them compatible.
+    ///
+    /// # Broadcasting Rules
+    /// - Dimensions are aligned from right to left
+    /// - Dimension of size 1 can broadcast to any size
+    /// - Missing dimensions are treated as size 1
+    ///
+    /// Examples of valid broadcasts:
+    /// - `[3, 4]` + `[3, 4]` → `[3, 4]` (same shape)
+    /// - `[3, 4]` + `[4]` → `[3, 4]` (broadcast last dimension)
+    /// - `[3, 1]` + `[1, 4]` → `[3, 4]` (broadcast both)
+    /// - `[3, 4, 5]` + `[5]` → `[3, 4, 5]` (broadcast to batch)
+    ///
+    /// # Performance
+    /// For matching shapes with f32 type, automatically uses adaptive SIMD optimization:
+    /// - Small tensors (<512 elements): Scalar operations
+    /// - Medium tensors (512-65K): SIMD vectorization (up to 14x speedup)
+    /// - Large tensors (>65K): Parallel SIMD (multi-threaded)
+    ///
+    /// # Gradient Tracking
+    /// If either tensor has `requires_grad=true`, the operation is recorded
+    /// in the computational graph for automatic differentiation.
+    ///
+    /// # Arguments
+    /// * `other` - The tensor to add to `self`
+    ///
+    /// # Returns
+    /// A new tensor containing the element-wise sum
+    ///
+    /// # Errors
+    /// Returns error if the shapes are not compatible for broadcasting
+    ///
+    /// # Examples
+    /// ```rust,no_run
+    /// # use torsh::Tensor;
+    /// # use torsh_core::device::DeviceType;
+    /// // Same shape addition
+    /// let a = Tensor::from_data(vec![1.0, 2.0, 3.0], vec![3], DeviceType::Cpu)?;
+    /// let b = Tensor::from_data(vec![4.0, 5.0, 6.0], vec![3], DeviceType::Cpu)?;
+    /// let c = a.add(&b)?;
+    /// assert_eq!(c.data()?, vec![5.0, 7.0, 9.0]);
+    ///
+    /// // Broadcasting: [2,3] + [3] → [2,3]
+    /// let a = Tensor::from_data(
+    ///     vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    ///     vec![2, 3],
+    ///     DeviceType::Cpu
+    /// )?;
+    /// let b = Tensor::from_data(vec![10.0, 20.0, 30.0], vec![3], DeviceType::Cpu)?;
+    /// let c = a.add(&b)?;  // Adds [10,20,30] to each row
+    /// assert_eq!(c.data()?, vec![11.0, 22.0, 33.0, 14.0, 25.0, 36.0]);
+    ///
+    /// // Neural network bias addition
+    /// let activations = Tensor::randn(&[32, 128], DeviceType::Cpu)?;  // Batch output
+    /// let bias = Tensor::randn(&[128], DeviceType::Cpu)?;             // Bias vector
+    /// let output = activations.add(&bias)?;  // Broadcasts bias to all samples
+    ///
+    /// // Matrix addition for residual connections
+    /// let x = Tensor::randn(&[64, 64], DeviceType::Cpu)?;
+    /// let residual = Tensor::randn(&[64, 64], DeviceType::Cpu)?;
+    /// let output = x.add(&residual)?;  // Element-wise sum
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to `torch.add(a, b)` or `a + b`
+    ///
+    /// See also: [`Self::add_scalar`], [`Self::add_`], [`Self::sub`], [`Self::mul`]
     pub fn add(&self, other: &Self) -> Result<Self> {
         self.add_op(other)
     }
@@ -144,18 +214,157 @@ impl<
         Ok(result)
     }
 
-    /// Element-wise multiplication with broadcasting (standard API)
+    /// Performs element-wise multiplication of two tensors with broadcasting support.
+    ///
+    /// Multiplies corresponding elements from `self` and `other`. If the tensors have
+    /// different shapes, broadcasting rules are applied to make them compatible.
+    ///
+    /// # Broadcasting Rules
+    /// - Dimensions are aligned from right to left
+    /// - Dimension of size 1 can broadcast to any size
+    /// - Missing dimensions are treated as size 1
+    ///
+    /// Examples of valid broadcasts:
+    /// - `[3, 4]` * `[3, 4]` → `[3, 4]` (same shape)
+    /// - `[3, 4]` * `[4]` → `[3, 4]` (broadcast last dimension)
+    /// - `[3, 1]` * `[1, 4]` → `[3, 4]` (broadcast both)
+    /// - `[3, 4, 5]` * `[5]` → `[3, 4, 5]` (broadcast to batch)
+    ///
+    /// # Performance
+    /// For matching shapes with f32 type, automatically uses adaptive SIMD optimization:
+    /// - Small tensors (<512 elements): Scalar operations
+    /// - Medium tensors (512-65K): SIMD vectorization (up to 14x speedup)
+    /// - Large tensors (>65K): Parallel SIMD (multi-threaded)
+    ///
+    /// # Gradient Tracking
+    /// If either tensor has `requires_grad=true`, the operation is recorded
+    /// in the computational graph for automatic differentiation.
+    ///
+    /// # Arguments
+    /// * `other` - The tensor to multiply with `self`
+    ///
+    /// # Returns
+    /// A new tensor containing the element-wise product
+    ///
+    /// # Errors
+    /// Returns error if the shapes are not compatible for broadcasting
+    ///
+    /// # Examples
+    /// ```rust,no_run
+    /// # use torsh::Tensor;
+    /// # use torsh_core::device::DeviceType;
+    /// // Same shape multiplication
+    /// let a = Tensor::from_data(vec![1.0, 2.0, 3.0], vec![3], DeviceType::Cpu)?;
+    /// let b = Tensor::from_data(vec![4.0, 5.0, 6.0], vec![3], DeviceType::Cpu)?;
+    /// let c = a.mul(&b)?;
+    /// assert_eq!(c.data()?, vec![4.0, 10.0, 18.0]);
+    ///
+    /// // Broadcasting: [2,3] * [3] → [2,3]
+    /// let a = Tensor::from_data(
+    ///     vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    ///     vec![2, 3],
+    ///     DeviceType::Cpu
+    /// )?;
+    /// let b = Tensor::from_data(vec![10.0, 20.0, 30.0], vec![3], DeviceType::Cpu)?;
+    /// let c = a.mul(&b)?;  // Multiplies each row by [10,20,30]
+    /// assert_eq!(c.data()?, vec![10.0, 40.0, 90.0, 40.0, 100.0, 180.0]);
+    ///
+    /// // Apply attention mask (element-wise gating)
+    /// let features = Tensor::randn(&[32, 128], DeviceType::Cpu)?;
+    /// let mask = Tensor::ones(&[32, 128], DeviceType::Cpu)?;  // Binary mask
+    /// let masked_features = features.mul(&mask)?;  // Zero out masked positions
+    ///
+    /// // Feature scaling
+    /// let x = Tensor::randn(&[64, 256], DeviceType::Cpu)?;
+    /// let scale = Tensor::ones(&[256], DeviceType::Cpu)?;  // Learnable scale
+    /// let scaled_x = x.mul(&scale)?;  // Scale each feature
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to `torch.mul(a, b)` or `a * b`
+    ///
+    /// Note: This is element-wise multiplication, not matrix multiplication.
+    /// For matrix multiplication, use [`Self::matmul`].
+    ///
+    /// See also: [`Self::mul_scalar`], [`Self::mul_`], [`Self::matmul`], [`Self::div`]
     pub fn mul(&self, other: &Self) -> Result<Self> {
         self.mul_op(other)
     }
 
-    /// Element-wise division with broadcasting
+    /// Performs element-wise division of two tensors with broadcasting support.
     ///
-    /// # SIMD Optimization (Phase 3/4)
-    /// For f32 tensors with matching shapes, uses adaptive SIMD dispatch:
-    /// - Small tensors (<512): Scalar (SIMD overhead not worth it)
-    /// - Medium tensors (512-65K): Phase 7 direct SIMD
-    /// - Large tensors (>65K): Parallel SIMD
+    /// Divides corresponding elements of `self` by `other`. If the tensors have
+    /// different shapes, broadcasting rules are applied to make them compatible.
+    ///
+    /// # Broadcasting Rules
+    /// - Dimensions are aligned from right to left
+    /// - Dimension of size 1 can broadcast to any size
+    /// - Missing dimensions are treated as size 1
+    ///
+    /// Examples of valid broadcasts:
+    /// - `[3, 4]` / `[3, 4]` → `[3, 4]` (same shape)
+    /// - `[3, 4]` / `[4]` → `[3, 4]` (broadcast last dimension)
+    /// - `[3, 1]` / `[1, 4]` → `[3, 4]` (broadcast both)
+    /// - `[3, 4, 5]` / `[5]` → `[3, 4, 5]` (broadcast to batch)
+    ///
+    /// # Performance
+    /// For matching shapes with f32 type, automatically uses adaptive SIMD optimization:
+    /// - Small tensors (<512 elements): Scalar operations
+    /// - Medium tensors (512-65K): SIMD vectorization
+    /// - Large tensors (>65K): Parallel SIMD (multi-threaded)
+    ///
+    /// # Division by Zero
+    /// Division by zero produces infinity (inf) or NaN according to IEEE 754 rules:
+    /// - Positive number / 0.0 → inf
+    /// - Negative number / 0.0 → -inf
+    /// - 0.0 / 0.0 → NaN
+    ///
+    /// # Arguments
+    /// * `other` - The tensor to divide by (denominator)
+    ///
+    /// # Returns
+    /// A new tensor containing the element-wise quotient
+    ///
+    /// # Errors
+    /// Returns error if the shapes are not compatible for broadcasting
+    ///
+    /// # Examples
+    /// ```rust,no_run
+    /// # use torsh::Tensor;
+    /// # use torsh_core::device::DeviceType;
+    /// // Same shape division
+    /// let a = Tensor::from_data(vec![10.0, 20.0, 30.0], vec![3], DeviceType::Cpu)?;
+    /// let b = Tensor::from_data(vec![2.0, 4.0, 5.0], vec![3], DeviceType::Cpu)?;
+    /// let c = a.div(&b)?;
+    /// assert_eq!(c.data()?, vec![5.0, 5.0, 6.0]);
+    ///
+    /// // Broadcasting: [2,3] / [3] → [2,3]
+    /// let a = Tensor::from_data(
+    ///     vec![10.0, 20.0, 30.0, 40.0, 50.0, 60.0],
+    ///     vec![2, 3],
+    ///     DeviceType::Cpu
+    /// )?;
+    /// let b = Tensor::from_data(vec![2.0, 5.0, 10.0], vec![3], DeviceType::Cpu)?;
+    /// let c = a.div(&b)?;  // Divides each row by [2,5,10]
+    /// assert_eq!(c.data()?, vec![5.0, 4.0, 3.0, 20.0, 10.0, 6.0]);
+    ///
+    /// // Normalize features (divide by standard deviation)
+    /// let x = Tensor::randn(&[32, 128], DeviceType::Cpu)?;
+    /// let std = Tensor::ones(&[128], DeviceType::Cpu)?;  // Feature std deviations
+    /// let normalized = x.div(&std)?;  // Normalize each feature
+    ///
+    /// // Compute probabilities from logits
+    /// let logits = Tensor::randn(&[64, 10], DeviceType::Cpu)?;
+    /// let sum = logits.sum_dim(1, true)?;  // Sum over classes
+    /// let probs = logits.div(&sum)?;  // Normalize to probabilities
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to `torch.div(a, b)` or `a / b`
+    ///
+    /// See also: [`Self::div_scalar`], [`Self::div_`], [`Self::mul`], [`Self::reciprocal`]
     pub fn div(&self, other: &Self) -> Result<Self> {
         if self.shape() == other.shape() {
             // 🚀 Phase 3/4: Use adaptive SIMD for f32 tensors
@@ -419,8 +628,75 @@ impl<
         )
     }
 
-    /// 🚀 Hyperoptimized dot product for 1D tensors (breakthrough performance)
-    /// Uses adaptive SIMD selection for optimal performance across all array sizes
+    /// Computes the dot product (inner product) of two 1D tensors.
+    ///
+    /// For two vectors `a` and `b` of length `n`, computes the sum of element-wise products:
+    /// `dot(a, b) = a[0]*b[0] + a[1]*b[1] + ... + a[n-1]*b[n-1]`
+    ///
+    /// This is a scalar-valued operation that measures the projection of one vector onto another.
+    ///
+    /// # Requirements
+    /// - Both tensors must be 1-dimensional
+    /// - Both tensors must have the same length
+    ///
+    /// # Performance
+    /// Uses breakthrough hyperoptimized SIMD implementation with adaptive selection:
+    /// - Small vectors (<512 elements): Standard scalar loop
+    /// - Medium vectors (512-65K): Cache-optimized SIMD (7-14x speedup)
+    /// - Large vectors (>65K): Parallel SIMD with software pipelining
+    ///
+    /// Performance characteristics:
+    /// - Up to 14.17x speedup for medium arrays with TLB optimization
+    /// - 7.93x speedup for small arrays with cache-line aware processing
+    /// - 7.41x speedup for large arrays with software pipelining
+    /// - Automatically selects optimal strategy based on vector size
+    ///
+    /// # Arguments
+    /// * `other` - The second 1D tensor to compute dot product with
+    ///
+    /// # Returns
+    /// A scalar value (type `T`) representing the dot product
+    ///
+    /// # Errors
+    /// - Returns error if either tensor is not 1-dimensional
+    /// - Returns error if the vectors have different lengths
+    ///
+    /// # Examples
+    /// ```rust,no_run
+    /// # use torsh::Tensor;
+    /// # use torsh_core::device::DeviceType;
+    /// // Basic dot product
+    /// let a = Tensor::from_data(vec![1.0, 2.0, 3.0], vec![3], DeviceType::Cpu)?;
+    /// let b = Tensor::from_data(vec![4.0, 5.0, 6.0], vec![3], DeviceType::Cpu)?;
+    /// let dot = a.dot_hyperoptimized(&b)?;
+    /// assert_eq!(dot, 32.0); // 1*4 + 2*5 + 3*6 = 32
+    ///
+    /// // Cosine similarity computation
+    /// let v1 = Tensor::randn(&[128], DeviceType::Cpu)?;
+    /// let v2 = Tensor::randn(&[128], DeviceType::Cpu)?;
+    /// let dot = v1.dot_hyperoptimized(&v2)?;
+    /// let norm1 = v1.dot_hyperoptimized(&v1)?.sqrt();
+    /// let norm2 = v2.dot_hyperoptimized(&v2)?.sqrt();
+    /// let cosine_sim = dot / (norm1 * norm2);
+    ///
+    /// // Neural network: compute attention scores
+    /// let query = Tensor::randn(&[512], DeviceType::Cpu)?;
+    /// let key = Tensor::randn(&[512], DeviceType::Cpu)?;
+    /// let attention_score = query.dot_hyperoptimized(&key)?;
+    ///
+    /// // Compute vector norm (L2 norm)
+    /// let v = Tensor::from_data(vec![3.0, 4.0], vec![2], DeviceType::Cpu)?;
+    /// let norm = v.dot_hyperoptimized(&v)?.sqrt();
+    /// assert_eq!(norm, 5.0); // sqrt(3^2 + 4^2) = 5
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to `torch.dot(a, b)`
+    ///
+    /// Note: For matrix-vector or matrix-matrix products, use [`Self::matmul`].
+    ///
+    /// See also: [`Self::matmul`], [`Self::mul`], [`Self::outer`], [`Self::cross`]
     pub fn dot_hyperoptimized(&self, other: &Self) -> Result<T>
     where
         T: FloatElement + Copy + std::iter::Sum,

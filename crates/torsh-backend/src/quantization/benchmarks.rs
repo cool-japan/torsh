@@ -627,7 +627,7 @@ impl MemoryBenchmarkResults {
         self.measurements.iter().max_by(|a, b| {
             a.memory_efficiency
                 .partial_cmp(&b.memory_efficiency)
-                .unwrap()
+                .unwrap_or(std::cmp::Ordering::Equal)
         })
     }
 
@@ -636,7 +636,7 @@ impl MemoryBenchmarkResults {
         self.measurements.iter().max_by(|a, b| {
             a.compression_ratio
                 .partial_cmp(&b.compression_ratio)
-                .unwrap()
+                .unwrap_or(std::cmp::Ordering::Equal)
         })
     }
 }

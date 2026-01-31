@@ -367,7 +367,10 @@ pub fn get_or_create_context() -> Result<AutogradContext> {
         if ctx_ref.is_none() {
             *ctx_ref = Some(AutogradContext::new());
         }
-        Ok(ctx_ref.take().unwrap())
+        // Safe to expect here: we just ensured ctx_ref is Some above
+        Ok(ctx_ref
+            .take()
+            .expect("AutogradContext should exist after initialization"))
     })
 }
 

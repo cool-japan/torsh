@@ -721,7 +721,9 @@ pub mod interactive_visualization {
 
         // 3. Navigate through images
         for i in 0..gallery.len() {
-            let (name, _) = gallery.current_image().unwrap();
+            let (name, _) = gallery.current_image().ok_or_else(|| {
+                VisionError::InvalidInput("No current image in gallery".to_string())
+            })?;
             println!("  Viewing: {}", name);
 
             // Add annotation to current image

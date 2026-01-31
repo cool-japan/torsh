@@ -20,7 +20,66 @@ use scirs2_core::parallel_ops::{par_chunks, par_join};
 use scirs2_core::profiling::profile_section;
 
 impl<T: TensorElement> Tensor<T> {
-    /// Matrix multiplication with GPU and SIMD acceleration
+    /// Performs matrix multiplication between two tensors.
+    ///
+    /// This operation supports various input dimensions:
+    /// - 2D × 2D: Standard matrix multiplication
+    /// - 1D × 2D: Vector-matrix multiplication (returns 1D)
+    /// - 2D × 1D: Matrix-vector multiplication (returns 1D)
+    /// - 1D × 1D: Dot product (returns 0D scalar)
+    /// - Higher dimensions: Batch matrix multiplication
+    ///
+    /// For 2D matrices, the inner dimensions must match: if `self` has shape `[m, k]`,
+    /// then `other` must have shape `[k, n]`, producing output shape `[m, n]`.
+    ///
+    /// # Performance
+    /// Automatically selects optimal backend:
+    /// - GPU acceleration for very large matrices (>10K elements, 10x-100x speedup)
+    /// - SIMD acceleration for medium-large matrices (>1K elements, 2-7x speedup)
+    /// - Standard implementation for smaller matrices
+    ///
+    /// # Arguments
+    /// * `other` - The tensor to multiply with (right-hand side)
+    ///
+    /// # Returns
+    /// A new tensor containing the matrix multiplication result
+    ///
+    /// # Errors
+    /// Returns error if the inner dimensions don't match or shapes are incompatible
+    ///
+    /// # Examples
+    /// ```rust,no_run
+    /// # use torsh::Tensor;
+    /// # use torsh_core::device::DeviceType;
+    /// // 2D matrix multiplication: [3,4] × [4,5] → [3,5]
+    /// let a = Tensor::randn(&[3, 4], DeviceType::Cpu)?;
+    /// let b = Tensor::randn(&[4, 5], DeviceType::Cpu)?;
+    /// let c = a.matmul(&b)?;
+    /// assert_eq!(c.shape().dims(), &[3, 5]);
+    ///
+    /// // Matrix-vector multiplication: [3,4] × [4] → [3]
+    /// let a = Tensor::randn(&[3, 4], DeviceType::Cpu)?;
+    /// let v = Tensor::randn(&[4], DeviceType::Cpu)?;
+    /// let result = a.matmul(&v)?;
+    /// assert_eq!(result.shape().dims(), &[3]);
+    ///
+    /// // Vector-matrix multiplication: [4] × [4,5] → [5]
+    /// let v = Tensor::randn(&[4], DeviceType::Cpu)?;
+    /// let a = Tensor::randn(&[4, 5], DeviceType::Cpu)?;
+    /// let result = v.matmul(&a)?;
+    /// assert_eq!(result.shape().dims(), &[5]);
+    ///
+    /// // Linear transformation for neural networks
+    /// let x = Tensor::randn(&[32, 128], DeviceType::Cpu)?;  // Batch of 32 samples
+    /// let w = Tensor::randn(&[128, 64], DeviceType::Cpu)?;  // Weight matrix
+    /// let output = x.matmul(&w)?;  // Shape: [32, 64]
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to `torch.matmul(a, b)` or `a @ b`
+    ///
+    /// See also: [`Self::dot_hyperoptimized`], [`Self::outer`], [`Self::transpose`]
     pub fn matmul(&self, other: &Self) -> Result<Self>
     where
         T: Add<Output = T> + Mul<Output = T> + Zero + Copy

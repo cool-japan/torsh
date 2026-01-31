@@ -1,4 +1,27 @@
 //! Mathematical functions for tensors
+//!
+//! This module provides element-wise mathematical operations for tensors,
+//! including trigonometric, exponential, logarithmic, and other common functions.
+//!
+//! # Examples
+//!
+//! ```rust
+//! use torsh_tensor::Tensor;
+//!
+//! # fn main() -> torsh_core::error::Result<()> {
+//! // Create a tensor with values
+//! let x = Tensor::<f32>::from_vec(vec![0.0, 1.0, 2.0], &[3])?;
+//!
+//! // Apply mathematical operations
+//! let sin_x = x.sin();
+//! let exp_x = x.exp();
+//! let sqrt_x = x.sqrt();
+//!
+//! // Chain operations
+//! let result = x.abs().log1p().tanh();
+//! # Ok(())
+//! # }
+//! ```
 
 use crate::{Tensor, TensorElement, FloatElement};
 use torsh_core::Device;
@@ -8,6 +31,20 @@ use std::f64::consts;
 
 impl<T: FloatElement + Default> Tensor<T> {
     /// Applies sin function element-wise
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use torsh_tensor::Tensor;
+    /// use std::f32::consts::PI;
+    ///
+    /// # fn main() -> torsh_core::error::Result<()> {
+    /// let x = Tensor::<f32>::from_vec(vec![0.0, PI / 2.0, PI], &[3])?;
+    /// let y = x.sin();
+    /// // y ≈ [0.0, 1.0, 0.0]
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn sin(&self) -> Self {
         let mut result = self.clone();
         for i in 0..result.numel() {
@@ -22,6 +59,20 @@ impl<T: FloatElement + Default> Tensor<T> {
     }
 
     /// Applies cos function element-wise
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use torsh_tensor::Tensor;
+    /// use std::f32::consts::PI;
+    ///
+    /// # fn main() -> torsh_core::error::Result<()> {
+    /// let x = Tensor::<f32>::from_vec(vec![0.0, PI / 2.0, PI], &[3])?;
+    /// let y = x.cos();
+    /// // y ≈ [1.0, 0.0, -1.0]
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn cos(&self) -> Self {
         let mut result = self.clone();
         for i in 0..result.numel() {
@@ -132,7 +183,20 @@ impl<T: FloatElement + Default> Tensor<T> {
     }
 
 
-    /// Applies exp function element-wise
+    /// Applies exp function element-wise (e^x)
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use torsh_tensor::Tensor;
+    ///
+    /// # fn main() -> torsh_core::error::Result<()> {
+    /// let x = Tensor::<f32>::from_vec(vec![0.0, 1.0, 2.0], &[3])?;
+    /// let y = x.exp();
+    /// // y ≈ [1.0, 2.718, 7.389]
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn exp(&self) -> Self {
         let mut result = self.clone();
         for i in 0..result.numel() {
@@ -174,7 +238,20 @@ impl<T: FloatElement + Default> Tensor<T> {
         result
     }
 
-    /// Applies natural logarithm function element-wise
+    /// Applies natural logarithm function element-wise (ln(x))
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use torsh_tensor::Tensor;
+    ///
+    /// # fn main() -> torsh_core::error::Result<()> {
+    /// let x = Tensor::<f32>::from_vec(vec![1.0, std::f32::consts::E, 10.0], &[3])?;
+    /// let y = x.log();
+    /// // y ≈ [0.0, 1.0, 2.303]
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn log(&self) -> Self {
         let mut result = self.clone();
         for i in 0..result.numel() {
@@ -231,6 +308,19 @@ impl<T: FloatElement + Default> Tensor<T> {
     }
 
     /// Applies square root function element-wise
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use torsh_tensor::Tensor;
+    ///
+    /// # fn main() -> torsh_core::error::Result<()> {
+    /// let x = Tensor::<f32>::from_vec(vec![1.0, 4.0, 9.0, 16.0], &[4])?;
+    /// let y = x.sqrt();
+    /// // y = [1.0, 2.0, 3.0, 4.0]
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn sqrt(&self) -> Self {
         let mut result = self.clone();
         for i in 0..result.numel() {
@@ -258,7 +348,79 @@ impl<T: FloatElement + Default> Tensor<T> {
         result
     }
 
-    /// Applies power function element-wise (self^exponent)
+    /// Raises each element of `self` to the power of corresponding element in `exponent`.
+    ///
+    /// Computes `self[i]^exponent[i]` for each element. If the tensors have
+    /// different shapes, broadcasting rules are applied to make them compatible.
+    ///
+    /// # Broadcasting Rules
+    /// - Dimensions are aligned from right to left
+    /// - Dimension of size 1 can broadcast to any size
+    /// - Missing dimensions are treated as size 1
+    ///
+    /// Examples of valid broadcasts:
+    /// - `[3, 4]` ^ `[3, 4]` → `[3, 4]` (same shape)
+    /// - `[3, 4]` ^ `[4]` → `[3, 4]` (broadcast exponent to each row)
+    /// - `[3, 1]` ^ `[1, 4]` → `[3, 4]` (broadcast both)
+    ///
+    /// # Special Cases
+    /// Following IEEE 754 standard:
+    /// - `x^0` = 1 (for any x, including 0)
+    /// - `0^x` = 0 (for x > 0)
+    /// - `0^0` = 1 (by convention)
+    /// - `x^1` = x
+    /// - Negative base with non-integer exponent may produce NaN
+    ///
+    /// # Arguments
+    /// * `exponent` - The tensor containing exponent values
+    ///
+    /// # Returns
+    /// A new tensor containing element-wise powers
+    ///
+    /// # Errors
+    /// Returns error if the shapes are not compatible for broadcasting
+    ///
+    /// # Examples
+    /// ```rust,no_run
+    /// # use torsh::Tensor;
+    /// # use torsh_core::device::DeviceType;
+    /// // Same shape: compute squares and cubes
+    /// let base = Tensor::from_data(vec![2.0, 3.0, 4.0], vec![3], DeviceType::Cpu)?;
+    /// let exp = Tensor::from_data(vec![2.0, 3.0, 2.0], vec![3], DeviceType::Cpu)?;
+    /// let result = base.pow(&exp)?;
+    /// assert_eq!(result.data()?, vec![4.0, 27.0, 16.0]); // [2^2, 3^3, 4^2]
+    ///
+    /// // Broadcasting: raise matrix to per-column powers
+    /// let base = Tensor::from_data(
+    ///     vec![2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
+    ///     vec![2, 3],
+    ///     DeviceType::Cpu
+    /// )?;
+    /// let exp = Tensor::from_data(vec![1.0, 2.0, 3.0], vec![3], DeviceType::Cpu)?;
+    /// let result = base.pow(&exp)?;  // Each column raised to its exponent
+    /// assert_eq!(result.data()?, vec![2.0, 9.0, 64.0, 5.0, 36.0, 343.0]);
+    ///
+    /// // Polynomial activation: x + x^2 + x^3
+    /// let x = Tensor::randn(&[64, 128], DeviceType::Cpu)?;
+    /// let two = Tensor::full(&[128], 2.0, DeviceType::Cpu)?;
+    /// let three = Tensor::full(&[128], 3.0, DeviceType::Cpu)?;
+    /// let x2 = x.pow(&two)?;
+    /// let x3 = x.pow(&three)?;
+    /// let result = x.add(&x2)?.add(&x3)?;
+    ///
+    /// // Feature interactions
+    /// let features = Tensor::randn(&[32, 10], DeviceType::Cpu)?;
+    /// let powers = Tensor::from_data(vec![1.0, 2.0, 1.0, 3.0, 1.0, 2.0, 1.0, 1.0, 2.0, 1.0], vec![10], DeviceType::Cpu)?;
+    /// let interactions = features.pow(&powers)?;  // Different power per feature
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # PyTorch Compatibility
+    /// Equivalent to `torch.pow(base, exponent)` or `base ** exponent`
+    ///
+    /// For scalar exponents, consider using [`Self::powf`] for better performance.
+    ///
+    /// See also: [`Self::powf`], [`Self::sqrt`], [`Self::exp`], [`Self::mul`]
     pub fn pow(&self, exponent: &Self) -> Result<Self> {
         let result = self.broadcast_binary_op(exponent, |base, exp| {
             if let (Some(base_f64), Some(exp_f64)) = (<T as TensorElement>::to_f64(&base), <T as TensorElement>::to_f64(&exp)) {
@@ -285,6 +447,19 @@ impl<T: FloatElement + Default> Tensor<T> {
     }
 
     /// Applies absolute value function element-wise
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use torsh_tensor::Tensor;
+    ///
+    /// # fn main() -> torsh_core::error::Result<()> {
+    /// let x = Tensor::<f32>::from_vec(vec![-3.0, -1.0, 0.0, 2.0], &[4])?;
+    /// let y = x.abs();
+    /// // y = [3.0, 1.0, 0.0, 2.0]
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn abs(&self) -> Self {
         let mut result = self.clone();
         for i in 0..result.numel() {
@@ -420,6 +595,19 @@ impl<T: FloatElement + Default> Tensor<T> {
     }
 
     /// Clamps values to range [min, max]
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use torsh_tensor::Tensor;
+    ///
+    /// # fn main() -> torsh_core::error::Result<()> {
+    /// let x = Tensor::<f32>::from_vec(vec![-5.0, 0.5, 2.0, 10.0], &[4])?;
+    /// let y = x.clamp(0.0, 1.0);
+    /// // y = [0.0, 0.5, 1.0, 1.0]
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn clamp(&self, min_val: T, max_val: T) -> Self
     where
         T: PartialOrd + Copy

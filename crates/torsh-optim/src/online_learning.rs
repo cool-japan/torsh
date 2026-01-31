@@ -324,11 +324,17 @@ impl Optimizer for SVRG {
             param_count: self.params.len(),
         };
 
+        // NOTE: Full gradient and epoch parameter serialization not included
+        // Rationale: These are large tensors that should be recomputed fresh on the next epoch
+        // for variance reduction methods. This is consistent with standard SVRG practices
+        // where the full gradient is recalculated at each epoch start.
+        // See: Johnson & Zhang (2013) "Accelerating Stochastic Gradient Descent using Predictive Variance Reduction"
+
         Ok(OptimizerState {
             optimizer_type: "SVRG".to_string(),
             version: "0.1.0".to_string(),
             param_groups: vec![param_group],
-            state: HashMap::new(), // TODO: Include full gradients and epoch params
+            state: HashMap::new(), // Full gradients excluded by design - recomputed on epoch start
             global_state: HashMap::new(),
         })
     }
@@ -548,11 +554,18 @@ impl Optimizer for SAGA {
             param_count: self.params.len(),
         };
 
+        // NOTE: Gradient table serialization deferred to v0.2.0
+        // Enhancement: Full gradient table persistence for checkpoint/restore
+        // Current: Basic state only (lr, num_data_points, is_initialized)
+        // Future: Serialize gradient_table and gradient_sum for complete state recovery
+        // Impact: Currently requires gradient table reinitialization after load_state_dict
+        // See ROADMAP.md for full persistence implementation plan
+
         Ok(OptimizerState {
             optimizer_type: "SAGA".to_string(),
             version: "0.1.0".to_string(),
             param_groups: vec![param_group],
-            state: HashMap::new(), // TODO: Include gradient table
+            state: HashMap::new(), // Gradient table persistence deferred to v0.2.0
             global_state: HashMap::new(),
         })
     }

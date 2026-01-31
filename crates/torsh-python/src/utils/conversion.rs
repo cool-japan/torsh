@@ -5,7 +5,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyList;
 use torsh_core::{device::DeviceType, dtype::DType};
 
-/// Convert Python list to Vec<f32>
+/// Convert Python list to `Vec<f32>`
 pub fn python_list_to_vec(list: &Bound<'_, PyList>) -> PyResult<Vec<f32>> {
     let mut data = Vec::new();
     let len = list.len();

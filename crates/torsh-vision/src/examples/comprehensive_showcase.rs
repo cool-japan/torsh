@@ -309,15 +309,17 @@ fn demonstrate_benchmarking() -> Result<()> {
 
     for method in edge_methods {
         let times: Vec<f64> = (0..10)
-            .map(|_| {
+            .filter_map(|_| {
                 let start = Instant::now();
-                let _ = processor.multi_edge_detection(&test_image, method).unwrap();
-                start.elapsed().as_secs_f64() * 1000.0
+                processor.multi_edge_detection(&test_image, method).ok()?;
+                Some(start.elapsed().as_secs_f64() * 1000.0)
             })
             .collect();
 
-        let avg_time = times.iter().sum::<f64>() / times.len() as f64;
-        println!("  ✓ {:?} edge detection: {:.2}ms avg", method, avg_time);
+        if !times.is_empty() {
+            let avg_time = times.iter().sum::<f64>() / times.len() as f64;
+            println!("  ✓ {:?} edge detection: {:.2}ms avg", method, avg_time);
+        }
     }
 
     Ok(())

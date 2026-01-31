@@ -139,7 +139,7 @@ impl BertPooler {
 impl Module for BertPooler {
     fn forward(&self, input: &Tensor) -> Result<Tensor> {
         // Take the hidden state of the first token ([CLS])
-        let first_token = input.narrow(1, 0, 1).unwrap().squeeze();
+        let first_token = input.narrow(1, 0, 1)?.squeeze();
         let pooled = self.dense.forward(&first_token)?;
         pooled.tanh()
     }

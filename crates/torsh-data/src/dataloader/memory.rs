@@ -19,10 +19,11 @@ use torsh_core::{device::DeviceType, error::Result};
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let pinner = CpuMemoryPinner;
-/// let data = vec![1, 2, 3, 4, 5];
+/// let data: Vec<i32> = vec![1, 2, 3, 4, 5];
 /// let pinned_data = pinner.pin_memory(data)?;
 ///
-/// println!("Supports pinning: {}", pinner.supports_pinning());
+/// // Check if pinning is supported for this type
+/// println!("Supports pinning: {}", <CpuMemoryPinner as MemoryPinning<Vec<i32>>>::supports_pinning(&pinner));
 /// # Ok(())
 /// # }
 /// ```

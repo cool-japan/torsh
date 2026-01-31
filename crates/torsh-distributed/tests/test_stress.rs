@@ -555,7 +555,7 @@ async fn test_mixed_operation_stress() -> Result<()> {
     let mut operation_counts = [0u64; 6]; // Track different operation types
 
     while start_time.elapsed() < test_duration {
-        let op_type = random_usize(0, 6);
+        let op_type = random_usize(0, 5); // 0-5 for 6 operations (array indices 0-5)
         let tensor_size = random_usize(500, 2000); // 500-2000 elements
 
         let result = match op_type {

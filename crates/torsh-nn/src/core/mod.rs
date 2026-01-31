@@ -23,13 +23,287 @@ use hashbrown::HashMap;
 /// This trait provides the core interface for all neural network components,
 /// following PyTorch-compatible patterns for maximum interoperability.
 ///
-/// ## Design Philosophy
+/// # Design Philosophy
 ///
 /// This trait is designed for maximum ergonomics while maintaining flexibility:
 /// - Most methods have sensible defaults to reduce boilerplate
 /// - Core functionality (forward, training mode) is required
 /// - Parameter management is streamlined with helper methods
 /// - Hook system is optional but well-integrated
+///
+/// # Required Methods
+///
+/// Only [`forward()`](Module::forward) must be implemented. All other methods have sensible defaults.
+///
+/// # Implementing a Custom Module
+///
+/// ## Basic Module (No Parameters)
+///
+/// ```rust
+/// use torsh_nn::{Module, ModuleBase};
+/// use torsh_tensor::Tensor;
+/// use torsh_core::error::Result;
+///
+/// /// Simple ReLU activation function
+/// struct MyReLU {
+///     base: ModuleBase,
+/// }
+///
+/// impl MyReLU {
+///     fn new() -> Self {
+///         Self {
+///             base: ModuleBase::new(),
+///         }
+///     }
+/// }
+///
+/// impl Module for MyReLU {
+///     fn forward(&self, input: &Tensor) -> Result<Tensor> {
+///         // Apply ReLU: max(0, x)
+///         input.clamp_min(0.0)
+///     }
+///
+///     fn training(&self) -> bool {
+///         self.base.training()
+///     }
+///
+///     fn set_training(&mut self, training: bool) {
+///         self.base.set_training(training);
+///     }
+/// }
+/// ```
+///
+/// ## Module with Parameters
+///
+/// ```rust
+/// use torsh_nn::{Module, ModuleBase, Parameter};
+/// use torsh_tensor::{Tensor, creation};
+/// use torsh_core::error::Result;
+/// use std::collections::HashMap;
+///
+/// /// Custom linear layer with learnable weight and bias
+/// struct MyLinear {
+///     base: ModuleBase,
+///     in_features: usize,
+///     out_features: usize,
+/// }
+///
+/// impl MyLinear {
+///     fn new(in_features: usize, out_features: usize) -> Result<Self> {
+///         let mut base = ModuleBase::new();
+///
+///         // Initialize weight: [in_features, out_features]
+///         let weight = creation::randn(&[in_features, out_features])?;
+///         base.register_parameter("weight".to_string(), Parameter::new(weight));
+///
+///         // Initialize bias: [out_features]
+///         let bias = creation::zeros(&[out_features])?;
+///         base.register_parameter("bias".to_string(), Parameter::new(bias));
+///
+///         Ok(Self {
+///             base,
+///             in_features,
+///             out_features,
+///         })
+///     }
+/// }
+///
+/// impl Module for MyLinear {
+///     fn forward(&self, input: &Tensor) -> Result<Tensor> {
+///         // Get parameters
+///         let weight = self.base.parameters["weight"].tensor().read().clone();
+///         let bias = self.base.parameters["bias"].tensor().read().clone();
+///
+///         // Compute: input @ weight + bias
+///         let output = input.matmul(&weight)?;
+///         output.add(&bias)
+///     }
+///
+///     fn parameters(&self) -> HashMap<String, Parameter> {
+///         self.base.parameters.clone()
+///     }
+///
+///     fn named_parameters(&self) -> HashMap<String, Parameter> {
+///         self.base.named_parameters()
+///     }
+///
+///     fn training(&self) -> bool {
+///         self.base.training()
+///     }
+///
+///     fn set_training(&mut self, training: bool) {
+///         self.base.set_training(training);
+///     }
+/// }
+/// ```
+///
+/// ## Module with Training/Evaluation Modes
+///
+/// ```rust
+/// use torsh_nn::{Module, ModuleBase};
+/// use torsh_tensor::Tensor;
+/// use torsh_core::error::Result;
+///
+/// /// Dropout layer with different behavior in train/eval modes
+/// struct MyDropout {
+///     base: ModuleBase,
+///     p: f32,  // Dropout probability
+/// }
+///
+/// impl MyDropout {
+///     fn new(p: f32) -> Self {
+///         Self {
+///             base: ModuleBase::new(),
+///             p,
+///         }
+///     }
+/// }
+///
+/// impl Module for MyDropout {
+///     fn forward(&self, input: &Tensor) -> Result<Tensor> {
+///         if self.training() {
+///             // During training: randomly drop units
+///             let mask = input.bernoulli(1.0 - self.p)?;
+///             let output = input.mul(&mask)?;
+///             // Scale by 1/(1-p) to maintain expected value
+///             output.div_scalar(1.0 - self.p)
+///         } else {
+///             // During evaluation: pass through unchanged
+///             Ok(input.clone())
+///         }
+///     }
+///
+///     fn training(&self) -> bool {
+///         self.base.training()
+///     }
+///
+///     fn set_training(&mut self, training: bool) {
+///         self.base.set_training(training);
+///     }
+/// }
+/// ```
+///
+/// # Complete Training Loop Example
+///
+/// ```rust,no_run
+/// use torsh_nn::{Module, Linear, Sequential};
+/// use torsh_optim::{SGD, Optimizer};
+/// use torsh_tensor::{Tensor, creation};
+/// use torsh_core::error::Result;
+///
+/// fn train_model() -> Result<()> {
+///     // 1. Create model
+///     let mut model = Sequential::new()
+///         .add(Linear::new(784, 128, true))
+///         .add(Linear::new(128, 10, true));
+///
+///     // 2. Create optimizer
+///     let mut optimizer = SGD::new(0.01)?;
+///     for param in model.parameters().values() {
+///         optimizer.add_param(param.tensor());
+///     }
+///
+///     // 3. Training loop
+///     for epoch in 0..10 {
+///         // Set model to training mode
+///         model.train();
+///
+///         // Generate batch (in real code, load from dataset)
+///         let inputs = creation::randn(&[32, 784])?;
+///         let targets = creation::randn(&[32, 10])?;
+///
+///         // Forward pass
+///         let outputs = model.forward(&inputs)?;
+///
+///         // Compute loss (simplified)
+///         let loss = outputs.sub(&targets)?.pow_scalar(2.0)?.mean()?;
+///
+///         // Backward pass
+///         loss.backward()?;
+///
+///         // Update parameters
+///         optimizer.step()?;
+///         optimizer.zero_grad()?;
+///
+///         println!("Epoch {}: Loss = {:.4}", epoch, loss.item::<f32>()?);
+///     }
+///
+///     // 4. Evaluation
+///     model.eval();
+///     let test_input = creation::randn(&[10, 784])?;
+///     let test_output = model.forward(&test_input)?;
+///
+///     Ok(())
+/// }
+/// ```
+///
+/// # Method Categories
+///
+/// ## Core Methods (Required)
+/// - [`forward()`](Module::forward) - Forward pass computation
+///
+/// ## Parameter Management
+/// - [`parameters()`](Module::parameters) - Get all trainable parameters
+/// - [`named_parameters()`](Module::named_parameters) - Get parameters with names
+/// - [`all_parameters()`](Module::all_parameters) - Get parameters recursively
+/// - [`zero_grad()`](Module::zero_grad) - Clear all gradients
+///
+/// ## Training Mode Control
+/// - [`training()`](Module::training) - Check if in training mode
+/// - [`train()`](Module::train) - Set to training mode
+/// - [`eval()`](Module::eval) - Set to evaluation mode
+/// - [`set_training()`](Module::set_training) - Set training mode explicitly
+///
+/// ## Module Hierarchy
+/// - [`children()`](Module::children) - Get direct child modules
+/// - [`named_children()`](Module::named_children) - Get children with names
+/// - [`modules()`](Module::modules) - Get all modules recursively
+///
+/// ## State Management
+/// - [`state_dict()`](Module::state_dict) - Save module state
+/// - [`load_state_dict()`](Module::load_state_dict) - Load module state
+/// - [`to_device()`](Module::to_device) - Move module to device
+///
+/// ## Utilities
+/// - [`freeze()`](Module::freeze) - Freeze all parameters
+/// - [`unfreeze()`](Module::unfreeze) - Unfreeze all parameters
+/// - [`num_parameters()`](Module::num_parameters) - Count total parameters
+/// - [`diagnose()`](Module::diagnose) - Check module health
+///
+/// # PyTorch Compatibility
+///
+/// ToRSh's Module trait closely follows PyTorch's `nn.Module` interface:
+///
+/// | PyTorch | ToRSh | Notes |
+/// |---------|-------|-------|
+/// | `forward(x)` | `forward(&x)` | Returns `Result<Tensor>` |
+/// | `parameters()` | `parameters()` | Returns `HashMap<String, Parameter>` |
+/// | `train()` | `train()` | Sets training mode |
+/// | `eval()` | `eval()` | Sets evaluation mode |
+/// | `state_dict()` | `state_dict()` | Returns parameter tensors |
+/// | `load_state_dict()` | `load_state_dict()` | Loads from HashMap |
+/// | `to(device)` | `to_device(device)` | Moves to device |
+/// | `zero_grad()` | `zero_grad()` | Clears gradients |
+///
+/// # Best Practices
+///
+/// 1. **Always use `ModuleBase`**: Store a `ModuleBase` instance in your module to handle
+///    common functionality like parameters, buffers, and training state.
+///
+/// 2. **Register parameters in constructor**: Use `base.register_parameter()` to register
+///    all trainable parameters during module creation.
+///
+/// 3. **Implement training/eval behavior**: If your module behaves differently during
+///    training vs evaluation (like Dropout, BatchNorm), check `self.training()`.
+///
+/// 4. **Use `Result<Tensor>` for error handling**: Always return `Result<Tensor>` from
+///    `forward()` to properly propagate errors.
+///
+/// 5. **Delegate to `ModuleBase`**: Implement parameter and training mode methods by
+///    delegating to your `ModuleBase` instance.
+///
+/// 6. **Initialize parameters properly**: Use initialization methods from `torsh_nn::init`
+///    for better training convergence.
 pub trait Module: Send + Sync {
     /// Forward pass through the module
     ///

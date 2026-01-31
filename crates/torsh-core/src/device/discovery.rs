@@ -707,34 +707,53 @@ impl DeviceDiscovery {
 /// Discovered device information
 #[derive(Debug, Clone)]
 pub struct DiscoveredDevice {
+    /// Type of the discovered device
     pub device_type: DeviceType,
+    /// Capabilities of the device
     pub capabilities: DeviceCapabilities,
+    /// Whether the device is currently available
     pub is_available: bool,
+    /// Platform-specific information
     pub platform_info: PlatformInfo,
+    /// When this device was discovered
     pub discovery_time: std::time::Instant,
 }
 
 /// Platform-specific device information
 #[derive(Debug, Clone)]
 pub struct PlatformInfo {
+    /// Device vendor name
     pub vendor: String,
+    /// Device architecture description
     pub architecture: String,
+    /// List of supported features
     pub features: Vec<String>,
+    /// Driver version if available
     pub driver_version: Option<String>,
 }
 
 /// Workload profile for device selection
 #[derive(Debug, Clone)]
 pub struct WorkloadProfile {
+    /// Type of workload (training, inference, etc.)
     pub workload_type: WorkloadType,
+    /// Minimum required memory in bytes
     pub min_memory_bytes: u64,
+    /// Minimum required compute units
     pub min_compute_units: u32,
+    /// Whether 64-bit floating point is required
     pub requires_fp64: bool,
+    /// Whether 16-bit floating point is required
     pub requires_fp16: bool,
+    /// Whether GPU is preferred for this workload
     pub prefers_gpu: bool,
+    /// Device preference policy
     pub device_preference: DevicePreference,
+    /// Weight for performance in selection (0.0-1.0)
     pub performance_weight: f64,
+    /// Weight for memory capacity in selection (0.0-1.0)
     pub memory_weight: f64,
+    /// Weight for power efficiency in selection (0.0-1.0)
     pub efficiency_weight: f64,
 }
 
@@ -823,43 +842,63 @@ impl WorkloadProfile {
 /// Workload type classification
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WorkloadType {
+    /// Model training workload
     Training,
+    /// Model inference workload
     Inference,
+    /// Validation workload
     Validation,
+    /// Benchmarking workload
     Benchmarking,
 }
 
 /// Device preference for workload
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DevicePreference {
+    /// Any available device
     Any,
+    /// GPU devices only
     GpuOnly,
+    /// CPU devices only
     CpuOnly,
+    /// CUDA devices only
     CudaOnly,
 }
 
 /// Use case for device recommendation
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UseCase {
+    /// Model training use case
     Training,
+    /// Model inference use case
     Inference,
+    /// Development use case
     Development,
+    /// Benchmarking use case
     Benchmarking,
+    /// Research use case
     Research,
 }
 
 /// Capability requirements for device filtering
 #[derive(Debug, Clone)]
 pub struct CapabilityRequirements {
+    /// Minimum memory in GB
     pub min_memory_gb: Option<u64>,
+    /// Minimum compute units
     pub min_compute_units: Option<u32>,
+    /// Whether GPU is required
     pub requires_gpu: bool,
+    /// Whether 64-bit floating point is required
     pub requires_fp64: bool,
+    /// Whether 16-bit floating point is required
     pub requires_fp16: bool,
+    /// Required device features
     pub required_features: Vec<String>,
 }
 
 impl CapabilityRequirements {
+    /// Create basic capability requirements with no restrictions
     pub fn basic() -> Self {
         Self {
             min_memory_gb: None,
@@ -871,6 +910,7 @@ impl CapabilityRequirements {
         }
     }
 
+    /// Create capability requirements for GPU training
     pub fn gpu_training() -> Self {
         Self {
             min_memory_gb: Some(4),
@@ -886,25 +926,35 @@ impl CapabilityRequirements {
 /// Device recommendation result
 #[derive(Debug)]
 pub struct DeviceRecommendation {
+    /// Use case for this recommendation
     pub use_case: UseCase,
+    /// List of recommended device options
     pub options: Vec<DeviceOption>,
+    /// Workload profile used for recommendation
     pub workload_profile: WorkloadProfile,
 }
 
 /// Individual device option in recommendation
 #[derive(Debug)]
 pub struct DeviceOption {
+    /// The recommended device
     pub device: Arc<dyn Device>,
+    /// Fitness score for this device (0.0-1.0)
     pub score: f64,
+    /// Human-readable reasoning for recommendation
     pub reasoning: String,
+    /// Estimated performance characteristics
     pub estimated_performance: PerformanceEstimate,
 }
 
 /// Performance estimate for a device
 #[derive(Debug, Clone)]
 pub struct PerformanceEstimate {
+    /// Estimated throughput (operations/second)
     pub throughput: f64,
+    /// Estimated latency in milliseconds
     pub latency_ms: f64,
+    /// Memory bandwidth in GB/s
     pub memory_bandwidth_gbps: f64,
 }
 
@@ -921,11 +971,17 @@ struct SelectionRecord {
 /// Discovery configuration
 #[derive(Debug, Clone)]
 pub struct DiscoveryConfig {
+    /// Whether to scan for CPU devices
     pub scan_cpu: bool,
+    /// Whether to scan for CUDA devices
     pub scan_cuda: bool,
+    /// Whether to scan for Metal devices
     pub scan_metal: bool,
+    /// Whether to scan for WebGPU devices
     pub scan_wgpu: bool,
+    /// Whether to cache discovered devices
     pub cache_discoveries: bool,
+    /// Whether to track device selection history
     pub track_selection_history: bool,
 }
 
@@ -945,10 +1001,15 @@ impl Default for DiscoveryConfig {
 /// Discovery statistics
 #[derive(Debug, Clone)]
 pub struct DiscoveryStatistics {
+    /// Total number of devices discovered
     pub total_devices: usize,
+    /// Number of currently available devices
     pub available_devices: usize,
+    /// Number of unique device types
     pub unique_device_types: usize,
+    /// Total memory across all devices in GB
     pub total_memory_gb: u64,
+    /// Total number of device selections made
     pub total_selections: usize,
 }
 

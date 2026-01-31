@@ -29,6 +29,7 @@ regex = "1.12"
 scirs2-core = { workspace = true }
 scirs2-autograd = { workspace = true }
 scirs2-text = { workspace = true }
+scirs2-cluster = { workspace = true }
 
 # Serialization
 serde = { workspace = true, features = ["derive"] }

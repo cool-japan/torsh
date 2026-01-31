@@ -27,7 +27,52 @@ impl<T: TensorElement + Copy> Tensor<T> {
         self.shape().size(dim)
     }
 
-    /// Reshape the tensor
+    /// Reshapes the tensor to a new shape (creates a view or copy if needed).
+    ///
+    /// This is equivalent to PyTorch's `view()` operation. The total number of elements
+    /// must remain the same. You can use `-1` for one dimension to have it inferred automatically.
+    ///
+    /// # Arguments
+    ///
+    /// * `shape` - The new shape as a slice of dimensions. Use `-1` to infer one dimension.
+    ///
+    /// # Returns
+    ///
+    /// A reshaped tensor, or an error if the reshape is invalid.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use torsh_tensor::creation::zeros;
+    ///
+    /// // Reshape a 1D tensor to 2D
+    /// let t = zeros::<f32>(&[6]).unwrap();
+    /// let reshaped = t.view(&[2, 3]).unwrap();
+    /// assert_eq!(reshaped.shape().dims(), &[2, 3]);
+    ///
+    /// // Use -1 to infer a dimension
+    /// let t2 = zeros::<f32>(&[12]).unwrap();
+    /// let auto = t2.view(&[-1, 4]).unwrap();  // Infers 3 for first dimension
+    /// assert_eq!(auto.shape().dims(), &[3, 4]);
+    ///
+    /// // Flatten to 1D
+    /// let matrix = zeros::<f32>(&[3, 4, 5]).unwrap();
+    /// let flat = matrix.view(&[-1]).unwrap();
+    /// assert_eq!(flat.shape().dims(), &[60]);
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - More than one dimension is `-1`
+    /// - The total number of elements doesn't match
+    /// - Any dimension would overflow
+    ///
+    /// # See Also
+    ///
+    /// * [`Self::reshape`] - Alias for `view()`
+    /// * [`Self::view_as`] - Zero-copy view for compatible shapes
+    /// * [`Self::contiguous`] - Make tensor contiguous in memory
     pub fn view(&self, shape: &[i32]) -> Result<Self> {
         // Validate that there's at most one -1 in the shape
         let infer_count = shape.iter().filter(|&&x| x == -1).count();
@@ -321,7 +366,50 @@ impl<T: TensorElement + Copy> Tensor<T> {
         })
     }
 
-    /// Transpose two dimensions (with data copying)
+    /// Transposes two dimensions of the tensor.
+    ///
+    /// Swaps the specified dimensions, creating a new tensor. For 2D tensors, calling
+    /// `transpose(0, 1)` produces the standard matrix transpose operation.
+    ///
+    /// # Arguments
+    ///
+    /// * `dim0` - The first dimension to swap. Negative values count from the end.
+    /// * `dim1` - The second dimension to swap. Negative values count from the end.
+    ///
+    /// # Returns
+    ///
+    /// A tensor with the specified dimensions transposed.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use torsh_tensor::creation::{zeros, arange};
+    ///
+    /// // Standard matrix transpose
+    /// let matrix = zeros::<f32>(&[3, 4]).unwrap();
+    /// let transposed = matrix.transpose(0, 1).unwrap();
+    /// assert_eq!(transposed.shape().dims(), &[4, 3]);
+    ///
+    /// // Transpose in 3D tensor
+    /// let cube = zeros::<f32>(&[2, 3, 4]).unwrap();
+    /// let swapped = cube.transpose(0, 2).unwrap();
+    /// assert_eq!(swapped.shape().dims(), &[4, 3, 2]);
+    ///
+    /// // Use negative indexing
+    /// let t = zeros::<f32>(&[5, 6, 7]).unwrap();
+    /// let result = t.transpose(-2, -1).unwrap();
+    /// assert_eq!(result.shape().dims(), &[5, 7, 6]);
+    ///
+    /// // Practical use: convert between row-major and column-major
+    /// let data = arange(0, 12, 1).unwrap();
+    /// let row_major = data.reshape(&[3, 4]).unwrap();
+    /// let col_major = row_major.transpose(0, 1).unwrap();
+    /// ```
+    ///
+    /// # See Also
+    ///
+    /// * [`Self::permute`] - Rearrange dimensions in arbitrary order
+    /// * [`Self::view`] - Reshape to different dimensions
     pub fn transpose(&self, dim0: i32, dim1: i32) -> Result<Self> {
         let ndim = self.ndim();
         let dim0 = if dim0 < 0 {
@@ -436,7 +524,46 @@ impl<T: TensorElement + Copy> Tensor<T> {
         })
     }
 
-    /// Squeeze dimension with size 1
+    /// Removes a dimension of size 1 at the specified position.
+    ///
+    /// This operation reduces the dimensionality of the tensor by removing dimensions
+    /// that have size 1. Commonly used to remove singleton dimensions after reductions
+    /// or to match tensor shapes for operations.
+    ///
+    /// # Arguments
+    ///
+    /// * `dim` - The dimension to squeeze. Negative values count from the end.
+    ///
+    /// # Returns
+    ///
+    /// A tensor with the specified dimension removed, or an error if the dimension
+    /// doesn't have size 1.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use torsh_tensor::creation::zeros;
+    ///
+    /// // Remove a singleton dimension
+    /// let t = zeros::<f32>(&[3, 1, 4]).unwrap();
+    /// let squeezed = t.squeeze(1).unwrap();
+    /// assert_eq!(squeezed.shape().dims(), &[3, 4]);
+    ///
+    /// // Use negative indexing
+    /// let t2 = zeros::<f32>(&[2, 3, 1]).unwrap();
+    /// let squeezed2 = t2.squeeze(-1).unwrap();
+    /// assert_eq!(squeezed2.shape().dims(), &[2, 3]);
+    ///
+    /// // After a reduction operation
+    /// let matrix = zeros::<f32>(&[5, 10]).unwrap();
+    /// let reduced = matrix.sum_dim(&[1], true).unwrap();  // Shape: [5, 1]
+    /// let final_result = reduced.squeeze(1).unwrap();  // Shape: [5]
+    /// ```
+    ///
+    /// # See Also
+    ///
+    /// * [`Self::squeeze_all`] - Remove all singleton dimensions
+    /// * [`Self::unsqueeze`] - Add a singleton dimension
     pub fn squeeze(&self, dim: i32) -> Result<Self> {
         let ndim = self.ndim();
         let dim = if dim < 0 {
@@ -463,7 +590,45 @@ impl<T: TensorElement + Copy> Tensor<T> {
         }
     }
 
-    /// Add a dimension of size 1 at the specified position
+    /// Adds a dimension of size 1 at the specified position.
+    ///
+    /// This operation increases the dimensionality of the tensor by inserting a new
+    /// dimension of size 1. Commonly used to add batch dimensions or to match tensor
+    /// shapes for broadcasting operations.
+    ///
+    /// # Arguments
+    ///
+    /// * `dim` - The position to insert the new dimension. Negative values count from the end.
+    ///
+    /// # Returns
+    ///
+    /// A tensor with an additional dimension of size 1 inserted.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use torsh_tensor::creation::zeros;
+    ///
+    /// // Add a batch dimension at the beginning
+    /// let t = zeros::<f32>(&[3, 4]).unwrap();
+    /// let batched = t.unsqueeze(0).unwrap();
+    /// assert_eq!(batched.shape().dims(), &[1, 3, 4]);
+    ///
+    /// // Add a dimension at the end
+    /// let t2 = zeros::<f32>(&[5]).unwrap();
+    /// let expanded = t2.unsqueeze(-1).unwrap();
+    /// assert_eq!(expanded.shape().dims(), &[5, 1]);
+    ///
+    /// // Prepare for broadcasting
+    /// let weights = zeros::<f32>(&[64]).unwrap();
+    /// let weights_2d = weights.unsqueeze(0).unwrap();  // Shape: [1, 64]
+    /// // Now can broadcast with shape [batch_size, 64]
+    /// ```
+    ///
+    /// # See Also
+    ///
+    /// * [`Self::squeeze`] - Remove a singleton dimension
+    /// * [`Self::view`] - Reshape to arbitrary shape
     pub fn unsqueeze(&self, dim: i32) -> Result<Self> {
         let ndim = self.ndim();
         let dim = if dim < 0 {
@@ -475,7 +640,37 @@ impl<T: TensorElement + Copy> Tensor<T> {
         self.unsqueeze_tensor(dim)
     }
 
-    /// Reshape tensor to new shape
+    /// Reshapes the tensor to a new shape.
+    ///
+    /// This is an alias for [`view()`](Self::view) and provides the same functionality.
+    /// The total number of elements must remain the same.
+    ///
+    /// # Arguments
+    ///
+    /// * `shape` - The new shape as a slice of dimensions. Use `-1` to infer one dimension.
+    ///
+    /// # Returns
+    ///
+    /// A reshaped tensor, or an error if the reshape is invalid.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use torsh_tensor::creation::arange;
+    ///
+    /// // Reshape a sequence to a matrix
+    /// let t = arange(0, 12, 1).unwrap();
+    /// let matrix = t.reshape(&[3, 4]).unwrap();
+    /// assert_eq!(matrix.shape().dims(), &[3, 4]);
+    ///
+    /// // Reshape with automatic dimension inference
+    /// let cube = t.reshape(&[2, -1, 3]).unwrap();  // Infers 2 for middle dimension
+    /// assert_eq!(cube.shape().dims(), &[2, 2, 3]);
+    /// ```
+    ///
+    /// # See Also
+    ///
+    /// * [`Self::view`] - The underlying implementation
     pub fn reshape(&self, shape: &[i32]) -> Result<Self> {
         self.view(shape)
     }

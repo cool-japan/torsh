@@ -60,7 +60,11 @@ pub trait TopicExtractor: Send + Sync {
     /// Post-process topics with common enhancements
     fn post_process_topics(&self, mut topics: Vec<Topic>, sentences: &[String]) -> Vec<Topic> {
         // Add hierarchical levels based on topic prominence
-        topics.sort_by(|a, b| b.prominence.partial_cmp(&a.prominence).unwrap());
+        topics.sort_by(|a, b| {
+            b.prominence
+                .partial_cmp(&a.prominence)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         for (i, topic) in topics.iter_mut().enumerate() {
             topic.hierarchical_level = if i < 3 { 0 } else { 1 };
         }
@@ -219,7 +223,9 @@ impl ExtractionUtils {
         let peak_position = trajectory
             .iter()
             .enumerate()
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+            .max_by(|(_, a), (_, b)| {
+                a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
+            })
             .map(|(i, _)| i)
             .unwrap_or(0);
 

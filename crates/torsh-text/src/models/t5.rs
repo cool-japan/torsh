@@ -965,10 +965,10 @@ impl T5ForConditionalGeneration {
             // Get logits for next token prediction
             let logits = self.lm_head.forward(&decoder_outputs)?;
             let seq_len = logits.size(1)? as i64;
-            let next_token_logits = logits.narrow(1, seq_len - 1, 1).unwrap();
+            let next_token_logits = logits.narrow(1, seq_len - 1, 1)?;
 
             // For now, just take argmax (greedy decoding)
-            let next_token = next_token_logits.argmax(Some(-1)).unwrap();
+            let _next_token = next_token_logits.argmax(Some(-1))?;
 
             // Concatenate next token to decoder input
             // Simplified implementation - proper tensor concatenation needed

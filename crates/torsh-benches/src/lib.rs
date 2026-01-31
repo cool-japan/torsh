@@ -498,7 +498,8 @@ pub mod prelude {
     pub use crate::core::{ComparisonResult, ComparisonRunner, PerformanceAnalyzer};
     pub use crate::system_info::{BenchmarkEnvironment, SystemInfo};
     pub use crate::Benchmarkable;
-    pub use criterion::{black_box, BenchmarkId, Criterion, Throughput};
+    pub use criterion::{BenchmarkId, Criterion, Throughput};
+    pub use std::hint::black_box;
 
     // Enhanced utilities
     pub use crate::utils::{
