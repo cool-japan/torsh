@@ -343,36 +343,52 @@
 //!
 //! ## Audio Processing
 //! ```rust
-//! use torsh_functional::signal::{window, WindowType, stft};
+//! use torsh_functional::signal::{window, WindowType};
+//! use torsh_functional::random_ops::randn;
 //!
-//! // Apply Hann window for spectral analysis
-//! let win = window(WindowType::Hann, 1024, false)?;
-//! let windowed = audio.mul(&win)?;
+//! fn example() -> Result<(), Box<dyn std::error::Error>> {
+//!     let audio = randn(&[44100], None, None, None)?;
 //!
-//! // Compute STFT for spectrogram
-//! let spec = stft(&audio, 1024, 512, Some(&win), true)?;
+//!     // Apply Hann window for spectral analysis
+//!     let win = window(WindowType::Hann, 1024, false)?;
+//!     let windowed = audio.mul_op(&win)?;
+//!     Ok(())
+//! }
 //! ```
 //!
 //! ## Filtering and Smoothing
 //! ```rust
-//! use torsh_functional::signal::{lfilter, butter_lowpass};
+//! use torsh_functional::signal::lfilter;
+//! use torsh_functional::random_ops::randn;
 //!
-//! // Design low-pass filter
-//! let (b, a) = butter_lowpass(4, 0.2)?;  // 4th order, cutoff=0.2
+//! fn example() -> Result<(), Box<dyn std::error::Error>> {
+//!     let signal = randn(&[1024], None, None, None)?;
 //!
-//! // Apply filter to signal
-//! let filtered = lfilter(&b, &a, &signal)?;
+//!     // Filter coefficients (example values)
+//!     let b = vec![0.1, 0.2, 0.4, 0.2, 0.1];
+//!     let a = vec![1.0, -0.5, 0.25];
+//!
+//!     // Apply filter to signal
+//!     let filtered = lfilter(&b, &a, &signal)?;
+//!     Ok(())
+//! }
 //! ```
 //!
 //! ## Spectral Analysis
 //! ```rust
-//! use torsh_functional::signal::{periodogram, welch};
+//! use torsh_functional::signal::{periodogram, welch, WindowType, PsdScaling};
+//! use torsh_functional::random_ops::randn;
 //!
-//! // Quick periodogram
-//! let (freqs, psd) = periodogram(&signal, 1.0, None)?;
+//! fn example() -> Result<(), Box<dyn std::error::Error>> {
+//!     let signal = randn(&[1024], None, None, None)?;
 //!
-//! // Welch's method for better variance
-//! let (freqs, psd) = welch(&signal, 256, 128, None, 1.0)?;
+//!     // Quick periodogram
+//!     let (freqs, psd) = periodogram(&signal, None, None, None, None, PsdScaling::Density)?;
+//!
+//!     // Welch's method for better variance
+//!     let (freqs, psd) = welch(&signal, WindowType::Hann, Some(256), Some(128), None, PsdScaling::Density)?;
+//!     Ok(())
+//! }
 //! ```
 //!
 //! # Best Practices

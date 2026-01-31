@@ -34,9 +34,14 @@ use torsh_tensor::Tensor;
 /// # Example
 /// ```rust
 /// use torsh_functional::loss::{mse_loss, ReductionType};
-/// let input = Tensor::from_vec(vec![1.0, 2.0, 3.0], &[3]).unwrap();
-/// let target = Tensor::from_vec(vec![1.5, 2.5, 2.5], &[3]).unwrap();
-/// let loss = mse_loss(&input, &target, ReductionType::Mean).unwrap();
+/// use torsh_tensor::Tensor;
+///
+/// fn example() -> Result<(), Box<dyn std::error::Error>> {
+///     let input = Tensor::from_vec(vec![1.0, 2.0, 3.0], &[3])?;
+///     let target = Tensor::from_vec(vec![1.5, 2.5, 2.5], &[3])?;
+///     let loss = mse_loss(&input, &target, ReductionType::Mean)?;
+///     Ok(())
+/// }
 /// ```
 pub fn mse_loss(input: &Tensor, target: &Tensor, reduction: ReductionType) -> TorshResult<Tensor> {
     let context = function_context("mse_loss");

@@ -172,7 +172,7 @@ cuda-sys = "0.2"
 cudnn-sys = "0.0.3"
 wgpu = "24.0.5"
 metal = "0.31"
-bytemuck = "1.24"
+bytemuck = "1.25"
 
 # SIMD
 wide = "0.7"

@@ -33,7 +33,7 @@ use torsh_tensor::Tensor;
 ///
 /// ### Without Replacement (replacement=false)
 /// Uses weighted sampling without replacement:
-/// ```
+/// ```text
 /// 1. Sample according to current probabilities
 /// 2. Remove sampled category and renormalize
 /// 3. Repeat until num_samples reached
@@ -57,11 +57,14 @@ use torsh_tensor::Tensor;
 ///
 /// ## Example
 /// ```rust
-/// # use torsh_functional::random_ops::multinomial;
-/// # use torsh_tensor::creation::tensor;
-/// let probs = tensor(&[0.1, 0.3, 0.6])?; // Category probabilities
-/// let samples = multinomial(&probs, 5, true, Some(42))?; // 5 samples with replacement
-/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// use torsh_functional::random_ops::multinomial;
+/// use torsh_tensor::Tensor;
+///
+/// fn example() -> Result<(), Box<dyn std::error::Error>> {
+///     let probs = Tensor::from_vec(vec![0.1, 0.3, 0.6], &[3])?; // Category probabilities
+///     let samples = multinomial(&probs, 5, true, Some(42))?; // 5 samples with replacement
+///     Ok(())
+/// }
 /// ```
 pub fn multinomial(
     input: &Tensor,
@@ -194,7 +197,7 @@ pub fn multinomial(
 ///
 /// The Bernoulli distribution models a single binary trial with success probability p:
 ///
-/// ```
+/// ```text
 /// P(X = 1) = p
 /// P(X = 0) = 1 - p
 /// ```
@@ -208,7 +211,7 @@ pub fn multinomial(
 /// ## Inverse Transform Sampling
 ///
 /// Uses the inverse transform method:
-/// ```
+/// ```text
 /// 1. Generate U ~ Uniform(0,1)
 /// 2. Return 1 if U < p, else 0
 /// ```
@@ -291,11 +294,14 @@ pub fn bernoulli_(shape: &[usize], p: f32, generator: Option<u64>) -> TorshResul
 ///
 /// ## Example
 /// ```rust
-/// # use torsh_functional::random_ops::bernoulli;
-/// # use torsh_tensor::creation::tensor;
-/// let probs = tensor(&[[0.1, 0.9], [0.5, 0.3]])?; // Different probabilities per element
-/// let samples = bernoulli(&probs, Some(42))?; // Element-wise Bernoulli sampling
-/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// use torsh_functional::random_ops::bernoulli;
+/// use torsh_tensor::Tensor;
+///
+/// fn example() -> Result<(), Box<dyn std::error::Error>> {
+///     let probs = Tensor::from_vec(vec![0.1, 0.9, 0.5, 0.3], &[2, 2])?; // Different probabilities per element
+///     let samples = bernoulli(&probs, Some(42))?; // Element-wise Bernoulli sampling
+///     Ok(())
+/// }
 /// ```
 pub fn bernoulli(input: &Tensor, generator: Option<u64>) -> TorshResult<Tensor> {
     // Create RNG

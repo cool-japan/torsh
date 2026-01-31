@@ -45,19 +45,21 @@
 //!
 //! ```rust
 //! use torsh_functional::random_ops::{rand, randn, multinomial, gamma};
-//! use torsh_tensor::creation::tensor;
+//! use torsh_tensor::Tensor;
 //!
-//! // Basic random operations
-//! let uniform = rand(&[3, 4], None, None, Some(42))?; // Uniform [0,1)
-//! let normal = randn(&[100], Some(0.0), Some(1.0), None)?; // Standard normal
+//! fn example() -> Result<(), Box<dyn std::error::Error>> {
+//!     // Basic random operations
+//!     let uniform = rand(&[3, 4], None, None, Some(42))?; // Uniform [0,1)
+//!     let normal = randn(&[100], Some(0.0), Some(1.0), Some(42))?; // Standard normal
 //!
-//! // Discrete distributions
-//! let probs = tensor(&[0.2, 0.3, 0.5])?;
-//! let samples = multinomial(&probs, 10, true, Some(123))?;
+//!     // Discrete distributions
+//!     let probs = Tensor::from_vec(vec![0.2, 0.3, 0.5], &[3])?;
+//!     let samples = multinomial(&probs, 10, true, Some(123))?;
 //!
-//! // Continuous distributions
-//! let gamma_samples = gamma(&[1000], 2.0, Some(1.5), None)?;
-//! # Ok::<(), Box<dyn std::error::Error>>(())
+//!     // Continuous distributions
+//!     let gamma_samples = gamma(&[1000], 2.0, Some(1.5), Some(42))?;
+//!     Ok(())
+//! }
 //! ```
 
 pub mod basic;

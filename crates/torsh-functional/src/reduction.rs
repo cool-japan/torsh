@@ -96,60 +96,63 @@
 //! ## Common Use Cases
 //!
 //! ### Loss Function Computation
-//! ```rust,no_run
-//! # use torsh_tensor::Tensor;
-//! # use torsh_functional::reduction::{mean, sum};
-//! # fn example() -> torsh_core::Result<()> {
-//! // Compute mean squared error
-//! let predictions = randn(&[32, 10])?;  // batch_size=32, num_classes=10
-//! let targets = randn(&[32, 10])?;
+//! ```rust
+//! use torsh_functional::reduction::{mean, sum};
+//! use torsh_functional::random_ops::randn;
 //!
-//! let diff = predictions.sub_op(&targets)?;
-//! let squared = diff.pow_scalar(2.0)?;
-//! let mse_loss = mean(&squared)?;
+//! fn example() -> Result<(), Box<dyn std::error::Error>> {
+//!     // Compute mean squared error
+//!     let predictions = randn(&[32, 10], None, None, Some(42))?;  // batch_size=32, num_classes=10
+//!     let targets = randn(&[32, 10], None, None, Some(43))?;
 //!
-//! // Or compute sum for total loss
-//! let total_loss = sum(&squared)?;
-//! # Ok(())
-//! # }
+//!     let diff = predictions.sub(&targets)?;
+//!     let squared = diff.pow_scalar(2.0)?;
+//!     let mse_loss = mean(&squared)?;
+//!
+//!     // Or compute sum for total loss
+//!     let total_loss = sum(&squared)?;
+//!     Ok(())
+//! }
 //! ```
 //!
 //! ### Batch Statistics for Normalization
-//! ```rust,no_run
-//! # use torsh_tensor::Tensor;
-//! # use torsh_functional::reduction::{mean_dim, std_dim};
-//! # fn example() -> torsh_core::Result<()> {
-//! // Compute mean and std across batch dimension for BatchNorm
-//! let features = randn(&[64, 128, 28, 28])?;  // [N, C, H, W]
+//! ```rust
+//! use torsh_functional::reduction::{mean_dim, std_dim};
+//! use torsh_functional::random_ops::randn;
 //!
-//! // Compute statistics over batch and spatial dimensions (0, 2, 3)
-//! // keeping channel dimension (1)
-//! let batch_mean = mean_dim(&features, &[0, 2, 3], true)?;
-//! let batch_std = std_dim(&features, &[0, 2, 3], true, false)?;
+//! fn example() -> Result<(), Box<dyn std::error::Error>> {
+//!     // Compute mean and std across batch dimension for BatchNorm
+//!     let features = randn(&[64, 128, 28, 28], None, None, Some(42))?;  // [N, C, H, W]
 //!
-//! // Normalize: (x - mean) / std
-//! let normalized = features.sub_op(&batch_mean)?
-//!                          .div_op(&batch_std)?;
-//! # Ok(())
-//! # }
+//!     // Compute statistics over batch and spatial dimensions (0, 2, 3)
+//!     // keeping channel dimension (1)
+//!     let batch_mean = mean_dim(&features, &[0, 2, 3], true)?;
+//!     let batch_std = std_dim(&features, &[0, 2, 3], true, false)?;
+//!
+//!     // Normalize: (x - mean) / std
+//!     let normalized = features.sub(&batch_mean)?
+//!                              .div(&batch_std)?;
+//!     Ok(())
+//! }
 //! ```
 //!
 //! ### Attention Score Normalization
-//! ```rust,no_run
-//! # use torsh_tensor::Tensor;
-//! # use torsh_functional::reduction::{max_dim, sum_dim};
-//! # fn example() -> torsh_core::Result<()> {
-//! // Softmax using max for numerical stability
-//! let scores = randn(&[8, 64, 64])?;  // [batch, seq_len, seq_len]
+//! ```rust
+//! use torsh_functional::reduction::{max_dim, sum_dim};
+//! use torsh_functional::random_ops::randn;
 //!
-//! // Stable softmax: exp(x - max(x)) / sum(exp(x - max(x)))
-//! let (max_scores, _) = max_dim(&scores, -1, true)?;
-//! let shifted = scores.sub_op(&max_scores)?;
-//! let exp_scores = shifted.exp()?;
-//! let sum_exp = sum_dim(&exp_scores, &[-1], true)?;
-//! let softmax = exp_scores.div_op(&sum_exp)?;
-//! # Ok(())
-//! # }
+//! fn example() -> Result<(), Box<dyn std::error::Error>> {
+//!     // Softmax using max for numerical stability
+//!     let scores = randn(&[8, 64, 64], None, None, Some(42))?;  // [batch, seq_len, seq_len]
+//!
+//!     // Stable softmax: exp(x - max(x)) / sum(exp(x - max(x)))
+//!     let (max_scores, _) = max_dim(&scores, -1, true)?;
+//!     let shifted = scores.sub(&max_scores)?;
+//!     let exp_scores = shifted.exp()?;
+//!     let sum_exp = sum_dim(&exp_scores, &[-1], true)?;
+//!     let softmax = exp_scores.div(&sum_exp)?;
+//!     Ok(())
+//! }
 //! ```
 //!
 //! ## Numerical Stability Considerations
@@ -296,16 +299,16 @@ pub fn mean(tensor: &Tensor) -> TorshResult<Tensor> {
 /// Tensor with specified dimensions reduced by averaging
 ///
 /// # Examples
-/// ```rust,no_run
-/// # use torsh_tensor::Tensor;
-/// # use torsh_functional::reduction::mean_dim;
-/// # use torsh_functional::random_ops::randn;
-/// # fn example() -> torsh_core::Result<()> {
-/// // Compute mean across batch dimension for normalization
-/// let batch_data = randn(&[32, 128])?;  // [batch, features]
-/// let feature_means = mean_dim(&batch_data, &[0], false)?;  // [128]
-/// # Ok(())
-/// # }
+/// ```rust
+/// use torsh_functional::reduction::mean_dim;
+/// use torsh_functional::random_ops::randn;
+///
+/// fn example() -> Result<(), Box<dyn std::error::Error>> {
+///     // Compute mean across batch dimension for normalization
+///     let batch_data = randn(&[32, 128], None, None, None)?;  // [batch, features]
+///     let feature_means = mean_dim(&batch_data, &[0], false)?;  // [128]
+///     Ok(())
+/// }
 /// ```
 pub fn mean_dim(tensor: &Tensor, dim: &[isize], keepdim: bool) -> TorshResult<Tensor> {
     let usize_dims: Vec<usize> = dim.iter().map(|&d| d as usize).collect();

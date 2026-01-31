@@ -101,7 +101,7 @@ pub fn label_smoothing(targets: &Tensor, smoothing: f32) -> TorshResult<Tensor> 
 /// ## Mathematical Definition
 ///
 /// For logits z and temperature T, temperature scaling produces:
-/// ```
+/// ```text
 /// p_i = softmax(z_i / T) = exp(z_i / T) / Σⱼ exp(zⱼ / T)
 /// ```
 ///
@@ -116,7 +116,7 @@ pub fn label_smoothing(targets: &Tensor, smoothing: f32) -> TorshResult<Tensor> 
 /// ## Calibration
 ///
 /// Temperature T is typically learned on a validation set to minimize:
-/// ```
+/// ```text
 /// L = -Σᵢ log(σ(zᵢ / T)_yᵢ)
 /// ```
 /// where σ is softmax and yᵢ is the true label.

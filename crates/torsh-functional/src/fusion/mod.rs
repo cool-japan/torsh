@@ -15,20 +15,23 @@
 //!
 //! ```rust
 //! use torsh_functional::fusion::*;
-//! use torsh_tensor::Tensor;
+//! use torsh_tensor::creation::ones;
 //!
-//! // Basic fused operations
-//! let x = Tensor::ones(&[100]);
-//! let y = Tensor::ones(&[100]);
-//! let result = fused_relu_add(&x, &y)?;  // relu(x + y)
+//! fn example() -> Result<(), Box<dyn std::error::Error>> {
+//!     // Basic fused operations
+//!     let x = ones(&[100])?;
+//!     let y = ones(&[100])?;
+//!     let result = fused_relu_add(&x, &y)?;  // relu(x + y)
 //!
-//! // Pattern detection
-//! let ops = ["add", "relu", "mul"];
-//! let patterns = detect_fusible_patterns(&ops);
+//!     // Pattern detection
+//!     let ops = ["add", "relu", "mul"];
+//!     let patterns = detect_fusible_patterns(&ops);
 //!
-//! // Adaptive fusion engine
-//! let mut engine = AdaptiveFusionEngine::new();
-//! let should_fuse = engine.should_fuse_adaptive(&FusedOp::ReluAdd, 1000);
+//!     // Adaptive fusion engine
+//!     let mut engine = AdaptiveFusionEngine::new();
+//!     let should_fuse = engine.should_fuse_adaptive(&FusedOp::ReluAdd, 1000);
+//!     Ok(())
+//! }
 //! ```
 
 pub mod adaptive;

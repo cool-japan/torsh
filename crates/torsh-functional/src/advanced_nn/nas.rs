@@ -145,7 +145,7 @@ pub fn decode_architecture(
 /// ## Mathematical Formulation
 ///
 /// DARTS represents each edge as a weighted combination of operations:
-/// ```
+/// ```text
 /// o(x) = Σᵢ αᵢ opᵢ(x)
 /// ```
 /// where αᵢ = softmax(wᵢ) are the architecture weights.
@@ -249,7 +249,7 @@ pub fn predict_architecture_performance(
 /// ## Mutation Strategy
 ///
 /// The mutation rate controls the probability of each type of mutation:
-/// ```
+/// ```text
 /// P(mutation) = mutation_rate
 /// P(operation_change | mutation) = 0.6
 /// P(connection_change | mutation) = 0.3

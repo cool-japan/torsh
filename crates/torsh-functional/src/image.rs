@@ -149,41 +149,51 @@
 //!
 //! ## Data Augmentation
 //! ```rust
-//! use torsh_functional::image::{resize, rotate, adjust_brightness};
+//! use torsh_functional::image::{resize, InterpolationMode};
+//! use torsh_functional::random_ops::randn;
 //!
-//! // Resize for different input sizes
-//! let resized = resize(&image, (224, 224), InterpolationMode::Bilinear, true)?;
+//! fn example() -> Result<(), Box<dyn std::error::Error>> {
+//!     let image = randn(&[1, 3, 256, 256], None, None, None)?;
 //!
-//! // Random rotation for augmentation
-//! let rotated = rotate(&image, 15.0, InterpolationMode::Bilinear)?;
-//!
-//! // Brightness adjustment
-//! let brightened = adjust_brightness(&image, 1.2)?;
+//!     // Resize for different input sizes
+//!     let resized = resize(&image, (224, 224), InterpolationMode::Bilinear, true)?;
+//!     Ok(())
+//! }
 //! ```
 //!
 //! ## Preprocessing Pipelines
 //! ```rust
-//! // Normalize to [-1, 1] range
-//! let normalized = (image - 0.5) * 2.0;
+//! use torsh_functional::image::gaussian_blur;
+//! use torsh_functional::random_ops::randn;
 //!
-//! // Apply Gaussian blur for smoothing
-//! let smoothed = gaussian_blur(&normalized, 1.5)?;
+//! fn example() -> Result<(), Box<dyn std::error::Error>> {
+//!     let image = randn(&[1, 3, 32, 32], None, None, None)?;
 //!
-//! // Convert to grayscale for single-channel networks
-//! let gray = rgb_to_grayscale(&smoothed)?;
+//!     // Apply Gaussian blur for smoothing
+//!     let smoothed = gaussian_blur(&image, 3, 1.5)?;
+//!     Ok(())
+//! }
 //! ```
 //!
 //! ## Feature Extraction
 //! ```rust
-//! // Edge detection for feature maps
-//! let edges = sobel_filter(&image)?;
+//! use torsh_functional::image::{sobel_filter, resize, SobelDirection, InterpolationMode};
+//! use torsh_functional::random_ops::randn;
 //!
-//! // Multi-scale analysis
-//! let pyramid = vec![
-//!     resize(&image, (224, 224), InterpolationMode::Bilinear, false)?,
-//!     resize(&image, (112, 112), InterpolationMode::Bilinear, false)?,
-//!     resize(&image, (56, 56), InterpolationMode::Bilinear, false)?,
-//! ];
+//! fn example() -> Result<(), Box<dyn std::error::Error>> {
+//!     let image = randn(&[1, 3, 256, 256], None, None, None)?;
+//!
+//!     // Edge detection for feature maps
+//!     let edges = sobel_filter(&image, SobelDirection::Both)?;
+//!
+//!     // Multi-scale analysis
+//!     let pyramid = vec![
+//!         resize(&image, (224, 224), InterpolationMode::Bilinear, false)?,
+//!         resize(&image, (112, 112), InterpolationMode::Bilinear, false)?,
+//!         resize(&image, (56, 56), InterpolationMode::Bilinear, false)?,
+//!     ];
+//!     Ok(())
+//! }
 //! ```
 //!
 //! # Advanced Algorithms

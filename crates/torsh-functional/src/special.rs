@@ -131,8 +131,11 @@ pub use torsh_special::{
 /// use torsh_functional::special::spherical_j0;
 /// use torsh_tensor::creation::linspace;
 ///
-/// let x = linspace(0.0, 10.0, 100)?;
-/// let result = spherical_j0(&x)?;
+/// fn example() -> Result<(), Box<dyn std::error::Error>> {
+///     let x = linspace(0.0, 10.0, 100)?;
+///     let result = spherical_j0(&x)?;
+///     Ok(())
+/// }
 /// ```
 pub fn spherical_j0(input: &Tensor) -> TorshResult<Tensor> {
     // j₀(x) = sin(x)/x
