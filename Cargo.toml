@@ -140,7 +140,7 @@ scirs2-metrics = { version = "0.1.3" }
 scirs2-series = { version = "0.1.3" }
 scirs2-spatial = { version = "0.1.3" }
 scirs2-stats = { version = "0.1.3" }
-scirs2-text = { path = "../scirs/scirs2-text" }
+scirs2-text = { version = "0.1.3" }
 scirs2-vision = { version = "0.1.3" }
 scirs2-linalg = { version = "0.1.3" }
 scirs2-neural = { version = "0.1.3" }

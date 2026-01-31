@@ -809,7 +809,7 @@ mod tests {
             assert!(found_types.iter().any(|t| t.name == "TestType"));
         }
 
-        let matrix = utils::get_compatibility_matrix();
+        let _matrix = utils::get_compatibility_matrix();
         // May or may not contain TestType depending on concurrent test state
         // Just verify the function works without panicking
 
