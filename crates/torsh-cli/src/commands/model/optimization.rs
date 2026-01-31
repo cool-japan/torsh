@@ -307,6 +307,11 @@ pub async fn prune_model(args: PruneArgs, _config: &Config, output_format: &str)
 
         // Real pruning process using ToRSh and SciRS2
         let original_model = load_torsh_model(&args.input).await?;
+
+        // Evaluate original model accuracy before pruning (before moving original_model)
+        info!("Evaluating original model accuracy");
+        let original_accuracy = evaluate_model_accuracy(&original_model).await?;
+
         let mut pruned_model = match args.method.as_str() {
             "magnitude" => {
                 info!("Applying magnitude-based pruning");
@@ -346,9 +351,9 @@ pub async fn prune_model(args: PruneArgs, _config: &Config, output_format: &str)
 
         pb.finish_with_message("Model pruning completed");
 
-        // Real accuracy evaluation using model inference
+        // Evaluate pruned model accuracy
+        info!("Evaluating pruned model accuracy");
         let pruned_accuracy = evaluate_model_accuracy(&pruned_model).await?;
-        let original_accuracy = 0.95; // TODO: Load from model metadata or evaluate
         let accuracy_loss = original_accuracy - pruned_accuracy;
 
         let mut metrics = HashMap::new();

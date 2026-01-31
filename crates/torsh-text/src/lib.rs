@@ -1,3 +1,25 @@
+//! Natural language processing operations for ToRSh
+//!
+//! This crate provides PyTorch-compatible NLP functionality including:
+//! - Tokenization (BPE, WordPiece, SentencePiece)
+//! - Text embeddings (Word2Vec, GloVe, FastText)
+//! - Text generation and beam search
+//! - Pre-trained language models
+//! - Text datasets and data loaders
+//! - Analysis tools (sentiment, coherence, fluency)
+//!
+//! Built on top of the SciRS2 ecosystem for high-performance text processing.
+//!
+//! # Examples
+//!
+//! ```rust,ignore
+//! use torsh_text::tokenization::*;
+//!
+//! // Create a tokenizer
+//! let tokenizer = BPETokenizer::from_pretrained("gpt2")?;
+//! let tokens = tokenizer.encode("Hello, world!")?;
+//! ```
+
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::module_inception)]
 #![allow(clippy::large_enum_variant)]

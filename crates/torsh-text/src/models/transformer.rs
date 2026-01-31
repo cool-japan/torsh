@@ -279,15 +279,13 @@ impl TransformerEncoderLayer {
                 config.num_heads,
                 config.attention_dropout,
                 device,
-            )
-            .unwrap(),
+            )?,
             feed_forward: FeedForward::new(
                 config.hidden_dim,
                 config.intermediate_dim,
                 config.dropout,
                 device,
-            )
-            .unwrap(),
+            )?,
             norm1: LayerNorm::new(vec![config.hidden_dim]),
             norm2: LayerNorm::new(vec![config.hidden_dim]),
             dropout: Dropout::new(config.dropout),

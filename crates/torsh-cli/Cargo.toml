@@ -29,7 +29,7 @@ scirs2-linalg = { workspace = true, optional = true }
 scirs2-metrics = { workspace = true, optional = true }
 
 # CLI framework
-clap = { version = "4.5.54", features = ["derive", "env", "color"] }
+clap = { version = "4.5.56", features = ["derive", "env", "color"] }
 clap_complete = "4.5"
 
 # Async runtime

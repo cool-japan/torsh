@@ -1,8 +1,6 @@
 //! Tabular data utilities
 
 use crate::dataset::Dataset;
-#[cfg(feature = "dataframe")]
-use polars::prelude::*;
 use torsh_core::{
     dtype::TensorElement,
     error::{Result, TorshError},
@@ -26,79 +24,78 @@ impl CSVDataset {
     pub fn new<P: AsRef<Path>>(
         path: P,
         target_column: Option<&str>,
-        _has_header: bool,
+        has_header: bool,
     ) -> Result<Self> {
         #[cfg(feature = "dataframe")]
         {
-            let df = CsvReadOptions::default()
-                .try_into_reader_with_file_path(Some(path.as_ref().into()))
-                .map_err(|e| TorshError::IoError(e.to_string()))?
-                .finish()
+            // Use csv crate for reading (COOLJAPAN policy compliant - no Polars dependency)
+            let mut reader = csv::ReaderBuilder::new()
+                .has_headers(has_header)
+                .from_path(path.as_ref())
                 .map_err(|e| TorshError::IoError(e.to_string()))?;
 
-            let columns = df.get_column_names();
+            let headers = if has_header {
+                reader
+                    .headers()
+                    .map_err(|e| TorshError::IoError(e.to_string()))?
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect::<Vec<String>>()
+            } else {
+                // Generate default column names if no header
+                let first_record = reader
+                    .records()
+                    .next()
+                    .ok_or_else(|| TorshError::IoError("Empty CSV file".to_string()))?
+                    .map_err(|e| TorshError::IoError(e.to_string()))?;
+
+                (0..first_record.len())
+                    .map(|i| format!("col_{}", i))
+                    .collect()
+            };
+
+            // Determine feature columns and target column
             let mut feature_names = Vec::new();
             let mut target_name = None;
+            let mut target_idx = None;
 
-            // Separate features and target
-            for col in columns {
-                if target_column == Some(col.as_str()) {
-                    target_name = Some(col.to_string());
+            for (idx, col_name) in headers.iter().enumerate() {
+                if target_column == Some(col_name.as_str()) {
+                    target_name = Some(col_name.clone());
+                    target_idx = Some(idx);
                 } else {
-                    feature_names.push(col.to_string());
+                    feature_names.push(col_name.clone());
                 }
             }
 
-            // Extract feature data
-            let mut data = Vec::new();
-            for feature in &feature_names {
-                let series = df
-                    .column(feature)
-                    .map_err(|e| TorshError::IoError(e.to_string()))?;
+            // Read all records
+            let mut all_data: Vec<Vec<f32>> = Vec::new();
+            let mut target_data: Vec<f32> = Vec::new();
 
-                let values = series
-                    .f32()
-                    .map_err(|e| TorshError::IoError(e.to_string()))?
-                    .into_iter()
-                    .map(|opt| opt.unwrap_or(0.0))
-                    .collect::<Vec<f32>>();
+            for result in reader.records() {
+                let record = result.map_err(|e| TorshError::IoError(e.to_string()))?;
 
-                data.push(values);
+                let mut row_features = Vec::new();
+                for (idx, field) in record.iter().enumerate() {
+                    let value: f32 = field.parse().unwrap_or(0.0); // Default to 0.0 for invalid values
+
+                    if Some(idx) == target_idx {
+                        target_data.push(value);
+                    } else {
+                        row_features.push(value);
+                    }
+                }
+                all_data.push(row_features);
             }
 
-            // Extract target data if specified
-            let targets = if let Some(target_col) = target_column {
-                let series = df
-                    .column(target_col)
-                    .map_err(|e| TorshError::IoError(e.to_string()))?;
-
-                let values = series
-                    .f32()
-                    .map_err(|e| TorshError::IoError(e.to_string()))?
-                    .into_iter()
-                    .map(|opt| opt.unwrap_or(0.0))
-                    .collect::<Vec<f32>>();
-
-                Some(values)
+            let targets = if target_idx.is_some() {
+                Some(target_data)
             } else {
                 None
             };
 
-            // Transpose data to row-major format
-            let num_rows = if !data.is_empty() { data[0].len() } else { 0 };
-            let num_features = data.len();
-            let mut row_data = Vec::with_capacity(num_rows);
-
-            for i in 0..num_rows {
-                let mut row = Vec::with_capacity(num_features);
-                for item in data.iter().take(num_features) {
-                    row.push(item[i]);
-                }
-                row_data.push(row);
-            }
-
             Ok(Self {
-                data: row_data,
+                data: all_data,
                 targets,
                 feature_names,
                 target_name,
@@ -107,6 +104,7 @@ impl CSVDataset {
 
         #[cfg(not(feature = "dataframe"))]
         {
+            let _ = (path, target_column, has_header); // Suppress unused warnings
             Err(TorshError::UnsupportedOperation {
                 op: "CSV loading".to_string(),
                 dtype: "DataFrame".to_string(),

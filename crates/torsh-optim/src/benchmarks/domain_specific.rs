@@ -496,7 +496,11 @@ impl RLBenchmarks {
         }
 
         // Output layer
-        param_shapes.push(vec![action_size, *hidden_sizes.last().unwrap()]);
+        // Safety: hidden_sizes is guaranteed to be non-empty (initialized with vec![512, 256, 128])
+        let last_hidden_size = hidden_sizes.last().ok_or_else(|| {
+            crate::OptimizerError::InvalidParameter("hidden_sizes must not be empty".to_string())
+        })?;
+        param_shapes.push(vec![action_size, *last_hidden_size]);
         param_shapes.push(vec![action_size]); // bias
 
         let mut params = Vec::new();

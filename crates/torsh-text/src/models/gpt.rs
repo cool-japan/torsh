@@ -88,27 +88,25 @@ pub struct GPTDecoderLayer {
 }
 
 impl GPTDecoderLayer {
-    pub fn new(config: &TextModelConfig) -> Self {
-        Self {
+    pub fn new(config: &TextModelConfig) -> Result<Self> {
+        Ok(Self {
             self_attn: MultiHeadAttention::new(
                 config.hidden_dim,
                 config.num_heads,
                 config.attention_dropout,
                 DeviceType::Cpu,
-            )
-            .unwrap(),
+            )?,
             feed_forward: FeedForward::new(
                 config.hidden_dim,
                 config.intermediate_dim,
                 config.dropout,
                 DeviceType::Cpu,
-            )
-            .unwrap(),
+            )?,
             norm1: LayerNorm::new(vec![config.hidden_dim]),
             norm2: LayerNorm::new(vec![config.hidden_dim]),
             dropout: Dropout::new(config.dropout),
             is_training: true,
-        }
+        })
     }
 
     pub fn forward_with_mask(
@@ -213,20 +211,20 @@ pub struct GPTModel {
 }
 
 impl GPTModel {
-    pub fn new(config: TextModelConfig) -> Self {
-        let layers = (0..config.num_layers)
+    pub fn new(config: TextModelConfig) -> Result<Self> {
+        let layers: Result<Vec<_>> = (0..config.num_layers)
             .map(|_| GPTDecoderLayer::new(&config))
             .collect();
 
-        Self {
+        Ok(Self {
             embeddings: Embedding::new(config.vocab_size, config.hidden_dim),
             position_embeddings: Embedding::new(config.max_position_embeddings, config.hidden_dim),
-            layers,
+            layers: layers?,
             ln_f: LayerNorm::new(vec![config.hidden_dim]),
             dropout: Dropout::new(config.dropout),
             config,
             is_training: true,
-        }
+        })
     }
 
     fn create_causal_mask(
@@ -236,7 +234,7 @@ impl GPTModel {
         // Create lower triangular mask for causal attention
         let mask: Tensor<f32> = ones(&[seq_len, seq_len]);
         // For now, skip mask processing - proper implementation needed
-        let mask = mask.mul_scalar(-1e9).unwrap();
+        let mask = mask.mul_scalar(-1e9)?;
         Ok(mask)
     }
 }
@@ -359,12 +357,12 @@ pub struct GPTForCausalLM {
 }
 
 impl GPTForCausalLM {
-    pub fn new(config: TextModelConfig) -> Self {
-        Self {
-            transformer: GPTModel::new(config.clone()),
+    pub fn new(config: TextModelConfig) -> Result<Self> {
+        Ok(Self {
+            transformer: GPTModel::new(config.clone())?,
             lm_head: Linear::new(config.hidden_dim, config.vocab_size, true),
             is_training: true,
-        }
+        })
     }
 
     /// Generate text autoregressively
@@ -382,7 +380,7 @@ impl GPTForCausalLM {
             // Get logits for next token
             let outputs = self.forward(&current_ids)?;
             let seq_len = outputs.size(1)? as i64;
-            let mut next_token_logits = outputs.narrow(1, seq_len - 1, 1).unwrap();
+            let mut next_token_logits = outputs.narrow(1, seq_len - 1, 1)?;
 
             // Apply temperature
             next_token_logits = if temperature != 1.0 {
@@ -403,7 +401,7 @@ impl GPTForCausalLM {
 
             // Sample next token (simplified - just take argmax for now)
             let probs = next_token_logits.softmax(-1)?;
-            let _next_token = probs.argmax(Some(-1)).unwrap();
+            let _next_token = probs.argmax(Some(-1))?;
 
             // Append to sequence
             // For now, just break - proper concatenation needs implementation

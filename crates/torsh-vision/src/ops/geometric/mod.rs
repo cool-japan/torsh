@@ -71,11 +71,13 @@ pub fn resize_with_mode(
             .map_err(|e| VisionError::TensorError(e))?;
         Ok(result)
     } else if is_batched {
-        // For now, handle batched data by processing the first batch element only
-        // TODO: Implement proper batch processing when stack function is available
+        // KNOWN LIMITATION: Batch processing currently restricted to batch_size=1
+        // Requires tensor stack operation for efficient multi-batch handling
+        // Workaround: Process images individually or use non-batched API
+        // Deferred to v0.2.0 - See ROADMAP.md
         if batch_size > 1 {
             return Err(VisionError::InvalidArgument(
-                "Batch resize with batch_size > 1 not yet supported".to_string(),
+                "Batch resize with batch_size > 1 not yet supported. Use single images or loop over batch manually.".to_string(),
             ));
         }
 

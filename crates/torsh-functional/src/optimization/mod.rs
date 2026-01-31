@@ -19,20 +19,24 @@
 //! ```rust
 //! use torsh_functional::optimization::*;
 //! use torsh_tensor::Tensor;
+//! use torsh_core::Result as TorshResult;
 //!
-//! // Basic gradient descent
-//! let objective = |x: &Tensor| -> TorshResult<f32> {
-//!     let data = x.data()?;
-//!     Ok(data[0].powi(2)) // f(x) = x²
-//! };
+//! fn example() -> Result<(), Box<dyn std::error::Error>> {
+//!     // Basic gradient descent
+//!     let objective = |x: &Tensor| -> TorshResult<f32> {
+//!         let data = x.data()?;
+//!         Ok(data[0].powi(2)) // f(x) = x²
+//!     };
 //!
-//! let gradient = |x: &Tensor| -> TorshResult<Tensor> {
-//!     let data = x.data()?;
-//!     Ok(Tensor::from_vec(vec![2.0 * data[0]], vec![1])?) // f'(x) = 2x
-//! };
+//!     let gradient = |x: &Tensor| -> TorshResult<Tensor> {
+//!         let data = x.data()?;
+//!         Ok(Tensor::from_vec(vec![2.0 * data[0]], &[1])?) // f'(x) = 2x
+//!     };
 //!
-//! let x0 = Tensor::from_vec(vec![1.0], vec![1])?;
-//! let (x_opt, history) = gradient_descent(objective, gradient, &x0, None)?;
+//!     let x0 = Tensor::from_vec(vec![1.0], &[1])?;
+//!     let (x_opt, history) = gradient_descent(objective, gradient, &x0, None)?;
+//!     Ok(())
+//! }
 //! ```
 
 pub mod adaptive;

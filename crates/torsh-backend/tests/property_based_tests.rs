@@ -15,10 +15,13 @@ fn test_addition_commutative() {
             let sum1 = a + b;
             let sum2 = b + a;
 
-            // Allow for floating-point precision differences
-            let diff = (sum1 - sum2).abs();
-            prop_assert!(diff < 1e-6, "Addition should be commutative: {} + {} = {}, {} + {} = {}",
-                a, b, sum1, b, a, sum2);
+            // Skip comparison if result overflows to infinity
+            if sum1.is_finite() && sum2.is_finite() {
+                // Allow for floating-point precision differences
+                let diff = (sum1 - sum2).abs();
+                prop_assert!(diff < 1e-6, "Addition should be commutative: {} + {} = {}, {} + {} = {}",
+                    a, b, sum1, b, a, sum2);
+            }
         }
     });
 }
@@ -31,12 +34,15 @@ fn test_addition_associative() {
             let sum1 = (a + b) + c;
             let sum2 = a + (b + c);
 
-            // Allow for floating-point rounding differences
-            let diff = (sum1 - sum2).abs();
-            let tolerance = (a.abs() + b.abs() + c.abs()) * 1e-6;
-            prop_assert!(diff <= tolerance,
-                "Addition should be associative: ({} + {}) + {} = {}, {} + ({} + {}) = {}",
-                a, b, c, sum1, a, b, c, sum2);
+            // Skip comparison if result overflows to infinity
+            if sum1.is_finite() && sum2.is_finite() {
+                // Allow for floating-point rounding differences
+                let diff = (sum1 - sum2).abs();
+                let tolerance = (a.abs() + b.abs() + c.abs()) * 1e-6 + 1e-10;
+                prop_assert!(diff <= tolerance,
+                    "Addition should be associative: ({} + {}) + {} = {}, {} + ({} + {}) = {}",
+                    a, b, c, sum1, a, b, c, sum2);
+            }
         }
     });
 }

@@ -22,7 +22,7 @@ scirs2-core = { workspace = true }
 scirs2-datasets = { workspace = true }  # Direct access to dataset utilities
 
 # Data processing
-polars = { workspace = true, optional = true }
+# polars = { workspace = true, optional = true }  # REMOVED: COOLJAPAN policy - use csv crate instead (lighter and policy-compliant)
 # ndarray = { workspace = true, optional = true }  # REMOVED: Use scirs2_core::ndarray instead (SciRS2 POLICY)
 
 # Image processing
@@ -76,7 +76,7 @@ default = ["std", "image-support", "mmap-support"]
 std = ["torsh-core/std", "torsh-tensor/std"]
 image-support = ["image", "imageproc"]
 audio-support = []
-dataframe = ["polars", "csv"]
+dataframe = ["csv"]  # COOLJAPAN policy compliant - removed Polars dependency
 arrow-support = ["arrow"]
 hdf5-support = ["hdf5"]
 parquet-support = ["parquet"]

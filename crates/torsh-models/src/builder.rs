@@ -418,7 +418,12 @@ pub mod quick {
     /// Create ResNet-18 model
     pub fn resnet18(num_classes: usize) -> BuildResult<ModelType> {
         let factory = get_global_factory();
-        let mut config = factory.vision_builder.get_config("resnet18").unwrap();
+        let mut config = factory
+            .vision_builder
+            .get_config("resnet18")
+            .ok_or_else(|| ModelError::ModelNotFound {
+                name: "resnet18".to_string(),
+            })?;
         config.num_classes = num_classes;
         factory.build_vision_model_from_config(&config)
     }
@@ -426,7 +431,12 @@ pub mod quick {
     /// Create ResNet-50 model
     pub fn resnet50(num_classes: usize) -> BuildResult<ModelType> {
         let factory = get_global_factory();
-        let mut config = factory.vision_builder.get_config("resnet50").unwrap();
+        let mut config = factory
+            .vision_builder
+            .get_config("resnet50")
+            .ok_or_else(|| ModelError::ModelNotFound {
+                name: "resnet50".to_string(),
+            })?;
         config.num_classes = num_classes;
         factory.build_vision_model_from_config(&config)
     }
@@ -437,7 +447,9 @@ pub mod quick {
         let mut config = factory
             .vision_builder
             .get_config("efficientnet_b0")
-            .unwrap();
+            .ok_or_else(|| ModelError::ModelNotFound {
+                name: "efficientnet_b0".to_string(),
+            })?;
         config.num_classes = num_classes;
         factory.build_vision_model_from_config(&config)
     }
@@ -448,7 +460,9 @@ pub mod quick {
         let mut config = factory
             .vision_builder
             .get_config("vit_base_patch16_224")
-            .unwrap();
+            .ok_or_else(|| ModelError::ModelNotFound {
+                name: "vit_base_patch16_224".to_string(),
+            })?;
         config.num_classes = num_classes;
         factory.build_vision_model_from_config(&config)
     }

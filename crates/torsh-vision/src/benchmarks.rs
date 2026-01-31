@@ -674,7 +674,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // TODO: Fix depends on ViT architecture with TransformerBlock tensor slicing issues
+    #[ignore = "KNOWN ISSUE: TransformerBlock tensor slicing - FlashMultiHeadAttention uses complex 5D tensor reshaping with narrow/squeeze operations that fail in batch scenarios. Deferred to v0.2.0 for attention mechanism refactor. See: /tmp/torsh_vision_todo_categorization.md"]
     fn test_quick_benchmark() {
         let result = run_quick_benchmark();
         assert!(result.is_ok());

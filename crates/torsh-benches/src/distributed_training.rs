@@ -4,8 +4,8 @@
 //! testing data parallel, model parallel, and pipeline parallel training strategies.
 
 use crate::Benchmarkable;
-use std::hint::black_box;
 use std::collections::HashMap;
+use std::hint::black_box;
 use std::time::{Duration, Instant};
 use torsh_tensor::{creation::*, Tensor};
 // Note: torsh_distributed is not available yet, using mock implementations

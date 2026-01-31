@@ -10,7 +10,7 @@ use torsh_tensor::Tensor;
 /// Fused ReLU + Add operation: relu(x + y)
 ///
 /// # Mathematical Formula
-/// ```
+/// ```text
 /// output[i] = max(0, x[i] + y[i])
 /// ```
 /// where the max operation is applied element-wise.
@@ -50,7 +50,7 @@ pub fn fused_relu_add(x: &Tensor, y: &Tensor) -> TorshResult<Tensor> {
 /// Fused Multiply + Add operation: x * y + z (FMADD)
 ///
 /// # Mathematical Formula
-/// ```
+/// ```text
 /// output[i] = x[i] * y[i] + z[i]
 /// ```
 /// This implements the fused multiply-add (FMA) operation element-wise.
@@ -98,7 +98,7 @@ pub fn fused_mul_add(x: &Tensor, y: &Tensor, z: &Tensor) -> TorshResult<Tensor> 
 /// Fused Add + Multiply operation: (x + y) * z
 ///
 /// # Mathematical Formula
-/// ```
+/// ```text
 /// output[i] = (x[i] + y[i]) * z[i]
 /// ```
 /// This computes element-wise addition followed by element-wise multiplication.
@@ -145,7 +145,7 @@ pub fn fused_add_mul(x: &Tensor, y: &Tensor, z: &Tensor) -> TorshResult<Tensor> 
 /// Fused Sigmoid + Multiply operation: sigmoid(x) * y
 ///
 /// # Mathematical Formula
-/// ```
+/// ```text
 /// output[i] = sigmoid(x[i]) * y[i] = (1 / (1 + exp(-x[i]))) * y[i]
 /// ```
 /// When y = x, this becomes the SiLU (Swish) activation function.
@@ -192,7 +192,7 @@ pub fn fused_sigmoid_mul(x: &Tensor, y: &Tensor) -> TorshResult<Tensor> {
 /// Fused SiLU activation: x * sigmoid(x)
 ///
 /// # Mathematical Formula
-/// ```
+/// ```text
 /// output[i] = x[i] * sigmoid(x[i]) = x[i] / (1 + exp(-x[i]))
 /// ```
 /// This is the Sigmoid Linear Unit (SiLU), also known as Swish activation.
@@ -231,7 +231,7 @@ pub fn fused_silu(x: &Tensor) -> TorshResult<Tensor> {
 /// Fused Tanh + Scale operation: tanh(x) * scale
 ///
 /// # Mathematical Formula
-/// ```
+/// ```text
 /// output[i] = tanh(x[i]) * scale = ((exp(x[i]) - exp(-x[i])) / (exp(x[i]) + exp(-x[i]))) * scale
 /// ```
 /// This applies hyperbolic tangent followed by scalar scaling.
@@ -269,7 +269,7 @@ pub fn fused_tanh_scale(x: &Tensor, scale: f32) -> TorshResult<Tensor> {
 /// Fused Add + ReLU + Multiply operation: relu(x + bias) * scale
 ///
 /// # Mathematical Formula
-/// ```
+/// ```text
 /// output[i] = max(0, x[i] + bias[i]) * scale[i]
 /// ```
 /// This combines bias addition, ReLU activation, and scaling in a single operation.
@@ -318,7 +318,7 @@ pub fn fused_add_relu_mul(x: &Tensor, bias: &Tensor, scale: &Tensor) -> TorshRes
 /// Fused Batch Normalization operation
 ///
 /// # Mathematical Formula
-/// ```
+/// ```text
 /// output[i] = ((x[i] - mean[i]) / sqrt(var[i] + eps)) * gamma[i] + beta[i]
 /// ```
 /// This implements the complete batch normalization transformation in a single fused operation.

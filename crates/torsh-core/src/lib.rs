@@ -22,12 +22,15 @@ pub mod chunking;
 pub mod compression;
 pub mod debug_validation; // Debug-only validation checks (NEW)
 pub mod device;
+/// Distributed tensor metadata management for multi-node training
 pub mod distributed; // Distributed tensor metadata management (NEW)
+/// Data type representation and operations
 pub mod dtype;
 pub mod error;
 pub mod error_codes; // Standard error codes for interoperability (NEW)
 pub mod error_recovery;
 pub mod examples;
+/// Federated learning metadata management for privacy-preserving distributed learning
 pub mod federated;
 pub mod ffi;
 pub mod gpu_shape_ops; // GPU-accelerated shape operations for very large tensors (NEW)
@@ -42,6 +45,7 @@ pub mod memory_debug;
 pub mod memory_monitor;
 pub mod memory_visualization; // Memory allocation visualization tools (NEW)
 pub mod mlir_integration; // MLIR compiler infrastructure integration (NEW)
+/// Neuromorphic computing data structures for spiking neural networks
 pub mod neuromorphic; // Neuromorphic computing data structures (NEW)
 pub mod op_trace;
 pub mod perf_metrics;
@@ -56,15 +60,18 @@ pub mod shape_graph; // Graph-based shape inference for optimization (NEW)
 pub mod shape_utils; // Shape utility functions for common patterns (NEW)
 pub mod shape_validation;
 pub mod simd_arm;
+/// Sparse tensor representation and operations
 pub mod sparse;
 pub mod storage;
 pub mod symbolic_shape;
 pub mod telemetry;
 pub mod tensor_expr; // Tensor expression templates for compile-time optimization (NEW)
 pub mod tensor_network; // Tensor network representations for quantum computing (NEW)
+/// Type-level automatic differentiation for compile-time gradient tracking
 pub mod type_level_ad; // Type-level automatic differentiation (NEW)
 pub mod type_level_shapes; // Advanced type-level shape verification (NEW)
-pub mod webgpu; // WebGPU compute shader integration (NEW) // Federated learning metadata management (NEW)
+/// WebGPU compute shader integration for web-based GPU acceleration
+pub mod webgpu; // WebGPU compute shader integration (NEW)
 pub mod xla_integration; // TensorFlow XLA compiler integration (NEW)
 
 // Re-export commonly used items
@@ -432,6 +439,7 @@ pub mod gpu {
 
     // Fallback implementation when scirs2-core GPU is not available
     #[cfg(not(scirs2_gpu_available))]
+    /// Fallback GPU implementations when scirs2-core GPU support is not available
     pub mod fallback {
         #[allow(unused_imports)]
         use super::*;
@@ -450,12 +458,14 @@ pub mod gpu {
         }
 
         impl GpuError {
+            /// Create a new GPU error with a custom message
             pub fn new(message: impl Into<String>) -> Self {
                 Self {
                     message: message.into(),
                 }
             }
 
+            /// Create a GPU unavailable error
             pub fn unavailable() -> Self {
                 Self::new("GPU support not available in this build")
             }
@@ -476,10 +486,12 @@ pub mod gpu {
         }
 
         impl GpuDevice {
+            /// Attempt to create a new GPU device (always fails in fallback mode)
             pub fn new(_device_id: usize) -> Result<Self, GpuError> {
                 Err(GpuError::unavailable())
             }
 
+            /// Get the device ID for this GPU device
             pub fn device_id(&self) -> usize {
                 self.device_id
             }
@@ -537,9 +549,13 @@ pub mod gpu {
 }
 
 // Version information
+/// ToRSh core version string
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+/// ToRSh core major version number
 pub const VERSION_MAJOR: u32 = 0;
+/// ToRSh core minor version number
 pub const VERSION_MINOR: u32 = 1;
+/// ToRSh core patch version number
 pub const VERSION_PATCH: u32 = 0;
 
 /// Prelude module for convenient imports

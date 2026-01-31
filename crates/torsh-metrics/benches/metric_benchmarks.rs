@@ -3,7 +3,8 @@
 //! This module provides comprehensive benchmarks for all metrics,
 //! allowing comparison with reference implementations.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use std::hint::black_box;
 use torsh_core::device::DeviceType;
 use torsh_metrics::{
     classification::{Accuracy, F1Score, Precision, Recall},

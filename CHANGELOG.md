@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-rc.1] - 2026-01-31
+
+### Changed
+- **Version bump to Release Candidate 1** - Preparing for stable 0.1.0 release
+- Upgraded dependencies to latest versions (clap 4.5.54 → 4.5.55)
+- Code quality improvements and cleanup
+
+### Fixed
+- Fixed deprecated `criterion::black_box` usage in benchmarks - migrated to `std::hint::black_box`
+- Added missing crate-level documentation to torsh-vision and torsh-text
+- Code formatting applied across all workspace crates
+
+### Removed
+- Cleaned up 15 backup/original/old files from codebase
+- Removed alpha/beta release announcements from README.md
+- **Polars dependency removed** - Migrated torsh-data tabular loading from Polars (~83K SLOC external dependency) to csv crate for COOLJAPAN policy compliance. Functionality maintained while reducing external dependencies.
+
 ### Fixed
 - **✅ SIMD Performance Investigation** (December 31, 2025)
   - Investigated real hardware SIMD using `scirs2_core::simd_ops::SimdUnifiedOps`

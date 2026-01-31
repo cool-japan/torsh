@@ -1045,7 +1045,7 @@ mod tests {
 
     #[test]
     fn test_version() {
-        assert_eq!(VERSION, "0.1.0-beta.1");
+        assert_eq!(VERSION, "0.1.0-rc.1");
         check_version(0, 1).unwrap();
     }
 }

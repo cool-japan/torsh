@@ -1,4 +1,375 @@
-//! RMSprop optimizer
+//! RMSprop (Root Mean Square Propagation) optimizer
+//!
+//! This module provides implementation of RMSprop, an adaptive learning rate optimization
+//! algorithm designed to address some of the shortcomings of AdaGrad by using a moving
+//! average of squared gradients.
+//!
+//! ## RMSprop (Root Mean Square Propagation)
+//!
+//! RMSprop is an adaptive learning rate optimizer that divides the learning rate by an
+//! exponentially decaying average of squared gradients. It was developed to address the
+//! diminishing learning rates problem in AdaGrad and works well for non-stationary objectives.
+//!
+//! ### Key Features:
+//! - Adaptive per-parameter learning rates
+//! - Uses exponential moving average (doesn't accumulate all history like AdaGrad)
+//! - Works well for RNNs and online/non-stationary problems
+//! - Optional momentum and centered variants
+//! - Memory efficient compared to Adam
+//!
+//! ### When to Use RMSprop:
+//! - **Recurrent Neural Networks (RNNs/LSTMs)** - historically popular for RNN training
+//! - **Non-stationary problems** - where data distribution changes over time
+//! - **Online learning** - when training on streaming data
+//! - **When Adam is unstable** - RMSprop can be more stable in some cases
+//! - **Memory constraints** - slightly lower memory usage than Adam
+//!
+//! ## Mathematical Formulation
+//!
+//! ### Basic RMSprop:
+//! ```text
+//! E[g²]_t = α * E[g²]_{t-1} + (1 - α) * g_t²     // Update squared gradient average
+//! θ_t = θ_{t-1} - lr * g_t / (√E[g²]_t + ε)      // Parameter update
+//! ```
+//!
+//! ### RMSprop with Momentum:
+//! ```text
+//! E[g²]_t = α * E[g²]_{t-1} + (1 - α) * g_t²     // Squared gradient average
+//! v_t = μ * v_{t-1} + g_t / (√E[g²]_t + ε)       // Momentum buffer
+//! θ_t = θ_{t-1} - lr * v_t                        // Parameter update
+//! ```
+//!
+//! ### Centered RMSprop:
+//! ```text
+//! E[g²]_t = α * E[g²]_{t-1} + (1 - α) * g_t²     // Squared gradient average
+//! E[g]_t = α * E[g]_{t-1} + (1 - α) * g_t        // Gradient average
+//! variance = E[g²]_t - (E[g]_t)²                  // Centered variance
+//! θ_t = θ_{t-1} - lr * g_t / (√variance + ε)     // Parameter update
+//! ```
+//!
+//! Where:
+//! - `g_t` is the gradient at step t (with optional weight decay)
+//! - `E[g²]_t` is the moving average of squared gradients
+//! - `E[g]_t` is the moving average of gradients (centered variant)
+//! - `α` is the smoothing constant (typically 0.99)
+//! - `lr` is the learning rate (typically 1e-2 to 1e-3)
+//! - `ε` is numerical stability constant (typically 1e-8)
+//! - `μ` is momentum coefficient (typically 0.0 or 0.9)
+//!
+//! ## Examples
+//!
+//! ### Basic Usage
+//! ```rust
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # fn main() -> Result<()> {
+//! use torsh_optim::prelude::{RMSprop, Optimizer};
+//! use torsh_tensor::Tensor;
+//! use parking_lot::RwLock;
+//! use std::sync::Arc;
+//!
+//! // Create parameters
+//! let weight = Arc::new(RwLock::new(randn::<f32>(&[128, 64])?));
+//! let bias = Arc::new(RwLock::new(randn::<f32>(&[64])?));
+//! let params = vec![weight, bias];
+//!
+//! // Create RMSprop optimizer with default settings
+//! let mut optimizer = RMSprop::new(
+//!     params,
+//!     Some(1e-2),     // learning rate
+//!     None,           // alpha (default: 0.99)
+//!     None,           // eps (default: 1e-8)
+//!     None,           // weight decay
+//!     None,           // momentum
+//!     false           // not centered
+//! );
+//!
+//! // Training loop
+//! for _epoch in 0..100 {
+//!     // ... compute gradients via backward() ...
+//!
+//!     // Optimizer step
+//!     // optimizer.step()?;
+//!     // optimizer.zero_grad();
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ### Complete Training Loop Example
+//! ```rust
+//! # use torsh_tensor::creation::{randn, zeros};
+//! # use torsh_core::error::Result;
+//! # use parking_lot::RwLock;
+//! # use std::sync::Arc;
+//! # fn main() -> Result<()> {
+//! use torsh_optim::prelude::{RMSprop, Optimizer};
+//! use torsh_tensor::Tensor;
+//!
+//! // Model parameters (e.g., LSTM layers)
+//! let lstm_weight = Arc::new(RwLock::new(randn::<f32>(&[256, 512])?));
+//! let lstm_bias = Arc::new(RwLock::new(zeros::<f32>(&[512])?));
+//! let output_weight = Arc::new(RwLock::new(randn::<f32>(&[512, 10])?));
+//! let params = vec![lstm_weight, lstm_bias, output_weight];
+//!
+//! // Create RMSprop optimizer (good for RNNs)
+//! let mut optimizer = RMSprop::new(
+//!     params,
+//!     Some(1e-3),     // learning rate
+//!     Some(0.99),     // alpha (smoothing)
+//!     Some(1e-8),     // epsilon
+//!     Some(1e-5),     // light weight decay
+//!     Some(0.0),      // no momentum
+//!     false           // standard RMSprop
+//! );
+//!
+//! // Training loop
+//! let epochs = 50;
+//! let batches_per_epoch = 200;
+//!
+//! for epoch in 0..epochs {
+//!     let mut epoch_loss = 0.0;
+//!
+//!     for batch in 0..batches_per_epoch {
+//!         // Forward pass (simplified)
+//!         // let output = model.forward(&input)?;
+//!         // let loss = criterion(&output, &target)?;
+//!         // epoch_loss += loss.to_vec()?[0];
+//!
+//!         // Backward pass
+//!         // loss.backward()?;
+//!
+//!         // Gradient clipping for RNNs (recommended)
+//!         // clip_grad_norm_(&params, 5.0);
+//!
+//!         // Optimizer step (when gradients are available)
+//!         // optimizer.step()?;
+//!         // optimizer.zero_grad();
+//!     }
+//!
+//!     // Log progress
+//!     // let avg_loss = epoch_loss / batches_per_epoch as f32;
+//!     // println!("Epoch {}: Loss = {:.4}", epoch, avg_loss);
+//!
+//!     // Optional: Learning rate decay
+//!     // if epoch > 0 && epoch % 10 == 0 {
+//!     //     let current_lr = optimizer.get_lr()[0];
+//!     //     optimizer.set_lr(current_lr * 0.5);  // Decay by half
+//!     // }
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ### Using the Builder Pattern
+//! ```rust
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # use parking_lot::RwLock;
+//! # use std::sync::Arc;
+//! # fn main() -> Result<()> {
+//! use torsh_optim::rmsprop::RMSpropBuilder;
+//!
+//! let params = vec![Arc::new(RwLock::new(randn::<f32>(&[100, 50])?))];
+//!
+//! // RMSprop with momentum and centering
+//! let optimizer = RMSpropBuilder::new()
+//!     .lr(1e-3)
+//!     .alpha(0.95)           // Faster adaptation
+//!     .momentum(0.9)         // Add momentum
+//!     .centered(true)        // Use centered variant
+//!     .weight_decay(1e-5)
+//!     .build(params);
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ### RNN/LSTM Training Configuration
+//! ```rust
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # use parking_lot::RwLock;
+//! # use std::sync::Arc;
+//! # fn main() -> Result<()> {
+//! use torsh_optim::rmsprop::RMSpropBuilder;
+//!
+//! let params = vec![Arc::new(RwLock::new(randn::<f32>(&[256, 512])?))];
+//!
+//! // Classic RNN/LSTM setup
+//! let rnn_optimizer = RMSpropBuilder::new()
+//!     .lr(1e-3)              // Conservative LR for RNNs
+//!     .alpha(0.99)           // Standard smoothing
+//!     .eps(1e-8)
+//!     .build(params);
+//! // Combine with gradient clipping (max_norm=5.0)
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Hyperparameter Guidelines
+//!
+//! ### Learning Rate:
+//! - **Default**: 1e-2 (higher than Adam's default)
+//! - **RNN/LSTM**: 1e-3 to 1e-4 (more conservative)
+//! - **Computer Vision**: 1e-3 (if using instead of SGD/Adam)
+//! - **Fine-tuning**: 1e-4 to 1e-5
+//! - **Range**: [1e-5, 1e-1] depending on problem
+//!
+//! ### Alpha (Smoothing Constant):
+//! - **Default**: 0.99 (strong smoothing)
+//! - **Faster adaptation**: 0.9-0.95
+//! - **More stable**: 0.99-0.999
+//! - **Effect**: Higher α = smoother updates, lower α = more responsive
+//!
+//! ### Epsilon:
+//! - **Default**: 1e-8 (numerical stability)
+//! - **FP16 training**: Use 1e-4 or 1e-6
+//! - **FP32 training**: 1e-8 is fine
+//! - **Purpose**: Prevents division by zero
+//!
+//! ### Weight Decay:
+//! - **Default**: 0.0 (no regularization)
+//! - **Light regularization**: 1e-5 to 1e-4
+//! - **Strong regularization**: 1e-3 to 1e-2
+//! - **Note**: Applied to gradients (L2 penalty)
+//!
+//! ### Momentum:
+//! - **Default**: 0.0 (no momentum)
+//! - **With momentum**: 0.9 (standard value)
+//! - **Effect**: Accelerates convergence, smooths updates
+//! - **When to use**: Non-convex problems, noisy gradients
+//!
+//! ### Centered:
+//! - **Default**: false (standard RMSprop)
+//! - **Centered**: true (uses variance instead of second moment)
+//! - **Effect**: Can improve convergence on some problems
+//! - **Cost**: Slight increase in memory and computation
+//!
+//! ## Performance Tips
+//!
+//! ### For RNN/LSTM Training:
+//! ```rust,ignore
+//! // Recommended configuration
+//! let optimizer = RMSpropBuilder::new()
+//!     .lr(1e-3)
+//!     .alpha(0.99)
+//!     .build(params);
+//!
+//! // Always use gradient clipping with RNNs
+//! clip_grad_norm_(&params, max_norm=5.0);
+//! optimizer.step()?;
+//! ```
+//!
+//! ### Learning Rate Scheduling:
+//! Unlike SGD, RMSprop works reasonably well without aggressive scheduling:
+//! - **Simple decay**: Reduce by 2-5x when validation loss plateaus
+//! - **ReduceLROnPlateau**: Automatic reduction when metrics stagnate
+//! - **Exponential decay**: Gentle continuous decay
+//!
+//! ### Gradient Clipping:
+//! Essential for RNN/LSTM training with RMSprop:
+//! - Clip by norm: typically 5.0 for RNNs
+//! - Prevents gradient explosion
+//! - Apply before optimizer.step()
+//!
+//! ## Common Configurations
+//!
+//! ### RNN/LSTM (Standard)
+//! ```rust
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # use parking_lot::RwLock;
+//! # use std::sync::Arc;
+//! # fn main() -> Result<()> {
+//! use torsh_optim::rmsprop::RMSpropBuilder;
+//!
+//! let params = vec![Arc::new(RwLock::new(randn::<f32>(&[100, 100])?))];
+//! let rnn_opt = RMSpropBuilder::new()
+//!     .lr(1e-3)
+//!     .alpha(0.99)
+//!     .build(params);
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ### Deep Q-Networks (DQN) - Reinforcement Learning
+//! ```rust
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # use parking_lot::RwLock;
+//! # use std::sync::Arc;
+//! # fn main() -> Result<()> {
+//! use torsh_optim::rmsprop::RMSpropBuilder;
+//!
+//! let params = vec![Arc::new(RwLock::new(randn::<f32>(&[100, 100])?))];
+//! let dqn_opt = RMSpropBuilder::new()
+//!     .lr(2.5e-4)            // Lower LR for RL
+//!     .alpha(0.95)           // Faster adaptation
+//!     .eps(1e-5)             // Slightly higher epsilon
+//!     .centered(true)        // Often helps in RL
+//!     .build(params);
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ### Online Learning / Streaming Data
+//! ```rust
+//! # use torsh_tensor::creation::randn;
+//! # use torsh_core::error::Result;
+//! # use parking_lot::RwLock;
+//! # use std::sync::Arc;
+//! # fn main() -> Result<()> {
+//! use torsh_optim::rmsprop::RMSpropBuilder;
+//!
+//! let params = vec![Arc::new(RwLock::new(randn::<f32>(&[100, 100])?))];
+//! let online_opt = RMSpropBuilder::new()
+//!     .lr(1e-2)              // Higher LR for online learning
+//!     .alpha(0.9)            // More responsive to distribution changes
+//!     .momentum(0.9)         // Add momentum for stability
+//!     .build(params);
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Troubleshooting
+//!
+//! ### Loss not decreasing:
+//! 1. **Learning rate too low** - Increase to 1e-3 or 1e-2
+//! 2. **Alpha too high** - Try lower alpha (0.9-0.95) for faster adaptation
+//! 3. **Check gradients** - Ensure gradients are flowing (not zero/nan)
+//!
+//! ### Training unstable (loss oscillates):
+//! 1. **Learning rate too high** - Reduce to 1e-4 or lower
+//! 2. **Add gradient clipping** - Especially for RNNs (clip_norm=5.0)
+//! 3. **Try centered variant** - Can improve stability
+//! 4. **Add momentum** - Helps smooth updates (0.9)
+//!
+//! ### Slow convergence:
+//! 1. **Increase learning rate** - Try 10x higher
+//! 2. **Decrease alpha** - Faster adaptation (0.9 instead of 0.99)
+//! 3. **Add momentum** - Accelerates convergence
+//!
+//! ### Gradient explosion (for RNNs):
+//! 1. **Mandatory gradient clipping** - Use clip_grad_norm_(max_norm=5.0)
+//! 2. **Lower learning rate** - Try 1e-4
+//! 3. **Check initialization** - Use proper weight initialization
+//!
+//! ## Comparison with Other Optimizers
+//!
+//! - **vs Adam**: RMSprop is simpler, no bias correction, historically popular for RNNs
+//! - **vs SGD**: RMSprop has adaptive learning rates, better for non-stationary problems
+//! - **vs AdaGrad**: RMSprop doesn't accumulate all history, avoids diminishing LR
+//! - **When to choose**: Use for RNNs, online learning, or when Adam is unstable
+//!
+//! ## See Also
+//!
+//! - [`Adam`](crate::Adam) - Combines RMSprop with momentum and bias correction
+//! - [`SGD`](crate::SGD) - Simple gradient descent with optional momentum
+//! - [`AdamW`](crate::AdamW) - Adam with decoupled weight decay
+//!
+//! ## References
+//! - [Hinton's Coursera Lecture (Slide 29)](http://www.cs.toronto.edu/~tijmen/csc321/slides/lecture_slides_lec6.pdf)
+//! - [Neural Network Tricks of the Trade](https://link.springer.com/chapter/10.1007/978-3-642-35289-8_20)
 
 use crate::{
     Optimizer, OptimizerError, OptimizerResult, OptimizerState, ParamGroup, ParamGroupState,
@@ -10,7 +381,116 @@ use std::sync::Arc;
 use torsh_core::error::{Result, TorshError};
 use torsh_tensor::Tensor;
 
-/// RMSprop optimizer
+/// RMSprop optimizer with optional momentum and centered variants
+///
+/// RMSprop (Root Mean Square Propagation) is an adaptive learning rate optimizer that
+/// uses a moving average of squared gradients to normalize updates. It was specifically
+/// designed to work well with mini-batch learning and non-stationary objectives.
+///
+/// # Algorithm Overview
+///
+/// RMSprop maintains a moving average of squared gradients for each parameter and
+/// divides the gradient by the square root of this average. This allows parameters
+/// with large gradient magnitudes to have their learning rates automatically reduced,
+/// while parameters with small gradients get effectively larger learning rates.
+///
+/// # Parameters
+///
+/// * `lr` - Learning rate (default: 1e-2). Typical range: [1e-5, 1e-1]
+///   - **RNN/LSTM**: 1e-3 to 1e-4
+///   - **Computer Vision**: 1e-3
+///   - **Reinforcement Learning**: 2.5e-4 (DQN standard)
+/// * `alpha` - Smoothing constant (default: 0.99). Range: [0.9, 0.999]
+///   - Higher values = smoother updates (more history)
+///   - Lower values = faster adaptation to recent gradients
+/// * `eps` - Numerical stability constant (default: 1e-8)
+///   - Use 1e-4 or 1e-6 for FP16 training
+/// * `weight_decay` - L2 penalty coefficient (default: 0.0)
+///   - Applied to gradients (not decoupled like AdamW)
+///   - Typical range: [0.0, 1e-3]
+/// * `momentum` - Momentum factor (default: 0.0)
+///   - Add momentum for faster convergence
+///   - Typical value: 0.9 when used
+/// * `centered` - Use centered RMSprop (default: false)
+///   - Computes variance instead of second moment
+///   - Can improve convergence but increases memory usage
+///
+/// # When to Use RMSprop
+///
+/// RMSprop is well-suited for:
+/// - Recurrent neural networks (RNNs, LSTMs, GRUs)
+/// - Reinforcement learning (DQN and variants)
+/// - Online learning scenarios
+/// - Non-stationary optimization problems
+/// - When Adam is unstable or not converging well
+///
+/// # Performance Characteristics
+///
+/// - **Memory Usage**: Moderate (stores squared gradient average, optional momentum buffer)
+/// - **Convergence Speed**: Fast for RNNs, moderate for other tasks
+/// - **Hyperparameter Sensitivity**: Moderate (less sensitive than SGD, more than Adam)
+/// - **Generalization**: Good, especially for RNN tasks
+///
+/// # Example: Training an RNN
+///
+/// ```rust
+/// # use torsh_tensor::creation::{randn, zeros};
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
+/// use torsh_optim::prelude::{RMSprop, Optimizer};
+/// use torsh_tensor::Tensor;
+/// use parking_lot::RwLock;
+/// use std::sync::Arc;
+///
+/// // LSTM parameters
+/// let weight_ih = Arc::new(RwLock::new(randn::<f32>(&[256, 512])?));
+/// let weight_hh = Arc::new(RwLock::new(randn::<f32>(&[512, 512])?));
+/// let bias = Arc::new(RwLock::new(zeros::<f32>(&[512])?));
+/// let params = vec![weight_ih, weight_hh, bias];
+///
+/// // Create RMSprop optimizer (good for RNNs)
+/// let mut optimizer = RMSprop::new(
+///     params,
+///     Some(1e-3),     // learning rate
+///     Some(0.99),     // alpha
+///     Some(1e-8),     // eps
+///     None,           // no weight decay
+///     None,           // no momentum
+///     false           // standard RMSprop
+/// );
+///
+/// // Training step
+/// // ... forward pass and loss computation ...
+/// // loss.backward()?;
+/// // Gradient clipping recommended for RNNs
+/// // clip_grad_norm_(&params, 5.0);
+/// // optimizer.step()?;
+/// // optimizer.zero_grad();
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # Example: Using the Builder
+///
+/// ```rust
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # use parking_lot::RwLock;
+/// # use std::sync::Arc;
+/// # fn main() -> Result<()> {
+/// use torsh_optim::rmsprop::RMSpropBuilder;
+///
+/// let params = vec![Arc::new(RwLock::new(randn::<f32>(&[100, 50])?))];
+///
+/// let optimizer = RMSpropBuilder::new()
+///     .lr(1e-3)
+///     .alpha(0.99)
+///     .momentum(0.9)
+///     .centered(true)
+///     .build(params);
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Clone)]
 pub struct RMSprop {
     param_groups: Vec<ParamGroup>,

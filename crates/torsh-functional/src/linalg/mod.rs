@@ -258,25 +258,27 @@
 //! use torsh_functional::linalg::{chain_matmul, norm, svd, solve, NormOrd};
 //! use torsh_tensor::creation::randn;
 //!
-//! // Matrix multiplication chain
-//! let a = randn(&[3, 4])?;
-//! let b = randn(&[4, 5])?;
-//! let c = randn(&[5, 2])?;
-//! let result = chain_matmul(&[a, b, c])?;
+//! fn example() -> Result<(), Box<dyn std::error::Error>> {
+//!     // Matrix multiplication chain
+//!     let a = randn(&[3, 4])?;
+//!     let b = randn(&[4, 5])?;
+//!     let c = randn(&[5, 2])?;
+//!     let result = chain_matmul(&[a, b, c])?;
 //!
-//! // Matrix norms
-//! let matrix = randn(&[100, 100])?;
-//! let frobenius = norm(&matrix, Some(NormOrd::Fro), None, false)?;
-//! let spectral = norm(&matrix, Some(NormOrd::P(2.0)), None, false)?;
+//!     // Matrix norms
+//!     let matrix = randn(&[100, 100])?;
+//!     let frobenius = norm(&matrix, Some(NormOrd::Fro), None, false)?;
+//!     let spectral = norm(&matrix, Some(NormOrd::P(2.0)), None, false)?;
 //!
-//! // SVD decomposition
-//! let (u, s, vt) = svd(&matrix, false)?;
+//!     // SVD decomposition
+//!     let (u, s, vt) = svd(&matrix, false)?;
 //!
-//! // Linear system solving
-//! let a = randn(&[10, 10])?;
-//! let b = randn(&[10, 3])?;
-//! let x = solve(&a, &b)?;
-//! # Ok::<(), Box<dyn std::error::Error>>(())
+//!     // Linear system solving
+//!     let a2 = randn(&[10, 10])?;
+//!     let b2 = randn(&[10, 3])?;
+//!     let x = solve(&a2, &b2)?;
+//!     Ok(())
+//! }
 //! ```
 
 pub mod basic;

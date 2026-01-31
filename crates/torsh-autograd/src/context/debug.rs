@@ -111,19 +111,19 @@ impl GraphDebugger {
         }
 
         // Count leaf and root nodes
-        let (leaf_nodes, root_nodes) = self.count_leaf_and_root_nodes(ctx).unwrap();
+        let (leaf_nodes, root_nodes) = self.count_leaf_and_root_nodes(ctx)?;
 
         // Calculate depths
-        let (max_depth, avg_depth) = self.calculate_depths(ctx).unwrap();
+        let (max_depth, avg_depth) = self.calculate_depths(ctx)?;
 
         // Detect cycles
-        let cycles = self.detect_cycles(ctx).unwrap();
+        let cycles = self.detect_cycles(ctx)?;
 
         // Find critical path
-        let critical_path = self.find_critical_path(ctx).unwrap();
+        let critical_path = self.find_critical_path(ctx)?;
 
         // Analyze node types
-        let node_types = self.analyze_node_types(ctx).unwrap();
+        let node_types = self.analyze_node_types(ctx)?;
 
         // Estimate memory usage
         let estimated_memory = if self.include_memory_analysis {
@@ -301,7 +301,7 @@ impl GraphDebugger {
             .collect();
 
         for &leaf in &leaf_nodes {
-            let path = self.find_longest_path_from_node(ctx, leaf).unwrap();
+            let path = self.find_longest_path_from_node(ctx, leaf)?;
             if path.len() > max_length {
                 max_length = path.len();
                 longest_path.clear();
@@ -392,51 +392,62 @@ impl GraphDebugger {
     /// Generate a detailed textual representation of the graph
     pub fn generate_graph_report(&self, ctx: &AutogradContext) -> Result<String> {
         let mut report = String::new();
-        let analysis = self.analyze_graph(ctx).unwrap();
+        let analysis = self.analyze_graph(ctx)?;
 
-        writeln!(report, "=== Computation Graph Analysis Report ===").unwrap();
-        writeln!(report, "Total Nodes: {}", analysis.node_count).unwrap();
-        writeln!(report, "Leaf Nodes: {}", analysis.leaf_nodes).unwrap();
-        writeln!(report, "Root Nodes: {}", analysis.root_nodes).unwrap();
-        writeln!(report, "Maximum Depth: {}", analysis.max_depth).unwrap();
-        writeln!(report, "Average Depth: {:.2}", analysis.avg_depth).unwrap();
-        writeln!(report, "Cycles Detected: {}", analysis.cycles).unwrap();
+        // Note: writeln! to String never fails, but using expect() for explicitness
+        writeln!(report, "=== Computation Graph Analysis Report ===")
+            .expect("Writing to String should not fail");
+        writeln!(report, "Total Nodes: {}", analysis.node_count)
+            .expect("Writing to String should not fail");
+        writeln!(report, "Leaf Nodes: {}", analysis.leaf_nodes)
+            .expect("Writing to String should not fail");
+        writeln!(report, "Root Nodes: {}", analysis.root_nodes)
+            .expect("Writing to String should not fail");
+        writeln!(report, "Maximum Depth: {}", analysis.max_depth)
+            .expect("Writing to String should not fail");
+        writeln!(report, "Average Depth: {:.2}", analysis.avg_depth)
+            .expect("Writing to String should not fail");
+        writeln!(report, "Cycles Detected: {}", analysis.cycles)
+            .expect("Writing to String should not fail");
         writeln!(
             report,
             "Estimated Memory: {} bytes",
             analysis.estimated_memory
         )
-        .unwrap();
+        .expect("Writing to String should not fail");
 
-        writeln!(report, "\n=== Critical Path ===").unwrap();
-        writeln!(report, "Length: {}", analysis.critical_path.length).unwrap();
+        writeln!(report, "\n=== Critical Path ===").expect("Writing to String should not fail");
+        writeln!(report, "Length: {}", analysis.critical_path.length)
+            .expect("Writing to String should not fail");
         writeln!(
             report,
             "Estimated Time: {:.2}ms",
             analysis.critical_path.estimated_time
         )
-        .unwrap();
+        .expect("Writing to String should not fail");
         writeln!(
             report,
             "Operations: {:?}",
             analysis.critical_path.operations
         )
-        .unwrap();
+        .expect("Writing to String should not fail");
 
-        writeln!(report, "\n=== Node Type Distribution ===").unwrap();
+        writeln!(report, "\n=== Node Type Distribution ===")
+            .expect("Writing to String should not fail");
         for (op_type, count) in &analysis.node_types {
-            writeln!(report, "{}: {}", op_type, count).unwrap();
+            writeln!(report, "{}: {}", op_type, count).expect("Writing to String should not fail");
         }
 
         if self.verbose && ctx.computation_graph.node_count() <= self.max_detail_nodes {
-            writeln!(report, "\n=== Detailed Node Information ===").unwrap();
+            writeln!(report, "\n=== Detailed Node Information ===")
+                .expect("Writing to String should not fail");
             for (i, node) in ctx.computation_graph.node_weights().enumerate() {
                 writeln!(
                     report,
                     "Node {}: {} (ID: {}, Inputs: {:?}, Requires Grad: {})",
                     i, node.operation, node.id, node.inputs, node.requires_grad
                 )
-                .unwrap();
+                .expect("Writing to String should not fail");
             }
         }
 
@@ -446,9 +457,9 @@ impl GraphDebugger {
     /// Visualize the graph structure (basic text representation)
     pub fn visualize_graph(&self, ctx: &AutogradContext) -> Result<String> {
         let mut viz = String::new();
-        writeln!(viz, "digraph computation_graph {{").unwrap();
-        writeln!(viz, "  rankdir=TB;").unwrap();
-        writeln!(viz, "  node [shape=box];").unwrap();
+        writeln!(viz, "digraph computation_graph {{").expect("Writing to String should not fail");
+        writeln!(viz, "  rankdir=TB;").expect("Writing to String should not fail");
+        writeln!(viz, "  node [shape=box];").expect("Writing to String should not fail");
 
         for node_index in ctx.computation_graph.node_indices() {
             if let Some(node) = ctx.computation_graph.node_weight(node_index) {
@@ -465,17 +476,18 @@ impl GraphDebugger {
                     node.id,
                     color
                 )
-                .unwrap();
+                .expect("Writing to String should not fail");
             }
         }
 
         for edge in ctx.computation_graph.edge_indices() {
             if let Some((source, target)) = ctx.computation_graph.edge_endpoints(edge) {
-                writeln!(viz, "  {} -> {};", source.index(), target.index()).unwrap();
+                writeln!(viz, "  {} -> {};", source.index(), target.index())
+                    .expect("Writing to String should not fail");
             }
         }
 
-        writeln!(viz, "}}").unwrap();
+        writeln!(viz, "}}").expect("Writing to String should not fail");
         Ok(viz)
     }
 

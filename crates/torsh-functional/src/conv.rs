@@ -57,67 +57,70 @@
 //! ## Examples
 //!
 //! ### Basic 2D Convolution
-//! ```rust,no_run
-//! # use torsh_tensor::Tensor;
-//! # use torsh_functional::conv::conv2d;
-//! # fn example() -> torsh_core::Result<()> {
-//! // Input: batch=1, channels=3 (RGB), height=32, width=32
-//! let input = randn(&[1, 3, 32, 32])?;
+//! ```rust
+//! use torsh_functional::conv::conv2d;
+//! use torsh_functional::random_ops::randn;
+//! use torsh_tensor::creation::zeros;
 //!
-//! // Kernel: 64 output channels, 3 input channels, 3x3 kernel
-//! let weight = randn(&[64, 3, 3, 3])?;
-//! let bias = Some(Tensor::zeros(&[64])?);
+//! fn example() -> Result<(), Box<dyn std::error::Error>> {
+//!     // Input: batch=1, channels=3 (RGB), height=32, width=32
+//!     let input = randn(&[1, 3, 32, 32], None, None, None)?;
 //!
-//! // Standard convolution: stride=1, padding=1
-//! let output = conv2d(
-//!     &input,
-//!     &weight,
-//!     bias.as_ref(),
-//!     (1, 1),  // stride
-//!     (1, 1),  // padding (maintains spatial dimensions)
-//!     (1, 1),  // dilation
-//!     1,       // groups
-//! )?;
+//!     // Kernel: 64 output channels, 3 input channels, 3x3 kernel
+//!     let weight = randn(&[64, 3, 3, 3], None, None, None)?;
+//!     let bias = Some(zeros(&[64])?);
 //!
-//! // Output shape: [1, 64, 32, 32]
-//! # Ok(())
-//! # }
+//!     // Standard convolution: stride=1, padding=1
+//!     let output = conv2d(
+//!         &input,
+//!         &weight,
+//!         bias.as_ref(),
+//!         (1, 1),  // stride
+//!         (1, 1),  // padding (maintains spatial dimensions)
+//!         (1, 1),  // dilation
+//!         1,       // groups
+//!     )?;
+//!
+//!     // Output shape: [1, 64, 32, 32]
+//!     Ok(())
+//! }
 //! ```
 //!
 //! ### Depthwise Separable Convolution
-//! ```rust,no_run
-//! # use torsh_tensor::Tensor;
-//! # use torsh_functional::conv::{depthwise_conv2d, conv2d};
-//! # fn example() -> torsh_core::Result<()> {
-//! let input = randn(&[1, 64, 32, 32])?;
+//! ```rust
+//! use torsh_functional::conv::{depthwise_conv2d, conv2d};
+//! use torsh_functional::random_ops::randn;
 //!
-//! // Depthwise convolution (spatial filtering)
-//! let depthwise_weight = randn(&[64, 1, 3, 3])?;
-//! let depthwise = depthwise_conv2d(
-//!     &input,
-//!     &depthwise_weight,
-//!     None,
-//!     (1, 1),
-//!     (1, 1),
-//!     (1, 1),
-//! )?;
+//! fn example() -> Result<(), Box<dyn std::error::Error>> {
+//!     let input = randn(&[1, 64, 32, 32], None, None, None)?;
 //!
-//! // Pointwise convolution (channel mixing)
-//! let pointwise_weight = randn(&[128, 64, 1, 1])?;
-//! let output = conv2d(
-//!     &depthwise,
-//!     &pointwise_weight,
-//!     None,
-//!     (1, 1),
-//!     (0, 0),
-//!     (1, 1),
-//!     1,
-//! )?;
+//!     // Depthwise convolution (spatial filtering)
+//!     let depthwise_weight = randn(&[64, 1, 3, 3], None, None, None)?;
+//!     let depthwise = depthwise_conv2d(
+//!         &input,
+//!         &depthwise_weight,
+//!         None,
+//!         (1, 1),
+//!         (1, 1),
+//!         (1, 1),
+//!     )?;
 //!
-//! // Output shape: [1, 128, 32, 32]
-//! // Parameters: 64*(3*3) + 128*64 = 8768 (vs 64*128*3*3 = 73728 for standard)
-//! # Ok(())
-//! # }
+//!     // Pointwise convolution (channel mixing)
+//!     let pointwise_weight = randn(&[128, 64, 1, 1], None, None, None)?;
+//!     let output = conv2d(
+//!         &depthwise,
+//!         &pointwise_weight,
+//!         None,
+//!         (1, 1),
+//!         (0, 0),
+//!         (1, 1),
+//!         1,
+//!     )?;
+//!
+//!     // Output shape: [1, 128, 32, 32]
+//!     // Parameters: 64*(3*3) + 128*64 = 8768 (vs 64*128*3*3 = 73728 for standard)
+//!     Ok(())
+//! }
 //! ```
 
 use torsh_core::Result as TorshResult;
@@ -146,19 +149,20 @@ use torsh_tensor::Tensor;
 /// - Output: `[N, C_out, L_out]` where `L_out = floor((L + 2*padding - dilation*(K-1) - 1) / stride) + 1`
 ///
 /// # Examples
-/// ```rust,no_run
-/// # use torsh_tensor::Tensor;
-/// # use torsh_functional::conv::conv1d;
-/// # use torsh_functional::random_ops::randn;
-/// # fn example() -> torsh_core::Result<()> {
-/// let input = randn(&[2, 16, 100])?;  // batch=2, channels=16, length=100
-/// let weight = randn(&[32, 16, 5])?;  // 32 output channels, kernel_size=5
-/// let bias = Some(Tensor::zeros(&[32])?);
+/// ```rust
+/// use torsh_functional::conv::conv1d;
+/// use torsh_functional::random_ops::randn;
+/// use torsh_tensor::creation::zeros;
 ///
-/// let output = conv1d(&input, &weight, bias.as_ref(), 1, 2, 1, 1)?;
-/// // Output shape: [2, 32, 100] (padding=2 maintains length)
-/// # Ok(())
-/// # }
+/// fn example() -> Result<(), Box<dyn std::error::Error>> {
+///     let input = randn(&[2, 16, 100], None, None, None)?;  // batch=2, channels=16, length=100
+///     let weight = randn(&[32, 16, 5], None, None, None)?;  // 32 output channels, kernel_size=5
+///     let bias = Some(zeros(&[32])?);
+///
+///     let output = conv1d(&input, &weight, bias.as_ref(), 1, 2, 1, 1)?;
+///     // Output shape: [2, 32, 100] (padding=2 maintains length)
+///     Ok(())
+/// }
 /// ```
 pub fn conv1d(
     input: &Tensor,
@@ -205,28 +209,29 @@ pub fn conv1d(
 /// - Grouped convolutions reduce computation by factor of 1/groups
 ///
 /// # Examples
-/// ```rust,no_run
-/// # use torsh_tensor::Tensor;
-/// # use torsh_functional::conv::conv2d;
-/// # use torsh_functional::random_ops::randn;
-/// # fn example() -> torsh_core::Result<()> {
-/// // Standard convolution for image classification
-/// let input = randn(&[8, 3, 224, 224])?;    // ImageNet-like input
-/// let weight = randn(&[64, 3, 7, 7])?;      // First layer kernel
-/// let bias = Some(Tensor::zeros(&[64])?);
+/// ```rust
+/// use torsh_functional::conv::conv2d;
+/// use torsh_functional::random_ops::randn;
+/// use torsh_tensor::creation::zeros;
 ///
-/// let output = conv2d(
-///     &input,
-///     &weight,
-///     bias.as_ref(),
-///     (2, 2),  // stride=2 reduces spatial dimensions by half
-///     (3, 3),  // padding=3 for kernel_size=7
-///     (1, 1),  // standard dilation
-///     1,       // no grouping
-/// )?;
-/// // Output shape: [8, 64, 112, 112]
-/// # Ok(())
-/// # }
+/// fn example() -> Result<(), Box<dyn std::error::Error>> {
+///     // Standard convolution for image classification
+///     let input = randn(&[8, 3, 224, 224], None, None, None)?;    // ImageNet-like input
+///     let weight = randn(&[64, 3, 7, 7], None, None, None)?;      // First layer kernel
+///     let bias = Some(zeros(&[64])?);
+///
+///     let output = conv2d(
+///         &input,
+///         &weight,
+///         bias.as_ref(),
+///         (2, 2),  // stride=2 reduces spatial dimensions by half
+///         (3, 3),  // padding=3 for kernel_size=7
+///         (1, 1),  // standard dilation
+///         1,       // no grouping
+///     )?;
+///     // Output shape: [8, 64, 112, 112]
+///     Ok(())
+/// }
 /// ```
 pub fn conv2d(
     input: &Tensor,
@@ -282,28 +287,29 @@ pub fn conv2d(
 /// - Grouped convolutions particularly beneficial for 3D due to high computational cost
 ///
 /// # Examples
-/// ```rust,no_run
-/// # use torsh_tensor::Tensor;
-/// # use torsh_functional::conv::conv3d;
-/// # use torsh_functional::random_ops::randn;
-/// # fn example() -> torsh_core::Result<()> {
-/// // Video classification: 16-frame clips
-/// let input = randn(&[4, 3, 16, 112, 112])?;  // batch=4, RGB, 16 frames, 112x112
-/// let weight = randn(&[64, 3, 3, 3, 3])?;     // 3x3x3 kernel
-/// let bias = Some(Tensor::zeros(&[64])?);
+/// ```rust
+/// use torsh_functional::conv::conv3d;
+/// use torsh_functional::random_ops::randn;
+/// use torsh_tensor::creation::zeros;
 ///
-/// let output = conv3d(
-///     &input,
-///     &weight,
-///     bias.as_ref(),
-///     (1, 1, 1),  // unit stride
-///     (1, 1, 1),  // same padding
-///     (1, 1, 1),  // standard dilation
-///     1,          // no grouping
-/// )?;
-/// // Output shape: [4, 64, 16, 112, 112]
-/// # Ok(())
-/// # }
+/// fn example() -> Result<(), Box<dyn std::error::Error>> {
+///     // Video classification: 16-frame clips
+///     let input = randn(&[4, 3, 16, 112, 112], None, None, None)?;  // batch=4, RGB, 16 frames, 112x112
+///     let weight = randn(&[64, 3, 3, 3, 3], None, None, None)?;     // 3x3x3 kernel
+///     let bias = Some(zeros(&[64])?);
+///
+///     let output = conv3d(
+///         &input,
+///         &weight,
+///         bias.as_ref(),
+///         (1, 1, 1),  // unit stride
+///         (1, 1, 1),  // same padding
+///         (1, 1, 1),  // standard dilation
+///         1,          // no grouping
+///     )?;
+///     // Output shape: [4, 64, 16, 112, 112]
+///     Ok(())
+/// }
 /// ```
 pub fn conv3d(
     input: &Tensor,

@@ -726,11 +726,34 @@ pub mod migration {
     use super::*;
 
     /// Convert a vector of old transforms to unified transforms
+    ///
+    /// # Status
+    /// NOT IMPLEMENTED in v0.1.0-rc.1
+    ///
+    /// # Reason
+    /// The bridge pattern requires concrete types, not trait objects.
+    /// Automatic conversion requires runtime type inspection or manual mapping.
+    ///
+    /// # Workaround
+    /// Manually reconstruct transform pipeline using UnifiedTransform API:
+    /// ```ignore
+    /// // Old API
+    /// let old = Compose::new(vec![Box::new(Resize::new(256)), ...]);
+    ///
+    /// // New API (manual conversion)
+    /// let new = PipelineBuilder::new()
+    ///     .add_transform(ResizeTransform::new(256, InterpolationMode::Bilinear))
+    ///     .build();
+    /// ```
+    ///
+    /// # Future
+    /// May implement with macro-based conversion in v0.3.0
+    /// Deferred - See ROADMAP.md
     pub fn convert_transforms(
         _transforms: Vec<Box<dyn crate::transforms::Transform>>,
     ) -> Vec<Box<dyn UnifiedTransform>> {
-        // TODO: Implement specific conversions based on transform type
-        // The bridge pattern requires concrete types, not trait objects
+        // Returns empty vector - user must manually convert
+        // Consider using analyze_pipeline() for migration guidance
         Vec::new()
     }
 

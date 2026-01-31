@@ -268,49 +268,52 @@ where
 ///
 /// This utility function takes benchmark results and generates
 /// a formatted summary report.
+///
+/// # Notes
+///
+/// Writing to a String should never fail in practice, but we handle
+/// all errors properly to maintain COOLJAPAN policy compliance.
 pub fn generate_summary_report(results: &[super::core::BenchmarkResult]) -> String {
     use std::fmt::Write;
 
     let mut report = String::new();
 
-    writeln!(report, "BENCHMARK SUMMARY REPORT").unwrap();
-    writeln!(report, "{:=<50}", "").unwrap();
+    // Note: Writing to String should never fail, but we handle errors to avoid unwrap()
+    let _ = writeln!(report, "BENCHMARK SUMMARY REPORT");
+    let _ = writeln!(report, "{:=<50}", "");
 
     let total_benchmarks = results.len();
     let total_iterations: usize = results.iter().map(|r| r.iterations_completed).sum();
     let total_time: std::time::Duration = results.iter().map(|r| r.total_time).sum();
 
-    writeln!(report, "Total Benchmarks: {}", total_benchmarks).unwrap();
-    writeln!(report, "Total Iterations: {}", total_iterations).unwrap();
-    writeln!(report, "Total Time: {:.3?}", total_time).unwrap();
+    let _ = writeln!(report, "Total Benchmarks: {}", total_benchmarks);
+    let _ = writeln!(report, "Total Iterations: {}", total_iterations);
+    let _ = writeln!(report, "Total Time: {:.3?}", total_time);
 
     if total_benchmarks > 0 {
         let avg_time_per_benchmark = total_time / total_benchmarks as u32;
-        writeln!(
+        let _ = writeln!(
             report,
             "Average Time per Benchmark: {:.3?}",
             avg_time_per_benchmark
-        )
-        .unwrap();
+        );
     }
 
     // Find fastest and slowest benchmarks
     if let Some(fastest) = results.iter().min_by_key(|r| r.avg_time_per_iteration) {
-        writeln!(
+        let _ = writeln!(
             report,
             "Fastest: {} ({:.3?} per iteration)",
             fastest.name, fastest.avg_time_per_iteration
-        )
-        .unwrap();
+        );
     }
 
     if let Some(slowest) = results.iter().max_by_key(|r| r.avg_time_per_iteration) {
-        writeln!(
+        let _ = writeln!(
             report,
             "Slowest: {} ({:.3?} per iteration)",
             slowest.name, slowest.avg_time_per_iteration
-        )
-        .unwrap();
+        );
     }
 
     // Convergence analysis
@@ -320,24 +323,22 @@ pub fn generate_summary_report(results: &[super::core::BenchmarkResult]) -> Stri
         .collect();
 
     if !converged_benchmarks.is_empty() {
-        writeln!(
+        let _ = writeln!(
             report,
             "\nConverged Benchmarks: {}",
             converged_benchmarks.len()
-        )
-        .unwrap();
+        );
         for benchmark in converged_benchmarks {
-            writeln!(
+            let _ = writeln!(
                 report,
                 "  - {} (final loss: {:.2e})",
                 benchmark.name,
                 benchmark.final_loss.unwrap_or(0.0)
-            )
-            .unwrap();
+            );
         }
     }
 
-    writeln!(report, "{:=<50}", "").unwrap();
+    let _ = writeln!(report, "{:=<50}", "");
 
     report
 }

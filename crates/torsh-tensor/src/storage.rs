@@ -289,15 +289,16 @@ impl<T: TensorElement + Copy> TensorStorage<T> {
     /// Get the number of elements
     pub fn len(&self) -> usize {
         match self {
-            Self::InMemory(data) => data.read().expect("lock should not be poisoned").len(),
+            Self::InMemory(data) => {
+                data.read().map(|guard| guard.len()).unwrap_or(0) // If lock is poisoned, return 0 (safe fallback)
+            }
             Self::MemoryMapped(storage) => {
-                storage
-                    .read()
-                    .expect("lock should not be poisoned")
-                    .num_elements
+                storage.read().map(|guard| guard.num_elements).unwrap_or(0) // If lock is poisoned, return 0 (safe fallback)
             }
             #[cfg(feature = "simd")]
-            Self::Aligned(data) => data.read().expect("lock should not be poisoned").len(),
+            Self::Aligned(data) => {
+                data.read().map(|guard| guard.len()).unwrap_or(0) // If lock is poisoned, return 0 (safe fallback)
+            }
             #[cfg(feature = "simd")]
             Self::SimdOptimized(storage) => storage.len(), // Lock-free!
         }
@@ -315,7 +316,9 @@ impl<T: TensorElement + Copy> TensorStorage<T> {
     {
         match self {
             Self::InMemory(data) => {
-                let data_guard = data.read().expect("lock should not be poisoned");
+                let data_guard = data.read().map_err(|_| {
+                    TorshError::SynchronizationError("Lock poisoned during read".to_string())
+                })?;
                 data_guard
                     .get(index)
                     .copied()
@@ -326,11 +329,15 @@ impl<T: TensorElement + Copy> TensorStorage<T> {
             }
             Self::MemoryMapped(storage) => storage
                 .write()
-                .expect("lock should not be poisoned")
+                .map_err(|_| {
+                    TorshError::SynchronizationError("Lock poisoned during write".to_string())
+                })?
                 .get(index),
             #[cfg(feature = "simd")]
             Self::Aligned(data) => {
-                let data_guard = data.read().expect("lock should not be poisoned");
+                let data_guard = data.read().map_err(|_| {
+                    TorshError::SynchronizationError("Lock poisoned during read".to_string())
+                })?;
                 if index >= data_guard.len() {
                     Err(TorshError::IndexOutOfBounds {
                         index,
@@ -363,7 +370,9 @@ impl<T: TensorElement + Copy> TensorStorage<T> {
     {
         match self {
             Self::InMemory(data) => {
-                let mut data_guard = data.write().expect("lock should not be poisoned");
+                let mut data_guard = data.write().map_err(|_| {
+                    TorshError::SynchronizationError("Lock poisoned during write".to_string())
+                })?;
                 if index >= data_guard.len() {
                     return Err(TorshError::IndexOutOfBounds {
                         index,
@@ -375,11 +384,15 @@ impl<T: TensorElement + Copy> TensorStorage<T> {
             }
             Self::MemoryMapped(storage) => storage
                 .write()
-                .expect("lock should not be poisoned")
+                .map_err(|_| {
+                    TorshError::SynchronizationError("Lock poisoned during write".to_string())
+                })?
                 .set(index, value),
             #[cfg(feature = "simd")]
             Self::Aligned(data) => {
-                let mut data_guard = data.write().expect("lock should not be poisoned");
+                let mut data_guard = data.write().map_err(|_| {
+                    TorshError::SynchronizationError("Lock poisoned during write".to_string())
+                })?;
                 if index >= data_guard.len() {
                     return Err(TorshError::IndexOutOfBounds {
                         index,
@@ -409,7 +422,9 @@ impl<T: TensorElement + Copy> TensorStorage<T> {
     {
         match self {
             Self::InMemory(data) => {
-                let data_guard = data.read().expect("lock should not be poisoned");
+                let data_guard = data.read().map_err(|_| {
+                    TorshError::SynchronizationError("Lock poisoned during read".to_string())
+                })?;
                 if start + len > data_guard.len() {
                     return Err(TorshError::IndexOutOfBounds {
                         index: start + len - 1,
@@ -420,11 +435,15 @@ impl<T: TensorElement + Copy> TensorStorage<T> {
             }
             Self::MemoryMapped(storage) => storage
                 .write()
-                .expect("lock should not be poisoned")
+                .map_err(|_| {
+                    TorshError::SynchronizationError("Lock poisoned during write".to_string())
+                })?
                 .get_slice(start, len),
             #[cfg(feature = "simd")]
             Self::Aligned(data) => {
-                let data_guard = data.read().expect("lock should not be poisoned");
+                let data_guard = data.read().map_err(|_| {
+                    TorshError::SynchronizationError("Lock poisoned during read".to_string())
+                })?;
                 if start + len > data_guard.len() {
                     return Err(TorshError::IndexOutOfBounds {
                         index: start + len - 1,
@@ -456,7 +475,9 @@ impl<T: TensorElement + Copy> TensorStorage<T> {
     {
         match self {
             Self::InMemory(data) => {
-                let mut data_guard = data.write().expect("lock should not be poisoned");
+                let mut data_guard = data.write().map_err(|_| {
+                    TorshError::SynchronizationError("Lock poisoned during write".to_string())
+                })?;
                 if start + values.len() > data_guard.len() {
                     return Err(TorshError::IndexOutOfBounds {
                         index: start + values.len() - 1,
@@ -468,11 +489,15 @@ impl<T: TensorElement + Copy> TensorStorage<T> {
             }
             Self::MemoryMapped(storage) => storage
                 .write()
-                .expect("lock should not be poisoned")
+                .map_err(|_| {
+                    TorshError::SynchronizationError("Lock poisoned during write".to_string())
+                })?
                 .set_slice(start, values),
             #[cfg(feature = "simd")]
             Self::Aligned(data) => {
-                let mut data_guard = data.write().expect("lock should not be poisoned");
+                let mut data_guard = data.write().map_err(|_| {
+                    TorshError::SynchronizationError("Lock poisoned during write".to_string())
+                })?;
                 if start + values.len() > data_guard.len() {
                     return Err(TorshError::IndexOutOfBounds {
                         index: start + values.len() - 1,
@@ -501,14 +526,23 @@ impl<T: TensorElement + Copy> TensorStorage<T> {
         T: Copy,
     {
         match self {
-            Self::InMemory(data) => Ok(data.read().expect("lock should not be poisoned").clone()),
+            Self::InMemory(data) => Ok(data
+                .read()
+                .map_err(|_| {
+                    TorshError::SynchronizationError("Lock poisoned during read".to_string())
+                })?
+                .clone()),
             Self::MemoryMapped(storage) => storage
                 .write()
-                .expect("lock should not be poisoned")
+                .map_err(|_| {
+                    TorshError::SynchronizationError("Lock poisoned during write".to_string())
+                })?
                 .to_vec(),
             #[cfg(feature = "simd")]
             Self::Aligned(data) => {
-                let data_guard = data.read().expect("lock should not be poisoned");
+                let data_guard = data.read().map_err(|_| {
+                    TorshError::SynchronizationError("Lock poisoned during read".to_string())
+                })?;
                 Ok(data_guard.as_slice().to_vec())
             }
             #[cfg(feature = "simd")]
@@ -535,19 +569,28 @@ impl<T: TensorElement + Copy> TensorStorage<T> {
     pub fn memory_usage(&self) -> usize {
         match self {
             Self::InMemory(data) => {
-                data.read().expect("lock should not be poisoned").len() * std::mem::size_of::<T>()
+                data.read()
+                    .map(|guard| guard.len() * std::mem::size_of::<T>())
+                    .unwrap_or(0) // If lock is poisoned, return 0 (safe fallback)
             }
             Self::MemoryMapped(storage) => {
-                let storage_guard = storage.read().expect("lock should not be poisoned");
-                // Memory usage is just the cache size plus metadata
-                storage_guard.cache.len() * std::mem::size_of::<T>()
-                    + std::mem::size_of::<MemoryMappedStorage<T>>()
+                storage
+                    .read()
+                    .map(|storage_guard| {
+                        // Memory usage is just the cache size plus metadata
+                        storage_guard.cache.len() * std::mem::size_of::<T>()
+                            + std::mem::size_of::<MemoryMappedStorage<T>>()
+                    })
+                    .unwrap_or(std::mem::size_of::<MemoryMappedStorage<T>>()) // Fallback to metadata size
             }
             #[cfg(feature = "simd")]
             Self::Aligned(data) => {
-                let data_guard = data.read().expect("lock should not be poisoned");
-                // AlignedVec uses more memory due to alignment padding
-                data_guard.capacity() * std::mem::size_of::<T>()
+                data.read()
+                    .map(|data_guard| {
+                        // AlignedVec uses more memory due to alignment padding
+                        data_guard.capacity() * std::mem::size_of::<T>()
+                    })
+                    .unwrap_or(0) // If lock is poisoned, return 0 (safe fallback)
             }
             #[cfg(feature = "simd")]
             Self::SimdOptimized(storage) => {
@@ -586,20 +629,26 @@ impl<T: TensorElement + Copy> TensorStorage<T> {
     {
         match self {
             Self::InMemory(data) => {
-                let data_guard = data.read().expect("lock should not be poisoned");
+                let data_guard = data.read().map_err(|_| {
+                    TorshError::SynchronizationError("Lock poisoned during read".to_string())
+                })?;
                 f(data_guard.as_slice())
             }
             Self::MemoryMapped(storage) => {
                 // Memory-mapped storage requires conversion to Vec
                 let vec = storage
                     .write()
-                    .expect("lock should not be poisoned")
+                    .map_err(|_| {
+                        TorshError::SynchronizationError("Lock poisoned during write".to_string())
+                    })?
                     .to_vec()?;
                 f(&vec)
             }
             #[cfg(feature = "simd")]
             Self::Aligned(data) => {
-                let data_guard = data.read().expect("lock should not be poisoned");
+                let data_guard = data.read().map_err(|_| {
+                    TorshError::SynchronizationError("Lock poisoned during read".to_string())
+                })?;
                 f(data_guard.as_slice())
             }
             #[cfg(feature = "simd")]
@@ -656,7 +705,9 @@ impl<T: TensorElement + Copy> TensorStorage<T> {
     {
         match self {
             Self::InMemory(data) => {
-                let mut data_guard = data.write().expect("lock should not be poisoned");
+                let mut data_guard = data.write().map_err(|_| {
+                    TorshError::SynchronizationError("Lock poisoned during write".to_string())
+                })?;
                 f(data_guard.as_mut_slice())
             }
             Self::MemoryMapped(_) => {
@@ -667,7 +718,9 @@ impl<T: TensorElement + Copy> TensorStorage<T> {
             }
             #[cfg(feature = "simd")]
             Self::Aligned(data) => {
-                let mut data_guard = data.write().expect("lock should not be poisoned");
+                let mut data_guard = data.write().map_err(|_| {
+                    TorshError::SynchronizationError("Lock poisoned during write".to_string())
+                })?;
                 f(data_guard.as_mut_slice())
             }
             #[cfg(feature = "simd")]

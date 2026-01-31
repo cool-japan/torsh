@@ -456,11 +456,13 @@ pub mod preprocessing {
         let mut cleaned = text.trim().to_string();
 
         // Replace multiple spaces with single space
-        let space_re = Regex::new(r"\s+").unwrap();
+        let space_re =
+            Regex::new(r"\s+").expect("clean_text: compile-time constant regex should be valid");
         cleaned = space_re.replace_all(&cleaned, " ").to_string();
 
         if remove_special {
-            let special_re = Regex::new(r"[^\w\s]").unwrap();
+            let special_re = Regex::new(r"[^\w\s]")
+                .expect("clean_text: compile-time constant regex should be valid");
             cleaned = special_re.replace_all(&cleaned, "").to_string();
         }
 
@@ -478,7 +480,8 @@ pub mod preprocessing {
     /// Split text into sentences
     pub fn split_sentences(text: &str) -> Vec<String> {
         // Simple sentence splitting - could be improved with more sophisticated rules
-        let sentence_re = Regex::new(r"[.!?]+").unwrap();
+        let sentence_re = Regex::new(r"[.!?]+")
+            .expect("split_sentences: compile-time constant regex should be valid");
         sentence_re
             .split(text)
             .map(|s| s.trim())
@@ -685,7 +688,8 @@ pub mod advanced {
             let mut char_code = 256;
             for i in 0..=255u8 {
                 if !byte_encoder.contains_key(&i) {
-                    let ch = char::from_u32(char_code).unwrap();
+                    let ch = char::from_u32(char_code)
+                        .expect("char_code should be valid unicode scalar value");
                     byte_encoder.insert(i, ch);
                     byte_decoder.insert(ch, i);
                     char_code += 1;

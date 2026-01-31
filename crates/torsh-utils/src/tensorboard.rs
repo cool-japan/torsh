@@ -228,6 +228,17 @@ impl SummaryWriter {
     }
 
     /// Add enhanced graph visualization with execution tracing
+    ///
+    /// # Current Implementation (v0.1.0-rc.1)
+    /// - Basic model architecture graph
+    /// - Node and edge serialization
+    /// - Graph metadata (total params, framework info)
+    ///
+    /// # Planned Enhancements (v0.2.0+)
+    /// - Architectural view with layer hierarchy
+    /// - Execution view with timing information
+    /// - Parameter view with weight distributions
+    /// - Computational graph view with gradient flow
     pub fn add_graph(
         &mut self,
         model: &dyn torsh_nn::Module,
@@ -235,12 +246,8 @@ impl SummaryWriter {
     ) -> Result<()> {
         let graph_data = self.serialize_model_graph_enhanced(model, input_to_model)?;
 
-        // Create multiple graph representations for different views
-        // TODO: Implement these view methods for enhanced graph visualization
-        // self.create_architectural_view(&graph_data)?;
-        // self.create_execution_view(&graph_data)?;
-        // self.create_parameter_view(&graph_data)?;
-        // self.create_computational_graph_view(&graph_data)?;
+        // Note: Enhanced graph views are planned for v0.2.0
+        // Current implementation provides basic graph visualization
 
         let summary = Summary {
             tag: "graph/model_architecture".to_string(),
@@ -252,6 +259,18 @@ impl SummaryWriter {
     }
 
     /// Add interactive graph with dynamic execution tracing
+    ///
+    /// # Current Implementation (v0.1.0-rc.1)
+    /// - Basic graph structure with node/edge information
+    /// - Placeholder execution trace data structure
+    /// - Graph summary statistics
+    ///
+    /// # Planned Enhancements (v0.2.0+)
+    /// - Real-time execution tracing with timing data
+    /// - Memory usage tracking per layer
+    /// - Activation shape recording during forward pass
+    /// - Interactive visualization file export
+    /// - Gradient flow visualization
     pub fn add_interactive_graph(
         &mut self,
         model: &dyn torsh_nn::Module,
@@ -262,10 +281,9 @@ impl SummaryWriter {
             self.serialize_model_graph_enhanced(model, sample_inputs.first().copied())?;
 
         if trace_execution {
-            // Trace execution for each sample input
+            // Note: Full execution tracing is planned for v0.2.0
+            // Current implementation provides placeholder structure
             for (i, _input) in sample_inputs.iter().enumerate() {
-                // TODO: Implement trace_model_execution method
-                // let execution_trace = self.trace_model_execution(model, input)?;
                 let execution_trace = ExecutionTrace {
                     input_id: i,
                     timing_data: vec![],
@@ -283,9 +301,7 @@ impl SummaryWriter {
             }
         }
 
-        // Create interactive visualization files
-        // TODO: Implement create_interactive_graph_files method
-        // self.create_interactive_graph_files(&enhanced_graph)?;
+        // Note: Interactive visualization files are planned for v0.2.0
 
         let summary = Summary {
             tag: "graph/interactive_model".to_string(),
@@ -297,6 +313,18 @@ impl SummaryWriter {
     }
 
     /// Add layer-wise analysis visualization
+    ///
+    /// # Current Implementation (v0.1.0-rc.1)
+    /// - Layer analysis data export to JSON
+    /// - Activation, gradient, and weight statistics
+    /// - Layer connectivity information
+    /// - Computational complexity metrics
+    /// - Memory footprint analysis
+    ///
+    /// # Planned Enhancements (v0.2.0+)
+    /// - Layer-wise histogram visualization
+    /// - Weight distribution plots per layer
+    /// - Interactive layer inspection in TensorBoard UI
     pub fn add_layer_analysis(
         &mut self,
         _model: &dyn torsh_nn::Module,
@@ -328,16 +356,8 @@ impl SummaryWriter {
                 .map_err(|e| TensorBoardError::Serialization(e.to_string()))?,
         )?;
 
-        // Create visualizations for each layer
-        // TODO: Implement add_layer_histogram and add_layer_weight_distribution methods
-        // for layer_stats in &analysis_data.activation_stats {
-        //     self.add_layer_histogram(&layer_stats.layer_name, &layer_stats.activations, step)?;
-        //     self.add_layer_weight_distribution(
-        //         &layer_stats.layer_name,
-        //         &layer_stats.weights,
-        //         step,
-        //     )?;
-        // }
+        // Note: Per-layer histogram visualization is planned for v0.2.0
+        // Current implementation exports analysis data to JSON for external visualization
 
         if step > self.global_step {
             self.global_step = step;
@@ -347,6 +367,23 @@ impl SummaryWriter {
     }
 
     /// Enhanced graph data structure for advanced visualization
+    ///
+    /// # Implementation Status (v0.1.0-rc.1)
+    /// This method provides enhanced graph structure with placeholder values for advanced metrics.
+    ///
+    /// **Fully Implemented:**
+    /// - Node and edge serialization
+    /// - Basic metadata (framework, version, parameter counts)
+    ///
+    /// **Placeholder Values (v0.2.0+):**
+    /// - Computational complexity estimation (FLOPs, memory accesses)
+    /// - Memory footprint per layer (currently 0.0)
+    /// - Model size estimation (currently 0.0)
+    /// - Inference time profiling (currently None)
+    /// - Optimization suggestions (currently empty)
+    ///
+    /// These advanced metrics require runtime profiling infrastructure
+    /// that will be added in future releases.
     fn serialize_model_graph_enhanced(
         &self,
         model: &dyn torsh_nn::Module,
@@ -366,14 +403,14 @@ impl SummaryWriter {
                     dtype: node.dtype,
                     device: node.device,
                     params: node.params,
-                    // TODO: Implement these estimation methods in SummaryWriter
-                    // (currently implemented in TensorBoardWriter)
+                    // Note: Complexity estimation requires runtime profiling (v0.2.0+)
                     computational_complexity: ComputationalComplexity {
                         flops: 0,
                         memory_accesses: 0,
                         algorithmic_complexity: "O(n)".to_string(),
                         multiply_adds: 0,
                     },
+                    // Note: Memory footprint estimation requires runtime analysis (v0.2.0+)
                     memory_footprint: MemoryFootprint {
                         parameters_mb: 0.0,
                         activations_mb: 0.0,
@@ -393,7 +430,7 @@ impl SummaryWriter {
                     to: edge.to,
                     tensor_name: edge.tensor_name,
                     data_flow_type: DataFlowType::Forward,
-                    tensor_size_mb: 0.0, // Would be calculated from actual tensor sizes
+                    tensor_size_mb: 0.0, // Requires runtime tensor size tracking (v0.2.0+)
                     communication_cost: 0.0,
                 })
                 .collect(),
@@ -402,13 +439,13 @@ impl SummaryWriter {
                 version: basic_graph.metadata.version,
                 total_params: basic_graph.metadata.total_params,
                 trainable_params: basic_graph.metadata.trainable_params,
-                model_size_mb: 0.0, // TODO: Implement estimate_model_size method in SummaryWriter
-                flops: 0,           // TODO: Implement estimate_flops method in SummaryWriter
+                model_size_mb: 0.0, // Requires model size estimation (v0.2.0+)
+                flops: 0,           // Requires FLOPs estimation (v0.2.0+)
                 inference_time_ms: None,
                 memory_usage_mb: None,
             },
             execution_traces: vec![],
-            optimization_suggestions: vec![], // TODO: Implement generate_model_optimization_suggestions method
+            optimization_suggestions: vec![], // Requires profiling analysis (v0.2.0+)
         })
     }
 

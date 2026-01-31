@@ -47,7 +47,43 @@ pub fn tensor_2d_arrays<T: TensorElement, const M: usize, const N: usize>(
     Tensor::from_data(flat_data, vec![rows, cols], DeviceType::Cpu)
 }
 
-/// Create a tensor of zeros
+/// Creates a tensor filled with zeros.
+///
+/// This is one of the most common tensor creation functions, useful for initializing
+/// tensors before filling them with computed values.
+///
+/// # Arguments
+///
+/// * `shape` - The shape of the tensor as a slice of dimensions
+///
+/// # Returns
+///
+/// A new tensor filled with zeros on the CPU device, or an error if creation fails.
+///
+/// # Examples
+///
+/// ```
+/// use torsh_tensor::creation::zeros;
+///
+/// // Create a 1D tensor with 5 elements
+/// let t = zeros::<f32>(&[5]).unwrap();
+/// assert_eq!(t.shape().dims(), &[5]);
+///
+/// // Create a 2D tensor (matrix)
+/// let m = zeros::<f32>(&[3, 4]).unwrap();
+/// assert_eq!(m.shape().dims(), &[3, 4]);
+/// assert_eq!(m.numel(), 12);
+///
+/// // Create a 3D tensor
+/// let cube = zeros::<f32>(&[2, 3, 4]).unwrap();
+/// assert_eq!(cube.shape().dims(), &[2, 3, 4]);
+/// ```
+///
+/// # See Also
+///
+/// * [`ones`] - Create a tensor filled with ones
+/// * [`zeros_like`] - Create zeros matching another tensor's shape
+/// * [`zeros_device`] - Create zeros on a specific device
 pub fn zeros<T: TensorElement>(shape: &[usize]) -> Result<Tensor<T>> {
     let size = shape.iter().product();
     let data = vec![T::zero(); size];
@@ -74,7 +110,42 @@ pub fn zeros_device<T: TensorElement>(shape: &[usize], device: DeviceType) -> Re
     Tensor::from_data(data, shape.to_vec(), device)
 }
 
-/// Create a tensor of ones
+/// Creates a tensor filled with ones.
+///
+/// Commonly used for creating masks, initializing accumulators, or as a starting
+/// point for mathematical operations.
+///
+/// # Arguments
+///
+/// * `shape` - The shape of the tensor as a slice of dimensions
+///
+/// # Returns
+///
+/// A new tensor filled with ones on the CPU device, or an error if creation fails.
+///
+/// # Examples
+///
+/// ```
+/// use torsh_tensor::creation::ones;
+///
+/// // Create a 1D tensor
+/// let t = ones::<f32>(&[5]).unwrap();
+/// assert_eq!(t.to_vec().unwrap(), vec![1.0; 5]);
+///
+/// // Create a 2D tensor and use it as a mask
+/// let mask = ones::<f32>(&[2, 3]).unwrap();
+/// assert_eq!(mask.shape().dims(), &[2, 3]);
+///
+/// // Different data types
+/// let int_ones = ones::<i32>(&[4]).unwrap();
+/// assert_eq!(int_ones.to_vec().unwrap(), vec![1; 4]);
+/// ```
+///
+/// # See Also
+///
+/// * [`zeros`] - Create a tensor filled with zeros
+/// * [`ones_like`] - Create ones matching another tensor's shape
+/// * [`full`] - Create a tensor filled with any value
 pub fn ones<T: TensorElement>(shape: &[usize]) -> Result<Tensor<T>> {
     let size = shape.iter().product();
     let data = vec![T::one(); size];
@@ -90,7 +161,43 @@ pub fn ones_device<T: TensorElement>(shape: &[usize], device: DeviceType) -> Res
     Tensor::from_data(data, shape.to_vec(), device)
 }
 
-/// Create a tensor filled with a specific value
+/// Creates a tensor filled with a specific value.
+///
+/// Useful for initializing tensors with custom values, creating constant tensors,
+/// or setting initial biases in neural networks.
+///
+/// # Arguments
+///
+/// * `shape` - The shape of the tensor as a slice of dimensions
+/// * `value` - The value to fill the tensor with
+///
+/// # Returns
+///
+/// A new tensor filled with the specified value.
+///
+/// # Examples
+///
+/// ```
+/// use torsh_tensor::creation::full;
+///
+/// // Create a tensor filled with a specific value
+/// let t = full(&[2, 3], 7.0f32).unwrap();
+/// assert_eq!(t.shape().dims(), &[2, 3]);
+/// assert_eq!(t.to_vec().unwrap(), vec![7.0; 6]);
+///
+/// // Initialize bias tensor
+/// let bias = full(&[256], 0.01f32).unwrap();
+/// assert_eq!(bias.numel(), 256);
+///
+/// // Create constant tensor for operations
+/// let pi_tensor = full(&[10], std::f32::consts::PI).unwrap();
+/// ```
+///
+/// # See Also
+///
+/// * [`zeros`] - Create a tensor filled with zeros
+/// * [`ones`] - Create a tensor filled with ones
+/// * [`full_like`] - Create full tensor matching another's shape
 pub fn full<T: TensorElement>(shape: &[usize], value: T) -> Result<Tensor<T>> {
     let size = shape.iter().product();
     let data = vec![value; size];
@@ -98,7 +205,47 @@ pub fn full<T: TensorElement>(shape: &[usize], value: T) -> Result<Tensor<T>> {
     Tensor::from_data(data, shape.to_vec(), DeviceType::Cpu)
 }
 
-/// Create an identity matrix
+/// Creates an identity matrix (2D tensor with ones on the diagonal).
+///
+/// An identity matrix is a square matrix with ones on the main diagonal and
+/// zeros elsewhere. It's fundamental in linear algebra and commonly used in
+/// neural network operations.
+///
+/// # Arguments
+///
+/// * `n` - The size of the square identity matrix (n × n)
+///
+/// # Returns
+///
+/// A new n×n tensor with ones on the diagonal and zeros elsewhere.
+///
+/// # Examples
+///
+/// ```
+/// use torsh_tensor::creation::eye;
+///
+/// // Create a 3x3 identity matrix
+/// let identity = eye::<f32>(3).unwrap();
+/// assert_eq!(identity.shape().dims(), &[3, 3]);
+///
+/// let data = identity.to_vec().unwrap();
+/// // Expected: [1, 0, 0,
+/// //            0, 1, 0,
+/// //            0, 0, 1]
+/// assert_eq!(data[0], 1.0);  // (0,0)
+/// assert_eq!(data[1], 0.0);  // (0,1)
+/// assert_eq!(data[4], 1.0);  // (1,1)
+/// assert_eq!(data[8], 1.0);  // (2,2)
+///
+/// // Use in linear algebra operations
+/// let matrix = eye::<f32>(4).unwrap();
+/// // matrix @ vector preserves the vector (identity property)
+/// ```
+///
+/// # See Also
+///
+/// * [`zeros`] - Create a tensor filled with zeros
+/// * [`ones`] - Create a tensor filled with ones
 pub fn eye<T: TensorElement>(n: usize) -> Result<Tensor<T>> {
     let mut data = vec![T::zero(); n * n];
     for i in 0..n {
@@ -108,7 +255,47 @@ pub fn eye<T: TensorElement>(n: usize) -> Result<Tensor<T>> {
     Tensor::from_data(data, vec![n, n], DeviceType::Cpu)
 }
 
-/// Create a tensor with values from a range
+/// Creates a 1D tensor with evenly spaced values within a given interval.
+///
+/// Similar to Python's `range()` or NumPy's `arange()`, this function generates
+/// a sequence of values starting from `start` up to (but not including) `end`,
+/// incrementing by `step`.
+///
+/// # Arguments
+///
+/// * `start` - The starting value (inclusive)
+/// * `end` - The ending value (exclusive)
+/// * `step` - The spacing between values
+///
+/// # Returns
+///
+/// A 1D tensor containing the sequence of values.
+///
+/// # Examples
+///
+/// ```
+/// use torsh_tensor::creation::arange;
+///
+/// // Create a sequence from 0 to 9
+/// let t = arange(0, 10, 1).unwrap();
+/// assert_eq!(t.to_vec().unwrap(), vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+///
+/// // Create a sequence with step size 2
+/// let evens = arange(0, 10, 2).unwrap();
+/// assert_eq!(evens.to_vec().unwrap(), vec![0, 2, 4, 6, 8]);
+///
+/// // Floating point sequences
+/// let floats = arange(0.0f32, 1.0, 0.25).unwrap();
+/// assert_eq!(floats.shape().dims(), &[4]);
+///
+/// // Use for indexing or creating coordinate grids
+/// let indices = arange(0, 100, 1).unwrap();
+/// ```
+///
+/// # See Also
+///
+/// * [`linspace`] - Create linearly spaced values with exact count
+/// * [`zeros`] - Create a tensor filled with zeros
 pub fn arange<T: TensorElement + std::cmp::PartialOrd + std::ops::Add<Output = T> + Copy>(
     start: T,
     end: T,
@@ -147,7 +334,47 @@ pub fn linspace<T: FloatElement>(start: T, end: T, steps: usize) -> Result<Tenso
     Tensor::from_data(values, vec![steps], DeviceType::Cpu)
 }
 
-/// Create a tensor with random values from uniform distribution [0, 1)
+/// Creates a tensor with random values from uniform distribution [0, 1).
+///
+/// Useful for generating random data, initialization schemes that require uniform
+/// distribution, or Monte Carlo simulations.
+///
+/// **Note**: Uses a deterministic seed (42) for reproducibility in tests and examples.
+/// For production use with true randomness, consider using a time-based seed.
+///
+/// # Arguments
+///
+/// * `shape` - The shape of the tensor as a slice of dimensions
+///
+/// # Returns
+///
+/// A new tensor with values uniformly distributed in [0, 1), or an error if creation fails.
+///
+/// # Examples
+///
+/// ```
+/// use torsh_tensor::creation::rand;
+///
+/// // Create random tensor
+/// let t = rand::<f32>(&[3, 3]).unwrap();
+/// assert_eq!(t.shape().dims(), &[3, 3]);
+///
+/// // Values should be in [0, 1)
+/// let data = t.to_vec().unwrap();
+/// for &val in &data {
+///     assert!(val >= 0.0 && val < 1.0);
+/// }
+///
+/// // Use for random initialization
+/// let weights = rand::<f32>(&[128, 64]).unwrap();
+/// assert_eq!(weights.numel(), 128 * 64);
+/// ```
+///
+/// # See Also
+///
+/// * [`randn`] - Create tensor with normal distribution
+/// * [`randint`] - Create tensor with random integers
+/// * [`rand_like`] - Create random tensor matching another's shape
 pub fn rand<T: FloatElement>(shape: &[usize]) -> Result<Tensor<T>>
 where
     T: From<f32>,
@@ -161,7 +388,52 @@ where
     Tensor::from_data(values, shape.to_vec(), DeviceType::Cpu)
 }
 
-/// Create a tensor with random values from standard normal distribution
+/// Creates a tensor with random values from standard normal distribution N(0, 1).
+///
+/// This is the most common initialization method for neural network weights,
+/// as it provides a good starting point for gradient-based optimization.
+/// Uses the Box-Muller transform to generate normally distributed values.
+///
+/// **Note**: Uses a deterministic seed (42) for reproducibility in tests and examples.
+/// For production use with true randomness, consider using a time-based seed.
+///
+/// # Arguments
+///
+/// * `shape` - The shape of the tensor as a slice of dimensions
+///
+/// # Returns
+///
+/// A new tensor with values from N(0, 1) distribution, or an error if creation fails.
+///
+/// # Examples
+///
+/// ```
+/// use torsh_tensor::creation::randn;
+///
+/// // Create random normal tensor
+/// let t = randn::<f32>(&[1000]).unwrap();
+/// assert_eq!(t.shape().dims(), &[1000]);
+///
+/// // Initialize neural network layer weights
+/// let weights = randn::<f32>(&[512, 256]).unwrap();
+/// assert_eq!(weights.shape().dims(), &[512, 256]);
+///
+/// // The values follow normal distribution with mean~0 and std~1
+/// let data = t.to_vec().unwrap();
+/// let mean: f32 = data.iter().sum::<f32>() / data.len() as f32;
+/// assert!((mean.abs() < 0.2), "Mean should be close to 0");
+/// ```
+///
+/// # Implementation Details
+///
+/// Uses the Box-Muller transform to convert uniform random numbers into
+/// normally distributed values. Optimized separately for f32 and f64.
+///
+/// # See Also
+///
+/// * [`rand`] - Create tensor with uniform distribution
+/// * [`randn_like`] - Create normal random tensor matching another's shape
+/// * [`zeros`] - Create tensor filled with zeros
 pub fn randn<T: FloatElement>(shape: &[usize]) -> Result<Tensor<T>> {
     let size = shape.iter().product();
     let mut rng = Random::seed(42); // Deterministic seed for reproducibility

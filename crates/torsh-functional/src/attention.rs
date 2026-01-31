@@ -73,53 +73,52 @@
 //! ## Examples
 //!
 //! ### Basic Self-Attention
-//! ```rust,no_run
-//! # use torsh_tensor::Tensor;
-//! # use torsh_functional::attention::self_attention;
-//! # use torsh_functional::random_ops::randn;
-//! # fn example() -> torsh_core::Result<()> {
-//! // Input sequence: [batch=2, seq_len=10, dim=512]
-//! let input = randn(&[2, 10, 512])?;
+//! ```rust
+//! use torsh_functional::attention::self_attention;
+//! use torsh_functional::random_ops::randn;
 //!
-//! // Self-attention with 8 heads, dimension 64 per head
-//! let (output, attn_weights) = self_attention(
-//!     &input,
-//!     512,      // embed_dim
-//!     8,        // num_heads
-//!     None,     // no mask
-//!     0.1,      // dropout
-//!     false,    // not causal
-//! )?;
+//! fn example() -> Result<(), Box<dyn std::error::Error>> {
+//!     // Input sequence: [batch=2, seq_len=10, dim=512]
+//!     let input = randn(&[2, 10, 512], None, None, None)?;
 //!
-//! // Output: [2, 10, 512], Weights: [2, 8, 10, 10]
-//! # Ok(())
-//! # }
+//!     // Self-attention with 8 heads, dimension 64 per head
+//!     let output = self_attention(
+//!         &input,
+//!         512,      // embed_dim
+//!         8,        // num_heads
+//!         0.1,      // dropout
+//!         false,    // not causal
+//!     )?;
+//!
+//!     // Output: [2, 10, 512]
+//!     Ok(())
+//! }
 //! ```
 //!
 //! ### Causal Self-Attention (for Language Modeling)
-//! ```rust,no_run
-//! # use torsh_tensor::Tensor;
-//! # use torsh_functional::attention::scaled_dot_product_attention;
-//! # use torsh_functional::random_ops::randn;
-//! # fn example() -> torsh_core::Result<()> {
-//! // Decoder input: [batch=4, heads=12, seq=128, head_dim=64]
-//! let query = randn(&[4, 12, 128, 64])?;
-//! let key = query.clone();
-//! let value = query.clone();
+//! ```rust
+//! use torsh_functional::attention::scaled_dot_product_attention;
+//! use torsh_functional::random_ops::randn;
 //!
-//! // Causal attention prevents attending to future tokens
-//! let (output, weights) = scaled_dot_product_attention(
-//!     &query,
-//!     &key,
-//!     &value,
-//!     None,     // no additional mask
-//!     0.0,      // no dropout during inference
-//!     true,     // causal masking for autoregressive generation
-//! )?;
+//! fn example() -> Result<(), Box<dyn std::error::Error>> {
+//!     // Decoder input: [batch=4, heads=12, seq=128, head_dim=64]
+//!     let query = randn(&[4, 12, 128, 64], None, None, None)?;
+//!     let key = query.clone();
+//!     let value = query.clone();
 //!
-//! // Each position can only attend to itself and previous positions
-//! # Ok(())
-//! # }
+//!     // Causal attention prevents attending to future tokens
+//!     let (output, weights) = scaled_dot_product_attention(
+//!         &query,
+//!         &key,
+//!         &value,
+//!         None,     // no additional mask
+//!         0.0,      // no dropout during inference
+//!         true,     // causal masking for autoregressive generation
+//!     )?;
+//!
+//!     // Each position can only attend to itself and previous positions
+//!     Ok(())
+//! }
 //! ```
 
 use torsh_core::{Result as TorshResult, TorshError};
@@ -162,32 +161,33 @@ use torsh_tensor::Tensor;
 /// - The √d_k scaling prevents softmax saturation for large d_k
 ///
 /// # Examples
-/// ```rust,no_run
-/// # use torsh_tensor::Tensor;
-/// # use torsh_functional::attention::scaled_dot_product_attention;
-/// # fn example() -> torsh_core::Result<()> {
-/// // Standard transformer attention
-/// let batch_size = 8;
-/// let num_heads = 12;
-/// let seq_len = 64;
-/// let head_dim = 64;
+/// ```rust
+/// use torsh_functional::attention::scaled_dot_product_attention;
+/// use torsh_functional::random_ops::randn;
 ///
-/// let q = randn(&[batch_size, num_heads, seq_len, head_dim])?;
-/// let k = randn(&[batch_size, num_heads, seq_len, head_dim])?;
-/// let v = randn(&[batch_size, num_heads, seq_len, head_dim])?;
+/// fn example() -> Result<(), Box<dyn std::error::Error>> {
+///     // Standard transformer attention
+///     let batch_size = 8;
+///     let num_heads = 12;
+///     let seq_len = 64;
+///     let head_dim = 64;
 ///
-/// // Compute attention
-/// let (output, weights) = scaled_dot_product_attention(
-///     &q, &k, &v,
-///     None,   // no mask
-///     0.1,    // 10% dropout
-///     false,  // bidirectional attention
-/// )?;
+///     let q = randn(&[batch_size, num_heads, seq_len, head_dim], None, None, None)?;
+///     let k = randn(&[batch_size, num_heads, seq_len, head_dim], None, None, None)?;
+///     let v = randn(&[batch_size, num_heads, seq_len, head_dim], None, None, None)?;
 ///
-/// // output: [8, 12, 64, 64]
-/// // weights: [8, 12, 64, 64] - shows which positions attend to which
-/// # Ok(())
-/// # }
+///     // Compute attention
+///     let (output, weights) = scaled_dot_product_attention(
+///         &q, &k, &v,
+///         None,   // no mask
+///         0.1,    // 10% dropout
+///         false,  // bidirectional attention
+///     )?;
+///
+///     // output: [8, 12, 64, 64]
+///     // weights: [8, 12, 64, 64] - shows which positions attend to which
+///     Ok(())
+/// }
 /// ```
 pub fn scaled_dot_product_attention(
     query: &Tensor,

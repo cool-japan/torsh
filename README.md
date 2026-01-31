@@ -10,13 +10,9 @@
 
 **Deep Learning in Pure Rust with PyTorch Compatibility**
 
-**🎉 Alpha 2 Release - December 22, 2025 🎉**
-
 [Documentation](https://docs.rs/torsh) | [Examples](./examples) | [Benchmarks](./benches) | [SciRS2 Showcase](./crates/torsh-benches/examples/scirs2_showcase.rs) | [Roadmap](./TODO.md)
 
 </div>
-
-> **🎉 Beta Release Announcement**: ToRSh has graduated to beta! v0.1.0-beta.1 brings stable SciRS2 0.1.1 integration, OxiBLAS 0.1.2, production-ready core components, and API stabilization. **NEW**: Default features are now 100% Pure Rust with zero C/Fortran dependencies! Core APIs are now stabilizing for production use. Your feedback is invaluable!
 
 ## 🚀 What is ToRSh?
 
@@ -26,7 +22,7 @@ ToRSh (Tensor Operations in Rust with Sharding) is a **PyTorch-compatible deep l
 - **Scientifically complete** - Built on the comprehensive SciRS2 ecosystem
 - **Deployment-ready** - Single binary, no Python runtime needed
 
-## ✨ What You Can Do Today (Alpha 2)
+## ✨ What You Can Do Today
 
 ### Build PyTorch-Compatible Models
 ```rust

@@ -959,6 +959,7 @@ pub mod prelude {
 // Re-export commonly used types
 pub use adam::{Adam, AdamW};
 pub use distributed::{DistributedBackend, DistributedConfig, DistributedOptimizer, SyncStrategy};
+pub use rmsprop::RMSprop;
 pub use sgd::SGD;
 
 #[cfg(test)]

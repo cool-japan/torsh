@@ -320,8 +320,9 @@ impl InteropExamples {
             let onnx_type = OnnxDataType::from(dtype);
             println!("ToRSh {dtype:?} -> ONNX {onnx_type:?}");
 
-            // Convert back
-            let back_to_torsh = DType::try_from(onnx_type).unwrap();
+            // Convert back - should always succeed for standard types
+            let back_to_torsh = DType::try_from(onnx_type)
+                .expect("Standard DType to ONNX conversion should be bi-directional");
             assert_eq!(dtype, back_to_torsh);
         }
 

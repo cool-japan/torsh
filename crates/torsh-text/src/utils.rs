@@ -7,22 +7,28 @@ use std::collections::HashMap;
 // Static regex patterns for performance optimization
 lazy_static::lazy_static! {
     /// Regex pattern for matching multiple whitespace characters
-    static ref WHITESPACE_RE: Regex = Regex::new(r"\s+").unwrap();
+    static ref WHITESPACE_RE: Regex = Regex::new(r"\s+")
+        .expect("WHITESPACE_RE: compile-time constant regex should be valid");
 
     /// Regex pattern for matching URLs
-    static ref URL_RE: Regex = Regex::new(r"https?://[^\s]+").unwrap();
+    static ref URL_RE: Regex = Regex::new(r"https?://[^\s]+")
+        .expect("URL_RE: compile-time constant regex should be valid");
 
     /// Regex pattern for matching email addresses
-    static ref EMAIL_RE: Regex = Regex::new(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b").unwrap();
+    static ref EMAIL_RE: Regex = Regex::new(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b")
+        .expect("EMAIL_RE: compile-time constant regex should be valid");
 
     /// Regex pattern for matching HTML tags
-    static ref HTML_RE: Regex = Regex::new(r"<[^>]+>").unwrap();
+    static ref HTML_RE: Regex = Regex::new(r"<[^>]+>")
+        .expect("HTML_RE: compile-time constant regex should be valid");
 
     /// Regex pattern for matching mentions (@username)
-    static ref MENTION_RE: Regex = Regex::new(r"@\w+").unwrap();
+    static ref MENTION_RE: Regex = Regex::new(r"@\w+")
+        .expect("MENTION_RE: compile-time constant regex should be valid");
 
     /// Regex pattern for matching hashtags (#hashtag)
-    static ref HASHTAG_RE: Regex = Regex::new(r"#\w+").unwrap();
+    static ref HASHTAG_RE: Regex = Regex::new(r"#\w+")
+        .expect("HASHTAG_RE: compile-time constant regex should be valid");
 }
 
 // ============================================================================

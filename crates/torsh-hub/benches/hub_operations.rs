@@ -8,8 +8,9 @@
 //! - Cache operations
 //! - Utility functions
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use std::collections::HashMap;
+use std::hint::black_box;
 use torsh_hub::download::validate_url;
 use torsh_hub::model_info::*;
 use torsh_hub::utils::*;

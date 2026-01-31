@@ -1017,7 +1017,9 @@ impl BertScore {
             return 0.0;
         }
 
-        values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        values.sort_by(|a, b| {
+            a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
+        });
         let mid = values.len() / 2;
 
         if values.len() % 2 == 0 {

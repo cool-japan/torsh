@@ -1,6 +1,7 @@
 //! Performance benchmarks for sparse tensor operations
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use std::hint::black_box;
 use torsh_core::Shape;
 use torsh_sparse::ops::{norm, scale, spadd, sphadamard, spmm, sum, sum_axis, transpose};
 use torsh_sparse::{CooTensor, CscTensor, CsrTensor, SparseTensor};

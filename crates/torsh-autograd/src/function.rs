@@ -53,7 +53,7 @@ pub trait DynFunction: Send + Sync {
             author: "Unknown".to_string(),
             created_at: SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap()
+                .unwrap_or_else(|_| std::time::Duration::from_secs(0))
                 .as_secs()
                 .to_string(),
             checksum: "".to_string(),
@@ -1299,7 +1299,7 @@ pub mod deployment {
                     author: "".to_string(),
                     created_at: SystemTime::now()
                         .duration_since(SystemTime::UNIX_EPOCH)
-                        .unwrap()
+                        .unwrap_or_else(|_| std::time::Duration::from_secs(0))
                         .as_secs()
                         .to_string(),
                     checksum: "".to_string(),

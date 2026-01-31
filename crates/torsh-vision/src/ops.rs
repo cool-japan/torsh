@@ -67,6 +67,28 @@ pub use common::{
     PaddingMode, VisionOpConfig,
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// NOTE: Commented-out operations below are DEFERRED FEATURES, not bugs
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Many operations below have "// TODO: Implement" comments. These are documented
+// features planned for future releases (v0.2.0+), not missing functionality.
+//
+// Status: Core functionality is implemented and working
+// Documentation: See ROADMAP.md for full feature plan
+// Priority: High-priority features (detection ops, segmentation losses) in v0.2.0
+//           Low-priority features (config variants) in v0.3.0+
+//
+// Current API provides:
+// - Basic geometric operations (resize, crop, flip, rotate, pad)
+// - Image filtering (Gaussian blur, median filter, edge detection)
+// - Color operations (brightness, contrast, normalization, color space)
+// - Detection utilities (NMS, IoU, anchors)
+// - Classification metrics
+//
+// For RC.1 release, these commented operations are intentionally deferred.
+// ═══════════════════════════════════════════════════════════════════════════════
+
 // === GEOMETRIC TRANSFORMATIONS ===
 // Re-export all geometric operations for backward compatibility
 // Only import functions that actually exist in geometric module
@@ -286,20 +308,19 @@ pub fn standard_preprocessing_config() -> color::NormalizationConfig {
     color::NormalizationConfig::imagenet()
 }
 
-// TODO: Implement ResizeConfig
-// /// Create a high-quality resize configuration
-// pub fn high_quality_resize_config(size: (usize, usize)) -> geometric::ResizeConfig {
-//     geometric::ResizeConfig::new(size)
-//         .with_interpolation(InterpolationMode::Bicubic)
-//         .with_antialias(true)
-// }
-
-// /// Create a fast resize configuration
-// pub fn fast_resize_config(size: (usize, usize)) -> geometric::ResizeConfig {
-//     geometric::ResizeConfig::new(size)
-//         .with_interpolation(InterpolationMode::Nearest)
-//         .with_antialias(false)
-// }
+// DEFERRED: ResizeConfig and other configuration-based APIs
+// These provide more flexible operation parameters but are not essential for v0.1.0-rc.1
+// Current API uses function parameters directly (e.g., resize_with_mode)
+// Planned for v0.2.0 - See ROADMAP.md
+//
+// Example usage (future):
+// let config = ResizeConfig::new(size)
+//     .with_interpolation(InterpolationMode::Bicubic)
+//     .with_antialias(true);
+// let resized = resize_with_config(&image, config)?;
+//
+// Current workaround:
+// Use resize_with_mode(&image, 256, 256, InterpolationMode::Bilinear)?
 
 /// Create a standard NMS configuration for object detection
 pub fn standard_nms_config() -> detection::NMSConfig {

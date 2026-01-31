@@ -15,17 +15,21 @@
 //! ## Usage Examples
 //!
 //! ```rust
-//! use torsh_functional::sparse::{SparseTensor, sparse_coo_tensor, sparse_mm, sparse_sum};
+//! use torsh_functional::sparse::{SparseTensor, sparse_coo_tensor, sparse_sum};
 //! use torsh_tensor::Tensor;
+//! use torsh_core::device::DeviceType;
 //!
-//! // Create a sparse tensor
-//! let values = Tensor::from_data(vec![1.0, 2.0, 3.0], vec![3], torsh_core::DeviceType::Cpu)?;
-//! let indices = Tensor::from_data(vec![0.0, 1.0, 2.0, 0.0, 1.0, 2.0], vec![2, 3], torsh_core::DeviceType::Cpu)?;
-//! let sparse = sparse_coo_tensor(&indices, &values, &[3, 3])?;
+//! fn example() -> Result<(), Box<dyn std::error::Error>> {
+//!     // Create a sparse tensor
+//!     let values = Tensor::from_data(vec![1.0, 2.0, 3.0], vec![3], DeviceType::Cpu)?;
+//!     let indices = Tensor::from_data(vec![0.0, 1.0, 2.0, 0.0, 1.0, 2.0], vec![2, 3], DeviceType::Cpu)?;
+//!     let sparse = sparse_coo_tensor(&indices, &values, &[3, 3])?;
 //!
-//! // Perform operations
-//! let sum_result = sparse_sum(&sparse, None)?;  // Sum all elements
-//! let dense = sparse.to_dense()?;              // Convert to dense
+//!     // Perform operations
+//!     let sum_result = sparse_sum(&sparse, None)?;  // Sum all elements
+//!     let dense = sparse.to_dense()?;              // Convert to dense
+//!     Ok(())
+//! }
 //! ```
 //!
 //! ## Performance Characteristics

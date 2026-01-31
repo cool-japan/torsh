@@ -3,7 +3,8 @@
 //! This benchmark suite measures the performance of various profiling operations
 //! to ensure minimal overhead in production environments.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use std::hint::black_box;
 use std::thread;
 use torsh_profiler::{
     add_global_event, clear_global_events, export_global_events, profile_scope, start_profiling,

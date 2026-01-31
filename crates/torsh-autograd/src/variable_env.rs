@@ -32,7 +32,10 @@ pub fn get_or_create_variable_env() -> VariableEnvironment<f32> {
         if env_ref.is_none() {
             *env_ref = Some(VariableEnvironment::new());
         }
-        env_ref.take().unwrap()
+        // Safe to expect here: we just ensured env_ref is Some above
+        env_ref
+            .take()
+            .expect("VariableEnvironment should exist after initialization")
     })
 }
 

@@ -15,7 +15,8 @@
 //! - Element-wise operations: add, mul, div with SIMD
 //! - Reduction operations: dot product with SIMD
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use std::hint::black_box;
 use torsh_tensor::Tensor;
 
 const SMALL_SIZE: usize = 1_000; // 1K elements

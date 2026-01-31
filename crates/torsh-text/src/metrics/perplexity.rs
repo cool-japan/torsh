@@ -382,7 +382,9 @@ impl PerplexityCalculator {
             )));
         }
 
-        bootstrap_perplexities.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        bootstrap_perplexities.sort_by(|a, b| {
+            a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         let alpha = 1.0 - confidence_level;
         let lower_idx = ((alpha / 2.0) * bootstrap_perplexities.len() as f64) as usize;
