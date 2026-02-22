@@ -1,0 +1,56 @@
+[package]
+name = "torsh-python"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "Python bindings for ToRSh - PyTorch-compatible deep learning in Rust"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-python"
+keywords = ["deep-learning", "python", "pyo3", "machine-learning", "bindings"]
+categories = ["science", "api-bindings"]
+
+[lints]
+workspace = true
+
+[lib]
+name = "rstorch_python"
+crate-type = ["cdylib"]
+# Disable Rust test harness for cdylib - use pytest instead
+test = false
+
+[dependencies]
+# PyO3 for Python bindings
+pyo3 = { workspace = true, features = ["extension-module", "abi3-py38"] }
+numpy = { workspace = true }
+
+# ToRSh crates
+torsh-core = { workspace = true }
+torsh-tensor = { workspace = true }
+torsh-nn = { workspace = true }
+torsh-optim = { workspace = true }
+# torsh-data = { workspace = true }  # Temporarily disabled due to compilation errors
+# torsh-autograd = { workspace = true }  # Temporarily disabled due to scirs2 API incompatibilities
+# torsh-distributed = { workspace = true }  # Temporarily disabled due to compilation errors
+
+# ✅ SciRS2 POLICY: Use scirs2-core for all scientific computing needs
+scirs2-core = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Utilities
+parking_lot = { workspace = true }
+
+[features]
+default = []
+extension-module = ["pyo3/extension-module"]
+
+[package.metadata.maturin]
+python-source = "python"
+module-name = "rstorch"
+bindings = "pyo3"

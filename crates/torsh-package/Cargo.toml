@@ -1,0 +1,72 @@
+[package]
+name = "torsh-package"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Model packaging and distribution utilities for ToRSh"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-package"
+rust-version.workspace = true
+keywords = ["deep-learning", "model-packaging", "deployment", "machine-learning", "serialization"]
+categories = ["science", "encoding"]
+
+[lints]
+workspace = true
+
+[features]
+default = []
+with-nn = ["dep:torsh-nn"]
+async = ["dep:tokio", "dep:futures"]
+
+[dependencies]
+torsh-core = { workspace = true }
+torsh-tensor = { workspace = true }
+torsh-nn = { workspace = true, optional = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+oxicode = { workspace = true }
+thiserror = { workspace = true }
+oxiarc-archive = { workspace = true }
+tar = { workspace = true }
+flate2 = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+tempfile = { workspace = true }
+chrono = { workspace = true }
+semver = { workspace = true }
+
+# Advanced compression
+zstd = { workspace = true }
+lzma-rs = { workspace = true }
+
+# Security features
+ring = { workspace = true }
+ed25519-dalek = { workspace = true }
+
+# Performance optimizations
+memmap2 = { workspace = true }
+scirs2-core = { workspace = true, features = ["parallel"] }
+
+# Utilities
+uuid = { workspace = true, features = ["v4"] }
+rand = { workspace = true }
+md5 = { workspace = true }
+hostname = { workspace = true }
+once_cell = { workspace = true }
+
+# Async support (optional)
+tokio = { workspace = true, optional = true, features = ["fs", "io-util", "time", "sync"] }
+futures = { workspace = true, optional = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+torsh-nn = { workspace = true }
+criterion = { workspace = true, features = ["html_reports"] }
+
+# Temporarily disabled due to API changes
+# [[bench]]
+# name = "package_performance"
+# harness = false

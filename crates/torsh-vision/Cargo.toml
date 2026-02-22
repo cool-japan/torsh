@@ -1,0 +1,76 @@
+[package]
+name = "torsh-vision"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Computer vision utilities for ToRSh deep learning framework"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-vision"
+rust-version.workspace = true
+keywords = ["deep-learning", "machine-learning", "vision", "computer-vision", "pytorch"]
+categories = ["science", "multimedia::images"]
+
+[lints]
+workspace = true
+
+[dependencies]
+torsh-core = { workspace = true }
+torsh-tensor = { workspace = true }
+torsh-nn = { workspace = true }
+torsh-data = { workspace = true }
+
+# Vision processing
+image = "0.25"
+imageproc = "0.26"
+
+# Scientific computing - comprehensive SciRS2 vision integration
+scirs2-core = { workspace = true }
+scirs2-autograd = { workspace = true }
+scirs2-vision = { workspace = true }
+scirs2-spatial = { workspace = true }
+
+# Serialization
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Utilities
+reqwest = { version = "0.13", features = ["blocking"], optional = true }
+oxiarc-archive = { workspace = true, optional = true }
+dirs = "6.0"
+parking_lot = { workspace = true }
+# rusttype = "0.9"  # REMOVED: Unmaintained (RUSTSEC-2021-0140), not used in code
+# Use SciRS2 random instead of direct rand dependency (SciRS2 Policy)
+# rand = "0.8"  # Removed in favor of scirs2_core::random
+memmap2 = { workspace = true }
+glob = "0.3"
+
+[dev-dependencies]
+approx = { workspace = true }
+tempfile = { workspace = true }
+
+[features]
+default = ["pretrained"]
+pretrained = ["reqwest", "oxiarc-archive"]
+# Feature flag to exclude examples that need API updates
+_disabled = []
+
+# Temporarily exclude examples that need API updates
+# These examples require updates to match the current tensor creation and method signature APIs
+[[example]]
+name = "data_augmentation"
+required-features = ["_disabled"]
+
+[[example]]
+name = "object_detection"
+required-features = ["_disabled"]
+
+[[example]]
+name = "image_classification"
+required-features = ["_disabled"]

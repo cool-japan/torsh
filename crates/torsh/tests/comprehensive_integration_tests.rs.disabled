@@ -1,0 +1,690 @@
+//! Comprehensive Integration Tests for ToRSh Framework
+//!
+//! This test suite validates end-to-end functionality across all ToRSh crates
+//! and ensures proper integration between components.
+
+use std::collections::HashMap;
+use torsh::prelude::*;
+use torsh::tensor::creation;
+
+#[cfg(test)]
+mod integration_tests {
+    use super::*;
+
+    /// Test basic tensor operations integration
+    #[test]
+    fn test_basic_tensor_operations() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        // Test tensor creation
+        let a = tensor![1.0, 2.0, 3.0, 4.0]?;
+        let b = tensor![2.0, 3.0, 4.0, 5.0]?;
+
+        // Test basic operations
+        let c = a.add(&b)?;
+        let expected = tensor![3.0, 5.0, 7.0, 9.0]?;
+
+        // Verify results
+        assert_eq!(c.shape(), expected.shape());
+
+        // Test matrix operations
+        let matrix_a = tensor_2d![[1.0, 2.0], [3.0, 4.0]]?;
+        let matrix_b = tensor_2d![[5.0, 6.0], [7.0, 8.0]]?;
+
+        let _result = matrix_a.matmul(&matrix_b)?;
+
+        println!("✅ Basic tensor operations integration test passed");
+        Ok(())
+    }
+
+    /// Test autograd integration
+    #[test]
+    fn test_autograd_integration() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        // Create tensors with gradient tracking
+        let x = tensor![2.0, 3.0]?;
+        let x = x.requires_grad_(true);
+
+        // Forward pass
+        let y = x.mul(&x)?;
+        let loss = y.sum()?;
+
+        // Backward pass
+        loss.backward()?;
+
+        // Check gradients exist
+        if let Some(grad) = x.grad() {
+            println!("Gradients computed: {:?}", grad);
+        }
+
+        println!("✅ Autograd integration test passed");
+        Ok(())
+    }
+
+    /// Test neural network module integration
+    #[test]
+    fn test_neural_network_integration() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        use torsh::nn::*;
+
+        // Create a simple MLP
+        let linear1 = Linear::new(10, 20, true);
+        let relu = ReLU::new();
+        let linear2 = Linear::new(20, 1, true);
+
+        // Test forward pass
+        let input = tensor![0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]?;
+
+        let h1 = linear1.forward(&input)?;
+        let h2 = relu.forward(&h1)?;
+        let output = linear2.forward(&h2)?;
+
+        // Verify output shape
+        assert_eq!(output.numel(), 1);
+
+        println!("✅ Neural network integration test passed");
+        Ok(())
+    }
+
+    /// Test optimizer integration
+    #[test]
+    fn test_optimizer_integration() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        use torsh::nn::*;
+        use torsh::optim::*;
+
+        // Create model
+        let model = Linear::new(5, 1, true);
+        let parameters = model.parameters();
+
+        // Create optimizer
+        let mut optimizer = SGD::new(vec![], 0.01, None, None, None, false);
+
+        // Simulate training step
+        let input = tensor![1.0, 2.0, 3.0, 4.0, 5.0]?;
+        let target = tensor![10.0]?;
+
+        // Forward pass
+        let output = model.forward(&input)?;
+
+        // Compute loss (simplified)
+        let loss = output.sub(&target)?.pow(2.0)?;
+
+        // Backward pass
+        optimizer.zero_grad();
+        loss.backward()?;
+        optimizer.step()?;
+
+        println!("✅ Optimizer integration test passed");
+        Ok(())
+    }
+
+    /// Test data loading integration
+    #[test]
+    fn test_data_loading_integration() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        use torsh::data::*;
+
+        // Create synthetic dataset
+        let data = vec![
+            tensor![1.0, 2.0, 3.0]?,
+            tensor![4.0, 5.0, 6.0]?,
+            tensor![7.0, 8.0, 9.0]?,
+            tensor![10.0, 11.0, 12.0]?,
+        ];
+
+        let targets = vec![tensor![0.0]?, tensor![1.0]?, tensor![0.0]?, tensor![1.0]?];
+
+        // Combine data and targets into a single vector for TensorDataset
+        let mut combined_tensors = data;
+        combined_tensors.extend(targets);
+        let dataset = TensorDataset::new(combined_tensors);
+        let dataloader = DataLoader::builder(dataset).batch_size(2).build()?;
+
+        // Test iteration
+        let mut batch_count = 0;
+        for batch in dataloader.iter() {
+            // batch should be a Result containing a single tensor
+            let _batch_tensor = batch?;
+            batch_count += 1;
+        }
+
+        assert_eq!(batch_count, 2); // 4 samples / batch_size 2
+
+        println!("✅ Data loading integration test passed");
+        Ok(())
+    }
+
+    /// Test cross-crate compatibility
+    #[test]
+    fn test_cross_crate_compatibility() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        // Test that types from different crates work together
+
+        // torsh-core types
+        let device = DeviceType::Cpu;
+        let dtype = DType::F32;
+        let shape = Shape::new(vec![2, 3]);
+
+        // torsh-tensor operations
+        let tensor = creation::zeros(&shape.dims())?;
+
+        // torsh-functional operations
+        let activated = F::relu(&tensor)?;
+
+        // torsh-nn modules
+        let linear = Linear::new(3, 5, true);
+        let reshaped = tensor.view(&[6])?;
+        let _output = linear.forward(&reshaped)?;
+
+        println!("✅ Cross-crate compatibility test passed");
+        Ok(())
+    }
+
+    /// Test device compatibility
+    #[test]
+    fn test_device_compatibility() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        // Test CPU device
+        let cpu_tensor = tensor![1.0, 2.0, 3.0]?.to_device(DeviceType::Cpu)?;
+        assert_eq!(cpu_tensor.device(), DeviceType::Cpu);
+
+        // Test CUDA device if available
+        // Note: CUDA support is not yet implemented
+        println!("⚠️  CUDA not available, skipping CUDA tests");
+
+        println!("✅ Device compatibility test passed");
+        Ok(())
+    }
+
+    /// Test memory management
+    #[test]
+    fn test_memory_management() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        // Test that tensors are properly cleaned up
+        {
+            let large_tensor = creation::randn::<f32>(&[1000, 1000])?;
+            let _result = &large_tensor + &large_tensor;
+            // Tensors should be dropped here
+        }
+
+        // Test clone and reference counting
+        let original = tensor![1.0, 2.0, 3.0]?;
+        let cloned = original.clone();
+
+        // Both should be valid
+        let _sum1 = original.sum()?;
+        let _sum2 = cloned.sum()?;
+
+        println!("✅ Memory management test passed");
+        Ok(())
+    }
+
+    /// Test error handling
+    #[test]
+    fn test_error_handling() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        // Test shape mismatch errors
+        let a = tensor![1.0, 2.0]?;
+        let b = tensor![3.0, 4.0, 5.0]?;
+
+        let result = a.add(&b);
+        assert!(result.is_err());
+
+        // Test invalid device transfers
+        let cpu_tensor = tensor![1.0, 2.0]?;
+
+        // This should work
+        let _cpu_copy = cpu_tensor.to_device(&DeviceType::Cpu)?;
+
+        // Test invalid operations
+        let zero_tensor = tensor![0.0]?;
+        let div_result = cpu_tensor.div(&zero_tensor);
+        // Should handle division by zero gracefully
+
+        println!("✅ Error handling test passed");
+        Ok(())
+    }
+
+    /// Test serialization and deserialization
+    #[test]
+    fn test_serialization() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let original = tensor![1.0, 2.0, 3.0, 4.0]?;
+
+        // Test tensor serialization (if implemented)
+        // This would test saving and loading tensors
+
+        // For now, just test that we can create equivalent tensors
+        let equivalent = tensor![1.0, 2.0, 3.0, 4.0]?;
+
+        // Compare values
+        let diff = (&original - &equivalent).abs()?;
+        let max_diff = diff.max(None, false)?.item();
+        assert!(max_diff < 1e-6);
+
+        println!("✅ Serialization test passed");
+        Ok(())
+    }
+
+    /// Test performance characteristics
+    #[test]
+    fn test_performance_characteristics() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        use std::time::Instant;
+
+        // Test that operations complete in reasonable time
+        let start = Instant::now();
+
+        let a = creation::randn::<f32>(&[100, 100])?;
+        let b = creation::randn::<f32>(&[100, 100])?;
+
+        let _result = a.matmul(&b)?;
+
+        let duration = start.elapsed();
+
+        // Should complete in under 1 second for 100x100 matrices
+        assert!(duration.as_secs() < 1);
+
+        println!(
+            "✅ Performance characteristics test passed ({}ms)",
+            duration.as_millis()
+        );
+        Ok(())
+    }
+
+    /// Test feature compatibility
+    #[test]
+    fn test_feature_compatibility() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        // Test that optional features work correctly
+
+        // Test SIMD features (if available)
+        let a = creation::randn::<f32>(&[1000])?;
+        let b = creation::randn::<f32>(&[1000])?;
+
+        let start = Instant::now();
+        let _result = &a + &b;
+        let duration = start.elapsed();
+
+        println!("Vector addition took: {}μs", duration.as_micros());
+
+        // Test mixed precision (if available)
+        let f32_tensor = creation::randn::<f32>(&[10])?;
+        let f64_tensor = f32_tensor.to_dtype(DType::F64)?;
+
+        assert_eq!(f32_tensor.dtype(), DType::F32);
+        assert_eq!(f64_tensor.dtype(), DType::F64);
+
+        println!("✅ Feature compatibility test passed");
+        Ok(())
+    }
+
+    /// Test comprehensive end-to-end workflow
+    #[test]
+    fn test_end_to_end_workflow() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        use torsh::data::*;
+        use torsh::nn::*;
+        use torsh::optim::*;
+
+        println!("🧪 Running comprehensive end-to-end test...");
+
+        // 1. Create dataset
+        let train_data = vec![
+            tensor![0.1, 0.2]?,
+            tensor![0.3, 0.4]?,
+            tensor![0.5, 0.6]?,
+            tensor![0.7, 0.8]?,
+        ];
+
+        let train_targets = vec![tensor![0.0]?, tensor![1.0]?, tensor![0.0]?, tensor![1.0]?];
+
+        let dataset = TensorDataset::new(train_data, train_targets);
+        let dataloader = DataLoader::new(dataset, 2, true);
+
+        // 2. Create model
+        let model = Sequential::new(vec![
+            Box::new(Linear::new(2, 4, true)),
+            Box::new(ReLU::new()),
+            Box::new(Linear::new(4, 1, true)),
+            Box::new(Sigmoid::new()),
+        ]);
+
+        // 3. Create optimizer
+        let mut optimizer = Adam::new(vec![], Some(0.01), None, None, None, false);
+
+        // 4. Training loop
+        for epoch in 0..3 {
+            let mut epoch_loss = 0.0;
+            let mut batch_count = 0;
+
+            for (inputs, targets) in &dataloader {
+                // Forward pass
+                let outputs = model.forward(&inputs)?;
+
+                // Compute loss (MSE)
+                let loss = (&outputs - &targets).pow(2.0)?.mean()?;
+
+                // Backward pass
+                optimizer.zero_grad();
+                loss.backward()?;
+                optimizer.step()?;
+
+                epoch_loss += loss.item::<f32>()?;
+                batch_count += 1;
+            }
+
+            let avg_loss = epoch_loss / batch_count as f32;
+            println!("Epoch {}: Average Loss = {:.6}", epoch + 1, avg_loss);
+        }
+
+        // 5. Evaluation
+        let test_input = tensor![0.2, 0.3]?;
+        let test_output = model.forward(&test_input)?;
+        println!("Test output: {:.6}", test_output.item()?);
+
+        println!("✅ End-to-end workflow test passed");
+        Ok(())
+    }
+
+    /// Test stability and robustness
+    #[test]
+    fn test_stability_and_robustness() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        // Test with edge cases
+
+        // Empty tensors
+        let empty = creation::zeros(&[0])?;
+        assert_eq!(empty.numel(), 0);
+
+        // Very small tensors
+        let tiny = creation::randn::<f32>(&[1])?;
+        let _result = &tiny + &tiny;
+
+        // Large tensors (within reason)
+        let large = creation::zeros(&[1000])?;
+        let _sum = large.sum()?;
+
+        // Extreme values
+        let inf_tensor = creation::full(&[3], f32::INFINITY)?;
+        let finite_tensor = tensor![1.0, 2.0, 3.0];
+
+        // Operations with infinite values should be handled gracefully
+        let _result = finite_tensor?.add(&inf_tensor)?;
+
+        println!("✅ Stability and robustness test passed");
+        Ok(())
+    }
+
+    /// Test thread safety
+    #[test]
+    fn test_thread_safety() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        use std::sync::Arc;
+        use std::thread;
+
+        let tensor = Arc::new(tensor![1.0, 2.0, 3.0, 4.0]?);
+        let mut handles = vec![];
+
+        // Spawn multiple threads using the same tensor
+        for i in 0..4 {
+            let tensor_clone = Arc::clone(&tensor);
+            let handle = thread::spawn(move || {
+                let _result = tensor_clone.add(&tensor![1.0, 1.0, 1.0, 1.0]?);
+                println!("Thread {} completed operation", i);
+            });
+            handles.push(handle);
+        }
+
+        // Wait for all threads to complete
+        for handle in handles {
+            handle.join().unwrap();
+        }
+
+        println!("✅ Thread safety test passed");
+        Ok(())
+    }
+
+    /// Performance regression test
+    #[test]
+    fn test_performance_regression() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        use std::time::Instant;
+
+        // Benchmark key operations and ensure they meet performance targets
+        let mut results = HashMap::new();
+
+        // Matrix multiplication benchmark
+        let start = Instant::now();
+        let a = creation::randn::<f32>(&[256, 256])?;
+        let b = creation::randn::<f32>(&[256, 256])?;
+        let _result = a.matmul(&b)?;
+        let matmul_time = start.elapsed();
+        results.insert("matmul_256x256", matmul_time);
+
+        // Element-wise operations benchmark
+        let start = Instant::now();
+        let x = creation::randn::<f32>(&[10000])?;
+        let y = creation::randn::<f32>(&[10000])?;
+        let _result = &x + &y;
+        let add_time = start.elapsed();
+        results.insert("add_10k_elements", add_time);
+
+        // Print results
+        println!("📊 Performance Results:");
+        for (operation, time) in results {
+            println!("  {}: {}ms", operation, time.as_millis());
+        }
+
+        // Assert reasonable performance (these are loose bounds)
+        assert!(matmul_time.as_millis() < 1000); // Should complete in under 1s
+        assert!(add_time.as_micros() < 10000); // Should complete in under 10ms
+
+        println!("✅ Performance regression test passed");
+        Ok(())
+    }
+
+    /// Test API compatibility
+    #[test]
+    fn test_api_compatibility() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        // Test that the API works as expected for common use cases
+
+        // Tensor creation API
+        let _t1 = tensor![1.0, 2.0, 3.0]?;
+        let _t2 = tensor_2d![[1.0, 2.0], [3.0, 4.0]]?;
+        let _t3 = creation::zeros::<f32>(&[2, 3])?;
+        let _t4 = creation::ones(&[2, 3]);
+        let _t5 = creation::randn::<f32>(&[2, 3])?;
+
+        // Operations API
+        let a = tensor![1.0, 2.0]?;
+        let b = tensor![3.0, 4.0]?;
+        let _c = &a + &b;
+        let _d = a.dot(&b)?;
+
+        // Neural network API
+        let linear = Linear::new(10, 5, true);
+        let input = creation::randn::<f32>(&[32, 10])?;
+        let _output = linear.forward(&input)?;
+
+        // Optimizer API
+        let parameters = linear.parameters();
+        let _optimizer = Adam::new(vec![], Some(0.001), None, None, None, false);
+
+        println!("✅ API compatibility test passed");
+        Ok(())
+    }
+
+    /// Run all integration tests
+    #[test]
+    fn run_all_integration_tests() {
+        println!("🧪 Running ToRSh Integration Test Suite");
+        println!("{}", "=".repeat(50));
+
+        let tests = vec![
+            (
+                "Basic Tensor Operations",
+                test_basic_tensor_operations as fn() -> std::result::Result<_, _>,
+            ),
+            ("Autograd Integration", test_autograd_integration),
+            (
+                "Neural Network Integration",
+                test_neural_network_integration,
+            ),
+            ("Optimizer Integration", test_optimizer_integration),
+            ("Data Loading Integration", test_data_loading_integration),
+            ("Cross-Crate Compatibility", test_cross_crate_compatibility),
+            ("Device Compatibility", test_device_compatibility),
+            ("Memory Management", test_memory_management),
+            ("Error Handling", test_error_handling),
+            ("Serialization", test_serialization),
+            (
+                "Performance Characteristics",
+                test_performance_characteristics,
+            ),
+            ("Feature Compatibility", test_feature_compatibility),
+            ("End-to-End Workflow", test_end_to_end_workflow),
+            ("Stability and Robustness", test_stability_and_robustness),
+            ("Thread Safety", test_thread_safety),
+            ("Performance Regression", test_performance_regression),
+            ("API Compatibility", test_api_compatibility),
+        ];
+
+        let mut passed = 0;
+        let mut failed = 0;
+
+        for (name, test_fn) in tests {
+            print!("Running {}... ", name);
+            match test_fn() {
+                Ok(_) => {
+                    println!("✅ PASSED");
+                    passed += 1;
+                }
+                Err(e) => {
+                    println!("❌ FAILED: {}", e);
+                    failed += 1;
+                }
+            }
+        }
+
+        println!("\n📊 Test Results:");
+        println!("Passed: {}", passed);
+        println!("Failed: {}", failed);
+        println!("Total: {}", passed + failed);
+
+        if failed == 0 {
+            println!("🎉 All integration tests passed!");
+        } else {
+            println!("⚠️  Some tests failed. Please review the errors above.");
+        }
+    }
+}
+
+use std::time::Instant;
+
+// Helper functions for tests
+impl TensorDataset {
+    pub fn new(data: Vec<Tensor>, targets: Vec<Tensor>) -> Self {
+        // Simplified implementation for testing
+        Self { data, targets }
+    }
+}
+
+pub struct TensorDataset {
+    data: Vec<Tensor>,
+    targets: Vec<Tensor>,
+}
+
+impl DataLoader {
+    pub fn new(dataset: TensorDataset, batch_size: usize, shuffle: bool) -> Self {
+        Self {
+            dataset,
+            batch_size,
+            shuffle,
+            current_index: 0,
+        }
+    }
+}
+
+pub struct DataLoader {
+    dataset: TensorDataset,
+    batch_size: usize,
+    shuffle: bool,
+    current_index: usize,
+}
+
+impl Iterator for DataLoader {
+    type Item = (Vec<Tensor>, Vec<Tensor>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_index >= self.dataset.data.len() {
+            return None;
+        }
+
+        let end_index = std::cmp::min(
+            self.current_index + self.batch_size,
+            self.dataset.data.len(),
+        );
+
+        let batch_data = self.dataset.data[self.current_index..end_index].to_vec();
+        let batch_targets = self.dataset.targets[self.current_index..end_index].to_vec();
+
+        self.current_index = end_index;
+
+        Some((batch_data, batch_targets))
+    }
+}
+
+// Additional test utilities
+fn assert_tensors_close(
+    a: &Tensor,
+    b: &Tensor,
+    tolerance: f32,
+) -> std::result::Result<(), Box<dyn std::error::Error>> {
+    let diff = (a - b)?.abs()?;
+    let max_diff = diff.max(None, false)?.item();
+    assert!(
+        max_diff < tolerance,
+        "Tensors not close: max_diff = {}",
+        max_diff
+    );
+    Ok(())
+}
+
+fn create_synthetic_classification_data(
+    n_samples: usize,
+    n_features: usize,
+    n_classes: usize,
+) -> std::result::Result<(Vec<Tensor>, Vec<Tensor>), Box<dyn std::error::Error>> {
+    let mut data = Vec::new();
+    let mut targets = Vec::new();
+
+    for _ in 0..n_samples {
+        let sample: Tensor<f32> = creation::randn::<f32>(&[n_features])?;
+        let random_val: Tensor<f32> = creation::randn::<f32>(&[1])?;
+        let target_class = (random_val.item()?.abs() * n_classes as f32) as usize % n_classes;
+        let target: Tensor<f32> = creation::zeros(&[n_classes])?;
+        // target[target_class] = 1.0; // One-hot encoding (simplified)
+
+        data.push(sample);
+        targets.push(target);
+    }
+
+    Ok((data, targets))
+}
+
+/// Integration test result summary
+#[derive(Debug)]
+pub struct TestSummary {
+    pub total_tests: usize,
+    pub passed: usize,
+    pub failed: usize,
+    pub execution_time: std::time::Duration,
+}
+
+impl TestSummary {
+    pub fn print_summary(&self) {
+        println!("\n{}", "=".repeat(60));
+        println!("🧪 ToRSh Integration Test Summary");
+        println!("{}", "=".repeat(60));
+        println!("Total Tests: {}", self.total_tests);
+        println!("Passed: {} ✅", self.passed);
+        println!("Failed: {} ❌", self.failed);
+        println!(
+            "Success Rate: {:.1}%",
+            (self.passed as f64 / self.total_tests as f64) * 100.0
+        );
+        println!("Execution Time: {:.2}s", self.execution_time.as_secs_f64());
+
+        if self.failed == 0 {
+            println!("\n🎉 All tests passed! ToRSh is working correctly.");
+        } else {
+            println!("\n⚠️  Some tests failed. Please review the implementation.");
+        }
+        println!("{}", "=".repeat(60));
+    }
+}

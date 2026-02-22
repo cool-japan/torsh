@@ -1,0 +1,19 @@
+//! Model operation modules
+//!
+//! This module contains sub-modules for different types of model operations,
+//! following the single responsibility principle for better maintainability.
+
+pub mod analysis;
+pub mod args;
+pub mod benchmarking;
+pub mod conversion;
+pub mod optimization;
+pub mod types;
+
+// Re-export commonly used types and functions
+pub use analysis::{analyze_model_file, inspect_model, validate_model};
+pub use args::*;
+pub use benchmarking::benchmark_model;
+pub use conversion::{compress_model, convert_model, extract_model, merge_model};
+pub use optimization::{optimize_model, prune_model, quantize_model};
+pub use types::{ModelInfo, ModelResult};

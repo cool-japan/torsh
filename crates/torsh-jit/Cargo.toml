@@ -1,0 +1,66 @@
+[package]
+name = "torsh-jit"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "JIT compilation and kernel fusion for ToRSh deep learning framework"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-jit"
+rust-version.workspace = true
+keywords = ["deep-learning", "jit", "compiler", "kernel-fusion", "optimization"]
+categories = ["science", "compilers", "mathematics"]
+
+[lints]
+workspace = true
+
+[dependencies]
+torsh-core = { workspace = true, features = ["serialize"] }
+torsh-tensor = { workspace = true }
+torsh-backend = { workspace = true }
+
+# Core dependencies
+thiserror = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+oxicode = { workspace = true }
+lazy_static = { workspace = true }
+log = { workspace = true }
+
+# Graph and IR representation
+petgraph = { workspace = true }
+indexmap = { workspace = true }
+
+# Code generation backends
+cranelift = { workspace = true, optional = true }
+cranelift-module = { workspace = true, optional = true }
+cranelift-codegen = { workspace = true, optional = true }
+cranelift-frontend = { workspace = true, optional = true }
+cranelift-native = { workspace = true, optional = true }
+cranelift-object = { workspace = true, optional = true }
+
+# MLIR integration (future)
+# mlir = { version = "0.1", optional = true }
+
+# Profiling and analysis
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, optional = true }
+num_cpus = "1.17"
+
+[dev-dependencies]
+# torsh-nn = { path = "../torsh-nn", version = "0.1.0-alpha.3" }
+approx = { workspace = true }
+criterion = { workspace = true }
+proptest = { workspace = true }
+
+[features]
+default = ["cranelift-backend"]
+cranelift-backend = ["cranelift", "cranelift-module", "cranelift-codegen", "cranelift-frontend", "cranelift-native", "cranelift-object"]
+mlir-backend = [] # Future feature
+profiling = ["tracing-subscriber"]
+
+# [[bench]]
+# name = "fusion_benchmarks"
+# harness = false

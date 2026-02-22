@@ -1,0 +1,40 @@
+[package]
+name = "torsh-fx"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Graph-based model representation and transformation for ToRSh"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-fx"
+rust-version.workspace = true
+keywords = ["deep-learning", "graph", "model-optimization", "machine-learning", "fx"]
+categories = ["science", "algorithms"]
+
+[lints]
+workspace = true
+
+[dependencies]
+torsh-core = { workspace = true }
+torsh-tensor = { workspace = true }
+# torsh-nn = { path = "../torsh-nn" }  # Temporarily commented out
+petgraph = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+oxicode = { workspace = true }
+once_cell = { workspace = true }
+md5 = { workspace = true }
+flate2 = { workspace = true }
+uuid = { workspace = true }
+tokio = { workspace = true }
+chrono = { workspace = true }
+
+# SciRS2 dependencies (POLICY COMPLIANCE)
+scirs2-core = { workspace = true, features = ["parallel"] }
+
+[dev-dependencies]
+criterion = { workspace = true }
+tempfile = { workspace = true }

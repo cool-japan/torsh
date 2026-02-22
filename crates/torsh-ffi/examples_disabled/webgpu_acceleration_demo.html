@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ToRSh WebGPU Acceleration Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .status-bar {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .status-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .status-label {
+            font-size: 0.85em;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+
+        .status-value {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .status-value.success {
+            color: #28a745;
+        }
+
+        .status-value.error {
+            color: #dc3545;
+        }
+
+        .status-value.warning {
+            color: #ffc107;
+        }
+
+        main {
+            padding: 30px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section h2 {
+            font-size: 1.8em;
+            margin-bottom: 15px;
+            color: #495057;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .demo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .demo-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .demo-card h3 {
+            font-size: 1.3em;
+            margin-bottom: 15px;
+            color: #495057;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        button.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        button.primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        button.secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        button.secondary:hover {
+            background: #5a6268;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .result-box {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 15px;
+            min-height: 100px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .benchmark-result {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 4px;
+            border-left: 4px solid #667eea;
+        }
+
+        .benchmark-label {
+            font-weight: 500;
+        }
+
+        .benchmark-time {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .speedup {
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .console {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .console-line {
+            margin: 3px 0;
+            padding: 2px;
+        }
+
+        .console-line.info {
+            color: #4ec9b0;
+        }
+
+        .console-line.success {
+            color: #4caf50;
+        }
+
+        .console-line.error {
+            color: #f48771;
+        }
+
+        .console-line.warning {
+            color: #ffc107;
+        }
+
+        .progress-bar {
+            background: #e9ecef;
+            border-radius: 4px;
+            height: 24px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-fill {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.85em;
+            font-weight: bold;
+            transition: width 0.3s ease;
+        }
+
+        .gpu-info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .gpu-info-item {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #667eea;
+        }
+
+        .gpu-info-label {
+            font-size: 0.85em;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+
+        .gpu-info-value {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #495057;
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .alert.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .alert.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 ToRSh WebGPU Acceleration</h1>
+            <p>Hardware-Accelerated Deep Learning in Your Browser</p>
+        </header>
+
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-label">WebGPU Status</div>
+                <div class="status-value" id="webgpu-status">Checking...</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">GPU Vendor</div>
+                <div class="status-value" id="gpu-vendor">-</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">GPU Memory Used</div>
+                <div class="status-value" id="gpu-memory">0 MB</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Operations/sec</div>
+                <div class="status-value" id="ops-per-sec">0</div>
+            </div>
+        </div>
+
+        <main>
+            <div id="unsupported-alert" class="alert error" style="display: none;">
+                <strong>WebGPU Not Supported</strong><br>
+                Your browser doesn't support WebGPU. Please use:
+                <ul>
+                    <li>Chrome 113+ or Edge 113+</li>
+                    <li>Firefox 113+ with experimental features enabled</li>
+                </ul>
+            </div>
+
+            <!-- GPU Information Section -->
+            <div class="section">
+                <h2>📊 GPU Information</h2>
+                <div class="gpu-info-grid">
+                    <div class="gpu-info-item">
+                        <div class="gpu-info-label">Architecture</div>
+                        <div class="gpu-info-value" id="gpu-arch">-</div>
+                    </div>
+                    <div class="gpu-info-item">
+                        <div class="gpu-info-label">Max Buffer Size</div>
+                        <div class="gpu-info-value" id="max-buffer">-</div>
+                    </div>
+                    <div class="gpu-info-item">
+                        <div class="gpu-info-label">Max Workgroups</div>
+                        <div class="gpu-info-value" id="max-workgroups">-</div>
+                    </div>
+                    <div class="gpu-info-item">
+                        <div class="gpu-info-label">F16 Support</div>
+                        <div class="gpu-info-value" id="f16-support">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Basic Operations Demo -->
+            <div class="section">
+                <h2>🔧 Basic Operations</h2>
+                <div class="demo-grid">
+                    <div class="demo-card">
+                        <h3>Element-wise Addition</h3>
+                        <div class="button-group">
+                            <button class="primary" onclick="runAdditionDemo()">Run on GPU</button>
+                            <button class="secondary" onclick="runAdditionCpu()">Run on CPU</button>
+                        </div>
+                        <div class="result-box" id="addition-result">
+                            Click "Run on GPU" to see WebGPU acceleration in action!
+                        </div>
+                    </div>
+
+                    <div class="demo-card">
+                        <h3>Matrix Multiplication</h3>
+                        <div class="button-group">
+                            <button class="primary" onclick="runMatmulDemo()">Run on GPU</button>
+                            <button class="secondary" onclick="runMatmulCpu()">Run on CPU</button>
+                        </div>
+                        <div class="result-box" id="matmul-result">
+                            Matrix multiplication with GPU acceleration!
+                        </div>
+                    </div>
+
+                    <div class="demo-card">
+                        <h3>ReLU Activation</h3>
+                        <div class="button-group">
+                            <button class="primary" onclick="runReluDemo()">Run on GPU</button>
+                        </div>
+                        <div class="result-box" id="relu-result">
+                            GPU-accelerated neural network activation!
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Neural Network Training Demo -->
+            <div class="section">
+                <h2>🧠 Neural Network Training</h2>
+                <div class="demo-card">
+                    <h3>Train XOR Network with GPU</h3>
+                    <p style="margin-bottom: 15px;">Train a simple neural network to learn the XOR function using WebGPU acceleration.</p>
+                    <div class="button-group">
+                        <button class="primary" onclick="runTrainingDemo()">Start Training</button>
+                        <button class="secondary" onclick="stopTraining()">Stop</button>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="training-progress" style="width: 0%;">0%</div>
+                    </div>
+                    <div class="result-box" id="training-result">
+                        Training output will appear here...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Performance Benchmarks -->
+            <div class="section">
+                <h2>⚡ Performance Benchmarks</h2>
+                <div class="demo-card">
+                    <h3>GPU vs CPU Comparison</h3>
+                    <div class="button-group">
+                        <button class="primary" onclick="runBenchmarks()">Run Benchmarks</button>
+                    </div>
+                    <div class="result-box" id="benchmark-result">
+                        <div class="benchmark-result">
+                            <span class="benchmark-label">Matrix Multiply (512x512)</span>
+                            <span class="benchmark-time">-</span>
+                        </div>
+                        <div class="benchmark-result">
+                            <span class="benchmark-label">Element-wise Ops (1M elements)</span>
+                            <span class="benchmark-time">-</span>
+                        </div>
+                        <div class="benchmark-result">
+                            <span class="benchmark-label">Neural Network Forward Pass</span>
+                            <span class="benchmark-time">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Console Output -->
+            <div class="section">
+                <h2>📝 Console Output</h2>
+                <div class="console" id="console-output">
+                    <div class="console-line info">ToRSh WebGPU Demo initialized...</div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p><strong>ToRSh</strong> - High-Performance Deep Learning in Rust</p>
+            <p>Built with WebGPU for hardware-accelerated inference in browsers</p>
+        </footer>
+    </div>
+
+    <script type="module">
+        // This is a demonstration template. In a real implementation,
+        // you would import the actual ToRSh WASM module here:
+        // import init, * as torsh from './torsh_wasm.js';
+
+        // Mock implementation for demonstration
+        let gpuDevice = null;
+        let trainingInterval = null;
+
+        async function initializeWebGPU() {
+            try {
+                if (!navigator.gpu) {
+                    showUnsupportedAlert();
+                    return false;
+                }
+
+                // Request GPU adapter
+                const adapter = await navigator.gpu.requestAdapter();
+                if (!adapter) {
+                    showUnsupportedAlert();
+                    return false;
+                }
+
+                // Request GPU device
+                gpuDevice = await adapter.requestDevice();
+
+                // Display GPU info
+                const info = await adapter.requestAdapterInfo();
+                document.getElementById('webgpu-status').textContent = 'Available';
+                document.getElementById('webgpu-status').className = 'status-value success';
+                document.getElementById('gpu-vendor').textContent = info.vendor || 'Unknown';
+                document.getElementById('gpu-arch').textContent = info.architecture || 'Unknown';
+
+                const limits = gpuDevice.limits;
+                document.getElementById('max-buffer').textContent =
+                    formatBytes(limits.maxBufferSize);
+                document.getElementById('max-workgroups').textContent =
+                    limits.maxComputeWorkgroupsPerDimension.toLocaleString();
+                document.getElementById('f16-support').textContent =
+                    gpuDevice.features.has('shader-f16') ? 'Yes' : 'No';
+
+                logConsole('WebGPU initialized successfully', 'success');
+                logConsole(`GPU: ${info.vendor} ${info.architecture}`, 'info');
+
+                return true;
+            } catch (error) {
+                logConsole(`WebGPU initialization failed: ${error.message}`, 'error');
+                showUnsupportedAlert();
+                return false;
+            }
+        }
+
+        function showUnsupportedAlert() {
+            document.getElementById('unsupported-alert').style.display = 'block';
+            document.getElementById('webgpu-status').textContent = 'Not Available';
+            document.getElementById('webgpu-status').className = 'status-value error';
+        }
+
+        function formatBytes(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+            return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
+        }
+
+        function logConsole(message, type = 'info') {
+            const console_element = document.getElementById('console-output');
+            const line = document.createElement('div');
+            line.className = `console-line ${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            line.textContent = `[${timestamp}] ${message}`;
+            console_element.appendChild(line);
+            console_element.scrollTop = console_element.scrollHeight;
+        }
+
+        // Demo functions
+        window.runAdditionDemo = async function() {
+            logConsole('Running element-wise addition on GPU...', 'info');
+            const start = performance.now();
+
+            // Simulate GPU computation
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            const elapsed = performance.now() - start;
+            document.getElementById('addition-result').innerHTML = `
+                <strong>✅ GPU Addition Complete</strong><br>
+                Size: 1,000,000 elements<br>
+                Time: ${elapsed.toFixed(2)}ms<br>
+                Throughput: ${(1000000 / elapsed * 1000).toFixed(0)} ops/sec
+            `;
+            logConsole(`Addition completed in ${elapsed.toFixed(2)}ms`, 'success');
+        };
+
+        window.runAdditionCpu = async function() {
+            logConsole('Running element-wise addition on CPU...', 'info');
+            const start = performance.now();
+
+            // Simulate CPU computation (slower)
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            const elapsed = performance.now() - start;
+            document.getElementById('addition-result').innerHTML = `
+                <strong>✅ CPU Addition Complete</strong><br>
+                Size: 1,000,000 elements<br>
+                Time: ${elapsed.toFixed(2)}ms<br>
+                Speedup: ~5x slower than GPU
+            `;
+            logConsole(`CPU addition completed in ${elapsed.toFixed(2)}ms`, 'success');
+        };
+
+        window.runMatmulDemo = async function() {
+            logConsole('Running matrix multiplication on GPU...', 'info');
+            const start = performance.now();
+
+            await new Promise(resolve => setTimeout(resolve, 150));
+
+            const elapsed = performance.now() - start;
+            document.getElementById('matmul-result').innerHTML = `
+                <strong>✅ GPU MatMul Complete</strong><br>
+                Matrix: 512×512 × 512×512<br>
+                Time: ${elapsed.toFixed(2)}ms<br>
+                GFLOPS: ${(2 * 512 * 512 * 512 / elapsed / 1000000).toFixed(1)}
+            `;
+            logConsole(`Matrix multiplication completed in ${elapsed.toFixed(2)}ms`, 'success');
+        };
+
+        window.runMatmulCpu = async function() {
+            logConsole('Running matrix multiplication on CPU...', 'info');
+            const start = performance.now();
+
+            await new Promise(resolve => setTimeout(resolve, 800));
+
+            const elapsed = performance.now() - start;
+            document.getElementById('matmul-result').innerHTML = `
+                <strong>✅ CPU MatMul Complete</strong><br>
+                Matrix: 512×512 × 512×512<br>
+                Time: ${elapsed.toFixed(2)}ms<br>
+                Speedup: ~5-10x slower than GPU
+            `;
+            logConsole(`CPU matrix multiplication completed in ${elapsed.toFixed(2)}ms`, 'success');
+        };
+
+        window.runReluDemo = async function() {
+            logConsole('Running ReLU activation on GPU...', 'info');
+            const start = performance.now();
+
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+            const elapsed = performance.now() - start;
+            document.getElementById('relu-result').innerHTML = `
+                <strong>✅ GPU ReLU Complete</strong><br>
+                Size: 1,000,000 elements<br>
+                Time: ${elapsed.toFixed(2)}ms<br>
+                Activation: max(0, x)
+            `;
+            logConsole(`ReLU activation completed in ${elapsed.toFixed(2)}ms`, 'success');
+        };
+
+        window.runTrainingDemo = async function() {
+            logConsole('Starting neural network training on GPU...', 'info');
+
+            let epoch = 0;
+            const maxEpochs = 100;
+            const resultBox = document.getElementById('training-result');
+
+            trainingInterval = setInterval(() => {
+                epoch++;
+                const progress = (epoch / maxEpochs) * 100;
+                const loss = Math.exp(-epoch / 20) * 0.5;
+
+                document.getElementById('training-progress').style.width = progress + '%';
+                document.getElementById('training-progress').textContent =
+                    `${progress.toFixed(0)}% (Epoch ${epoch}/${maxEpochs})`;
+
+                resultBox.innerHTML = `
+                    <strong>Training XOR Network</strong><br>
+                    Epoch: ${epoch}/${maxEpochs}<br>
+                    Loss: ${loss.toFixed(4)}<br>
+                    Learning Rate: 0.001<br>
+                    GPU Acceleration: Enabled
+                `;
+
+                if (epoch >= maxEpochs) {
+                    clearInterval(trainingInterval);
+                    logConsole('Training completed successfully!', 'success');
+                    resultBox.innerHTML += '<br><strong>✅ Training Complete!</strong>';
+                }
+            }, 100);
+        };
+
+        window.stopTraining = function() {
+            if (trainingInterval) {
+                clearInterval(trainingInterval);
+                trainingInterval = null;
+                logConsole('Training stopped by user', 'warning');
+            }
+        };
+
+        window.runBenchmarks = async function() {
+            logConsole('Running performance benchmarks...', 'info');
+
+            const benchmarks = [
+                { name: 'Matrix Multiply (512×512)', gpu: 150, cpu: 800 },
+                { name: 'Element-wise Ops (1M elements)', gpu: 50, cpu: 250 },
+                { name: 'Neural Network Forward Pass', gpu: 30, cpu: 180 }
+            ];
+
+            const resultBox = document.getElementById('benchmark-result');
+            resultBox.innerHTML = '';
+
+            for (const bench of benchmarks) {
+                await new Promise(resolve => setTimeout(resolve, 200));
+
+                const speedup = (bench.cpu / bench.gpu).toFixed(1);
+                const div = document.createElement('div');
+                div.className = 'benchmark-result';
+                div.innerHTML = `
+                    <span class="benchmark-label">${bench.name}</span>
+                    <span>
+                        GPU: <span class="benchmark-time">${bench.gpu}ms</span> |
+                        CPU: <span class="benchmark-time">${bench.cpu}ms</span> |
+                        Speedup: <span class="speedup">${speedup}x</span>
+                    </span>
+                `;
+                resultBox.appendChild(div);
+
+                logConsole(`${bench.name}: ${speedup}x speedup with GPU`, 'success');
+            }
+        };
+
+        // Initialize on load
+        window.addEventListener('load', async () => {
+            await initializeWebGPU();
+
+            // Simulate memory updates
+            setInterval(() => {
+                const memUsage = Math.random() * 50 + 10;
+                document.getElementById('gpu-memory').textContent =
+                    memUsage.toFixed(1) + ' MB';
+
+                const opsPerSec = Math.random() * 1000 + 500;
+                document.getElementById('ops-per-sec').textContent =
+                    opsPerSec.toFixed(0);
+            }, 2000);
+        });
+    </script>
+</body>
+</html>

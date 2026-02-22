@@ -1,0 +1,133 @@
+[package]
+name = "torsh-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Core types and traits for ToRSh deep learning framework"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-core"
+rust-version.workspace = true
+keywords = ["deep-learning", "tensor", "machine-learning", "pytorch", "core"]
+categories = ["science", "mathematics"]
+
+[lints]
+workspace = true
+
+[dependencies]
+# Core scientific computing dependencies - SciRS2 POLICY COMPLIANCE
+scirs2-core = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Utilities
+# ⚠️ INTERNAL USE ONLY: These are used for internal dtype implementation
+# NEW CODE should use torsh_core::numeric, torsh_core::Complex instead
+num-traits = { workspace = true }  # INTERNAL dtype implementation only
+num-derive = { workspace = true }  # INTERNAL dtype implementation only
+num-complex = { workspace = true } # INTERNAL dtype implementation only
+num_cpus = ">=1.15.0, <2.0.0"  # Constrained version for stability
+once_cell = { workspace = true }
+parking_lot = { workspace = true }
+half = { workspace = true }
+memmap2 = { workspace = true }
+
+# Serialization (optional)
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Optional dependencies for advanced features
+# ⚠️ INTERNAL USE ONLY: rayon used for internal device thread pool implementation
+# NEW CODE should use torsh_core::parallel instead
+rayon = { workspace = true, optional = true }  # INTERNAL device implementation only
+crossbeam = { workspace = true, optional = true }  # For lock-free data structures
+# libc = { version = ">=0.2.140, <0.3.0", optional = true }  # REMOVED: Pure Rust (SciRS2 ecosystem)
+zstd = { workspace = true, optional = true }
+
+[dev-dependencies]
+approx = { workspace = true }
+proptest = { workspace = true }
+criterion = { workspace = true }
+libfuzzer-sys = "0.4"
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[features]
+default = ["std", "half", "parallel"]
+std = []
+no_std = []
+
+# Serialization features
+serialize = ["serde", "serde_json"]
+
+# Hardware acceleration features
+cudnn = ["dep:cudnn-sys"]
+cuda = []
+wgpu = []
+half = []
+fp16 = []
+avx512 = []
+simd = []
+
+# Parallel processing features - SciRS2 POLICY COMPLIANCE
+# ⚠️ INTERNAL: rayon used for device thread pools (legacy)
+# ✅ NEW CODE: Use torsh_core::parallel (scirs2-core::parallel_ops)
+parallel = ["rayon", "crossbeam"]  # Internal device thread pools + lock-free structures
+fast-math = []
+
+# Development and debugging features
+debug = []
+trace = []
+bench = []
+
+# System integration features
+# system-level = ["libc"]  # REMOVED: libc removed for Pure Rust (SciRS2 ecosystem)
+compression = ["zstd"]
+
+# Language bindings
+python = []
+c-api = []
+
+# Platform-specific features
+gpu = []
+cpu-optimized = ["simd", "parallel"]
+distributed = []
+
+# Memory management features
+numa = []
+memory-mapping = []
+memory-debug = ["debug"]
+
+# Experimental features
+experimental = []
+unsafe-optimizations = []
+
+# Benchmark features
+storage_benchmarks = []
+
+# cuDNN only on x86_64 Linux/Windows (following scirs2-core pattern)
+[target.'cfg(all(target_arch = "x86_64", any(target_os = "linux", target_os = "windows")))'.dependencies]
+cudnn-sys = { version = "0.0.3", optional = true }
+
+[[bench]]
+name = "shape_bench"
+harness = false
+
+[[bench]]
+name = "device_bench"
+harness = false
+
+[[bench]]
+name = "dtype_bench"
+harness = false
+
+[[bench]]
+name = "storage_bench"
+harness = false

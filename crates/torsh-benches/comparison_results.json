@@ -1,0 +1,197 @@
+{
+  "timestamp": "2025-11-13T22:03:37.217972Z",
+  "total_comparisons": 9,
+  "improvements": 9,
+  "regressions": 0,
+  "comparisons": [
+    {
+      "benchmark_name": "conv2d_128",
+      "baseline": {
+        "mean_time_ns": 4000.0,
+        "std_dev": 200.0,
+        "throughput": 250000.0,
+        "memory_usage": 65536,
+        "label": "baseline"
+      },
+      "candidate": {
+        "mean_time_ns": 2400.0,
+        "std_dev": 120.0,
+        "throughput": 416666.6666666667,
+        "memory_usage": 65536,
+        "label": "candidate"
+      },
+      "speedup": 1.6666666666666667,
+      "improvement_percentage": 66.66666666666667,
+      "statistical_significance": "VeryHighlySignificant",
+      "verdict": "MajorImprovement"
+    },
+    {
+      "benchmark_name": "matmul_1024",
+      "baseline": {
+        "mean_time_ns": 64000.0,
+        "std_dev": 3200.0,
+        "throughput": 15625.0,
+        "memory_usage": 4194304,
+        "label": "baseline"
+      },
+      "candidate": {
+        "mean_time_ns": 48000.0,
+        "std_dev": 2400.0,
+        "throughput": 20833.333333333332,
+        "memory_usage": 4194304,
+        "label": "candidate"
+      },
+      "speedup": 1.3333333333333333,
+      "improvement_percentage": 33.33333333333333,
+      "statistical_significance": "VeryHighlySignificant",
+      "verdict": "MajorImprovement"
+    },
+    {
+      "benchmark_name": "conv2d_256",
+      "baseline": {
+        "mean_time_ns": 32000.0,
+        "std_dev": 1600.0,
+        "throughput": 31250.0,
+        "memory_usage": 262144,
+        "label": "baseline"
+      },
+      "candidate": {
+        "mean_time_ns": 19200.0,
+        "std_dev": 960.0,
+        "throughput": 52083.333333333336,
+        "memory_usage": 262144,
+        "label": "candidate"
+      },
+      "speedup": 1.6666666666666667,
+      "improvement_percentage": 66.66666666666667,
+      "statistical_significance": "VeryHighlySignificant",
+      "verdict": "MajorImprovement"
+    },
+    {
+      "benchmark_name": "reduction_sum_1024",
+      "baseline": {
+        "mean_time_ns": 100.0,
+        "std_dev": 5.0,
+        "throughput": 10000000.0,
+        "memory_usage": 4194304,
+        "label": "baseline"
+      },
+      "candidate": {
+        "mean_time_ns": 85.0,
+        "std_dev": 4.25,
+        "throughput": 11764705.88235294,
+        "memory_usage": 4194304,
+        "label": "candidate"
+      },
+      "speedup": 1.1764705882352942,
+      "improvement_percentage": 17.647058823529417,
+      "statistical_significance": "VeryHighlySignificant",
+      "verdict": "Improvement"
+    },
+    {
+      "benchmark_name": "conv2d_64",
+      "baseline": {
+        "mean_time_ns": 500.0,
+        "std_dev": 25.0,
+        "throughput": 2000000.0,
+        "memory_usage": 16384,
+        "label": "baseline"
+      },
+      "candidate": {
+        "mean_time_ns": 300.0,
+        "std_dev": 15.0,
+        "throughput": 3333333.3333333335,
+        "memory_usage": 16384,
+        "label": "candidate"
+      },
+      "speedup": 1.6666666666666667,
+      "improvement_percentage": 66.66666666666667,
+      "statistical_significance": "VeryHighlySignificant",
+      "verdict": "MajorImprovement"
+    },
+    {
+      "benchmark_name": "matmul_256",
+      "baseline": {
+        "mean_time_ns": 1000.0,
+        "std_dev": 50.0,
+        "throughput": 1000000.0,
+        "memory_usage": 262144,
+        "label": "baseline"
+      },
+      "candidate": {
+        "mean_time_ns": 750.0,
+        "std_dev": 37.5,
+        "throughput": 1333333.3333333333,
+        "memory_usage": 262144,
+        "label": "candidate"
+      },
+      "speedup": 1.3333333333333333,
+      "improvement_percentage": 33.33333333333333,
+      "statistical_significance": "VeryHighlySignificant",
+      "verdict": "MajorImprovement"
+    },
+    {
+      "benchmark_name": "matmul_512",
+      "baseline": {
+        "mean_time_ns": 8000.0,
+        "std_dev": 400.0,
+        "throughput": 125000.0,
+        "memory_usage": 1048576,
+        "label": "baseline"
+      },
+      "candidate": {
+        "mean_time_ns": 6000.0,
+        "std_dev": 300.0,
+        "throughput": 166666.66666666666,
+        "memory_usage": 1048576,
+        "label": "candidate"
+      },
+      "speedup": 1.3333333333333333,
+      "improvement_percentage": 33.33333333333333,
+      "statistical_significance": "VeryHighlySignificant",
+      "verdict": "MajorImprovement"
+    },
+    {
+      "benchmark_name": "reduction_sum_4096",
+      "baseline": {
+        "mean_time_ns": 400.0,
+        "std_dev": 20.0,
+        "throughput": 2500000.0,
+        "memory_usage": 67108864,
+        "label": "baseline"
+      },
+      "candidate": {
+        "mean_time_ns": 340.0,
+        "std_dev": 17.0,
+        "throughput": 2941176.470588235,
+        "memory_usage": 67108864,
+        "label": "candidate"
+      },
+      "speedup": 1.1764705882352942,
+      "improvement_percentage": 17.647058823529417,
+      "statistical_significance": "VeryHighlySignificant",
+      "verdict": "Improvement"
+    },
+    {
+      "benchmark_name": "reduction_sum_16384",
+      "baseline": {
+        "mean_time_ns": 1600.0,
+        "std_dev": 80.0,
+        "throughput": 625000.0,
+        "memory_usage": 1073741824,
+        "label": "baseline"
+      },
+      "candidate": {
+        "mean_time_ns": 1360.0,
+        "std_dev": 68.0,
+        "throughput": 735294.1176470588,
+        "memory_usage": 1073741824,
+        "label": "candidate"
+      },
+      "speedup": 1.1764705882352942,
+      "improvement_percentage": 17.647058823529417,
+      "statistical_significance": "VeryHighlySignificant",
+      "verdict": "Improvement"
+    }
+  ]
+}

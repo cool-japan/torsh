@@ -1,0 +1,412 @@
+//! Complete Advanced Benchmarking Workflow Demo
+//!
+//! This example demonstrates a complete production-ready benchmarking workflow
+//! that integrates all the advanced features: analysis, validation, adaptation,
+//! and reporting.
+
+use criterion::black_box;
+use std::collections::HashMap;
+use std::time::Duration;
+use torsh_benches::{
+    reference_impls::*, AdaptiveBenchmarking, AdvancedAnalyzer, AnalysisConfig, BenchConfig,
+    BenchResult, BenchRunner, BenchmarkValidator, Benchmarkable, CIBenchmarkRunner, CIConfig,
+    HtmlReportGenerator, PerformanceDashboard, ReportConfig, ValidationConfig, ValidationStatus,
+};
+use torsh_core::dtype::DType;
+
+/// Production-ready benchmarking workflow
+pub struct ProductionBenchmarkSuite {
+    /// Adaptive parameter selection
+    adaptive: AdaptiveBenchmarking,
+    /// Advanced performance analyzer
+    analyzer: AdvancedAnalyzer,
+    /// Correctness validator
+    validator: BenchmarkValidator,
+    /// Dashboard for monitoring
+    dashboard: PerformanceDashboard,
+    /// Results storage
+    results_history: Vec<BenchResult>,
+}
+
+impl ProductionBenchmarkSuite {
+    /// Create a new production benchmark suite
+    pub fn new() -> Self {
+        let mut validator = BenchmarkValidator::new();
+
+        // Add reference implementations for validation
+        validator
+            .add_reference_implementation("elementwise_add".to_string(), Box::new(ElementwiseAdd));
+        validator.add_reference_implementation("dot_product".to_string(), Box::new(DotProduct));
+        validator.add_reference_implementation(
+            "naive_matmul".to_string(),
+            Box::new(NaiveMatMul { size: 64 }),
+        );
+
+        Self {
+            adaptive: AdaptiveBenchmarking::new(),
+            analyzer: AdvancedAnalyzer::new(),
+            validator,
+            dashboard: PerformanceDashboard::new(),
+            results_history: Vec::new(),
+        }
+    }
+
+    /// Run complete benchmarking workflow
+    pub fn run_complete_workflow(&mut self) -> Result<WorkflowReport, Box<dyn std::error::Error>> {
+        println!("🚀 Starting Production Benchmarking Workflow");
+        println!("============================================");
+
+        // Step 1: Adaptive Parameter Selection
+        println!("\n📊 Step 1: Adaptive Parameter Selection");
+        let base_config = BenchConfig::new("production_benchmark")
+            .with_sizes(vec![64, 128, 256, 512, 1024])
+            .with_dtypes(vec![DType::F32, DType::F64])
+            .with_memory_measurement()
+            .with_timing(Duration::from_millis(100), Duration::from_secs(2));
+
+        let optimized_config = self.adaptive.select_parameters(&base_config);
+        println!("✅ Optimized benchmark parameters selected");
+        println!("   Sizes: {:?}", optimized_config.sizes);
+        println!(
+            "   Measurement time: {:?}",
+            optimized_config.measurement_time
+        );
+
+        // Step 2: Run Benchmarks
+        println!("\n⚡ Step 2: Running Benchmarks");
+        let results = self.run_benchmarks(&optimized_config)?;
+        println!("✅ Completed {} benchmark runs", results.len());
+
+        // Step 3: Advanced Analysis
+        println!("\n🧠 Step 3: Advanced Performance Analysis");
+        let analysis = self.analyzer.analyze(&results);
+        println!("✅ Advanced analysis completed");
+        println!("   IPC: {:.2}", analysis.micro_arch.ipc);
+        println!(
+            "   Stability Score: {:.2}%",
+            analysis.statistics.stability_score * 100.0
+        );
+        println!(
+            "   Efficiency Score: {:.2}%",
+            analysis.characteristics.efficiency_score * 100.0
+        );
+
+        // Step 4: Validation
+        println!("\n🔬 Step 4: Correctness Validation");
+        let validation = self.validator.validate(&results, &optimized_config);
+        println!("✅ Validation completed: {}", validation.status);
+        println!(
+            "   Confidence Score: {:.2}%",
+            validation.report.summary.confidence_score * 100.0
+        );
+        println!("   Issues Found: {}", validation.report.issues.len());
+
+        // Step 5: Update Dashboard
+        println!("\n📈 Step 5: Updating Performance Dashboard");
+        for result in &results {
+            self.dashboard.add_performance_point(
+                result.name.clone(),
+                result.mean_time_ns,
+                result.throughput.unwrap_or(0.0),
+                result.memory_usage.unwrap_or(0),
+                chrono::Utc::now(),
+            );
+        }
+        let dashboard_metrics = self.dashboard.get_metrics();
+        println!("✅ Dashboard updated");
+        println!(
+            "   Health Score: {:.2}%",
+            dashboard_metrics.health_score * 100.0
+        );
+        println!("   Performance Trend: {:?}", dashboard_metrics.trend);
+
+        // Step 6: Regression Detection
+        println!("\n🔍 Step 6: Regression Detection");
+        let regressions = self.dashboard.detect_regressions(&results);
+        if regressions.is_empty() {
+            println!("✅ No performance regressions detected");
+        } else {
+            println!("⚠️  {} potential regressions detected", regressions.len());
+            for regression in &regressions {
+                println!(
+                    "   - {}: {:.2}% change",
+                    regression.benchmark_name, regression.percentage_change
+                );
+            }
+        }
+
+        // Step 7: Adaptive Learning
+        println!("\n🎯 Step 7: Adaptive Learning");
+        for result in &results {
+            let performance = result.throughput.unwrap_or(1e9 / result.mean_time_ns);
+            let utilization = 0.8; // Estimate from analysis
+            self.adaptive.record_result(
+                BenchConfig::new(&result.name).with_sizes(vec![result.size]),
+                performance,
+                utilization,
+            );
+        }
+        let adaptive_recs = self.adaptive.get_recommendations();
+        println!("✅ Adaptive learning completed");
+        for (i, rec) in adaptive_recs.iter().enumerate() {
+            println!("   {}. {}", i + 1, rec);
+        }
+
+        // Step 8: Generate Reports
+        println!("\n📄 Step 8: Report Generation");
+        let workflow_report = WorkflowReport {
+            results: results.clone(),
+            analysis,
+            validation,
+            dashboard_metrics,
+            regressions,
+            adaptive_recommendations: adaptive_recs,
+        };
+
+        // Generate HTML report
+        let html_generator = HtmlReportGenerator::new();
+        let html_report = html_generator.generate_comprehensive_report(&workflow_report)?;
+        std::fs::write("production_benchmark_report.html", html_report)?;
+
+        // Generate CI-friendly report
+        let ci_runner = CIBenchmarkRunner::new(CIConfig::default());
+        let ci_report = ci_runner.generate_ci_report(&results, &validation)?;
+        std::fs::write("ci_benchmark_report.json", ci_report)?;
+
+        println!("✅ Reports generated:");
+        println!("   - production_benchmark_report.html");
+        println!("   - ci_benchmark_report.json");
+
+        // Store results for history
+        self.results_history.extend(results);
+
+        println!("\n🎉 Production benchmarking workflow completed successfully!");
+        Ok(workflow_report)
+    }
+
+    /// Run the actual benchmarks
+    fn run_benchmarks(
+        &self,
+        config: &BenchConfig,
+    ) -> Result<Vec<BenchResult>, Box<dyn std::error::Error>> {
+        let mut results = Vec::new();
+
+        // Simulate running different types of benchmarks
+        for &size in &config.sizes {
+            for &dtype in &config.dtypes {
+                // Matrix multiplication benchmark
+                let matmul_result = self.run_matrix_multiply_benchmark(size, dtype)?;
+                results.push(matmul_result);
+
+                // Vector operations benchmark
+                let vector_result = self.run_vector_ops_benchmark(size, dtype)?;
+                results.push(vector_result);
+
+                // Reduction operations benchmark
+                let reduction_result = self.run_reduction_benchmark(size, dtype)?;
+                results.push(reduction_result);
+            }
+        }
+
+        Ok(results)
+    }
+
+    /// Matrix multiplication benchmark
+    fn run_matrix_multiply_benchmark(
+        &self,
+        size: usize,
+        dtype: DType,
+    ) -> Result<BenchResult, Box<dyn std::error::Error>> {
+        let start = std::time::Instant::now();
+
+        // Simulate matrix multiplication
+        let _result = simulate_matrix_multiply(size);
+
+        let elapsed = start.elapsed();
+        let mean_time_ns = elapsed.as_nanos() as f64;
+        let operations = size * size * size; // O(n³) operations
+        let throughput = operations as f64 / (elapsed.as_secs_f64()) * 1e-9; // GFLOPS
+
+        Ok(BenchResult {
+            name: format!("matrix_multiply_{}_{:?}", size, dtype),
+            size,
+            dtype,
+            mean_time_ns,
+            std_dev_ns: mean_time_ns * 0.05, // 5% variance
+            throughput: Some(throughput),
+            memory_usage: Some(size * size * std::mem::size_of::<f32>() * 3),
+            peak_memory: Some(size * size * std::mem::size_of::<f32>() * 3),
+            metrics: {
+                let mut m = HashMap::new();
+                m.insert("flops".to_string(), operations as f64);
+                m.insert("memory_bandwidth".to_string(), throughput * 12.0); // Rough estimate
+                m
+            },
+        })
+    }
+
+    /// Vector operations benchmark
+    fn run_vector_ops_benchmark(
+        &self,
+        size: usize,
+        dtype: DType,
+    ) -> Result<BenchResult, Box<dyn std::error::Error>> {
+        let start = std::time::Instant::now();
+
+        // Simulate vector addition
+        let _result = simulate_vector_add(size);
+
+        let elapsed = start.elapsed();
+        let mean_time_ns = elapsed.as_nanos() as f64;
+        let operations = size; // O(n) operations
+        let throughput = operations as f64 / elapsed.as_secs_f64() * 1e-9; // GOPS
+
+        Ok(BenchResult {
+            name: format!("vector_add_{}_{:?}", size, dtype),
+            size,
+            dtype,
+            mean_time_ns,
+            std_dev_ns: mean_time_ns * 0.02, // 2% variance
+            throughput: Some(throughput),
+            memory_usage: Some(size * std::mem::size_of::<f32>() * 3),
+            peak_memory: Some(size * std::mem::size_of::<f32>() * 3),
+            metrics: {
+                let mut m = HashMap::new();
+                m.insert("operations".to_string(), operations as f64);
+                m.insert("memory_bandwidth".to_string(), throughput * 12.0);
+                m
+            },
+        })
+    }
+
+    /// Reduction operations benchmark
+    fn run_reduction_benchmark(
+        &self,
+        size: usize,
+        dtype: DType,
+    ) -> Result<BenchResult, Box<dyn std::error::Error>> {
+        let start = std::time::Instant::now();
+
+        // Simulate reduction (sum)
+        let _result = simulate_reduction(size);
+
+        let elapsed = start.elapsed();
+        let mean_time_ns = elapsed.as_nanos() as f64;
+        let operations = size; // O(n) operations
+        let throughput = operations as f64 / elapsed.as_secs_f64() * 1e-9; // GOPS
+
+        Ok(BenchResult {
+            name: format!("reduction_sum_{}_{:?}", size, dtype),
+            size,
+            dtype,
+            mean_time_ns,
+            std_dev_ns: mean_time_ns * 0.03, // 3% variance
+            throughput: Some(throughput),
+            memory_usage: Some(size * std::mem::size_of::<f32>()),
+            peak_memory: Some(size * std::mem::size_of::<f32>()),
+            metrics: {
+                let mut m = HashMap::new();
+                m.insert("operations".to_string(), operations as f64);
+                m.insert("memory_bandwidth".to_string(), throughput * 4.0);
+                m
+            },
+        })
+    }
+}
+
+/// Complete workflow report
+pub struct WorkflowReport {
+    pub results: Vec<BenchResult>,
+    pub analysis: torsh_benches::AdvancedAnalysis,
+    pub validation: torsh_benches::ValidationResult,
+    pub dashboard_metrics: torsh_benches::DashboardMetrics,
+    pub regressions: Vec<torsh_benches::RegressionInfo>,
+    pub adaptive_recommendations: Vec<String>,
+}
+
+/// Simulate matrix multiplication (for demo purposes)
+fn simulate_matrix_multiply(size: usize) -> f32 {
+    let mut sum = 0.0f32;
+    for i in 0..size.min(100) {
+        // Limit to prevent long execution
+        for j in 0..size.min(100) {
+            for k in 0..size.min(100) {
+                sum += black_box(i as f32 * j as f32 * k as f32);
+            }
+        }
+    }
+    sum
+}
+
+/// Simulate vector addition (for demo purposes)
+fn simulate_vector_add(size: usize) -> f32 {
+    let mut sum = 0.0f32;
+    for i in 0..size.min(10000) {
+        // Limit to prevent long execution
+        sum += black_box(i as f32 + (i + 1) as f32);
+    }
+    sum
+}
+
+/// Simulate reduction operation (for demo purposes)
+fn simulate_reduction(size: usize) -> f32 {
+    let mut sum = 0.0f32;
+    for i in 0..size.min(10000) {
+        // Limit to prevent long execution
+        sum += black_box(i as f32);
+    }
+    sum
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut suite = ProductionBenchmarkSuite::new();
+    let report = suite.run_complete_workflow()?;
+
+    // Print summary
+    println!("\n📊 FINAL SUMMARY");
+    println!("================");
+    println!("Benchmarks Run: {}", report.results.len());
+    println!("Validation Status: {}", report.validation.status);
+    println!(
+        "Overall Health Score: {:.2}%",
+        report.dashboard_metrics.health_score * 100.0
+    );
+    println!("Performance Trend: {:?}", report.dashboard_metrics.trend);
+
+    match report.validation.status {
+        ValidationStatus::Passed => {
+            println!("✅ All validations passed - results are reliable!");
+        }
+        ValidationStatus::Warning => {
+            println!("⚠️  Some warnings detected - review recommendations");
+        }
+        ValidationStatus::Failed => {
+            println!("❌ Validation failed - results may be unreliable");
+        }
+        ValidationStatus::Incomplete => {
+            println!("❓ Validation incomplete - insufficient data");
+        }
+    }
+
+    if !report.regressions.is_empty() {
+        println!("⚠️  Performance regressions detected:");
+        for regression in &report.regressions {
+            println!(
+                "   - {}: {:.2}% change",
+                regression.benchmark_name, regression.percentage_change
+            );
+        }
+    }
+
+    println!("\n🎯 Key Recommendations:");
+    for (i, rec) in report.adaptive_recommendations.iter().enumerate() {
+        println!("   {}. {}", i + 1, rec);
+    }
+
+    println!("\n🚀 Production benchmarking workflow completed successfully!");
+    println!("📄 Detailed reports available in:");
+    println!("   - production_benchmark_report.html");
+    println!("   - ci_benchmark_report.json");
+
+    Ok(())
+}

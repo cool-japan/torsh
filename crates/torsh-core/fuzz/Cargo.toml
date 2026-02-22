@@ -1,0 +1,36 @@
+[package]
+name = "torsh-core-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.torsh-core]
+path = ".."
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "fuzz_shape_broadcast"
+path = "fuzz_targets/fuzz_shape_broadcast.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_shape_creation"
+path = "fuzz_targets/fuzz_shape_creation.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_shape_operations"
+path = "fuzz_targets/fuzz_shape_operations.rs"
+test = false
+doc = false

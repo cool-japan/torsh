@@ -1,0 +1,42 @@
+[package]
+name = "torsh-profiler"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Performance profiling and monitoring for ToRSh"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-profiler"
+rust-version.workspace = true
+keywords = ["deep-learning", "profiling", "performance", "machine-learning", "monitoring"]
+categories = ["development-tools::profiling"]
+
+[lints]
+workspace = true
+
+[dependencies]
+torsh-core = { workspace = true }
+torsh-tensor = { workspace = true }
+tracing = { workspace = true }
+once_cell = { workspace = true }
+parking_lot = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+backtrace = "0.3"
+num_cpus = "1.17"
+scirs2-core = { workspace = true, features = ["profiling"] }
+anyhow = { workspace = true }
+log = { workspace = true }
+tokio = { workspace = true }
+tokio-tungstenite = "0.28"
+futures-util = { workspace = true }
+uuid = { workspace = true }
+prometheus = "0.14"
+
+[dev-dependencies]
+criterion = { workspace = true }
+tokio = { workspace = true }

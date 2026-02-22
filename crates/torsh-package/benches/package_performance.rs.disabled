@@ -1,0 +1,394 @@
+//! Performance benchmarks for torsh-package operations
+//!
+//! This benchmark suite measures the performance of key package operations including:
+//! - Package creation and serialization
+//! - Compression algorithms
+//! - Resource loading and caching
+//! - Delta patch generation and application
+//!
+//! Run with: cargo bench --bench package_performance
+
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use std::collections::HashMap;
+use tempfile::TempDir;
+use torsh_package::*;
+
+/// Benchmark package creation with various numbers of resources
+fn bench_package_creation(c: &mut Criterion) {
+    let mut group = c.benchmark_group("package_creation");
+
+    for num_resources in [10, 50, 100, 500].iter() {
+        group.throughput(Throughput::Elements(*num_resources as u64));
+        group.bench_with_input(
+            BenchmarkId::from_parameter(num_resources),
+            num_resources,
+            |b, &num| {
+                b.iter(|| {
+                    let mut package =
+                        Package::new("benchmark_model".to_string(), "1.0.0".to_string());
+
+                    for i in 0..num {
+                        let data = format!("Resource data for item {}", i).as_bytes().to_vec();
+                        let resource =
+                            Resource::new(format!("resource_{}.txt", i), ResourceType::Data, data);
+                        package.add_resource(resource);
+                    }
+
+                    black_box(package)
+                });
+            },
+        );
+    }
+    group.finish();
+}
+
+/// Benchmark package save/load operations
+fn bench_package_serialization(c: &mut Criterion) {
+    let mut group = c.benchmark_group("package_serialization");
+    let temp_dir = TempDir::new().unwrap();
+
+    // Create packages of different sizes
+    for size_kb in [10, 100, 500, 1000].iter() {
+        let data_size = size_kb * 1024;
+        let mut package = Package::new("benchmark_model".to_string(), "1.0.0".to_string());
+
+        // Add resource with specified size
+        let data = vec![0u8; data_size];
+        let resource = Resource::new("model_weights.bin".to_string(), ResourceType::Model, data);
+        package.add_resource(resource);
+
+        let package_path = temp_dir
+            .path()
+            .join(format!("package_{}kb.torshpkg", size_kb));
+
+        // Benchmark save
+        group.throughput(Throughput::Bytes(data_size as u64));
+        group.bench_with_input(
+            BenchmarkId::new("save", format!("{}KB", size_kb)),
+            &(&package, &package_path),
+            |b, (pkg, path)| {
+                b.iter(|| {
+                    pkg.save(path).unwrap();
+                    black_box(path)
+                });
+            },
+        );
+
+        // Save once for load benchmark
+        package.save(&package_path).unwrap();
+
+        // Benchmark load
+        group.bench_with_input(
+            BenchmarkId::new("load", format!("{}KB", size_kb)),
+            &package_path,
+            |b, path| {
+                b.iter(|| {
+                    let loaded = Package::load(path).unwrap();
+                    black_box(loaded)
+                });
+            },
+        );
+    }
+    group.finish();
+}
+
+/// Benchmark compression algorithms
+fn bench_compression_algorithms(c: &mut Criterion) {
+    let mut group = c.benchmark_group("compression");
+
+    // Test data with different characteristics
+    let test_data = vec![
+        ("highly_compressible", "A".repeat(100_000).into_bytes()),
+        ("text", "Hello World! ".repeat(5000).into_bytes()),
+        (
+            "binary",
+            (0..50_000).map(|i| (i % 256) as u8).collect::<Vec<u8>>(),
+        ),
+    ];
+
+    for (data_type, data) in test_data {
+        group.throughput(Throughput::Bytes(data.len() as u64));
+
+        // Benchmark Gzip
+        group.bench_with_input(BenchmarkId::new("gzip", data_type), &data, |b, data| {
+            let compressor = AdvancedCompressor::new();
+            let resource =
+                Resource::new("test.bin".to_string(), ResourceType::Binary, data.clone());
+            b.iter(|| {
+                let result = compressor
+                    .compress(data, CompressionAlgorithm::Gzip, CompressionLevel(6))
+                    .unwrap();
+                black_box(result)
+            });
+        });
+
+        // Benchmark Zstd
+        group.bench_with_input(BenchmarkId::new("zstd", data_type), &data, |b, data| {
+            let compressor = AdvancedCompressor::new();
+            b.iter(|| {
+                let result = compressor
+                    .compress(data, CompressionAlgorithm::Zstd, CompressionLevel(3))
+                    .unwrap();
+                black_box(result)
+            });
+        });
+
+        // Benchmark LZMA (only for smaller data as it's slower)
+        if data.len() <= 50_000 {
+            group.bench_with_input(BenchmarkId::new("lzma", data_type), &data, |b, data| {
+                let compressor = AdvancedCompressor::new();
+                b.iter(|| {
+                    let result = compressor
+                        .compress(data, CompressionAlgorithm::Lzma, CompressionLevel(6))
+                        .unwrap();
+                    black_box(result)
+                });
+            });
+        }
+    }
+    group.finish();
+}
+
+/// Benchmark decompression
+fn bench_decompression(c: &mut Criterion) {
+    let mut group = c.benchmark_group("decompression");
+    let compressor = AdvancedCompressor::new();
+
+    let test_data = vec![0u8; 100_000];
+    group.throughput(Throughput::Bytes(test_data.len() as u64));
+
+    // Pre-compress data with different algorithms
+    let compressed_gzip = compressor
+        .compress(&test_data, CompressionAlgorithm::Gzip, CompressionLevel(6))
+        .unwrap();
+
+    let compressed_zstd = compressor
+        .compress(&test_data, CompressionAlgorithm::Zstd, CompressionLevel(3))
+        .unwrap();
+
+    // Benchmark Gzip decompression
+    group.bench_function("gzip", |b| {
+        b.iter(|| {
+            let result = compressor
+                .decompress(&compressed_gzip.data, CompressionAlgorithm::Gzip)
+                .unwrap();
+            black_box(result)
+        });
+    });
+
+    // Benchmark Zstd decompression
+    group.bench_function("zstd", |b| {
+        b.iter(|| {
+            let result = compressor
+                .decompress(&compressed_zstd.data, CompressionAlgorithm::Zstd)
+                .unwrap();
+            black_box(result)
+        });
+    });
+
+    group.finish();
+}
+
+/// Benchmark delta patch creation
+fn bench_delta_patch_creation(c: &mut Criterion) {
+    let mut group = c.benchmark_group("delta_patch");
+
+    // Create base package
+    let mut old_package = Package::new("model".to_string(), "1.0.0".to_string());
+    for i in 0..50 {
+        let data = vec![i as u8; 1000];
+        let resource = Resource::new(format!("resource_{}.bin", i), ResourceType::Data, data);
+        old_package.add_resource(resource);
+    }
+
+    // Create modified package (change 10% of resources)
+    let mut new_package = Package::new("model".to_string(), "1.1.0".to_string());
+    for (i, (name, resource)) in old_package.resources().enumerate() {
+        if i % 10 == 0 {
+            // Modify 10% of resources
+            let mut modified_data = resource.data.clone();
+            modified_data[0] = 255;
+            let modified = Resource::new(name.clone(), resource.resource_type, modified_data);
+            new_package.add_resource(modified);
+        } else {
+            new_package.add_resource(resource.clone());
+        }
+    }
+
+    group.bench_function("create_patch", |b| {
+        let builder = DeltaPatchBuilder::new();
+        b.iter(|| {
+            let patch = builder.create_patch(&old_package, &new_package).unwrap();
+            black_box(patch)
+        });
+    });
+
+    // Create patch for apply benchmark
+    let builder = DeltaPatchBuilder::new();
+    let patch = builder.create_patch(&old_package, &new_package).unwrap();
+
+    group.bench_function("apply_patch", |b| {
+        let applier = DeltaPatchApplier::new();
+        b.iter(|| {
+            let mut package_copy = old_package.clone();
+            applier.apply_patch(&mut package_copy, &patch).unwrap();
+            black_box(package_copy)
+        });
+    });
+
+    group.finish();
+}
+
+/// Benchmark resource lookup and access
+fn bench_resource_access(c: &mut Criterion) {
+    let mut group = c.benchmark_group("resource_access");
+
+    // Create package with many resources
+    let mut package = Package::new("model".to_string(), "1.0.0".to_string());
+    for i in 0..1000 {
+        let data = vec![i as u8; 100];
+        let resource = Resource::new(format!("resource_{:04}.bin", i), ResourceType::Data, data);
+        package.add_resource(resource);
+    }
+
+    // Benchmark resource lookup by name
+    group.bench_function("lookup", |b| {
+        b.iter(|| {
+            for i in (0..1000).step_by(10) {
+                let name = format!("resource_{:04}.bin", i);
+                let resource = package.get_resource(&name);
+                black_box(resource);
+            }
+        });
+    });
+
+    // Benchmark filtering resources by type
+    group.bench_function("filter_by_type", |b| {
+        b.iter(|| {
+            let filtered: Vec<_> = package
+                .resources()
+                .values()
+                .filter(|r| r.resource_type == ResourceType::Data)
+                .collect();
+            black_box(filtered)
+        });
+    });
+
+    group.finish();
+}
+
+/// Benchmark cryptographic operations
+fn bench_security_operations(c: &mut Criterion) {
+    let mut group = c.benchmark_group("security");
+
+    let mut package = Package::new("secure_model".to_string(), "1.0.0".to_string());
+
+    // Add some resources
+    for i in 0..10 {
+        let data = vec![i as u8; 10_000];
+        let resource = Resource::new(format!("resource_{}.bin", i), ResourceType::Data, data);
+        package.add_resource(resource);
+    }
+
+    // Benchmark signing
+    group.bench_function("sign_package", |b| {
+        let signer = PackageSigner::new();
+        b.iter(|| {
+            let signature = signer.sign(&package).unwrap();
+            black_box(signature)
+        });
+    });
+
+    // Create signature for verification benchmark
+    let signer = PackageSigner::new();
+    let signature = signer.sign(&package).unwrap();
+
+    // Benchmark verification
+    group.bench_function("verify_signature", |b| {
+        b.iter(|| {
+            let result = signer.verify(&package, &signature).unwrap();
+            black_box(result)
+        });
+    });
+
+    // Benchmark encryption
+    group.bench_function("encrypt_package", |b| {
+        let encryptor = PackageEncryptor::new(EncryptionAlgorithm::Aes256Gcm);
+        b.iter(|| {
+            let encrypted = encryptor.encrypt(&package, "test_password").unwrap();
+            black_box(encrypted)
+        });
+    });
+
+    // Create encrypted package for decryption benchmark
+    let encryptor = PackageEncryptor::new(EncryptionAlgorithm::Aes256Gcm);
+    let encrypted = encryptor.encrypt(&package, "test_password").unwrap();
+
+    // Benchmark decryption
+    group.bench_function("decrypt_package", |b| {
+        b.iter(|| {
+            let decrypted = encryptor.decrypt(&encrypted, "test_password").unwrap();
+            black_box(decrypted)
+        });
+    });
+
+    group.finish();
+}
+
+/// Benchmark lazy resource loading
+fn bench_lazy_loading(c: &mut Criterion) {
+    let mut group = c.benchmark_group("lazy_loading");
+    let temp_dir = TempDir::new().unwrap();
+
+    // Create test files
+    let num_files = 100;
+    let file_size = 10_000;
+
+    for i in 0..num_files {
+        let file_path = temp_dir.path().join(format!("resource_{}.bin", i));
+        let data = vec![i as u8; file_size];
+        std::fs::write(&file_path, data).unwrap();
+    }
+
+    // Benchmark lazy resource manager creation and loading
+    group.bench_function("manager_load_all", |b| {
+        b.iter(|| {
+            let mut manager = LazyResourceManager::new().with_memory_limit(10 * 1024 * 1024);
+
+            for i in 0..num_files {
+                let file_path = temp_dir.path().join(format!("resource_{}.bin", i));
+                let lazy_resource = LazyResource::new_lazy_file(
+                    format!("resource_{}.bin", i),
+                    ResourceType::Data,
+                    &file_path,
+                    0,
+                    file_size as u64,
+                );
+                manager.add_resource(lazy_resource).unwrap();
+            }
+
+            // Load all resources
+            for i in 0..num_files {
+                let name = format!("resource_{}.bin", i);
+                manager.load_resource_data(&name).unwrap();
+            }
+
+            black_box(manager)
+        });
+    });
+
+    group.finish();
+}
+
+criterion_group!(
+    benches,
+    bench_package_creation,
+    bench_package_serialization,
+    bench_compression_algorithms,
+    bench_decompression,
+    bench_delta_patch_creation,
+    bench_resource_access,
+    bench_security_operations,
+    bench_lazy_loading
+);
+criterion_main!(benches);

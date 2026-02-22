@@ -1,0 +1,84 @@
+[package]
+name = "torsh-nn"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Neural network modules for ToRSh with PyTorch-compatible API"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-nn"
+rust-version.workspace = true
+keywords = ["deep-learning", "neural-network", "layers", "machine-learning", "pytorch"]
+categories = ["science", "algorithms"]
+
+[lints]
+workspace = true
+
+[dependencies]
+# Core dependencies
+torsh-core = { workspace = true }
+torsh-tensor = { workspace = true }
+torsh-autograd = { workspace = true }
+torsh-linalg = { workspace = true }
+
+# Leverage scirs2's neural network functionality
+scirs2-core = { workspace = true }
+scirs2-cluster = { workspace = true }  # Clustering algorithms for unsupervised learning
+scirs2-neural = { workspace = true }   # Advanced neural architectures
+
+# Utilities
+num-traits = { workspace = true }
+parking_lot = { workspace = true }
+indexmap = { workspace = true }
+bytemuck = { workspace = true }
+num_cpus = "1.17"
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Serialization and compression
+serde = { workspace = true, features = ["derive"], optional = true }
+serde_json = { workspace = true, optional = true }
+oxicode = { workspace = true, optional = true }
+chrono = { workspace = true, optional = true }
+flate2 = { workspace = true, optional = true }
+safetensors = { workspace = true, optional = true }
+
+# Checksum verification
+sha2 = { workspace = true }
+
+# ✅ SciRS2 POLICY: Use scirs2_core::random instead of direct rand
+# Initialization handled by scirs2_core::random
+
+# For no_std HashMap support  
+hashbrown = { version = "0.16", default-features = false, features = ["alloc"] }
+
+[dev-dependencies]
+approx = { workspace = true }
+tempfile = { workspace = true }
+criterion = { workspace = true }
+
+[features]
+default = ["std"]
+std = ["torsh-core/std", "torsh-tensor/std"]
+serialize = ["serde", "serde_json", "oxicode", "chrono", "flate2", "torsh-core/serialize"]
+safetensors = ["dep:safetensors", "serialize"]
+
+# Hardware acceleration features (forward-looking, currently stubbed)
+cuda = []
+rocm = []
+metal = []
+simd = []
+
+# Temporarily disabled due to API changes
+# [[bench]]
+# name = "layer_benchmarks"
+# harness = false
+
+# [[bench]]
+# name = "simple_benchmarks"
+# harness = false
+

@@ -1,0 +1,94 @@
+[package]
+name = "torsh-distributed"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Distributed training and inference for ToRSh"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-distributed"
+rust-version.workspace = true
+keywords = ["deep-learning", "distributed", "training", "machine-learning", "parallel"]
+categories = ["science", "concurrency"]
+
+[lints]
+workspace = true
+
+[dependencies]
+torsh-core = { workspace = true }
+torsh-tensor = { workspace = true }
+torsh-autograd = { workspace = true }
+torsh-nn = { workspace = true }
+
+# Distributed communication
+mpi = { version = "0.8", optional = true }
+# Note: Real NCCL integration requires proper Rust bindings for NVIDIA NCCL
+# The "nccl" crate on crates.io is a configuration library, not NVIDIA NCCL
+# TODO: Add actual NCCL bindings when available (possibly via cudarc or custom bindings)
+# nccl = { version = "0.1", optional = true }
+# gloo-sys = { version = "0.1", optional = true } # Not available on crates.io
+
+# Networking
+tokio = { workspace = true, features = ["net", "sync", "rt-multi-thread"] }
+tonic = { workspace = true }
+prost = { workspace = true }
+redis = { workspace = true, optional = true, features = ["tokio-comp"] }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+oxicode = { workspace = true }
+flate2 = { workspace = true, optional = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Utilities
+once_cell = { workspace = true }
+parking_lot = { workspace = true }
+dashmap = { workspace = true }
+crossbeam = { workspace = true }
+futures = { workspace = true }
+async-trait = { workspace = true }
+tracing = { workspace = true }
+log = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
+half = { workspace = true }  # For f16 and bf16 support
+
+# SciRS2 dependencies
+scirs2-core = { workspace = true }
+scirs2-autograd = { workspace = true }
+
+[features]
+default = []
+mpi = ["dep:mpi"]
+nccl = []  # Mock NCCL backend (no external dependencies for now)
+redis = ["dep:redis"]
+# gloo = ["dep:gloo-sys"]
+
+# Optional feature flags for enhanced functionality
+compression = ["dep:flate2"]  # Enable compression support
+scirs2-simd = []  # Enable SIMD optimizations
+scirs2-profiling = []  # Enable profiling support
+scirs2-memory = []  # Enable memory optimization features
+
+[dev-dependencies]
+criterion = { workspace = true }
+tokio-test = { workspace = true }
+tempfile = { workspace = true }
+futures-util = { workspace = true }
+approx = { workspace = true }
+
+[build-dependencies]
+tonic-build = { workspace = true }
+
+# Examples are located in the workspace root examples/ directory
+# and are not included when publishing to crates.io.
+# See: https://github.com/your-repo/torsh/tree/main/examples
+# - distributed.rs
+# - distributed_comprehensive.rs
+# - distributed_fsdp.rs
+# - distributed_rpc.rs

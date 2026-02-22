@@ -1,0 +1,107 @@
+[package]
+name = "torsh-data"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Data loading and preprocessing utilities for ToRSh"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-data"
+rust-version.workspace = true
+keywords = ["deep-learning", "data-loading", "dataset", "machine-learning", "dataloader"]
+categories = ["science", "data-structures"]
+
+[lints]
+workspace = true
+
+[dependencies]
+# Core dependencies
+torsh-core = { workspace = true }
+torsh-tensor = { workspace = true }
+torsh-sparse = { workspace = true, optional = true }
+
+# Leverage scirs2's data utilities
+scirs2-core = { workspace = true }
+scirs2-datasets = { workspace = true }  # Direct access to dataset utilities
+
+# Data processing
+# polars = { workspace = true, optional = true }  # REMOVED: COOLJAPAN policy - use csv crate instead (lighter and policy-compliant)
+# ndarray = { workspace = true, optional = true }  # REMOVED: Use scirs2_core::ndarray instead (SciRS2 POLICY)
+
+# Image processing
+image = { version = "0.25", optional = true }
+imageproc = { version = "0.26", optional = true }
+
+# Parallel processing
+rayon = { workspace = true }
+crossbeam = { workspace = true }
+
+# Async support
+tokio = { workspace = true, optional = true }
+futures = { workspace = true, optional = true }
+
+# File I/O
+csv = { version = "1.4", optional = true }
+hdf5 = { version = "0.8", optional = true }
+parquet = { version = "57.3", optional = true }
+arrow = { version = "57.3", optional = true }
+memmap2 = { version = "0.9", optional = true }
+tempfile = { version = "3.25", optional = true }
+
+# Utilities - SciRS2 POLICY COMPLIANCE
+# rand = { workspace = true }       # REMOVED: Use scirs2_core::random instead (SciRS2 POLICY)
+# rand_distr = { workspace = true } # REMOVED: Use scirs2_core::random::prelude instead (SciRS2 POLICY)
+# ✅ SciRS2 Policy: Use scirs2_core::random for all data augmentation and sampling
+indexmap = { workspace = true }
+parking_lot = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Serialization
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+
+# WASM support
+wasm-bindgen = { version = "0.2", optional = true }
+js-sys = { version = "0.3", optional = true }
+web-sys = { version = "0.3", optional = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.3" }
+
+[features]
+default = ["std", "image-support", "mmap-support"]
+std = ["torsh-core/std", "torsh-tensor/std"]
+image-support = ["image", "imageproc"]
+audio-support = []
+dataframe = ["csv"]  # COOLJAPAN policy compliant - removed Polars dependency
+arrow-support = ["arrow"]
+hdf5-support = ["hdf5"]
+parquet-support = ["parquet"]
+mmap-support = ["memmap2", "tempfile"]
+serialize = ["serde", "serde_json", "torsh-core/serialize"]
+sparse = ["torsh-sparse"]
+
+# GPU backend features (placeholder for future implementation)
+cuda = []
+opencl = []
+vulkan = []
+metal = []
+webgpu = []
+
+# Advanced features
+privacy = []
+federated = []
+gpu-acceleration = ["cuda"]  # Currently only CUDA implemented
+async-support = ["tokio", "futures"]
+wasm = ["wasm-bindgen", "js-sys", "web-sys"]
+
+# Full feature set includes all optional features
+full = ["image-support", "audio-support", "dataframe", "arrow-support", "hdf5-support", "parquet-support", "mmap-support", "serialize", "sparse", "cuda", "opencl", "vulkan", "metal", "webgpu", "privacy", "federated", "gpu-acceleration", "async-support"]

@@ -1,0 +1,45 @@
+# Static quantization configuration with INT8 precision
+# Usage: torsh quantize --config examples/configs/quantize_static_int8.yaml
+
+input_model: ./models/resnet18_trained.torsh
+output_model: ./models/resnet18_int8.torsh
+
+# Quantization mode: dynamic, static, or qat
+mode: static
+
+# Target precision: int8, int4, fp16, or bf16
+precision: int8
+
+# Calibration dataset for static quantization
+calibration_data: ./data/cifar10/train
+calibration_samples: 1000
+
+# Quantization options
+per_channel: true
+symmetric: true
+
+# Accuracy validation
+accuracy_threshold: 0.99  # Min accuracy (99% of original)
+validation_data: ./data/cifar10/val
+
+# Layers to exclude from quantization (sensitive layers)
+exclude_layers:
+  - first_conv
+  - final_fc
+  - attention_*  # Wildcard pattern
+
+# Mixed precision configuration (optional)
+mixed_precision:
+  enabled: false
+  layer_precision:
+    conv_*: int8
+    fc_*: int8
+    bn_*: fp32  # Keep batch norm in FP32
+
+# Advanced options
+sensitivity_analysis: true  # Analyze layer sensitivity
+auto_fallback: true  # Revert sensitive layers to FP32
+
+# Output settings
+save_statistics: true
+statistics_path: ./models/quantization_stats.json

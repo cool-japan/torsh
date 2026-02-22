@@ -1,0 +1,41 @@
+# Benchmarking configuration for multi-device comparison
+# Usage: torsh benchmark --config examples/configs/benchmark_multi_device.yaml
+
+model_path: ./models/resnet50.torsh
+
+# Test configurations
+input_shapes:
+  - [3, 224, 224]    # Standard ImageNet input
+  - [3, 299, 299]    # Inception-style input
+  - [3, 512, 512]    # High-resolution input
+
+batch_sizes:
+  - 1      # Latency-optimized
+  - 8      # Small batch
+  - 16     # Medium batch
+  - 32     # Large batch
+  - 64     # Very large batch
+
+# Devices to test
+devices:
+  - cpu
+  - cuda:0
+  - cuda:1  # If available
+  - metal:0
+
+# Benchmark settings
+warmup_iterations: 10
+benchmark_iterations: 100
+
+# Profiling options
+profile_memory: true
+profile_compute: true
+
+# Output settings
+output_format: html  # json, csv, or html
+output_path: ./benchmarks/multi_device_report.html
+
+# Optional: Performance thresholds
+thresholds:
+  min_throughput: 100  # samples/sec
+  max_latency_p99: 50  # milliseconds

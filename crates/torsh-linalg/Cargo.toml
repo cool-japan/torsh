@@ -1,0 +1,50 @@
+[package]
+name = "torsh-linalg"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Linear algebra operations for ToRSh with SciRS2 integration"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-linalg"
+rust-version.workspace = true
+keywords = ["deep-learning", "linear-algebra", "matrix", "machine-learning", "blas"]
+categories = ["science", "mathematics"]
+
+[lints]
+workspace = true
+
+[dependencies]
+torsh-core = { workspace = true }
+torsh-tensor = { workspace = true }
+
+# SciRS2 ecosystem for linear algebra
+scirs2-core = { workspace = true, optional = true }
+scirs2-autograd = { workspace = true, optional = true }
+scirs2-linalg = { workspace = true, optional = true }
+
+# ✅ Pure Rust: C/Fortran BLAS/LAPACK backends removed (use OxiBLAS via scirs2-linalg)
+# ndarray-linalg = { version = "0.18", optional = true }  # REMOVED: OpenBLAS/MKL dependency
+# lapack = { version = "0.20", optional = true }          # REMOVED: Fortran LAPACK
+# blas = { version = "0.23", optional = true }            # REMOVED: Fortran BLAS
+
+# Error handling
+thiserror = { workspace = true }
+
+[features]
+default = ["scirs2-integration"]
+# ✅ Pure Rust: scirs2-integration uses OxiBLAS 0.1.2 (100% Rust BLAS/LAPACK)
+scirs2-integration = ["scirs2-core", "scirs2-autograd", "scirs2-linalg"]
+# lapack-backend = ["ndarray-linalg", "lapack", "blas"]  # REMOVED: Fortran/C backends
+advanced = ["scirs2-linalg"]
+gpu-acceleration = ["scirs2-core", "scirs2-linalg"]
+
+[dev-dependencies]
+approx = { workspace = true }
+criterion = { workspace = true }
+
+[[bench]]
+name = "linalg_bench"
+harness = false

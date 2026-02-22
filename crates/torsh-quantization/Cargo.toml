@@ -1,0 +1,55 @@
+[package]
+name = "torsh-quantization"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Model quantization for ToRSh neural networks"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-quantization"
+rust-version.workspace = true
+keywords = ["deep-learning", "quantization", "model-compression", "machine-learning", "inference"]
+categories = ["science", "algorithms"]
+
+[lints]
+workspace = true
+
+[dependencies]
+torsh-core = { workspace = true, features = ["serialize"] }
+torsh-tensor = { workspace = true, features = ["std"] }
+# torsh-nn = { path = "../torsh-nn" } # Temporarily disabled due to autograd issues
+thiserror = { workspace = true }
+scirs2-core = { workspace = true, features = ["random", "simd", "benchmarking", "parallel"] }
+serde_json = { workspace = true } # For JSON serialization
+serde = { workspace = true, features = ["derive"] } # For serialization
+num_cpus = "1.17" # For hardware info collection
+
+[features]
+default = ["std"]
+std = []
+experimental = []
+
+[dev-dependencies]
+approx = { workspace = true }
+tempfile = { workspace = true }
+proptest = { workspace = true }  # Property-based testing framework
+quickcheck = "1.0"  # Alternative property-based testing
+
+# Examples demonstrating quantization techniques
+[[example]]
+name = "basic_quantization"
+path = "examples/basic_quantization.rs"
+
+[[example]]
+name = "advanced_schemes"
+path = "examples/advanced_schemes.rs"
+
+[[example]]
+name = "batch_processing"
+path = "examples/batch_processing.rs"
+
+[[example]]
+name = "auto_config_demo"
+path = "examples/auto_config_demo.rs"

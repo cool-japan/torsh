@@ -1,0 +1,94 @@
+[package]
+name = "torsh-ffi"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "Python bindings for ToRSh (deep learning framework)"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-ffi"
+keywords = ["tensor", "deep-learning", "python", "pytorch", "bindings"]
+categories = ["science", "mathematics", "api-bindings"]
+# Exclude from standard publishing - this should be published through Maturin/PyPI
+publish = false
+build = "build.rs"
+
+[lints]
+workspace = true
+
+[lib]
+name = "rstorch"
+crate-type = ["cdylib"]
+doc = false  # Exclude from rustdoc to avoid collision with main torsh crate
+
+[features]
+# Python extension module - following QuantRS2-py architecture
+# This crate is dedicated to Python bindings only (no Pure Rust mode)
+default = ["nn", "optim", "data"]
+nn = ["torsh-nn"]
+optim = ["torsh-optim"]
+data = ["torsh-data"]
+gpu = []  # GPU acceleration support
+minimal = []  # Minimal bindings (core + tensor only)
+full = ["nn", "optim", "data", "gpu"]
+
+[dependencies]
+# Core dependencies (always included)
+torsh-core = { workspace = true }
+torsh-tensor = { workspace = true }
+
+# Optional modules (feature-gated)
+torsh-nn = { workspace = true, optional = true }
+torsh-optim = { workspace = true, optional = true }
+torsh-data = { workspace = true, optional = true }
+
+# SciRS2 dependencies (required for ToRSh SciRS2 policy compliance)
+scirs2-core.workspace = true
+
+# Error handling
+thiserror.workspace = true
+anyhow.workspace = true
+
+# Python bindings - REQUIRED (this is a Python extension module)
+# Following QuantRS2-py approach: extension-module + abi3 for compatibility
+pyo3 = { workspace = true, features = ["extension-module", "abi3-py38"] }
+numpy = { workspace = true }  # NumPy integration for tensor interop
+scirs2-numpy = { workspace = true, default-features = false }  # SciRS2-compatible numpy bindings (no auto-initialize)
+
+# Serialization
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+# Logging
+tracing.workspace = true
+
+# Utilities
+once_cell.workspace = true
+parking_lot = { workspace = true }
+num_cpus = "1.17"
+chrono = { workspace = true }
+walkdir = "2.5"
+uuid = { workspace = true }
+fastrand = "2.3"
+oxicode = { workspace = true }
+# rand_distr = "0.5.1"    # REMOVED: Use scirs2_core::random::prelude instead (SciRS2 POLICY)
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+# No build-dependencies needed - maturin handles everything
+
+# Examples temporarily disabled - need API updates after refactoring
+# [[example]]
+# name = "python_usage"
+
+# [[example]]
+# name = "rust_integration_example"
+
+# Maturin configuration for Python package building
+[package.metadata.maturin]
+python-source = "python"
+module-name = "rstorch"

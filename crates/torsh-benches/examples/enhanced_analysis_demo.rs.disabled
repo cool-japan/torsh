@@ -1,0 +1,388 @@
+//! Enhanced analysis demo for ToRSh benchmarks
+//!
+//! This example demonstrates the advanced analysis capabilities including:
+//! - Comprehensive system information gathering
+//! - Statistical analysis of benchmark results
+//! - Performance bottleneck identification
+//! - Optimization recommendations
+//! - Detailed reporting
+
+use std::time::Duration;
+use torsh_benches::prelude::*;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    println!("🧪 ToRSh Enhanced Benchmark Analysis Demo");
+    println!("=========================================\n");
+
+    // Step 1: Collect and analyze system information
+    println!("📋 Collecting System Information...");
+    let mut system_collector = SystemInfoCollector::new();
+    let system_info = system_collector.collect();
+
+    println!("✅ System Analysis Complete");
+    println!(
+        "   CPU: {} ({} cores, {} threads)",
+        system_info.cpu_info.model, system_info.cpu_info.cores, system_info.cpu_info.threads
+    );
+    println!(
+        "   Memory: {:.1} GB",
+        system_info.memory_info.total_memory as f64 / (1024.0 * 1024.0 * 1024.0)
+    );
+    println!(
+        "   Reproducibility Score: {:.1}%",
+        system_info.benchmark_environment.reproducibility_score * 100.0
+    );
+
+    // Check system optimization
+    let (is_optimized, recommendations) = is_system_optimized_for_benchmarking();
+    if !is_optimized {
+        println!("\n⚠️  System Optimization Issues Detected:");
+        for rec in &recommendations[..3.min(recommendations.len())] {
+            // Show first 3
+            println!("   {}", rec);
+        }
+        println!("   (See full report for complete recommendations)\n");
+    } else {
+        println!("✅ System is well-optimized for benchmarking\n");
+    }
+
+    // Step 2: Run sample benchmarks with enhanced tracking
+    println!("🏃 Running Enhanced Benchmark Suite...");
+    let benchmark_results = run_sample_benchmarks()?;
+
+    // Step 3: Perform advanced analysis
+    println!("🔬 Performing Advanced Analysis...");
+    let mut analyzer = BenchmarkAnalyzer::new();
+    let analyses = analyzer.analyze_results(&benchmark_results);
+
+    // Display analysis summary
+    println!(
+        "✅ Analysis Complete - {} benchmarks analyzed",
+        analyses.len()
+    );
+
+    for analysis in &analyses {
+        println!("\n📊 {}:", analysis.benchmark_name);
+        println!("   Performance: {:?}", analysis.performance_rating);
+        println!(
+            "   Variability: {:.1}% (σ/μ)",
+            analysis.statistics.coefficient_of_variation * 100.0
+        );
+
+        if analysis.bottleneck_analysis.memory_bound {
+            println!("   🧠 Memory-bound operation");
+            println!(
+                "   Cache Efficiency: {:.1}%",
+                analysis.bottleneck_analysis.cache_efficiency * 100.0
+            );
+        }
+
+        if analysis.bottleneck_analysis.compute_bound {
+            println!("   ⚡ Compute-bound operation");
+            println!(
+                "   Parallel Efficiency: {:.1}%",
+                analysis.bottleneck_analysis.parallel_efficiency * 100.0
+            );
+        }
+
+        println!(
+            "   Performance Gap: {:.1}% from theoretical peak",
+            analysis.bottleneck_analysis.performance_gap * 100.0
+        );
+    }
+
+    // Step 4: Generate comprehensive reports
+    println!("\n📄 Generating Reports...");
+
+    // Create output directory
+    std::fs::create_dir_all("target/enhanced_analysis")?;
+
+    // Generate system information report
+    system_collector
+        .generate_system_report(&system_info, "target/enhanced_analysis/system_info.md")?;
+    println!("✅ System report: target/enhanced_analysis/system_info.md");
+
+    // Generate analysis report
+    analyzer.generate_analysis_report(&analyses, "target/enhanced_analysis/analysis_report.md")?;
+    println!("✅ Analysis report: target/enhanced_analysis/analysis_report.md");
+
+    // Export detailed CSV
+    analyzer.export_detailed_csv(&analyses, "target/enhanced_analysis/detailed_results.csv")?;
+    println!("✅ Detailed CSV: target/enhanced_analysis/detailed_results.csv");
+
+    // Generate optimization recommendations
+    generate_optimization_guide(&system_info, &analyses)?;
+    println!("✅ Optimization guide: target/enhanced_analysis/optimization_guide.md");
+
+    // Display key insights
+    println!("\n🎯 Key Insights:");
+    display_key_insights(&analyses);
+
+    // Performance trend analysis (simulated)
+    println!("\n📈 Performance Trends:");
+    let trends = analyze_performance_trends(&analyses);
+    for trend in &trends {
+        println!("   {}", trend);
+    }
+
+    println!("\n🎉 Enhanced analysis complete!");
+    println!("📁 All reports saved to: target/enhanced_analysis/");
+
+    Ok(())
+}
+
+/// Run sample benchmarks for demonstration
+fn run_sample_benchmarks() -> Result<Vec<BenchResult>, Box<dyn std::error::Error>> {
+    let mut results = Vec::new();
+
+    // Simulate different types of benchmark results
+    let benchmark_configs = vec![
+        ("matrix_multiplication", vec![256, 512, 1024], true, false),
+        (
+            "elementwise_operations",
+            vec![10000, 100000, 1000000],
+            false,
+            true,
+        ),
+        ("memory_copy", vec![1024, 4096, 16384], false, true),
+        (
+            "reduction_operations",
+            vec![1000, 10000, 100000],
+            true,
+            true,
+        ),
+        ("convolution_2d", vec![32, 64, 128], true, false),
+    ];
+
+    for (name, sizes, compute_bound, memory_bound) in benchmark_configs {
+        for &size in &sizes {
+            // Simulate benchmark execution with realistic timing characteristics
+            let base_time = match name {
+                "matrix_multiplication" => (size * size * size) as f64 / 1e9, // O(n³)
+                "elementwise_operations" => size as f64 / 1e6,                // O(n)
+                "memory_copy" => size as f64 / 1e6, // Memory bandwidth limited
+                "reduction_operations" => size as f64 * (size as f64).log2() / 1e7, // O(n log n)
+                "convolution_2d" => (size * size * 64 * 9) as f64 / 1e8, // Convolution complexity
+                _ => size as f64 / 1e6,
+            };
+
+            // Add some realistic variance
+            let variance_factor = if memory_bound { 0.15 } else { 0.05 };
+            let time_ns = base_time * 1e9 * (1.0 + variance_factor * (rand::random::<f64>() - 0.5));
+
+            // Calculate realistic throughput
+            let ops_per_second = match name {
+                "matrix_multiplication" => (size * size * size) as f64 / (time_ns / 1e9),
+                "elementwise_operations" => size as f64 / (time_ns / 1e9),
+                _ => size as f64 / (time_ns / 1e9),
+            };
+
+            results.push(BenchResult {
+                name: name.to_string(),
+                size,
+                dtype: torsh_core::dtype::DType::F32,
+                mean_time_ns: time_ns,
+                std_dev_ns: time_ns * variance_factor,
+                throughput: Some(ops_per_second),
+                memory_usage: Some(size * size * 4), // Assume f32
+                peak_memory: Some(size * size * 4 * 2), // Double for intermediate results
+                metrics: {
+                    let mut m = std::collections::HashMap::new();
+                    m.insert(
+                        "compute_bound".to_string(),
+                        if compute_bound { 1.0 } else { 0.0 },
+                    );
+                    m.insert(
+                        "memory_bound".to_string(),
+                        if memory_bound { 1.0 } else { 0.0 },
+                    );
+                    m
+                },
+            });
+        }
+    }
+
+    Ok(results)
+}
+
+/// Display key insights from analysis
+fn display_key_insights(analyses: &[PerformanceAnalysis]) {
+    let excellent_count = analyses
+        .iter()
+        .filter(|a| matches!(a.performance_rating, PerformanceRating::Excellent))
+        .count();
+
+    let memory_bound_count = analyses
+        .iter()
+        .filter(|a| a.bottleneck_analysis.memory_bound)
+        .count();
+
+    let compute_bound_count = analyses
+        .iter()
+        .filter(|a| a.bottleneck_analysis.compute_bound)
+        .count();
+
+    let avg_variability = analyses
+        .iter()
+        .map(|a| a.statistics.coefficient_of_variation)
+        .sum::<f64>()
+        / analyses.len() as f64;
+
+    let avg_performance_gap = analyses
+        .iter()
+        .map(|a| a.bottleneck_analysis.performance_gap)
+        .sum::<f64>()
+        / analyses.len() as f64;
+
+    println!(
+        "   📈 {}/{} benchmarks show excellent performance",
+        excellent_count,
+        analyses.len()
+    );
+    println!(
+        "   🧠 {}/{} operations are memory-bound",
+        memory_bound_count,
+        analyses.len()
+    );
+    println!(
+        "   ⚡ {}/{} operations are compute-bound",
+        compute_bound_count,
+        analyses.len()
+    );
+    println!("   📊 Average variability: {:.1}%", avg_variability * 100.0);
+    println!(
+        "   🎯 Average performance gap: {:.1}%",
+        avg_performance_gap * 100.0
+    );
+}
+
+/// Generate optimization guide
+fn generate_optimization_guide(
+    system_info: &SystemInfo,
+    analyses: &[PerformanceAnalysis],
+) -> Result<(), Box<dyn std::error::Error>> {
+    use std::io::Write;
+    let mut file = std::fs::File::create("target/enhanced_analysis/optimization_guide.md")?;
+
+    writeln!(file, "# ToRSh Optimization Guide")?;
+    writeln!(
+        file,
+        "Generated: {}\n",
+        chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC")
+    )?;
+
+    writeln!(file, "## Executive Summary\n")?;
+
+    let memory_bound_count = analyses
+        .iter()
+        .filter(|a| a.bottleneck_analysis.memory_bound)
+        .count();
+    let compute_bound_count = analyses
+        .iter()
+        .filter(|a| a.bottleneck_analysis.compute_bound)
+        .count();
+
+    if memory_bound_count > compute_bound_count {
+        writeln!(file, "🧠 **Primary Focus: Memory Optimization**\n")?;
+        writeln!(
+            file,
+            "Your workload is predominantly memory-bound. Focus on:"
+        )?;
+        writeln!(file, "- Data layout optimization (AoS vs SoA)")?;
+        writeln!(file, "- Cache-friendly algorithms and blocking")?;
+        writeln!(file, "- Memory prefetching strategies")?;
+        writeln!(file, "- Reducing memory traffic through fusion\n")?;
+    } else {
+        writeln!(file, "⚡ **Primary Focus: Compute Optimization**\n")?;
+        writeln!(
+            file,
+            "Your workload is predominantly compute-bound. Focus on:"
+        )?;
+        writeln!(file, "- SIMD utilization (AVX, AVX2, AVX-512)")?;
+        writeln!(file, "- Parallelization strategies")?;
+        writeln!(file, "- Specialized compute libraries")?;
+        writeln!(file, "- Algorithm optimization\n")?;
+    }
+
+    writeln!(file, "## System-Specific Recommendations\n")?;
+    for rec in &system_info.optimization_recommendations {
+        writeln!(file, "{}", rec)?;
+    }
+
+    writeln!(file, "\n## Benchmark-Specific Optimizations\n")?;
+
+    for analysis in analyses {
+        if !matches!(analysis.performance_rating, PerformanceRating::Excellent) {
+            writeln!(file, "### {}\n", analysis.benchmark_name)?;
+            writeln!(
+                file,
+                "**Current Performance**: {:?}",
+                analysis.performance_rating
+            )?;
+            writeln!(
+                file,
+                "**Bottleneck**: {}",
+                if analysis.bottleneck_analysis.memory_bound {
+                    "Memory-bound"
+                } else if analysis.bottleneck_analysis.compute_bound {
+                    "Compute-bound"
+                } else {
+                    "Mixed"
+                }
+            )?;
+
+            writeln!(file, "\n**Specific Recommendations:**")?;
+            for rec in &analysis.recommendations {
+                writeln!(file, "{}", rec)?;
+            }
+            writeln!(file)?;
+        }
+    }
+
+    writeln!(file, "## Implementation Checklist\n")?;
+    writeln!(file, "### Immediate Actions")?;
+    writeln!(file, "- [ ] Verify release build mode")?;
+    writeln!(file, "- [ ] Set RUSTFLAGS=\"-C target-cpu=native\"")?;
+    writeln!(file, "- [ ] Configure optimal thread count")?;
+    writeln!(file, "- [ ] Check system governor settings\n")?;
+
+    writeln!(file, "### Medium-term Optimizations")?;
+    writeln!(file, "- [ ] Profile with detailed performance counters")?;
+    writeln!(file, "- [ ] Implement operation fusion where beneficial")?;
+    writeln!(file, "- [ ] Optimize data layouts for cache efficiency")?;
+    writeln!(file, "- [ ] Consider specialized libraries (BLAS, etc.)\n")?;
+
+    writeln!(file, "### Long-term Improvements")?;
+    writeln!(file, "- [ ] Algorithm analysis and replacement")?;
+    writeln!(file, "- [ ] Custom SIMD kernels for hot paths")?;
+    writeln!(file, "- [ ] Hardware-specific optimizations")?;
+    writeln!(file, "- [ ] Memory hierarchy optimizations\n")?;
+
+    writeln!(file, "---")?;
+    writeln!(file, "*Generated by ToRSh Enhanced Analysis Suite*")?;
+
+    Ok(())
+}
+
+// Mock rand for simple demonstration
+mod rand {
+    pub fn random<T>() -> T
+    where
+        T: From<f64>,
+    {
+        T::from(0.5) // Simple mock - always return 0.5
+    }
+}
+
+// Mock num_cpus for demonstration
+mod num_cpus {
+    pub fn get() -> usize {
+        std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(4)
+    }
+
+    pub fn get_physical() -> usize {
+        get() / 2
+    }
+}
