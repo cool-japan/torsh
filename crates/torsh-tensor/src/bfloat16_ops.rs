@@ -216,22 +216,22 @@ mod tests {
             bf16::from_f32(2.0),
             bf16::from_f32(3.0),
         ];
-        let tensor = creation::tensor_1d(&data).unwrap();
+        let tensor = creation::tensor_1d(&data).expect("bf16 tensor creation failed");
 
         assert_eq!(tensor.shape().dims(), &[3]);
-        assert_eq!(tensor.data().unwrap(), data);
+        assert_eq!(tensor.data().expect("data retrieval failed"), data);
     }
 
     #[test]
     fn test_bf16_zeros_ones() {
-        let zeros = creation::zeros::<bf16>(&[2, 3]).unwrap();
+        let zeros = creation::zeros::<bf16>(&[2, 3]).expect("zeros creation failed");
         assert_eq!(zeros.shape().dims(), &[2, 3]);
 
-        let zeros_data = zeros.data().unwrap();
+        let zeros_data = zeros.data().expect("data retrieval failed");
         assert!(zeros_data.iter().all(|&x| x == bf16::from_f32(0.0)));
 
-        let ones = creation::ones::<bf16>(&[2, 3]).unwrap();
-        let ones_data = ones.data().unwrap();
+        let ones = creation::ones::<bf16>(&[2, 3]).expect("ones creation failed");
+        let ones_data = ones.data().expect("data retrieval failed");
         assert!(ones_data.iter().all(|&x| x == bf16::from_f32(1.0)));
     }
 
@@ -244,17 +244,17 @@ mod tests {
             &f32_data,
             BF16RoundingMode::NearestTiesToEven,
         )
-        .unwrap();
+        .expect("nearest_even creation failed");
         let nearest_away =
             super::creation::tensor_1d_bf16_from_f32(&f32_data, BF16RoundingMode::NearestTiesAway)
-                .unwrap();
+                .expect("nearest_away creation failed");
         let toward_zero =
             super::creation::tensor_1d_bf16_from_f32(&f32_data, BF16RoundingMode::TowardZero)
-                .unwrap();
+                .expect("toward_zero creation failed");
 
-        let nearest_even_data = nearest_even.data().unwrap();
-        let nearest_away_data = nearest_away.data().unwrap();
-        let toward_zero_data = toward_zero.data().unwrap();
+        let nearest_even_data = nearest_even.data().expect("data retrieval failed");
+        let nearest_away_data = nearest_away.data().expect("data retrieval failed");
+        let toward_zero_data = toward_zero.data().expect("data retrieval failed");
 
         // Verify different rounding behaviors for tie cases
         assert_eq!(
@@ -273,13 +273,15 @@ mod tests {
 
     #[test]
     fn test_bf16_arithmetic_with_rounding() {
-        let a = creation::tensor_1d(&[bf16::from_f32(1.5), bf16::from_f32(2.5)]).unwrap();
-        let b = creation::tensor_1d(&[bf16::from_f32(0.5), bf16::from_f32(1.5)]).unwrap();
+        let a = creation::tensor_1d(&[bf16::from_f32(1.5), bf16::from_f32(2.5)])
+            .expect("tensor creation failed");
+        let b = creation::tensor_1d(&[bf16::from_f32(0.5), bf16::from_f32(1.5)])
+            .expect("tensor creation failed");
 
         let result = a
             .add_with_rounding(&b, BF16RoundingMode::NearestTiesToEven)
-            .unwrap();
-        let result_data = result.data().unwrap();
+            .expect("add_with_rounding failed");
+        let result_data = result.data().expect("data retrieval failed");
 
         assert_relative_eq!(result_data[0].to_f32(), 2.0, epsilon = 1e-6);
         assert_relative_eq!(result_data[1].to_f32(), 4.0, epsilon = 1e-6);
@@ -287,16 +289,17 @@ mod tests {
 
     #[test]
     fn test_bf16_conversion() {
-        let f32_tensor = creation::tensor_1d(&[1.0f32, 2.0f32, 3.0f32]).unwrap();
+        let f32_tensor =
+            creation::tensor_1d(&[1.0f32, 2.0f32, 3.0f32]).expect("tensor creation failed");
 
         // Convert to bf16
         let bf16_tensor = f32_tensor
             .to_bf16_with_rounding(BF16RoundingMode::NearestTiesToEven)
-            .unwrap();
+            .expect("to_bf16 conversion failed");
 
         // Convert back to f32
-        let f32_converted = bf16_tensor.to_f32().unwrap();
-        let f32_converted_data = f32_converted.data().unwrap();
+        let f32_converted = bf16_tensor.to_f32().expect("to_f32 conversion failed");
+        let f32_converted_data = f32_converted.data().expect("data retrieval failed");
 
         // Should be approximately equal (some precision loss expected)
         assert_relative_eq!(f32_converted_data[0], 1.0, epsilon = 1e-2);
@@ -306,7 +309,8 @@ mod tests {
 
     #[test]
     fn test_bf16_high_precision_op() {
-        let bf16_tensor = creation::tensor_1d(&[bf16::from_f32(1.0), bf16::from_f32(2.0)]).unwrap();
+        let bf16_tensor = creation::tensor_1d(&[bf16::from_f32(1.0), bf16::from_f32(2.0)])
+            .expect("tensor creation failed");
 
         // Apply a complex operation in high precision
         let result = bf16_tensor
@@ -314,23 +318,26 @@ mod tests {
                 let doubled = t.mul_op(t)?; // Square in f32 precision
                 doubled.add_scalar(1.0) // Add 1 in f32 precision
             })
-            .unwrap();
+            .expect("bf16_high_precision_op failed");
 
-        let result_data = result.data().unwrap();
+        let result_data = result.data().expect("data retrieval failed");
         assert_relative_eq!(result_data[0].to_f32(), 2.0, epsilon = 1e-2); // 1^2 + 1 = 2
         assert_relative_eq!(result_data[1].to_f32(), 5.0, epsilon = 1e-2); // 2^2 + 1 = 5
     }
 
     #[test]
     fn test_bf16_fma() {
-        let a = creation::tensor_1d(&[bf16::from_f32(2.0), bf16::from_f32(3.0)]).unwrap();
-        let b = creation::tensor_1d(&[bf16::from_f32(4.0), bf16::from_f32(5.0)]).unwrap();
-        let c = creation::tensor_1d(&[bf16::from_f32(1.0), bf16::from_f32(2.0)]).unwrap();
+        let a = creation::tensor_1d(&[bf16::from_f32(2.0), bf16::from_f32(3.0)])
+            .expect("tensor creation failed");
+        let b = creation::tensor_1d(&[bf16::from_f32(4.0), bf16::from_f32(5.0)])
+            .expect("tensor creation failed");
+        let c = creation::tensor_1d(&[bf16::from_f32(1.0), bf16::from_f32(2.0)])
+            .expect("tensor creation failed");
 
         let result = a
             .fma_with_rounding(&b, &c, BF16RoundingMode::NearestTiesToEven)
-            .unwrap();
-        let result_data = result.data().unwrap();
+            .expect("fma_with_rounding failed");
+        let result_data = result.data().expect("data retrieval failed");
 
         // FMA: a * b + c
         assert_relative_eq!(result_data[0].to_f32(), 9.0, epsilon = 1e-2); // 2 * 4 + 1 = 9
@@ -347,15 +354,15 @@ mod tests {
             &[large_value],
             BF16RoundingMode::NearestTiesToEven,
         )
-        .unwrap();
+        .expect("large tensor creation failed");
         let small_tensor = super::creation::tensor_1d_bf16_from_f32(
             &[small_value],
             BF16RoundingMode::NearestTiesToEven,
         )
-        .unwrap();
+        .expect("small tensor creation failed");
 
-        let large_data = large_tensor.data().unwrap();
-        let small_data = small_tensor.data().unwrap();
+        let large_data = large_tensor.data().expect("data retrieval failed");
+        let small_data = small_tensor.data().expect("data retrieval failed");
 
         // Large values should be preserved with some precision loss
         assert!((large_data[0].to_f32() - large_value).abs() < 1000.0);

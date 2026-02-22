@@ -415,7 +415,7 @@ mod tests {
     fn test_recoverable_operation_success() {
         let recoverable = RecoverableOperation::new("test_operation");
         let result = recoverable.execute(|| Ok(42));
-        assert_eq!(result.unwrap(), 42);
+        assert_eq!(result.expect("execute should succeed"), 42);
     }
 
     #[test]
@@ -433,7 +433,7 @@ mod tests {
             5,
         );
 
-        assert_eq!(result.unwrap(), 42);
+        assert_eq!(result.expect("with_retry should succeed"), 42);
         assert_eq!(counter, 3);
     }
 
@@ -444,7 +444,7 @@ mod tests {
             100,
         );
 
-        assert_eq!(result.unwrap(), 100);
+        assert_eq!(result.expect("with_fallback should succeed"), 100);
     }
 
     #[test]

@@ -424,9 +424,9 @@ impl<
 
         indexed_values.sort_by(|a, b| {
             TensorElement::to_f64(&a.1)
-                .unwrap()
+                .expect("f64 conversion should succeed")
                 .partial_cmp(&TensorElement::to_f64(&b.1).expect("f64 conversion should succeed"))
-                .unwrap()
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         // Assign ranks (1-based, handle ties with average rank)
@@ -603,37 +603,74 @@ mod tests {
     #[test]
     fn test_basic_statistics() {
         let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-        let tensor = Tensor::from_data(data, vec![5], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![5], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let mean = tensor.mean(None, false).unwrap();
-        assert!((mean.to_vec().unwrap()[0] - 3.0_f32).abs() < 1e-6_f32);
+        let mean = tensor.mean(None, false).expect("mean should succeed");
+        assert!(
+            (mean.to_vec().expect("to_vec conversion should succeed")[0] - 3.0_f32).abs()
+                < 1e-6_f32
+        );
 
-        let var_sample = tensor.var(None, false, StatMode::Sample).unwrap();
-        assert!((var_sample.to_vec().unwrap()[0] - 2.5_f32).abs() < 1e-6_f32);
+        let var_sample = tensor
+            .var(None, false, StatMode::Sample)
+            .expect("variance should succeed");
+        assert!(
+            (var_sample
+                .to_vec()
+                .expect("to_vec conversion should succeed")[0]
+                - 2.5_f32)
+                .abs()
+                < 1e-6_f32
+        );
 
-        let std_sample = tensor.std(None, false, StatMode::Sample).unwrap();
-        assert!((std_sample.to_vec().unwrap()[0] - 2.5_f32.sqrt()).abs() < 1e-6);
+        let std_sample = tensor
+            .std(None, false, StatMode::Sample)
+            .expect("std should succeed");
+        assert!(
+            (std_sample
+                .to_vec()
+                .expect("to_vec conversion should succeed")[0]
+                - 2.5_f32.sqrt())
+            .abs()
+                < 1e-6
+        );
     }
 
     #[test]
     fn test_percentiles() {
         let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0];
-        let tensor = Tensor::from_data(data, vec![10], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![10], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let median = tensor.median(None, false).unwrap();
-        assert!((median.to_vec().unwrap()[0] - 5.5_f32).abs() < 1e-6_f32);
+        let median = tensor.median(None, false).expect("median should succeed");
+        assert!(
+            (median.to_vec().expect("to_vec conversion should succeed")[0] - 5.5_f32).abs()
+                < 1e-6_f32
+        );
 
-        let q25 = tensor.percentile(25.0, None, false).unwrap();
-        assert!((q25.to_vec().unwrap()[0] - 3.25_f32).abs() < 1e-6_f32);
+        let q25 = tensor
+            .percentile(25.0, None, false)
+            .expect("percentile should succeed");
+        assert!(
+            (q25.to_vec().expect("to_vec conversion should succeed")[0] - 3.25_f32).abs()
+                < 1e-6_f32
+        );
 
-        let q75 = tensor.percentile(75.0, None, false).unwrap();
-        assert!((q75.to_vec().unwrap()[0] - 7.75_f32).abs() < 1e-6_f32);
+        let q75 = tensor
+            .percentile(75.0, None, false)
+            .expect("percentile should succeed");
+        assert!(
+            (q75.to_vec().expect("to_vec conversion should succeed")[0] - 7.75_f32).abs()
+                < 1e-6_f32
+        );
     }
 
     #[test]
     fn test_histogram() {
         let data = vec![1.0, 2.0, 2.0, 3.0, 3.0, 3.0, 4.0, 4.0, 5.0];
-        let tensor = Tensor::from_data(data, vec![9], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![9], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
         let config = HistogramConfig {
             bins: 5,
@@ -642,7 +679,7 @@ mod tests {
             include_outliers: true,
         };
 
-        let hist = tensor.histogram(&config).unwrap();
+        let hist = tensor.histogram(&config).expect("histogram should succeed");
         assert_eq!(hist.total_count, 9);
         assert_eq!(hist.counts.len(), 5);
         assert_eq!(hist.edges.len(), 6);
@@ -653,19 +690,24 @@ mod tests {
         let x_data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let y_data = vec![2.0, 4.0, 6.0, 8.0, 10.0]; // Perfect positive correlation
 
-        let x = Tensor::from_data(x_data, vec![5], DeviceType::Cpu).unwrap();
-        let y = Tensor::from_data(y_data, vec![5], DeviceType::Cpu).unwrap();
+        let x = Tensor::from_data(x_data, vec![5], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
+        let y = Tensor::from_data(y_data, vec![5], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let corr = x.correlation(&y, CorrelationMethod::Pearson).unwrap();
+        let corr = x
+            .correlation(&y, CorrelationMethod::Pearson)
+            .expect("correlation should succeed");
         assert!((corr - 1.0_f32).abs() < 1e-6_f32); // Should be 1.0 for perfect positive correlation
     }
 
     #[test]
     fn test_statistical_summary() {
         let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0];
-        let tensor = Tensor::from_data(data, vec![10], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![10], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let summary = tensor.describe().unwrap();
+        let summary = tensor.describe().expect("describe should succeed");
         assert_eq!(summary.count, 10);
         assert!((summary.mean - 5.5).abs() < 1e-6);
         assert!((summary.q50 - 5.5).abs() < 1e-6); // Median
@@ -677,13 +719,18 @@ mod tests {
     fn test_covariance_matrix() {
         // Create a 2D tensor (samples x features)
         let data = vec![1.0, 2.0, 2.0, 4.0, 3.0, 6.0, 4.0, 8.0];
-        let tensor = Tensor::from_data(data, vec![4, 2], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![4, 2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let cov_matrix = tensor.cov(StatMode::Sample).unwrap();
+        let cov_matrix = tensor
+            .cov(StatMode::Sample)
+            .expect("covariance should succeed");
         assert_eq!(cov_matrix.shape().dims(), &[2, 2]);
 
         // Check that it's symmetric (off-diagonal elements should be equal)
-        let cov_data = cov_matrix.to_vec().unwrap();
+        let cov_data = cov_matrix
+            .to_vec()
+            .expect("to_vec conversion should succeed");
         // For a 2x2 matrix [[a, b], [c, d]] stored as [a, b, c, d]:
         // Symmetry means b == c (cov_data[1] == cov_data[2])
         assert!((cov_data[1] as f64 - cov_data[2] as f64).abs() < 1e-6);
@@ -692,10 +739,11 @@ mod tests {
     #[test]
     fn test_ranks() {
         let data = vec![3.0, 1.0, 4.0, 2.0, 2.0]; // Contains ties
-        let tensor = Tensor::from_data(data, vec![5], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![5], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let ranks = tensor.rank().unwrap();
-        let rank_data = ranks.to_vec().unwrap();
+        let ranks = tensor.rank().expect("rank should be available");
+        let rank_data = ranks.to_vec().expect("to_vec conversion should succeed");
 
         // Check that ranks are in expected range
         for &rank in rank_data.iter() {

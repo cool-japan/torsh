@@ -76,8 +76,8 @@ impl GeometricGraphBuilder {
         }
 
         let num_edges = edges.len() / 2;
-        let edge_index =
-            from_vec(edges, &[2, num_edges], torsh_core::device::DeviceType::Cpu).unwrap();
+        let edge_index = from_vec(edges, &[2, num_edges], torsh_core::device::DeviceType::Cpu)
+            .expect("knn edge tensor creation should succeed");
 
         // Use provided features or create default features
         let x = features.unwrap_or_else(|| {
@@ -87,7 +87,7 @@ impl GeometricGraphBuilder {
                 &[num_points, 3],
                 torsh_core::device::DeviceType::Cpu,
             )
-            .unwrap()
+            .expect("coordinate feature tensor creation should succeed")
         });
 
         let mut graph = GraphData::new(x, edge_index);
@@ -98,7 +98,7 @@ impl GeometricGraphBuilder {
             &[num_edges, 1],
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("edge attribute tensor creation should succeed");
         graph.edge_attr = Some(edge_attr);
 
         graph
@@ -127,9 +127,11 @@ impl GeometricGraphBuilder {
 
         let num_edges = edges.len() / 2;
         let edge_index = if num_edges > 0 {
-            from_vec(edges, &[2, num_edges], torsh_core::device::DeviceType::Cpu).unwrap()
+            from_vec(edges, &[2, num_edges], torsh_core::device::DeviceType::Cpu)
+                .expect("radius edge tensor creation should succeed")
         } else {
-            from_vec(vec![], &[2, 0], torsh_core::device::DeviceType::Cpu).unwrap()
+            from_vec(vec![], &[2, 0], torsh_core::device::DeviceType::Cpu)
+                .expect("empty edge tensor creation should succeed")
         };
 
         let x = features.unwrap_or_else(|| {
@@ -139,7 +141,7 @@ impl GeometricGraphBuilder {
                 &[num_points, 3],
                 torsh_core::device::DeviceType::Cpu,
             )
-            .unwrap()
+            .expect("coordinate feature tensor creation should succeed")
         });
 
         let mut graph = GraphData::new(x, edge_index);
@@ -150,7 +152,7 @@ impl GeometricGraphBuilder {
                 &[num_edges, 1],
                 torsh_core::device::DeviceType::Cpu,
             )
-            .unwrap();
+            .expect("edge attribute tensor creation should succeed");
             graph.edge_attr = Some(edge_attr);
         }
 
@@ -195,8 +197,8 @@ impl GeometricGraphBuilder {
         }
 
         let num_edges = edges.len() / 2;
-        let edge_index =
-            from_vec(edges, &[2, num_edges], torsh_core::device::DeviceType::Cpu).unwrap();
+        let edge_index = from_vec(edges, &[2, num_edges], torsh_core::device::DeviceType::Cpu)
+            .expect("delaunay edge tensor creation should succeed");
 
         let x = features.unwrap_or_else(|| {
             let coords: Vec<f32> = points.iter().flat_map(|(x, y)| vec![*x, *y]).collect();
@@ -205,7 +207,7 @@ impl GeometricGraphBuilder {
                 &[num_points, 2],
                 torsh_core::device::DeviceType::Cpu,
             )
-            .unwrap()
+            .expect("coordinate feature tensor creation should succeed")
         });
 
         GraphData::new(x, edge_index)
@@ -235,14 +237,25 @@ impl GeometricConv {
     /// Create a new geometric convolution layer
     pub fn new(in_features: usize, out_features: usize, hidden_dim: usize, use_bias: bool) -> Self {
         // MLP layers for message generation
-        let message_layer1 = Parameter::new(randn(&[in_features * 2 + 1, hidden_dim]).unwrap());
-        let message_layer2 = Parameter::new(randn(&[hidden_dim, hidden_dim]).unwrap());
+        let message_layer1 = Parameter::new(
+            randn(&[in_features * 2 + 1, hidden_dim])
+                .expect("randn should succeed for valid dimensions"),
+        );
+        let message_layer2 = Parameter::new(
+            randn(&[hidden_dim, hidden_dim]).expect("randn should succeed for valid dimensions"),
+        );
 
-        let distance_encoder = Parameter::new(randn(&[1, hidden_dim]).unwrap());
-        let output_weight = Parameter::new(randn(&[hidden_dim, out_features]).unwrap());
+        let distance_encoder = Parameter::new(
+            randn(&[1, hidden_dim]).expect("randn should succeed for valid dimensions"),
+        );
+        let output_weight = Parameter::new(
+            randn(&[hidden_dim, out_features]).expect("randn should succeed for valid dimensions"),
+        );
 
         let bias = if use_bias {
-            Some(Parameter::new(zeros(&[out_features]).unwrap()))
+            Some(Parameter::new(
+                zeros(&[out_features]).expect("zeros should succeed for valid dimensions"),
+            ))
         } else {
             None
         };
@@ -346,7 +359,7 @@ impl GeometricConv {
             &[num_nodes, self.out_features],
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("output tensor creation should succeed");
 
         let mut output_graph = graph.clone();
         output_graph.x = output;
@@ -573,7 +586,7 @@ impl GeometricPooling {
             &[pooled_points.len(), feature_dim],
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("pooled tensor creation should succeed");
 
         (pooled_points, pooled_tensor)
     }
@@ -612,7 +625,7 @@ impl GeometricPooling {
                 .enumerate()
                 .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(Ordering::Equal))
                 .map(|(idx, _)| idx)
-                .unwrap();
+                .unwrap_or(0);
 
             selected.push(farthest_idx);
 
@@ -640,7 +653,7 @@ impl GeometricPooling {
             &[num_samples, feature_dim],
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("sampled tensor creation should succeed");
 
         (sampled_points, sampled_tensor)
     }

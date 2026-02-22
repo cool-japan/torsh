@@ -377,21 +377,42 @@ mod tests {
 
     #[test]
     fn test_parse_device_string() {
-        assert_eq!(parse_device_string("cpu").unwrap(), DeviceType::Cpu);
-        assert_eq!(parse_device_string("cuda:0").unwrap(), DeviceType::Cuda(0));
-        assert_eq!(parse_device_string("cuda").unwrap(), DeviceType::Cuda(0));
         assert_eq!(
-            parse_device_string("metal:1").unwrap(),
+            parse_device_string("cpu").expect("parse should succeed"),
+            DeviceType::Cpu
+        );
+        assert_eq!(
+            parse_device_string("cuda:0").expect("parse should succeed"),
+            DeviceType::Cuda(0)
+        );
+        assert_eq!(
+            parse_device_string("cuda").expect("parse should succeed"),
+            DeviceType::Cuda(0)
+        );
+        assert_eq!(
+            parse_device_string("metal:1").expect("parse should succeed"),
             DeviceType::Metal(1)
         );
-        assert_eq!(parse_device_string("wgpu:2").unwrap(), DeviceType::Wgpu(2));
+        assert_eq!(
+            parse_device_string("wgpu:2").expect("parse should succeed"),
+            DeviceType::Wgpu(2)
+        );
 
         // Test case insensitivity
-        assert_eq!(parse_device_string("CPU").unwrap(), DeviceType::Cpu);
-        assert_eq!(parse_device_string("CUDA:0").unwrap(), DeviceType::Cuda(0));
+        assert_eq!(
+            parse_device_string("CPU").expect("parse should succeed"),
+            DeviceType::Cpu
+        );
+        assert_eq!(
+            parse_device_string("CUDA:0").expect("parse should succeed"),
+            DeviceType::Cuda(0)
+        );
 
         // Test whitespace handling
-        assert_eq!(parse_device_string("  cpu  ").unwrap(), DeviceType::Cpu);
+        assert_eq!(
+            parse_device_string("  cpu  ").expect("parse should succeed"),
+            DeviceType::Cpu
+        );
 
         // Test invalid inputs
         assert!(parse_device_string("invalid").is_err());
@@ -451,10 +472,10 @@ mod tests {
 
     #[test]
     fn test_from_str_trait() {
-        let device: DeviceType = "cuda:1".parse().unwrap();
+        let device: DeviceType = "cuda:1".parse().expect("parse should succeed");
         assert_eq!(device, DeviceType::Cuda(1));
 
-        let device: DeviceType = "cpu".parse().unwrap();
+        let device: DeviceType = "cpu".parse().expect("parse should succeed");
         assert_eq!(device, DeviceType::Cpu);
     }
 }

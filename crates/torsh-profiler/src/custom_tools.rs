@@ -520,7 +520,7 @@ mod tests {
             enabled: true,
             sampling_rate: 0.5,
             buffer_size: 2048,
-            output_path: Some("/tmp/test".to_string()),
+            output_path: Some(std::env::temp_dir().join("test").display().to_string()),
             custom_options: {
                 let mut opts = HashMap::new();
                 opts.insert("key1".to_string(), "value1".to_string());

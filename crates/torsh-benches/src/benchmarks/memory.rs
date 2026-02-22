@@ -53,14 +53,15 @@ impl Benchmarkable for MemoryBench {
         for i in 0..10 {
             let tensor_size = size + i * 10; // Vary sizes slightly
             let shape = vec![tensor_size, tensor_size];
-            let tensor = prevent_optimization(zeros::<f32>(&shape).unwrap());
+            let tensor =
+                prevent_optimization(zeros::<f32>(&shape).expect("tensor creation should succeed"));
             tensors.push(tensor);
         }
 
         // Test immediate deallocation pattern
         for _i in 0..5 {
             let shape = vec![size / 2, size / 2];
-            let tensor = zeros::<f32>(&shape).unwrap();
+            let tensor = zeros::<f32>(&shape).expect("tensor creation should succeed");
             tensors.push(prevent_optimization(tensor));
             // Tensor automatically deallocated when going out of scope
         }
@@ -360,7 +361,7 @@ impl Benchmarkable for ConcurrentMemoryBench {
 
         // Wait for all threads to complete
         for handle in handles {
-            handle.join().unwrap();
+            handle.join().expect("thread should not panic");
         }
 
         let total_duration = start_time.elapsed();
@@ -433,7 +434,7 @@ impl Benchmarkable for MemoryCopyBench {
 
     fn setup(&mut self, size: usize) -> Self::Input {
         let shape = vec![size, size];
-        rand::<f32>(&shape).unwrap()
+        rand::<f32>(&shape).expect("tensor creation should succeed")
     }
 
     fn run(&mut self, input: &Self::Input) -> Self::Output {
@@ -523,7 +524,7 @@ impl Benchmarkable for MemoryReallocBench {
 
     fn setup(&mut self, size: usize) -> Self::Input {
         let initial_shape = vec![size / 2, size / 2];
-        zeros::<f32>(&initial_shape).unwrap()
+        zeros::<f32>(&initial_shape).expect("tensor creation should succeed")
     }
 
     fn run(&mut self, input: &Self::Input) -> Self::Output {

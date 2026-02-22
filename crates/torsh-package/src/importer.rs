@@ -1,13 +1,12 @@
 //! Package importer functionality
 
 use crate::{Package, PackageManifest, Resource, ResourceType};
+use oxiarc_archive::zip::ZipReader;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{self, Read};
 use std::path::Path;
 use tempfile::TempDir;
 use torsh_core::error::{Result, TorshError};
-use zip::read::ZipArchive;
 
 /// Configuration for package import
 #[derive(Debug, Clone)]
@@ -68,7 +67,7 @@ impl PackageImporter {
 
         // Open zip file
         let file = File::open(path)?;
-        let mut archive = ZipArchive::new(file)
+        let mut archive = ZipReader::new(file)
             .map_err(|e| TorshError::IoError(format!("Failed to open package: {}", e)))?;
 
         // Read manifest first
@@ -107,13 +106,19 @@ impl PackageImporter {
     }
 
     /// Read manifest from archive
-    fn read_manifest(&self, archive: &mut ZipArchive<File>) -> Result<PackageManifest> {
-        let mut manifest_file = archive
-            .by_name("MANIFEST.json")
-            .map_err(|_| TorshError::InvalidArgument("No manifest found in package".to_string()))?;
+    fn read_manifest(&self, archive: &mut ZipReader<File>) -> Result<PackageManifest> {
+        let entry = archive
+            .entry_by_name("MANIFEST.json")
+            .ok_or_else(|| TorshError::InvalidArgument("No manifest found in package".to_string()))?
+            .clone();
 
-        let mut manifest_json = String::new();
-        manifest_file.read_to_string(&mut manifest_json)?;
+        let data = archive
+            .extract(&entry)
+            .map_err(|e| TorshError::IoError(format!("Failed to read manifest: {}", e)))?;
+
+        let manifest_json = String::from_utf8(data).map_err(|e| {
+            TorshError::SerializationError(format!("Invalid UTF-8 in manifest: {}", e))
+        })?;
 
         let manifest: PackageManifest = serde_json::from_str(&manifest_json).map_err(|e| {
             TorshError::SerializationError(format!("Failed to parse manifest: {}", e))
@@ -123,17 +128,13 @@ impl PackageImporter {
     }
 
     /// Read all resources from archive
-    fn read_resources(&self, archive: &mut ZipArchive<File>, package: &mut Package) -> Result<()> {
+    fn read_resources(&self, archive: &mut ZipReader<File>, package: &mut Package) -> Result<()> {
         // First pass: collect resources and their metadata file names
         let mut resources_to_add = Vec::new();
-        let mut metadata_files = HashMap::new();
+        let mut metadata_entries = HashMap::new();
 
-        for i in 0..archive.len() {
-            let file = archive
-                .by_index(i)
-                .map_err(|e| TorshError::IoError(e.to_string()))?;
-
-            let name = file.name().to_string();
+        for entry in archive.entries() {
+            let name = entry.name.clone();
 
             // Skip manifest
             if name == "MANIFEST.json" {
@@ -143,33 +144,26 @@ impl PackageImporter {
             // Collect metadata files for later
             if name.ends_with(".metadata") {
                 let resource_name = name.trim_end_matches(".metadata");
-                metadata_files.insert(resource_name.to_string(), i);
+                metadata_entries.insert(resource_name.to_string(), entry.clone());
                 continue;
             }
 
-            resources_to_add.push((i, name));
+            resources_to_add.push((entry.clone(), name));
         }
 
         // Process resources with their metadata
-        for (index, name) in resources_to_add {
-            // Read the resource file
-            let mut data = Vec::new();
-            let resource_type;
-            {
-                let mut file = archive
-                    .by_index(index)
-                    .map_err(|e| TorshError::IoError(e.to_string()))?;
-
-                if self.config.verbose {
-                    println!("Reading resource: {}", name);
-                }
-
-                // Determine resource type from path
-                resource_type = self.determine_resource_type(&name);
-
-                // Read resource data
-                file.read_to_end(&mut data)?;
+        for (entry, name) in resources_to_add {
+            if self.config.verbose {
+                println!("Reading resource: {}", name);
             }
+
+            // Determine resource type from path
+            let resource_type = self.determine_resource_type(&name);
+
+            // Read resource data
+            let data = archive
+                .extract(&entry)
+                .map_err(|e| TorshError::IoError(format!("Failed to extract {}: {}", name, e)))?;
 
             // Extract resource name from path
             let resource_name = Path::new(&name)
@@ -182,14 +176,11 @@ impl PackageImporter {
             let mut resource = Resource::new(resource_name.clone(), resource_type, data);
 
             // Read metadata if exists
-            if let Some(&metadata_index) = metadata_files.get(&name) {
-                let mut metadata_json = String::new();
-                {
-                    let mut metadata_file = archive
-                        .by_index(metadata_index)
-                        .map_err(|e| TorshError::IoError(e.to_string()))?;
-                    metadata_file.read_to_string(&mut metadata_json)?;
-                }
+            if let Some(metadata_entry) = metadata_entries.get(&name) {
+                let metadata_data = archive.extract(metadata_entry).map_err(|e| {
+                    TorshError::IoError(format!("Failed to extract metadata: {}", e))
+                })?;
+                let metadata_json = String::from_utf8_lossy(&metadata_data);
 
                 if let Ok(metadata) =
                     serde_json::from_str::<HashMap<String, String>>(&metadata_json)
@@ -240,18 +231,16 @@ impl PackageImporter {
 
         // Open package
         let file = File::open(package_path)?;
-        let mut archive = ZipArchive::new(file)
+        let mut archive = ZipReader::new(file)
             .map_err(|e| TorshError::IoError(format!("Failed to open package: {}", e)))?;
 
-        // Extract all files
-        for i in 0..archive.len() {
-            let mut file = archive
-                .by_index(i)
-                .map_err(|e| TorshError::IoError(e.to_string()))?;
+        // Extract all files - collect entries first to avoid borrow checker issues
+        let entries: Vec<_> = archive.entries().to_vec();
 
-            let outpath = output_dir.join(file.name());
+        for entry in entries {
+            let outpath = output_dir.join(&entry.name);
 
-            if file.name().ends_with('/') {
+            if entry.name.ends_with('/') {
                 // Create directory
                 std::fs::create_dir_all(&outpath)?;
             } else {
@@ -261,12 +250,14 @@ impl PackageImporter {
                 }
 
                 // Extract file
-                let mut outfile = File::create(&outpath)?;
-                io::copy(&mut file, &mut outfile)?;
+                let data = archive
+                    .extract(&entry)
+                    .map_err(|e| TorshError::IoError(format!("Failed to extract: {}", e)))?;
+                std::fs::write(&outpath, data)?;
             }
 
             if self.config.verbose {
-                println!("Extracted: {}", file.name());
+                println!("Extracted: {}", entry.name);
             }
         }
 
@@ -369,7 +360,7 @@ mod tests {
 
     #[test]
     fn test_package_import_export_roundtrip() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("Failed to create temp directory for test");
         let package_path = temp_dir.path().join("test.torshpkg");
 
         // Create and export a package
@@ -382,11 +373,15 @@ mod tests {
         package.resources.insert(resource.name.clone(), resource);
 
         let exporter = PackageExporter::new(Default::default());
-        exporter.export_package(&package, &package_path).unwrap();
+        exporter
+            .export_package(&package, &package_path)
+            .expect("Failed to export package in roundtrip test");
 
         // Import the package
         let importer = PackageImporter::new(ImportConfig::default());
-        let imported = importer.import_package(&package_path).unwrap();
+        let imported = importer
+            .import_package(&package_path)
+            .expect("Failed to import package in roundtrip test");
 
         assert_eq!(imported.manifest.name, "test_package");
         assert_eq!(imported.manifest.version, "1.0.0");
@@ -399,7 +394,7 @@ mod tests {
         let mut context = ImportContext::new();
 
         // Create a test package
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("Failed to create temp directory for test");
         let package_path = temp_dir.path().join("test.torshpkg");
 
         let mut package = Package::new("test".to_string(), "1.0.0".to_string());
@@ -411,12 +406,14 @@ mod tests {
         package.resources.insert(resource.name.clone(), resource);
 
         let exporter = PackageExporter::new(Default::default());
-        exporter.export_package(&package, &package_path).unwrap();
+        exporter
+            .export_package(&package, &package_path)
+            .expect("Failed to export package in context test");
 
         // Import into context
         let package_id = context
             .import_package(&package_path, Some("test_pkg".to_string()))
-            .unwrap();
+            .expect("Failed to import package into context in test");
 
         assert_eq!(package_id, "test_pkg");
         assert!(context.get_package("test_pkg").is_some());

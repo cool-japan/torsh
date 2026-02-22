@@ -593,16 +593,19 @@ mod tests {
         dashboard.add_alert(alert).unwrap();
 
         // Test export
-        let temp_file = "/tmp/dashboard_export_test.json";
-        dashboard.export_data_json(temp_file).unwrap();
+        let temp_file = std::env::temp_dir().join("dashboard_export_test.json");
+        let temp_str = temp_file.display().to_string();
+        dashboard
+            .export_data_json(&temp_str)
+            .expect("Failed to export dashboard data to JSON");
 
         // Verify file exists and contains data
-        let contents = std::fs::read_to_string(temp_file).unwrap();
+        let contents = std::fs::read_to_string(&temp_file).expect("Failed to read exported JSON");
         assert!(contents.contains("test_alert"));
         assert!(contents.contains("active_alerts"));
         assert!(contents.contains("config"));
 
         // Cleanup
-        let _ = std::fs::remove_file(temp_file);
+        let _ = std::fs::remove_file(&temp_file);
     }
 }

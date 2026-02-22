@@ -1,8 +1,8 @@
-# Known Issues - ToRSh-Vision v0.1.0-rc.1
+# Known Issues - ToRSh-Vision v0.1.0
 
 ## Overview
 
-This document lists known issues and limitations in torsh-vision v0.1.0-rc.1. All issues are documented with:
+This document lists known issues and limitations in torsh-vision v0.1.0. All issues are documented with:
 - Root cause analysis
 - Workarounds where available
 - Target fix version
@@ -40,7 +40,7 @@ The tensor reshaping pattern:
 
 #### Impact
 
-The following models are **non-functional** in v0.1.0-rc.1:
+The following models are **non-functional** in v0.1.0:
 - AdvancedViT (all variants: tiny, small, base)
 - DeiT (if implemented)
 - Swin Transformer (if implemented)
@@ -390,9 +390,9 @@ Plus 1 slow test:
 
 ## Release Readiness
 
-### RC.1 Status: ✅ Ready
+### stable Status: ✅ Ready
 
-Despite the issues listed above, torsh-vision v0.1.0-rc.1 is considered ready because:
+Despite the issues listed above, torsh-vision v0.1.0 is considered ready because:
 
 1. **Core functionality works:**
    - All CNN architectures functional
@@ -415,7 +415,7 @@ Despite the issues listed above, torsh-vision v0.1.0-rc.1 is considered ready be
    - CNN models cover 90% of use cases
    - Proper fix planned for v0.2.0
 
-### What Works in RC.1
+### What Works in stable
 
 ✅ **Production Ready:**
 - Image classification (ResNet, EfficientNet, MobileNet)
@@ -454,5 +454,5 @@ Despite the issues listed above, torsh-vision v0.1.0-rc.1 is considered ready be
 ---
 
 **Last Updated:** 2026-01-28
-**Version:** 0.1.0-rc.1
+**Version:** 0.1.0
 **Status:** Maintained

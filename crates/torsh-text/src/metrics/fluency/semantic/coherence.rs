@@ -719,7 +719,7 @@ impl FieldAnalyzer {
         let diversity_index = field_counts.len() as f64;
         let dominant_field = field_counts
             .iter()
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .map(|(field, _)| field.clone());
 
         Ok(SemanticFieldCoverage {

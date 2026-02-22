@@ -825,7 +825,9 @@ mod tests {
         let node1 = network.add_node(vec![2, 3]);
         let node2 = network.add_node(vec![3, 4]);
 
-        let edge_id = network.add_edge(node1, 1, node2, 0, 3).unwrap();
+        let edge_id = network
+            .add_edge(node1, 1, node2, 0, 3)
+            .expect("add_edge should succeed");
         assert_eq!(network.num_edges(), 1);
         assert!(network.edges.contains_key(&edge_id));
     }
@@ -851,8 +853,12 @@ mod tests {
         let node2 = network.add_node(vec![2, 2]);
         let node3 = network.add_node(vec![2, 2]);
 
-        network.add_edge(node1, 0, node2, 0, 2).unwrap();
-        network.add_edge(node1, 1, node3, 0, 2).unwrap();
+        network
+            .add_edge(node1, 0, node2, 0, 2)
+            .expect("add_edge should succeed");
+        network
+            .add_edge(node1, 1, node3, 0, 2)
+            .expect("add_edge should succeed");
 
         let neighbors = network.neighbors(node1);
         assert_eq!(neighbors.len(), 2);
@@ -871,8 +877,12 @@ mod tests {
         assert!(!network.is_connected());
 
         // Connect all nodes
-        network.add_edge(node1, 0, node2, 0, 2).unwrap();
-        network.add_edge(node2, 1, node3, 0, 2).unwrap();
+        network
+            .add_edge(node1, 0, node2, 0, 2)
+            .expect("add_edge should succeed");
+        network
+            .add_edge(node2, 1, node3, 0, 2)
+            .expect("add_edge should succeed");
 
         // Now connected
         assert!(network.is_connected());
@@ -931,8 +941,12 @@ mod tests {
         let node2 = network.add_node(vec![3, 5]);
         let node3 = network.add_node(vec![4, 6]);
 
-        network.add_edge(node1, 1, node2, 0, 3).unwrap();
-        network.add_edge(node1, 2, node3, 0, 4).unwrap();
+        network
+            .add_edge(node1, 1, node2, 0, 3)
+            .expect("add_edge should succeed");
+        network
+            .add_edge(node1, 2, node3, 0, 4)
+            .expect("add_edge should succeed");
 
         assert_eq!(network.max_bond_dimension(), 4);
     }
@@ -944,8 +958,12 @@ mod tests {
         let node2 = network.add_node(vec![3, 5]);
         let node3 = network.add_node(vec![4, 6]);
 
-        network.add_edge(node1, 1, node2, 0, 3).unwrap();
-        network.add_edge(node1, 2, node3, 0, 4).unwrap();
+        network
+            .add_edge(node1, 1, node2, 0, 3)
+            .expect("add_edge should succeed");
+        network
+            .add_edge(node1, 2, node3, 0, 4)
+            .expect("add_edge should succeed");
 
         assert_eq!(network.total_bond_dimension(), 7); // 3 + 4
     }

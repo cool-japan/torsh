@@ -590,17 +590,18 @@ mod tests {
         let mut result = vec![0.0; 8];
 
         // Test addition
-        ArmSimdOps::add_f32_safe(&a, &b, &mut result).unwrap();
+        ArmSimdOps::add_f32_safe(&a, &b, &mut result).expect("add_f32_safe should succeed");
         let expected_add = vec![3.0, 5.0, 7.0, 9.0, 11.0, 13.0, 15.0, 17.0];
         assert_eq!(result, expected_add);
 
         // Test multiplication
-        ArmSimdOps::mul_f32_safe(&a, &b, &mut result).unwrap();
+        ArmSimdOps::mul_f32_safe(&a, &b, &mut result).expect("mul_f32_safe should succeed");
         let expected_mul = vec![2.0, 6.0, 12.0, 20.0, 30.0, 42.0, 56.0, 72.0];
         assert_eq!(result, expected_mul);
 
         // Test dot product
-        let dot_result = ArmSimdOps::dot_product_f32_safe(&a, &b).unwrap();
+        let dot_result =
+            ArmSimdOps::dot_product_f32_safe(&a, &b).expect("dot_product_f32_safe should succeed");
         let expected_dot = 240.0; // 1*2 + 2*3 + 3*4 + 4*5 + 5*6 + 6*7 + 7*8 + 8*9
         assert_eq!(dot_result, expected_dot);
     }

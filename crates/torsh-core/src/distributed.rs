@@ -759,7 +759,10 @@ mod tests {
         let device = DeviceId::simple(0);
         let shard = tensor.shard_for_device(&device);
         assert!(shard.is_some());
-        assert_eq!(shard.unwrap().device_id(), device);
+        assert_eq!(
+            shard.expect("shard_for_device should succeed").device_id(),
+            device
+        );
     }
 
     #[test]

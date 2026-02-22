@@ -229,7 +229,11 @@ impl OptimizerStressTester {
             );
             performance_metrics.insert(
                 "max_step_time_ms".to_string(),
-                step_times.iter().max().unwrap().as_millis() as f32,
+                step_times
+                    .iter()
+                    .max()
+                    .expect("step_times is non-empty")
+                    .as_millis() as f32,
             );
         }
 

@@ -76,7 +76,8 @@ mod tests {
         ///
         /// Note: Floating-point addition is not perfectly associative due to rounding errors,
         /// especially when there is significant cancellation (large values adding to small results).
-        /// We use a relaxed tolerance to account for this fundamental property of IEEE 754.
+        /// We use tolerance scaled to the operand magnitudes, not the result magnitude,
+        /// because catastrophic cancellation can make |result| << |operands|.
         #[test]
         fn test_addition_associative(
             a in MIN_FLOAT..MAX_FLOAT,
@@ -86,18 +87,19 @@ mod tests {
             let result1 = (a + b) + c;
             let result2 = a + (b + c);
 
-            // Use relaxed tolerance for associativity due to catastrophic cancellation
+            // Scale tolerance by the magnitude of the operands, not the results.
+            // When large operands nearly cancel, |result| can be tiny while the
+            // rounding error stays proportional to the operand magnitudes.
+            // f32 machine epsilon ≈ 1.19e-7; two additions can each introduce
+            // up to 0.5 ULP error, so we allow a few ULPs of the largest operand.
             let abs_diff = (result1 - result2).abs();
-            let max_val = result1.abs().max(result2.abs());
-            let tolerance = if max_val > 1.0 {
-                abs_diff / max_val < 1e-3  // 0.1% relative error for large values
-            } else {
-                abs_diff < 1e-3  // Absolute error for small values
-            };
+            let operand_scale = a.abs().max(b.abs()).max(c.abs()).max(1.0);
+            let tolerance = operand_scale * 1e-5; // ~100 ULPs of largest operand
 
-            prop_assert!(tolerance,
-                "Addition not associative: ({} + {}) + {} = {} but {} + ({} + {}) = {}",
-                a, b, c, result1, a, b, c, result2);
+            prop_assert!(abs_diff <= tolerance,
+                "Addition not associative beyond tolerance: ({} + {}) + {} = {} but {} + ({} + {}) = {}, \
+                 diff = {}, tolerance = {}",
+                a, b, c, result1, a, b, c, result2, abs_diff, tolerance);
         }
 
         /// Test commutativity of multiplication: a * b = b * a

@@ -64,11 +64,11 @@ The Python bindings foundation has been successfully implemented with the follow
 
 #### Basic Tensor Operations
 ```python
-import torsh
+import rstorch
 
 # Create tensors
-x = torsh.tensor([[1.0, 2.0], [3.0, 4.0]])
-y = torsh.randn(2, 2)
+x = rstorch.tensor([[1.0, 2.0], [3.0, 4.0]])
+y = rstorch.randn(2, 2)
 
 # Arithmetic operations
 z = x + y
@@ -80,13 +80,13 @@ transposed = x.transpose(0, 1)
 
 # NumPy interoperability
 numpy_array = x.numpy()
-from_numpy = torsh.tensor(numpy_array)
+from_numpy = rstorch.tensor(numpy_array)
 ```
 
 #### Neural Network Training
 ```python
-import torsh
-import torsh.nn as nn
+import rstorch
+import rstorch.nn as nn
 
 # Create model
 model = nn.Sequential([
@@ -95,12 +95,12 @@ model = nn.Sequential([
 ])
 
 # Training loop
-optimizer = torsh.optim.SGD(model.parameters(), lr=0.01)
+optimizer = rstorch.optim.SGD(model.parameters(), lr=0.01)
 
 for epoch in range(100):
     # Forward pass
     output = model(input_data)
-    loss = torsh.nn.functional.cross_entropy(output, targets)
+    loss = rstorch.nn.functional.cross_entropy(output, targets)
     
     # Backward pass
     optimizer.zero_grad()
@@ -192,7 +192,7 @@ cd torsh
 maturin develop
 
 # Test the installation
-python -c "import torsh; print(torsh.tensor([1, 2, 3]))"
+python -c "import rstorch; print(rstorch.tensor([1, 2, 3]))"
 ```
 
 ### Requirements

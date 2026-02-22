@@ -948,7 +948,7 @@ impl TopicModeler {
 
         // Cluster words into topics based on TF-IDF scores
         let mut sorted_words: Vec<_> = tfidf_scores.into_iter().collect();
-        sorted_words.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        sorted_words.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
         let num_topics = self.config.num_topics.min(sorted_words.len() / 3);
         let words_per_topic = sorted_words.len() / num_topics.max(1);
@@ -1275,7 +1275,7 @@ impl TopicModeler {
     fn find_dominant_topic(&self, topics: &[Topic]) -> Option<Topic> {
         topics
             .iter()
-            .max_by(|a, b| a.probability.partial_cmp(&b.probability).unwrap())
+            .max_by(|a, b| a.probability.partial_cmp(&b.probability).unwrap_or(std::cmp::Ordering::Equal))
             .cloned()
     }
 
@@ -1338,7 +1338,7 @@ impl TopicModeler {
             })
             .collect();
 
-        word_scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        word_scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
         let words_per_topic = vocabulary.len() / self.config.num_topics.max(1);
         let start_idx = topic_idx * words_per_topic;
@@ -1629,7 +1629,7 @@ impl TopicModeler {
 
             // Detect patterns
             let start_value = topic_progression[0];
-            let end_value = *topic_progression.last().unwrap();
+            let end_value = *topic_progression.last().unwrap_or(&0.0);
             let max_value = topic_progression.iter().fold(0.0f64, |acc, &x| acc.max(x));
 
             let pattern_type = if end_value > start_value + 0.2 {

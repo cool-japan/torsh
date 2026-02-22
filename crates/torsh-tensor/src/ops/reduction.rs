@@ -1207,10 +1207,10 @@ mod tests {
 
     #[test]
     fn test_argmax_1d() {
-        let tensor = Tensor::from_data(vec![1.0f32, 5.0, 3.0, 2.0, 4.0], vec![5], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 5.0, 3.0, 2.0, 4.0], vec![5], DeviceType::Cpu).expect("operation should succeed");
 
-        let result = tensor.argmax(None, false).unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.argmax(None, false).expect("operation should succeed");
+        let data = result.data().expect("data retrieval should succeed");
 
         assert_eq!(data, vec![1i64]); // Index of max value (5.0)
     }
@@ -1221,10 +1221,10 @@ mod tests {
             vec![1.0f32, 5.0, 3.0, 2.0, 7.0, 4.0],
             vec![2, 3],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("operation should succeed");
 
-        let result = tensor.argmax(None, false).unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.argmax(None, false).expect("operation should succeed");
+        let data = result.data().expect("data retrieval should succeed");
 
         assert_eq!(data, vec![4i64]); // Global max at index 4 (7.0)
     }
@@ -1235,10 +1235,10 @@ mod tests {
             vec![1.0f32, 5.0, 3.0, 2.0, 7.0, 4.0],
             vec![2, 3],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("operation should succeed");
 
-        let result = tensor.argmax(Some(1), false).unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.argmax(Some(1), false).expect("operation should succeed");
+        let data = result.data().expect("data retrieval should succeed");
 
         assert_eq!(data, vec![1i64, 1i64]); // Max indices along dim 1
         assert_eq!(result.shape().dims(), &[2]);
@@ -1246,10 +1246,10 @@ mod tests {
 
     #[test]
     fn test_argmin_1d() {
-        let tensor = Tensor::from_data(vec![5.0f32, 1.0, 3.0, 2.0, 4.0], vec![5], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![5.0f32, 1.0, 3.0, 2.0, 4.0], vec![5], DeviceType::Cpu).expect("operation should succeed");
 
-        let result = tensor.argmin(None, false).unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.argmin(None, false).expect("operation should succeed");
+        let data = result.data().expect("data retrieval should succeed");
 
         assert_eq!(data, vec![1i64]); // Index of min value (1.0)
     }
@@ -1260,10 +1260,10 @@ mod tests {
             vec![5.0f32, 1.0, 3.0, 2.0, 7.0, 4.0],
             vec![2, 3],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("operation should succeed");
 
-        let result = tensor.argmin(Some(1), false).unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.argmin(Some(1), false).expect("operation should succeed");
+        let data = result.data().expect("data retrieval should succeed");
 
         assert_eq!(data, vec![1i64, 0i64]); // Min indices along dim 1
         assert_eq!(result.shape().dims(), &[2]);
@@ -1271,10 +1271,10 @@ mod tests {
 
     #[test]
     fn test_cumsum_1d() {
-        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu).expect("operation should succeed");
 
-        let result = tensor.cumsum(0).unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.cumsum(0).expect("operation should succeed");
+        let data = result.data().expect("data retrieval should succeed");
 
         assert_eq!(data, vec![1.0, 3.0, 6.0, 10.0]);
     }
@@ -1285,10 +1285,10 @@ mod tests {
             vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0],
             vec![2, 3],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("operation should succeed");
 
-        let result = tensor.cumsum(1).unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.cumsum(1).expect("operation should succeed");
+        let data = result.data().expect("data retrieval should succeed");
 
         // Cumulative sum along dim 1: [[1, 3, 6], [4, 9, 15]]
         assert_eq!(data, vec![1.0, 3.0, 6.0, 4.0, 9.0, 15.0]);
@@ -1296,10 +1296,10 @@ mod tests {
 
     #[test]
     fn test_cumprod_1d() {
-        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu).expect("operation should succeed");
 
-        let result = tensor.cumprod(0).unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.cumprod(0).expect("operation should succeed");
+        let data = result.data().expect("data retrieval should succeed");
 
         assert_eq!(data, vec![1.0, 2.0, 6.0, 24.0]);
     }
@@ -1310,10 +1310,10 @@ mod tests {
             vec![1.0f32, 2.0, 3.0, 2.0, 2.0, 2.0],
             vec![2, 3],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("operation should succeed");
 
-        let result = tensor.cumprod(1).unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.cumprod(1).expect("operation should succeed");
+        let data = result.data().expect("data retrieval should succeed");
 
         // Cumulative product along dim 1: [[1, 2, 6], [2, 4, 8]]
         assert_eq!(data, vec![1.0, 2.0, 6.0, 2.0, 4.0, 8.0]);
@@ -1321,18 +1321,18 @@ mod tests {
 
     #[test]
     fn test_prod_1d() {
-        let tensor = Tensor::from_data(vec![2.0f32, 3.0, 4.0], vec![3], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![2.0f32, 3.0, 4.0], vec![3], DeviceType::Cpu).expect("operation should succeed");
 
-        let result = tensor.prod().unwrap();
+        let result = tensor.prod().expect("prod should succeed");
 
         assert_eq!(result, 24.0); // 2 * 3 * 4 = 24
     }
 
     #[test]
     fn test_prod_empty() {
-        let tensor: Tensor<f32> = Tensor::from_data(vec![], vec![0], DeviceType::Cpu).unwrap();
+        let tensor: Tensor<f32> = Tensor::from_data(vec![], vec![0], DeviceType::Cpu).expect("operation should succeed");
 
-        let result = tensor.prod().unwrap();
+        let result = tensor.prod().expect("prod should succeed");
 
         assert_eq!(result, 1.0); // Product of empty = 1 (identity)
     }
@@ -1343,36 +1343,36 @@ mod tests {
             vec![1.0f32, 2.0, 3.0, 4.0],
             vec![2, 2],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("operation should succeed");
 
-        let result = tensor.prod().unwrap();
+        let result = tensor.prod().expect("prod should succeed");
 
         assert_eq!(result, 24.0); // 1 * 2 * 3 * 4 = 24
     }
 
     #[test]
     fn test_median_odd() {
-        let tensor = Tensor::from_data(vec![5.0f32, 1.0, 3.0, 9.0, 2.0], vec![5], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![5.0f32, 1.0, 3.0, 9.0, 2.0], vec![5], DeviceType::Cpu).expect("operation should succeed");
 
-        let result = tensor.median().unwrap();
+        let result = tensor.median().expect("median should succeed");
 
         assert_eq!(result, 3.0); // Sorted: [1, 2, 3, 5, 9], median = 3
     }
 
     #[test]
     fn test_median_even() {
-        let tensor = Tensor::from_data(vec![5.0f32, 1.0, 3.0, 2.0], vec![4], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![5.0f32, 1.0, 3.0, 2.0], vec![4], DeviceType::Cpu).expect("operation should succeed");
 
-        let result = tensor.median().unwrap();
+        let result = tensor.median().expect("median should succeed");
 
         assert_eq!(result, 2.0); // Sorted: [1, 2, 3, 5], median = 2 (lower middle)
     }
 
     #[test]
     fn test_median_single() {
-        let tensor = Tensor::from_data(vec![42.0f32], vec![1], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![42.0f32], vec![1], DeviceType::Cpu).expect("operation should succeed");
 
-        let result = tensor.median().unwrap();
+        let result = tensor.median().expect("median should succeed");
 
         assert_eq!(result, 42.0);
     }
@@ -1383,11 +1383,11 @@ mod tests {
             vec![5.0f32, 1.0, 3.0, 9.0, 2.0, 7.0],
             vec![2, 3],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("operation should succeed");
 
-        let (values, indices) = tensor.median_dim(1, false).unwrap();
-        let val_data = values.data().unwrap();
-        let idx_data = indices.data().unwrap();
+        let (values, indices) = tensor.median_dim(1, false).expect("operation should succeed");
+        let val_data = values.data().expect("data retrieval should succeed");
+        let idx_data = indices.data().expect("data retrieval should succeed");
 
         assert_eq!(values.shape().dims(), &[2]); // Reduced along dim 1
         // Row 0: [5, 1, 3] -> sorted [1, 3, 5] -> median 3 (index 2)
@@ -1402,9 +1402,9 @@ mod tests {
             vec![5.0f32, 1.0, 3.0, 9.0, 2.0, 7.0],
             vec![2, 3],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("operation should succeed");
 
-        let (values, _) = tensor.median_dim(1, true).unwrap();
+        let (values, _) = tensor.median_dim(1, true).expect("operation should succeed");
 
         assert_eq!(values.shape().dims(), &[2, 1]); // Kept dimension
     }
@@ -1415,9 +1415,9 @@ mod tests {
             vec![1.0f32, 2.0, 3.0, 2.0, 2.0, 4.0],
             vec![6],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("operation should succeed");
 
-        let result = tensor.mode().unwrap();
+        let result = tensor.mode().expect("mode should succeed");
 
         assert_eq!(result, 2.0); // 2.0 appears 3 times
     }
@@ -1428,9 +1428,9 @@ mod tests {
             vec![1.0f32, 2.0, 3.0, 4.0],
             vec![4],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("operation should succeed");
 
-        let result = tensor.mode().unwrap();
+        let result = tensor.mode().expect("mode should succeed");
 
         // All appear once, so mode is one of them (implementation returns first found with max frequency)
         assert!([1.0, 2.0, 3.0, 4.0].contains(&result));
@@ -1442,10 +1442,10 @@ mod tests {
             vec![1.0f32, 2.0, 2.0, 3.0, 3.0, 3.0],
             vec![2, 3],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("operation should succeed");
 
-        let (values, indices) = tensor.mode_dim(1, false).unwrap();
-        let val_data = values.data().unwrap();
+        let (values, indices) = tensor.mode_dim(1, false).expect("operation should succeed");
+        let val_data = values.data().expect("data retrieval should succeed");
 
         assert_eq!(values.shape().dims(), &[2]);
         // Row 0: [1, 2, 2] -> mode is 2 (appears twice)
@@ -1459,9 +1459,9 @@ mod tests {
             vec![1.0f32, 2.0, 2.0, 3.0, 3.0, 3.0],
             vec![2, 3],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("operation should succeed");
 
-        let (values, _) = tensor.mode_dim(1, true).unwrap();
+        let (values, _) = tensor.mode_dim(1, true).expect("operation should succeed");
 
         assert_eq!(values.shape().dims(), &[2, 1]); // Kept dimension
     }

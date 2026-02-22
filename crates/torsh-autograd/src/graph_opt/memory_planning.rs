@@ -69,7 +69,10 @@ impl OptimizedGraph {
                 if !self.has_future_uses(
                     input_id,
                     &execution_order,
-                    &execution_order.iter().position(|&x| x == node_id).unwrap(),
+                    &execution_order
+                        .iter()
+                        .position(|&x| x == node_id)
+                        .expect("node_id should exist in execution_order"),
                 )? && active_tensors.remove(&input_id)
                 {
                     if let Some(&input_memory) = memory_tracker.node_memory.get(&input_id) {

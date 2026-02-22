@@ -1031,11 +1031,13 @@ mod tests {
             .unwrap();
         profiler.record_deallocation(0x1000).unwrap();
 
-        let result = profiler.export_timeline_csv("/tmp/test_timeline.csv");
+        let timeline_path = std::env::temp_dir().join("test_timeline.csv");
+        let timeline_str = timeline_path.display().to_string();
+        let result = profiler.export_timeline_csv(&timeline_str);
         assert!(result.is_ok());
 
         // Clean up
-        let _ = std::fs::remove_file("/tmp/test_timeline.csv");
+        let _ = std::fs::remove_file(&timeline_path);
     }
 
     #[test]

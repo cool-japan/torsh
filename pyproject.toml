@@ -3,14 +3,14 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "torsh"
-version = "0.1.0-rc.1"
+name = "RsTorch"
+version = "0.1.0"
 description = "PyTorch-compatible deep learning framework built in Rust"
 readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT OR Apache-2.0"}
 authors = [
-    {name = "Team KitaSan", email = "info@kitasan.io"},
+    {name = "Team KitaSan", email = "contact@cooljapan.tech"},
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -56,7 +56,7 @@ Documentation = "https://docs.torsh.rs"
 
 [tool.maturin]
 python-source = "python"
-module-name = "torsh._C"
+module-name = "rstorch._C"
 features = ["pyo3/extension-module"]
 
 [tool.black]

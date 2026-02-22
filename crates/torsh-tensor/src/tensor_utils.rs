@@ -398,64 +398,76 @@ mod tests {
 
     #[test]
     fn test_squeeze_all() {
-        let tensor = zeros::<f32>(&[1, 3, 1, 4, 1]).unwrap();
-        let squeezed = tensor.squeeze_all().unwrap();
+        let tensor = zeros::<f32>(&[1, 3, 1, 4, 1]).expect("zeros creation should succeed");
+        let squeezed = tensor.squeeze_all().expect("squeeze_all should succeed");
 
         assert_eq!(squeezed.shape().dims(), &[3, 4]);
     }
 
     #[test]
     fn test_squeeze_dims() {
-        let tensor = zeros::<f32>(&[1, 3, 1, 4]).unwrap();
-        let squeezed = tensor.squeeze_dims(&[0, 2]).unwrap();
+        let tensor = zeros::<f32>(&[1, 3, 1, 4]).expect("zeros creation should succeed");
+        let squeezed = tensor
+            .squeeze_dims(&[0, 2])
+            .expect("squeeze_dims should succeed");
 
         assert_eq!(squeezed.shape().dims(), &[3, 4]);
     }
 
     #[test]
     fn test_unsqueeze_dims() {
-        let tensor = zeros::<f32>(&[3, 4]).unwrap();
+        let tensor = zeros::<f32>(&[3, 4]).expect("zeros creation should succeed");
         // unsqueeze at 0: [3, 4] -> [1, 3, 4]
         // unsqueeze at 2+1=3 (adjusted): [1, 3, 4] -> [1, 3, 4, 1]
-        let unsqueezed = tensor.unsqueeze_dims(&[0, 2]).unwrap();
+        let unsqueezed = tensor
+            .unsqueeze_dims(&[0, 2])
+            .expect("unsqueeze_dims should succeed");
 
         assert_eq!(unsqueezed.shape().dims(), &[1, 3, 4, 1]);
     }
 
     #[test]
     fn test_add_remove_batch_dim() {
-        let tensor = zeros::<f32>(&[3, 4]).unwrap();
-        let with_batch = tensor.add_batch_dim().unwrap();
+        let tensor = zeros::<f32>(&[3, 4]).expect("zeros creation should succeed");
+        let with_batch = tensor
+            .add_batch_dim()
+            .expect("add_batch_dim should succeed");
 
         assert_eq!(with_batch.shape().dims(), &[1, 3, 4]);
 
-        let without_batch = with_batch.remove_batch_dim().unwrap();
+        let without_batch = with_batch
+            .remove_batch_dim()
+            .expect("remove_batch_dim should succeed");
         assert_eq!(without_batch.shape().dims(), &[3, 4]);
     }
 
     #[test]
     fn test_atleast_nd() {
-        let tensor = zeros::<f32>(&[3, 4]).unwrap();
-        let expanded = tensor.atleast_nd(4).unwrap();
+        let tensor = zeros::<f32>(&[3, 4]).expect("zeros creation should succeed");
+        let expanded = tensor.atleast_nd(4).expect("atleast_nd should succeed");
 
         assert_eq!(expanded.shape().dims(), &[3, 4, 1, 1]);
     }
 
     #[test]
     fn test_channel_conversions() {
-        let tensor = zeros::<f32>(&[2, 3, 4, 5]).unwrap(); // NCHW
+        let tensor = zeros::<f32>(&[2, 3, 4, 5]).expect("zeros creation should succeed"); // NCHW
 
-        let channel_last = tensor.to_channel_last().unwrap();
+        let channel_last = tensor
+            .to_channel_last()
+            .expect("channel conversion should succeed");
         assert_eq!(channel_last.shape().dims(), &[2, 4, 5, 3]); // NHWC
 
-        let channel_first = channel_last.to_channel_first().unwrap();
+        let channel_first = channel_last
+            .to_channel_first()
+            .expect("channel conversion should succeed");
         assert_eq!(channel_first.shape().dims(), &[2, 3, 4, 5]); // Back to NCHW
     }
 
     #[test]
     fn test_move_dim() {
-        let tensor = zeros::<f32>(&[2, 3, 4, 5]).unwrap();
-        let moved = tensor.move_dim(1, 3).unwrap();
+        let tensor = zeros::<f32>(&[2, 3, 4, 5]).expect("zeros creation should succeed");
+        let moved = tensor.move_dim(1, 3).expect("move_dim should succeed");
 
         // Move dimension 1 to position 3
         assert_eq!(moved.shape().dims(), &[2, 4, 5, 3]);
@@ -487,16 +499,16 @@ mod tests {
     fn test_shape_utils_infer_shape() {
         use shape_utils::*;
 
-        let inferred = infer_shape(&[2, -1, 3], 24).unwrap();
+        let inferred = infer_shape(&[2, -1, 3], 24).expect("shape inference should succeed");
         assert_eq!(inferred, vec![2, 4, 3]);
 
-        let inferred = infer_shape(&[3, 4], 12).unwrap();
+        let inferred = infer_shape(&[3, 4], 12).expect("shape inference should succeed");
         assert_eq!(inferred, vec![3, 4]);
     }
 
     #[test]
     fn test_squeeze_dims_invalid() {
-        let tensor = zeros::<f32>(&[3, 4]).unwrap();
+        let tensor = zeros::<f32>(&[3, 4]).expect("zeros creation should succeed");
         let result = tensor.squeeze_dims(&[0]); // Dimension 0 has size 3, not 1
 
         assert!(result.is_err());
@@ -504,7 +516,7 @@ mod tests {
 
     #[test]
     fn test_remove_batch_dim_invalid() {
-        let tensor = zeros::<f32>(&[3, 4]).unwrap();
+        let tensor = zeros::<f32>(&[3, 4]).expect("zeros creation should succeed");
         let result = tensor.remove_batch_dim(); // First dim has size 3, not 1
 
         assert!(result.is_err());

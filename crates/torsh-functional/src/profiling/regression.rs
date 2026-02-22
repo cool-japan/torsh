@@ -79,7 +79,10 @@ impl Default for RegressionTestConfig {
             regression_threshold: 5.0, // 5% degradation threshold
             significance_level: 0.05,  // 95% confidence
             min_samples: 10,
-            baseline_path: "/tmp/torsh_performance_baselines.json".to_string(),
+            baseline_path: std::env::temp_dir()
+                .join("torsh_performance_baselines.json")
+                .display()
+                .to_string(),
             auto_update_baseline: false,
         }
     }
@@ -428,7 +431,10 @@ mod tests {
         )?;
 
         let regression_config = RegressionTestConfig {
-            baseline_path: "/tmp/test_baselines.json".to_string(),
+            baseline_path: std::env::temp_dir()
+                .join("test_baselines.json")
+                .display()
+                .to_string(),
             ..Default::default()
         };
 

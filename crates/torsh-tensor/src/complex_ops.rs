@@ -402,10 +402,13 @@ mod tests {
     #[test]
     fn test_complex_conjugate() {
         let data = vec![C32::new(1.0, 2.0), C32::new(3.0, -4.0), C32::new(-1.0, 1.0)];
-        let tensor = Tensor::from_data(data, vec![3], DeviceType::Cpu).unwrap();
+        let tensor =
+            Tensor::from_data(data, vec![3], DeviceType::Cpu).expect("operation should succeed");
 
-        let conj_tensor = tensor.complex_conj().unwrap();
-        let conj_data = conj_tensor.to_vec().unwrap();
+        let conj_tensor = tensor
+            .complex_conj()
+            .expect("complex conjugate should succeed");
+        let conj_data = conj_tensor.to_vec().expect("to_vec should succeed");
 
         assert_eq!(conj_data[0], C32::new(1.0, -2.0));
         assert_eq!(conj_data[1], C32::new(3.0, 4.0));
@@ -415,13 +418,20 @@ mod tests {
     #[test]
     fn test_real_imag_extraction() {
         let data = vec![C32::new(1.0, 2.0), C32::new(3.0, -4.0)];
-        let tensor = Tensor::from_data(data, vec![2], DeviceType::Cpu).unwrap();
+        let tensor =
+            Tensor::from_data(data, vec![2], DeviceType::Cpu).expect("operation should succeed");
 
-        let real_part = tensor.real().unwrap();
-        let imag_part = tensor.imag().unwrap();
+        let real_part = tensor.real().expect("real extraction should succeed");
+        let imag_part = tensor.imag().expect("imag extraction should succeed");
 
-        assert_eq!(real_part.to_vec().unwrap(), vec![1.0, 3.0]);
-        assert_eq!(imag_part.to_vec().unwrap(), vec![2.0, -4.0]);
+        assert_eq!(
+            real_part.to_vec().expect("to_vec should succeed"),
+            vec![1.0, 3.0]
+        );
+        assert_eq!(
+            imag_part.to_vec().expect("to_vec should succeed"),
+            vec![2.0, -4.0]
+        );
     }
 
     #[test]
@@ -430,13 +440,14 @@ mod tests {
             C32::new(3.0, 4.0), // |z| = 5, arg = atan(4/3)
             C32::new(1.0, 0.0), // |z| = 1, arg = 0
         ];
-        let tensor = Tensor::from_data(data, vec![2], DeviceType::Cpu).unwrap();
+        let tensor =
+            Tensor::from_data(data, vec![2], DeviceType::Cpu).expect("operation should succeed");
 
-        let magnitude = tensor.abs().unwrap();
-        let phase = tensor.angle().unwrap();
+        let magnitude = tensor.abs().expect("abs computation should succeed");
+        let phase = tensor.angle().expect("angle computation should succeed");
 
-        let mag_data = magnitude.to_vec().unwrap();
-        let phase_data = phase.to_vec().unwrap();
+        let mag_data = magnitude.to_vec().expect("to_vec should succeed");
+        let phase_data = phase.to_vec().expect("to_vec should succeed");
 
         assert!((mag_data[0] - 5.0).abs() < 1e-6);
         assert!((mag_data[1] - 1.0).abs() < 1e-6);
@@ -448,11 +459,14 @@ mod tests {
         let real_data = vec![1.0f32, 2.0, 3.0];
         let imag_data = vec![4.0f32, 5.0, 6.0];
 
-        let real_tensor = Tensor::from_data(real_data, vec![3], DeviceType::Cpu).unwrap();
-        let imag_tensor = Tensor::from_data(imag_data, vec![3], DeviceType::Cpu).unwrap();
+        let real_tensor = Tensor::from_data(real_data, vec![3], DeviceType::Cpu)
+            .expect("operation should succeed");
+        let imag_tensor = Tensor::from_data(imag_data, vec![3], DeviceType::Cpu)
+            .expect("operation should succeed");
 
-        let complex_tensor = Tensor::<C32>::complex(&real_tensor, &imag_tensor).unwrap();
-        let result_data = complex_tensor.to_vec().unwrap();
+        let complex_tensor =
+            Tensor::<C32>::complex(&real_tensor, &imag_tensor).expect("operation should succeed");
+        let result_data = complex_tensor.to_vec().expect("to_vec should succeed");
 
         assert_eq!(result_data[0], C32::new(1.0, 4.0));
         assert_eq!(result_data[1], C32::new(2.0, 5.0));
@@ -464,18 +478,20 @@ mod tests {
         let a_data = vec![C32::new(1.0, 2.0), C32::new(3.0, 4.0)];
         let b_data = vec![C32::new(2.0, 1.0), C32::new(1.0, -1.0)];
 
-        let a = Tensor::from_data(a_data, vec![2], DeviceType::Cpu).unwrap();
-        let b = Tensor::from_data(b_data, vec![2], DeviceType::Cpu).unwrap();
+        let a =
+            Tensor::from_data(a_data, vec![2], DeviceType::Cpu).expect("operation should succeed");
+        let b =
+            Tensor::from_data(b_data, vec![2], DeviceType::Cpu).expect("operation should succeed");
 
         // Test complex addition
-        let sum = a.complex_add(&b).unwrap();
-        let sum_data = sum.to_vec().unwrap();
+        let sum = a.complex_add(&b).expect("operation should succeed");
+        let sum_data = sum.to_vec().expect("to_vec should succeed");
         assert_eq!(sum_data[0], C32::new(3.0, 3.0));
         assert_eq!(sum_data[1], C32::new(4.0, 3.0));
 
         // Test complex multiplication
-        let product = a.complex_mul(&b).unwrap();
-        let prod_data = product.to_vec().unwrap();
+        let product = a.complex_mul(&b).expect("operation should succeed");
+        let prod_data = product.to_vec().expect("to_vec should succeed");
         // (1+2i)(2+1i) = 2 + i + 4i + 2i² = 2 + 5i - 2 = 0 + 5i
         assert_eq!(prod_data[0], C32::new(0.0, 5.0));
         // (3+4i)(1-1i) = 3 - 3i + 4i - 4i² = 3 + i + 4 = 7 + i
@@ -487,11 +503,14 @@ mod tests {
         let mag_data = vec![1.0f32, 2.0];
         let phase_data = vec![0.0f32, std::f32::consts::PI / 2.0];
 
-        let mag_tensor = Tensor::from_data(mag_data, vec![2], DeviceType::Cpu).unwrap();
-        let phase_tensor = Tensor::from_data(phase_data, vec![2], DeviceType::Cpu).unwrap();
+        let mag_tensor = Tensor::from_data(mag_data, vec![2], DeviceType::Cpu)
+            .expect("operation should succeed");
+        let phase_tensor = Tensor::from_data(phase_data, vec![2], DeviceType::Cpu)
+            .expect("operation should succeed");
 
-        let complex_tensor = Tensor::<C32>::polar(&mag_tensor, &phase_tensor).unwrap();
-        let result_data = complex_tensor.to_vec().unwrap();
+        let complex_tensor =
+            Tensor::<C32>::polar(&mag_tensor, &phase_tensor).expect("operation should succeed");
+        let result_data = complex_tensor.to_vec().expect("to_vec should succeed");
 
         // First element: 1 * (cos(0) + i*sin(0)) = 1 + 0i
         assert!((result_data[0].re - 1.0).abs() < 1e-6);
@@ -507,26 +526,34 @@ mod tests {
         let real_data = vec![C32::new(1.0, 0.0), C32::new(2.0, 0.0)];
         let complex_data = vec![C32::new(1.0, 1.0), C32::new(2.0, 0.0)];
 
-        let real_tensor = Tensor::from_data(real_data, vec![2], DeviceType::Cpu).unwrap();
-        let complex_tensor = Tensor::from_data(complex_data, vec![2], DeviceType::Cpu).unwrap();
+        let real_tensor = Tensor::from_data(real_data, vec![2], DeviceType::Cpu)
+            .expect("operation should succeed");
+        let complex_tensor = Tensor::from_data(complex_data, vec![2], DeviceType::Cpu)
+            .expect("operation should succeed");
 
-        assert!(real_tensor.is_real().unwrap());
-        assert!(!real_tensor.is_complex().unwrap());
+        assert!(real_tensor.is_real().expect("is_real check should succeed"));
+        assert!(!real_tensor
+            .is_complex()
+            .expect("is_complex check should succeed"));
 
-        assert!(!complex_tensor.is_real().unwrap());
-        assert!(complex_tensor.is_complex().unwrap());
+        assert!(!complex_tensor
+            .is_real()
+            .expect("is_real check should succeed"));
+        assert!(complex_tensor
+            .is_complex()
+            .expect("is_complex check should succeed"));
     }
 
     #[test]
     fn test_shape_mismatch_errors() {
-        let a = Tensor::<C32>::zeros(&[2], DeviceType::Cpu).unwrap();
-        let b = Tensor::<C32>::zeros(&[3], DeviceType::Cpu).unwrap();
+        let a = Tensor::<C32>::zeros(&[2], DeviceType::Cpu).expect("operation should succeed");
+        let b = Tensor::<C32>::zeros(&[3], DeviceType::Cpu).expect("operation should succeed");
 
         assert!(a.complex_add(&b).is_err());
         assert!(a.complex_mul(&b).is_err());
 
-        let real_2 = Tensor::<f32>::zeros(&[2], DeviceType::Cpu).unwrap();
-        let imag_3 = Tensor::<f32>::zeros(&[3], DeviceType::Cpu).unwrap();
+        let real_2 = Tensor::<f32>::zeros(&[2], DeviceType::Cpu).expect("operation should succeed");
+        let imag_3 = Tensor::<f32>::zeros(&[3], DeviceType::Cpu).expect("operation should succeed");
 
         assert!(Tensor::<C32>::complex(&real_2, &imag_3).is_err());
     }

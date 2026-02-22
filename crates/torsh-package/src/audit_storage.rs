@@ -864,7 +864,7 @@ mod tests {
 
     #[test]
     fn test_sqlite_storage_config() {
-        let config = SqliteStorageConfig::new(PathBuf::from("/tmp/test.db"))
+        let config = SqliteStorageConfig::new(std::env::temp_dir().join("test.db"))
             .with_max_connections(20)
             .with_timeout(60)
             .with_wal_mode(true)

@@ -7,6 +7,11 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 description = "Neural network modules for ToRSh with PyTorch-compatible API"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-nn"
+rust-version.workspace = true
+keywords = ["deep-learning", "neural-network", "layers", "machine-learning", "pytorch"]
+categories = ["science", "algorithms"]
 
 [lints]
 workspace = true
@@ -54,7 +59,7 @@ hashbrown = { version = "0.16", default-features = false, features = ["alloc"] }
 [dev-dependencies]
 approx = { workspace = true }
 tempfile = { workspace = true }
-criterion = { version = "0.8", features = ["html_reports"] }
+criterion = { workspace = true }
 
 [features]
 default = ["std"]

@@ -636,7 +636,7 @@ impl<T: TensorElement> SparseTensor<T> {
 /// let values = vec![1.0, 2.0, 3.0, 4.0, 5.0];  // Values
 /// let shape = vec![3, 3];
 ///
-/// let sparse = SparseCSR::new(row_ptr, col_indices, values, shape).unwrap();
+/// let sparse = SparseCSR::new(row_ptr, col_indices, values, shape).expect("CSR creation should succeed");
 /// ```
 #[derive(Debug, Clone)]
 pub struct SparseCSR<T: TensorElement> {
@@ -921,7 +921,7 @@ impl<T: TensorElement> SparseCSR<T> {
 /// let values = vec![1.0, 4.0, 3.0, 2.0, 5.0];  // Values
 /// let shape = vec![3, 3];
 ///
-/// let sparse = SparseCSC::new(col_ptr, row_indices, values, shape).unwrap();
+/// let sparse = SparseCSC::new(col_ptr, row_indices, values, shape).expect("CSC creation should succeed");
 /// ```
 #[derive(Debug, Clone)]
 pub struct SparseCSC<T: TensorElement> {
@@ -1196,7 +1196,8 @@ mod tests {
         let values = vec![1.0, 2.0, 3.0];
         let shape = vec![3, 3];
 
-        let sparse = SparseTensor::from_coo(indices, values, shape).unwrap();
+        let sparse = SparseTensor::from_coo(indices, values, shape)
+            .expect("COO sparse tensor creation should succeed");
         assert_eq!(sparse.nnz(), 3);
         assert_eq!(sparse.shape(), &[3, 3]);
         assert!(sparse.sparsity() > 0.6); // 6 out of 9 elements are zero
@@ -1208,12 +1209,18 @@ mod tests {
         let values = vec![1.0, 2.0, 3.0];
         let shape = vec![3, 3];
 
-        let sparse = SparseTensor::from_coo(indices, values, shape).unwrap();
-        let dense = sparse.to_dense().unwrap();
+        let sparse = SparseTensor::from_coo(indices, values, shape)
+            .expect("COO sparse tensor creation should succeed");
+        let dense = sparse
+            .to_dense()
+            .expect("sparse to dense conversion should succeed");
 
         let expected_data = vec![1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 3.0];
 
-        assert_eq!(dense.data().unwrap(), expected_data);
+        assert_eq!(
+            dense.data().expect("data access should succeed"),
+            expected_data
+        );
     }
 
     #[test]
@@ -1221,20 +1228,29 @@ mod tests {
         let indices1 = vec![vec![0, 0], vec![1, 1]];
         let values1 = vec![1.0, 2.0];
         let shape = vec![3, 3];
-        let sparse1 = SparseTensor::from_coo(indices1, values1, shape.clone()).unwrap();
+        let sparse1 = SparseTensor::from_coo(indices1, values1, shape.clone())
+            .expect("COO sparse tensor creation should succeed");
 
         let indices2 = vec![vec![0, 0], vec![2, 2]];
         let values2 = vec![3.0, 4.0];
-        let sparse2 = SparseTensor::from_coo(indices2, values2, shape).unwrap();
+        let sparse2 = SparseTensor::from_coo(indices2, values2, shape)
+            .expect("COO sparse tensor creation should succeed");
 
-        let result = sparse1.add(&sparse2).unwrap();
+        let result = sparse1
+            .add(&sparse2)
+            .expect("sparse addition should succeed");
 
         // Should have (0,0)=4.0, (1,1)=2.0, (2,2)=4.0
         assert_eq!(result.nnz(), 3);
 
-        let dense_result = result.to_dense().unwrap();
+        let dense_result = result
+            .to_dense()
+            .expect("sparse to dense conversion should succeed");
         let expected = vec![4.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 4.0];
-        assert_eq!(dense_result.data().unwrap(), expected);
+        assert_eq!(
+            dense_result.data().expect("data access should succeed"),
+            expected
+        );
     }
 
     #[test]
@@ -1242,20 +1258,29 @@ mod tests {
         let indices1 = vec![vec![0, 0], vec![1, 1], vec![2, 2]];
         let values1 = vec![2.0, 3.0, 4.0];
         let shape = vec![3, 3];
-        let sparse1 = SparseTensor::from_coo(indices1, values1, shape.clone()).unwrap();
+        let sparse1 = SparseTensor::from_coo(indices1, values1, shape.clone())
+            .expect("COO sparse tensor creation should succeed");
 
         let indices2 = vec![vec![0, 0], vec![1, 1]];
         let values2 = vec![5.0, 6.0];
-        let sparse2 = SparseTensor::from_coo(indices2, values2, shape).unwrap();
+        let sparse2 = SparseTensor::from_coo(indices2, values2, shape)
+            .expect("COO sparse tensor creation should succeed");
 
-        let result = sparse1.mul(&sparse2).unwrap();
+        let result = sparse1
+            .mul(&sparse2)
+            .expect("sparse element-wise multiplication should succeed");
 
         // Should have (0,0)=10.0, (1,1)=18.0
         assert_eq!(result.nnz(), 2);
 
-        let dense_result = result.to_dense().unwrap();
+        let dense_result = result
+            .to_dense()
+            .expect("sparse to dense conversion should succeed");
         let expected = vec![10.0, 0.0, 0.0, 0.0, 18.0, 0.0, 0.0, 0.0, 0.0];
-        assert_eq!(dense_result.data().unwrap(), expected);
+        assert_eq!(
+            dense_result.data().expect("data access should succeed"),
+            expected
+        );
     }
 
     #[test]
@@ -1264,22 +1289,31 @@ mod tests {
         let indices1 = vec![vec![0, 0], vec![1, 1]];
         let values1 = vec![1.0, 2.0];
         let shape1 = vec![2, 2];
-        let sparse1 = SparseTensor::from_coo(indices1, values1, shape1).unwrap();
+        let sparse1 = SparseTensor::from_coo(indices1, values1, shape1)
+            .expect("COO sparse tensor creation should succeed");
 
         // Create a 2x2 sparse matrix [[3, 0], [0, 4]]
         let indices2 = vec![vec![0, 0], vec![1, 1]];
         let values2 = vec![3.0, 4.0];
         let shape2 = vec![2, 2];
-        let sparse2 = SparseTensor::from_coo(indices2, values2, shape2).unwrap();
+        let sparse2 = SparseTensor::from_coo(indices2, values2, shape2)
+            .expect("COO sparse tensor creation should succeed");
 
-        let result = sparse1.matmul(&sparse2).unwrap();
+        let result = sparse1
+            .matmul(&sparse2)
+            .expect("sparse matrix multiplication should succeed");
 
         // Result should be [[3, 0], [0, 8]]
         assert_eq!(result.nnz(), 2);
 
-        let dense_result = result.to_dense().unwrap();
+        let dense_result = result
+            .to_dense()
+            .expect("sparse to dense conversion should succeed");
         let expected = vec![3.0, 0.0, 0.0, 8.0];
-        assert_eq!(dense_result.data().unwrap(), expected);
+        assert_eq!(
+            dense_result.data().expect("data access should succeed"),
+            expected
+        );
     }
 
     #[test]
@@ -1287,25 +1321,36 @@ mod tests {
         let indices = vec![vec![0, 1], vec![1, 0], vec![2, 1]];
         let values = vec![1.0, 2.0, 3.0];
         let shape = vec![3, 2];
-        let sparse = SparseTensor::from_coo(indices, values, shape).unwrap();
+        let sparse = SparseTensor::from_coo(indices, values, shape)
+            .expect("COO sparse tensor creation should succeed");
 
-        let transposed = sparse.transpose().unwrap();
+        let transposed = sparse.transpose().expect("sparse transpose should succeed");
         assert_eq!(transposed.shape(), &[2, 3]);
 
-        let dense_transposed = transposed.to_dense().unwrap();
+        let dense_transposed = transposed
+            .to_dense()
+            .expect("sparse to dense conversion should succeed");
         let expected = vec![0.0, 2.0, 0.0, 1.0, 0.0, 3.0];
-        assert_eq!(dense_transposed.data().unwrap(), expected);
+        assert_eq!(
+            dense_transposed.data().expect("data access should succeed"),
+            expected
+        );
     }
 
     #[test]
     fn test_sparse_identity() {
-        let eye = SparseTensor::<f32>::eye(3).unwrap();
+        let eye = SparseTensor::<f32>::eye(3).expect("sparse identity creation should succeed");
         assert_eq!(eye.nnz(), 3);
         assert_eq!(eye.shape(), &[3, 3]);
 
-        let dense_eye = eye.to_dense().unwrap();
+        let dense_eye = eye
+            .to_dense()
+            .expect("sparse to dense conversion should succeed");
         let expected = vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
-        assert_eq!(dense_eye.data().unwrap(), expected);
+        assert_eq!(
+            dense_eye.data().expect("data access should succeed"),
+            expected
+        );
     }
 
     #[test]
@@ -1313,7 +1358,8 @@ mod tests {
         let indices = vec![vec![0, 0]]; // Only one non-zero element
         let values = vec![1.0];
         let shape = vec![1000, 1000]; // Large tensor
-        let sparse = SparseTensor::from_coo(indices, values, shape).unwrap();
+        let sparse = SparseTensor::from_coo(indices, values, shape)
+            .expect("COO sparse tensor creation should succeed");
 
         assert!(sparse.sparsity() > 0.999); // Very sparse
         assert!(sparse.memory_efficiency() > 0.9); // Much more memory efficient
@@ -1322,13 +1368,20 @@ mod tests {
     #[test]
     fn test_from_dense() {
         let data = vec![1.0, 0.0, 0.0, 0.0, 2.0, 0.0];
-        let dense = Tensor::from_data(data, vec![2, 3], DeviceType::Cpu).unwrap();
+        let dense = Tensor::from_data(data, vec![2, 3], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let sparse = SparseTensor::from_dense(&dense, 1e-6).unwrap();
+        let sparse =
+            SparseTensor::from_dense(&dense, 1e-6).expect("from_dense conversion should succeed");
         assert_eq!(sparse.nnz(), 2);
 
-        let back_to_dense = sparse.to_dense().unwrap();
-        assert_eq!(dense.data().unwrap(), back_to_dense.data().unwrap());
+        let back_to_dense = sparse
+            .to_dense()
+            .expect("sparse to dense conversion should succeed");
+        assert_eq!(
+            dense.data().expect("data access should succeed"),
+            back_to_dense.data().expect("data access should succeed")
+        );
     }
 
     #[test]
@@ -1338,15 +1391,18 @@ mod tests {
         let values = vec![1.0, 2.0, 3.0];
         let shape = vec![2, 2];
 
-        let mut sparse = SparseTensor::from_coo(indices, values, shape).unwrap();
+        let mut sparse = SparseTensor::from_coo(indices, values, shape)
+            .expect("COO sparse tensor creation should succeed");
         assert_eq!(sparse.nnz(), 3);
 
-        sparse.coalesce().unwrap();
+        sparse.coalesce().expect("coalesce should succeed");
         assert_eq!(sparse.nnz(), 2); // Should have combined duplicates
 
-        let dense = sparse.to_dense().unwrap();
+        let dense = sparse
+            .to_dense()
+            .expect("sparse to dense conversion should succeed");
         let expected = vec![4.0, 0.0, 0.0, 2.0]; // (0,0) = 1+3 = 4
-        assert_eq!(dense.data().unwrap(), expected);
+        assert_eq!(dense.data().expect("data access should succeed"), expected);
     }
 
     #[test]
@@ -1354,14 +1410,22 @@ mod tests {
         let indices = vec![vec![0, 0], vec![1, 1]];
         let values = vec![2.0, 3.0];
         let shape = vec![2, 2];
-        let sparse = SparseTensor::from_coo(indices, values, shape).unwrap();
+        let sparse = SparseTensor::from_coo(indices, values, shape)
+            .expect("COO sparse tensor creation should succeed");
 
-        let result = sparse.mul_scalar(2.0).unwrap();
+        let result = sparse
+            .mul_scalar(2.0)
+            .expect("scalar multiplication should succeed");
         assert_eq!(result.nnz(), 2);
 
-        let dense_result = result.to_dense().unwrap();
+        let dense_result = result
+            .to_dense()
+            .expect("sparse to dense conversion should succeed");
         let expected = vec![4.0, 0.0, 0.0, 6.0];
-        assert_eq!(dense_result.data().unwrap(), expected);
+        assert_eq!(
+            dense_result.data().expect("data access should succeed"),
+            expected
+        );
     }
 
     #[test]
@@ -1369,14 +1433,20 @@ mod tests {
         let indices = vec![vec![0, 0], vec![1, 1]];
         let values = vec![2.0, 3.0];
         let shape = vec![2, 2];
-        let sparse = SparseTensor::from_coo(indices, values, shape).unwrap();
+        let sparse = SparseTensor::from_coo(indices, values, shape)
+            .expect("COO sparse tensor creation should succeed");
 
-        let result = sparse.map(|x| x * x).unwrap(); // Square all values
+        let result = sparse.map(|x| x * x).expect("map operation should succeed"); // Square all values
         assert_eq!(result.nnz(), 2);
 
-        let dense_result = result.to_dense().unwrap();
+        let dense_result = result
+            .to_dense()
+            .expect("sparse to dense conversion should succeed");
         let expected = vec![4.0, 0.0, 0.0, 9.0];
-        assert_eq!(dense_result.data().unwrap(), expected);
+        assert_eq!(
+            dense_result.data().expect("data access should succeed"),
+            expected
+        );
     }
 
     #[test]
@@ -1406,7 +1476,8 @@ mod tests {
         let values = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let shape = vec![3, 3];
 
-        let sparse = SparseCSR::new(row_ptr, col_indices, values, shape).unwrap();
+        let sparse = SparseCSR::new(row_ptr, col_indices, values, shape)
+            .expect("CSR creation should succeed");
         assert_eq!(sparse.nnz(), 5);
         assert_eq!(sparse.shape(), &[3, 3]);
     }
@@ -1418,11 +1489,14 @@ mod tests {
         let values = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let shape = vec![3, 3];
 
-        let sparse = SparseCSR::new(row_ptr, col_indices, values, shape).unwrap();
-        let dense = sparse.to_dense().unwrap();
+        let sparse = SparseCSR::new(row_ptr, col_indices, values, shape)
+            .expect("CSR creation should succeed");
+        let dense = sparse
+            .to_dense()
+            .expect("sparse to dense conversion should succeed");
 
         let expected = vec![1.0, 0.0, 2.0, 0.0, 3.0, 0.0, 4.0, 0.0, 5.0];
-        assert_eq!(dense.data().unwrap(), expected);
+        assert_eq!(dense.data().expect("data access should succeed"), expected);
     }
 
     #[test]
@@ -1431,8 +1505,9 @@ mod tests {
         let values = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let shape = vec![3, 3];
 
-        let coo = SparseTensor::from_coo(indices, values, shape).unwrap();
-        let csr = SparseCSR::from_coo(&coo).unwrap();
+        let coo = SparseTensor::from_coo(indices, values, shape)
+            .expect("COO sparse tensor creation should succeed");
+        let csr = SparseCSR::from_coo(&coo).expect("COO sparse tensor creation should succeed");
 
         assert_eq!(csr.nnz(), 5);
         assert_eq!(csr.shape(), &[3, 3]);
@@ -1450,9 +1525,12 @@ mod tests {
         let values = vec![1.0, 2.0];
         let shape = vec![2, 2];
 
-        let sparse = SparseCSR::new(row_ptr, col_indices, values, shape).unwrap();
+        let sparse = SparseCSR::new(row_ptr, col_indices, values, shape)
+            .expect("CSR creation should succeed");
         let vec = vec![3.0, 4.0];
-        let result = sparse.matvec(&vec).unwrap();
+        let result = sparse
+            .matvec(&vec)
+            .expect("matrix-vector multiplication should succeed");
 
         // Expected: [1*3, 2*4] = [3.0, 8.0]
         assert_eq!(result, vec![3.0, 8.0]);
@@ -1465,15 +1543,16 @@ mod tests {
         let values = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let shape = vec![3, 3];
 
-        let sparse = SparseCSR::new(row_ptr, col_indices, values, shape).unwrap();
+        let sparse = SparseCSR::new(row_ptr, col_indices, values, shape)
+            .expect("CSR creation should succeed");
 
         // Get row 0
-        let (cols, vals) = sparse.get_row(0).unwrap();
+        let (cols, vals) = sparse.get_row(0).expect("row access should succeed");
         assert_eq!(cols, vec![0, 2]);
         assert_eq!(vals, vec![1.0, 2.0]);
 
         // Get row 1
-        let (cols, vals) = sparse.get_row(1).unwrap();
+        let (cols, vals) = sparse.get_row(1).expect("row access should succeed");
         assert_eq!(cols, vec![1]);
         assert_eq!(vals, vec![3.0]);
     }
@@ -1485,13 +1564,21 @@ mod tests {
         let values = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let shape = vec![3, 3];
 
-        let csr = SparseCSR::new(row_ptr, col_indices, values, shape).unwrap();
-        let coo = csr.to_coo().unwrap();
+        let csr = SparseCSR::new(row_ptr, col_indices, values, shape)
+            .expect("CSR creation should succeed");
+        let coo = csr.to_coo().expect("to COO conversion should succeed");
 
         assert_eq!(coo.nnz(), 5);
-        let dense_coo = coo.to_dense().unwrap();
-        let dense_csr = csr.to_dense().unwrap();
-        assert_eq!(dense_coo.data().unwrap(), dense_csr.data().unwrap());
+        let dense_coo = coo
+            .to_dense()
+            .expect("sparse to dense conversion should succeed");
+        let dense_csr = csr
+            .to_dense()
+            .expect("sparse to dense conversion should succeed");
+        assert_eq!(
+            dense_coo.data().expect("data access should succeed"),
+            dense_csr.data().expect("data access should succeed")
+        );
     }
 
     // Tests for CSC format
@@ -1506,7 +1593,8 @@ mod tests {
         let values = vec![1.0, 4.0, 3.0, 2.0, 5.0];
         let shape = vec![3, 3];
 
-        let sparse = SparseCSC::new(col_ptr, row_indices, values, shape).unwrap();
+        let sparse = SparseCSC::new(col_ptr, row_indices, values, shape)
+            .expect("CSC creation should succeed");
         assert_eq!(sparse.nnz(), 5);
         assert_eq!(sparse.shape(), &[3, 3]);
     }
@@ -1518,11 +1606,14 @@ mod tests {
         let values = vec![1.0, 4.0, 3.0, 2.0, 5.0];
         let shape = vec![3, 3];
 
-        let sparse = SparseCSC::new(col_ptr, row_indices, values, shape).unwrap();
-        let dense = sparse.to_dense().unwrap();
+        let sparse = SparseCSC::new(col_ptr, row_indices, values, shape)
+            .expect("CSC creation should succeed");
+        let dense = sparse
+            .to_dense()
+            .expect("sparse to dense conversion should succeed");
 
         let expected = vec![1.0, 0.0, 2.0, 0.0, 3.0, 0.0, 4.0, 0.0, 5.0];
-        assert_eq!(dense.data().unwrap(), expected);
+        assert_eq!(dense.data().expect("data access should succeed"), expected);
     }
 
     #[test]
@@ -1531,8 +1622,9 @@ mod tests {
         let values = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let shape = vec![3, 3];
 
-        let coo = SparseTensor::from_coo(indices, values, shape).unwrap();
-        let csc = SparseCSC::from_coo(&coo).unwrap();
+        let coo = SparseTensor::from_coo(indices, values, shape)
+            .expect("COO sparse tensor creation should succeed");
+        let csc = SparseCSC::from_coo(&coo).expect("COO sparse tensor creation should succeed");
 
         assert_eq!(csc.nnz(), 5);
         assert_eq!(csc.shape(), &[3, 3]);
@@ -1551,9 +1643,12 @@ mod tests {
         let values = vec![1.0, 2.0];
         let shape = vec![2, 2];
 
-        let sparse = SparseCSC::new(col_ptr, row_indices, values, shape).unwrap();
+        let sparse = SparseCSC::new(col_ptr, row_indices, values, shape)
+            .expect("CSC creation should succeed");
         let vec = vec![3.0, 4.0];
-        let result = sparse.transpose_matvec(&vec).unwrap();
+        let result = sparse
+            .transpose_matvec(&vec)
+            .expect("transpose matrix-vector multiplication should succeed");
 
         // Expected: A^T * [3, 4] = [[1, 0], [0, 2]]^T * [3, 4] = [3.0, 8.0]
         assert_eq!(result, vec![3.0, 8.0]);
@@ -1566,15 +1661,16 @@ mod tests {
         let values = vec![1.0, 4.0, 3.0, 2.0, 5.0];
         let shape = vec![3, 3];
 
-        let sparse = SparseCSC::new(col_ptr, row_indices, values, shape).unwrap();
+        let sparse = SparseCSC::new(col_ptr, row_indices, values, shape)
+            .expect("CSC creation should succeed");
 
         // Get column 0
-        let (rows, vals) = sparse.get_col(0).unwrap();
+        let (rows, vals) = sparse.get_col(0).expect("column access should succeed");
         assert_eq!(rows, vec![0, 2]);
         assert_eq!(vals, vec![1.0, 4.0]);
 
         // Get column 1
-        let (rows, vals) = sparse.get_col(1).unwrap();
+        let (rows, vals) = sparse.get_col(1).expect("column access should succeed");
         assert_eq!(rows, vec![1]);
         assert_eq!(vals, vec![3.0]);
     }
@@ -1586,13 +1682,21 @@ mod tests {
         let values = vec![1.0, 4.0, 3.0, 2.0, 5.0];
         let shape = vec![3, 3];
 
-        let csc = SparseCSC::new(col_ptr, row_indices, values, shape).unwrap();
-        let coo = csc.to_coo().unwrap();
+        let csc = SparseCSC::new(col_ptr, row_indices, values, shape)
+            .expect("CSC creation should succeed");
+        let coo = csc.to_coo().expect("to COO conversion should succeed");
 
         assert_eq!(coo.nnz(), 5);
-        let dense_coo = coo.to_dense().unwrap();
-        let dense_csc = csc.to_dense().unwrap();
-        assert_eq!(dense_coo.data().unwrap(), dense_csc.data().unwrap());
+        let dense_coo = coo
+            .to_dense()
+            .expect("sparse to dense conversion should succeed");
+        let dense_csc = csc
+            .to_dense()
+            .expect("sparse to dense conversion should succeed");
+        assert_eq!(
+            dense_coo.data().expect("data access should succeed"),
+            dense_csc.data().expect("data access should succeed")
+        );
     }
 
     #[test]
@@ -1602,19 +1706,32 @@ mod tests {
         let values = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let shape = vec![3, 3];
 
-        let coo1 = SparseTensor::from_coo(indices, values, shape).unwrap();
-        let csr = SparseCSR::from_coo(&coo1).unwrap();
-        let coo2 = csr.to_coo().unwrap();
-        let csc = SparseCSC::from_coo(&coo2).unwrap();
-        let coo3 = csc.to_coo().unwrap();
+        let coo1 = SparseTensor::from_coo(indices, values, shape)
+            .expect("COO sparse tensor creation should succeed");
+        let csr = SparseCSR::from_coo(&coo1).expect("COO sparse tensor creation should succeed");
+        let coo2 = csr.to_coo().expect("to COO conversion should succeed");
+        let csc = SparseCSC::from_coo(&coo2).expect("COO sparse tensor creation should succeed");
+        let coo3 = csc.to_coo().expect("to COO conversion should succeed");
 
         // All should represent the same matrix
-        let dense1 = coo1.to_dense().unwrap();
-        let dense2 = coo2.to_dense().unwrap();
-        let dense3 = coo3.to_dense().unwrap();
+        let dense1 = coo1
+            .to_dense()
+            .expect("sparse to dense conversion should succeed");
+        let dense2 = coo2
+            .to_dense()
+            .expect("sparse to dense conversion should succeed");
+        let dense3 = coo3
+            .to_dense()
+            .expect("sparse to dense conversion should succeed");
 
-        assert_eq!(dense1.data().unwrap(), dense2.data().unwrap());
-        assert_eq!(dense2.data().unwrap(), dense3.data().unwrap());
+        assert_eq!(
+            dense1.data().expect("data access should succeed"),
+            dense2.data().expect("data access should succeed")
+        );
+        assert_eq!(
+            dense2.data().expect("data access should succeed"),
+            dense3.data().expect("data access should succeed")
+        );
     }
 
     #[test]

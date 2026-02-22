@@ -582,7 +582,9 @@ mod tests {
         let shape2 = Shape::new(vec![2, 4]);
         assert!(shape1.is_broadcastable_with(&shape2));
 
-        let broadcast_shape = shape1.broadcast_with(&shape2).unwrap();
+        let broadcast_shape = shape1
+            .broadcast_with(&shape2)
+            .expect("broadcast should succeed");
         assert_eq!(broadcast_shape.dims(), &[3, 2, 4]);
 
         let shape3 = Shape::new(vec![3, 2]);
@@ -597,10 +599,10 @@ mod tests {
         assert_eq!(squeezed.dims(), &[3, 4]);
 
         let shape2 = Shape::new(vec![3, 4]);
-        let unsqueezed = shape2.unsqueeze(1).unwrap();
+        let unsqueezed = shape2.unsqueeze(1).expect("unsqueeze should succeed");
         assert_eq!(unsqueezed.dims(), &[3, 1, 4]);
 
-        let squeeze_dim = shape.squeeze_dim(0).unwrap();
+        let squeeze_dim = shape.squeeze_dim(0).expect("squeeze_dim should succeed");
         assert_eq!(squeeze_dim.dims(), &[3, 1, 4]);
     }
 
@@ -614,8 +616,8 @@ mod tests {
         assert!(!vector.is_matrix());
         assert!(vector.is_vector());
 
-        assert_eq!(matrix.size(0).unwrap(), 3);
-        assert_eq!(matrix.size(-1).unwrap(), 4);
+        assert_eq!(matrix.size(0).expect("size should succeed"), 3);
+        assert_eq!(matrix.size(-1).expect("size should succeed"), 4);
     }
 
     #[test]

@@ -254,8 +254,14 @@ impl QuadraticProgrammingLayer {
     ) -> Result<Vec<Tensor>> {
         // Use implicit function theorem: if F(x*, θ) = 0, then dx*/dθ = -(∂F/∂x)^{-1} ∂F/∂θ
         let x_star = &solution.solution;
-        let lambda = solution.lambda.as_ref().unwrap();
-        let mu = solution.mu.as_ref().unwrap();
+        let lambda = solution
+            .lambda
+            .as_ref()
+            .expect("lambda should be set for QP solution");
+        let mu = solution
+            .mu
+            .as_ref()
+            .expect("mu should be set for QP solution");
 
         // Build KKT system Jacobian
         let kkt_jacobian = self.build_kkt_jacobian(x_star, lambda, mu, q, a, g)?;
@@ -313,8 +319,14 @@ impl QuadraticProgrammingLayer {
     ) -> Result<Vec<Tensor>> {
         // Differentiate KKT conditions directly
         let x = &solution.solution;
-        let lambda = solution.lambda.as_ref().unwrap();
-        let mu = solution.mu.as_ref().unwrap();
+        let lambda = solution
+            .lambda
+            .as_ref()
+            .expect("lambda should be set for QP solution");
+        let mu = solution
+            .mu
+            .as_ref()
+            .expect("mu should be set for QP solution");
 
         // KKT conditions:
         // ∇f + A^T λ + G^T μ = 0
@@ -411,14 +423,29 @@ impl QuadraticProgrammingLayer {
         h: &Tensor,
     ) -> Result<(Tensor, Tensor, Tensor)> {
         // Reshape x to column vector for matrix multiplication
-        let x_reshaped = x.reshape(&[x.shape().dims()[0].try_into().unwrap(), 1])?;
+        let x_reshaped = x.reshape(&[
+            x.shape().dims()[0]
+                .try_into()
+                .expect("dimension should fit in target type"),
+            1,
+        ])?;
 
         // Dual residual: ∇f + A^T λ + G^T μ
         let grad_f = q.matmul(&x_reshaped)?.add(c)?;
 
         // Reshape lambda and mu to column vectors
-        let lambda_reshaped = lambda.reshape(&[lambda.shape().dims()[0].try_into().unwrap(), 1])?;
-        let mu_reshaped = mu.reshape(&[mu.shape().dims()[0].try_into().unwrap(), 1])?;
+        let lambda_reshaped = lambda.reshape(&[
+            lambda.shape().dims()[0]
+                .try_into()
+                .expect("dimension should fit in target type"),
+            1,
+        ])?;
+        let mu_reshaped = mu.reshape(&[
+            mu.shape().dims()[0]
+                .try_into()
+                .expect("dimension should fit in target type"),
+            1,
+        ])?;
 
         let a_t_lambda = a.transpose(0, 1)?.matmul(&lambda_reshaped)?;
         let g_t_mu = g.transpose(0, 1)?.matmul(&mu_reshaped)?;
@@ -523,7 +550,12 @@ impl QuadraticProgrammingLayer {
     fn compute_objective(&self, x: &Tensor, q: &Tensor, c: &Tensor) -> Result<f32> {
         // Compute quadratic term: 0.5 * x^T * Q * x
         // For 1D tensor x, we need to handle the dimensions correctly
-        let x_reshaped = x.reshape(&[x.shape().dims()[0].try_into().unwrap(), 1])?; // Convert to column vector
+        let x_reshaped = x.reshape(&[
+            x.shape().dims()[0]
+                .try_into()
+                .expect("dimension should fit in target type"),
+            1,
+        ])?; // Convert to column vector
         let qx = q.matmul(&x_reshaped)?; // Q * x
         let x_t = x_reshaped.transpose(0, 1)?; // x^T (row vector)
         let quad_term = x_t.matmul(&qx)?.mul_scalar(0.5)?;
@@ -538,7 +570,12 @@ impl QuadraticProgrammingLayer {
 
     fn find_active_constraints(&self, x: &Tensor, g: &Tensor, h: &Tensor) -> Result<Vec<usize>> {
         // Compute slack: G*x - h
-        let x_reshaped = x.reshape(&[x.shape().dims()[0].try_into().unwrap(), 1])?; // Convert to column vector
+        let x_reshaped = x.reshape(&[
+            x.shape().dims()[0]
+                .try_into()
+                .expect("dimension should fit in target type"),
+            1,
+        ])?; // Convert to column vector
         let slack = g.matmul(&x_reshaped)?.sub(h)?;
         let mut active = Vec::new();
 

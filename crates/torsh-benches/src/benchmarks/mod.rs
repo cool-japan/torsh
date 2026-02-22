@@ -597,7 +597,10 @@ mod tests {
             warmup_iterations: 1,
             timeout: Duration::from_secs(60),
             enable_profiling: false,
-            output_directory: "/tmp/benchmarks".to_string(),
+            output_directory: std::env::temp_dir()
+                .join("benchmarks")
+                .display()
+                .to_string(),
         };
 
         let suite = BenchmarkSuite::with_config(config);

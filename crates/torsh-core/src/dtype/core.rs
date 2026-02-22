@@ -629,14 +629,32 @@ mod tests {
 
     #[test]
     fn test_dtype_from_str() {
-        assert_eq!("f32".parse::<DType>().unwrap(), DType::F32);
-        assert_eq!("i64".parse::<DType>().unwrap(), DType::I64);
-        assert_eq!("bool".parse::<DType>().unwrap(), DType::Bool);
-        assert_eq!("c64".parse::<DType>().unwrap(), DType::C64);
+        assert_eq!(
+            "f32".parse::<DType>().expect("parse should succeed"),
+            DType::F32
+        );
+        assert_eq!(
+            "i64".parse::<DType>().expect("parse should succeed"),
+            DType::I64
+        );
+        assert_eq!(
+            "bool".parse::<DType>().expect("parse should succeed"),
+            DType::Bool
+        );
+        assert_eq!(
+            "c64".parse::<DType>().expect("parse should succeed"),
+            DType::C64
+        );
 
         // Test case insensitive
-        assert_eq!("F32".parse::<DType>().unwrap(), DType::F32);
-        assert_eq!("I64".parse::<DType>().unwrap(), DType::I64);
+        assert_eq!(
+            "F32".parse::<DType>().expect("parse should succeed"),
+            DType::F32
+        );
+        assert_eq!(
+            "I64".parse::<DType>().expect("parse should succeed"),
+            DType::I64
+        );
 
         // Test error case
         assert!("invalid".parse::<DType>().is_err());

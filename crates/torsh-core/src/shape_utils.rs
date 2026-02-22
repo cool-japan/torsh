@@ -505,20 +505,20 @@ mod tests {
     #[test]
     fn test_flatten_from() {
         let shape = Shape::new(vec![32, 3, 224, 224]);
-        let flattened = flatten_from(&shape, 1).unwrap();
+        let flattened = flatten_from(&shape, 1).expect("flatten_from should succeed");
         assert_eq!(flattened.dims(), &[32, 150528]);
 
-        let flattened_all = flatten_from(&shape, 0).unwrap();
+        let flattened_all = flatten_from(&shape, 0).expect("flatten_from should succeed");
         assert_eq!(flattened_all.dims(), &[4816896]);
     }
 
     #[test]
     fn test_unsqueeze_at() {
         let shape = Shape::new(vec![3, 224, 224]);
-        let unsqueezed = unsqueeze_at(&shape, 0).unwrap();
+        let unsqueezed = unsqueeze_at(&shape, 0).expect("unsqueeze_at should succeed");
         assert_eq!(unsqueezed.dims(), &[1, 3, 224, 224]);
 
-        let unsqueezed_end = unsqueeze_at(&shape, 3).unwrap();
+        let unsqueezed_end = unsqueeze_at(&shape, 3).expect("unsqueeze_at should succeed");
         assert_eq!(unsqueezed_end.dims(), &[3, 224, 224, 1]);
 
         // Test error case
@@ -528,11 +528,11 @@ mod tests {
     #[test]
     fn test_squeeze() {
         let shape = Shape::new(vec![1, 3, 1, 224, 224]);
-        let squeezed = squeeze(&shape, None).unwrap();
+        let squeezed = squeeze(&shape, None).expect("squeeze should succeed");
         assert_eq!(squeezed.dims(), &[3, 224, 224]);
 
         let shape2 = Shape::new(vec![1, 3, 1, 224]);
-        let squeezed_dim = squeeze(&shape2, Some(2)).unwrap();
+        let squeezed_dim = squeeze(&shape2, Some(2)).expect("squeeze should succeed");
         assert_eq!(squeezed_dim.dims(), &[1, 3, 224]);
 
         // Test error case - squeezing non-1 dimension
@@ -542,11 +542,11 @@ mod tests {
     #[test]
     fn test_expand_to_rank() {
         let shape = Shape::new(vec![224, 224]);
-        let expanded = expand_to_rank(&shape, 4).unwrap();
+        let expanded = expand_to_rank(&shape, 4).expect("expand_to_rank should succeed");
         assert_eq!(expanded.dims(), &[1, 1, 224, 224]);
 
         // Already at target rank
-        let same = expand_to_rank(&shape, 2).unwrap();
+        let same = expand_to_rank(&shape, 2).expect("expand_to_rank should succeed");
         assert_eq!(same.dims(), &[224, 224]);
 
         // Error case - already higher rank
@@ -557,7 +557,7 @@ mod tests {
     fn test_permute() {
         let shape = Shape::new(vec![32, 3, 224, 224]);
         // NCHW to NHWC
-        let permuted = permute(&shape, &[0, 2, 3, 1]).unwrap();
+        let permuted = permute(&shape, &[0, 2, 3, 1]).expect("permute should succeed");
         assert_eq!(permuted.dims(), &[32, 224, 224, 3]);
 
         // Error cases

@@ -800,7 +800,7 @@ impl ProminenceAnalyzer {
         }
 
         // Sort by prominence strength
-        hierarchy.sort_by(|a, b| b.strength.partial_cmp(&a.strength).unwrap());
+        hierarchy.sort_by(|a, b| b.strength.partial_cmp(&a.strength).unwrap_or(std::cmp::Ordering::Equal));
 
         Ok(hierarchy)
     }
@@ -1690,6 +1690,6 @@ impl Default for StressAnalyzer {
             primary_stress_preference: 0.8,
             enable_accent_analysis: true,
         })
-        .unwrap()
+        .expect("stress config should be valid")
     }
 }

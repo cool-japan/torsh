@@ -337,7 +337,7 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive + Float> AdvancedGradientFilt
                     let end = (i + half_window + 1).min(grad.len());
 
                     let mut window: Vec<T> = grad[start..end].to_vec();
-                    window.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                    window.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
                     let median = if window.len() % 2 == 0 {
                         (window[window.len() / 2 - 1] + window[window.len() / 2])

@@ -7,7 +7,12 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 description = "Tensor implementation for ToRSh with PyTorch-compatible API"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-tensor"
+rust-version.workspace = true
 build = "build.rs"
+keywords = ["deep-learning", "tensor", "ndarray", "machine-learning", "pytorch"]
+categories = ["science", "data-structures"]
 
 [lints]
 workspace = true
@@ -39,8 +44,8 @@ serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 oxicode = { workspace = true, optional = true }
 hdf5 = { version = "0.8", optional = true }
-arrow = { version = "57.2", optional = true }
-parquet = { version = "57.2", optional = true }
+arrow = { version = "57.3", optional = true }
+parquet = { version = "57.3", optional = true }
 # onnx = { version = "0.1.0", optional = true }  # REMOVED: Unmaintained with security vulnerabilities (RUSTSEC-2024-0437, RUSTSEC-2023-0018)
 # protobuf = { version = "3.7", optional = true }  # REMOVED: Only needed for onnx, which is removed
 

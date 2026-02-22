@@ -689,14 +689,18 @@ impl UltimatePerformanceValidator {
             // Benchmark max reduction
             let start = Instant::now();
             for _ in 0..self.config.iterations {
-                let _result = input.par_iter().max_by(|a, b| a.partial_cmp(b).unwrap());
+                let _result = input
+                    .par_iter()
+                    .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
             }
             let max_time = start.elapsed() / self.config.iterations as u32;
 
             // Benchmark min reduction
             let start = Instant::now();
             for _ in 0..self.config.iterations {
-                let _result = input.par_iter().min_by(|a, b| a.partial_cmp(b).unwrap());
+                let _result = input
+                    .par_iter()
+                    .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
             }
             let min_time = start.elapsed() / self.config.iterations as u32;
 

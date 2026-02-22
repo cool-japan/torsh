@@ -5,8 +5,6 @@
 //! - Mirror management for high availability
 //! - Audit logging for security compliance and tracking
 
-use std::path::PathBuf;
-
 use torsh_package::*;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -237,7 +235,7 @@ fn demonstrate_audit_logging() -> Result<(), Box<dyn std::error::Error>> {
     println!("----------------");
 
     // Create audit log configuration
-    let config = AuditLogConfig::new(PathBuf::from("/tmp/torsh-audit.log"));
+    let config = AuditLogConfig::new(std::env::temp_dir().join("torsh-audit.log"));
     config.validate()?;
 
     println!("Audit Log Configuration:");

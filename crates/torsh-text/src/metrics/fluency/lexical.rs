@@ -870,7 +870,7 @@ impl LexicalAnalyzer {
         }
 
         let growth_rate = if vocabulary_sizes.len() > 1 {
-            let total_growth = vocabulary_sizes.last().unwrap() - vocabulary_sizes.first().unwrap();
+            let total_growth = vocabulary_sizes.last().unwrap_or(&0) - vocabulary_sizes.first().unwrap_or(&0);
             total_growth as f64 / (vocabulary_sizes.len() - 1) as f64
         } else {
             0.0

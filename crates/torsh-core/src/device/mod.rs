@@ -442,7 +442,9 @@ mod tests {
         assert_eq!(manager.device_count(), 0);
 
         let discovery = DeviceDiscovery::new();
-        let _count = discovery.scan_devices().unwrap();
+        let _count = discovery
+            .scan_devices()
+            .expect("scan_devices should succeed");
     }
 
     #[test]
@@ -457,7 +459,11 @@ mod tests {
         assert_eq!(device_type, cpu_device.device_type());
         assert_eq!(manager.device_count(), 0);
         assert!(
-            !discovery.get_discovered_devices().is_empty() || discovery.scan_devices().unwrap() > 0
+            !discovery.get_discovered_devices().is_empty()
+                || discovery
+                    .scan_devices()
+                    .expect("scan_devices should succeed")
+                    > 0
         );
     }
 
@@ -466,7 +472,8 @@ mod tests {
         let cpu_device = convenience::create_cpu_device();
         assert_eq!(cpu_device.device_type(), DeviceType::Cpu);
 
-        let device_type = convenience::parse_device_type("cpu").unwrap();
+        let device_type =
+            convenience::parse_device_type("cpu").expect("parse_device_type should succeed");
         assert_eq!(device_type, DeviceType::Cpu);
 
         let available_types = convenience::get_available_device_types();
@@ -503,7 +510,7 @@ mod tests {
     fn test_backward_compatibility() {
         // Test that old-style imports still work
         let device_type = DeviceType::Cpu;
-        let capabilities = DeviceCapabilities::detect(device_type).unwrap();
+        let capabilities = DeviceCapabilities::detect(device_type).expect("detect should succeed");
         let cpu_device = CpuDevice::new();
 
         assert_eq!(device_type, DeviceType::Cpu);
@@ -511,7 +518,7 @@ mod tests {
         assert_eq!(cpu_device.name(), "CPU");
 
         // Test parsing
-        let parsed = parse_device_string("cpu").unwrap();
+        let parsed = parse_device_string("cpu").expect("parse_device_string should succeed");
         assert_eq!(parsed, DeviceType::Cpu);
     }
 

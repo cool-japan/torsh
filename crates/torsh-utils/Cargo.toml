@@ -7,6 +7,11 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 description = "Utility functions and helpers for ToRSh"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-utils"
+rust-version.workspace = true
+keywords = ["deep-learning", "utilities", "helpers", "machine-learning", "tools"]
+categories = ["science", "development-tools"]
 
 [lints]
 workspace = true

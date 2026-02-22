@@ -243,7 +243,7 @@ impl RecoveryStatistics {
         self.most_effective_strategy = self
             .success_rate_by_strategy
             .iter()
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .map(|(strategy, _)| strategy.clone());
     }
 }

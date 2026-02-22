@@ -817,22 +817,22 @@ mod tests {
 
     #[test]
     fn test_tensor_f32_to_f64_conversion() {
-        let tensor = tensor![1.0f32, 2.0, 3.0, 4.0].unwrap();
-        let converted = tensor.to_f64_simd().unwrap();
+        let tensor = tensor![1.0f32, 2.0, 3.0, 4.0].expect("tensor creation should succeed");
+        let converted = tensor.to_f64_simd().expect("f64 conversion should succeed");
 
         assert_eq!(converted.shape().dims(), tensor.shape().dims());
-        let converted_data = converted.data().unwrap();
+        let converted_data = converted.data().expect("data retrieval should succeed");
         assert_eq!(converted_data[0], 1.0f64);
         assert_eq!(converted_data[3], 4.0f64);
     }
 
     #[test]
     fn test_tensor_i32_to_f32_conversion() {
-        let tensor = tensor![1i32, 2, 3, 4].unwrap();
-        let converted = tensor.to_f32_simd().unwrap();
+        let tensor = tensor![1i32, 2, 3, 4].expect("tensor creation should succeed");
+        let converted = tensor.to_f32_simd().expect("f32 conversion should succeed");
 
         assert_eq!(converted.shape().dims(), tensor.shape().dims());
-        let converted_data = converted.data().unwrap();
+        let converted_data = converted.data().expect("data retrieval should succeed");
         assert_eq!(converted_data[0], 1.0f32);
         assert_eq!(converted_data[3], 4.0f32);
     }
@@ -934,11 +934,13 @@ mod tests {
     fn test_large_tensor_conversion() {
         // Test with larger data to ensure SIMD paths are taken
         let large_data: Vec<f32> = (0..1000).map(|i| i as f32 * 0.1).collect();
-        let tensor =
-            crate::Tensor::from_data(large_data.clone(), vec![1000], DeviceType::Cpu).unwrap();
+        let tensor = crate::Tensor::from_data(large_data.clone(), vec![1000], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let converted = tensor.to_f64_simd().unwrap();
-        let converted_data = converted.to_vec().unwrap();
+        let converted = tensor.to_f64_simd().expect("f64 conversion should succeed");
+        let converted_data = converted
+            .to_vec()
+            .expect("to_vec conversion should succeed");
 
         assert_eq!(converted_data.len(), large_data.len());
         for (i, (&original, &converted)) in large_data.iter().zip(converted_data.iter()).enumerate()
@@ -982,18 +984,26 @@ mod tests {
 
     #[test]
     fn test_convert_with_strategy() {
-        let tensor = tensor![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0].unwrap();
+        let tensor = tensor![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+            .expect("tensor creation should succeed");
 
         // Test scalar strategy
-        let scalar_result: Tensor<f64> =
-            tensor.convert_with_strategy(SIMDStrategy::Scalar).unwrap();
-        let scalar_data = scalar_result.to_vec().unwrap();
+        let scalar_result: Tensor<f64> = tensor
+            .convert_with_strategy(SIMDStrategy::Scalar)
+            .expect("conversion should succeed");
+        let scalar_data = scalar_result
+            .to_vec()
+            .expect("to_vec conversion should succeed");
         assert_eq!(scalar_data.len(), 8);
         assert_eq!(scalar_data[0], 1.0f64);
 
         // Test auto strategy
-        let auto_result: Tensor<f64> = tensor.convert_with_strategy(SIMDStrategy::Auto).unwrap();
-        let auto_data = auto_result.to_vec().unwrap();
+        let auto_result: Tensor<f64> = tensor
+            .convert_with_strategy(SIMDStrategy::Auto)
+            .expect("conversion should succeed");
+        let auto_data = auto_result
+            .to_vec()
+            .expect("to_vec conversion should succeed");
         assert_eq!(auto_data.len(), 8);
         assert_eq!(auto_data[0], 1.0f64);
 
@@ -1004,29 +1014,69 @@ mod tests {
     #[test]
     fn test_additional_data_types() {
         // Test i64 conversions
-        let i64_tensor = tensor![1i64, 2, 3, 4].unwrap();
-        let i64_to_f32 = i64_tensor.to_f32_simd().unwrap();
-        let i64_to_f64 = i64_tensor.to_f64_simd().unwrap();
+        let i64_tensor = tensor![1i64, 2, 3, 4].expect("tensor creation should succeed");
+        let i64_to_f32 = i64_tensor
+            .to_f32_simd()
+            .expect("f32 conversion should succeed");
+        let i64_to_f64 = i64_tensor
+            .to_f64_simd()
+            .expect("f64 conversion should succeed");
 
-        assert_eq!(i64_to_f32.to_vec().unwrap(), vec![1.0f32, 2.0, 3.0, 4.0]);
-        assert_eq!(i64_to_f64.to_vec().unwrap(), vec![1.0f64, 2.0, 3.0, 4.0]);
+        assert_eq!(
+            i64_to_f32
+                .to_vec()
+                .expect("to_vec conversion should succeed"),
+            vec![1.0f32, 2.0, 3.0, 4.0]
+        );
+        assert_eq!(
+            i64_to_f64
+                .to_vec()
+                .expect("to_vec conversion should succeed"),
+            vec![1.0f64, 2.0, 3.0, 4.0]
+        );
 
         // Test i32 conversions that are working
-        let i32_tensor = tensor![1i32, 2, 3, 4].unwrap();
-        let i32_to_f32 = i32_tensor.to_f32_simd().unwrap();
-        let i32_to_f64 = i32_tensor.to_f64_simd().unwrap();
-        let i32_to_i64 = i32_tensor.to_i64_simd().unwrap();
+        let i32_tensor = tensor![1i32, 2, 3, 4].expect("tensor creation should succeed");
+        let i32_to_f32 = i32_tensor
+            .to_f32_simd()
+            .expect("f32 conversion should succeed");
+        let i32_to_f64 = i32_tensor
+            .to_f64_simd()
+            .expect("f64 conversion should succeed");
+        let i32_to_i64 = i32_tensor
+            .to_i64_simd()
+            .expect("i64 conversion should succeed");
 
-        assert_eq!(i32_to_f32.to_vec().unwrap(), vec![1.0f32, 2.0, 3.0, 4.0]);
-        assert_eq!(i32_to_f64.to_vec().unwrap(), vec![1.0f64, 2.0, 3.0, 4.0]);
-        assert_eq!(i32_to_i64.to_vec().unwrap(), vec![1i64, 2, 3, 4]);
+        assert_eq!(
+            i32_to_f32
+                .to_vec()
+                .expect("to_vec conversion should succeed"),
+            vec![1.0f32, 2.0, 3.0, 4.0]
+        );
+        assert_eq!(
+            i32_to_f64
+                .to_vec()
+                .expect("to_vec conversion should succeed"),
+            vec![1.0f64, 2.0, 3.0, 4.0]
+        );
+        assert_eq!(
+            i32_to_i64
+                .to_vec()
+                .expect("to_vec conversion should succeed"),
+            vec![1i64, 2, 3, 4]
+        );
     }
 
     #[test]
     fn test_optimal_simd_conversion() {
-        let tensor = tensor![1.0f32, 2.0, 3.0, 4.0].unwrap();
-        let result: Tensor<f64> = tensor.convert_with_optimal_simd().unwrap();
+        let tensor = tensor![1.0f32, 2.0, 3.0, 4.0].expect("tensor creation should succeed");
+        let result: Tensor<f64> = tensor
+            .convert_with_optimal_simd()
+            .expect("SIMD conversion should succeed");
 
-        assert_eq!(result.to_vec().unwrap(), vec![1.0f64, 2.0, 3.0, 4.0]);
+        assert_eq!(
+            result.to_vec().expect("to_vec conversion should succeed"),
+            vec![1.0f64, 2.0, 3.0, 4.0]
+        );
     }
 }

@@ -265,7 +265,8 @@ impl ClientSelector {
             .collect();
 
         // Sort by fairness score (highest first = least participated)
-        client_fairness_scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        client_fairness_scores
+            .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
         client_fairness_scores
             .into_iter()
@@ -292,7 +293,8 @@ impl ClientSelector {
             .collect();
 
         // Sort by performance score (highest first)
-        client_performance_scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        client_performance_scores
+            .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
         client_performance_scores
             .into_iter()

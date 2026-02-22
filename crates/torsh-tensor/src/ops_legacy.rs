@@ -263,19 +263,19 @@ mod tests {
     #[test]
     fn test_modular_structure_compatibility() {
         // Test that all operations are accessible through the modular structure
-        let x = Tensor::randn(&[4, 4]).unwrap();
-        let y = Tensor::randn(&[4, 4]).unwrap();
+        let x = Tensor::randn(&[4, 4]).expect("randn creation should succeed");
+        let y = Tensor::randn(&[4, 4]).expect("randn creation should succeed");
 
         // Test arithmetic operations
-        let sum = x.add(&y).unwrap();
+        let sum = x.add(&y).expect("addition should succeed");
         assert_eq!(sum.shape().dims(), &[4, 4]);
 
         // Test activation functions (Phase 13 extraction)
-        let activated = x.relu().unwrap();
+        let activated = x.relu().expect("relu should succeed");
         assert_eq!(activated.shape().dims(), &[4, 4]);
 
         // Test comparison operations (Phase 13 extraction)
-        let mask = x.gt(&y).unwrap();
+        let mask = x.gt(&y).expect("comparison should succeed");
         assert_eq!(mask.shape().dims(), &[4, 4]);
     }
 
@@ -286,7 +286,7 @@ mod tests {
         assert!(are_broadcastable(&[4, 4], &[4, 4]));
         assert!(!are_broadcastable(&[4, 3], &[5, 2]));
 
-        let broadcast_result = broadcast_shapes(&[4, 1], &[1, 3]).unwrap();
+        let broadcast_result = broadcast_shapes(&[4, 1], &[1, 3]).expect("broadcast should succeed");
         assert_eq!(broadcast_result, vec![4, 3]);
 
         // Test shape utilities
@@ -306,57 +306,57 @@ mod tests {
     #[test]
     fn test_enhanced_tensor_creation() {
         // Test enhanced tensor factory functions
-        let zeros = Tensor::<f32>::zeros_enhanced(&[3, 3]).unwrap();
+        let zeros = Tensor::<f32>::zeros_enhanced(&[3, 3]).expect("zeros creation should succeed");
         assert_eq!(zeros.shape().dims(), &[3, 3]);
 
-        let ones = Tensor::<f32>::ones_enhanced(&[2, 4]).unwrap();
+        let ones = Tensor::<f32>::ones_enhanced(&[2, 4]).expect("ones creation should succeed");
         assert_eq!(ones.shape().dims(), &[2, 4]);
 
-        let eye = Tensor::<f32>::eye_enhanced(4).unwrap();
+        let eye = Tensor::<f32>::eye_enhanced(4).expect("eye creation should succeed");
         assert_eq!(eye.shape().dims(), &[4, 4]);
     }
 
     #[test]
     fn test_phase_13_extracted_operations() {
-        let x = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], Device::Cpu).unwrap();
-        let y = Tensor::from_data(vec![2.0f32, 2.0, 2.0, 2.0], vec![2, 2], Device::Cpu).unwrap();
+        let x = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], Device::Cpu).expect("tensor creation should succeed");
+        let y = Tensor::from_data(vec![2.0f32, 2.0, 2.0, 2.0], vec![2, 2], Device::Cpu).expect("tensor creation should succeed");
 
         // Test comparison operations (Phase 13)
-        let gt_result = x.gt(&y).unwrap();
-        let data = gt_result.data().unwrap();
+        let gt_result = x.gt(&y).expect("comparison should succeed");
+        let data = gt_result.data().expect("data retrieval should succeed");
         assert_eq!(data, vec![false, false, true, true]);
 
         // Test activation functions (Phase 13)
-        let relu_result = x.relu().unwrap();
-        let relu_data = relu_result.data().unwrap();
+        let relu_result = x.relu().expect("relu should succeed");
+        let relu_data = relu_result.data().expect("data retrieval should succeed");
         assert_eq!(relu_data, vec![1.0, 2.0, 3.0, 4.0]); // All positive, unchanged
 
         // Test type conversion (Phase 13)
-        let f64_result = x.to_f64().unwrap();
+        let f64_result = x.to_f64().expect("f64 conversion should succeed");
         assert_eq!(f64_result.shape().dims(), &[2, 2]);
 
         // Test signal processing (Phase 13) - basic moving average
-        let signal = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], Device::Cpu).unwrap();
-        let filtered = signal.moving_average_1d(3).unwrap();
+        let signal = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], Device::Cpu).expect("tensor creation should succeed");
+        let filtered = signal.moving_average_1d(3).expect("moving average should succeed");
         assert_eq!(filtered.shape().dims()[0], 3); // 5 - 3 + 1 = 3
     }
 
     #[test]
     fn test_backward_compatibility() {
         // Ensure all legacy operations still work
-        let x = Tensor::randn(&[3, 3]).unwrap();
-        let y = Tensor::randn(&[3, 3]).unwrap();
+        let x = Tensor::randn(&[3, 3]).expect("randn creation should succeed");
+        let y = Tensor::randn(&[3, 3]).expect("randn creation should succeed");
 
         // These should work exactly as before
-        let _sum = x.add(&y).unwrap();
-        let _product = x.mul(&y).unwrap();
-        let _matrix_mult = x.matmul(&y).unwrap();
-        let _mean = x.mean(None).unwrap();
-        let _transposed = x.transpose(0, 1).unwrap();
+        let _sum = x.add(&y).expect("addition should succeed");
+        let _product = x.mul(&y).expect("multiplication should succeed");
+        let _matrix_mult = x.matmul(&y).expect("matmul should succeed");
+        let _mean = x.mean(None).expect("mean should succeed");
+        let _transposed = x.transpose(0, 1).expect("transpose should succeed");
 
         // Enhanced operations should also work
-        let _activated = x.relu().unwrap();
-        let _compared = x.gt(&y).unwrap();
+        let _activated = x.relu().expect("relu should succeed");
+        let _compared = x.gt(&y).expect("comparison should succeed");
     }
 }
 

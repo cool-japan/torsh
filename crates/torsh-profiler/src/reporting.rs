@@ -1034,7 +1034,10 @@ mod tests {
     fn test_report_config_creation() {
         let config = create_performance_report_config(
             "Test Report".to_string(),
-            "/tmp/test_report.html".to_string(),
+            std::env::temp_dir()
+                .join("test_report.html")
+                .display()
+                .to_string(),
             ReportFormat::Html,
         );
 
@@ -1061,7 +1064,10 @@ mod tests {
 
         let config = create_performance_report_config(
             "Test Report".to_string(),
-            "/tmp/test_report.json".to_string(),
+            std::env::temp_dir()
+                .join("test_report.json")
+                .display()
+                .to_string(),
             ReportFormat::Json,
         );
 
@@ -1171,7 +1177,10 @@ mod tests {
 
         let mut config = create_performance_report_config(
             "Filtered Report".to_string(),
-            "/tmp/filtered_report.json".to_string(),
+            std::env::temp_dir()
+                .join("filtered_report.json")
+                .display()
+                .to_string(),
             ReportFormat::Json,
         );
 

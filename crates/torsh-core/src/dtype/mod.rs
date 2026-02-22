@@ -510,7 +510,10 @@ mod tests {
         assert_eq!(utils::safest_type(&mixed_types), DType::F64);
 
         // Test dtype parsing
-        assert_eq!(utils::parse_dtype("f32").unwrap(), DType::F32);
+        assert_eq!(
+            utils::parse_dtype("f32").expect("parse_dtype should succeed"),
+            DType::F32
+        );
         assert!(utils::parse_dtype("invalid").is_err());
 
         // Test all dtypes

@@ -157,7 +157,7 @@ All core algorithms and major features from the original TODO have been implemen
 ### Dependencies Policy ✅ FULLY COMPLIANT
 - ✅ All dependencies use workspace (*.workspace = true)
 - ✅ SciRS2 ecosystem preferred (rayon removed, using scirs2_core::parallel_ops)
-- ✅ Latest SciRS2 versions (v0.1.0-RC.2)
+- ✅ Latest SciRS2 versions
 - ✅ Minimal external dependencies
 
 ## 📊 Implementation Status Summary

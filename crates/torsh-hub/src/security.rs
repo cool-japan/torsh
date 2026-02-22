@@ -1385,18 +1385,21 @@ mod tests {
         };
         let sandbox = ModelSandbox::new(config);
 
+        let test_path = std::env::temp_dir().join("test");
+        let test_path_str = test_path.to_string_lossy();
         // Should fail when filesystem access is not allowed
-        assert!(sandbox.record_file_access("/tmp/test", false).is_err());
+        assert!(sandbox.record_file_access(&test_path_str, false).is_err());
 
+        let temp_dir_str = std::env::temp_dir().to_string_lossy().into_owned();
         let config = SandboxConfig {
             allow_filesystem: true,
-            read_paths: vec!["/tmp".to_string()],
+            read_paths: vec![temp_dir_str],
             ..Default::default()
         };
         let sandbox = ModelSandbox::new(config);
 
         // Should succeed for allowed path
-        assert!(sandbox.record_file_access("/tmp/test", false).is_ok());
+        assert!(sandbox.record_file_access(&test_path_str, false).is_ok());
 
         // Should fail for disallowed path
         assert!(sandbox.record_file_access("/etc/passwd", false).is_err());

@@ -962,13 +962,17 @@ mod tests {
 
         // Test allocation through NUMA allocator
         let device = CpuDevice::new();
-        let handle = numa_allocator.allocate_raw(&device, 100, 8).unwrap();
+        let handle = numa_allocator
+            .allocate_raw(&device, 100, 8)
+            .expect("allocate_raw should succeed");
         assert_eq!(handle.size_bytes, 100);
         assert_eq!(handle.alignment, 8);
 
         // Clean up
         unsafe {
-            numa_allocator.deallocate_raw(handle).unwrap();
+            numa_allocator
+                .deallocate_raw(handle)
+                .expect("deallocate_raw should succeed");
         }
     }
 

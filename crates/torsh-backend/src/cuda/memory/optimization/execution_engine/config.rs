@@ -1111,7 +1111,7 @@ impl Default for CheckpointConfig {
             enabled: false,
             interval: Duration::from_secs(300),
             max_checkpoints: 5,
-            storage_location: "/tmp/checkpoints".to_string(),
+            storage_location: std::env::temp_dir().join("checkpoints").display().to_string(),
             compression_enabled: true,
             validation_enabled: true,
         }

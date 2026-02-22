@@ -771,6 +771,367 @@ impl PositionInterpolation {
     }
 }
 
+/// Sinusoidal Position Embedding Layer
+///
+/// Implements fixed sinusoidal positional embeddings from the original Transformer paper
+/// "Attention Is All You Need" (Vaswani et al., 2017).
+///
+/// Mathematical Formula:
+/// ```text
+/// PE(pos, 2i)   = sin(pos / 10000^(2i/d_model))
+/// PE(pos, 2i+1) = cos(pos / 10000^(2i/d_model))
+/// ```
+///
+/// where:
+/// - pos: position in the sequence
+/// - i: dimension index
+/// - d_model: embedding dimension (must be even)
+///
+/// # Features
+/// - Precomputed embeddings for efficient reuse
+/// - Cached for O(1) lookup
+/// - Supports variable sequence lengths up to max_len
+/// - Optional learned scaling parameter
+/// - Zero-copy slicing for different sequence lengths
+///
+/// # Example
+/// ```ignore
+/// use torsh_nn::layers::SinusoidalPositionEmbedding;
+/// use torsh_nn::Module;
+///
+/// // Create embeddings for sequences up to length 1000, dimension 512
+/// let pos_emb = SinusoidalPositionEmbedding::new(512, 1000)?;
+///
+/// // Get embeddings for a sequence of length 128
+/// let positions = Tensor::from_vec((0..128).map(|x| x as f32).collect(), &[128])?;
+/// let embeddings = pos_emb.forward(&positions)?;
+/// // embeddings shape: [128, 512]
+/// ```
+///
+/// # PyTorch Compatibility
+/// This implementation is compatible with PyTorch's sinusoidal positional encoding:
+/// ```python
+/// # PyTorch equivalent
+/// import torch
+/// import math
+///
+/// def sinusoidal_position_embedding(max_len, d_model):
+///     pe = torch.zeros(max_len, d_model)
+///     position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+///     div_term = torch.exp(torch.arange(0, d_model, 2).float() *
+///                          (-math.log(10000.0) / d_model))
+///     pe[:, 0::2] = torch.sin(position * div_term)
+///     pe[:, 1::2] = torch.cos(position * div_term)
+///     return pe
+/// ```
+pub struct SinusoidalPositionEmbedding {
+    base: ModuleBase,
+    d_model: usize,
+    max_len: usize,
+    learned_scale: bool,
+}
+
+impl SinusoidalPositionEmbedding {
+    /// Create a new SinusoidalPositionEmbedding layer
+    ///
+    /// # Arguments
+    /// - `d_model`: Embedding dimension (must be even)
+    /// - `max_len`: Maximum sequence length to precompute (default: 5000)
+    ///
+    /// # Returns
+    /// Result containing the initialized layer or an error
+    ///
+    /// # Errors
+    /// Returns error if d_model is odd or if tensor creation fails
+    pub fn new(d_model: usize, max_len: usize) -> Result<Self> {
+        if d_model % 2 != 0 {
+            return Err(TorshError::InvalidArgument(format!(
+                "d_model must be even, got {}",
+                d_model
+            )));
+        }
+
+        let mut base = ModuleBase::new();
+
+        // Precompute sinusoidal embeddings
+        let embeddings = Self::create_embeddings(max_len, d_model)?;
+        base.register_parameter("embeddings".to_string(), Parameter::new(embeddings));
+
+        Ok(Self {
+            base,
+            d_model,
+            max_len,
+            learned_scale: false,
+        })
+    }
+
+    /// Create a new SinusoidalPositionEmbedding with learned scaling
+    ///
+    /// Includes an optional learned scaling parameter that can be trained
+    ///
+    /// # Arguments
+    /// - `d_model`: Embedding dimension (must be even)
+    /// - `max_len`: Maximum sequence length
+    ///
+    /// # Returns
+    /// Result containing the initialized layer with learned scaling
+    pub fn with_learned_scale(d_model: usize, max_len: usize) -> Result<Self> {
+        let mut layer = Self::new(d_model, max_len)?;
+        layer.learned_scale = true;
+
+        // Initialize scaling parameter to 1.0
+        let scale = Tensor::from_vec(vec![1.0], &[1])?;
+        layer
+            .base
+            .register_parameter("scale".to_string(), Parameter::new(scale));
+
+        Ok(layer)
+    }
+
+    /// Create sinusoidal positional embeddings
+    ///
+    /// Implements the formula:
+    /// PE(pos, 2i) = sin(pos / 10000^(2i/d_model))
+    /// PE(pos, 2i+1) = cos(pos / 10000^(2i/d_model))
+    fn create_embeddings(max_len: usize, d_model: usize) -> Result<Tensor> {
+        let mut embeddings = vec![0.0f32; max_len * d_model];
+
+        // Precompute division terms: 1 / 10000^(2i/d_model)
+        let mut div_term = Vec::with_capacity(d_model / 2);
+        for i in (0..d_model).step_by(2) {
+            let exponent = i as f32 / d_model as f32;
+            div_term.push(1.0 / 10000.0_f32.powf(exponent));
+        }
+
+        // Fill embeddings for each position
+        for pos in 0..max_len {
+            let pos_f = pos as f32;
+
+            for (i, &div) in div_term.iter().enumerate() {
+                let angle = pos_f * div;
+
+                // Even indices: sin
+                embeddings[pos * d_model + (i * 2)] = angle.sin();
+
+                // Odd indices: cos
+                if (i * 2 + 1) < d_model {
+                    embeddings[pos * d_model + (i * 2 + 1)] = angle.cos();
+                }
+            }
+        }
+
+        Tensor::from_vec(embeddings, &[max_len, d_model])
+    }
+
+    /// Get embeddings for specific positions
+    ///
+    /// # Arguments
+    /// - `positions`: Tensor of position indices \[seq_len\] or \[batch, seq_len\]
+    ///
+    /// # Returns
+    /// Position embeddings with shape \[seq_len, d_model\] or \[batch, seq_len, d_model\]
+    pub fn get_embeddings(&self, positions: &Tensor) -> Result<Tensor> {
+        let embeddings = self.base.parameters["embeddings"].tensor().read().clone();
+        let positions_data = positions.to_vec()?;
+        let binding = positions.shape();
+        let positions_shape = binding.dims();
+
+        // Validate positions are within bounds
+        for &pos in positions_data.iter() {
+            let pos_usize = pos as usize;
+            if pos_usize >= self.max_len {
+                return Err(TorshError::InvalidArgument(format!(
+                    "Position {} exceeds max_len {}",
+                    pos_usize, self.max_len
+                )));
+            }
+        }
+
+        // Handle different input shapes
+        match positions_shape.len() {
+            1 => {
+                // Input: [seq_len]
+                // Output: [seq_len, d_model]
+                let seq_len = positions_shape[0];
+                let mut output = Vec::with_capacity(seq_len * self.d_model);
+                let embeddings_data = embeddings.to_vec()?;
+
+                for &pos in positions_data.iter() {
+                    let pos_idx = pos as usize;
+                    let start = pos_idx * self.d_model;
+                    let end = start + self.d_model;
+                    output.extend_from_slice(&embeddings_data[start..end]);
+                }
+
+                let mut result = Tensor::from_vec(output, &[seq_len, self.d_model])?;
+
+                // Apply learned scale if enabled
+                if self.learned_scale {
+                    let scale = self.base.parameters["scale"].tensor().read().clone();
+                    result = result.mul_op(&scale)?;
+                }
+
+                Ok(result)
+            }
+            2 => {
+                // Input: [batch, seq_len]
+                // Output: [batch, seq_len, d_model]
+                let batch_size = positions_shape[0];
+                let seq_len = positions_shape[1];
+                let mut output = Vec::with_capacity(batch_size * seq_len * self.d_model);
+                let embeddings_data = embeddings.to_vec()?;
+
+                for &pos in positions_data.iter() {
+                    let pos_idx = pos as usize;
+                    let start = pos_idx * self.d_model;
+                    let end = start + self.d_model;
+                    output.extend_from_slice(&embeddings_data[start..end]);
+                }
+
+                let mut result = Tensor::from_vec(output, &[batch_size, seq_len, self.d_model])?;
+
+                // Apply learned scale if enabled
+                if self.learned_scale {
+                    let scale = self.base.parameters["scale"].tensor().read().clone();
+                    result = result.mul_op(&scale)?;
+                }
+
+                Ok(result)
+            }
+            _ => Err(TorshError::InvalidArgument(format!(
+                "Expected 1D or 2D positions tensor, got {}D",
+                positions_shape.len()
+            ))),
+        }
+    }
+
+    /// Get embeddings for a sequence length (positions 0 to seq_len-1)
+    ///
+    /// # Arguments
+    /// - `seq_len`: Sequence length
+    ///
+    /// # Returns
+    /// Position embeddings with shape [seq_len, d_model]
+    pub fn get_embeddings_for_length(&self, seq_len: usize) -> Result<Tensor> {
+        if seq_len > self.max_len {
+            return Err(TorshError::InvalidArgument(format!(
+                "Sequence length {} exceeds max_len {}",
+                seq_len, self.max_len
+            )));
+        }
+
+        let embeddings = self.base.parameters["embeddings"].tensor().read().clone();
+        let mut result = embeddings.narrow(0, 0, seq_len)?;
+
+        // Apply learned scale if enabled
+        if self.learned_scale {
+            let scale = self.base.parameters["scale"].tensor().read().clone();
+            result = result.mul_op(&scale)?;
+        }
+
+        Ok(result)
+    }
+
+    /// Get the maximum supported sequence length
+    pub fn max_len(&self) -> usize {
+        self.max_len
+    }
+
+    /// Get the embedding dimension
+    pub fn d_model(&self) -> usize {
+        self.d_model
+    }
+}
+
+impl Module for SinusoidalPositionEmbedding {
+    fn forward(&self, input: &Tensor) -> Result<Tensor> {
+        // Input can be:
+        // 1. Position indices [seq_len] or [batch, seq_len]
+        // 2. Token embeddings [batch, seq_len, d_model] - add positional embeddings
+        let binding = input.shape();
+        let input_shape = binding.dims();
+
+        match input_shape.len() {
+            1 | 2 => {
+                // Treat as position indices
+                self.get_embeddings(input)
+            }
+            3 => {
+                // Treat as token embeddings [batch, seq_len, d_model]
+                let seq_len = input_shape[1];
+                let pos_emb = self.get_embeddings_for_length(seq_len)?;
+
+                // Broadcast and add
+                // pos_emb: [seq_len, d_model] -> unsqueeze to [1, seq_len, d_model]
+                let pos_emb_broadcasted = pos_emb.unsqueeze(0)?;
+                input.add_op(&pos_emb_broadcasted)
+            }
+            _ => Err(TorshError::InvalidArgument(format!(
+                "Unexpected input shape: {:?}",
+                input_shape
+            ))),
+        }
+    }
+
+    fn parameters(&self) -> HashMap<String, Parameter> {
+        if self.learned_scale {
+            // Only return the scale parameter, embeddings are fixed
+            let mut params = HashMap::new();
+            if let Some(scale) = self.base.parameters.get("scale") {
+                params.insert("scale".to_string(), scale.clone());
+            }
+            params
+        } else {
+            // Embeddings are fixed, not trainable
+            HashMap::new()
+        }
+    }
+
+    fn training(&self) -> bool {
+        self.base.training()
+    }
+
+    fn train(&mut self) {
+        self.base.set_training(true);
+    }
+
+    fn eval(&mut self) {
+        self.base.set_training(false);
+    }
+
+    fn set_training(&mut self, training: bool) {
+        self.base.set_training(training);
+    }
+
+    fn to_device(&mut self, device: DeviceType) -> Result<()> {
+        self.base.to_device(device)
+    }
+
+    fn named_parameters(&self) -> HashMap<String, Parameter> {
+        if self.learned_scale {
+            // Only return the scale parameter, embeddings are fixed
+            let mut params = HashMap::new();
+            if let Some(scale) = self.base.parameters.get("scale") {
+                params.insert("scale".to_string(), scale.clone());
+            }
+            params
+        } else {
+            // Embeddings are fixed, not trainable
+            HashMap::new()
+        }
+    }
+}
+
+impl std::fmt::Debug for SinusoidalPositionEmbedding {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SinusoidalPositionEmbedding")
+            .field("d_model", &self.d_model)
+            .field("max_len", &self.max_len)
+            .field("learned_scale", &self.learned_scale)
+            .finish()
+    }
+}
+
 // Helper function to create sinusoidal positional encoding
 fn create_sinusoidal_encoding(max_len: usize, d_model: usize) -> Tensor {
     let mut pos_encoding = vec![0.0f32; max_len * d_model];
@@ -1110,6 +1471,207 @@ mod tests {
         )?;
         let output3d = embedding.forward(&input3d)?;
         assert_eq!(output3d.shape().dims(), &[2, 3, 2, 5]);
+
+        Ok(())
+    }
+
+    // =============================================================================
+    // SinusoidalPositionEmbedding Tests
+    // =============================================================================
+
+    #[test]
+    fn test_sinusoidal_position_embedding_creation() -> Result<()> {
+        // Test basic creation
+        let pos_emb = SinusoidalPositionEmbedding::new(64, 100)?;
+        assert_eq!(pos_emb.d_model(), 64);
+        assert_eq!(pos_emb.max_len(), 100);
+
+        // Test that d_model must be even
+        let result = SinusoidalPositionEmbedding::new(63, 100);
+        assert!(result.is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sinusoidal_position_embedding_forward() -> Result<()> {
+        // Create position embedding layer
+        let pos_emb = SinusoidalPositionEmbedding::new(128, 1000)?;
+
+        // Test with position indices [0, 1, 2, 3, 4]
+        let positions = Tensor::from_vec(vec![0.0, 1.0, 2.0, 3.0, 4.0], &[5])?;
+        let embeddings = pos_emb.forward(&positions)?;
+
+        // Check shape
+        assert_eq!(embeddings.shape().dims(), &[5, 128]);
+
+        // Check that embeddings are not all zeros
+        let data = embeddings.to_vec()?;
+        let sum: f32 = data.iter().sum();
+        assert!(sum.abs() > 0.1);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sinusoidal_position_embedding_sequence_length() -> Result<()> {
+        let pos_emb = SinusoidalPositionEmbedding::new(64, 200)?;
+
+        // Get embeddings for a sequence of length 50
+        let embeddings = pos_emb.get_embeddings_for_length(50)?;
+
+        // Check shape
+        assert_eq!(embeddings.shape().dims(), &[50, 64]);
+
+        // Verify that position 0 has expected pattern
+        let emb0 = embeddings.narrow(0, 0, 1)?.squeeze(0)?;
+        let data0 = emb0.to_vec()?;
+
+        // At position 0, all angles are 0
+        // sin(0) = 0, cos(0) = 1
+        assert_relative_eq!(data0[0], 0.0, epsilon = 1e-6); // sin(0)
+        assert_relative_eq!(data0[1], 1.0, epsilon = 1e-6); // cos(0)
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sinusoidal_position_embedding_mathematical_properties() -> Result<()> {
+        let d_model = 64;
+        let pos_emb = SinusoidalPositionEmbedding::new(d_model, 100)?;
+
+        // Get embeddings for positions 0, 1, 2
+        let positions = Tensor::from_vec(vec![0.0, 1.0, 2.0], &[3])?;
+        let embeddings = pos_emb.forward(&positions)?;
+        let data = embeddings.to_vec()?;
+
+        // Check position 0: all even indices should be sin(0) = 0, odd should be cos(0) = 1
+        assert_relative_eq!(data[0], 0.0, epsilon = 1e-6); // sin(0)
+        assert_relative_eq!(data[1], 1.0, epsilon = 1e-6); // cos(0)
+
+        // Check that embeddings follow the sinusoidal pattern
+        // For position 1, first dimension should be sin(1 / 10000^0) ≈ sin(1)
+        let pos1_start = d_model;
+        assert_relative_eq!(data[pos1_start], (1.0_f32).sin(), epsilon = 1e-5);
+        assert_relative_eq!(data[pos1_start + 1], (1.0_f32).cos(), epsilon = 1e-5);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sinusoidal_position_embedding_periodicity() -> Result<()> {
+        let pos_emb = SinusoidalPositionEmbedding::new(128, 10000)?;
+
+        // Get embeddings at different positions
+        let pos1 = Tensor::from_vec(vec![0.0], &[1])?;
+        let emb1 = pos_emb.forward(&pos1)?;
+
+        let pos2 = Tensor::from_vec(vec![100.0], &[1])?;
+        let emb2 = pos_emb.forward(&pos2)?;
+
+        // Embeddings should be different
+        let data1 = emb1.to_vec()?;
+        let data2 = emb2.to_vec()?;
+
+        let mut different_count = 0;
+        for (v1, v2) in data1.iter().zip(data2.iter()) {
+            if (v1 - v2).abs() > 1e-6 {
+                different_count += 1;
+            }
+        }
+
+        // Most values should be different
+        assert!(different_count > 100);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sinusoidal_position_embedding_batch_support() -> Result<()> {
+        let pos_emb = SinusoidalPositionEmbedding::new(64, 100)?;
+
+        // Test with batched positions [batch=2, seq_len=3]
+        let positions = Tensor::from_vec(
+            vec![
+                0.0, 1.0, 2.0, // Batch 0
+                3.0, 4.0, 5.0, // Batch 1
+            ],
+            &[2, 3],
+        )?;
+
+        let embeddings = pos_emb.forward(&positions)?;
+
+        // Check shape: [2, 3, 64]
+        assert_eq!(embeddings.shape().dims(), &[2, 3, 64]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sinusoidal_position_embedding_bounds_checking() -> Result<()> {
+        let pos_emb = SinusoidalPositionEmbedding::new(64, 100)?;
+
+        // Test position exceeding max_len
+        let positions = Tensor::from_vec(vec![101.0], &[1])?;
+        let result = pos_emb.forward(&positions);
+        assert!(result.is_err());
+
+        // Test sequence length exceeding max_len
+        let result = pos_emb.get_embeddings_for_length(101);
+        assert!(result.is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sinusoidal_position_embedding_with_learned_scale() -> Result<()> {
+        let pos_emb = SinusoidalPositionEmbedding::with_learned_scale(64, 100)?;
+
+        // Should have trainable parameters (the scale)
+        let params = pos_emb.parameters();
+        assert_eq!(params.len(), 1);
+        assert!(params.contains_key("scale"));
+
+        // Get embeddings
+        let positions = Tensor::from_vec(vec![0.0, 1.0], &[2])?;
+        let embeddings = pos_emb.forward(&positions)?;
+
+        assert_eq!(embeddings.shape().dims(), &[2, 64]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sinusoidal_position_embedding_add_to_tokens() -> Result<()> {
+        let d_model = 64;
+        let seq_len = 10;
+        let batch_size = 2;
+
+        let pos_emb = SinusoidalPositionEmbedding::new(d_model, 100)?;
+
+        // Create token embeddings [batch, seq_len, d_model]
+        let token_data = vec![0.5_f32; batch_size * seq_len * d_model];
+        let tokens = Tensor::from_vec(token_data, &[batch_size, seq_len, d_model])?;
+
+        // Add positional embeddings
+        let output = pos_emb.forward(&tokens)?;
+
+        // Shape should be preserved
+        assert_eq!(output.shape().dims(), &[batch_size, seq_len, d_model]);
+
+        // Values should be different from input (positional info added)
+        let output_data = output.to_vec()?;
+        let tokens_data = tokens.to_vec()?;
+
+        let mut different_count = 0;
+        for (out, tok) in output_data.iter().zip(tokens_data.iter()) {
+            if (out - tok).abs() > 1e-6 {
+                different_count += 1;
+            }
+        }
+
+        // Most values should be different (positional embeddings added)
+        assert!(different_count > d_model * seq_len);
 
         Ok(())
     }

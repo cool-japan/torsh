@@ -303,23 +303,27 @@ impl LazyResource {
 
     /// Load data from an archive entry
     fn load_archive_data(&self, archive_path: &Path, entry_name: &str) -> Result<Vec<u8>> {
+        use oxiarc_archive::zip::ZipReader;
+
         let file = fs::File::open(archive_path).map_err(|e| {
             TorshError::InvalidArgument(format!("Failed to open archive {:?}: {}", archive_path, e))
         })?;
 
-        let mut archive = zip::ZipArchive::new(file).map_err(|e| {
+        let mut archive = ZipReader::new(file).map_err(|e| {
             TorshError::InvalidArgument(format!("Failed to read ZIP archive: {}", e))
         })?;
 
-        let mut entry = archive.by_name(entry_name).map_err(|e| {
-            TorshError::InvalidArgument(format!(
-                "Failed to find entry '{}' in archive: {}",
-                entry_name, e
-            ))
-        })?;
+        let entry = archive
+            .entry_by_name(entry_name)
+            .ok_or_else(|| {
+                TorshError::InvalidArgument(format!(
+                    "Failed to find entry '{}' in archive",
+                    entry_name
+                ))
+            })?
+            .clone();
 
-        let mut buffer = Vec::with_capacity(entry.size() as usize);
-        entry.read_to_end(&mut buffer).map_err(|e| {
+        let buffer = archive.extract(&entry).map_err(|e| {
             TorshError::InvalidArgument(format!("Failed to read archive entry: {}", e))
         })?;
 
@@ -328,22 +332,21 @@ impl LazyResource {
 
     /// Get the size of an archive entry
     fn get_archive_entry_size(&self, archive_path: &Path, entry_name: &str) -> Result<u64> {
+        use oxiarc_archive::zip::ZipReader;
+
         let file = fs::File::open(archive_path).map_err(|e| {
             TorshError::InvalidArgument(format!("Failed to open archive {:?}: {}", archive_path, e))
         })?;
 
-        let mut archive = zip::ZipArchive::new(file).map_err(|e| {
+        let archive = ZipReader::new(file).map_err(|e| {
             TorshError::InvalidArgument(format!("Failed to read ZIP archive: {}", e))
         })?;
 
-        let entry = archive.by_name(entry_name).map_err(|e| {
-            TorshError::InvalidArgument(format!(
-                "Failed to find entry '{}' in archive: {}",
-                entry_name, e
-            ))
+        let entry = archive.entry_by_name(entry_name).ok_or_else(|| {
+            TorshError::InvalidArgument(format!("Failed to find entry '{}' in archive", entry_name))
         })?;
 
-        Ok(entry.size())
+        Ok(entry.size)
     }
 }
 
@@ -561,8 +564,11 @@ mod tests {
             LazyResource::new_in_memory("test".to_string(), ResourceType::Data, data.clone());
 
         assert!(resource.is_loaded());
-        assert_eq!(resource.data().unwrap(), data);
-        assert_eq!(resource.size().unwrap(), data.len() as u64);
+        assert_eq!(resource.data().expect("Failed to get resource data"), data);
+        assert_eq!(
+            resource.size().expect("Failed to get resource size"),
+            data.len() as u64
+        );
     }
 
     #[test]
@@ -581,8 +587,16 @@ mod tests {
         );
 
         assert!(!resource.is_loaded());
-        assert_eq!(resource.size().unwrap(), test_data.len() as u64);
-        assert_eq!(resource.data().unwrap(), test_data);
+        assert_eq!(
+            resource.size().expect("Failed to get resource size"),
+            test_data.len() as u64
+        );
+        assert_eq!(
+            resource
+                .data()
+                .expect("Failed to get resource data from file"),
+            test_data
+        );
         assert!(resource.is_loaded());
 
         Ok(())
@@ -598,10 +612,14 @@ mod tests {
             b"test data".to_vec(),
         );
 
-        manager.add_resource(resource).unwrap();
+        manager
+            .add_resource(resource)
+            .expect("Failed to add resource to manager");
         assert!(manager.get_resource("test").is_some());
 
-        let data = manager.load_resource_data("test").unwrap();
+        let data = manager
+            .load_resource_data("test")
+            .expect("Failed to load resource data");
         assert_eq!(data, b"test data");
     }
 
@@ -615,10 +633,14 @@ mod tests {
             vec![0u8; 150], // Larger than the limit
         );
 
-        manager.add_resource(large_resource).unwrap();
+        manager
+            .add_resource(large_resource)
+            .expect("Failed to add large resource to manager");
 
         // Loading the data should trigger eviction logic
-        manager.load_resource_data("large").unwrap();
+        manager
+            .load_resource_data("large")
+            .expect("Failed to load large resource data");
     }
 
     #[test]
@@ -629,7 +651,9 @@ mod tests {
             b"test data".to_vec(),
         );
 
-        let regular_resource = lazy_resource.to_resource().unwrap();
+        let regular_resource = lazy_resource
+            .to_resource()
+            .expect("Failed to convert lazy resource to regular resource");
         assert_eq!(regular_resource.name, "test");
         assert_eq!(regular_resource.data, b"test data");
     }
@@ -948,7 +972,7 @@ mod streaming_tests {
                 chunks.push(chunk.to_vec());
                 Ok(())
             })
-            .unwrap();
+            .expect("Failed to stream resource chunks");
 
         // Verify chunks were read
         assert!(!chunks.is_empty());
@@ -975,7 +999,9 @@ mod streaming_tests {
             test_data.len() as u64,
         );
 
-        let collected = streaming_resource.collect().unwrap();
+        let collected = streaming_resource
+            .collect()
+            .expect("Failed to collect streaming resource data");
         assert_eq!(collected, test_data);
 
         Ok(())
@@ -998,13 +1024,15 @@ mod streaming_tests {
 
         assert!(!mapped_resource.is_mapped());
 
-        mapped_resource.map().unwrap();
+        mapped_resource.map().expect("Failed to map resource");
         assert!(mapped_resource.is_mapped());
 
-        let data = mapped_resource.data().unwrap();
+        let data = mapped_resource
+            .data()
+            .expect("Failed to get data from mapped resource");
         assert_eq!(data, test_data);
 
-        mapped_resource.unmap().unwrap();
+        mapped_resource.unmap().expect("Failed to unmap resource");
         assert!(!mapped_resource.is_mapped());
 
         Ok(())
@@ -1017,15 +1045,23 @@ mod streaming_tests {
 
         let mut writer =
             ResourceStreamWriter::new("test_writer".to_string(), ResourceType::Data, &path)
-                .unwrap();
+                .expect("Failed to create resource stream writer");
 
-        writer.write_chunk(b"First chunk").unwrap();
-        writer.write_chunk(b" Second chunk").unwrap();
-        writer.write_chunk(b" Third chunk").unwrap();
+        writer
+            .write_chunk(b"First chunk")
+            .expect("Failed to write first chunk");
+        writer
+            .write_chunk(b" Second chunk")
+            .expect("Failed to write second chunk");
+        writer
+            .write_chunk(b" Third chunk")
+            .expect("Failed to write third chunk");
 
         assert_eq!(writer.bytes_written(), 36);
 
-        let (name, size) = writer.finalize().unwrap();
+        let (name, size) = writer
+            .finalize()
+            .expect("Failed to finalize resource stream writer");
         assert_eq!(name, "test_writer");
         assert_eq!(size, 36);
 

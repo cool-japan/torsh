@@ -93,7 +93,10 @@ impl OptimizedGraph {
 
         for node_idx in all_nodes {
             if !live_nodes.contains(&node_idx) {
-                let node = self.graph.remove_node(node_idx).unwrap();
+                let node = self
+                    .graph
+                    .remove_node(node_idx)
+                    .expect("node should exist in graph");
                 self.node_lookup.remove(&node.id);
                 eliminated_count += 1;
             }
@@ -153,7 +156,10 @@ impl OptimizedGraph {
                         self.graph.add_edge(canonical_node, target, ());
                     }
 
-                    let node = self.graph.remove_node(duplicate_node).unwrap();
+                    let node = self
+                        .graph
+                        .remove_node(duplicate_node)
+                        .expect("duplicate node should exist in graph");
                     self.node_lookup.remove(&node.id);
                     eliminated_count += 1;
                 }
@@ -409,7 +415,10 @@ impl OptimizedGraph {
         }
 
         // Remove op2 and update lookup table
-        let removed_node = self.graph.remove_node(op2).unwrap();
+        let removed_node = self
+            .graph
+            .remove_node(op2)
+            .expect("op2 should exist in graph");
         self.node_lookup.remove(&removed_node.id);
 
         Ok(())

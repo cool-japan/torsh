@@ -525,8 +525,8 @@ mod tests {
     fn test_graph_creation() {
         let mut graph = ComputationGraph::<f32>::new();
 
-        let a = tensor_1d(&[1.0, 2.0, 3.0]).unwrap();
-        let b = tensor_1d(&[4.0, 5.0, 6.0]).unwrap();
+        let a = tensor_1d(&[1.0, 2.0, 3.0]).expect("tensor_1d creation should succeed");
+        let b = tensor_1d(&[4.0, 5.0, 6.0]).expect("tensor_1d creation should succeed");
 
         let a_id = graph.constant(a);
         let b_id = graph.constant(b);
@@ -542,24 +542,38 @@ mod tests {
     fn test_topological_sort() {
         let mut graph = ComputationGraph::<f32>::new();
 
-        let a = tensor_1d(&[1.0, 2.0]).unwrap();
-        let b = tensor_1d(&[3.0, 4.0]).unwrap();
+        let a = tensor_1d(&[1.0, 2.0]).expect("tensor_1d creation should succeed");
+        let b = tensor_1d(&[3.0, 4.0]).expect("tensor_1d creation should succeed");
 
         let a_id = graph.constant(a);
         let b_id = graph.constant(b);
         let add_id = graph.binary_op(GraphOp::Add, a_id, b_id, DeviceType::Cpu);
         let mul_id = graph.unary_op(GraphOp::MulScalar(2.0), add_id, DeviceType::Cpu);
 
-        let sorted = graph.topological_sort().unwrap();
+        let sorted = graph
+            .topological_sort()
+            .expect("topological sort should succeed");
 
         // Should have all 4 nodes
         assert_eq!(sorted.len(), 4);
 
         // Constants should come before operations that use them
-        let a_pos = sorted.iter().position(|&id| id == a_id).unwrap();
-        let b_pos = sorted.iter().position(|&id| id == b_id).unwrap();
-        let add_pos = sorted.iter().position(|&id| id == add_id).unwrap();
-        let mul_pos = sorted.iter().position(|&id| id == mul_id).unwrap();
+        let a_pos = sorted
+            .iter()
+            .position(|&id| id == a_id)
+            .expect("position should succeed");
+        let b_pos = sorted
+            .iter()
+            .position(|&id| id == b_id)
+            .expect("position should succeed");
+        let add_pos = sorted
+            .iter()
+            .position(|&id| id == add_id)
+            .expect("position should succeed");
+        let mul_pos = sorted
+            .iter()
+            .position(|&id| id == mul_id)
+            .expect("position should succeed");
 
         assert!(a_pos < add_pos);
         assert!(b_pos < add_pos);
@@ -570,8 +584,8 @@ mod tests {
     fn test_constant_folding() {
         let mut graph = ComputationGraph::<f32>::new();
 
-        let a = tensor_1d(&[1.0, 2.0]).unwrap();
-        let b = tensor_1d(&[3.0, 4.0]).unwrap();
+        let a = tensor_1d(&[1.0, 2.0]).expect("tensor_1d creation should succeed");
+        let b = tensor_1d(&[3.0, 4.0]).expect("tensor_1d creation should succeed");
 
         let a_id = graph.constant(a);
         let b_id = graph.constant(b);
@@ -583,10 +597,10 @@ mod tests {
         assert_eq!(graph.num_nodes(), 3);
 
         // Optimize
-        graph.optimize().unwrap();
+        graph.optimize().expect("optimization should succeed");
 
         // After optimization, the add should be folded into a constant
-        let add_node = graph.nodes.get(&add_id).unwrap();
+        let add_node = graph.nodes.get(&add_id).expect("get should succeed");
         assert!(matches!(add_node.op, GraphOp::Constant));
     }
 
@@ -594,9 +608,9 @@ mod tests {
     fn test_dead_code_elimination() {
         let mut graph = ComputationGraph::<f32>::new();
 
-        let a = tensor_1d(&[1.0]).unwrap();
-        let b = tensor_1d(&[2.0]).unwrap();
-        let c = tensor_1d(&[3.0]).unwrap();
+        let a = tensor_1d(&[1.0]).expect("tensor_1d creation should succeed");
+        let b = tensor_1d(&[2.0]).expect("tensor_1d creation should succeed");
+        let c = tensor_1d(&[3.0]).expect("tensor_1d creation should succeed");
 
         let a_id = graph.constant(a);
         let b_id = graph.constant(b);
@@ -613,7 +627,7 @@ mod tests {
         assert_eq!(graph.num_nodes(), 5);
 
         // Optimize
-        graph.optimize().unwrap();
+        graph.optimize().expect("optimization should succeed");
 
         // After optimization, unused nodes should be removed
         // Note: constant folding folds add into a single constant, so we get 1 node
@@ -624,8 +638,8 @@ mod tests {
     fn test_graph_execution() {
         let mut graph = ComputationGraph::<f32>::new();
 
-        let a = tensor_1d(&[1.0, 2.0, 3.0]).unwrap();
-        let b = tensor_1d(&[4.0, 5.0, 6.0]).unwrap();
+        let a = tensor_1d(&[1.0, 2.0, 3.0]).expect("tensor_1d creation should succeed");
+        let b = tensor_1d(&[4.0, 5.0, 6.0]).expect("tensor_1d creation should succeed");
 
         let a_id = graph.constant(a);
         let b_id = graph.constant(b);
@@ -633,10 +647,12 @@ mod tests {
 
         graph.mark_output(add_id);
 
-        let results = graph.execute().unwrap();
+        let results = graph.execute().expect("execution should succeed");
         assert_eq!(results.len(), 1);
 
-        let data = results[0].to_vec().unwrap();
+        let data = results[0]
+            .to_vec()
+            .expect("to_vec conversion should succeed");
         assert_eq!(data, vec![5.0, 7.0, 9.0]);
     }
 
@@ -644,8 +660,8 @@ mod tests {
     fn test_multiple_outputs() {
         let mut graph = ComputationGraph::<f32>::new();
 
-        let a = tensor_1d(&[1.0, 2.0]).unwrap();
-        let b = tensor_1d(&[3.0, 4.0]).unwrap();
+        let a = tensor_1d(&[1.0, 2.0]).expect("tensor_1d creation should succeed");
+        let b = tensor_1d(&[3.0, 4.0]).expect("tensor_1d creation should succeed");
 
         let a_id = graph.constant(a);
         let b_id = graph.constant(b);
@@ -655,11 +671,15 @@ mod tests {
         graph.mark_output(add_id);
         graph.mark_output(mul_id);
 
-        let results = graph.execute().unwrap();
+        let results = graph.execute().expect("execution should succeed");
         assert_eq!(results.len(), 2);
 
-        let add_data = results[0].to_vec().unwrap();
-        let mul_data = results[1].to_vec().unwrap();
+        let add_data = results[0]
+            .to_vec()
+            .expect("to_vec conversion should succeed");
+        let mul_data = results[1]
+            .to_vec()
+            .expect("to_vec conversion should succeed");
 
         assert_eq!(add_data, vec![4.0, 6.0]);
         assert_eq!(mul_data, vec![3.0, 8.0]);
@@ -669,7 +689,7 @@ mod tests {
     fn test_dot_generation() {
         let mut graph = ComputationGraph::<f32>::new();
 
-        let a = tensor_1d(&[1.0]).unwrap();
+        let a = tensor_1d(&[1.0]).expect("tensor_1d creation should succeed");
         let a_id = graph.constant(a);
         graph.mark_output(a_id);
 

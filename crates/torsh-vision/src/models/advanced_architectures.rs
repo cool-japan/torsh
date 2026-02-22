@@ -752,7 +752,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "KNOWN ISSUE: TransformerBlock tensor slicing - FlashMultiHeadAttention uses complex 5D tensor reshaping with narrow/squeeze operations that fail in batch scenarios. Deferred to v0.2.0 for attention mechanism refactor. See: /tmp/torsh_vision_todo_categorization.md"]
+    #[ignore = "KNOWN ISSUE: TransformerBlock tensor slicing - FlashMultiHeadAttention uses complex 5D tensor reshaping with narrow/squeeze operations that fail in batch scenarios. Deferred to v0.2.0 for attention mechanism refactor. See: TODO.md"]
     fn test_vit_forward() {
         let vit = AdvancedViT::vit_tiny().unwrap();
         let input = randn::<f32>(&[1, 3, 224, 224]).unwrap();
@@ -771,7 +771,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "KNOWN ISSUE: TransformerBlock tensor slicing - FlashMultiHeadAttention uses complex 5D tensor reshaping (qkv [3,B,H,N,D] -> narrow/squeeze pattern) that fails due to shape tracking inconsistencies. Root cause: Lines 443-448 with multiple squeeze operations on narrowed tensors. Requires attention mechanism refactor with improved tensor slicing API. Deferred to v0.2.0. See: /tmp/torsh_vision_todo_categorization.md"]
+    #[ignore = "KNOWN ISSUE: TransformerBlock tensor slicing - FlashMultiHeadAttention uses complex 5D tensor reshaping (qkv [3,B,H,N,D] -> narrow/squeeze pattern) that fails due to shape tracking inconsistencies. Root cause: Lines 443-448 with multiple squeeze operations on narrowed tensors. Requires attention mechanism refactor with improved tensor slicing API. Deferred to v0.2.0. See: TODO.md"]
     fn test_transformer_block() {
         let block = TransformerBlock::new(192, 3, 4.0, 0.1, 0.0, false).unwrap();
         let input = randn::<f32>(&[1, 197, 192]).unwrap(); // 196 patches + 1 cls token

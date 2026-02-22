@@ -44,7 +44,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     demonstrate_data_export()?;
 
     println!("✅ Comprehensive demo completed successfully!");
-    println!("📁 Check /tmp/ directory for generated reports and data files");
+    println!(
+        "📁 Check {} directory for generated reports and data files",
+        std::env::temp_dir().display()
+    );
 
     Ok(())
 }
@@ -271,12 +274,18 @@ fn demonstrate_dashboard() -> Result<(), Box<dyn std::error::Error>> {
 
     // Generate dashboard HTML
     let dashboard_html = dashboard.generate_dashboard_html()?;
-    std::fs::write("/tmp/comprehensive_dashboard.html", dashboard_html)?;
-    println!("   📄 Dashboard HTML generated: /tmp/comprehensive_dashboard.html");
+    let comp_dashboard_path = std::env::temp_dir().join("comprehensive_dashboard.html");
+    std::fs::write(&comp_dashboard_path, dashboard_html)?;
+    println!(
+        "   📄 Dashboard HTML generated: {}",
+        comp_dashboard_path.display()
+    );
 
     // Export dashboard data
-    dashboard.export_data_json("/tmp/dashboard_data.json")?;
-    println!("   📊 Dashboard data exported: /tmp/dashboard_data.json");
+    let dashboard_data_path = std::env::temp_dir().join("dashboard_data.json");
+    let dashboard_data_str = dashboard_data_path.display().to_string();
+    dashboard.export_data_json(&dashboard_data_str)?;
+    println!("   📊 Dashboard data exported: {}", dashboard_data_str);
 
     // Show current metrics
     if let Some(current_data) = dashboard.get_current_data()? {
@@ -418,8 +427,10 @@ fn demonstrate_regression_detection() -> Result<(), Box<dyn std::error::Error>> 
     }
 
     // Save regression baselines
-    detector.save_baselines("/tmp/regression_baselines.json")?;
-    println!("   📁 Regression baselines saved: /tmp/regression_baselines.json");
+    let baselines_path = std::env::temp_dir().join("regression_baselines.json");
+    let baselines_str = baselines_path.display().to_string();
+    detector.save_baselines(&baselines_str)?;
+    println!("   📁 Regression baselines saved: {}", baselines_str);
 
     println!("✅ Regression detection demonstration complete\n");
     Ok(())
@@ -438,7 +449,10 @@ fn demonstrate_reporting() -> Result<(), Box<dyn std::error::Error>> {
         report_type: ReportType::Detailed,
         format: ReportFormat::Html,
         frequency: ReportFrequency::OnDemand,
-        output_path: "/tmp/comprehensive_report.html".to_string(),
+        output_path: std::env::temp_dir()
+            .join("comprehensive_report.html")
+            .display()
+            .to_string(),
         template_path: None,
         include_charts: true,
         include_raw_data: true,
@@ -456,9 +470,13 @@ fn demonstrate_reporting() -> Result<(), Box<dyn std::error::Error>> {
     let alerts = vec![]; // Empty alerts for now
     let report = reporter.generate_report(&events, &alerts)?;
     let exported_content = reporter.export_report(&report)?;
-    std::fs::write("/tmp/performance_report.html", exported_content)?;
+    let perf_report_path = std::env::temp_dir().join("performance_report.html");
+    std::fs::write(&perf_report_path, exported_content)?;
 
-    println!("   📁 Report generated and exported to /tmp/performance_report.html");
+    println!(
+        "   📁 Report generated and exported to {}",
+        perf_report_path.display()
+    );
 
     println!("✅ Reporting demonstration complete\n");
     Ok(())
@@ -513,12 +531,15 @@ fn demonstrate_data_export() -> Result<(), Box<dyn std::error::Error>> {
     println!("   🌐 Exporting to Chrome Tracing format...");
     let binding = profiler.lock();
     let events = binding.events();
-    export(events, "/tmp/chrome_trace.json")?;
+    let chrome_path = std::env::temp_dir().join("chrome_trace.json");
+    export(events, &chrome_path.display().to_string())?;
 
     // Export to TensorBoard format
     println!("   📊 Exporting to TensorBoard format...");
-    export_tensorboard_scalars(events, "/tmp/tensorboard_scalars")?;
-    export_tensorboard_histograms(events, "/tmp/tensorboard_histograms")?;
+    let tb_scalars_path = std::env::temp_dir().join("tensorboard_scalars");
+    let tb_histograms_path = std::env::temp_dir().join("tensorboard_histograms");
+    export_tensorboard_scalars(events, &tb_scalars_path.display().to_string())?;
+    export_tensorboard_histograms(events, &tb_histograms_path.display().to_string())?;
 
     // Export custom formats
     println!("   🔧 Exporting custom formats...");
@@ -554,14 +575,19 @@ fn demonstrate_data_export() -> Result<(), Box<dyn std::error::Error>> {
     exporter.register_format(csv_format);
     let binding2 = profiler.lock();
     let events2 = binding2.events();
-    exporter.export(events2, "csv", "/tmp/custom_export.csv")?;
+    let custom_csv_path = std::env::temp_dir().join("custom_export.csv");
+    exporter.export(events2, "csv", &custom_csv_path.display().to_string())?;
 
     // Generate visualizations
     println!("   📈 Generating visualizations...");
-    export_performance_trend_chart(&profiler.lock(), "/tmp/performance_trends.html")?;
-    export_operation_frequency_chart(&profiler.lock(), "/tmp/operation_frequency.html")?;
-    export_memory_scatter_plot(&memory_profiler, "/tmp/memory_scatter.html")?;
-    export_duration_histogram(&profiler.lock(), "/tmp/duration_histogram.html")?;
+    let perf_trends_path = std::env::temp_dir().join("performance_trends.html");
+    let op_freq_path = std::env::temp_dir().join("operation_frequency.html");
+    let mem_scatter_path = std::env::temp_dir().join("memory_scatter.html");
+    let dur_hist_path = std::env::temp_dir().join("duration_histogram.html");
+    export_performance_trend_chart(&profiler.lock(), &perf_trends_path.display().to_string())?;
+    export_operation_frequency_chart(&profiler.lock(), &op_freq_path.display().to_string())?;
+    export_memory_scatter_plot(&memory_profiler, &mem_scatter_path.display().to_string())?;
+    export_duration_histogram(&profiler.lock(), &dur_hist_path.display().to_string())?;
 
     println!("✅ Data export demonstration complete\n");
     Ok(())

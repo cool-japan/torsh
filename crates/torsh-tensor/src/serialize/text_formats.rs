@@ -206,7 +206,10 @@ pub mod numpy {
                     if let Some(start) = part.find(':') {
                         let value_part = &part[start + 1..].trim();
                         if let Some(quote_start) = value_part.find(['\'', '"']) {
-                            let quote_char = value_part.chars().nth(quote_start).unwrap();
+                            let quote_char = value_part
+                                .chars()
+                                .nth(quote_start)
+                                .expect("char at found index should exist");
                             if let Some(quote_end) = value_part[quote_start + 1..].find(quote_char)
                             {
                                 dtype = value_part[quote_start + 1..quote_start + 1 + quote_end]

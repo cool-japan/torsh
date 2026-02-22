@@ -1122,7 +1122,7 @@ mod tests {
         }
 
         let stats = profiler.get_stats();
-        let multiply_stats = stats.get(&op_type).unwrap();
+        let multiply_stats = stats.get(&op_type).expect("stats should contain op_type");
 
         assert_eq!(multiply_stats.count, 3);
         assert!(multiply_stats.total_duration > Duration::ZERO);
@@ -1164,7 +1164,7 @@ mod tests {
         let bandwidth = context.calculate_memory_bandwidth(duration);
 
         assert!(bandwidth.is_some());
-        assert!(bandwidth.unwrap() > 0.0);
+        assert!(bandwidth.expect("calculate_memory_bandwidth should succeed") > 0.0);
     }
 
     #[test]

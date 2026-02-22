@@ -12,7 +12,7 @@ ToRSh Core uses semantic versioning: `MAJOR.MINOR.PATCH` (e.g., `0.1.0`, `1.0.0`
 - **MINOR**: Incremented for new features (backward-compatible additions)
 - **PATCH**: Incremented for bug fixes (backward-compatible fixes)
 
-### Pre-1.0 Status (Current: 0.1.0-alpha.2)
+### Pre-1.0 Status (Current: 0.1.0)
 
 During the **0.x** series:
 - **Breaking changes are allowed** but must be well-documented
@@ -327,8 +327,8 @@ ToRSh Core follows the [SciRS2 POLICY](https://github.com/cool-japan/scirs/blob/
 
 | ToRSh Core Version | scirs2-core Version | Rust MSRV |
 |--------------------|---------------------|-----------|
-| 0.1.0-alpha.2      | 0.1.0-beta.2        | 1.75+     |
-| 0.1.0-alpha.2      | 0.1.0-RC.1          | 1.75+     |
+| 0.1.0      | 0.1.0        | 1.75+     |
+| 0.1.0      | 0.1.0          | 1.75+     |
 | 0.1.0              | 0.1.0               | 1.75+     |
 | 1.0.0              | 0.1.x or 1.0.x      | 1.80+     |
 
@@ -601,7 +601,7 @@ After releasing breaking changes:
 
 ## Revision History
 
-- **2025-11-10**: Initial version (0.1.0-alpha.2 era)
+- **2025-11-10**: Initial version (0.1.0 era)
   - Defined pre-1.0 and post-1.0 policies
   - Established deprecation process
   - Created migration guide templates

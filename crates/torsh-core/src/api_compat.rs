@@ -528,7 +528,7 @@ mod tests {
 
     #[test]
     fn test_version_parsing() {
-        let v = Version::parse("1.2.3").unwrap();
+        let v = Version::parse("1.2.3").expect("parse should succeed");
         assert_eq!(v, Version::new(1, 2, 3));
 
         assert!(Version::parse("invalid").is_none());
@@ -573,7 +573,8 @@ mod tests {
 
         register_deprecation(info);
 
-        let retrieved = get_deprecation_info("test_api").unwrap();
+        let retrieved =
+            get_deprecation_info("test_api").expect("get_deprecation_info should succeed");
         assert_eq!(retrieved.api_name, "test_api");
         assert_eq!(retrieved.replacement, Some("new_test_api".to_string()));
     }

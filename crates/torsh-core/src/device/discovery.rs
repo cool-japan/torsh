@@ -1109,7 +1109,9 @@ mod tests {
     #[test]
     fn test_device_discovery() {
         let discovery = DeviceDiscovery::new();
-        let count = discovery.scan_devices().unwrap();
+        let count = discovery
+            .scan_devices()
+            .expect("scan_devices should succeed");
         assert!(count > 0); // At least CPU should be discovered
 
         let devices = discovery.get_discovered_devices();
@@ -1149,24 +1151,32 @@ mod tests {
     #[test]
     fn test_device_selection() {
         let discovery = DeviceDiscovery::new();
-        discovery.scan_devices().unwrap();
+        discovery
+            .scan_devices()
+            .expect("scan_devices should succeed");
 
         let workload = WorkloadProfile::development();
-        let device = discovery.select_optimal_device(&workload).unwrap();
+        let device = discovery
+            .select_optimal_device(&workload)
+            .expect("select_optimal_device should succeed");
         assert!(device.is_some()); // Should find at least CPU
 
         let distributed = discovery
             .select_devices_for_distributed_workload(&workload, 2)
-            .unwrap();
+            .expect("select_devices_for_distributed_workload should succeed");
         assert!(!distributed.is_empty());
     }
 
     #[test]
     fn test_device_recommendation() {
         let discovery = DeviceDiscovery::new();
-        discovery.scan_devices().unwrap();
+        discovery
+            .scan_devices()
+            .expect("scan_devices should succeed");
 
-        let recommendation = discovery.recommend_device(UseCase::Development).unwrap();
+        let recommendation = discovery
+            .recommend_device(UseCase::Development)
+            .expect("recommend_device should succeed");
         assert_eq!(recommendation.use_case, UseCase::Development);
         assert!(!recommendation.options.is_empty());
 
@@ -1179,7 +1189,9 @@ mod tests {
     #[test]
     fn test_discovery_statistics() {
         let discovery = DeviceDiscovery::new();
-        discovery.scan_devices().unwrap();
+        discovery
+            .scan_devices()
+            .expect("scan_devices should succeed");
 
         let stats = discovery.get_statistics();
         assert!(stats.total_devices > 0);
@@ -1189,19 +1201,22 @@ mod tests {
 
     #[test]
     fn test_utils_functions() {
-        let discovery = utils::create_and_scan().unwrap();
+        let discovery = utils::create_and_scan().expect("create_and_scan should succeed");
         assert!(!discovery.get_discovered_devices().is_empty());
 
-        let _training_device = utils::quick_select_for_training().unwrap();
+        let _training_device =
+            utils::quick_select_for_training().expect("quick_select_for_training should succeed");
         // May or may not find a suitable device depending on system
 
-        let _inference_device = utils::quick_select_for_inference().unwrap();
+        let _inference_device =
+            utils::quick_select_for_inference().expect("quick_select_for_inference should succeed");
         // Should at least find CPU for inference
 
-        let summary = utils::create_device_summary().unwrap();
+        let summary = utils::create_device_summary().expect("create_device_summary should succeed");
         assert!(!summary.is_empty());
 
-        let _has_hp = utils::has_high_performance_devices().unwrap();
+        let _has_hp = utils::has_high_performance_devices()
+            .expect("has_high_performance_devices should succeed");
         // Result depends on available hardware
     }
 
@@ -1216,12 +1231,16 @@ mod tests {
     #[test]
     fn test_performance_estimate() {
         let discovery = DeviceDiscovery::new();
-        discovery.scan_devices().unwrap();
+        discovery
+            .scan_devices()
+            .expect("scan_devices should succeed");
 
         let devices = discovery.get_discovered_devices();
         if let Some(device) = devices.first() {
             let workload = WorkloadProfile::development();
-            let estimate = discovery.estimate_performance(device, &workload).unwrap();
+            let estimate = discovery
+                .estimate_performance(device, &workload)
+                .expect("estimate_performance should succeed");
             assert!(estimate.throughput > 0.0);
             assert!(estimate.latency_ms > 0.0);
         }

@@ -7,7 +7,14 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 description = "Distributed training and inference for ToRSh"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-distributed"
 rust-version.workspace = true
+keywords = ["deep-learning", "distributed", "training", "machine-learning", "parallel"]
+categories = ["science", "concurrency"]
+
+[lints]
+workspace = true
 
 [dependencies]
 torsh-core = { workspace = true }

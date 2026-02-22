@@ -751,7 +751,9 @@ mod tests {
         let span_id = telemetry.start_span("test_operation".to_string(), None);
         telemetry.span_add_attribute(span_id, "key".to_string(), "value".to_string());
 
-        let metrics = telemetry.end_span(span_id).unwrap();
+        let metrics = telemetry
+            .end_span(span_id)
+            .expect("end_span should succeed");
         assert_eq!(metrics.name, "test_operation");
         assert!(metrics.attributes.contains_key("key"));
     }

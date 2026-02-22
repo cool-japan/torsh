@@ -736,7 +736,7 @@ mod tests {
 
     fn create_test_config() -> BackupConfig {
         BackupConfig {
-            destination: PathBuf::from("/tmp/backups"),
+            destination: std::env::temp_dir().join("backups"),
             strategy: BackupStrategy::Full,
             compression: true,
             encryption: false,

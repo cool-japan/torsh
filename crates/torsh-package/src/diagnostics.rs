@@ -244,30 +244,55 @@ impl PackageDiagnostics {
     /// Validate resources
     fn validate_resources(
         &self,
-        _package: &Package,
-        _issues: &mut Vec<DiagnosticIssue>,
+        package: &Package,
+        issues: &mut Vec<DiagnosticIssue>,
     ) -> Vec<ResourceValidation> {
-        let validations = Vec::new();
+        let mut validations = Vec::new();
 
-        // TODO: Implement when Package API is available
-        // for resource in package.resources() {
-        //     let mut resource_issues = Vec::new();
-        //     let mut valid = true;
-        //
-        //     match validate_resource_path(&resource.name) {
-        //         Ok(_) => {},
-        //         Err(e) => {
-        //             valid = false;
-        //             resource_issues.push(format!("Invalid path: {}", e));
-        //         }
-        //     }
-        //
-        //     validations.push(ResourceValidation {
-        //         name: resource.name.clone(),
-        //         valid,
-        //         issues: resource_issues,
-        //     });
-        // }
+        for (name, resource) in package.resources() {
+            let mut resource_issues = Vec::new();
+            let mut valid = true;
+
+            // Validate resource path
+            if let Err(e) = crate::utils::validate_resource_path(name) {
+                valid = false;
+                resource_issues.push(format!("Invalid path: {}", e));
+
+                issues.push(DiagnosticIssue {
+                    severity: IssueSeverity::High,
+                    category: IssueCategory::Resource,
+                    description: format!("Resource '{}' has invalid path", name),
+                    recommendation: "Ensure resource paths do not contain special characters or path traversal sequences".to_string(),
+                    affected: vec![name.clone()],
+                });
+            }
+
+            // Check for excessively large resources
+            if resource.size() > 100 * 1024 * 1024 {
+                // 100 MB
+                resource_issues.push("Resource size exceeds 100 MB".to_string());
+
+                issues.push(DiagnosticIssue {
+                    severity: IssueSeverity::Medium,
+                    category: IssueCategory::Performance,
+                    description: format!(
+                        "Resource '{}' is very large ({} bytes)",
+                        name,
+                        resource.size()
+                    ),
+                    recommendation:
+                        "Consider compressing the resource or splitting into smaller chunks"
+                            .to_string(),
+                    affected: vec![name.clone()],
+                });
+            }
+
+            validations.push(ResourceValidation {
+                name: name.clone(),
+                valid,
+                issues: resource_issues,
+            });
+        }
 
         validations
     }
@@ -275,48 +300,149 @@ impl PackageDiagnostics {
     /// Assess package security
     fn assess_security(
         &self,
-        _package: &Package,
+        package: &Package,
         issues: &mut Vec<DiagnosticIssue>,
     ) -> SecurityAssessment {
+        let mut security_issues = Vec::new();
+
         // Check if package is signed
-        let is_signed = false; // TODO: Check package.manifest.signature
+        let is_signed = package.metadata().signature.is_some();
 
         if !is_signed {
             issues.push(DiagnosticIssue {
                 severity: IssueSeverity::Medium,
                 category: IssueCategory::Security,
                 description: "Package is not digitally signed".to_string(),
-                recommendation: "Sign the package to ensure authenticity and integrity".to_string(),
+                recommendation: "Sign the package to ensure authenticity and integrity using the security module".to_string(),
                 affected: vec!["package".to_string()],
             });
+            security_issues.push("Package is not signed".to_string());
         }
 
-        let security_score = if is_signed { 100 } else { 50 };
+        // Check for encryption
+        let is_encrypted = package.resources().values().any(|resource| {
+            resource.metadata.get("encryption").map_or(false, |v| {
+                v == "true" || v.starts_with("aes") || v.starts_with("chacha")
+            })
+        });
+
+        // Check for weak checksums
+        let has_weak_checksums = package.resources().values().any(|resource| {
+            !resource.metadata.contains_key("sha256") && !resource.metadata.contains_key("sha512")
+        });
+
+        if has_weak_checksums {
+            issues.push(DiagnosticIssue {
+                severity: IssueSeverity::Low,
+                category: IssueCategory::Security,
+                description: "Some resources lack strong checksums".to_string(),
+                recommendation:
+                    "Add SHA-256 or SHA-512 checksums to all resources for integrity verification"
+                        .to_string(),
+                affected: vec!["resources".to_string()],
+            });
+            security_issues.push("Missing strong checksums".to_string());
+        }
+
+        // Calculate security score (0-100)
+        let mut security_score = 100;
+        if !is_signed {
+            security_score -= 30;
+        }
+        if !is_encrypted {
+            security_score -= 15;
+        }
+        if has_weak_checksums {
+            security_score -= 5;
+        }
 
         SecurityAssessment {
             is_signed,
-            is_encrypted: false,
-            issues: Vec::new(),
-            security_score,
+            is_encrypted,
+            issues: security_issues,
+            security_score: security_score.max(0),
         }
     }
 
     /// Check for performance issues
-    fn check_performance_issues(&self, _package: &Package, _issues: &mut Vec<DiagnosticIssue>) {
-        // TODO: Implement performance checks
-        // - Large uncompressed resources
-        // - Excessive number of small resources
-        // - Deep dependency trees
+    fn check_performance_issues(&self, package: &Package, issues: &mut Vec<DiagnosticIssue>) {
+        // Check for large uncompressed resources
+        for (name, resource) in package.resources() {
+            let size = resource.size();
+            let is_compressed = resource.is_compressed();
+
+            if size > 10 * 1024 * 1024 && !is_compressed {
+                // > 10 MB uncompressed
+                issues.push(DiagnosticIssue {
+                    severity: IssueSeverity::Medium,
+                    category: IssueCategory::Performance,
+                    description: format!(
+                        "Resource '{}' is large ({} bytes) and uncompressed",
+                        name, size
+                    ),
+                    recommendation:
+                        "Enable compression to reduce package size and improve download times"
+                            .to_string(),
+                    affected: vec![name.clone()],
+                });
+            }
+        }
+
+        // Check for excessive number of small resources
+        let small_resources: Vec<_> = package
+            .resources()
+            .iter()
+            .filter(|(_, resource)| resource.size() < 1024) // < 1 KB
+            .map(|(name, _)| name.clone())
+            .collect();
+
+        if small_resources.len() > 100 {
+            issues.push(DiagnosticIssue {
+                severity: IssueSeverity::Low,
+                category: IssueCategory::Performance,
+                description: format!(
+                    "Package contains {} very small resources (< 1 KB each)",
+                    small_resources.len()
+                ),
+                recommendation:
+                    "Consider bundling small resources into larger files to reduce overhead"
+                        .to_string(),
+                affected: small_resources,
+            });
+        }
+
+        // Check for deep dependency trees
+        let dependency_count = package.metadata().dependencies.len();
+        if dependency_count > 50 {
+            issues.push(DiagnosticIssue {
+                severity: IssueSeverity::Medium,
+                category: IssueCategory::Performance,
+                description: format!("Package has {} dependencies", dependency_count),
+                recommendation:
+                    "Review dependencies and consider reducing the dependency tree depth"
+                        .to_string(),
+                affected: vec!["dependencies".to_string()],
+            });
+        }
     }
 
     /// Calculate package statistics
-    fn calculate_statistics(&self, _package: &Package) -> PackageStatistics {
-        // TODO: Implement when Package API is available
+    fn calculate_statistics(&self, package: &Package) -> PackageStatistics {
+        let total_size: usize = package.resources().values().map(|r| r.size()).sum();
+        let resource_count = package.resources().len();
+        let dependency_count = package.metadata().dependencies.len();
+        let largest_resource_size = package
+            .resources()
+            .values()
+            .map(|r| r.size())
+            .max()
+            .unwrap_or(0) as u64;
+
         PackageStatistics {
-            total_size: 0,
-            resource_count: 0,
-            dependency_count: 0,
-            largest_resource_size: 0,
+            total_size: total_size as u64,
+            resource_count,
+            dependency_count,
+            largest_resource_size,
             smallest_resource_size: 0,
             average_resource_size: 0,
             resource_types: HashMap::new(),

@@ -347,7 +347,8 @@ fn model_utilities_example() -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", "-".repeat(30));
 
     // Model Registry
-    let registry = ModelRegistry::new("/tmp/torsh_model_cache")?;
+    let cache_dir = std::env::temp_dir().join("torsh_model_cache");
+    let registry = ModelRegistry::new(cache_dir.to_string_lossy().as_ref())?;
     println!("📚 Exploring model registry...");
 
     let models = registry.list_models();

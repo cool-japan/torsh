@@ -442,7 +442,7 @@ mod tests {
 
         for dtype in dtypes {
             let onnx_type = OnnxDataType::from(dtype);
-            let back_to_dtype = DType::try_from(onnx_type).unwrap();
+            let back_to_dtype = DType::try_from(onnx_type).expect("try_from should succeed");
             assert_eq!(dtype, back_to_dtype);
         }
     }
@@ -484,7 +484,8 @@ mod tests {
         let numpy_shape = ConversionUtils::torsh_shape_to_numpy(&shape);
         assert_eq!(numpy_shape, vec![2, 3, 4]);
 
-        let back_to_shape = ConversionUtils::numpy_shape_to_torsh(numpy_shape).unwrap();
+        let back_to_shape = ConversionUtils::numpy_shape_to_torsh(numpy_shape)
+            .expect("numpy_shape_to_torsh should succeed");
         assert_eq!(shape.dims(), back_to_shape.dims());
     }
 

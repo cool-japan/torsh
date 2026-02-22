@@ -636,4 +636,4 @@ Trade-offs are made consciously with production ML workloads in mind. The result
 ---
 
 *Last Updated: 2025-10-23*
-*Version: 0.1.0-alpha.2*
+*Version: 0.1.0*

@@ -328,23 +328,27 @@ mod tests {
 
     #[test]
     fn test_tensor_comprehension_builder() {
-        let comp = TensorComprehension::new().from_iter(0..5).build().unwrap();
+        let comp = TensorComprehension::new()
+            .from_iter(0..5)
+            .build()
+            .expect("builder should produce valid result");
 
-        let data = comp.to_vec().unwrap();
+        let data = comp.to_vec().expect("to_vec conversion should succeed");
         assert_eq!(data, vec![0, 1, 2, 3, 4]);
     }
 
     #[test]
     fn test_range_tensor() {
-        let t = range_tensor(0, 10, 2, DeviceType::Cpu).unwrap();
-        let data = t.to_vec().unwrap();
+        let t = range_tensor(0, 10, 2, DeviceType::Cpu).expect("range_tensor should succeed");
+        let data = t.to_vec().expect("to_vec conversion should succeed");
         assert_eq!(data, vec![0, 2, 4, 6, 8]);
     }
 
     #[test]
     fn test_linspace() {
-        let t: Tensor<f32> = linspace_range(0.0, 10.0, 5, DeviceType::Cpu).unwrap();
-        let data = t.to_vec().unwrap();
+        let t: Tensor<f32> =
+            linspace_range(0.0, 10.0, 5, DeviceType::Cpu).expect("linspace should succeed");
+        let data = t.to_vec().expect("to_vec conversion should succeed");
 
         assert!((data[0] - 0.0).abs() < 1e-6);
         assert!((data[1] - 2.5).abs() < 1e-6);
@@ -355,8 +359,9 @@ mod tests {
 
     #[test]
     fn test_logspace() {
-        let t: Tensor<f32> = logspace(0.0, 2.0, 3, 10.0, DeviceType::Cpu).unwrap();
-        let data = t.to_vec().unwrap();
+        let t: Tensor<f32> =
+            logspace(0.0, 2.0, 3, 10.0, DeviceType::Cpu).expect("logspace should succeed");
+        let data = t.to_vec().expect("to_vec conversion should succeed");
 
         assert!((data[0] - 1.0).abs() < 1e-6); // 10^0
         assert!((data[1] - 10.0).abs() < 1e-5); // 10^1
@@ -365,18 +370,18 @@ mod tests {
 
     #[test]
     fn test_meshgrid() {
-        let x = tensor_1d(&[1.0f32, 2.0, 3.0]).unwrap();
-        let y = tensor_1d(&[4.0f32, 5.0]).unwrap();
+        let x = tensor_1d(&[1.0f32, 2.0, 3.0]).expect("tensor_1d creation should succeed");
+        let y = tensor_1d(&[4.0f32, 5.0]).expect("tensor_1d creation should succeed");
 
-        let (x_grid, y_grid) = meshgrid(&x, &y).unwrap();
+        let (x_grid, y_grid) = meshgrid(&x, &y).expect("meshgrid should succeed");
 
         assert_eq!(x_grid.shape().dims(), &[3, 2]);
         assert_eq!(y_grid.shape().dims(), &[3, 2]);
 
-        let x_data = x_grid.to_vec().unwrap();
+        let x_data = x_grid.to_vec().expect("to_vec conversion should succeed");
         assert_eq!(x_data, vec![1.0, 1.0, 2.0, 2.0, 3.0, 3.0]);
 
-        let y_data = y_grid.to_vec().unwrap();
+        let y_data = y_grid.to_vec().expect("to_vec conversion should succeed");
         assert_eq!(y_data, vec![4.0, 5.0, 4.0, 5.0, 4.0, 5.0]);
     }
 
@@ -386,15 +391,16 @@ mod tests {
             .device(DeviceType::Cpu)
             .from_iter(0..3)
             .build()
-            .unwrap();
+            .expect("builder should produce valid result");
 
         assert_eq!(comp.device, DeviceType::Cpu);
     }
 
     #[test]
     fn test_linspace_single_step() {
-        let t: Tensor<f32> = linspace_range(5.0, 5.0, 1, DeviceType::Cpu).unwrap();
-        let data = t.to_vec().unwrap();
+        let t: Tensor<f32> =
+            linspace_range(5.0, 5.0, 1, DeviceType::Cpu).expect("linspace should succeed");
+        let data = t.to_vec().expect("to_vec conversion should succeed");
 
         assert_eq!(data.len(), 1);
         assert!((data[0] - 5.0).abs() < 1e-6);
@@ -414,10 +420,10 @@ mod tests {
 
     #[test]
     fn test_meshgrid_different_sizes() {
-        let x = tensor_1d(&[1.0f32, 2.0]).unwrap();
-        let y = tensor_1d(&[3.0f32, 4.0, 5.0]).unwrap();
+        let x = tensor_1d(&[1.0f32, 2.0]).expect("tensor_1d creation should succeed");
+        let y = tensor_1d(&[3.0f32, 4.0, 5.0]).expect("tensor_1d creation should succeed");
 
-        let (x_grid, y_grid) = meshgrid(&x, &y).unwrap();
+        let (x_grid, y_grid) = meshgrid(&x, &y).expect("meshgrid should succeed");
 
         assert_eq!(x_grid.shape().dims(), &[2, 3]);
         assert_eq!(y_grid.shape().dims(), &[2, 3]);

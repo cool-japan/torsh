@@ -1066,10 +1066,10 @@ mod tests {
             vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
             vec![3, 3],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("tensor creation failed");
 
-        let result = tensor.tril(0).unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.tril(0).expect("tril failed");
+        let data = result.data().expect("data retrieval failed");
 
         // [[1, 2, 3],   [[1, 0, 0],
         //  [4, 5, 6], -> [4, 5, 0],
@@ -1083,10 +1083,10 @@ mod tests {
             vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
             vec![3, 3],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("tensor creation failed");
 
-        let result = tensor.tril(1).unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.tril(1).expect("tril failed");
+        let data = result.data().expect("data retrieval failed");
 
         // With diagonal=1, keep one more diagonal above main
         // [[1, 2, 3],   [[1, 2, 0],
@@ -1101,10 +1101,10 @@ mod tests {
             vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
             vec![3, 3],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("tensor creation failed");
 
-        let result = tensor.triu(0).unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.triu(0).expect("triu failed");
+        let data = result.data().expect("data retrieval failed");
 
         // [[1, 2, 3],   [[1, 2, 3],
         //  [4, 5, 6], -> [0, 5, 6],
@@ -1118,10 +1118,10 @@ mod tests {
             vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
             vec![3, 3],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("tensor creation failed");
 
-        let result = tensor.triu(1).unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.triu(1).expect("triu failed");
+        let data = result.data().expect("data retrieval failed");
 
         // With diagonal=1, start from one diagonal above main
         // [[1, 2, 3],   [[0, 2, 3],
@@ -1136,10 +1136,10 @@ mod tests {
             vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0],
             vec![2, 3],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("tensor creation failed");
 
-        let result = tensor.tril(0).unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.tril(0).expect("tril failed");
+        let data = result.data().expect("data retrieval failed");
 
         // [[1, 2, 3],   [[1, 0, 0],
         //  [4, 5, 6]] -> [4, 5, 0]]
@@ -1152,10 +1152,10 @@ mod tests {
             vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
             vec![3, 3],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("tensor creation failed");
 
-        let result = tensor.diagonal(0, None, None).unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.diagonal(0, None, None).expect("diagonal failed");
+        let data = result.data().expect("data retrieval failed");
 
         // Main diagonal: [1, 5, 9]
         assert_eq!(data, vec![1.0, 5.0, 9.0]);
@@ -1167,10 +1167,10 @@ mod tests {
             vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
             vec![3, 3],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("tensor creation failed");
 
-        let result = tensor.diagonal(1, None, None).unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.diagonal(1, None, None).expect("diagonal failed");
+        let data = result.data().expect("data retrieval failed");
 
         // First diagonal above main: [2, 6]
         assert_eq!(data, vec![2.0, 6.0]);
@@ -1182,10 +1182,10 @@ mod tests {
             vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
             vec![3, 3],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("tensor creation failed");
 
-        let result = tensor.diagonal(-1, None, None).unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.diagonal(-1, None, None).expect("diagonal failed");
+        let data = result.data().expect("data retrieval failed");
 
         // First diagonal below main: [4, 8]
         assert_eq!(data, vec![4.0, 8.0]);
@@ -1197,10 +1197,10 @@ mod tests {
             vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0],
             vec![2, 3],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("tensor creation failed");
 
-        let result = tensor.diagonal(0, None, None).unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.diagonal(0, None, None).expect("diagonal failed");
+        let data = result.data().expect("data retrieval failed");
 
         // Main diagonal of 2x3: [1, 5]
         assert_eq!(data, vec![1.0, 5.0]);

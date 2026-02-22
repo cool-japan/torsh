@@ -585,7 +585,7 @@ impl<T: FloatElement + num_traits::FromPrimitive + std::default::Default + Clone
                     torsh_core::TensorElement::to_f64(*a)
                         .unwrap_or(0.0)
                         .partial_cmp(&torsh_core::TensorElement::to_f64(*b).unwrap_or(0.0))
-                        .unwrap()
+                        .unwrap_or(std::cmp::Ordering::Equal)
                 })
                 .copied()
                 .unwrap_or_default();
@@ -595,7 +595,7 @@ impl<T: FloatElement + num_traits::FromPrimitive + std::default::Default + Clone
                     torsh_core::TensorElement::to_f64(*a)
                         .unwrap_or(0.0)
                         .partial_cmp(&torsh_core::TensorElement::to_f64(*b).unwrap_or(0.0))
-                        .unwrap()
+                        .unwrap_or(std::cmp::Ordering::Equal)
                 })
                 .copied()
                 .unwrap_or_default();
@@ -782,7 +782,7 @@ impl<T: FloatElement + num_traits::FromPrimitive + std::default::Default + Clone
                 torsh_core::TensorElement::to_f64(*a)
                     .unwrap_or(0.0)
                     .partial_cmp(&torsh_core::TensorElement::to_f64(*b).unwrap_or(0.0))
-                    .unwrap()
+                    .unwrap_or(std::cmp::Ordering::Equal)
             })
             .copied()
             .unwrap_or_default();
@@ -792,7 +792,7 @@ impl<T: FloatElement + num_traits::FromPrimitive + std::default::Default + Clone
                 torsh_core::TensorElement::to_f64(*a)
                     .unwrap_or(0.0)
                     .partial_cmp(&torsh_core::TensorElement::to_f64(*b).unwrap_or(0.0))
-                    .unwrap()
+                    .unwrap_or(std::cmp::Ordering::Equal)
             })
             .copied()
             .unwrap_or_default();
@@ -886,7 +886,7 @@ impl<T: FloatElement + num_traits::FromPrimitive + std::default::Default + Clone
             });
         }
 
-        all_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        all_values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         let percentile = |p: f64| -> f64 {
             let index = (p * (all_values.len() - 1) as f64) as usize;

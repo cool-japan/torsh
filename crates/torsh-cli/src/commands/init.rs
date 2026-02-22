@@ -246,13 +246,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-torsh = "0.1.0-rc.1"
+torsh = "0.1.0"
 anyhow = "1.0"
 
 # Uncomment these dependencies as needed:
-# torsh-models = "0.1.0-rc.1"
-# torsh-optim = "0.1.0-rc.1"
-# torsh-data = "0.1.0-rc.1"
+# torsh-models = "0.1.0"
+# torsh-optim = "0.1.0"
+# torsh-data = "0.1.0"
 "#;
     tokio::fs::write(&cargo_toml, cargo_content).await?;
 

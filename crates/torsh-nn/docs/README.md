@@ -359,7 +359,7 @@ Have questions? Check the other guides or open an issue on GitHub!
 ---
 
 **Last Updated**: 2025-10-22
-**ToRSh-NN Version**: v0.1.0-alpha.2
+**ToRSh-NN Version**: v0.1.0
 **Documentation Version**: 1.0.0
 
 For questions, issues, or contributions:

@@ -300,7 +300,8 @@ impl FederatedClient {
         use scirs2_core::random::{thread_rng, Distribution, Normal};
 
         let mut rng = thread_rng();
-        let normal = Normal::new(mean, std_dev).unwrap_or(Normal::new(0.0, 1.0).unwrap());
+        let normal = Normal::new(mean, std_dev)
+            .unwrap_or(Normal::new(0.0, 1.0).expect("valid distribution parameters"));
         normal.sample(&mut rng)
     }
 }

@@ -1019,20 +1019,20 @@ mod tests {
             vec![1.0f32, f32::NAN, 3.0, f32::NAN],
             vec![4],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("operation should succeed");
 
-        let result = tensor.isnan().unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.isnan().expect("isnan check should succeed");
+        let data = result.data().expect("data retrieval should succeed");
 
         assert_eq!(data, vec![false, true, false, true]);
     }
 
     #[test]
     fn test_isnan_no_nan() {
-        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("operation should succeed");
 
-        let result = tensor.isnan().unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.isnan().expect("isnan check should succeed");
+        let data = result.data().expect("data retrieval should succeed");
 
         assert_eq!(data, vec![false, false, false]);
     }
@@ -1043,20 +1043,20 @@ mod tests {
             vec![1.0f32, f32::INFINITY, -f32::INFINITY, 3.0],
             vec![4],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("operation should succeed");
 
-        let result = tensor.isinf().unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.isinf().expect("isinf check should succeed");
+        let data = result.data().expect("data retrieval should succeed");
 
         assert_eq!(data, vec![false, true, true, false]);
     }
 
     #[test]
     fn test_isinf_no_inf() {
-        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("operation should succeed");
 
-        let result = tensor.isinf().unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.isinf().expect("isinf check should succeed");
+        let data = result.data().expect("data retrieval should succeed");
 
         assert_eq!(data, vec![false, false, false]);
     }
@@ -1067,82 +1067,82 @@ mod tests {
             vec![1.0f32, f32::NAN, f32::INFINITY, 3.0],
             vec![4],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("operation should succeed");
 
-        let result = tensor.isfinite().unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.isfinite().expect("isfinite check should succeed");
+        let data = result.data().expect("data retrieval should succeed");
 
         assert_eq!(data, vec![true, false, false, true]);
     }
 
     #[test]
     fn test_isfinite_all_finite() {
-        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("operation should succeed");
 
-        let result = tensor.isfinite().unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.isfinite().expect("isfinite check should succeed");
+        let data = result.data().expect("data retrieval should succeed");
 
         assert_eq!(data, vec![true, true, true]);
     }
 
     #[test]
     fn test_allclose_identical() {
-        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
-        let b = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("operation should succeed");
+        let b = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("operation should succeed");
 
-        let result = a.allclose(&b, 1e-5, 1e-8).unwrap();
+        let result = a.allclose(&b, 1e-5, 1e-8).expect("operation should succeed");
 
         assert!(result);
     }
 
     #[test]
     fn test_allclose_within_tolerance() {
-        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
-        let b = Tensor::from_data(vec![1.00001f32, 2.00001, 3.00001], vec![3], DeviceType::Cpu).unwrap();
+        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("operation should succeed");
+        let b = Tensor::from_data(vec![1.00001f32, 2.00001, 3.00001], vec![3], DeviceType::Cpu).expect("operation should succeed");
 
-        let result = a.allclose(&b, 1e-3, 1e-3).unwrap();
+        let result = a.allclose(&b, 1e-3, 1e-3).expect("operation should succeed");
 
         assert!(result);
     }
 
     #[test]
     fn test_allclose_exceeds_tolerance() {
-        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
-        let b = Tensor::from_data(vec![1.1f32, 2.1, 3.1], vec![3], DeviceType::Cpu).unwrap();
+        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("operation should succeed");
+        let b = Tensor::from_data(vec![1.1f32, 2.1, 3.1], vec![3], DeviceType::Cpu).expect("operation should succeed");
 
-        let result = a.allclose(&b, 1e-5, 1e-5).unwrap();
+        let result = a.allclose(&b, 1e-5, 1e-5).expect("operation should succeed");
 
         assert!(!result);
     }
 
     #[test]
     fn test_allclose_shape_mismatch() {
-        let a = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu).unwrap();
-        let b = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+        let a = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu).expect("operation should succeed");
+        let b = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("operation should succeed");
 
-        let result = a.allclose(&b, 1e-5, 1e-8).unwrap();
+        let result = a.allclose(&b, 1e-5, 1e-8).expect("operation should succeed");
 
         assert!(!result); // Shape mismatch should return false
     }
 
     #[test]
     fn test_isclose_identical() {
-        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
-        let b = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("operation should succeed");
+        let b = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("operation should succeed");
 
-        let result = a.isclose(&b, 1e-5, 1e-8).unwrap();
-        let data = result.data().unwrap();
+        let result = a.isclose(&b, 1e-5, 1e-8).expect("operation should succeed");
+        let data = result.data().expect("data retrieval should succeed");
 
         assert_eq!(data, vec![true, true, true]);
     }
 
     #[test]
     fn test_isclose_mixed() {
-        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
-        let b = Tensor::from_data(vec![1.00001f32, 2.1, 3.00001], vec![3], DeviceType::Cpu).unwrap();
+        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("operation should succeed");
+        let b = Tensor::from_data(vec![1.00001f32, 2.1, 3.00001], vec![3], DeviceType::Cpu).expect("operation should succeed");
 
-        let result = a.isclose(&b, 1e-3, 1e-3).unwrap();
-        let data = result.data().unwrap();
+        let result = a.isclose(&b, 1e-3, 1e-3).expect("operation should succeed");
+        let data = result.data().expect("data retrieval should succeed");
 
         // First and third are close, middle is not
         assert_eq!(data, vec![true, false, true]);
@@ -1150,8 +1150,8 @@ mod tests {
 
     #[test]
     fn test_isclose_shape_mismatch() {
-        let a = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu).unwrap();
-        let b = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+        let a = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu).expect("operation should succeed");
+        let b = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("operation should succeed");
 
         let result = a.isclose(&b, 1e-5, 1e-8);
 

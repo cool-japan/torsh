@@ -833,7 +833,7 @@ mod tests {
     fn test_memory_debugger_basic() {
         let mut debugger = MemoryDebugger::new();
 
-        let layout = Layout::from_size_align(1024, 8).unwrap();
+        let layout = Layout::from_size_align(1024, 8).expect("layout should be valid");
         let id = debugger.record_allocation(1024, layout, Some("test".to_string()));
 
         assert_eq!(debugger.stats().total_allocated, 1024);
@@ -853,7 +853,7 @@ mod tests {
         };
 
         let mut debugger = MemoryDebugger::with_config(config);
-        let layout = Layout::from_size_align(1024, 8).unwrap();
+        let layout = Layout::from_size_align(1024, 8).expect("layout should be valid");
 
         let _id = debugger.record_allocation(1024, layout, Some("potential_leak".to_string()));
 
@@ -867,8 +867,8 @@ mod tests {
     #[test]
     fn test_pattern_analysis() {
         let mut debugger = MemoryDebugger::new();
-        let layout_small = Layout::from_size_align(512, 8).unwrap();
-        let layout_large = Layout::from_size_align(2048, 8).unwrap();
+        let layout_small = Layout::from_size_align(512, 8).expect("layout should be valid");
+        let layout_large = Layout::from_size_align(2048, 8).expect("layout should be valid");
 
         // Create small allocations
         for _ in 0..5 {
@@ -898,7 +898,7 @@ mod tests {
         };
 
         let mut debugger = MemoryDebugger::with_config(config);
-        let layout = Layout::from_size_align(1024 * 1024, 8).unwrap(); // 1MB allocation
+        let layout = Layout::from_size_align(1024 * 1024, 8).expect("layout should be valid"); // 1MB allocation
 
         let _id =
             debugger.record_allocation(1024 * 1024, layout, Some("large_allocation".to_string()));
@@ -929,7 +929,7 @@ mod tests {
         };
 
         let mut debugger = MemoryDebugger::with_config(config);
-        let layout = Layout::from_size_align(1024, 8).unwrap();
+        let layout = Layout::from_size_align(1024, 8).expect("layout should be valid");
 
         // Make some allocations
         for _ in 0..5 {
@@ -958,7 +958,7 @@ mod tests {
         };
 
         let mut debugger = MemoryDebugger::with_config(config);
-        let layout = Layout::from_size_align(1000, 8).unwrap();
+        let layout = Layout::from_size_align(1000, 8).expect("layout should be valid");
 
         // Test normal pressure
         assert_eq!(
@@ -1004,8 +1004,8 @@ mod tests {
         };
 
         let mut debugger = MemoryDebugger::with_config(config);
-        let layout_small = Layout::from_size_align(1024, 8).unwrap();
-        let layout_large = Layout::from_size_align(1024 * 1024, 8).unwrap();
+        let layout_small = Layout::from_size_align(1024, 8).expect("layout should be valid");
+        let layout_large = Layout::from_size_align(1024 * 1024, 8).expect("layout should be valid");
 
         // Create different sized allocations
         let _id1 = debugger.record_allocation(1024, layout_small, Some("small_leak".to_string()));
@@ -1038,7 +1038,7 @@ mod tests {
         let _ = init_memory_debugger_with_config(config);
 
         // Test global functions
-        let layout = Layout::from_size_align(1024, 8).unwrap();
+        let layout = Layout::from_size_align(1024, 8).expect("layout should be valid");
         let id = record_allocation(1024, layout, Some("test".to_string()));
 
         let stats = get_memory_stats();

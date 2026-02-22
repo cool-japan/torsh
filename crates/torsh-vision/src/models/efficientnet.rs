@@ -244,7 +244,7 @@ impl Module for MBConvBlock {
 
         // Skip connection
         if self.stride == 1 && self.input_channels == self.output_channels {
-            // NOTE: Drop connect (stochastic depth) omitted in v0.1.0-rc.1
+            // NOTE: Drop connect (stochastic depth) omitted in v0.1.0
             // This regularization technique randomly drops residual connections during training
             // Model works without it; adds ~1-2% accuracy improvement in original paper
             // Deferred to v0.2.0 - See ROADMAP.md

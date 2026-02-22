@@ -255,7 +255,9 @@ impl<
         // Check if we can add to current batch
         if !batch.can_add(&self.config) || batch.device != op.device() {
             // Execute current batch and create a new one
-            let ready_batch = batch_lock.take().unwrap();
+            let ready_batch = batch_lock
+                .take()
+                .expect("batch should exist after get_or_insert_with");
             drop(batch_lock);
 
             self.execute_batch(ready_batch)?;
@@ -271,7 +273,9 @@ impl<
 
             // Check if batch is ready to execute
             if batch.is_ready(&self.config) {
-                let ready_batch = batch_lock.take().unwrap();
+                let ready_batch = batch_lock
+                    .take()
+                    .expect("batch should exist after is_ready check");
                 drop(batch_lock);
                 self.execute_batch(ready_batch)?;
             }
@@ -477,8 +481,8 @@ mod tests {
 
     #[test]
     fn test_batchable_op_size() {
-        let a = tensor_1d(&[1.0f32, 2.0, 3.0, 4.0]).unwrap();
-        let b = tensor_1d(&[2.0f32, 2.0, 2.0, 2.0]).unwrap();
+        let a = tensor_1d(&[1.0f32, 2.0, 3.0, 4.0]).expect("tensor_1d creation should succeed");
+        let b = tensor_1d(&[2.0f32, 2.0, 2.0, 2.0]).expect("tensor_1d creation should succeed");
 
         let op = BatchableOp::Add(Arc::new(a), Arc::new(b));
         assert_eq!(op.size(), 4);
@@ -486,8 +490,8 @@ mod tests {
 
     #[test]
     fn test_batchable_op_should_batch() {
-        let a = tensor_1d(&[1.0f32; 100]).unwrap();
-        let b = tensor_1d(&[2.0f32; 100]).unwrap();
+        let a = tensor_1d(&[1.0f32; 100]).expect("tensor_1d creation should succeed");
+        let b = tensor_1d(&[2.0f32; 100]).expect("tensor_1d creation should succeed");
 
         let op = BatchableOp::Add(Arc::new(a), Arc::new(b));
 
@@ -500,7 +504,7 @@ mod tests {
 
     #[test]
     fn test_operation_batch() {
-        let a = tensor_1d(&[1.0f32, 2.0]).unwrap();
+        let a = tensor_1d(&[1.0f32, 2.0]).expect("tensor_1d creation should succeed");
         let op = BatchableOp::AddScalar(Arc::new(a), 1.0);
 
         let mut batch = OperationBatch::new(DeviceType::Cpu);
@@ -526,17 +530,17 @@ mod tests {
         assert!(!batch.is_ready(&config));
 
         // Single operation, not ready yet
-        let a = tensor_1d(&[1.0f32]).unwrap();
+        let a = tensor_1d(&[1.0f32]).expect("tensor_1d creation should succeed");
         batch.add(BatchableOp::AddScalar(Arc::new(a), 1.0));
         assert!(!batch.is_ready(&config));
 
         // Two operations, but wait time not elapsed
-        let b = tensor_1d(&[2.0f32]).unwrap();
+        let b = tensor_1d(&[2.0f32]).expect("tensor_1d creation should succeed");
         batch.add(BatchableOp::AddScalar(Arc::new(b), 1.0));
 
         // Max batch size reached
         for _ in 0..3 {
-            let c = tensor_1d(&[3.0f32]).unwrap();
+            let c = tensor_1d(&[3.0f32]).expect("tensor_1d creation should succeed");
             batch.add(BatchableOp::AddScalar(Arc::new(c), 1.0));
         }
         assert!(batch.is_ready(&config)); // Max size reached
@@ -572,10 +576,10 @@ mod tests {
         let config = BatchingConfig::disabled();
         let batcher = AutoBatcher::<f32>::with_config(config);
 
-        let a = tensor_1d(&[1.0f32, 2.0]).unwrap();
+        let a = tensor_1d(&[1.0f32, 2.0]).expect("tensor_1d creation should succeed");
         let op = BatchableOp::AddScalar(Arc::new(a), 1.0);
 
-        let handle = batcher.submit(op).unwrap();
+        let handle = batcher.submit(op).expect("submit should succeed");
 
         // Should execute immediately when disabled
         assert!(matches!(handle, BatchHandle::Immediate(_)));

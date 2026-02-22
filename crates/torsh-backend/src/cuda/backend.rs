@@ -36,17 +36,24 @@ use torsh_core::DType;
 
 /// CUDA backend implementation with enhanced resource management
 #[derive(Debug)]
+/// IMPORTANT: Field declaration order determines drop order in Rust.
+/// All CUDA resources that need an active context (streams, allocations, etc.)
+/// MUST appear before `device`, which holds the CUDA context.
+/// Destroying CUDA resources after their context is released causes SIGSEGV.
 pub struct CudaBackend {
-    device: Arc<CudaDevice>,
-    memory_manager: Arc<RwLock<CudaMemoryManager>>,
+    // CUDA resources — must drop before device (context owner)
     default_stream: Arc<CudaStream>,
-    kernels: Arc<KernelRegistry>,
-    config: CudaBackendConfig,
-    graph_cache: Arc<RwLock<GraphCache>>,
     capture_context: Arc<Mutex<Option<GraphCaptureContext>>>,
     cooperative_groups: Option<Arc<CooperativeGroupsContext>>,
-    is_shutdown: Arc<AtomicBool>,
     resource_tracker: Arc<Mutex<ResourceTracker>>,
+    // Non-CUDA or context-independent resources
+    memory_manager: Arc<RwLock<CudaMemoryManager>>,
+    kernels: Arc<KernelRegistry>,
+    graph_cache: Arc<RwLock<GraphCache>>,
+    config: CudaBackendConfig,
+    is_shutdown: Arc<AtomicBool>,
+    // device MUST be last — it owns the CUDA primary context
+    device: Arc<CudaDevice>,
 }
 
 /// Resource tracker for proper cleanup

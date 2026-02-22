@@ -298,12 +298,12 @@ mod tests {
 
     #[test]
     fn test_version_parsing() {
-        let v1 = PackageVersion::parse("1.2.3").unwrap();
+        let v1 = PackageVersion::parse("1.2.3").expect("Failed to parse version in test");
         assert_eq!(v1.major, 1);
         assert_eq!(v1.minor, 2);
         assert_eq!(v1.patch, 3);
 
-        let v2 = PackageVersion::parse("2.0.0-alpha.1").unwrap();
+        let v2 = PackageVersion::parse("2.0.0-alpha.1").expect("Failed to parse version in test");
         assert_eq!(v2.major, 2);
         assert_eq!(v2.minor, 0);
         assert_eq!(v2.patch, 0);
@@ -324,7 +324,7 @@ mod tests {
 
     #[test]
     fn test_version_requirement() {
-        let req = VersionRequirement::parse("^1.2.3").unwrap();
+        let req = VersionRequirement::parse("^1.2.3").expect("Failed to parse version in test");
 
         assert!(req.matches(&PackageVersion::new(1, 2, 3)));
         assert!(req.matches(&PackageVersion::new(1, 2, 4)));
@@ -332,7 +332,7 @@ mod tests {
         assert!(!req.matches(&PackageVersion::new(1, 2, 2)));
         assert!(!req.matches(&PackageVersion::new(2, 0, 0)));
 
-        let req2 = VersionRequirement::parse(">=1.2.0").unwrap();
+        let req2 = VersionRequirement::parse(">=1.2.0").expect("Failed to parse version in test");
         assert!(req2.matches(&PackageVersion::new(1, 2, 0)));
         assert!(req2.matches(&PackageVersion::new(1, 3, 0)));
         assert!(req2.matches(&PackageVersion::new(2, 0, 0)));
@@ -342,8 +342,12 @@ mod tests {
     #[test]
     fn test_compatibility_checker() {
         let mut checker = CompatibilityChecker::new();
-        checker.add_requirement(VersionRequirement::parse(">=1.2.0").unwrap());
-        checker.add_requirement(VersionRequirement::parse("<2.0.0").unwrap());
+        checker.add_requirement(
+            VersionRequirement::parse(">=1.2.0").expect("Failed to parse version in test"),
+        );
+        checker.add_requirement(
+            VersionRequirement::parse("<2.0.0").expect("Failed to parse version in test"),
+        );
 
         assert!(checker.check(&PackageVersion::new(1, 2, 0)));
         assert!(checker.check(&PackageVersion::new(1, 5, 3)));

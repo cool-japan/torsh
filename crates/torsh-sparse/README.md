@@ -214,9 +214,4 @@ This crate fully leverages scirs2-sparse for:
 
 ## License
 
-Licensed under either of
-
-- Apache License, Version 2.0 ([LICENSE-APACHE](../../LICENSE-APACHE))
-- MIT license ([LICENSE-MIT](../../LICENSE-MIT))
-
-at your option.
+Licensed under the Apache License, Version 2.0. See [LICENSE](../../LICENSE) for details.

@@ -948,7 +948,7 @@ mod tests {
 
     #[test]
     fn test_cpu_capability_detection() {
-        let cap = DeviceCapabilities::detect(DeviceType::Cpu).unwrap();
+        let cap = DeviceCapabilities::detect(DeviceType::Cpu).expect("detect should succeed");
         assert_eq!(cap.device_type(), DeviceType::Cpu);
         assert!(cap.total_memory() > 0);
         assert!(cap.compute_units() > 0);
@@ -964,15 +964,15 @@ mod tests {
 
     #[test]
     fn test_memory_calculations() {
-        let cap = DeviceCapabilities::detect(DeviceType::Cpu).unwrap();
+        let cap = DeviceCapabilities::detect(DeviceType::Cpu).expect("detect should succeed");
         assert_eq!(cap.total_memory_mb(), cap.total_memory() / (1024 * 1024));
         assert!(cap.memory_utilization() >= 0.0 && cap.memory_utilization() <= 1.0);
     }
 
     #[test]
     fn test_capability_comparison() {
-        let cap1 = DeviceCapabilities::detect(DeviceType::Cpu).unwrap();
-        let cap2 = DeviceCapabilities::detect(DeviceType::Cpu).unwrap();
+        let cap1 = DeviceCapabilities::detect(DeviceType::Cpu).expect("detect should succeed");
+        let cap2 = DeviceCapabilities::detect(DeviceType::Cpu).expect("detect should succeed");
 
         let _ordering = utils::compare_capabilities(&cap1, &cap2);
         let devices = [cap1, cap2];
@@ -982,7 +982,7 @@ mod tests {
 
     #[test]
     fn test_device_filtering() {
-        let cap = DeviceCapabilities::detect(DeviceType::Cpu).unwrap();
+        let cap = DeviceCapabilities::detect(DeviceType::Cpu).expect("detect should succeed");
         let caps = vec![cap];
 
         let filtered = utils::filter_by_memory(&caps, 1024); // 1GB minimum
@@ -994,7 +994,7 @@ mod tests {
 
     #[test]
     fn test_training_suitability() {
-        let cap = DeviceCapabilities::detect(DeviceType::Cpu).unwrap();
+        let cap = DeviceCapabilities::detect(DeviceType::Cpu).expect("detect should succeed");
         let _suitable = utils::is_suitable_for_training(&cap);
         let _performance = utils::estimate_training_performance(&cap);
         // Just ensure these don't panic
@@ -1009,7 +1009,7 @@ mod tests {
 
     #[test]
     fn test_precision_support() {
-        let cap = DeviceCapabilities::detect(DeviceType::Cpu).unwrap();
+        let cap = DeviceCapabilities::detect(DeviceType::Cpu).expect("detect should succeed");
         assert!(cap.supports_double_precision()); // CPU should support fp64
                                                   // Half precision support varies by CPU
     }

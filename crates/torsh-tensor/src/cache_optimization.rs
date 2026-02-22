@@ -627,29 +627,31 @@ mod tests {
 
     #[test]
     fn test_cache_optimization() {
-        let mut tensor = ones::<f32>(&[100, 100]).unwrap();
+        let mut tensor = ones::<f32>(&[100, 100]).expect("ones creation should succeed");
         assert!(tensor.optimize_cache_layout().is_ok());
     }
 
     #[test]
     fn test_cache_analysis() {
-        let tensor = ones::<f32>(&[64, 64]).unwrap();
+        let tensor = ones::<f32>(&[64, 64]).expect("ones creation should succeed");
         let report = tensor.analyze_cache_performance();
         assert!(report.cache_efficiency >= 0.0 && report.cache_efficiency <= 1.0);
     }
 
     #[test]
     fn test_contiguous_layout() {
-        let tensor = ones::<f32>(&[10, 10]).unwrap();
+        let tensor = ones::<f32>(&[10, 10]).expect("ones creation should succeed");
         assert!(tensor.is_contiguous());
 
-        let contiguous = tensor.contiguous().unwrap();
+        let contiguous = tensor
+            .contiguous()
+            .expect("contiguous conversion should succeed");
         assert!(contiguous.is_contiguous());
     }
 
     #[test]
     fn test_memory_stats() {
-        let tensor = ones::<f32>(&[100, 100]).unwrap();
+        let tensor = ones::<f32>(&[100, 100]).expect("ones creation should succeed");
         let stats = tensor.memory_stats();
         assert_eq!(stats.total_elements, 10000);
         assert_eq!(stats.element_size, 4); // f32 is 4 bytes
@@ -709,7 +711,7 @@ mod tests {
 
     #[test]
     fn test_advanced_memory_optimization() {
-        let mut tensor = ones::<f32>(&[64, 64]).unwrap();
+        let mut tensor = ones::<f32>(&[64, 64]).expect("ones creation should succeed");
 
         // Test with NUMA hint
         let numa_hint = super::NumaAllocationHint {
@@ -736,7 +738,7 @@ mod tests {
         let tensor = super::Tensor::create_memory_mapped_optimized(data, shape, Some(numa_hint));
         assert!(tensor.is_ok());
 
-        let tensor = tensor.unwrap();
+        let tensor = tensor.expect("operation should succeed");
         // Shape may be optimized with padding for cache efficiency
         let shape = tensor.shape();
         let dims = shape.dims();
@@ -746,7 +748,7 @@ mod tests {
 
     #[test]
     fn test_memory_prefetch() {
-        let tensor = ones::<f32>(&[200, 200]).unwrap();
+        let tensor = ones::<f32>(&[200, 200]).expect("ones creation should succeed");
         assert!(tensor.prefetch_data().is_ok());
     }
 
@@ -791,7 +793,7 @@ mod tests {
 
     #[test]
     fn test_memory_efficiency_calculation() {
-        let tensor = ones::<f32>(&[50, 50]).unwrap();
+        let tensor = ones::<f32>(&[50, 50]).expect("ones creation should succeed");
         let stats = tensor.memory_stats();
 
         let efficiency = stats.efficiency();

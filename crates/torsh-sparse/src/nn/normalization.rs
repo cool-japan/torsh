@@ -82,7 +82,7 @@ impl SparseBatchNorm {
     /// ```rust
     /// use torsh_sparse::nn::normalization::SparseBatchNorm;
     ///
-    /// let bn = SparseBatchNorm::new(128, 1e-5, 0.1, true).unwrap();
+    /// let bn = SparseBatchNorm::new(128, 1e-5, 0.1, true).expect("valid batch norm config");
     /// ```
     pub fn new(num_features: usize, eps: f32, momentum: f32, affine: bool) -> TorshResult<Self> {
         if num_features == 0 {
@@ -337,7 +337,7 @@ impl SparseLayerNorm {
     /// use torsh_sparse::nn::normalization::SparseLayerNorm;
     ///
     /// // Normalize last dimension of size 512
-    /// let ln = SparseLayerNorm::new(vec![512], 1e-5, true).unwrap();
+    /// let ln = SparseLayerNorm::new(vec![512], 1e-5, true).expect("valid layer norm config");
     /// ```
     pub fn new(
         normalized_shape: Vec<usize>,

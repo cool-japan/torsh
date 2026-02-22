@@ -46,7 +46,7 @@ pub trait DynFunction: Send + Sync {
             author: "Unknown".to_string(),
             created_at: SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap()
+                .unwrap_or_default()
                 .as_secs()
                 .to_string(),
             checksum: "".to_string(),

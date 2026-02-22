@@ -361,7 +361,12 @@ impl MultiHeadAttention {
             .iter()
             .filter_map(|(k, v)| {
                 if k.starts_with(prefix) {
-                    Some((k.strip_prefix(prefix).unwrap().to_string(), v.clone()))
+                    Some((
+                        k.strip_prefix(prefix)
+                            .expect("prefix was just verified to exist")
+                            .to_string(),
+                        v.clone(),
+                    ))
                 } else {
                     None
                 }

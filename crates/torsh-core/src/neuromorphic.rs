@@ -764,10 +764,10 @@ mod tests {
         assert!(core.can_add_neuron());
         assert!(core.can_add_synapse());
 
-        let neuron_id = core.add_neuron().unwrap();
+        let neuron_id = core.add_neuron().expect("add_neuron should succeed");
         assert_eq!(neuron_id, 0);
 
-        let synapse_id = core.add_synapse().unwrap();
+        let synapse_id = core.add_synapse().expect("add_synapse should succeed");
         assert_eq!(synapse_id, 0);
 
         let util = core.utilization();
@@ -793,10 +793,10 @@ mod tests {
         assert!(sim.has_events());
         assert_eq!(sim.event_count(), 2);
 
-        let event1 = sim.next_event().unwrap();
+        let event1 = sim.next_event().expect("next_event should return event");
         assert_eq!(event1.timestamp_us(), 500); // Earlier event comes first
 
-        let event2 = sim.next_event().unwrap();
+        let event2 = sim.next_event().expect("next_event should return event");
         assert_eq!(event2.timestamp_us(), 1000);
 
         assert!(!sim.has_events());
@@ -864,12 +864,14 @@ mod tests {
     fn test_core_capacity() {
         let mut core = NeuromorphicCore::new(0, 2, 2);
 
-        core.add_neuron().unwrap();
-        core.add_neuron().unwrap();
+        core.add_neuron().expect("first add_neuron should succeed");
+        core.add_neuron().expect("second add_neuron should succeed");
         assert!(core.add_neuron().is_err()); // Should fail - capacity exceeded
 
-        core.add_synapse().unwrap();
-        core.add_synapse().unwrap();
+        core.add_synapse()
+            .expect("first add_synapse should succeed");
+        core.add_synapse()
+            .expect("second add_synapse should succeed");
         assert!(core.add_synapse().is_err()); // Should fail - capacity exceeded
     }
 }

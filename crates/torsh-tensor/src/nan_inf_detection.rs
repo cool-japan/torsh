@@ -394,9 +394,9 @@ impl<T: TensorElement + FloatElement> Tensor<T> {
     ///     vec![1.0, f32::NAN, f32::INFINITY, -f32::INFINITY],
     ///     vec![4],
     ///     DeviceType::Cpu
-    /// ).unwrap();
+    /// ).expect("tensor creation should succeed");
     ///
-    /// let cleaned = tensor.replace_nan_inf(0.0, 1e6, -1e6).unwrap();
+    /// let cleaned = tensor.replace_nan_inf(0.0, 1e6, -1e6).expect("replace_nan_inf should succeed");
     /// assert!(!cleaned.has_nan_inf());
     /// ```
     pub fn replace_nan_inf(
@@ -441,10 +441,10 @@ impl<T: TensorElement + FloatElement> Tensor<T> {
     ///     vec![1.0, f32::NAN, 3.0, f32::INFINITY],
     ///     vec![4],
     ///     DeviceType::Cpu
-    /// ).unwrap();
+    /// ).expect("tensor creation should succeed");
     ///
-    /// let mask = tensor.nan_inf_mask().unwrap();
-    /// let mask_data = mask.to_vec().unwrap();
+    /// let mask = tensor.nan_inf_mask().expect("nan_inf_mask should succeed");
+    /// let mask_data = mask.to_vec().expect("to_vec conversion should succeed");
     /// assert_eq!(mask_data, vec![false, true, false, true]);
     /// ```
     pub fn nan_inf_mask(&self) -> Result<Tensor<bool>> {
@@ -489,7 +489,8 @@ mod tests {
 
     #[test]
     fn test_clean_tensor() {
-        let tensor = creation::tensor_1d(&[1.0f32, 2.0, 3.0, 4.0]).unwrap();
+        let tensor = creation::tensor_1d(&[1.0f32, 2.0, 3.0, 4.0])
+            .expect("tensor_1d creation should succeed");
 
         assert!(!tensor.has_nan_inf());
         assert!(!tensor.has_nan());
@@ -507,7 +508,7 @@ mod tests {
             vec![4],
             DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("tensor creation should succeed");
 
         assert!(tensor.has_nan_inf());
         assert!(tensor.has_nan());
@@ -527,7 +528,7 @@ mod tests {
             vec![4],
             DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("tensor creation should succeed");
 
         assert!(tensor.has_nan_inf());
         assert!(!tensor.has_nan());
@@ -547,7 +548,7 @@ mod tests {
             vec![4],
             DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("tensor creation should succeed");
 
         let config = NanInfConfig::detailed();
         let report = tensor.check_nan_inf_with_config(&config);
@@ -573,12 +574,14 @@ mod tests {
             vec![4],
             DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("tensor creation should succeed");
 
-        let cleaned = tensor.replace_nan_inf(0.0, 1e6, -1e6).unwrap();
+        let cleaned = tensor
+            .replace_nan_inf(0.0, 1e6, -1e6)
+            .expect("replace_nan_inf should succeed");
         assert!(!cleaned.has_nan_inf());
 
-        let data = cleaned.to_vec().unwrap();
+        let data = cleaned.to_vec().expect("to_vec conversion should succeed");
         assert_eq!(data, vec![1.0, 0.0, 1e6, -1e6]);
     }
 
@@ -589,10 +592,10 @@ mod tests {
             vec![4],
             DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("tensor creation should succeed");
 
-        let mask = tensor.nan_inf_mask().unwrap();
-        let mask_data = mask.to_vec().unwrap();
+        let mask = tensor.nan_inf_mask().expect("nan_inf_mask should succeed");
+        let mask_data = mask.to_vec().expect("to_vec conversion should succeed");
         assert_eq!(mask_data, vec![false, true, false, true]);
     }
 
@@ -603,7 +606,7 @@ mod tests {
             vec![2, 3],
             DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("tensor creation should succeed");
 
         let config = NanInfConfig::detailed();
         let report = tensor.check_nan_inf_with_config(&config);
@@ -620,7 +623,7 @@ mod tests {
             vec![4],
             DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("tensor creation should succeed");
 
         let config = NanInfConfig::fast();
         let report = tensor.check_nan_inf_with_config(&config);
@@ -632,14 +635,16 @@ mod tests {
     #[test]
     #[should_panic(expected = "Tensor contains non-finite values")]
     fn test_assert_finite_panic() {
-        let tensor = Tensor::from_data(vec![1.0f32, f32::NAN], vec![2], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, f32::NAN], vec![2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
         tensor.assert_finite();
     }
 
     #[test]
     fn test_assert_finite_ok() {
-        let tensor = creation::tensor_1d(&[1.0f32, 2.0, 3.0]).unwrap();
+        let tensor =
+            creation::tensor_1d(&[1.0f32, 2.0, 3.0]).expect("tensor_1d creation should succeed");
         tensor.assert_finite(); // Should not panic
     }
 

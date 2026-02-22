@@ -564,7 +564,8 @@ mod tests {
     #[test]
     fn test_device_handle() {
         let mock_device = Box::new(MockDevice::new(DeviceType::Cpu));
-        let _handle = DeviceHandle::<PhantomCpu>::new(mock_device).unwrap();
+        let _handle =
+            DeviceHandle::<PhantomCpu>::new(mock_device).expect("DeviceHandle::new should succeed");
 
         assert_eq!(
             DeviceHandle::<PhantomCpu>::phantom_device_type(),
@@ -596,7 +597,8 @@ mod tests {
         assert_eq!(manager.device_count(), 0);
 
         let mock_device = Box::new(MockDevice::new(DeviceType::Cpu));
-        let handle = DeviceHandle::<PhantomCpu>::new(mock_device).unwrap();
+        let handle =
+            DeviceHandle::<PhantomCpu>::new(mock_device).expect("DeviceHandle::new should succeed");
         manager.add_device(handle);
 
         assert_eq!(manager.device_count(), 1);
@@ -1006,10 +1008,12 @@ mod advanced_tests {
     #[test]
     fn test_device_group() {
         let cpu_device = Box::new(CpuDevice::new());
-        let handle1 = DeviceHandle::<PhantomCpu>::new(cpu_device).unwrap();
+        let handle1 =
+            DeviceHandle::<PhantomCpu>::new(cpu_device).expect("DeviceHandle::new should succeed");
 
         let cpu_device2 = Box::new(CpuDevice::new());
-        let handle2 = DeviceHandle::<PhantomCpu>::new(cpu_device2).unwrap();
+        let handle2 =
+            DeviceHandle::<PhantomCpu>::new(cpu_device2).expect("DeviceHandle::new should succeed");
 
         let group = DeviceGroup::new([handle1, handle2]);
         assert_eq!(DeviceGroup::<PhantomCpu, 2>::device_count(), 2);
@@ -1055,7 +1059,8 @@ mod advanced_tests {
     #[test]
     fn test_typed_device_affinity() {
         let cpu_device = Box::new(CpuDevice::new());
-        let handle = DeviceHandle::<PhantomCpu>::new(cpu_device).unwrap();
+        let handle =
+            DeviceHandle::<PhantomCpu>::new(cpu_device).expect("DeviceHandle::new should succeed");
 
         let affinity = TypedDeviceAffinity::new(handle)
             .with_numa_node(0)

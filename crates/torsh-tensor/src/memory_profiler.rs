@@ -319,7 +319,7 @@ impl MemoryProfiler {
     pub fn get_current_memory(&self) -> usize {
         self.allocations
             .read()
-            .unwrap()
+            .expect("rwlock should not be poisoned")
             .values()
             .map(|a| a.size)
             .sum()
@@ -582,7 +582,7 @@ pub fn init_global_profiler(config: ProfilerConfig) {
 pub fn global_profiler() -> Option<MemoryProfiler> {
     GLOBAL_PROFILER
         .lock()
-        .unwrap()
+        .expect("lock should not be poisoned")
         .as_ref()
         .map(|p| MemoryProfiler {
             config: p.config.clone(),

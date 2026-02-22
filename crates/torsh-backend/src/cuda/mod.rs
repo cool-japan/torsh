@@ -286,7 +286,6 @@ mod cuda_impl {
 
     /// Check if CUDA is available
     pub fn is_available() -> bool {
-        // Catch panics/segfaults from CUDA initialization issues
         use std::panic::{catch_unwind, AssertUnwindSafe};
 
         let result = catch_unwind(AssertUnwindSafe(|| {

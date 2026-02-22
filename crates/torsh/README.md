@@ -12,7 +12,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-torsh = "0.1.0-alpha.2"
+torsh = "0.1.0"
 ```
 
 ## Quick Start
@@ -76,9 +76,4 @@ let output = F::softmax(&logits, -1)?;
 
 ## License
 
-Licensed under either of
-
-- Apache License, Version 2.0 ([LICENSE-APACHE](../../LICENSE-APACHE))
-- MIT license ([LICENSE-MIT](../../LICENSE-MIT))
-
-at your option.
+Licensed under the Apache License, Version 2.0. See [LICENSE](../../LICENSE) for details.

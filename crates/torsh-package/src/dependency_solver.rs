@@ -348,7 +348,10 @@ impl CdclSolver {
         }
 
         // Sort by activity (highest first)
-        unassigned_vars.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
+        unassigned_vars.sort_by(|a, b| {
+            b.1.partial_cmp(a.1)
+                .expect("Activity values should be valid floats (not NaN)")
+        });
 
         *unassigned_vars[0].0
     }

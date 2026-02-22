@@ -482,7 +482,7 @@ impl SemanticContextAnalyzer {
 
 impl Default for SemanticContextAnalyzer {
     fn default() -> Self {
-        Self::new(ContextAnalysisConfig::default()).unwrap()
+        Self::new(ContextAnalysisConfig::default()).expect("default context config should be valid")
     }
 }
 

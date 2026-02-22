@@ -687,7 +687,7 @@ mod tests {
         // Get type info
         let info = CustomDTypeRegistry::get_info(type_id);
         assert!(info.is_some());
-        assert_eq!(info.unwrap().name, "TestType");
+        assert_eq!(info.expect("info should be Some").name, "TestType");
 
         // Get by name
         let found_id = CustomDTypeRegistry::get_type_id("TestType");
@@ -708,7 +708,7 @@ mod tests {
         let extended = ExtendedDType::custom::<TestType>();
         assert!(extended.is_some());
 
-        let ext = extended.unwrap();
+        let ext = extended.expect("extended should be Some");
         assert!(ext.is_custom());
         assert_eq!(ext.name(), "TestType");
         assert_eq!(ext.size(), 4);
@@ -731,10 +731,11 @@ mod tests {
         assert_eq!(val.display_string(), "42[255]");
 
         // Test serialization
-        let serialized = val.serialize().unwrap();
+        let serialized = val.serialize().expect("serialize should succeed");
         assert_eq!(serialized.len(), 3);
 
-        let deserialized = CustomInt16::deserialize(&serialized).unwrap();
+        let deserialized =
+            CustomInt16::deserialize(&serialized).expect("deserialize should succeed");
         assert_eq!(deserialized, val);
     }
 
@@ -749,7 +750,7 @@ mod tests {
         // Test downcast
         let downcast = custom_val.downcast::<CustomInt16>();
         assert!(downcast.is_some());
-        assert_eq!(downcast.unwrap().value, 100);
+        assert_eq!(downcast.expect("downcast should succeed").value, 100);
 
         // Test wrong type downcast
         let wrong_downcast = custom_val.downcast::<TestType>();
@@ -777,7 +778,10 @@ mod tests {
         let result = manager.convert(&input, from_id, to_id);
         assert!(result.is_ok());
 
-        let converted = result.unwrap().downcast::<TestType>().unwrap();
+        let converted = result
+            .expect("convert should succeed")
+            .downcast::<TestType>()
+            .expect("downcast should succeed");
         assert_eq!(converted.value, 42.0);
     }
 

@@ -558,14 +558,16 @@ mod tests {
     #[test]
     fn test_transpose_square_small() {
         let mut data = vec![1, 2, 3, 4]; // [[1, 2], [3, 4]]
-        CacheObliviousTranspose::transpose_square_inplace(&mut data, 2).unwrap();
+        CacheObliviousTranspose::transpose_square_inplace(&mut data, 2)
+            .expect("transpose should succeed");
         assert_eq!(data, vec![1, 3, 2, 4]); // [[1, 3], [2, 4]]
     }
 
     #[test]
     fn test_transpose_square_4x4() {
         let mut data = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
-        CacheObliviousTranspose::transpose_square_inplace(&mut data, 4).unwrap();
+        CacheObliviousTranspose::transpose_square_inplace(&mut data, 4)
+            .expect("transpose should succeed");
         assert_eq!(
             data,
             vec![1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15, 4, 8, 12, 16,]
@@ -576,7 +578,8 @@ mod tests {
     fn test_transpose_rect() {
         let src = vec![1, 2, 3, 4, 5, 6]; // [[1, 2, 3], [4, 5, 6]]
         let mut dst = vec![0; 6];
-        CacheObliviousTranspose::transpose_rect(&src, &mut dst, 2, 3).unwrap();
+        CacheObliviousTranspose::transpose_rect(&src, &mut dst, 2, 3)
+            .expect("transpose_rect should succeed");
         assert_eq!(dst, vec![1, 4, 2, 5, 3, 6]); // [[1, 4], [2, 5], [3, 6]]
     }
 
@@ -587,7 +590,8 @@ mod tests {
         let src: Vec<i32> = (0..(rows * cols) as i32).collect();
         let mut dst = vec![0; rows * cols];
 
-        CacheObliviousTranspose::transpose_rect(&src, &mut dst, rows, cols).unwrap();
+        CacheObliviousTranspose::transpose_rect(&src, &mut dst, rows, cols)
+            .expect("transpose_rect should succeed");
 
         // Verify transpose
         for i in 0..rows {
@@ -603,7 +607,8 @@ mod tests {
         let b = vec![5.0f64, 6.0, 7.0, 8.0]; // [[5, 6], [7, 8]]
         let mut c = vec![0.0f64; 4];
 
-        CacheObliviousMatMul::multiply_square(&a, &b, &mut c, 2).unwrap();
+        CacheObliviousMatMul::multiply_square(&a, &b, &mut c, 2)
+            .expect("multiply_square should succeed");
 
         // Expected: [[19, 22], [43, 50]]
         assert!((c[0] - 19.0).abs() < 1e-6);
@@ -619,7 +624,8 @@ mod tests {
         let b: Vec<f32> = (0..(n * n)).map(|x| (x + 1) as f32).collect();
         let mut c = vec![0.0; n * n];
 
-        CacheObliviousMatMul::multiply_square(&a, &b, &mut c, n).unwrap();
+        CacheObliviousMatMul::multiply_square(&a, &b, &mut c, n)
+            .expect("multiply_square should succeed");
 
         // Verify a few elements
         // C[0,0] = A[0,:] · B[:,0] = 0*1 + 1*5 + 2*9 + 3*13 = 62
@@ -631,10 +637,11 @@ mod tests {
         let src = vec![1, 2, 3, 4, 5, 6];
         let mut dst = vec![0; 6];
 
-        let src_shape = Shape::from_array([2, 3]).unwrap();
-        let dst_shape = Shape::from_array([3, 2]).unwrap();
+        let src_shape = Shape::from_array([2, 3]).expect("shape creation should succeed");
+        let dst_shape = Shape::from_array([3, 2]).expect("shape creation should succeed");
 
-        CacheObliviousReshape::reshape(&src, &src_shape, &mut dst, &dst_shape).unwrap();
+        CacheObliviousReshape::reshape(&src, &src_shape, &mut dst, &dst_shape)
+            .expect("reshape should succeed");
 
         // For contiguous reshapes, should be direct copy
         assert_eq!(dst, src);
@@ -645,8 +652,8 @@ mod tests {
         let src = vec![1, 2, 3, 4];
         let mut dst = vec![0; 6];
 
-        let src_shape = Shape::from_array([2, 2]).unwrap();
-        let dst_shape = Shape::from_array([3, 2]).unwrap();
+        let src_shape = Shape::from_array([2, 2]).expect("shape creation should succeed");
+        let dst_shape = Shape::from_array([3, 2]).expect("shape creation should succeed");
 
         let result = CacheObliviousReshape::reshape(&src, &src_shape, &mut dst, &dst_shape);
         assert!(result.is_err());
@@ -657,7 +664,8 @@ mod tests {
         let src = vec![1, 2, 3, 4, 5, 6]; // Row-major [[1, 2, 3], [4, 5, 6]]
         let mut dst = vec![0; 6];
 
-        CacheObliviousLayout::convert_layout(&src, &mut dst, 2, 3, true).unwrap();
+        CacheObliviousLayout::convert_layout(&src, &mut dst, 2, 3, true)
+            .expect("convert_layout should succeed");
 
         // Column-major should be [[1, 4], [2, 5], [3, 6]] = [1, 4, 2, 5, 3, 6]
         assert_eq!(dst, vec![1, 4, 2, 5, 3, 6]);
@@ -665,8 +673,8 @@ mod tests {
 
     #[test]
     fn test_cache_efficiency_estimation() {
-        let small_shape = Shape::from_array([10, 10]).unwrap();
-        let large_shape = Shape::from_array([1000, 1000]).unwrap();
+        let small_shape = Shape::from_array([10, 10]).expect("shape creation should succeed");
+        let large_shape = Shape::from_array([1000, 1000]).expect("shape creation should succeed");
 
         let small_efficiency =
             CacheObliviousAnalyzer::estimate_cache_efficiency("transpose", &small_shape, 64);
@@ -679,8 +687,8 @@ mod tests {
 
     #[test]
     fn test_should_use_cache_oblivious() {
-        let small_shape = Shape::from_array([10, 10]).unwrap();
-        let large_shape = Shape::from_array([100, 100]).unwrap();
+        let small_shape = Shape::from_array([10, 10]).expect("shape creation should succeed");
+        let large_shape = Shape::from_array([100, 100]).expect("shape creation should succeed");
 
         // Small matrices don't benefit much
         assert!(!CacheObliviousAnalyzer::should_use_cache_oblivious(
@@ -698,7 +706,8 @@ mod tests {
     #[test]
     fn test_transpose_identity() {
         let mut data = vec![1, 0, 0, 1]; // Identity matrix
-        CacheObliviousTranspose::transpose_square_inplace(&mut data, 2).unwrap();
+        CacheObliviousTranspose::transpose_square_inplace(&mut data, 2)
+            .expect("transpose should succeed");
         assert_eq!(data, vec![1, 0, 0, 1]); // Should remain unchanged
     }
 
@@ -708,7 +717,8 @@ mod tests {
         let identity = vec![1.0, 0.0, 0.0, 1.0];
         let mut c = vec![0.0; 4];
 
-        CacheObliviousMatMul::multiply_square(&a, &identity, &mut c, 2).unwrap();
+        CacheObliviousMatMul::multiply_square(&a, &identity, &mut c, 2)
+            .expect("multiply_square should succeed");
 
         // A * I = A
         assert_eq!(c, a);

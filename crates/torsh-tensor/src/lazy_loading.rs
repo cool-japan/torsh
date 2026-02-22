@@ -473,19 +473,25 @@ mod tests {
     use torsh_core::shape::Shape;
 
     fn create_test_file() -> (NamedTempFile, LazyTensorMetadata) {
-        let mut temp_file = NamedTempFile::new().unwrap();
+        let mut temp_file = NamedTempFile::new().expect("temp file creation should succeed");
 
         // Write a simple header (4 bytes for header size, then JSON metadata)
         let header = r#"{"shape":[10,10],"dtype":"f32","total_elements":100}"#;
         let header_size = header.len() as u32;
-        temp_file.write_all(&header_size.to_le_bytes()).unwrap();
-        temp_file.write_all(header.as_bytes()).unwrap();
+        temp_file
+            .write_all(&header_size.to_le_bytes())
+            .expect("write should succeed");
+        temp_file
+            .write_all(header.as_bytes())
+            .expect("write should succeed");
 
         // Write test data (100 f32 values)
         for i in 0..100 {
-            temp_file.write_all(&(i as f32).to_le_bytes()).unwrap();
+            temp_file
+                .write_all(&(i as f32).to_le_bytes())
+                .expect("write should succeed");
         }
-        temp_file.flush().unwrap();
+        temp_file.flush().expect("flush should succeed");
 
         let metadata = LazyTensorMetadata {
             shape: Shape::new(vec![10, 10]),
@@ -503,7 +509,8 @@ mod tests {
         let (temp_file, metadata) = create_test_file();
 
         let lazy_tensor: LazyTensor<f32> =
-            LazyTensor::new(temp_file.path(), metadata, LazyLoadConfig::default()).unwrap();
+            LazyTensor::new(temp_file.path(), metadata, LazyLoadConfig::default())
+                .expect("lazy tensor creation should succeed");
 
         assert_eq!(lazy_tensor.len(), 100);
         assert!(!lazy_tensor.is_empty());
@@ -522,13 +529,17 @@ mod tests {
                 ..LazyLoadConfig::default()
             },
         )
-        .unwrap();
+        .expect("lazy tensor creation should succeed");
 
         // Test loading individual elements
-        let element = lazy_tensor.get_element(5).unwrap();
+        let element = lazy_tensor
+            .get_element(5)
+            .expect("get_element should succeed");
         assert!((element - 5.0).abs() < f32::EPSILON);
 
-        let element = lazy_tensor.get_element(50).unwrap();
+        let element = lazy_tensor
+            .get_element(50)
+            .expect("get_element should succeed");
         assert!((element - 50.0).abs() < f32::EPSILON);
     }
 
@@ -544,10 +555,12 @@ mod tests {
                 ..LazyLoadConfig::default()
             },
         )
-        .unwrap();
+        .expect("lazy tensor creation should succeed");
 
         // Test loading a range of elements
-        let range = lazy_tensor.get_range(10, 20).unwrap();
+        let range = lazy_tensor
+            .get_range(10, 20)
+            .expect("get_range should succeed");
         assert_eq!(range.len(), 10);
 
         for (i, &value) in range.iter().enumerate() {
@@ -569,16 +582,22 @@ mod tests {
                 ..LazyLoadConfig::default()
             },
         )
-        .unwrap();
+        .expect("lazy tensor creation should succeed");
 
         // Load some chunks - should respect max cache size
-        lazy_tensor.get_element(5).unwrap(); // Chunk 0
-        lazy_tensor.get_element(15).unwrap(); // Chunk 1
+        lazy_tensor
+            .get_element(5)
+            .expect("get_element should succeed"); // Chunk 0
+        lazy_tensor
+            .get_element(15)
+            .expect("get_element should succeed"); // Chunk 1
 
         let stats = lazy_tensor.cache_stats();
         assert!(stats.cached_chunks <= 2); // Should not exceed max after 2 chunks
 
-        lazy_tensor.get_element(25).unwrap(); // Chunk 2 - should trigger cleanup
+        lazy_tensor
+            .get_element(25)
+            .expect("get_element should succeed"); // Chunk 2 - should trigger cleanup
 
         let stats_after = lazy_tensor.cache_stats();
         // After loading a 3rd chunk, cache size might be 2 or 3 depending on cleanup timing
@@ -595,7 +614,7 @@ mod tests {
             .chunk_size(5)
             .max_cached_chunks(3)
             .build(temp_file.path(), metadata)
-            .unwrap();
+            .expect("lazy operation should succeed");
 
         assert_eq!(lazy_tensor.config.chunk_size, 5);
         assert_eq!(lazy_tensor.config.max_cached_chunks, 3);
@@ -606,7 +625,8 @@ mod tests {
         let (temp_file, metadata) = create_test_file();
 
         let lazy_tensor: LazyTensor<f32> =
-            LazyTensor::new(temp_file.path(), metadata, LazyLoadConfig::default()).unwrap();
+            LazyTensor::new(temp_file.path(), metadata, LazyLoadConfig::default())
+                .expect("lazy tensor creation should succeed");
 
         // Test out of bounds access
         let result = lazy_tensor.get_element(1000);

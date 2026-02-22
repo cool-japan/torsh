@@ -694,12 +694,13 @@ mod tests {
             )
             .unwrap();
 
-        let temp_file = "/tmp/test_instruments_export.json";
-        let result = profiler.export_instruments_data(temp_file);
+        let temp_file = std::env::temp_dir().join("test_instruments_export.json");
+        let temp_str = temp_file.display().to_string();
+        let result = profiler.export_instruments_data(&temp_str);
         assert!(result.is_ok());
 
         // Clean up
-        let _ = std::fs::remove_file(temp_file);
+        let _ = std::fs::remove_file(&temp_file);
     }
 
     #[test]
@@ -713,7 +714,12 @@ mod tests {
             activity_tracing: false,
             system_trace: true,
             sampling_interval_us: 500,
-            output_dir: Some("/tmp/instruments".to_string()),
+            output_dir: Some(
+                std::env::temp_dir()
+                    .join("instruments")
+                    .display()
+                    .to_string(),
+            ),
             device_udid: Some("test-device-udid".to_string()),
         };
 

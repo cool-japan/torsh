@@ -108,7 +108,12 @@ mod tests {
     fn test_create_file_store() {
         let config = StoreConfig {
             backend: StoreBackend::File,
-            file_path: Some("/tmp/test_store.json".to_string()),
+            file_path: Some(
+                std::env::temp_dir()
+                    .join("test_store.json")
+                    .display()
+                    .to_string(),
+            ),
             ..Default::default()
         };
 

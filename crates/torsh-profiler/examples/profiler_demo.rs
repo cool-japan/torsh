@@ -60,31 +60,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\nExporting profile data...");
 
     // Chrome trace format
-    if let Err(e) = export_global_trace("/tmp/profile_demo.json") {
+    let trace_path = std::env::temp_dir().join("profile_demo.json");
+    let trace_str = trace_path.display().to_string();
+    if let Err(e) = export_global_trace(&trace_str) {
         println!("Chrome trace export failed: {e}");
     } else {
-        println!("Chrome trace exported to /tmp/profile_demo.json");
+        println!("Chrome trace exported to {}", trace_str);
     }
 
     // JSON format
-    if let Err(e) = export_global_json("/tmp/profile_demo_events.json") {
+    let json_path = std::env::temp_dir().join("profile_demo_events.json");
+    let json_str = json_path.display().to_string();
+    if let Err(e) = export_global_json(&json_str) {
         println!("JSON export failed: {e}");
     } else {
-        println!("JSON exported to /tmp/profile_demo_events.json");
+        println!("JSON exported to {}", json_str);
     }
 
     // CSV format
-    if let Err(e) = export_global_csv("/tmp/profile_demo.csv") {
+    let csv_path = std::env::temp_dir().join("profile_demo.csv");
+    let csv_str = csv_path.display().to_string();
+    if let Err(e) = export_global_csv(&csv_str) {
         println!("CSV export failed: {e}");
     } else {
-        println!("CSV exported to /tmp/profile_demo.csv");
+        println!("CSV exported to {}", csv_str);
     }
 
     // TensorBoard format
-    if let Err(e) = export_global_tensorboard("/tmp/profile_demo_tensorboard") {
+    let tb_path = std::env::temp_dir().join("profile_demo_tensorboard");
+    let tb_str = tb_path.display().to_string();
+    if let Err(e) = export_global_tensorboard(&tb_str) {
         println!("TensorBoard export failed: {e}");
     } else {
-        println!("TensorBoard logs exported to /tmp/profile_demo_tensorboard_*.log");
+        println!("TensorBoard logs exported to {}_*.log", tb_str);
     }
 
     println!("\nProfiler demo completed!");

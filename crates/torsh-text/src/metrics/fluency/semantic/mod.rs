@@ -633,7 +633,7 @@ impl ModularSemanticFluencyAnalyzer {
 
 impl Default for ModularSemanticFluencyAnalyzer {
     fn default() -> Self {
-        Self::new(SemanticConfig::default()).unwrap()
+        Self::new(SemanticConfig::default()).expect("default semantic config should be valid")
     }
 }
 

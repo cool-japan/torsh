@@ -785,7 +785,7 @@ mod tests {
             auto_tuning_recommendations: vec!["Auto-tune rec".to_string()],
             hardware_recommendations: vec!["Hardware rec".to_string()],
             performance_recommendations: vec!["Performance rec".to_string()],
-            export_path: Some("/tmp/test".to_string()),
+            export_path: Some(std::env::temp_dir().join("test").display().to_string()),
         };
 
         let all_recs = report.all_recommendations();
@@ -794,7 +794,7 @@ mod tests {
         let summary = report.summary();
         assert!(summary.contains("Performance Analysis Summary"));
         assert!(summary.contains("Total measurements: 0"));
-        assert!(summary.contains("Export path: /tmp/test"));
+        assert!(summary.contains("Export path:"));
     }
 
     #[test]

@@ -785,30 +785,40 @@ mod tests {
     #[test]
     fn test_broadcast_compatibility() {
         // Compatible shapes
-        assert!(BroadcastOps::are_shapes_compatible(&[3, 4], &[1, 4]).unwrap());
-        assert!(BroadcastOps::are_shapes_compatible(&[3, 1], &[3, 4]).unwrap());
-        assert!(BroadcastOps::are_shapes_compatible(&[1], &[3, 4]).unwrap());
-        assert!(BroadcastOps::are_shapes_compatible(&[], &[3]).unwrap());
+        assert!(BroadcastOps::are_shapes_compatible(&[3, 4], &[1, 4])
+            .expect("shape compatibility check should succeed"));
+        assert!(BroadcastOps::are_shapes_compatible(&[3, 1], &[3, 4])
+            .expect("shape compatibility check should succeed"));
+        assert!(BroadcastOps::are_shapes_compatible(&[1], &[3, 4])
+            .expect("shape compatibility check should succeed"));
+        assert!(BroadcastOps::are_shapes_compatible(&[], &[3])
+            .expect("shape compatibility check should succeed"));
 
         // Incompatible shapes
-        assert!(!BroadcastOps::are_shapes_compatible(&[3, 4], &[2, 4]).unwrap());
-        assert!(!BroadcastOps::are_shapes_compatible(&[3, 2], &[4, 3]).unwrap());
+        assert!(!BroadcastOps::are_shapes_compatible(&[3, 4], &[2, 4])
+            .expect("shape compatibility check should succeed"));
+        assert!(!BroadcastOps::are_shapes_compatible(&[3, 2], &[4, 3])
+            .expect("shape compatibility check should succeed"));
     }
 
     #[test]
     fn test_broadcast_shape_computation() {
         // Basic broadcasting
-        let result = BroadcastOps::compute_broadcast_shape(&[3, 4], &[1, 4]).unwrap();
+        let result = BroadcastOps::compute_broadcast_shape(&[3, 4], &[1, 4])
+            .expect("broadcast should succeed");
         assert_eq!(result, vec![3, 4]);
 
-        let result = BroadcastOps::compute_broadcast_shape(&[3, 1], &[3, 4]).unwrap();
+        let result = BroadcastOps::compute_broadcast_shape(&[3, 1], &[3, 4])
+            .expect("broadcast should succeed");
         assert_eq!(result, vec![3, 4]);
 
         // Different number of dimensions
-        let result = BroadcastOps::compute_broadcast_shape(&[1], &[3, 4]).unwrap();
+        let result =
+            BroadcastOps::compute_broadcast_shape(&[1], &[3, 4]).expect("broadcast should succeed");
         assert_eq!(result, vec![3, 4]);
 
-        let result = BroadcastOps::compute_broadcast_shape(&[], &[3]).unwrap();
+        let result =
+            BroadcastOps::compute_broadcast_shape(&[], &[3]).expect("broadcast should succeed");
         assert_eq!(result, vec![3]);
     }
 
@@ -821,7 +831,7 @@ mod tests {
 
         let linear_index =
             BroadcastOps::compute_broadcast_index(&multi_index, &original_shape, &broadcast_shape)
-                .unwrap();
+                .expect("broadcast should succeed");
 
         // For shape [1, 3] with broadcast coordinates [1, 2]:
         // - dimension 0: coordinate 1 -> maps to 0 (broadcast)
@@ -869,7 +879,8 @@ mod tests {
         let element_size = std::mem::size_of::<f32>();
 
         let memory_required =
-            BroadcastOps::estimate_broadcast_memory(&shape1, &shape2, element_size).unwrap();
+            BroadcastOps::estimate_broadcast_memory(&shape1, &shape2, element_size)
+                .expect("broadcast memory estimation should succeed");
 
         // Broadcast shape should be [2, 3] = 6 elements
         // Memory = 6 * sizeof(f32) = 6 * 4 = 24 bytes
@@ -881,7 +892,8 @@ mod tests {
         let shape1 = vec![1, 4];
         let shape2 = vec![3, 1];
 
-        let info = BroadcastOps::get_broadcast_info(&shape1, &shape2).unwrap();
+        let info = BroadcastOps::get_broadcast_info(&shape1, &shape2)
+            .expect("broadcast info should succeed");
 
         assert_eq!(info.original_shape1, vec![1, 4]);
         assert_eq!(info.original_shape2, vec![3, 1]);
@@ -902,7 +914,9 @@ mod tests {
         assert!(!shape1.broadcast_compatible(&shape3));
 
         // Test broadcast shape computation
-        let broadcast_result = shape1.broadcast_shape(&shape2).unwrap();
+        let broadcast_result = shape1
+            .broadcast_shape(&shape2)
+            .expect("broadcast_shape should succeed");
         assert_eq!(broadcast_result.dims(), &[3, 4]);
     }
 
@@ -927,8 +941,8 @@ mod tests {
         let shape2 = vec![3, 1];
         let broadcast_shape = vec![3, 4];
 
-        let strides =
-            BroadcastOps::compute_broadcast_strides(&shape1, &shape2, &broadcast_shape).unwrap();
+        let strides = BroadcastOps::compute_broadcast_strides(&shape1, &shape2, &broadcast_shape)
+            .expect("broadcast should succeed");
 
         // Original strides for [1, 4] should be [4, 1]
         assert_eq!(strides.original_strides1, vec![4, 1]);
@@ -1028,11 +1042,13 @@ mod tests {
         let shape2 = vec![3, 1];
 
         // First access should compute and cache
-        let entry1 = BroadcastCache::get_or_compute(&shape1, &shape2, &config).unwrap();
+        let entry1 = BroadcastCache::get_or_compute(&shape1, &shape2, &config)
+            .expect("broadcast cache computation should succeed");
         assert_eq!(entry1.broadcast_shape, vec![3, 4]);
 
         // Second access should hit cache
-        let entry2 = BroadcastCache::get_or_compute(&shape1, &shape2, &config).unwrap();
+        let entry2 = BroadcastCache::get_or_compute(&shape1, &shape2, &config)
+            .expect("broadcast cache computation should succeed");
         assert_eq!(entry2.broadcast_shape, vec![3, 4]);
 
         // Verify cache statistics
@@ -1045,7 +1061,8 @@ mod tests {
             enable_cache: false,
             ..Default::default()
         };
-        let entry3 = BroadcastCache::get_or_compute(&shape1, &shape2, &config_no_cache).unwrap();
+        let entry3 = BroadcastCache::get_or_compute(&shape1, &shape2, &config_no_cache)
+            .expect("broadcast cache computation should succeed");
         assert_eq!(entry3.broadcast_shape, vec![3, 4]);
     }
 

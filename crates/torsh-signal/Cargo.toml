@@ -7,6 +7,11 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 description = "Signal processing utilities for ToRSh with SciRS2 integration"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-signal"
+rust-version.workspace = true
+keywords = ["deep-learning", "signal-processing", "fft", "machine-learning", "dsp"]
+categories = ["science", "algorithms"]
 
 [lints]
 workspace = true

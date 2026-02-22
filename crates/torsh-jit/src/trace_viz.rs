@@ -591,7 +591,10 @@ impl Default for VisualizationConfig {
         Self {
             enabled: true,
             default_format: OutputFormat::Html,
-            output_directory: "/tmp/torsh_visualizations".to_string(),
+            output_directory: std::env::temp_dir()
+                .join("torsh_visualizations")
+                .display()
+                .to_string(),
             max_events: 1_000_000,
             real_time: false,
             real_time_sampling_rate: 0.1, // 10% sampling

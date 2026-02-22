@@ -39,9 +39,9 @@ impl Benchmarkable for SciRS2RandomBench {
     fn run(&mut self, input: &Self::Input) -> Self::Output {
         let shape = input.as_slice();
         match self.distribution.as_str() {
-            "normal" => randn(shape).unwrap(),
-            "uniform" => rand(shape).unwrap(),
-            _ => zeros(shape).unwrap(),
+            "normal" => randn(shape).expect("tensor creation should succeed"),
+            "uniform" => rand(shape).expect("tensor creation should succeed"),
+            _ => zeros(shape).expect("tensor creation should succeed"),
         }
     }
 
@@ -72,18 +72,18 @@ impl Benchmarkable for SciRS2MathBench {
     type Output = Tensor;
 
     fn setup(&mut self, size: usize) -> Self::Input {
-        let a = randn(&[size, size]).unwrap();
-        let b = randn(&[size, size]).unwrap();
+        let a = randn(&[size, size]).expect("tensor creation should succeed");
+        let b = randn(&[size, size]).expect("tensor creation should succeed");
         (a, b)
     }
 
     fn run(&mut self, input: &Self::Input) -> Self::Output {
         let (a, b) = input;
         match self.operation.as_str() {
-            "matmul" => a.matmul(b).unwrap(),
+            "matmul" => a.matmul(b).expect("tensor operation should succeed"),
             "add" => a + b,
-            "mul" => a.mul_op(b).unwrap(),
-            "pow" => a.pow_scalar(2.0).unwrap(),
+            "mul" => a.mul_op(b).expect("tensor operation should succeed"),
+            "pow" => a.pow_scalar(2.0).expect("tensor operation should succeed"),
             _ => a.clone(),
         }
     }
@@ -120,8 +120,10 @@ impl Benchmarkable for GraphNeuralNetworkBench {
     type Output = Tensor;
 
     fn setup(&mut self, _size: usize) -> Self::Input {
-        let node_features = randn(&[self.num_nodes, self.feature_dim]).unwrap();
-        let adjacency = rand(&[self.num_nodes, self.num_nodes]).unwrap();
+        let node_features =
+            randn(&[self.num_nodes, self.feature_dim]).expect("tensor creation should succeed");
+        let adjacency =
+            rand(&[self.num_nodes, self.num_nodes]).expect("tensor creation should succeed");
         (node_features, adjacency)
     }
 
@@ -131,7 +133,9 @@ impl Benchmarkable for GraphNeuralNetworkBench {
             "gcn" => {
                 // Simplified GCN forward pass: A * X * W
                 let normalized_adj = adj.clone(); // Placeholder for normalization
-                normalized_adj.matmul(features).unwrap()
+                normalized_adj
+                    .matmul(features)
+                    .expect("tensor operation should succeed")
             }
             "gat" => {
                 // Simplified GAT attention mechanism
@@ -170,7 +174,7 @@ impl Benchmarkable for TimeSeriesAnalysisBench {
     type Output = (Tensor, Tensor, Tensor); // (trend, seasonal, residual)
 
     fn setup(&mut self, _size: usize) -> Self::Input {
-        randn(&[self.series_length]).unwrap()
+        randn(&[self.series_length]).expect("tensor creation should succeed")
     }
 
     fn run(&mut self, input: &Self::Input) -> Self::Output {
@@ -178,15 +182,18 @@ impl Benchmarkable for TimeSeriesAnalysisBench {
             "stl" => {
                 // Simplified STL decomposition
                 let trend = input.clone();
-                let seasonal = zeros(&[self.series_length]).unwrap();
-                let residual = zeros(&[self.series_length]).unwrap();
+                let seasonal =
+                    zeros(&[self.series_length]).expect("tensor creation should succeed");
+                let residual =
+                    zeros(&[self.series_length]).expect("tensor creation should succeed");
                 (trend, seasonal, residual)
             }
             "ssa" => {
                 // Simplified SSA
                 let components = input.clone();
                 let reconstruction = input.clone();
-                let residual = zeros(&[self.series_length]).unwrap();
+                let residual =
+                    zeros(&[self.series_length]).expect("tensor creation should succeed");
                 (components, reconstruction, residual)
             }
             _ => {
@@ -227,7 +234,7 @@ impl Benchmarkable for SpatialVisionBench {
 
     fn setup(&mut self, _size: usize) -> Self::Input {
         // RGB image: [channels, height, width]
-        randn(&[3, self.image_size, self.image_size]).unwrap()
+        randn(&[3, self.image_size, self.image_size]).expect("tensor creation should succeed")
     }
 
     fn run(&mut self, input: &Self::Input) -> Self::Output {
@@ -288,7 +295,8 @@ impl Benchmarkable for AdvancedNeuralNetworkBench {
     type Output = Tensor;
 
     fn setup(&mut self, _size: usize) -> Self::Input {
-        randn(&[self.batch_size, self.sequence_length, self.hidden_dim]).unwrap()
+        randn(&[self.batch_size, self.sequence_length, self.hidden_dim])
+            .expect("tensor creation should succeed")
     }
 
     fn run(&mut self, input: &Self::Input) -> Self::Output {
@@ -310,16 +318,18 @@ impl Benchmarkable for AdvancedNeuralNetworkBench {
                 // Reshape to 2D for matmul: [batch*seq, hidden] @ [hidden, hidden]
                 let q_2d = q
                     .reshape(&[(batch_size * seq_len) as i32, hidden as i32])
-                    .unwrap();
+                    .expect("tensor reshape should succeed");
 
                 // Create a weight matrix and apply transformation
-                let weight = randn(&[hidden, hidden]).unwrap();
-                let output_2d = q_2d.matmul(&weight).unwrap();
+                let weight = randn(&[hidden, hidden]).expect("tensor creation should succeed");
+                let output_2d = q_2d
+                    .matmul(&weight)
+                    .expect("tensor operation should succeed");
 
                 // Reshape back to 3D
                 output_2d
                     .reshape(&[batch_size as i32, seq_len as i32, hidden as i32])
-                    .unwrap()
+                    .expect("tensor reshape should succeed")
             }
             "layer_norm" => {
                 // Simplified layer normalization
@@ -371,8 +381,8 @@ impl Benchmarkable for AdvancedOptimizerBench {
     type Output = Tensor; // updated parameters
 
     fn setup(&mut self, _size: usize) -> Self::Input {
-        let params = randn(&[self.num_parameters]).unwrap();
-        let grads = randn(&[self.num_parameters]).unwrap();
+        let params = randn(&[self.num_parameters]).expect("tensor creation should succeed");
+        let grads = randn(&[self.num_parameters]).expect("tensor creation should succeed");
         (params, grads)
     }
 
@@ -382,21 +392,30 @@ impl Benchmarkable for AdvancedOptimizerBench {
             "adam" => {
                 // Simplified Adam update
                 let lr = 0.001f32;
-                params - &(grads.mul_scalar(lr).unwrap())
+                params
+                    - &(grads
+                        .mul_scalar(lr)
+                        .expect("tensor operation should succeed"))
             }
             "lamb" => {
                 // Simplified LAMB update with layer-wise adaptation
                 let lr = 0.001f32;
-                let norm_params = params.norm().unwrap();
-                let norm_grads = grads.norm().unwrap();
+                let norm_params = params.norm().expect("tensor operation should succeed");
+                let norm_grads = grads.norm().expect("tensor operation should succeed");
                 let adaptive_lr = lr * norm_params.item().expect("tensor should have single item")
                     / norm_grads.item().expect("tensor should have single item");
-                params - &(grads.mul_scalar(adaptive_lr).unwrap())
+                params
+                    - &(grads
+                        .mul_scalar(adaptive_lr)
+                        .expect("tensor operation should succeed"))
             }
             "lookahead" => {
                 // Simplified Lookahead wrapper
                 let lr = 0.001f32;
-                params - &(grads.mul_scalar(lr).unwrap())
+                params
+                    - &(grads
+                        .mul_scalar(lr)
+                        .expect("tensor operation should succeed"))
             }
             _ => params.clone(),
         }
@@ -444,9 +463,12 @@ impl Benchmarkable for EnhancedNeuralBench {
     type Output = Tensor;
 
     fn setup(&mut self, _size: usize) -> Self::Input {
-        let query = randn(&[self.batch_size, self.sequence_length, self.hidden_dim]).unwrap();
-        let key = randn(&[self.batch_size, self.sequence_length, self.hidden_dim]).unwrap();
-        let value = randn(&[self.batch_size, self.sequence_length, self.hidden_dim]).unwrap();
+        let query = randn(&[self.batch_size, self.sequence_length, self.hidden_dim])
+            .expect("tensor creation should succeed");
+        let key = randn(&[self.batch_size, self.sequence_length, self.hidden_dim])
+            .expect("tensor creation should succeed");
+        let value = randn(&[self.batch_size, self.sequence_length, self.hidden_dim])
+            .expect("tensor creation should succeed");
         (query, key, value)
     }
 
@@ -462,10 +484,12 @@ impl Benchmarkable for EnhancedNeuralBench {
                     true,
                     DeviceType::Cpu,
                 )
-                .unwrap();
+                .expect("MultiHeadAttention creation should succeed");
 
                 // Forward pass through enhanced SciRS2 attention
-                let (output, _) = mha.forward(query, key, value, None).unwrap();
+                let (output, _) = mha
+                    .forward(query, key, value, None)
+                    .expect("MHA forward should succeed");
                 output
             }
             "transformer_encoder" => {
@@ -477,15 +501,19 @@ impl Benchmarkable for EnhancedNeuralBench {
                     0.1,
                     DeviceType::Cpu,
                 )
-                .unwrap();
+                .expect("TransformerEncoderLayer creation should succeed");
 
-                transformer.forward(query, None).unwrap()
+                transformer
+                    .forward(query, None)
+                    .expect("transformer forward should succeed")
             }
             "layer_norm" => {
                 // Create LayerNorm and benchmark it
-                let layer_norm =
-                    LayerNorm::new(vec![self.hidden_dim], 1e-5, true, DeviceType::Cpu).unwrap();
-                layer_norm.forward(query).unwrap()
+                let layer_norm = LayerNorm::new(vec![self.hidden_dim], 1e-5, true, DeviceType::Cpu)
+                    .expect("LayerNorm creation should succeed");
+                layer_norm
+                    .forward(query)
+                    .expect("LayerNorm forward should succeed")
             }
             _ => query.clone(),
         }
@@ -532,7 +560,7 @@ impl Benchmarkable for EnhancedLinalgBench {
     type Output = Tensor;
 
     fn setup(&mut self, _size: usize) -> Self::Input {
-        randn(&[self.matrix_size, self.matrix_size]).unwrap()
+        randn(&[self.matrix_size, self.matrix_size]).expect("tensor creation should succeed")
     }
 
     fn run(&mut self, input: &Self::Input) -> Self::Output {
@@ -543,7 +571,7 @@ impl Benchmarkable for EnhancedLinalgBench {
                 // Benchmark enhanced LU decomposition through basic matrix ops
                 let l = input.clone();
                 let u = input.transpose(0, 1).expect("transpose should succeed");
-                l.matmul(&u).unwrap() // Simulate LU reconstruction
+                l.matmul(&u).expect("tensor operation should succeed") // Simulate LU reconstruction
             }
             "qr_decomposition" => {
                 // Benchmark QR-like operations
@@ -558,15 +586,15 @@ impl Benchmarkable for EnhancedLinalgBench {
             "cholesky" => {
                 // Create positive definite matrix for Cholesky
                 let a_t = input.transpose(0, 1).expect("transpose should succeed");
-                input.matmul(&a_t).unwrap()
+                input.matmul(&a_t).expect("tensor operation should succeed")
             }
             "condition_number" => {
                 // Compute condition number estimate
-                let norm = input.norm().unwrap();
-                let mut result = zeros(&[1]).unwrap();
+                let norm = input.norm().expect("tensor operation should succeed");
+                let mut result = zeros(&[1]).expect("tensor creation should succeed");
                 result
                     .set_1d(0, norm.item().expect("tensor should have single item"))
-                    .unwrap();
+                    .expect("tensor set should succeed");
                 result
             }
             _ => input.clone(),
@@ -609,15 +637,16 @@ impl Benchmarkable for EnhancedSparseBench {
 
     fn setup(&mut self, _size: usize) -> Self::Input {
         // Create sparse matrix by zeroing out elements
-        let mut matrix = randn(&[self.matrix_size, self.matrix_size]).unwrap();
+        let mut matrix =
+            randn(&[self.matrix_size, self.matrix_size]).expect("tensor creation should succeed");
         let threshold = self.sparsity as f32;
 
         // Simple sparsification (this is a placeholder)
         for i in 0..self.matrix_size {
             for j in 0..self.matrix_size {
-                let val: f32 = matrix.get_2d(i, j).unwrap();
+                let val: f32 = matrix.get_2d(i, j).expect("tensor get should succeed");
                 if val.abs() < threshold {
-                    matrix.set_2d(i, j, 0.0).unwrap();
+                    matrix.set_2d(i, j, 0.0).expect("tensor set should succeed");
                 }
             }
         }
@@ -633,7 +662,7 @@ impl Benchmarkable for EnhancedSparseBench {
                 let mut nnz_count = 0;
                 for i in 0..self.matrix_size {
                     for j in 0..self.matrix_size {
-                        let val: f32 = input.get_2d(i, j).unwrap();
+                        let val: f32 = input.get_2d(i, j).expect("tensor get should succeed");
                         if val.abs() > 1e-8 {
                             nnz_count += 1;
                         }
@@ -641,8 +670,10 @@ impl Benchmarkable for EnhancedSparseBench {
                 }
                 let sparsity =
                     1.0 - (nnz_count as f32 / (self.matrix_size * self.matrix_size) as f32);
-                let mut result = zeros(&[1]).unwrap();
-                result.set_1d(0, sparsity).unwrap();
+                let mut result = zeros(&[1]).expect("tensor creation should succeed");
+                result
+                    .set_1d(0, sparsity)
+                    .expect("tensor set should succeed");
                 result
             }
             "optimize_format" => {
@@ -651,7 +682,7 @@ impl Benchmarkable for EnhancedSparseBench {
             }
             "sparse_multiply" => {
                 // Benchmark sparse matrix-vector multiplication
-                let vector = randn(&[self.matrix_size]).unwrap();
+                let vector = randn(&[self.matrix_size]).expect("tensor creation should succeed");
                 input
                     .matmul(&vector.unsqueeze(1).expect("unsqueeze should succeed"))
                     .expect("matmul should succeed")
@@ -702,7 +733,7 @@ impl Benchmarkable for EnhancedSignalBench {
     type Output = Tensor;
 
     fn setup(&mut self, _size: usize) -> Self::Input {
-        randn(&[self.signal_length]).unwrap()
+        randn(&[self.signal_length]).expect("tensor creation should succeed")
     }
 
     fn run(&mut self, input: &Self::Input) -> Self::Output {
@@ -710,10 +741,10 @@ impl Benchmarkable for EnhancedSignalBench {
         match self.operation.as_str() {
             "simd_convolution" => {
                 // Benchmark convolution-like operation
-                let _kernel: Tensor<f32> = randn(&[64]).unwrap(); // 64-tap kernel
-                                                                  // Simulate convolution with basic operations
+                let _kernel: Tensor<f32> = randn(&[64]).expect("tensor creation should succeed"); // 64-tap kernel
+                                                                                                  // Simulate convolution with basic operations
                 let output_size = self.signal_length + 64 - 1;
-                let output = zeros(&[output_size]).unwrap();
+                let output = zeros(&[output_size]).expect("tensor creation should succeed");
                 output // Placeholder for actual convolution
             }
             "fft_processing" => {
@@ -731,7 +762,7 @@ impl Benchmarkable for EnhancedSignalBench {
                 } else {
                     1 // At least one frame
                 };
-                let mfcc_features = zeros(&[13, n_frames]).unwrap(); // 13 MFCC coefficients
+                let mfcc_features = zeros(&[13, n_frames]).expect("tensor creation should succeed"); // 13 MFCC coefficients
                 mfcc_features
             }
             "spectral_features" => {
@@ -744,7 +775,7 @@ impl Benchmarkable for EnhancedSignalBench {
                 } else {
                     1 // At least one frame
                 };
-                let features = zeros(&[n_frames]).unwrap(); // Spectral centroid over time
+                let features = zeros(&[n_frames]).expect("tensor creation should succeed"); // Spectral centroid over time
                 features
             }
             _ => input.clone(),

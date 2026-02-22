@@ -51,9 +51,13 @@ impl VisionEncoder {
         Self {
             patch_embed: PatchEmbedding::new(3, embed_dim, patch_size, patch_size),
             pos_embed: Parameter::new(
-                torsh_tensor::creation::randn(&[1, num_patches + 1, embed_dim]).unwrap(),
+                torsh_tensor::creation::randn(&[1, num_patches + 1, embed_dim])
+                    .expect("failed to create position embedding tensor"),
             ),
-            cls_token: Parameter::new(torsh_tensor::creation::randn(&[1, 1, embed_dim]).unwrap()),
+            cls_token: Parameter::new(
+                torsh_tensor::creation::randn(&[1, 1, embed_dim])
+                    .expect("failed to create cls token tensor"),
+            ),
             transformer: TransformerEncoder::new(
                 embed_dim,
                 num_layers,

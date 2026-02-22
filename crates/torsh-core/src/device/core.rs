@@ -687,15 +687,21 @@ mod tests {
         assert_eq!(lifecycle.state(), DeviceState::Uninitialized);
         assert!(!lifecycle.is_ready());
 
-        lifecycle.set_state(DeviceState::Initializing).unwrap();
-        lifecycle.set_state(DeviceState::Ready).unwrap();
+        lifecycle
+            .set_state(DeviceState::Initializing)
+            .expect("set_state should succeed");
+        lifecycle
+            .set_state(DeviceState::Ready)
+            .expect("set_state should succeed");
         assert!(lifecycle.is_ready());
 
-        lifecycle.set_error("Test error".to_string()).unwrap();
+        lifecycle
+            .set_error("Test error".to_string())
+            .expect("set_error should succeed");
         assert!(lifecycle.is_error());
         assert_eq!(lifecycle.error_info(), Some("Test error".to_string()));
 
-        lifecycle.reset().unwrap();
+        lifecycle.reset().expect("reset should succeed");
         assert_eq!(lifecycle.state(), DeviceState::Uninitialized);
         assert!(lifecycle.error_info().is_none());
     }
@@ -737,10 +743,10 @@ mod tests {
         let device = MockDevice::new(DeviceType::Cpu, "Test CPU".to_string());
         assert_eq!(device.device_type(), DeviceType::Cpu);
         assert_eq!(device.name(), "Test CPU");
-        assert!(device.is_available().unwrap());
+        assert!(device.is_available().expect("is_available should succeed"));
         assert_eq!(device.device_id(), "cpu");
 
-        let cloned = device.clone_device().unwrap();
+        let cloned = device.clone_device().expect("clone_device should succeed");
         assert!(device.is_same_device(cloned.as_ref()));
     }
 
@@ -766,11 +772,13 @@ mod tests {
         assert!(!utils::devices_compatible(&device1, &device3));
 
         let devices = vec![&device1 as &dyn Device, &device2, &device3];
-        assert!(utils::all_devices_available(&devices).unwrap());
+        assert!(
+            utils::all_devices_available(&devices).expect("all_devices_available should succeed")
+        );
 
-        utils::synchronize_devices(&devices).unwrap();
+        utils::synchronize_devices(&devices).expect("synchronize_devices should succeed");
 
-        let summary = utils::device_summary(&device1).unwrap();
+        let summary = utils::device_summary(&device1).expect("device_summary should succeed");
         assert!(summary.contains("CPU 1"));
     }
 }

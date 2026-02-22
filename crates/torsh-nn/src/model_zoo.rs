@@ -995,7 +995,7 @@ mod tests {
     fn test_weight_info_creation() {
         let weight_info = WeightInfo {
             url: Some("https://example.com/model.safetensors".to_string()),
-            local_path: Some(PathBuf::from("/tmp/model.safetensors")),
+            local_path: Some(std::env::temp_dir().join("model.safetensors")),
             file_size: Some(1024),
             checksum: Some("abc123".to_string()),
             variant: "test".to_string(),

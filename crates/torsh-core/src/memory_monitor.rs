@@ -570,7 +570,7 @@ mod tests {
         let monitor = SystemMemoryMonitor::new();
         assert!(monitor.is_ok());
 
-        let monitor = monitor.unwrap();
+        let monitor = monitor.expect("SystemMemoryMonitor::new should succeed");
         let stats = monitor.current_stats();
         assert!(stats.total_physical > 0);
     }
@@ -628,7 +628,7 @@ mod tests {
 
     #[test]
     fn test_memory_monitor_updates() {
-        let monitor = SystemMemoryMonitor::new().unwrap();
+        let monitor = SystemMemoryMonitor::new().expect("SystemMemoryMonitor::new should succeed");
 
         // Test that we can update multiple times
         assert!(monitor.force_update().is_ok());
@@ -649,7 +649,7 @@ mod tests {
             ..Default::default()
         };
 
-        let monitor = SystemMemoryMonitor::with_config(config).unwrap();
+        let monitor = SystemMemoryMonitor::with_config(config).expect("with_config should succeed");
 
         // Test allocation decisions based on current memory pressure
         let stats = monitor.current_stats();

@@ -26,8 +26,10 @@ impl Benchmarkable for TorshMatmulBench {
     type Output = Result<torsh_tensor::Tensor<f32>, torsh_core::error::TorshError>;
 
     fn setup(&mut self, size: usize) -> Self::Input {
-        let a = torsh_tensor::creation::rand::<f32>(&[size, size]).unwrap();
-        let b = torsh_tensor::creation::rand::<f32>(&[size, size]).unwrap();
+        let a = torsh_tensor::creation::rand::<f32>(&[size, size])
+            .expect("tensor creation should succeed");
+        let b = torsh_tensor::creation::rand::<f32>(&[size, size])
+            .expect("tensor creation should succeed");
         (a, b)
     }
 
@@ -79,8 +81,10 @@ impl Benchmarkable for TorshElementwiseBench {
     type Output = Result<torsh_tensor::Tensor<f32>, torsh_core::error::TorshError>;
 
     fn setup(&mut self, size: usize) -> Self::Input {
-        let a = torsh_tensor::creation::rand::<f32>(&[size]).unwrap();
-        let b = torsh_tensor::creation::rand::<f32>(&[size]).unwrap();
+        let a =
+            torsh_tensor::creation::rand::<f32>(&[size]).expect("tensor creation should succeed");
+        let b =
+            torsh_tensor::creation::rand::<f32>(&[size]).expect("tensor creation should succeed");
         (a, b)
     }
 

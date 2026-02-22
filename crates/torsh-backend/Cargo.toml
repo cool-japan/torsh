@@ -7,7 +7,12 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 description = "Backend abstraction layer for ToRSh"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-backend"
+rust-version.workspace = true
 build = "build.rs"
+keywords = ["deep-learning", "gpu", "cuda", "metal", "backend"]
+categories = ["science", "algorithms"]
 
 [lints]
 workspace = true
@@ -82,8 +87,8 @@ objc2-metal-performance-shaders = { version = "0.3", optional = true }
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }
 approx = { workspace = true }
-criterion = { version = "0.8", features = ["html_reports"] }
-proptest = "1.9"
+criterion = { workspace = true }
+proptest = { workspace = true }
 
 # Temporarily disabled due to API changes requiring updates
 # [[bench]]

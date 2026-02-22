@@ -11,7 +11,7 @@ import os
 # Add the python package to the path for development
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'python'))
 
-import torsh
+import rstorch
 import numpy as np
 
 def main():
@@ -22,19 +22,19 @@ def main():
     print("\n1. Creating tensors:")
     
     # From Python lists
-    a = torsh.tensor([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+    a = rstorch.tensor([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
     print(f"Tensor from list: {a}")
     print(f"Shape: {a.shape}, dtype: {a.dtype}, device: {a.device}")
     
     # From NumPy arrays
     np_array = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
-    b = torsh.tensor(np_array)
+    b = rstorch.tensor(np_array)
     print(f"Tensor from NumPy: {b}")
     
     # Creation functions
-    zeros = torsh.zeros([2, 3])
-    ones = torsh.ones([2, 3])
-    randn = torsh.randn([2, 3])
+    zeros = rstorch.zeros([2, 3])
+    ones = rstorch.ones([2, 3])
+    randn = rstorch.randn([2, 3])
     
     print(f"Zeros: {zeros}")
     print(f"Ones: {ones}")
@@ -43,8 +43,8 @@ def main():
     # Basic arithmetic
     print("\n2. Basic arithmetic operations:")
     
-    x = torsh.tensor([[1.0, 2.0], [3.0, 4.0]])
-    y = torsh.tensor([[2.0, 3.0], [1.0, 2.0]])
+    x = rstorch.tensor([[1.0, 2.0], [3.0, 4.0]])
+    y = rstorch.tensor([[2.0, 3.0], [1.0, 2.0]])
     
     print(f"x = {x}")
     print(f"y = {y}")
@@ -56,8 +56,8 @@ def main():
     # Matrix operations
     print("\n3. Matrix operations:")
     
-    m1 = torsh.tensor([[1.0, 2.0], [3.0, 4.0]])
-    m2 = torsh.tensor([[2.0, 0.0], [1.0, 3.0]])
+    m1 = rstorch.tensor([[1.0, 2.0], [3.0, 4.0]])
+    m2 = rstorch.tensor([[2.0, 0.0], [1.0, 3.0]])
     
     print(f"m1 = {m1}")
     print(f"m2 = {m2}")
@@ -67,7 +67,7 @@ def main():
     # Shape operations
     print("\n4. Shape operations:")
     
-    t = torsh.tensor([[[1.0, 2.0], [3.0, 4.0]], [[5.0, 6.0], [7.0, 8.0]]])
+    t = rstorch.tensor([[[1.0, 2.0], [3.0, 4.0]], [[5.0, 6.0], [7.0, 8.0]]])
     print(f"Original tensor: {t}")
     print(f"Shape: {t.shape}")
     
@@ -77,23 +77,23 @@ def main():
     flattened = t.flatten()
     print(f"Flattened: {flattened}")
     
-    squeezed = torsh.tensor([[[1.0, 2.0, 3.0]]]).squeeze(0)
+    squeezed = rstorch.tensor([[[1.0, 2.0, 3.0]]]).squeeze(0)
     print(f"Squeezed: {squeezed}")
     
-    unsqueezed = torsh.tensor([1.0, 2.0, 3.0]).unsqueeze(0)
+    unsqueezed = rstorch.tensor([1.0, 2.0, 3.0]).unsqueeze(0)
     print(f"Unsqueezed: {unsqueezed}")
     
     # Indexing
     print("\n5. Indexing operations:")
     
-    data = torsh.tensor([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]])
+    data = rstorch.tensor([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]])
     print(f"Original: {data}")
     print(f"First row: {data[0]}")
     
     # Convert to NumPy
     print("\n6. NumPy interoperability:")
     
-    torch_tensor = torsh.tensor([[1.0, 2.0], [3.0, 4.0]])
+    torch_tensor = rstorch.tensor([[1.0, 2.0], [3.0, 4.0]])
     numpy_array = torch_tensor.numpy()
     print(f"ToRSh tensor: {torch_tensor}")
     print(f"NumPy array: {numpy_array}")
@@ -106,13 +106,13 @@ def main():
     # Device operations (if CUDA is available)
     print("\n7. Device operations:")
     
-    cpu_tensor = torsh.tensor([1.0, 2.0, 3.0])
+    cpu_tensor = rstorch.tensor([1.0, 2.0, 3.0])
     print(f"CPU tensor: {cpu_tensor}")
     print(f"Device: {cpu_tensor.device}")
     
     # Try CUDA (will fall back to CPU if not available)
     try:
-        if torsh.cuda_is_available():
+        if rstorch.cuda_is_available():
             cuda_tensor = cpu_tensor.cuda()
             print(f"CUDA tensor: {cuda_tensor}")
             print(f"Device: {cuda_tensor.device}")

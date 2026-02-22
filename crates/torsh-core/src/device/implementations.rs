@@ -1015,15 +1015,15 @@ mod tests {
         let device = CpuDevice::new();
         assert_eq!(device.device_type(), DeviceType::Cpu);
         assert_eq!(device.name(), "CPU");
-        assert!(device.is_available().unwrap());
+        assert!(device.is_available().expect("is_available should succeed"));
 
-        let cloned = device.clone_device().unwrap();
+        let cloned = device.clone_device().expect("clone_device should succeed");
         assert_eq!(cloned.device_type(), DeviceType::Cpu);
     }
 
     #[test]
     fn test_cpu_device_with_threads() {
-        let device = CpuDevice::with_threads(4).unwrap();
+        let device = CpuDevice::with_threads(4).expect("with_threads should succeed");
         assert!(device.thread_pool().is_some());
 
         let result = device.execute_parallel(|| 42);
@@ -1045,7 +1045,8 @@ mod tests {
 
     #[test]
     fn test_device_factory() {
-        let cpu_device = DeviceFactory::create_device(DeviceType::Cpu).unwrap();
+        let cpu_device =
+            DeviceFactory::create_device(DeviceType::Cpu).expect("create_device should succeed");
         assert_eq!(cpu_device.device_type(), DeviceType::Cpu);
 
         assert!(DeviceFactory::is_device_type_available(DeviceType::Cpu));
@@ -1076,7 +1077,7 @@ mod tests {
         if let Ok(device) = CudaDevice::new(0) {
             assert_eq!(device.device_type(), DeviceType::Cuda(0));
             assert_eq!(device.device_index(), 0);
-            assert!(device.is_available().unwrap());
+            assert!(device.is_available().expect("is_available should succeed"));
 
             if let Ok(stream_id) = device.create_stream() {
                 assert!(stream_id > 0);
@@ -1090,7 +1091,7 @@ mod tests {
         if let Ok(device) = MetalDevice::new(0) {
             assert_eq!(device.device_type(), DeviceType::Metal(0));
             assert_eq!(device.device_index(), 0);
-            assert!(device.is_available().unwrap());
+            assert!(device.is_available().expect("is_available should succeed"));
         }
     }
 
@@ -1100,7 +1101,7 @@ mod tests {
         if let Ok(device) = WgpuDevice::new(0) {
             assert_eq!(device.device_type(), DeviceType::Wgpu(0));
             assert_eq!(device.device_index(), 0);
-            assert!(device.is_available().unwrap());
+            assert!(device.is_available().expect("is_available should succeed"));
         }
     }
 

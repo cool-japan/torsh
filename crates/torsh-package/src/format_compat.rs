@@ -6,6 +6,7 @@
 use std::collections::HashMap;
 use std::fs;
 
+use oxiarc_archive::zip::{ZipCompressionLevel, ZipReader, ZipWriter};
 use serde::{Deserialize, Serialize};
 use torsh_core::error::{Result, TorshError};
 
@@ -144,23 +145,22 @@ impl PyTorchConverter {
         let file = fs::File::open(path)
             .map_err(|e| TorshError::IoError(format!("Failed to open PyTorch package: {}", e)))?;
 
-        let mut archive = zip::ZipArchive::new(file)
+        let mut archive = ZipReader::new(file)
             .map_err(|e| TorshError::InvalidArgument(format!("Invalid ZIP archive: {}", e)))?;
 
         let mut manifest = None;
         let mut resources = Vec::new();
 
-        for i in 0..archive.len() {
-            let mut file = archive
-                .by_index(i)
-                .map_err(|e| TorshError::IoError(format!("Failed to read archive entry: {}", e)))?;
+        // Collect entries to avoid borrow checker issues
+        let entries: Vec<_> = archive.entries().to_vec();
 
-            let file_name = file.name().to_string();
+        for entry in entries {
+            let file_name = entry.name.clone();
 
             // Read file contents
-            let mut contents = Vec::new();
-            std::io::Read::read_to_end(&mut file, &mut contents)
-                .map_err(|e| TorshError::IoError(format!("Failed to read file contents: {}", e)))?;
+            let contents = archive
+                .extract(&entry)
+                .map_err(|e| TorshError::IoError(format!("Failed to read archive entry: {}", e)))?;
 
             if file_name == ".data/version" {
                 // PyTorch package version info - convert to manifest
@@ -272,14 +272,13 @@ impl FormatConverter for PyTorchConverter {
         let file = fs::File::create(path)
             .map_err(|e| TorshError::IoError(format!("Failed to create output file: {}", e)))?;
 
-        let mut zip = zip::ZipWriter::new(file);
+        let mut zip = ZipWriter::new(file);
+        zip.set_compression(ZipCompressionLevel::Normal);
 
         // Add version file
         let version_data = package.get_version().as_bytes();
-        zip.start_file::<_, ()>(".data/version", zip::write::FileOptions::default())
+        zip.add_file(".data/version", version_data)
             .map_err(|e| TorshError::IoError(format!("Failed to create version file: {}", e)))?;
-        std::io::Write::write_all(&mut zip, version_data)
-            .map_err(|e| TorshError::IoError(format!("Failed to write version data: {}", e)))?;
 
         // Add resources
         for (name, resource) in package.resources() {
@@ -292,12 +291,8 @@ impl FormatConverter for PyTorchConverter {
                     name.clone()
                 };
 
-            zip.start_file::<_, ()>(&file_path, zip::write::FileOptions::default())
-                .map_err(|e| {
-                    TorshError::IoError(format!("Failed to create file {}: {}", file_path, e))
-                })?;
-            std::io::Write::write_all(&mut zip, &resource.data).map_err(|e| {
-                TorshError::IoError(format!("Failed to write resource data: {}", e))
+            zip.add_file(&file_path, &resource.data).map_err(|e| {
+                TorshError::IoError(format!("Failed to create file {}: {}", file_path, e))
             })?;
         }
 
@@ -314,17 +309,15 @@ impl FormatConverter for PyTorchConverter {
     fn is_valid_format(&self, path: &std::path::Path) -> bool {
         // Check if it's a ZIP file with PyTorch package structure
         if let Ok(file) = fs::File::open(path) {
-            if let Ok(mut archive) = zip::ZipArchive::new(file) {
+            if let Ok(archive) = ZipReader::new(file) {
                 // Look for characteristic PyTorch package files
-                for i in 0..archive.len() {
-                    if let Ok(file) = archive.by_index(i) {
-                        let name = file.name();
-                        if name == ".data/version"
-                            || name.starts_with("code/")
-                            || name.ends_with(".pkl")
-                        {
-                            return true;
-                        }
+                for entry in archive.entries() {
+                    let name = &entry.name;
+                    if name == ".data/version"
+                        || name.starts_with("code/")
+                        || name.ends_with(".pkl")
+                    {
+                        return true;
                     }
                 }
             }
@@ -1097,7 +1090,7 @@ mod tests {
 
     #[test]
     fn test_huggingface_directory_validation() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("Failed to create temp directory for test");
 
         // Create a mock HuggingFace model directory
         let config_path = temp_dir.path().join("config.json");

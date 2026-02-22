@@ -8,7 +8,23 @@ use std::collections::HashMap;
 use torsh_core::error::Result;
 
 use crate::package::Package;
+use crate::resources::ResourceType;
 use crate::utils::format_file_size;
+
+/// Estimate compression ratio based on resource type
+fn estimate_compression_ratio_by_type(resource_type: &ResourceType) -> f64 {
+    match resource_type {
+        ResourceType::Model => 0.7, // Model weights often compress well (30% reduction)
+        ResourceType::Source => 0.5, // Source code compresses very well (50% reduction)
+        ResourceType::Data => 0.6,  // General data compresses moderately (40% reduction)
+        ResourceType::Config => 0.4, // Config files compress very well (60% reduction)
+        ResourceType::Documentation => 0.3, // Text compresses very well (70% reduction)
+        ResourceType::Text => 0.3,  // Text compresses very well (70% reduction)
+        ResourceType::Binary => 0.9, // Binary data may be pre-compressed (10% reduction)
+        ResourceType::License => 0.4, // License text compresses well (60% reduction)
+        ResourceType::Metadata => 0.4, // JSON/metadata compresses well (60% reduction)
+    }
+}
 
 /// Package optimization report
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -208,35 +224,33 @@ impl PackageOptimizer {
     }
 
     /// Calculate total package size
-    fn calculate_package_size(&self, _package: &Package) -> u64 {
-        // TODO: Implement when Package API is available
-        // For now, return estimate
-        0
+    fn calculate_package_size(&self, package: &Package) -> u64 {
+        package.resources().values().map(|r| r.size() as u64).sum()
     }
 
     /// Analyze resource deduplication opportunities
-    fn analyze_deduplication(&self, _package: &Package) -> DeduplicationAnalysis {
-        // TODO: Implement when Package API is available
-        let hash_to_resources: HashMap<String, Vec<String>> = HashMap::new();
-        let _total_size = 0u64;
-        let duplicate_savings = 0u64;
+    fn analyze_deduplication(&self, package: &Package) -> DeduplicationAnalysis {
+        let mut hash_to_resources: HashMap<String, Vec<String>> = HashMap::new();
+        let mut hash_to_size: HashMap<String, u64> = HashMap::new();
 
-        // Group resources by hash (commented out as Package internals are private)
-        // for resource in package.resources() {
-        //     let hash = calculate_hash(&resource.data);
-        //     let size = resource.data.len() as u64;
-        //     total_size += size;
-        //
-        //     hash_to_resources
-        //         .entry(hash)
-        //         .or_insert_with(Vec::new)
-        //         .push(resource.name.clone());
-        // }
+        // Group resources by hash
+        for (name, resource) in package.resources() {
+            let hash = resource.sha256();
+            let size = resource.size() as u64;
+
+            hash_to_resources
+                .entry(hash.clone())
+                .or_insert_with(Vec::new)
+                .push(name.clone());
+
+            hash_to_size.insert(hash, size);
+        }
 
         // Find duplicate groups
         let duplicate_groups: HashMap<String, Vec<String>> = hash_to_resources
-            .into_iter()
+            .iter()
             .filter(|(_, resources)| resources.len() > 1)
+            .map(|(hash, resources)| (hash.clone(), resources.clone()))
             .collect();
 
         let duplicate_count: usize = duplicate_groups
@@ -244,9 +258,21 @@ impl PackageOptimizer {
             .map(|v| v.len() - 1) // -1 because we keep one copy
             .sum();
 
+        // Calculate potential savings
+        let duplicate_savings: u64 = duplicate_groups
+            .iter()
+            .map(|(hash, resources)| {
+                let size = hash_to_size.get(hash).copied().unwrap_or(0);
+                size * (resources.len() as u64 - 1) // Save size for each duplicate copy
+            })
+            .sum();
+
+        let total_resources = package.resources().len();
+        let unique_resources = hash_to_resources.len();
+
         DeduplicationAnalysis {
-            total_resources: 0, // Would be package.resources().len()
-            unique_resources: 0,
+            total_resources,
+            unique_resources,
             duplicate_count,
             duplicate_groups,
             potential_savings: duplicate_savings,
@@ -254,38 +280,46 @@ impl PackageOptimizer {
     }
 
     /// Analyze compression opportunities
-    fn analyze_compression(&self, _package: &Package) -> Result<CompressionAnalysis> {
-        let compressible_resources = Vec::new();
-        let well_compressed_count = 0;
-        let total_savings = 0u64;
+    fn analyze_compression(&self, package: &Package) -> Result<CompressionAnalysis> {
+        let mut compressible_resources = Vec::new();
+        let mut well_compressed_count = 0;
+        let mut total_savings = 0u64;
 
-        // Analyze each resource (commented out as Package internals are private)
-        // for resource in package.resources() {
-        //     let size = resource.data.len() as u64;
-        //
-        //     if size < self.min_compression_size {
-        //         continue;
-        //     }
-        //
-        //     let compression_ratio = estimate_compression_ratio(&resource.data);
-        //
-        //     if compression_ratio <= self.min_compression_ratio {
-        //         let estimated_compressed = (size as f64 * compression_ratio) as u64;
-        //         let savings = size.saturating_sub(estimated_compressed);
-        //
-        //         compressible_resources.push(CompressibleResource {
-        //             name: resource.name.clone(),
-        //             current_size: size,
-        //             estimated_compressed_size: estimated_compressed,
-        //             potential_savings: savings,
-        //             compression_ratio,
-        //         });
-        //
-        //         total_savings += savings;
-        //     } else {
-        //         well_compressed_count += 1;
-        //     }
-        // }
+        // Analyze each resource
+        for (name, resource) in package.resources() {
+            let size = resource.size() as u64;
+
+            // Skip resources smaller than minimum size
+            if size < self.min_compression_size {
+                continue;
+            }
+
+            // Skip resources that are already compressed
+            if resource.is_compressed() {
+                well_compressed_count += 1;
+                continue;
+            }
+
+            // Estimate compression ratio based on resource type
+            let compression_ratio = estimate_compression_ratio_by_type(&resource.resource_type);
+
+            if compression_ratio <= self.min_compression_ratio {
+                let estimated_compressed = (size as f64 * compression_ratio) as u64;
+                let savings = size.saturating_sub(estimated_compressed);
+
+                compressible_resources.push(CompressibleResource {
+                    name: name.clone(),
+                    current_size: size,
+                    estimated_compressed_size: estimated_compressed,
+                    potential_savings: savings,
+                    compression_ratio,
+                });
+
+                total_savings += savings;
+            } else {
+                well_compressed_count += 1;
+            }
+        }
 
         Ok(CompressionAnalysis {
             compressible_resources,
@@ -312,10 +346,19 @@ impl PackageOptimizer {
     /// Apply deduplication optimizations
     fn apply_deduplication(
         &self,
-        _package: &mut Package,
-        _analysis: &DeduplicationAnalysis,
+        package: &mut Package,
+        analysis: &DeduplicationAnalysis,
     ) -> Result<()> {
-        // TODO: Implement when Package API supports resource manipulation
+        // For each group of duplicates, keep the first one and remove others
+        for (_hash, resource_names) in &analysis.duplicate_groups {
+            if resource_names.len() > 1 {
+                // Keep the first resource, remove the rest
+                for name in &resource_names[1..] {
+                    package.resources_mut().remove(name);
+                }
+            }
+        }
+
         Ok(())
     }
 }

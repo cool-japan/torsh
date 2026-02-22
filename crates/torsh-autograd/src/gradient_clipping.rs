@@ -249,7 +249,7 @@ impl GradientClipper {
         }
 
         let mut sorted_norms = self.norm_history.clone();
-        sorted_norms.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted_norms.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         let idx = ((sorted_norms.len() as f32 * percentile) as usize).min(sorted_norms.len() - 1);
         let threshold = sorted_norms[idx];
 

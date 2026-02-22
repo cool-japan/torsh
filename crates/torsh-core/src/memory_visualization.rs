@@ -537,7 +537,7 @@ mod tests {
             AllocationInfo {
                 id: 1,
                 size: 512,
-                layout: Layout::from_size_align(512, 8).unwrap(),
+                layout: Layout::from_size_align(512, 8).expect("Layout should be valid"),
                 timestamp: Instant::now(),
                 backtrace: None,
                 tag: None,
@@ -547,7 +547,7 @@ mod tests {
             AllocationInfo {
                 id: 2,
                 size: 2048,
-                layout: Layout::from_size_align(2048, 8).unwrap(),
+                layout: Layout::from_size_align(2048, 8).expect("Layout should be valid"),
                 timestamp: Instant::now(),
                 backtrace: None,
                 tag: None,

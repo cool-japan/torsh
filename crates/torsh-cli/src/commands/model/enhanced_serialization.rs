@@ -378,7 +378,8 @@ mod tests {
         let enhanced = EnhancedTorshModel::from_model(&model, DeviceType::Cpu).unwrap();
 
         let temp_dir = std::env::temp_dir();
-        let model_path = temp_dir.join("test_enhanced_model.torsh");
+        let unique_id = std::process::id();
+        let model_path = temp_dir.join(format!("test_enhanced_model_{}.torsh", unique_id));
 
         // Save
         save_enhanced_model(&enhanced, &model_path).await.unwrap();

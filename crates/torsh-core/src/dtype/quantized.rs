@@ -824,12 +824,14 @@ mod tests {
         observer.update_batch(&values);
 
         // Check range
-        let (min_obs, max_obs) = observer.range().unwrap();
+        let (min_obs, max_obs) = observer.range().expect("range should be Some");
         assert_eq!(min_obs, -2.5);
         assert_eq!(max_obs, 3.0);
 
         // Calculate parameters
-        let (scale, _zero_point) = observer.calculate_qint8_params().unwrap();
+        let (scale, _zero_point) = observer
+            .calculate_qint8_params()
+            .expect("calculate_qint8_params should succeed");
         assert!(scale > 0.0);
 
         // Test reset

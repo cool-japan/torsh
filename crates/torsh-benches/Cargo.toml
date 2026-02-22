@@ -7,6 +7,11 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 description = "Benchmarking suite for ToRSh"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-benches"
+rust-version.workspace = true
+keywords = ["deep-learning", "benchmark", "performance", "machine-learning", "testing"]
+categories = ["development-tools::testing"]
 
 [lints]
 workspace = true
@@ -17,6 +22,22 @@ harness = false
 
 [[bench]]
 name = "neural_networks"
+harness = false
+
+[[bench]]
+name = "diffusion_models"
+harness = false
+
+[[bench]]
+name = "spectral_ops"
+harness = false
+
+[[bench]]
+name = "dataset_ops"
+harness = false
+
+[[bench]]
+name = "ip_adapter"
 harness = false
 
 [[example]]
@@ -69,14 +90,14 @@ numpy = { workspace = true, optional = true }
 
 # JSON for result serialization
 serde = { workspace = true }
-serde_json = "1.0"
+serde_json = { workspace = true }
 
 # For timestamped reports
-chrono = { version = "0.4", features = ["serde"] }
+chrono = { workspace = true }
 
 # System information
 num_cpus = "1.17"
-hostname = "0.4"
+hostname = { workspace = true }
 walkdir = "2.5"
 
 [dev-dependencies]

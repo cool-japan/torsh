@@ -7,7 +7,11 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 description = "Model quantization for ToRSh neural networks"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-quantization"
 rust-version.workspace = true
+keywords = ["deep-learning", "quantization", "model-compression", "machine-learning", "inference"]
+categories = ["science", "algorithms"]
 
 [lints]
 workspace = true

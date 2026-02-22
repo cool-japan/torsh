@@ -8,7 +8,7 @@ This document outlines planned features, enhancements, and deferred implementati
 
 #### Parameter Storage Architecture Redesign
 **Priority**: High
-**Status**: Deferred from v0.1.0-rc.1
+**Status**: Deferred from v0.1.0
 **Affected Components**:
 - `AdvancedAdam` optimizer (advanced.rs)
 - `LAMB` optimizer (advanced.rs)
@@ -37,7 +37,7 @@ These optimizers currently don't store parameters internally, making full `step(
 
 #### Parameter Group Management
 **Priority**: Medium
-**Status**: Deferred from v0.1.0-rc.1
+**Status**: Deferred from v0.1.0
 **Affected Components**:
 - `AdvancedAdam` (advanced.rs lines 112-113)
 - `LAMB` (advanced.rs lines 228)
@@ -61,7 +61,7 @@ These optimizers currently don't store parameters internally, making full `step(
 
 #### Enhanced State Persistence
 **Priority**: Medium
-**Status**: Deferred from v0.1.0-rc.1
+**Status**: Deferred from v0.1.0
 **Affected Components**:
 - `AdvancedAdam` state_dict/load_state_dict (advanced.rs lines 128-129, 160)
 - `LAMB` state_dict/load_state_dict (advanced.rs lines 243-244, 276-277)
@@ -98,7 +98,7 @@ These optimizers currently don't store parameters internally, making full `step(
 
 #### Lookahead Optimizer Enhancements
 **Priority**: Low
-**Status**: Deferred from v0.1.0-rc.1
+**Status**: Deferred from v0.1.0
 **Location**: advanced.rs lines 312-314
 
 **Current Limitation**:
@@ -223,7 +223,7 @@ For feature requests or to contribute to roadmap items, please:
 
 ## Version History
 
-- **v0.1.0-rc.1** (2026-01-28): Initial roadmap creation with deferred optimizer features
+- **v0.1.0** (2026-01-28): Initial roadmap creation with deferred optimizer features
 - Future updates will be tracked here
 
 ---

@@ -448,7 +448,7 @@ mod tests {
     #[test]
     fn test_stack_shape_from_slice() {
         let dims = vec![2, 3, 4];
-        let shape = StackShape::<8>::from_slice(&dims).unwrap();
+        let shape = StackShape::<8>::from_slice(&dims).expect("from_slice should succeed");
         assert_eq!(shape.ndim, 3);
         assert_eq!(shape.as_slice(), &[2, 3, 4]);
     }
@@ -456,17 +456,17 @@ mod tests {
     #[test]
     fn test_stack_shape_broadcast_compatible() {
         let shape1 = StackShape::<4>::new([3, 1, 4, 1]);
-        let shape2 = StackShape::<3>::from_slice(&[2, 4, 5]).unwrap();
+        let shape2 = StackShape::<3>::from_slice(&[2, 4, 5]).expect("from_slice should succeed");
 
         // Compatible: [3,1,4,1] broadcasts with [2,4,5] -> [3,2,4,5]
         assert!(shape1.broadcast_compatible(&shape2));
 
-        let shape3 = StackShape::<3>::from_slice(&[1, 4, 5]).unwrap();
+        let shape3 = StackShape::<3>::from_slice(&[1, 4, 5]).expect("from_slice should succeed");
         assert!(shape1.broadcast_compatible(&shape3));
 
         // Incompatible case: different non-1 dimensions
-        let shape4 = StackShape::<3>::from_slice(&[2, 3, 4]).unwrap();
-        let shape5 = StackShape::<3>::from_slice(&[2, 5, 4]).unwrap();
+        let shape4 = StackShape::<3>::from_slice(&[2, 3, 4]).expect("from_slice should succeed");
+        let shape5 = StackShape::<3>::from_slice(&[2, 5, 4]).expect("from_slice should succeed");
         assert!(!shape4.broadcast_compatible(&shape5)); // 3 vs 5 in middle dimension
     }
 

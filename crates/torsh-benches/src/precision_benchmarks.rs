@@ -183,7 +183,7 @@ impl MixedPrecisionTrainingBench {
     ) -> Tensor<f32> {
         // In a real implementation, this would create tensors with specific precision
         // For now, we'll use f32 tensors but simulate the precision effects
-        rand::<f32>(shape).unwrap()
+        rand::<f32>(shape).expect("tensor creation should succeed")
     }
 
     fn autocast_forward(&self, input: &Tensor<f32>, weights: &Tensor<f32>) -> Tensor<f32> {
@@ -289,8 +289,10 @@ impl Benchmarkable for QuantizationBench {
 
     fn setup(&mut self, _size: usize) -> Self::Input {
         QuantizationData {
-            input_tensor: rand::<f32>(&[self.tensor_size, self.tensor_size]).unwrap(),
-            calibration_data: rand::<f32>(&[100, self.tensor_size, self.tensor_size]).unwrap(), // 100 calibration samples
+            input_tensor: rand::<f32>(&[self.tensor_size, self.tensor_size])
+                .expect("tensor creation should succeed"),
+            calibration_data: rand::<f32>(&[100, self.tensor_size, self.tensor_size])
+                .expect("tensor creation should succeed"), // 100 calibration samples
             scale_factor: 1.0,
             zero_point: 0,
         }
@@ -426,7 +428,7 @@ impl QuantizationBench {
         _zero_point: i32,
     ) -> Tensor<f32> {
         // Mock dequantization
-        rand::<f32>(&quantized.shape).unwrap()
+        rand::<f32>(&quantized.shape).expect("tensor creation should succeed")
     }
 
     fn compute_accuracy_metrics(
@@ -563,7 +565,8 @@ impl PruningBench {
     }
 
     pub fn benchmark_pruning(&mut self) -> PruningResult {
-        let original_tensor = rand::<f32>(&[self.tensor_size, self.tensor_size]).unwrap();
+        let original_tensor = rand::<f32>(&[self.tensor_size, self.tensor_size])
+            .expect("tensor creation should succeed");
 
         let pruning_start = Instant::now();
         let pruned_tensor = self.apply_pruning(&original_tensor);
@@ -609,7 +612,7 @@ impl PruningBench {
 
     fn sparse_inference(&self, sparse_tensor: &SparseTensor) -> Tensor<f32> {
         // Mock sparse inference
-        rand::<f32>(&sparse_tensor.shape).unwrap()
+        rand::<f32>(&sparse_tensor.shape).expect("tensor creation should succeed")
     }
 
     fn dense_inference(&self, tensor: &Tensor<f32>) -> Tensor<f32> {

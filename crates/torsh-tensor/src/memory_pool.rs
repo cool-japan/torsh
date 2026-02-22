@@ -795,14 +795,16 @@ mod tests {
         clear_memory_pool();
 
         // Create pooled tensor
-        let pooled = PooledTensor::<f32>::zeros(&[100, 100], DeviceType::Cpu).unwrap();
+        let pooled = PooledTensor::<f32>::zeros(&[100, 100], DeviceType::Cpu)
+            .expect("zeros creation should succeed");
         assert_eq!(pooled.tensor().numel(), 10000);
 
         // Drop should return memory to pool
         drop(pooled);
 
         // Next allocation should reuse memory
-        let _pooled2 = PooledTensor::<f32>::zeros(&[100, 100], DeviceType::Cpu).unwrap();
+        let _pooled2 = PooledTensor::<f32>::zeros(&[100, 100], DeviceType::Cpu)
+            .expect("zeros creation should succeed");
 
         let stats = get_pool_statistics();
         assert!(stats.pool_hits > 0 || stats.pool_misses > 0);
@@ -812,8 +814,10 @@ mod tests {
     fn test_pool_statistics() {
         clear_memory_pool();
 
-        let _pooled1 = PooledTensor::<f32>::zeros(&[50, 50], DeviceType::Cpu).unwrap();
-        let _pooled2 = PooledTensor::<f32>::ones(&[50, 50], DeviceType::Cpu).unwrap();
+        let _pooled1 = PooledTensor::<f32>::zeros(&[50, 50], DeviceType::Cpu)
+            .expect("zeros creation should succeed");
+        let _pooled2 = PooledTensor::<f32>::ones(&[50, 50], DeviceType::Cpu)
+            .expect("ones creation should succeed");
 
         let stats = get_pool_statistics();
         assert!(stats.total_allocations >= 2);
@@ -826,7 +830,8 @@ mod tests {
 
         // Create many temporary tensors
         for _ in 0..10 {
-            let _temp = PooledTensor::<f32>::zeros(&[100, 100], DeviceType::Cpu).unwrap();
+            let _temp = PooledTensor::<f32>::zeros(&[100, 100], DeviceType::Cpu)
+                .expect("zeros creation should succeed");
         }
 
         cleanup_memory_pool();
@@ -836,7 +841,8 @@ mod tests {
 
     #[test]
     fn test_pooled_tensor_conversion() {
-        let pooled = PooledTensor::<f32>::ones(&[10, 10], DeviceType::Cpu).unwrap();
+        let pooled = PooledTensor::<f32>::ones(&[10, 10], DeviceType::Cpu)
+            .expect("ones creation should succeed");
         let tensor = pooled.into_tensor();
         assert_eq!(tensor.numel(), 100);
     }

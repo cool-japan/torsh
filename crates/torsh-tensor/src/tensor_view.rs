@@ -490,10 +490,10 @@ mod tests {
 
         let view = TensorView::new(&data, shape, strides, 0);
 
-        assert_eq!(*view.get(0).unwrap(), 1.0);
-        assert_eq!(*view.get(1).unwrap(), 2.0);
-        assert_eq!(*view.get(2).unwrap(), 3.0);
-        assert_eq!(*view.get(3).unwrap(), 4.0);
+        assert_eq!(*view.get(0).expect("get should succeed"), 1.0);
+        assert_eq!(*view.get(1).expect("get should succeed"), 2.0);
+        assert_eq!(*view.get(2).expect("get should succeed"), 3.0);
+        assert_eq!(*view.get(3).expect("get should succeed"), 4.0);
 
         assert!(view.get(4).is_err());
     }
@@ -542,8 +542,8 @@ mod tests {
 
         let mut view = TensorViewMut::new(&mut data, shape, strides, 0);
 
-        *view.get_mut(0).unwrap() = 10.0;
-        *view.get_mut(1).unwrap() = 20.0;
+        *view.get_mut(0).expect("get_mut should succeed") = 10.0;
+        *view.get_mut(1).expect("get_mut should succeed") = 20.0;
 
         assert_eq!(data, vec![10.0, 20.0, 3.0, 4.0]);
     }
@@ -585,7 +585,7 @@ mod tests {
         let view = TensorView::new(&data, shape, strides, 2);
 
         assert_eq!(view.len(), 2);
-        assert_eq!(*view.get(0).unwrap(), 3.0);
-        assert_eq!(*view.get(1).unwrap(), 4.0);
+        assert_eq!(*view.get(0).expect("get should succeed"), 3.0);
+        assert_eq!(*view.get(1).expect("get should succeed"), 4.0);
     }
 }

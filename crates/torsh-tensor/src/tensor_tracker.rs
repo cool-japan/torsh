@@ -616,47 +616,58 @@ mod tests {
     #[test]
     fn test_tensor_tracker_basic() {
         let mut tracker = TensorTracker::new();
-        let tensor = creation::ones::<f32>(&[2, 2]).unwrap();
+        let tensor = creation::ones::<f32>(&[2, 2]).expect("ones creation should succeed");
 
-        let id = tracker.track(tensor.clone(), "test_tensor").unwrap();
+        let id = tracker
+            .track(tensor.clone(), "test_tensor")
+            .expect("tracking should succeed");
         assert_eq!(tracker.tracked_ids().len(), 1);
 
-        let result = tensor.mul_scalar(2.0).unwrap();
+        let result = tensor
+            .mul_scalar(2.0)
+            .expect("scalar multiplication should succeed");
         tracker
             .record_operation(id, "mul_scalar", vec![2.0], &result)
-            .unwrap();
+            .expect("multiplication should succeed");
 
-        let retrieved = tracker.get_tensor(id).unwrap();
+        let retrieved = tracker.get_tensor(id).expect("operation should succeed");
         assert_eq!(retrieved.shape().dims(), &[2, 2]);
 
-        tracker.untrack(id).unwrap();
+        tracker.untrack(id).expect("untracking should succeed");
         assert_eq!(tracker.tracked_ids().len(), 0);
     }
 
     #[test]
     fn test_tensor_value_stats() {
         let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0];
-        let tensor = Tensor::from_data(data, vec![5], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![5], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let stats = TensorValueStats::from_tensor(&tensor).unwrap();
+        let stats = TensorValueStats::from_tensor(&tensor).expect("from_tensor should succeed");
         assert_eq!(stats.total_elements, 5);
         assert_eq!(stats.min, Some(1.0));
         assert_eq!(stats.max, Some(5.0));
-        assert!((stats.mean.unwrap() - 3.0).abs() < 1e-6);
+        assert!((stats.mean.expect("stat value should be available") - 3.0).abs() < 1e-6);
     }
 
     #[test]
     fn test_tracking_snapshots() {
         let mut tracker = TensorTracker::new();
-        let tensor = creation::ones::<f32>(&[3, 3]).unwrap();
+        let tensor = creation::ones::<f32>(&[3, 3]).expect("ones creation should succeed");
 
-        let id = tracker.track(tensor.clone(), "snapshot_test").unwrap();
+        let id = tracker
+            .track(tensor.clone(), "snapshot_test")
+            .expect("tracking should succeed");
 
-        tracker.snapshot(id, "first_snapshot").unwrap();
-        tracker.snapshot(id, "second_snapshot").unwrap();
+        tracker
+            .snapshot(id, "first_snapshot")
+            .expect("snapshot should succeed");
+        tracker
+            .snapshot(id, "second_snapshot")
+            .expect("snapshot should succeed");
 
         let tensors = tracker.tensors.read().expect("lock should not be poisoned");
-        let tracked = tensors.get(&id).unwrap();
+        let tracked = tensors.get(&id).expect("get should succeed");
         assert_eq!(tracked.snapshots.len(), 2);
     }
 
@@ -664,16 +675,23 @@ mod tests {
     fn test_tracking_report() {
         let mut tracker = TensorTracker::new();
         let data = vec![1.0f32, 2.0, 3.0];
-        let tensor = Tensor::from_data(data, vec![3], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![3], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let id = tracker.track(tensor.clone(), "report_test").unwrap();
+        let id = tracker
+            .track(tensor.clone(), "report_test")
+            .expect("tracking should succeed");
 
-        let result = tensor.mul_scalar(2.0).unwrap();
+        let result = tensor
+            .mul_scalar(2.0)
+            .expect("scalar multiplication should succeed");
         tracker
             .record_operation(id, "mul_scalar", vec![2.0], &result)
-            .unwrap();
+            .expect("tensor creation should succeed");
 
-        let report = tracker.generate_report(id).unwrap();
+        let report = tracker
+            .generate_report(id)
+            .expect("report generation should succeed");
         assert!(report.contains("report_test"));
         assert!(report.contains("mul_scalar"));
         assert!(report.contains("Operations performed: 1"));
@@ -684,8 +702,10 @@ mod tests {
         let config = TrackingConfig::minimal();
         let mut tracker = TensorTracker::with_config(config);
 
-        let tensor = creation::ones::<f32>(&[2, 2]).unwrap();
-        let id = tracker.track(tensor, "config_test").unwrap();
+        let tensor = creation::ones::<f32>(&[2, 2]).expect("ones creation should succeed");
+        let id = tracker
+            .track(tensor, "config_test")
+            .expect("tracking should succeed");
 
         assert_eq!(tracker.tracked_ids().len(), 1);
         assert!(id == 0);
@@ -696,23 +716,29 @@ mod tests {
         let config = TrackingConfig::filtered(vec!["add".to_string(), "mul".to_string()]);
         let mut tracker = TensorTracker::with_config(config);
 
-        let tensor = creation::ones::<f32>(&[2, 2]).unwrap();
-        let id = tracker.track(tensor.clone(), "filter_test").unwrap();
+        let tensor = creation::ones::<f32>(&[2, 2]).expect("ones creation should succeed");
+        let id = tracker
+            .track(tensor.clone(), "filter_test")
+            .expect("tracking should succeed");
 
         // This should be tracked
-        let result = tensor.mul_scalar(2.0).unwrap();
+        let result = tensor
+            .mul_scalar(2.0)
+            .expect("scalar multiplication should succeed");
         tracker
             .record_operation(id, "mul", vec![2.0], &result)
-            .unwrap();
+            .expect("multiplication should succeed");
 
         // This should be filtered out
-        let result2 = result.add_scalar(1.0).unwrap();
+        let result2 = result
+            .add_scalar(1.0)
+            .expect("scalar addition should succeed");
         tracker
             .record_operation(id, "sub", vec![1.0], &result2)
-            .unwrap();
+            .expect("multiplication should succeed");
 
         let tensors = tracker.tensors.read().expect("lock should not be poisoned");
-        let tracked = tensors.get(&id).unwrap();
+        let tracked = tensors.get(&id).expect("get should succeed");
         assert_eq!(tracked.operations.len(), 1); // Only "mul" should be tracked
         assert_eq!(tracked.operations[0].operation, "mul");
     }

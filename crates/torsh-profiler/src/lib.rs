@@ -1052,15 +1052,19 @@ mod tests {
         stop_profiling();
 
         // Test export functionality
-        let result = export_global_json("/tmp/test_enhanced.json");
+        let json_path = std::env::temp_dir().join("test_enhanced.json");
+        let json_str = json_path.display().to_string();
+        let result = export_global_json(&json_str);
         assert!(result.is_ok());
 
-        let result = export_global_csv("/tmp/test_enhanced.csv");
+        let csv_path = std::env::temp_dir().join("test_enhanced.csv");
+        let csv_str = csv_path.display().to_string();
+        let result = export_global_csv(&csv_str);
         assert!(result.is_ok());
 
         // Clean up
-        let _ = std::fs::remove_file("/tmp/test_enhanced.json");
-        let _ = std::fs::remove_file("/tmp/test_enhanced.csv");
+        let _ = std::fs::remove_file(&json_path);
+        let _ = std::fs::remove_file(&csv_path);
     }
 
     #[test]
@@ -1073,11 +1077,12 @@ mod tests {
 
         let stop_result = profiler.stop_all();
         // Export test
-        let export_result =
-            profiler.export_all(export::ExportFormat::Json, "/tmp/test_unified.json");
+        let unified_path = std::env::temp_dir().join("test_unified.json");
+        let unified_str = unified_path.display().to_string();
+        let export_result = profiler.export_all(export::ExportFormat::Json, &unified_str);
 
         // Clean up
-        let _ = std::fs::remove_file("/tmp/test_unified.json");
+        let _ = std::fs::remove_file(&unified_path);
     }
 
     #[test]
@@ -1093,8 +1098,13 @@ mod tests {
         let formats = export::available_format_names();
         for format_name in formats {
             if let Some(format) = export::parse_format(&format_name) {
-                let path = format!("/tmp/test_{}.{}", format_name, format.extension());
-                let result = export_global_events(format, &path);
+                let path = std::env::temp_dir().join(format!(
+                    "test_{}.{}",
+                    format_name,
+                    format.extension()
+                ));
+                let path_str = path.display().to_string();
+                let result = export_global_events(format, &path_str);
 
                 // Clean up
                 let _ = std::fs::remove_file(&path);

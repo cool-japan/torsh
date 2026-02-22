@@ -317,7 +317,9 @@ impl SciRS2GraphAlgorithms {
                 // Move node to best community
                 if best_community != current_community {
                     communities[node] = best_community;
-                    *community_sizes.get_mut(&current_community).unwrap() -= 1;
+                    *community_sizes
+                        .get_mut(&current_community)
+                        .expect("key verified to exist") -= 1;
                     *community_sizes.entry(best_community).or_insert(0) += 1;
                     improved = true;
                 }
@@ -382,7 +384,7 @@ impl SciRS2GraphAlgorithms {
                 break;
             }
 
-            let min_deg = min_degree.unwrap();
+            let min_deg = min_degree.expect("checked is_some above");
 
             // Remove all nodes with minimum degree
             let nodes_to_remove: Vec<usize> = degrees
@@ -563,7 +565,7 @@ impl GraphSampler {
             &[num_samples, feature_dim],
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("sampled feature tensor creation should succeed");
 
         // Sample edges
         let edge_data = graph
@@ -590,7 +592,7 @@ impl GraphSampler {
             &[2, num_sampled_edges],
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("sampled edge tensor creation should succeed");
 
         GraphData::new(sampled_x, sampled_edge_index)
     }
@@ -710,7 +712,7 @@ impl GraphSampler {
             &[subgraph_nodes_vec.len(), feature_dim],
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("subgraph feature tensor creation should succeed");
 
         // Extract edges
         let mut sampled_edges = Vec::new();
@@ -734,9 +736,10 @@ impl GraphSampler {
                 &[2, num_sampled_edges],
                 torsh_core::device::DeviceType::Cpu,
             )
-            .unwrap()
+            .expect("subgraph edge tensor creation should succeed")
         } else {
-            from_vec(vec![], &[2, 0], torsh_core::device::DeviceType::Cpu).unwrap()
+            from_vec(vec![], &[2, 0], torsh_core::device::DeviceType::Cpu)
+                .expect("empty edge tensor creation should succeed")
         };
 
         GraphData::new(sampled_x, sampled_edge_index)

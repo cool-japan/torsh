@@ -8,6 +8,8 @@ repository.workspace = true
 homepage.workspace = true
 rust-version.workspace = true
 description = "Pre-trained models and model zoo for ToRSh deep learning framework"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-models"
 keywords = ["tensor", "deep-learning", "models", "pretrained", "machine-learning"]
 categories = ["science", "mathematics"]
 
@@ -27,6 +29,7 @@ generative = []
 rl = []
 domain = []
 download = ["reqwest", "tokio"]
+diffusion_extended = []
 
 [dependencies]
 # Core dependencies

@@ -136,6 +136,7 @@ pub mod memory_pools;
 // TODO: optimization module temporarily disabled due to extensive API refactoring needed
 // pub mod optimization;
 pub mod pinned_memory;
+#[allow(unused_imports)]
 pub mod statistics;
 pub mod unified_memory;
 

@@ -7,7 +7,11 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 description = "Sparse tensor operations for ToRSh with SciRS2 integration"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-sparse"
 rust-version.workspace = true
+keywords = ["deep-learning", "sparse-tensor", "sparse-matrix", "machine-learning", "csr"]
+categories = ["science", "data-structures"]
 
 [lints]
 workspace = true
@@ -34,8 +38,8 @@ cudarc = { version = "0.19", optional = true, features = ["cuda-12000"] }
 # cusparse = { version = "0.3", optional = true }  # Currently not available on crates.io
 
 # Optional Python interoperability
-pyo3 = { version = "0.27", optional = true, features = ["extension-module"] }
-numpy = { version = "0.27", optional = true }
+pyo3 = { workspace = true, optional = true, features = ["extension-module"] }
+numpy = { workspace = true, optional = true }
 
 # Optional MATLAB compatibility
 matfile = { version = "0.5", optional = true }

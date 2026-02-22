@@ -1126,7 +1126,7 @@ impl SentimentAnalyzer {
         sentiments
             .iter()
             .enumerate()
-            .max_by(|(_, a), (_, b)| a.compound.abs().partial_cmp(&b.compound.abs()).unwrap())
+            .max_by(|(_, a), (_, b)| a.compound.abs().partial_cmp(&b.compound.abs()).unwrap_or(std::cmp::Ordering::Equal))
             .map(|(i, s)| (i, s.compound))
             .unwrap_or((0, 0.0))
     }

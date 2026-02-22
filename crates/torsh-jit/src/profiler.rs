@@ -507,7 +507,10 @@ impl Default for ProfilerConfig {
             max_events_per_session: 1_000_000,
             enable_external_profilers: false,
             output_format: ProfilerOutputFormat::Json,
-            output_directory: "/tmp/torsh_profiling".to_string(),
+            output_directory: std::env::temp_dir()
+                .join("torsh_profiling")
+                .display()
+                .to_string(),
         }
     }
 }
@@ -1029,6 +1032,7 @@ impl ExternalProfiler for PerfProfiler {
     fn start(&mut self) -> JitResult<()> {
         // Initialize perf profiling
         // On Linux, perf uses /tmp/perf-<pid>.map for JIT symbol maps
+        // NOTE: This MUST remain as /tmp/ - it's a Linux perf convention requirement
         #[cfg(target_os = "linux")]
         {
             let pid = std::process::id();

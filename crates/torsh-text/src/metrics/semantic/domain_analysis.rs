@@ -712,7 +712,7 @@ impl DomainAnalyzer {
         // Determine primary domain
         let (primary_domain, confidence) = domain_probabilities
             .iter()
-            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
             .map(|(domain, prob)| (domain.clone(), *prob))
             .unwrap_or((SemanticDomain::Unknown, 0.0));
 
@@ -725,7 +725,7 @@ impl DomainAnalyzer {
             .map(|(domain, prob)| (domain.clone(), *prob))
             .collect();
 
-        secondary_domains.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        secondary_domains.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         secondary_domains.truncate(self.config.max_secondary_domains);
 
         // Extract context features

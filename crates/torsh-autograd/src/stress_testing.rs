@@ -774,7 +774,7 @@ impl ComputationGraphStressTest {
         use std::time::SystemTime;
         let now = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap();
+            .unwrap_or_default();
         (now.as_nanos() % 1_000_000_000) as usize
     }
 
@@ -1563,7 +1563,10 @@ impl ExtremeLimitStressTest {
             .sum::<f64>()
             / recent_results.len() as f64;
 
-        let latest_duration = self.results_history.last().unwrap().duration.as_secs_f64();
+        let latest_duration = match self.results_history.last() {
+            Some(r) => r.duration.as_secs_f64(),
+            None => return false,
+        };
 
         (latest_duration - avg_duration) / avg_duration > self.regression_threshold
     }

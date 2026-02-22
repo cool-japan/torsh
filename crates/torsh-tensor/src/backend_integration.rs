@@ -1009,11 +1009,13 @@ mod tests {
 
     #[test]
     fn test_device_transfer() {
-        let tensor =
-            Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
         // Test transfer to same device
-        let same_device = tensor.to_device(DeviceType::Cpu).unwrap();
+        let same_device = tensor
+            .to_device(DeviceType::Cpu)
+            .expect("device transfer should succeed");
         assert_eq!(same_device.device(), DeviceType::Cpu);
 
         // Test transfer strategy
@@ -1034,27 +1036,31 @@ mod tests {
         // Schedule operations
         let op1 = scheduler
             .schedule_operation(DeviceType::Cpu, OperationType::Compute, 5, vec![])
-            .unwrap();
+            .expect("operation should succeed");
 
         let op2 = scheduler
             .schedule_operation(DeviceType::Cpu, OperationType::Compute, 10, vec![])
-            .unwrap();
+            .expect("operation should succeed");
 
         // Higher priority operation should be executed first
         assert_eq!(
-            scheduler.execute_next_operation(DeviceType::Cpu).unwrap(),
+            scheduler
+                .execute_next_operation(DeviceType::Cpu)
+                .expect("operation execution should succeed"),
             Some(op2)
         );
         assert_eq!(
-            scheduler.execute_next_operation(DeviceType::Cpu).unwrap(),
+            scheduler
+                .execute_next_operation(DeviceType::Cpu)
+                .expect("operation execution should succeed"),
             Some(op1)
         );
     }
 
     #[test]
     fn test_transfer_efficiency() {
-        let tensor =
-            Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
         // Same device should be efficient
         assert!(tensor.can_transfer_efficiently(DeviceType::Cpu));
@@ -1081,19 +1087,23 @@ mod tests {
 
     #[test]
     fn test_global_scheduler() {
-        initialize_global_scheduler().unwrap();
+        initialize_global_scheduler().expect("scheduler initialization should succeed");
 
         {
             let mut scheduler = get_global_scheduler();
-            let scheduler = scheduler.as_mut().unwrap();
+            let scheduler = scheduler
+                .as_mut()
+                .expect("mutable reference should be available");
 
             let op_id = scheduler
                 .schedule_operation(DeviceType::Cpu, OperationType::Compute, 5, vec![])
-                .unwrap();
+                .expect("scheduler initialization should succeed");
 
             assert_eq!(scheduler.get_queue_length(DeviceType::Cpu), 1);
             assert_eq!(
-                scheduler.execute_next_operation(DeviceType::Cpu).unwrap(),
+                scheduler
+                    .execute_next_operation(DeviceType::Cpu)
+                    .expect("operation execution should succeed"),
                 Some(op_id)
             );
         }

@@ -38,7 +38,7 @@ pub use tensor::PyTensor;
 
 /// ToRSh Python module
 #[pymodule]
-fn torsh(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn rstorch(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Register main classes
     m.add_class::<PyTensor>()?;
     m.add_class::<PyDevice>()?;
@@ -78,6 +78,6 @@ fn torsh(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
 /// A Python module implemented in Rust.
 #[pymodule]
-fn torsh_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    torsh(m)
+fn rstorch_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    rstorch(m)
 }

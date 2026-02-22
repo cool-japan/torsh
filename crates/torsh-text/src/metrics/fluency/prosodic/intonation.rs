@@ -1275,7 +1275,7 @@ impl IntonationAnalyzer {
         }
 
         // Normalize pattern
-        if let Some(&max_val) = pattern.iter().max_by(|a, b| a.partial_cmp(b).unwrap()) {
+        if let Some(&max_val) = pattern.iter().max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)) {
             if max_val > 0.0 {
                 for val in &mut pattern {
                     *val /= max_val;
@@ -1637,6 +1637,6 @@ impl Default for IntonationAnalyzer {
             contour_smoothness_preference: 0.8,
             enable_tonal_accents: true,
         })
-        .unwrap()
+        .expect("intonation config should be valid")
     }
 }

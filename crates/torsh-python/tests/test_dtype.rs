@@ -19,7 +19,7 @@ where
 {
     Python::attach(|py| {
         let code_str = format!(
-            "import sys\nsys.path.insert(0, '{}')\nimport torsh_python as torsh\n\n{}",
+            "import sys\nsys.path.insert(0, '{}')\nimport rstorch_python as rstorch\n\n{}",
             env!("CARGO_MANIFEST_DIR"),
             code
         );
@@ -42,7 +42,7 @@ where
 fn test_dtype_creation_float32() {
     let result: String = run_python_code(
         r#"
-dtype = torsh.PyDType("float32")
+dtype = rstorch.PyDType("float32")
 result = dtype.name
 "#,
         |r| r.extract(),
@@ -56,7 +56,7 @@ result = dtype.name
 fn test_dtype_creation_float32_alias() {
     let result: String = run_python_code(
         r#"
-dtype = torsh.PyDType("f32")
+dtype = rstorch.PyDType("f32")
 result = dtype.name
 "#,
         |r| r.extract(),
@@ -70,7 +70,7 @@ result = dtype.name
 fn test_dtype_creation_float64() {
     let result: String = run_python_code(
         r#"
-dtype = torsh.PyDType("float64")
+dtype = rstorch.PyDType("float64")
 result = dtype.name
 "#,
         |r| r.extract(),
@@ -84,7 +84,7 @@ result = dtype.name
 fn test_dtype_creation_int8() {
     let result: String = run_python_code(
         r#"
-dtype = torsh.PyDType("int8")
+dtype = rstorch.PyDType("int8")
 result = dtype.name
 "#,
         |r| r.extract(),
@@ -98,7 +98,7 @@ result = dtype.name
 fn test_dtype_creation_int32() {
     let result: String = run_python_code(
         r#"
-dtype = torsh.PyDType("int32")
+dtype = rstorch.PyDType("int32")
 result = dtype.name
 "#,
         |r| r.extract(),
@@ -112,7 +112,7 @@ result = dtype.name
 fn test_dtype_creation_int64() {
     let result: String = run_python_code(
         r#"
-dtype = torsh.PyDType("int64")
+dtype = rstorch.PyDType("int64")
 result = dtype.name
 "#,
         |r| r.extract(),
@@ -126,7 +126,7 @@ result = dtype.name
 fn test_dtype_creation_uint8() {
     let result: String = run_python_code(
         r#"
-dtype = torsh.PyDType("uint8")
+dtype = rstorch.PyDType("uint8")
 result = dtype.name
 "#,
         |r| r.extract(),
@@ -140,7 +140,7 @@ result = dtype.name
 fn test_dtype_creation_bool() {
     let result: String = run_python_code(
         r#"
-dtype = torsh.PyDType("bool")
+dtype = rstorch.PyDType("bool")
 result = dtype.name
 "#,
         |r| r.extract(),
@@ -158,7 +158,7 @@ result = dtype.name
 fn test_dtype_itemsize_float32() {
     let result: usize = run_python_code(
         r#"
-dtype = torsh.PyDType("float32")
+dtype = rstorch.PyDType("float32")
 result = dtype.itemsize
 "#,
         |r| r.extract(),
@@ -172,7 +172,7 @@ result = dtype.itemsize
 fn test_dtype_itemsize_float64() {
     let result: usize = run_python_code(
         r#"
-dtype = torsh.PyDType("float64")
+dtype = rstorch.PyDType("float64")
 result = dtype.itemsize
 "#,
         |r| r.extract(),
@@ -186,7 +186,7 @@ result = dtype.itemsize
 fn test_dtype_itemsize_int8() {
     let result: usize = run_python_code(
         r#"
-dtype = torsh.PyDType("int8")
+dtype = rstorch.PyDType("int8")
 result = dtype.itemsize
 "#,
         |r| r.extract(),
@@ -200,7 +200,7 @@ result = dtype.itemsize
 fn test_dtype_itemsize_int16() {
     let result: usize = run_python_code(
         r#"
-dtype = torsh.PyDType("int16")
+dtype = rstorch.PyDType("int16")
 result = dtype.itemsize
 "#,
         |r| r.extract(),
@@ -214,7 +214,7 @@ result = dtype.itemsize
 fn test_dtype_itemsize_int32() {
     let result: usize = run_python_code(
         r#"
-dtype = torsh.PyDType("int32")
+dtype = rstorch.PyDType("int32")
 result = dtype.itemsize
 "#,
         |r| r.extract(),
@@ -228,7 +228,7 @@ result = dtype.itemsize
 fn test_dtype_itemsize_int64() {
     let result: usize = run_python_code(
         r#"
-dtype = torsh.PyDType("int64")
+dtype = rstorch.PyDType("int64")
 result = dtype.itemsize
 "#,
         |r| r.extract(),
@@ -242,7 +242,7 @@ result = dtype.itemsize
 fn test_dtype_itemsize_bool() {
     let result: usize = run_python_code(
         r#"
-dtype = torsh.PyDType("bool")
+dtype = rstorch.PyDType("bool")
 result = dtype.itemsize
 "#,
         |r| r.extract(),
@@ -256,7 +256,7 @@ result = dtype.itemsize
 fn test_dtype_is_floating_point_float32() {
     let result: bool = run_python_code(
         r#"
-dtype = torsh.PyDType("float32")
+dtype = rstorch.PyDType("float32")
 result = dtype.is_floating_point
 "#,
         |r| r.extract(),
@@ -270,7 +270,7 @@ result = dtype.is_floating_point
 fn test_dtype_is_floating_point_float64() {
     let result: bool = run_python_code(
         r#"
-dtype = torsh.PyDType("float64")
+dtype = rstorch.PyDType("float64")
 result = dtype.is_floating_point
 "#,
         |r| r.extract(),
@@ -284,7 +284,7 @@ result = dtype.is_floating_point
 fn test_dtype_is_floating_point_int32() {
     let result: bool = run_python_code(
         r#"
-dtype = torsh.PyDType("int32")
+dtype = rstorch.PyDType("int32")
 result = dtype.is_floating_point
 "#,
         |r| r.extract(),
@@ -298,7 +298,7 @@ result = dtype.is_floating_point
 fn test_dtype_is_floating_point_bool() {
     let result: bool = run_python_code(
         r#"
-dtype = torsh.PyDType("bool")
+dtype = rstorch.PyDType("bool")
 result = dtype.is_floating_point
 "#,
         |r| r.extract(),
@@ -312,7 +312,7 @@ result = dtype.is_floating_point
 fn test_dtype_is_signed_int32() {
     let result: bool = run_python_code(
         r#"
-dtype = torsh.PyDType("int32")
+dtype = rstorch.PyDType("int32")
 result = dtype.is_signed
 "#,
         |r| r.extract(),
@@ -326,7 +326,7 @@ result = dtype.is_signed
 fn test_dtype_is_signed_int64() {
     let result: bool = run_python_code(
         r#"
-dtype = torsh.PyDType("int64")
+dtype = rstorch.PyDType("int64")
 result = dtype.is_signed
 "#,
         |r| r.extract(),
@@ -340,7 +340,7 @@ result = dtype.is_signed
 fn test_dtype_is_signed_uint8() {
     let result: bool = run_python_code(
         r#"
-dtype = torsh.PyDType("uint8")
+dtype = rstorch.PyDType("uint8")
 result = dtype.is_signed
 "#,
         |r| r.extract(),
@@ -354,7 +354,7 @@ result = dtype.is_signed
 fn test_dtype_is_signed_float32() {
     let result: bool = run_python_code(
         r#"
-dtype = torsh.PyDType("float32")
+dtype = rstorch.PyDType("float32")
 result = dtype.is_signed
 "#,
         |r| r.extract(),
@@ -368,7 +368,7 @@ result = dtype.is_signed
 fn test_dtype_is_signed_bool() {
     let result: bool = run_python_code(
         r#"
-dtype = torsh.PyDType("bool")
+dtype = rstorch.PyDType("bool")
 result = dtype.is_signed
 "#,
         |r| r.extract(),
@@ -386,7 +386,7 @@ result = dtype.is_signed
 fn test_dtype_str_float32() {
     let result: String = run_python_code(
         r#"
-dtype = torsh.PyDType("float32")
+dtype = rstorch.PyDType("float32")
 result = str(dtype)
 "#,
         |r| r.extract(),
@@ -400,7 +400,7 @@ result = str(dtype)
 fn test_dtype_str_int64() {
     let result: String = run_python_code(
         r#"
-dtype = torsh.PyDType("int64")
+dtype = rstorch.PyDType("int64")
 result = str(dtype)
 "#,
         |r| r.extract(),
@@ -414,7 +414,7 @@ result = str(dtype)
 fn test_dtype_repr_float32() {
     let result: String = run_python_code(
         r#"
-dtype = torsh.PyDType("float32")
+dtype = rstorch.PyDType("float32")
 result = repr(dtype)
 "#,
         |r| r.extract(),
@@ -432,8 +432,8 @@ result = repr(dtype)
 fn test_dtype_equality_same() {
     let result: bool = run_python_code(
         r#"
-dtype1 = torsh.PyDType("float32")
-dtype2 = torsh.PyDType("float32")
+dtype1 = rstorch.PyDType("float32")
+dtype2 = rstorch.PyDType("float32")
 result = dtype1 == dtype2
 "#,
         |r| r.extract(),
@@ -447,8 +447,8 @@ result = dtype1 == dtype2
 fn test_dtype_equality_alias() {
     let result: bool = run_python_code(
         r#"
-dtype1 = torsh.PyDType("float32")
-dtype2 = torsh.PyDType("f32")
+dtype1 = rstorch.PyDType("float32")
+dtype2 = rstorch.PyDType("f32")
 result = dtype1 == dtype2
 "#,
         |r| r.extract(),
@@ -462,8 +462,8 @@ result = dtype1 == dtype2
 fn test_dtype_equality_different() {
     let result: bool = run_python_code(
         r#"
-dtype1 = torsh.PyDType("float32")
-dtype2 = torsh.PyDType("float64")
+dtype1 = rstorch.PyDType("float32")
+dtype2 = rstorch.PyDType("float64")
 result = dtype1 == dtype2
 "#,
         |r| r.extract(),
@@ -480,10 +480,10 @@ fn test_dtype_hash_consistency() {
             r#"
 import sys
 sys.path.insert(0, '{}')
-import torsh_python as torsh
+import rstorch_python as rstorch
 
-dtype1 = torsh.PyDType("float32")
-dtype2 = torsh.PyDType("float32")
+dtype1 = rstorch.PyDType("float32")
+dtype2 = rstorch.PyDType("float32")
 result = hash(dtype1) == hash(dtype2)
 "#,
             env!("CARGO_MANIFEST_DIR")
@@ -503,8 +503,8 @@ result = hash(dtype1) == hash(dtype2)
 fn test_dtype_in_set() {
     let result: bool = run_python_code(
         r#"
-dtype1 = torsh.PyDType("float32")
-dtype2 = torsh.PyDType("float32")
+dtype1 = rstorch.PyDType("float32")
+dtype2 = rstorch.PyDType("float32")
 dtype_set = {dtype1}
 result = dtype2 in dtype_set
 "#,
@@ -526,10 +526,10 @@ fn test_dtype_invalid_name() {
             r#"
 import sys
 sys.path.insert(0, '{}')
-import torsh_python as torsh
+import rstorch_python as rstorch
 
 try:
-    dtype = torsh.PyDType("invalid_dtype")
+    dtype = rstorch.PyDType("invalid_dtype")
     result = False
 except ValueError:
     result = True
@@ -554,10 +554,10 @@ fn test_dtype_unsupported_uint16() {
             r#"
 import sys
 sys.path.insert(0, '{}')
-import torsh_python as torsh
+import rstorch_python as rstorch
 
 try:
-    dtype = torsh.PyDType("uint16")
+    dtype = rstorch.PyDType("uint16")
     result = False
 except ValueError:
     result = True
@@ -586,7 +586,7 @@ except ValueError:
 fn test_dtype_constant_float32() {
     let result: String = run_python_code(
         r#"
-result = torsh.float32.name
+result = rstorch.float32.name
 "#,
         |r| r.extract(),
     )
@@ -599,7 +599,7 @@ result = torsh.float32.name
 fn test_dtype_constant_float64() {
     let result: String = run_python_code(
         r#"
-result = torsh.float64.name
+result = rstorch.float64.name
 "#,
         |r| r.extract(),
     )
@@ -612,7 +612,7 @@ result = torsh.float64.name
 fn test_dtype_constant_int8() {
     let result: String = run_python_code(
         r#"
-result = torsh.int8.name
+result = rstorch.int8.name
 "#,
         |r| r.extract(),
     )
@@ -625,7 +625,7 @@ result = torsh.int8.name
 fn test_dtype_constant_int32() {
     let result: String = run_python_code(
         r#"
-result = torsh.int32.name
+result = rstorch.int32.name
 "#,
         |r| r.extract(),
     )
@@ -638,7 +638,7 @@ result = torsh.int32.name
 fn test_dtype_constant_int64() {
     let result: String = run_python_code(
         r#"
-result = torsh.int64.name
+result = rstorch.int64.name
 "#,
         |r| r.extract(),
     )
@@ -651,7 +651,7 @@ result = torsh.int64.name
 fn test_dtype_constant_uint8() {
     let result: String = run_python_code(
         r#"
-result = torsh.uint8.name
+result = rstorch.uint8.name
 "#,
         |r| r.extract(),
     )
@@ -664,7 +664,7 @@ result = torsh.uint8.name
 fn test_dtype_constant_bool() {
     let result: String = run_python_code(
         r#"
-result = torsh.bool.name
+result = rstorch.bool.name
 "#,
         |r| r.extract(),
     )
@@ -681,7 +681,7 @@ result = torsh.bool.name
 fn test_dtype_alias_float() {
     let result: String = run_python_code(
         r#"
-result = torsh.float.name
+result = rstorch.float.name
 "#,
         |r| r.extract(),
     )
@@ -694,7 +694,7 @@ result = torsh.float.name
 fn test_dtype_alias_double() {
     let result: String = run_python_code(
         r#"
-result = torsh.double.name
+result = rstorch.double.name
 "#,
         |r| r.extract(),
     )
@@ -707,7 +707,7 @@ result = torsh.double.name
 fn test_dtype_alias_long() {
     let result: String = run_python_code(
         r#"
-result = torsh.long.name
+result = rstorch.long.name
 "#,
         |r| r.extract(),
     )
@@ -720,7 +720,7 @@ result = torsh.long.name
 fn test_dtype_alias_int() {
     let result: String = run_python_code(
         r#"
-result = torsh.int.name
+result = rstorch.int.name
 "#,
         |r| r.extract(),
     )
@@ -733,7 +733,7 @@ result = torsh.int.name
 fn test_dtype_alias_short() {
     let result: String = run_python_code(
         r#"
-result = torsh.short.name
+result = rstorch.short.name
 "#,
         |r| r.extract(),
     )
@@ -746,7 +746,7 @@ result = torsh.short.name
 fn test_dtype_alias_char() {
     let result: String = run_python_code(
         r#"
-result = torsh.char.name
+result = rstorch.char.name
 "#,
         |r| r.extract(),
     )
@@ -759,7 +759,7 @@ result = torsh.char.name
 fn test_dtype_alias_byte() {
     let result: String = run_python_code(
         r#"
-result = torsh.byte.name
+result = rstorch.byte.name
 "#,
         |r| r.extract(),
     )
@@ -776,8 +776,8 @@ result = torsh.byte.name
 fn test_dtype_constants_equality_float32() {
     let result: bool = run_python_code(
         r#"
-dtype = torsh.PyDType("float32")
-result = dtype == torsh.float32
+dtype = rstorch.PyDType("float32")
+result = dtype == rstorch.float32
 "#,
         |r| r.extract(),
     )
@@ -790,7 +790,7 @@ result = dtype == torsh.float32
 fn test_dtype_constants_equality_alias() {
     let result: bool = run_python_code(
         r#"
-result = torsh.float == torsh.float32
+result = rstorch.float == rstorch.float32
 "#,
         |r| r.extract(),
     )
@@ -803,7 +803,7 @@ result = torsh.float == torsh.float32
 fn test_dtype_constants_equality_different() {
     let result: bool = run_python_code(
         r#"
-result = torsh.float32 == torsh.float64
+result = rstorch.float32 == rstorch.float64
 "#,
         |r| r.extract(),
     )
@@ -823,7 +823,7 @@ fn test_all_supported_dtypes() {
             r#"
 import sys
 sys.path.insert(0, '{}')
-import torsh_python as torsh
+import rstorch_python as rstorch
 
 # Test all supported dtypes
 dtypes = [
@@ -853,7 +853,7 @@ failed = 0
 
 for dtype_str, expected_itemsize, expected_is_fp, expected_is_signed in dtypes:
     try:
-        dtype = torsh.PyDType(dtype_str)
+        dtype = rstorch.PyDType(dtype_str)
         assert dtype.itemsize == expected_itemsize, f"{{dtype_str}}: itemsize mismatch"
         assert dtype.is_floating_point == expected_is_fp, f"{{dtype_str}}: is_floating_point mismatch"
         assert dtype.is_signed == expected_is_signed, f"{{dtype_str}}: is_signed mismatch"

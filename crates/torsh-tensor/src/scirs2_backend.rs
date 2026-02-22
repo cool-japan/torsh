@@ -260,13 +260,18 @@ mod tests {
     fn test_scirs2_add() {
         let backend = SciRS2Backend::new();
 
-        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
-        let b = Tensor::from_data(vec![4.0f32, 5.0, 6.0], vec![3], DeviceType::Cpu).unwrap();
+        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
+        let b = Tensor::from_data(vec![4.0f32, 5.0, 6.0], vec![3], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let result = backend.add(&a, &b).unwrap();
+        let result = backend.add(&a, &b).expect("addition should succeed");
         let expected = vec![5.0f32, 7.0, 9.0];
 
-        assert_eq!(result.to_vec().unwrap(), expected);
+        assert_eq!(
+            result.to_vec().expect("to_vec conversion should succeed"),
+            expected
+        );
     }
 
     #[test]
@@ -279,19 +284,19 @@ mod tests {
             vec![2, 3],
             DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("tensor creation should succeed");
         let b = Tensor::from_data(
             vec![7.0f32, 8.0, 9.0, 10.0, 11.0, 12.0],
             vec![3, 2],
             DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("tensor creation should succeed");
 
-        let result = backend.matmul(&a, &b).unwrap();
+        let result = backend.matmul(&a, &b).expect("matmul should succeed");
         assert_eq!(result.shape().dims(), &[2, 2]);
 
         // Verify result values
-        let result_data = result.to_vec().unwrap();
+        let result_data = result.to_vec().expect("to_vec conversion should succeed");
         // [1*7+2*9+3*11, 1*8+2*10+3*12] = [58, 64]
         // [4*7+5*9+6*11, 4*8+5*10+6*12] = [139, 154]
         assert_eq!(result_data, vec![58.0, 64.0, 139.0, 154.0]);
@@ -301,10 +306,14 @@ mod tests {
     fn test_scirs2_relu() {
         let backend = SciRS2Backend::new();
 
-        let a = Tensor::from_data(vec![-1.0f32, 0.0, 1.0, 2.0], vec![4], DeviceType::Cpu).unwrap();
-        let result = backend.relu(&a).unwrap();
+        let a = Tensor::from_data(vec![-1.0f32, 0.0, 1.0, 2.0], vec![4], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
+        let result = backend.relu(&a).expect("relu should succeed");
         let expected = vec![0.0f32, 0.0, 1.0, 2.0];
 
-        assert_eq!(result.to_vec().unwrap(), expected);
+        assert_eq!(
+            result.to_vec().expect("to_vec conversion should succeed"),
+            expected
+        );
     }
 }

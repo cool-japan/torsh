@@ -770,7 +770,9 @@ mod tests {
     #[test]
     fn test_device_discovery() {
         let manager = DeviceManager::new();
-        let discovered = manager.discover_devices().unwrap();
+        let discovered = manager
+            .discover_devices()
+            .expect("discover_devices should succeed");
         assert!(discovered > 0); // At least CPU should be discovered
 
         let devices = manager.get_all_devices();
@@ -785,8 +787,11 @@ mod tests {
     fn test_device_addition_and_removal() {
         let manager = DeviceManager::new();
 
-        let cpu_device = DeviceFactory::create_device(DeviceType::Cpu).unwrap();
-        let device_id = manager.add_device(cpu_device).unwrap();
+        let cpu_device =
+            DeviceFactory::create_device(DeviceType::Cpu).expect("create_device should succeed");
+        let device_id = manager
+            .add_device(cpu_device)
+            .expect("add_device should succeed");
 
         assert_eq!(manager.device_count(), 1);
         assert!(manager.get_device(&device_id).is_some());
@@ -799,12 +804,18 @@ mod tests {
     #[test]
     fn test_best_device_selection() {
         let manager = DeviceManager::new();
-        manager.discover_devices().unwrap();
+        manager
+            .discover_devices()
+            .expect("discover_devices should succeed");
 
-        let best_device = manager.get_best_device().unwrap();
+        let best_device = manager
+            .get_best_device()
+            .expect("get_best_device should succeed");
         assert!(best_device.is_some());
 
-        let available_devices = manager.get_available_devices().unwrap();
+        let available_devices = manager
+            .get_available_devices()
+            .expect("get_available_devices should succeed");
         assert!(!available_devices.is_empty());
     }
 
@@ -829,9 +840,11 @@ mod tests {
 
         monitor
             .add_device("cpu".to_string(), cpu_device.clone())
-            .unwrap();
+            .expect("add_device should succeed");
 
-        let is_healthy = monitor.check_device_health(cpu_device.as_ref()).unwrap();
+        let is_healthy = monitor
+            .check_device_health(cpu_device.as_ref())
+            .expect("check_device_health should succeed");
         assert!(is_healthy);
 
         monitor.remove_device("cpu");
@@ -852,14 +865,17 @@ mod tests {
         };
 
         let manager = DeviceManager::with_config(config);
-        manager.discover_devices().unwrap();
+        manager
+            .discover_devices()
+            .expect("discover_devices should succeed");
 
         assert!(manager.device_count() >= 1); // At least CPU
     }
 
     #[test]
     fn test_utils_functions() {
-        let manager = utils::create_manager_with_all_devices().unwrap();
+        let manager =
+            utils::create_manager_with_all_devices().expect("create_manager should succeed");
         assert!(manager.device_count() > 0);
 
         let counts = utils::get_device_counts_by_type(&manager);

@@ -943,7 +943,7 @@ mod tests {
         let result = debugger.analyze_shape(&shape, DType::F32);
         assert!(result.is_ok());
 
-        let analysis = result.unwrap();
+        let analysis = result.expect("analyze_shape should succeed");
         assert_eq!(analysis.shape, vec![2, 3, 4]);
         assert_eq!(analysis.total_elements, 24);
         assert_eq!(analysis.dimensions, 3);
@@ -1023,6 +1023,9 @@ mod tests {
 
         let result = shape_utils::check_elementwise_compatibility(&shapes);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), vec![3, 2, 4]);
+        assert_eq!(
+            result.expect("check_elementwise_compatibility should succeed"),
+            vec![3, 2, 4]
+        );
     }
 }

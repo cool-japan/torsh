@@ -7,6 +7,11 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 description = "Optimization algorithms for ToRSh with PyTorch-compatible API"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-optim"
+rust-version.workspace = true
+keywords = ["deep-learning", "optimizer", "sgd", "adam", "machine-learning"]
+categories = ["science", "algorithms"]
 
 [lints]
 workspace = true
@@ -52,7 +57,7 @@ log = { workspace = true }
 [dev-dependencies]
 approx = { workspace = true }
 # torsh-nn = { path = "../torsh-nn" } # Temporarily disabled due to compilation issues
-tempfile = "3.24"
+tempfile = { workspace = true }
 
 [features]
 default = ["std", "serialize"]

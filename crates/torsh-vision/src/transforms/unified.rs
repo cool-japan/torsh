@@ -728,7 +728,7 @@ pub mod migration {
     /// Convert a vector of old transforms to unified transforms
     ///
     /// # Status
-    /// NOT IMPLEMENTED in v0.1.0-rc.1
+    /// NOT IMPLEMENTED in v0.1.0
     ///
     /// # Reason
     /// The bridge pattern requires concrete types, not trait objects.

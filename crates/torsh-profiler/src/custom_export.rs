@@ -680,11 +680,13 @@ mod tests {
         let exporter = CustomExporter::new();
         let events = vec![create_test_event()];
 
-        let result = exporter.export(&events, "compact_json", "/tmp/test_compact.json");
+        let compact_path = std::env::temp_dir().join("test_compact.json");
+        let compact_str = compact_path.display().to_string();
+        let result = exporter.export(&events, "compact_json", &compact_str);
         assert!(result.is_ok());
 
         // Clean up
-        let _ = std::fs::remove_file("/tmp/test_compact.json");
+        let _ = std::fs::remove_file(&compact_path);
     }
 
     #[test]
@@ -692,11 +694,13 @@ mod tests {
         let exporter = CustomExporter::new();
         let events = vec![create_test_event()];
 
-        let result = exporter.export(&events, "performance_csv", "/tmp/test_perf.csv");
+        let perf_path = std::env::temp_dir().join("test_perf.csv");
+        let perf_str = perf_path.display().to_string();
+        let result = exporter.export(&events, "performance_csv", &perf_str);
         assert!(result.is_ok());
 
         // Clean up
-        let _ = std::fs::remove_file("/tmp/test_perf.csv");
+        let _ = std::fs::remove_file(&perf_path);
     }
 
     #[test]
@@ -704,11 +708,13 @@ mod tests {
         let exporter = CustomExporter::new();
         let events = vec![create_test_event()];
 
-        let result = exporter.export(&events, "simple_text", "/tmp/test_simple.txt");
+        let simple_path = std::env::temp_dir().join("test_simple.txt");
+        let simple_str = simple_path.display().to_string();
+        let result = exporter.export(&events, "simple_text", &simple_str);
         assert!(result.is_ok());
 
         // Clean up
-        let _ = std::fs::remove_file("/tmp/test_simple.txt");
+        let _ = std::fs::remove_file(&simple_path);
     }
 
     #[test]

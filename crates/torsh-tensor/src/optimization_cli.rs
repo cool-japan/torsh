@@ -267,7 +267,7 @@ impl OptimizationCLI {
     /// Display command prompt
     fn display_prompt(&self) {
         print!("🔧 torsh-opt> ");
-        io::stdout().flush().unwrap();
+        let _ = io::stdout().flush();
     }
 
     /// Parse command from input string

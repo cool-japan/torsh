@@ -458,7 +458,11 @@ async fn test_partial_process_failure() -> Result<()> {
 #[tokio::test]
 async fn test_checkpoint_recovery_after_failure() -> Result<()> {
     let checkpoint_config = CheckpointConfig {
-        checkpoint_dir: "/tmp/torsh_test_checkpoints".into(),
+        checkpoint_dir: std::env::temp_dir()
+            .join("torsh_test_checkpoints")
+            .to_string_lossy()
+            .into_owned()
+            .into(),
         checkpoint_frequency: 1, // Save every step for testing
         max_checkpoints: 3,
         async_save: true,
@@ -515,7 +519,7 @@ async fn test_checkpoint_recovery_after_failure() -> Result<()> {
     }
 
     // Cleanup
-    let _ = std::fs::remove_dir_all("/tmp/torsh_test_checkpoints");
+    let _ = std::fs::remove_dir_all(std::env::temp_dir().join("torsh_test_checkpoints"));
 
     Ok(())
 }
@@ -533,7 +537,11 @@ async fn test_elastic_training_with_node_failure() -> Result<()> {
     };
 
     let checkpoint_config = CheckpointConfig {
-        checkpoint_dir: "/tmp/torsh_test_elastic".into(),
+        checkpoint_dir: std::env::temp_dir()
+            .join("torsh_test_elastic")
+            .to_string_lossy()
+            .into_owned()
+            .into(),
         checkpoint_frequency: 100,
         max_checkpoints: 3,
         async_save: true,
@@ -558,7 +566,7 @@ async fn test_elastic_training_with_node_failure() -> Result<()> {
     );
 
     // Cleanup
-    let _ = std::fs::remove_dir_all("/tmp/torsh_test_elastic");
+    let _ = std::fs::remove_dir_all(std::env::temp_dir().join("torsh_test_elastic"));
 
     Ok(())
 }

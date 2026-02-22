@@ -1009,193 +1009,195 @@ impl GradientVisualizer {
         use std::fmt::Write;
 
         // String formatting to String never fails, so we can unwrap safely
-        writeln!(output, "{{").unwrap();
-        writeln!(output, "  \"gradient_flow_analysis\": {{").unwrap();
+        writeln!(output, "{{").expect("write to string should not fail");
+        writeln!(output, "  \"gradient_flow_analysis\": {{")
+            .expect("write to string should not fail");
         writeln!(
             output,
             "    \"timestamp\": \"{:?}\",",
             std::time::SystemTime::now()
         )
-        .unwrap();
+        .expect("write to string should not fail");
         writeln!(
             output,
             "    \"total_operations\": {},",
             analysis.total_operations
         )
-        .unwrap();
+        .expect("write to string should not fail");
         writeln!(
             output,
             "    \"operations_with_gradients\": {},",
             analysis.operations_with_gradients
         )
-        .unwrap();
+        .expect("write to string should not fail");
         writeln!(
             output,
             "    \"gradient_flow_efficiency\": {},",
             analysis.gradient_flow_efficiency()
         )
-        .unwrap();
+        .expect("write to string should not fail");
         writeln!(
             output,
             "    \"gradient_health_score\": {},",
             analysis.gradient_health_score()
         )
-        .unwrap();
+        .expect("write to string should not fail");
 
         // Gradient statistics
-        writeln!(output, "    \"gradient_statistics\": {{").unwrap();
+        writeln!(output, "    \"gradient_statistics\": {{")
+            .expect("write to string should not fail");
         writeln!(
             output,
             "      \"mean_magnitude\": {},",
             analysis.gradient_stats.mean_magnitude
         )
-        .unwrap();
+        .expect("write to string should not fail");
         writeln!(
             output,
             "      \"std_deviation\": {},",
             analysis.gradient_stats.std_deviation
         )
-        .unwrap();
+        .expect("write to string should not fail");
         writeln!(
             output,
             "      \"max_magnitude\": {},",
             analysis.gradient_stats.max_magnitude
         )
-        .unwrap();
+        .expect("write to string should not fail");
         writeln!(
             output,
             "      \"min_magnitude\": {},",
             analysis.gradient_stats.min_magnitude
         )
-        .unwrap();
+        .expect("write to string should not fail");
         writeln!(
             output,
             "      \"zero_count\": {},",
             analysis.gradient_stats.zero_count
         )
-        .unwrap();
+        .expect("write to string should not fail");
         writeln!(
             output,
             "      \"inf_nan_count\": {},",
             analysis.gradient_stats.inf_nan_count
         )
-        .unwrap();
+        .expect("write to string should not fail");
         writeln!(
             output,
             "      \"quality_score\": {},",
             analysis.gradient_stats.quality_score()
         )
-        .unwrap();
+        .expect("write to string should not fail");
         writeln!(
             output,
             "      \"category\": \"{}\"",
             analysis.gradient_stats.magnitude_category()
         )
-        .unwrap();
-        writeln!(output, "    }},").unwrap();
+        .expect("write to string should not fail");
+        writeln!(output, "    }},").expect("write to string should not fail");
 
         // Memory breakdown
-        writeln!(output, "    \"memory_breakdown\": {{").unwrap();
+        writeln!(output, "    \"memory_breakdown\": {{").expect("write to string should not fail");
         writeln!(
             output,
             "      \"gradient_memory\": {},",
             analysis.memory_breakdown.gradient_memory
         )
-        .unwrap();
+        .expect("write to string should not fail");
         writeln!(
             output,
             "      \"intermediate_memory\": {},",
             analysis.memory_breakdown.intermediate_memory
         )
-        .unwrap();
+        .expect("write to string should not fail");
         writeln!(
             output,
             "      \"metadata_memory\": {},",
             analysis.memory_breakdown.metadata_memory
         )
-        .unwrap();
+        .expect("write to string should not fail");
         writeln!(
             output,
             "      \"peak_memory\": {},",
             analysis.memory_breakdown.peak_memory
         )
-        .unwrap();
+        .expect("write to string should not fail");
         writeln!(
             output,
             "      \"total_memory\": {},",
             analysis.memory_breakdown.total_memory()
         )
-        .unwrap();
+        .expect("write to string should not fail");
         writeln!(
             output,
             "      \"efficiency_score\": {}",
             analysis.memory_breakdown.efficiency_score()
         )
-        .unwrap();
-        writeln!(output, "    }},").unwrap();
+        .expect("write to string should not fail");
+        writeln!(output, "    }},").expect("write to string should not fail");
 
         // Bottlenecks
-        writeln!(output, "    \"bottlenecks\": [").unwrap();
+        writeln!(output, "    \"bottlenecks\": [").expect("write to string should not fail");
         for (i, bottleneck) in analysis.gradient_bottlenecks.iter().enumerate() {
-            writeln!(output, "      {{").unwrap();
+            writeln!(output, "      {{").expect("write to string should not fail");
             writeln!(
                 output,
                 "        \"operation_id\": {},",
                 bottleneck.operation_id
             )
-            .unwrap();
+            .expect("write to string should not fail");
             writeln!(
                 output,
                 "        \"operation_name\": \"{}\",",
                 bottleneck.operation_name
             )
-            .unwrap();
+            .expect("write to string should not fail");
             writeln!(
                 output,
                 "        \"gradient_magnitude\": {},",
                 bottleneck.gradient_magnitude
             )
-            .unwrap();
+            .expect("write to string should not fail");
             writeln!(
                 output,
                 "        \"dependency_count\": {},",
                 bottleneck.dependency_count
             )
-            .unwrap();
+            .expect("write to string should not fail");
             writeln!(
                 output,
                 "        \"memory_usage\": {},",
                 bottleneck.memory_usage
             )
-            .unwrap();
+            .expect("write to string should not fail");
             writeln!(
                 output,
                 "        \"bottleneck_type\": \"{}\",",
                 bottleneck.bottleneck_type
             )
-            .unwrap();
+            .expect("write to string should not fail");
             writeln!(
                 output,
                 "        \"severity_score\": {},",
                 bottleneck.severity_score()
             )
-            .unwrap();
+            .expect("write to string should not fail");
             writeln!(
                 output,
                 "        \"is_significant\": {}",
                 bottleneck.is_significant()
             )
-            .unwrap();
+            .expect("write to string should not fail");
             if i < analysis.gradient_bottlenecks.len() - 1 {
-                writeln!(output, "      }},").unwrap();
+                writeln!(output, "      }},").expect("write to string should not fail");
             } else {
-                writeln!(output, "      }}").unwrap();
+                writeln!(output, "      }}").expect("write to string should not fail");
             }
         }
-        writeln!(output, "    ]").unwrap();
+        writeln!(output, "    ]").expect("write to string should not fail");
 
-        writeln!(output, "  }}").unwrap();
-        writeln!(output, "}}").unwrap();
+        writeln!(output, "  }}").expect("write to string should not fail");
+        writeln!(output, "}}").expect("write to string should not fail");
 
         Ok(output)
     }

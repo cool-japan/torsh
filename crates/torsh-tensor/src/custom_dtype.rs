@@ -460,7 +460,9 @@ mod tests {
         assert!(result.is_ok());
         assert!(registry.is_registered::<MyCustomFloat>());
 
-        let metadata = registry.get_metadata::<MyCustomFloat>().unwrap();
+        let metadata = registry
+            .get_metadata::<MyCustomFloat>()
+            .expect("metadata retrieval should succeed");
         assert_eq!(metadata.name, "MyCustomFloat");
         assert!(metadata.is_float);
         assert!(metadata.is_signed);
@@ -474,7 +476,7 @@ mod tests {
 
         CustomTypeBuilder::<MyCustomFloat>::new("MyCustomFloat")
             .register_with(&registry)
-            .unwrap();
+            .expect("registration should succeed");
 
         let result =
             CustomTypeBuilder::<MyCustomFloat>::new("MyCustomFloat").register_with(&registry);
@@ -488,7 +490,7 @@ mod tests {
 
         CustomTypeBuilder::<MyCustomFloat>::new("MyCustomFloat")
             .register_with(&registry)
-            .unwrap();
+            .expect("registration should succeed");
 
         let types = registry.registered_types();
         assert_eq!(types.len(), 1);
@@ -501,7 +503,7 @@ mod tests {
 
         CustomTypeBuilder::<MyCustomFloat>::new("MyCustomFloat")
             .register_with(&registry)
-            .unwrap();
+            .expect("registration should succeed");
 
         let stats = registry.stats();
         assert_eq!(stats.num_types, 1);
@@ -515,12 +517,12 @@ mod tests {
 
         CustomTypeBuilder::<MyCustomFloat>::new("MyCustomFloat")
             .register_with(&registry)
-            .unwrap();
+            .expect("registration should succeed");
 
         CustomTypeBuilder::<f64>::new("f64")
             .is_float(true)
             .register_with(&registry)
-            .unwrap();
+            .expect("registration should succeed");
 
         let result =
             registry.register_conversion::<MyCustomFloat, f64, _>(|val: MyCustomFloat| val.0);
@@ -536,7 +538,7 @@ mod tests {
 
         CustomTypeBuilder::<MyCustomFloat>::new("MyCustomFloat")
             .register_with(&registry)
-            .unwrap();
+            .expect("registration should succeed");
 
         assert!(registry.is_registered::<MyCustomFloat>());
 

@@ -103,7 +103,7 @@
 - [x] Add platform-specific builds (Linux, macOS, Windows)
 - [ ] Publish to PyPI (pending release)
 
-## Recent Enhancements (v0.1.0-alpha.2)
+## Recent Enhancements (v0.1.0)
 
 ### Completed Implementations
 
@@ -210,7 +210,7 @@
 - Broadcasting compatibility checks
 - Finite value validation
 
-## Recent Enhancements (v0.1.0-alpha.2 - Session 3)
+## Recent Enhancements (v0.1.0 - Session 3)
 
 ### Session 3: Infrastructure & Testing (2025-10-24)
 
@@ -365,7 +365,7 @@
 6. `src/dtype.rs` - 7 new features (~200 lines)
 7. `python/torsh/__init__.pyi` - Updated type stubs
 
-## Recent Enhancements (v0.1.0-alpha.2 - Session 5)
+## Recent Enhancements (v0.1.0 - Session 5)
 
 ### Session 5: Critical Module Re-enablement (2025-10-24)
 
@@ -495,7 +495,7 @@ The torsh-python crate is now **production-ready** with:
 - Shape manipulation & math operations
 - Comprehensive error handling & validation
 
-## Recent Enhancements (v0.1.0-alpha.2 - Session 6)
+## Recent Enhancements (v0.1.0 - Session 6)
 
 ### Session 6: Code Quality & Deprecation Fixes (2025-10-24)
 

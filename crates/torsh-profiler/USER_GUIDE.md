@@ -20,7 +20,7 @@ Add the ToRSh profiler to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-torsh-profiler = "0.1.0-alpha.2"
+torsh-profiler = "0.1.0"
 ```
 
 ### Basic Setup

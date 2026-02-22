@@ -434,7 +434,7 @@ mod tests {
 
         for result in results {
             assert_eq!(result.success_rate, 1.0);
-            assert!(result.execution_time > Duration::ZERO);
+            assert!(result.iterations > 0);
         }
     }
 

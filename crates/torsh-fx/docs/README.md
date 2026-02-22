@@ -131,9 +131,9 @@ This documentation is part of the ToRSh project. For contributions:
 ## Version Information
 
 - **Documentation Version**: 1.0.0
-- **ToRSh FX Version**: 0.1.0-alpha.2
+- **ToRSh FX Version**: 0.1.0
 - **Last Updated**: July 2024
-- **Compatibility**: Covers all features in ToRSh FX 0.1.0-alpha.2
+- **Compatibility**: Covers all features in ToRSh FX 0.1.0
 
 ## Additional Resources
 

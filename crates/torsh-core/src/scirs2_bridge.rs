@@ -794,7 +794,7 @@ mod tests {
         assert_eq!(manager.buffer_count(), 1);
         assert_eq!(manager.total_bytes(), 5);
 
-        let retrieved = manager.get_buffer(1).unwrap();
+        let retrieved = manager.get_buffer(1).expect("get_buffer should succeed");
         assert_eq!(retrieved.len(), 5);
         assert_eq!(&*retrieved, &[1, 2, 3, 4, 5]);
 
@@ -824,7 +824,8 @@ mod tests {
         let src = vec![1.0f32, 2.0, 3.0, 4.0];
         let mut dst = vec![0.0f64; 4];
 
-        SciRS2Bridge::convert_f32_to_f64_simd(&src, &mut dst).unwrap();
+        SciRS2Bridge::convert_f32_to_f64_simd(&src, &mut dst)
+            .expect("convert_f32_to_f64_simd should succeed");
 
         assert_eq!(dst, vec![1.0f64, 2.0, 3.0, 4.0]);
     }
@@ -835,7 +836,8 @@ mod tests {
         let src = vec![1.0f64, 2.0, 3.0, 4.0];
         let mut dst = vec![0.0f32; 4];
 
-        SciRS2Bridge::convert_f64_to_f32_simd(&src, &mut dst).unwrap();
+        SciRS2Bridge::convert_f64_to_f32_simd(&src, &mut dst)
+            .expect("convert_f64_to_f32_simd should succeed");
 
         assert_eq!(dst, vec![1.0f32, 2.0, 3.0, 4.0]);
     }
@@ -926,7 +928,8 @@ mod tests {
         let sources = vec![&src1[..], &src2[..]];
         let mut destinations = vec![&mut dst1[..], &mut dst2[..]];
 
-        SciRS2Bridge::batch_convert_f32_to_f64(&sources, &mut destinations).unwrap();
+        SciRS2Bridge::batch_convert_f32_to_f64(&sources, &mut destinations)
+            .expect("batch_convert should succeed");
 
         assert_eq!(dst1, vec![1.0f64, 2.0, 3.0]);
         assert_eq!(dst2, vec![4.0f64, 5.0, 6.0]);
@@ -943,7 +946,8 @@ mod tests {
         let sources = vec![&src1[..], &src2[..]];
         let mut destinations = vec![&mut dst1[..], &mut dst2[..]];
 
-        SciRS2Bridge::batch_convert_f64_to_f32(&sources, &mut destinations).unwrap();
+        SciRS2Bridge::batch_convert_f64_to_f32(&sources, &mut destinations)
+            .expect("batch_convert should succeed");
 
         assert_eq!(dst1, vec![1.0f32, 2.0, 3.0]);
         assert_eq!(dst2, vec![4.0f32, 5.0, 6.0]);
@@ -957,7 +961,7 @@ mod tests {
         let src: Vec<f32> = (0..size).map(|i| i as f32).collect();
         let mut dst = vec![0.0f64; size];
 
-        SciRS2Bridge::convert_f32_to_f64_simd(&src, &mut dst).unwrap();
+        SciRS2Bridge::convert_f32_to_f64_simd(&src, &mut dst).expect("convert should succeed");
 
         for i in 0..size {
             assert_eq!(dst[i], src[i] as f64);
@@ -986,7 +990,7 @@ mod tests {
         // Test the map_result convenience function
         let ok_result: core::result::Result<i32, CoreError> = Ok(42);
         let mapped_ok = ErrorMapper::map_result(ok_result);
-        assert_eq!(mapped_ok.unwrap(), 42);
+        assert_eq!(mapped_ok.expect("map_result should succeed"), 42);
 
         let err_result: core::result::Result<i32, CoreError> = Err(CoreError::ValueError(
             scirs2_core::error::ErrorContext::new("Test error".to_string()),

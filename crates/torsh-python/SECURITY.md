@@ -6,8 +6,8 @@ We release patches for security vulnerabilities. Currently supported versions:
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 0.1.0-alpha.x   | :white_check_mark: |
-| < 0.1.0-alpha.2 | :x:                |
+| 0.1.0   | :white_check_mark: |
+| < 0.1.0 | :x:                |
 
 ## Reporting a Vulnerability
 
@@ -85,17 +85,17 @@ However, be aware of:
 Always validate inputs:
 
 ```python
-import torsh
+import rstorch
 
 # Validate device string
 try:
-    device = torsh.PyDevice(user_input)
+    device = rstorch.PyDevice(user_input)
 except ValueError as e:
     print(f"Invalid device: {e}")
 
 # Validate dtype
 try:
-    dtype = torsh.PyDType(user_input)
+    dtype = rstorch.PyDType(user_input)
 except ValueError as e:
     print(f"Invalid dtype: {e}")
 ```
@@ -110,11 +110,11 @@ ToRSh uses safe defaults:
 
 ## Known Security Considerations
 
-### Current Status (v0.1.0-alpha.x)
+### Current Status (v0.1.0)
 
-⚠️ **Alpha Release**: This is an alpha release and should not be used in production
+⚠️ **Early Release**: This is an early release. Thorough testing and security review are recommended before production use in security-sensitive
 
-environments without thorough testing and security review.
+environments.
 
 #### Disabled Modules
 
@@ -223,15 +223,15 @@ RUSTFLAGS="-C overflow-checks=on" cargo build --release
 
 ```python
 # Safe configuration for untrusted environments
-import torsh
+import rstorch
 
 # Always validate inputs
-def safe_create_device(device_str: str) -> torsh.PyDevice:
+def safe_create_device(device_str: str) -> rstorch.PyDevice:
     """Create device with validation"""
     allowed_devices = ["cpu", "cuda:0", "cuda:1"]
     if device_str not in allowed_devices:
         raise ValueError(f"Device {device_str} not in allowed list")
-    return torsh.PyDevice(device_str)
+    return rstorch.PyDevice(device_str)
 ```
 
 ## Contact
@@ -252,4 +252,4 @@ For security-related questions or concerns:
 ---
 
 **Last Updated**: 2025-10-24
-**Version**: 0.1.0-alpha.2
+**Version**: 0.1.0

@@ -731,13 +731,13 @@ mod tests {
             Box::new(DimExpression::Symbol(0)),
             Box::new(DimExpression::Constant(2)),
         );
-        assert_eq!(expr.eval(&symbols).unwrap(), 12);
+        assert_eq!(expr.eval(&symbols).expect("eval should succeed"), 12);
 
         let expr = DimExpression::Mul(
             Box::new(DimExpression::Symbol(1)),
             Box::new(DimExpression::Constant(2)),
         );
-        assert_eq!(expr.eval(&symbols).unwrap(), 10);
+        assert_eq!(expr.eval(&symbols).expect("eval should succeed"), 10);
     }
 
     #[test]
@@ -751,7 +751,9 @@ mod tests {
         let mut symbols = HashMap::new();
         symbols.insert(0, 10);
 
-        let concrete = shape.materialize(&symbols).unwrap();
+        let concrete = shape
+            .materialize(&symbols)
+            .expect("materialize should succeed");
         assert_eq!(concrete.dims(), &[2, 10, 3]);
     }
 
@@ -764,7 +766,9 @@ mod tests {
 
         let shape2 = SymbolicShape::new(vec![SymbolicDim::Concrete(5), SymbolicDim::Concrete(3)]);
 
-        let result = shape1.broadcast_with(&shape2).unwrap();
+        let result = shape1
+            .broadcast_with(&shape2)
+            .expect("broadcast_with should succeed");
         assert_eq!(result.ndim(), 2);
         assert_eq!(result.dims()[0].as_concrete(), Some(5));
     }
@@ -781,7 +785,9 @@ mod tests {
 
         let right = SymbolicShape::new(vec![SymbolicDim::Concrete(4), SymbolicDim::Concrete(5)]);
 
-        let result = inference.infer_matmul(&left, &right).unwrap();
+        let result = inference
+            .infer_matmul(&left, &right)
+            .expect("infer_matmul should succeed");
         assert_eq!(result.ndim(), 3);
         assert_eq!(result.dims()[0].as_concrete(), Some(2));
         assert_eq!(result.dims()[1].as_concrete(), Some(3));
@@ -795,7 +801,9 @@ mod tests {
         let id = registry.create_symbol(Some("batch_size".to_string()));
         assert_eq!(registry.get_symbol("batch_size"), Some(id));
 
-        registry.set_value(id, 32).unwrap();
+        registry
+            .set_value(id, 32)
+            .expect("set_value should succeed");
         assert_eq!(registry.get_value(id), Some(32));
     }
 
@@ -815,11 +823,11 @@ mod tests {
         let concrete = SymbolicDim::Concrete(10);
         let unknown = SymbolicDim::unknown(0, None);
 
-        let unified = concrete.unify(&unknown).unwrap();
+        let unified = concrete.unify(&unknown).expect("unify should succeed");
         assert_eq!(unified.as_concrete(), Some(10));
 
         let constrained = SymbolicDim::constrained(1, None, Some(5), Some(15));
-        let unified = concrete.unify(&constrained).unwrap();
+        let unified = concrete.unify(&constrained).expect("unify should succeed");
         assert_eq!(unified.as_concrete(), Some(10));
     }
 }

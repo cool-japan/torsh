@@ -342,7 +342,7 @@ impl AdvancedSimdOps {
             ReductionType::Sum => self.simd_sum(data),
             ReductionType::Mean => {
                 let sum = self.simd_sum(data)?;
-                Ok(sum / T::from(data.len()).unwrap())
+                Ok(sum / T::from(data.len()).expect("data length conversion should succeed"))
             }
             ReductionType::Max => self.simd_max(data),
             ReductionType::Min => self.simd_min(data),
@@ -735,7 +735,10 @@ impl BenchmarkResults {
             ("pipelined", self.pipelined_time),
             ("hyperoptimized", self.hyperoptimized_time),
         ];
-        let min_time = strategies.iter().min_by_key(|(_, time)| time).unwrap();
+        let min_time = strategies
+            .iter()
+            .min_by_key(|(_, time)| time)
+            .expect("strategies array is non-empty");
 
         min_time.0
     }
@@ -785,7 +788,9 @@ mod tests {
         let a = vec![1.0f32, 2.0, 3.0, 4.0];
         let b = vec![5.0f32, 6.0, 7.0, 8.0];
 
-        let result = ops.simd_matmul_optimized(&a, &b, 2, 2, 2).unwrap();
+        let result = ops
+            .simd_matmul_optimized(&a, &b, 2, 2, 2)
+            .expect("SIMD matmul should succeed");
 
         // Expected: [19, 22, 43, 50]
         assert_relative_eq!(result[0], 19.0, epsilon = 1e-6);
@@ -804,7 +809,7 @@ mod tests {
         let mut output = vec![0.0f32; 4];
 
         ops.simd_fused_multiply_add(&input, &weight, &bias, &mut output, 1, 4)
-            .unwrap();
+            .expect("operation should succeed");
 
         // Expected: input * weight + bias = [1.5, 2.0, 2.5, 3.0]
         assert_relative_eq!(output[0], 1.5, epsilon = 1e-6);
@@ -818,7 +823,9 @@ mod tests {
         let ops = AdvancedSimdOps::new();
         let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0];
 
-        let sum = ops.simd_reduction(&data, ReductionType::Sum).unwrap();
+        let sum = ops
+            .simd_reduction(&data, ReductionType::Sum)
+            .expect("SIMD reduction should succeed");
         assert_relative_eq!(sum, 15.0, epsilon = 1e-6);
     }
 
@@ -827,7 +834,9 @@ mod tests {
         let ops = AdvancedSimdOps::new();
         let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0];
 
-        let mean = ops.simd_reduction(&data, ReductionType::Mean).unwrap();
+        let mean = ops
+            .simd_reduction(&data, ReductionType::Mean)
+            .expect("SIMD reduction should succeed");
         assert_relative_eq!(mean, 3.0, epsilon = 1e-6);
     }
 
@@ -836,7 +845,9 @@ mod tests {
         let ops = AdvancedSimdOps::new();
         let data = vec![1.0f32, 5.0, 3.0, 2.0, 4.0];
 
-        let max_val = ops.simd_reduction(&data, ReductionType::Max).unwrap();
+        let max_val = ops
+            .simd_reduction(&data, ReductionType::Max)
+            .expect("SIMD reduction should succeed");
         assert_relative_eq!(max_val, 5.0, epsilon = 1e-6);
     }
 

@@ -451,7 +451,7 @@ mod tests {
     fn test_dtype_ffi_conversion() {
         let original = DType::F32;
         let ffi_dtype = TorshDType::from_dtype(original);
-        let converted = ffi_dtype.to_dtype().unwrap();
+        let converted = ffi_dtype.to_dtype().expect("to_dtype should succeed");
         assert_eq!(original, converted);
     }
 
@@ -459,7 +459,9 @@ mod tests {
     fn test_device_ffi_conversion() {
         let original = DeviceType::Cuda(1);
         let ffi_device = TorshDevice::from_device_type(original);
-        let converted = ffi_device.to_device_type().unwrap();
+        let converted = ffi_device
+            .to_device_type()
+            .expect("to_device_type should succeed");
         assert_eq!(original, converted);
     }
 
@@ -469,7 +471,7 @@ mod tests {
         let ffi_shape = TorshShape::from_shape(&original);
 
         unsafe {
-            let converted = ffi_shape.to_shape().unwrap();
+            let converted = ffi_shape.to_shape().expect("to_shape should succeed");
             assert_eq!(original.dims(), converted.dims());
         }
     }

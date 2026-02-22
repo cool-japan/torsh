@@ -436,8 +436,8 @@ impl ComplexityAnalyzer {
         }
 
         let max_size = data.iter().map(|dp| dp.input_size).max().unwrap_or(1000);
-        let base_time = data.last().unwrap().execution_time;
-        let base_memory = data.last().unwrap().memory_usage;
+        let base_time = data.last().expect("data is non-empty").execution_time;
+        let base_memory = data.last().expect("data is non-empty").memory_usage;
 
         let mut time_predictions = Vec::new();
         let mut memory_predictions = Vec::new();

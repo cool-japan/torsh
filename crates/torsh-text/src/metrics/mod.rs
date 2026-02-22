@@ -424,7 +424,7 @@ impl TextEvaluator {
         });
 
         let best_candidate = ranked_indices[0];
-        let worst_candidate = *ranked_indices.last().unwrap();
+        let worst_candidate = *ranked_indices.last().unwrap_or(&0);
 
         let score_differences = self.calculate_score_differences(&evaluations);
         let statistical_significance = self.test_statistical_significance(&evaluations);
@@ -797,7 +797,7 @@ impl TextEvaluator {
 
         // Calculate percentiles
         let mut sorted_scores = overall_scores.clone();
-        sorted_scores.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted_scores.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         let percentile_25 = sorted_scores[sorted_scores.len() / 4];
         let median = sorted_scores[sorted_scores.len() / 2];

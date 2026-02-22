@@ -265,7 +265,7 @@ impl TimeSeriesImputer {
         }
 
         // Calculate median
-        valid_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        valid_values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         let median = if valid_values.len() % 2 == 0 {
             let mid = valid_values.len() / 2;
             (valid_values[mid - 1] + valid_values[mid]) / 2.0

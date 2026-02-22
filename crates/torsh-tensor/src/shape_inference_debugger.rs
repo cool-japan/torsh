@@ -191,7 +191,7 @@ impl ShapeInferenceDebugger {
     pub fn register_shape(&mut self, name: impl Into<String>, shape: Shape) {
         self.named_shapes
             .write()
-            .unwrap()
+            .expect("rwlock should not be poisoned")
             .insert(name.into(), shape);
     }
 
@@ -774,7 +774,9 @@ mod tests {
             Shape::new(vec![2, 3]),
         ];
 
-        let result = debugger.infer_elementwise_shape(&shapes).unwrap();
+        let result = debugger
+            .infer_elementwise_shape(&shapes)
+            .expect("elementwise shape inference should succeed");
         assert_eq!(result.dims(), &[2, 3]);
     }
 
@@ -783,7 +785,9 @@ mod tests {
         let debugger = ShapeInferenceDebugger::new();
         let shapes = vec![Shape::new(vec![2, 3]), Shape::new(vec![1, 3])];
 
-        let result = debugger.infer_elementwise_shape(&shapes).unwrap();
+        let result = debugger
+            .infer_elementwise_shape(&shapes)
+            .expect("elementwise shape inference should succeed");
         assert_eq!(result.dims(), &[2, 3]);
     }
 
@@ -793,7 +797,9 @@ mod tests {
         let a = Shape::new(vec![2, 3]);
         let b = Shape::new(vec![3, 4]);
 
-        let result = debugger.infer_matmul_shape(&a, &b).unwrap();
+        let result = debugger
+            .infer_matmul_shape(&a, &b)
+            .expect("matmul shape inference should succeed");
         assert_eq!(result.dims(), &[2, 4]);
     }
 
@@ -816,7 +822,9 @@ mod tests {
             Shape::new(vec![4]),
         ];
 
-        let result = debugger.infer_broadcast_shape(&shapes).unwrap();
+        let result = debugger
+            .infer_broadcast_shape(&shapes)
+            .expect("broadcast shape inference should succeed");
         assert_eq!(result.dims(), &[2, 3, 4]);
     }
 
@@ -838,7 +846,9 @@ mod tests {
             Shape::new(vec![2, 2]),
         ];
 
-        let result = debugger.infer_concat_shape(&shapes, 1).unwrap();
+        let result = debugger
+            .infer_concat_shape(&shapes, 1)
+            .expect("concat shape inference should succeed");
         assert_eq!(result.dims(), &[2, 10]); // 3 + 5 + 2
     }
 
@@ -857,7 +867,9 @@ mod tests {
 
         let a = Shape::new(vec![2, 3]);
         let b = Shape::new(vec![3, 4]);
-        let _ = debugger.infer_matmul_shape(&a, &b).unwrap();
+        let _ = debugger
+            .infer_matmul_shape(&a, &b)
+            .expect("matmul shape inference should succeed");
 
         let trace = debugger.get_trace();
         assert!(trace.contains("MatMul"));

@@ -1029,38 +1029,45 @@ impl Benchmarkable for YOLOv5Bench {
     type Output = (Tensor<f32>, Tensor<f32>, Tensor<f32>); // 3 detection scales
 
     fn setup(&mut self, _size: usize) -> Self::Input {
-        let input = rand(&[self.batch_size, 3, self.input_size, self.input_size]).unwrap();
+        let input = rand(&[self.batch_size, 3, self.input_size, self.input_size])
+            .expect("tensor creation should succeed");
 
         let weights = YOLOv5Weights {
             // Backbone (CSPDarknet53)
-            backbone_conv1_weight: rand(&[32, 3, 6, 6]).unwrap(),
-            backbone_conv1_bias: rand(&[32]).unwrap(),
-            backbone_conv2_weight: rand(&[64, 32, 3, 3]).unwrap(),
-            backbone_conv2_bias: rand(&[64]).unwrap(),
-            backbone_conv3_weight: rand(&[128, 64, 3, 3]).unwrap(),
-            backbone_conv3_bias: rand(&[128]).unwrap(),
+            backbone_conv1_weight: rand(&[32, 3, 6, 6]).expect("tensor creation should succeed"),
+            backbone_conv1_bias: rand(&[32]).expect("tensor creation should succeed"),
+            backbone_conv2_weight: rand(&[64, 32, 3, 3]).expect("tensor creation should succeed"),
+            backbone_conv2_bias: rand(&[64]).expect("tensor creation should succeed"),
+            backbone_conv3_weight: rand(&[128, 64, 3, 3]).expect("tensor creation should succeed"),
+            backbone_conv3_bias: rand(&[128]).expect("tensor creation should succeed"),
 
             // Neck (PANet)
-            neck_conv1_weight: rand(&[256, 128, 1, 1]).unwrap(),
-            neck_conv1_bias: rand(&[256]).unwrap(),
-            neck_conv2_weight: rand(&[512, 256, 3, 3]).unwrap(),
-            neck_conv2_bias: rand(&[512]).unwrap(),
+            neck_conv1_weight: rand(&[256, 128, 1, 1]).expect("tensor creation should succeed"),
+            neck_conv1_bias: rand(&[256]).expect("tensor creation should succeed"),
+            neck_conv2_weight: rand(&[512, 256, 3, 3]).expect("tensor creation should succeed"),
+            neck_conv2_bias: rand(&[512]).expect("tensor creation should succeed"),
 
             // Head (Detection layers)
-            head_conv1_weight: rand(&[256, 128, 3, 3]).unwrap(),
-            head_conv1_bias: rand(&[256]).unwrap(),
-            head_conv2_weight: rand(&[512, 256, 3, 3]).unwrap(),
-            head_conv2_bias: rand(&[512]).unwrap(),
-            head_conv3_weight: rand(&[1024, 512, 3, 3]).unwrap(),
-            head_conv3_bias: rand(&[1024]).unwrap(),
+            head_conv1_weight: rand(&[256, 128, 3, 3]).expect("tensor creation should succeed"),
+            head_conv1_bias: rand(&[256]).expect("tensor creation should succeed"),
+            head_conv2_weight: rand(&[512, 256, 3, 3]).expect("tensor creation should succeed"),
+            head_conv2_bias: rand(&[512]).expect("tensor creation should succeed"),
+            head_conv3_weight: rand(&[1024, 512, 3, 3]).expect("tensor creation should succeed"),
+            head_conv3_bias: rand(&[1024]).expect("tensor creation should succeed"),
 
             // Output layers (3 scales)
-            output1_weight: rand(&[3 * (self.num_classes + 5), 256, 1, 1]).unwrap(),
-            output1_bias: rand(&[3 * (self.num_classes + 5)]).unwrap(),
-            output2_weight: rand(&[3 * (self.num_classes + 5), 512, 1, 1]).unwrap(),
-            output2_bias: rand(&[3 * (self.num_classes + 5)]).unwrap(),
-            output3_weight: rand(&[3 * (self.num_classes + 5), 1024, 1, 1]).unwrap(),
-            output3_bias: rand(&[3 * (self.num_classes + 5)]).unwrap(),
+            output1_weight: rand(&[3 * (self.num_classes + 5), 256, 1, 1])
+                .expect("tensor creation should succeed"),
+            output1_bias: rand(&[3 * (self.num_classes + 5)])
+                .expect("tensor creation should succeed"),
+            output2_weight: rand(&[3 * (self.num_classes + 5), 512, 1, 1])
+                .expect("tensor creation should succeed"),
+            output2_bias: rand(&[3 * (self.num_classes + 5)])
+                .expect("tensor creation should succeed"),
+            output3_weight: rand(&[3 * (self.num_classes + 5), 1024, 1, 1])
+                .expect("tensor creation should succeed"),
+            output3_bias: rand(&[3 * (self.num_classes + 5)])
+                .expect("tensor creation should succeed"),
         };
 
         (input, weights)
@@ -1193,38 +1200,43 @@ impl Benchmarkable for SSDBench {
     type Output = (Tensor<f32>, Tensor<f32>); // (class_predictions, box_predictions)
 
     fn setup(&mut self, _size: usize) -> Self::Input {
-        let input = rand(&[self.batch_size, 3, self.input_size, self.input_size]).unwrap();
+        let input = rand(&[self.batch_size, 3, self.input_size, self.input_size])
+            .expect("tensor creation should succeed");
 
         let weights = SSDWeights {
             // Base network (MobileNet-style)
-            base_conv1_weight: rand(&[32, 3, 3, 3]).unwrap(),
-            base_conv1_bias: rand(&[32]).unwrap(),
-            base_conv2_weight: rand(&[64, 32, 3, 3]).unwrap(),
-            base_conv2_bias: rand(&[64]).unwrap(),
-            base_conv3_weight: rand(&[128, 64, 3, 3]).unwrap(),
-            base_conv3_bias: rand(&[128]).unwrap(),
-            base_conv4_weight: rand(&[256, 128, 3, 3]).unwrap(),
-            base_conv4_bias: rand(&[256]).unwrap(),
-            base_conv5_weight: rand(&[512, 256, 3, 3]).unwrap(),
-            base_conv5_bias: rand(&[512]).unwrap(),
+            base_conv1_weight: rand(&[32, 3, 3, 3]).expect("tensor creation should succeed"),
+            base_conv1_bias: rand(&[32]).expect("tensor creation should succeed"),
+            base_conv2_weight: rand(&[64, 32, 3, 3]).expect("tensor creation should succeed"),
+            base_conv2_bias: rand(&[64]).expect("tensor creation should succeed"),
+            base_conv3_weight: rand(&[128, 64, 3, 3]).expect("tensor creation should succeed"),
+            base_conv3_bias: rand(&[128]).expect("tensor creation should succeed"),
+            base_conv4_weight: rand(&[256, 128, 3, 3]).expect("tensor creation should succeed"),
+            base_conv4_bias: rand(&[256]).expect("tensor creation should succeed"),
+            base_conv5_weight: rand(&[512, 256, 3, 3]).expect("tensor creation should succeed"),
+            base_conv5_bias: rand(&[512]).expect("tensor creation should succeed"),
 
             // Extra feature layers
-            extra_conv1_weight: rand(&[256, 512, 1, 1]).unwrap(),
-            extra_conv1_bias: rand(&[256]).unwrap(),
-            extra_conv2_weight: rand(&[512, 256, 3, 3]).unwrap(),
-            extra_conv2_bias: rand(&[512]).unwrap(),
+            extra_conv1_weight: rand(&[256, 512, 1, 1]).expect("tensor creation should succeed"),
+            extra_conv1_bias: rand(&[256]).expect("tensor creation should succeed"),
+            extra_conv2_weight: rand(&[512, 256, 3, 3]).expect("tensor creation should succeed"),
+            extra_conv2_bias: rand(&[512]).expect("tensor creation should succeed"),
 
             // Classification head
-            class_conv1_weight: rand(&[4 * self.num_classes, 256, 3, 3]).unwrap(),
-            class_conv1_bias: rand(&[4 * self.num_classes]).unwrap(),
-            class_conv2_weight: rand(&[6 * self.num_classes, 512, 3, 3]).unwrap(),
-            class_conv2_bias: rand(&[6 * self.num_classes]).unwrap(),
+            class_conv1_weight: rand(&[4 * self.num_classes, 256, 3, 3])
+                .expect("tensor creation should succeed"),
+            class_conv1_bias: rand(&[4 * self.num_classes])
+                .expect("tensor creation should succeed"),
+            class_conv2_weight: rand(&[6 * self.num_classes, 512, 3, 3])
+                .expect("tensor creation should succeed"),
+            class_conv2_bias: rand(&[6 * self.num_classes])
+                .expect("tensor creation should succeed"),
 
             // Localization head
-            loc_conv1_weight: rand(&[4 * 4, 256, 3, 3]).unwrap(), // 4 boxes * 4 coordinates
-            loc_conv1_bias: rand(&[4 * 4]).unwrap(),
-            loc_conv2_weight: rand(&[6 * 4, 512, 3, 3]).unwrap(), // 6 boxes * 4 coordinates
-            loc_conv2_bias: rand(&[6 * 4]).unwrap(),
+            loc_conv1_weight: rand(&[4 * 4, 256, 3, 3]).expect("tensor creation should succeed"), // 4 boxes * 4 coordinates
+            loc_conv1_bias: rand(&[4 * 4]).expect("tensor creation should succeed"),
+            loc_conv2_weight: rand(&[6 * 4, 512, 3, 3]).expect("tensor creation should succeed"), // 6 boxes * 4 coordinates
+            loc_conv2_bias: rand(&[6 * 4]).expect("tensor creation should succeed"),
         };
 
         (input, weights)

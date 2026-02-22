@@ -884,10 +884,11 @@ mod tests {
     #[test]
     fn test_mapped_storage_creation() {
         let config = LazyLoadConfig::default();
-        let temp_dir = tempfile::tempdir().unwrap();
+        let temp_dir = tempfile::tempdir().expect("tempdir creation should succeed");
         let file_path = temp_dir.path().join("test.bin");
 
-        let storage = MappedStorage::<f32>::new(&file_path, 100, config).unwrap();
+        let storage = MappedStorage::<f32>::new(&file_path, 100, config)
+            .expect("storage creation should succeed");
 
         assert_eq!(storage.total_elements(), 100);
         assert_eq!(storage.element_size(), 4);
@@ -897,17 +898,20 @@ mod tests {
     #[test]
     fn test_mapped_storage_read_write() {
         let config = LazyLoadConfig::default();
-        let temp_dir = tempfile::tempdir().unwrap();
+        let temp_dir = tempfile::tempdir().expect("tempdir creation should succeed");
         let file_path = temp_dir.path().join("test.bin");
 
-        let storage = MappedStorage::<f32>::new(&file_path, 10, config).unwrap();
+        let storage = MappedStorage::<f32>::new(&file_path, 10, config)
+            .expect("storage creation should succeed");
 
         // Write some data
         let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-        storage.write_slice(0, &data).unwrap();
+        storage
+            .write_slice(0, &data)
+            .expect("write_slice should succeed");
 
         // Read it back
-        let slice = storage.get_slice(0, 5).unwrap();
+        let slice = storage.get_slice(0, 5).expect("get_slice should succeed");
         let read_data = slice.to_vec();
 
         assert_eq!(read_data, data);
@@ -934,8 +938,9 @@ mod tests {
 
         // Create storage and get slice
         let config = LazyLoadConfig::default().with_full_load(true);
-        let storage = MappedStorage::<f32>::new(_temp_file.path(), 5, config).unwrap();
-        let slice = storage.get_slice(0, 5).unwrap();
+        let storage = MappedStorage::<f32>::new(_temp_file.path(), 5, config)
+            .expect("storage creation should succeed");
+        let slice = storage.get_slice(0, 5).expect("get_slice should succeed");
 
         // Test iteration
         let collected: Vec<f32> = slice.iter().copied().collect();
@@ -950,10 +955,11 @@ mod tests {
     #[test]
     fn test_memory_stats() {
         let config = LazyLoadConfig::default();
-        let temp_dir = tempfile::tempdir().unwrap();
+        let temp_dir = tempfile::tempdir().expect("tempdir creation should succeed");
         let file_path = temp_dir.path().join("test.bin");
 
-        let storage = MappedStorage::<f32>::new(&file_path, 1000, config).unwrap();
+        let storage = MappedStorage::<f32>::new(&file_path, 1000, config)
+            .expect("storage creation should succeed");
 
         // Initially no pages loaded
         let stats = storage.memory_stats();
@@ -961,7 +967,7 @@ mod tests {
         assert_eq!(stats.total_elements, 1000);
 
         // Load some data
-        let _slice = storage.get_slice(0, 100).unwrap();
+        let _slice = storage.get_slice(0, 100).expect("get_slice should succeed");
 
         // Should have some pages loaded now
         let stats = storage.memory_stats();
@@ -985,10 +991,11 @@ mod tests {
     #[test]
     fn test_bounds_checking() {
         let config = LazyLoadConfig::default();
-        let temp_dir = tempfile::tempdir().unwrap();
+        let temp_dir = tempfile::tempdir().expect("tempdir creation should succeed");
         let file_path = temp_dir.path().join("test.bin");
 
-        let storage = MappedStorage::<f32>::new(&file_path, 10, config).unwrap();
+        let storage = MappedStorage::<f32>::new(&file_path, 10, config)
+            .expect("storage creation should succeed");
 
         // Out of bounds read
         let result = storage.get_slice(5, 10);

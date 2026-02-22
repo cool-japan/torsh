@@ -8,6 +8,8 @@ repository.workspace = true
 homepage.workspace = true
 rust-version.workspace = true
 description = "Python bindings for ToRSh (deep learning framework)"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-ffi"
 keywords = ["tensor", "deep-learning", "python", "pytorch", "bindings"]
 categories = ["science", "mathematics", "api-bindings"]
 # Exclude from standard publishing - this should be published through Maturin/PyPI
@@ -18,7 +20,7 @@ build = "build.rs"
 workspace = true
 
 [lib]
-name = "torsh"
+name = "rstorch"
 crate-type = ["cdylib"]
 doc = false  # Exclude from rustdoc to avoid collision with main torsh crate
 
@@ -89,4 +91,4 @@ tempfile = { workspace = true }
 # Maturin configuration for Python package building
 [package.metadata.maturin]
 python-source = "python"
-module-name = "torsh"
+module-name = "rstorch"

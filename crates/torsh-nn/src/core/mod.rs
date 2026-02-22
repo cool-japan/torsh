@@ -60,7 +60,7 @@ use hashbrown::HashMap;
 /// impl Module for MyReLU {
 ///     fn forward(&self, input: &Tensor) -> Result<Tensor> {
 ///         // Apply ReLU: max(0, x)
-///         input.clamp_min(0.0)
+///         input.relu()
 ///     }
 ///
 ///     fn training(&self) -> bool {
@@ -141,7 +141,7 @@ use hashbrown::HashMap;
 ///
 /// ```rust
 /// use torsh_nn::{Module, ModuleBase};
-/// use torsh_tensor::Tensor;
+/// use torsh_tensor::{Tensor, creation};
 /// use torsh_core::error::Result;
 ///
 /// /// Dropout layer with different behavior in train/eval modes
@@ -162,11 +162,15 @@ use hashbrown::HashMap;
 /// impl Module for MyDropout {
 ///     fn forward(&self, input: &Tensor) -> Result<Tensor> {
 ///         if self.training() {
-///             // During training: randomly drop units
-///             let mask = input.bernoulli(1.0 - self.p)?;
-///             let output = input.mul(&mask)?;
-///             // Scale by 1/(1-p) to maintain expected value
-///             output.div_scalar(1.0 - self.p)
+///             // During training: randomly zero out units
+///             let rand_vals = creation::rand_like(input)?;
+///             let threshold = creation::full_like(input, self.p)?;
+///             // Keep elements where random value >= p
+///             let keep_mask = rand_vals.ge(&threshold)?;
+///             let zeros = creation::zeros_like(input)?;
+///             let masked = input.where_tensor(&keep_mask, &zeros)?;
+///             // Scale by 1/(1-p) to maintain expected value (inverted dropout)
+///             masked.div_scalar(1.0 - self.p)
 ///         } else {
 ///             // During evaluation: pass through unchanged
 ///             Ok(input.clone())
@@ -186,49 +190,32 @@ use hashbrown::HashMap;
 /// # Complete Training Loop Example
 ///
 /// ```rust,no_run
-/// use torsh_nn::{Module, Linear, Sequential};
-/// use torsh_optim::{SGD, Optimizer};
+/// use torsh_nn::prelude::{Module, Linear, Sequential};
 /// use torsh_tensor::{Tensor, creation};
 /// use torsh_core::error::Result;
 ///
-/// fn train_model() -> Result<()> {
+/// fn train_eval_example() -> Result<()> {
 ///     // 1. Create model
 ///     let mut model = Sequential::new()
 ///         .add(Linear::new(784, 128, true))
 ///         .add(Linear::new(128, 10, true));
 ///
-///     // 2. Create optimizer
-///     let mut optimizer = SGD::new(0.01)?;
-///     for param in model.parameters().values() {
-///         optimizer.add_param(param.tensor());
-///     }
+///     // 2. Set model to training mode
+///     model.train();
 ///
-///     // 3. Training loop
-///     for epoch in 0..10 {
-///         // Set model to training mode
-///         model.train();
+///     // 3. Forward pass
+///     let inputs = creation::randn(&[32, 784])?;
+///     let outputs = model.forward(&inputs)?;
 ///
-///         // Generate batch (in real code, load from dataset)
-///         let inputs = creation::randn(&[32, 784])?;
-///         let targets = creation::randn(&[32, 10])?;
+///     // 4. Compute loss (simplified MSE)
+///     let targets = creation::randn(&[32, 10])?;
+///     let diff = outputs.sub(&targets)?;
+///     let loss = diff.pow_scalar(2.0)?.mean(None, false)?;
 ///
-///         // Forward pass
-///         let outputs = model.forward(&inputs)?;
+///     // 5. Backward pass (computes gradients)
+///     loss.backward()?;
 ///
-///         // Compute loss (simplified)
-///         let loss = outputs.sub(&targets)?.pow_scalar(2.0)?.mean()?;
-///
-///         // Backward pass
-///         loss.backward()?;
-///
-///         // Update parameters
-///         optimizer.step()?;
-///         optimizer.zero_grad()?;
-///
-///         println!("Epoch {}: Loss = {:.4}", epoch, loss.item::<f32>()?);
-///     }
-///
-///     // 4. Evaluation
+///     // 6. Switch to evaluation mode
 ///     model.eval();
 ///     let test_input = creation::randn(&[10, 784])?;
 ///     let test_output = model.forward(&test_input)?;

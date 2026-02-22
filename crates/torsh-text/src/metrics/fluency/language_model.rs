@@ -197,7 +197,7 @@ impl LanguageModelAnalyzer {
         for (word, freq) in &self.word_frequencies {
             self.ngram_models
                 .get_mut(&1)
-                .unwrap()
+                .expect("ngram model for n=1 was just inserted")
                 .insert(word.clone(), *freq);
         }
     }
@@ -253,7 +253,7 @@ impl LanguageModelAnalyzer {
             // Calculate n-gram probabilities
             for n in 1..=self.config.max_ngram_size {
                 let ngram_prob = self.calculate_ngram_probability(&words, n);
-                *ngram_probabilities.get_mut(&n).unwrap() += ngram_prob;
+                *ngram_probabilities.get_mut(&n).expect("ngram probability entry was pre-inserted") += ngram_prob;
             }
         }
 

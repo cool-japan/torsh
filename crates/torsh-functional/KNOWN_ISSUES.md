@@ -475,7 +475,7 @@ Brief description of the issue
 ## Environment
 - OS: [e.g., Ubuntu 22.04]
 - Rust version: [e.g., 1.75.0]
-- torsh-functional version: [e.g., 0.1.0-alpha.2]
+- torsh-functional version: [e.g., 0.1.0]
 
 ## Reproduction
 \`\`\`rust

@@ -15,7 +15,7 @@ where
 {
     Python::attach(|py| {
         let code_str = format!(
-            "import sys\nsys.path.insert(0, '{}')\nimport torsh_python as torsh\n\n{}",
+            "import sys\nsys.path.insert(0, '{}')\nimport rstorch_python as rstorch\n\n{}",
             env!("CARGO_MANIFEST_DIR"),
             code
         );
@@ -34,7 +34,7 @@ where
 fn test_torsh_error_creation() {
     let result: String = run_python_code(
         r#"
-error = torsh.TorshError("Test error message")
+error = rstorch.TorshError("Test error message")
 result = str(error)
 "#,
         |r| r.extract(),
@@ -48,7 +48,7 @@ result = str(error)
 fn test_torsh_error_repr() {
     let result: String = run_python_code(
         r#"
-error = torsh.TorshError("Test error message")
+error = rstorch.TorshError("Test error message")
 result = repr(error)
 "#,
         |r| r.extract(),
@@ -65,9 +65,9 @@ fn test_torsh_error_type_registered() {
             r#"
 import sys
 sys.path.insert(0, '{}')
-import torsh_python as torsh
+import rstorch_python as rstorch
 
-result = hasattr(torsh, 'TorshError')
+result = hasattr(rstorch, 'TorshError')
 "#,
             env!("CARGO_MANIFEST_DIR")
         );
@@ -89,9 +89,9 @@ fn test_torsh_error_is_type() {
             r#"
 import sys
 sys.path.insert(0, '{}')
-import torsh_python as torsh
+import rstorch_python as rstorch
 
-error = torsh.TorshError("Test")
+error = rstorch.TorshError("Test")
 result = type(error).__name__
 "#,
             env!("CARGO_MANIFEST_DIR")
@@ -111,7 +111,7 @@ result = type(error).__name__
 fn test_torsh_error_empty_message() {
     let result: String = run_python_code(
         r#"
-error = torsh.TorshError("")
+error = rstorch.TorshError("")
 result = str(error)
 "#,
         |r| r.extract(),
@@ -125,7 +125,7 @@ result = str(error)
 fn test_torsh_error_multiline_message() {
     let result: String = run_python_code(
         r#"
-error = torsh.TorshError("Line 1\nLine 2\nLine 3")
+error = rstorch.TorshError("Line 1\nLine 2\nLine 3")
 result = str(error)
 "#,
         |r| r.extract(),
@@ -139,7 +139,7 @@ result = str(error)
 fn test_torsh_error_with_special_characters() {
     let result: String = run_python_code(
         r#"
-error = torsh.TorshError("Error: 'quoted' and \"double quoted\" with symbols !@#$%^&*()")
+error = rstorch.TorshError("Error: 'quoted' and \"double quoted\" with symbols !@#$%^&*()")
 result = str(error)
 "#,
         |r| r.extract(),

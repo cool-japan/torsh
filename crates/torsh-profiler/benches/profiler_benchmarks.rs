@@ -120,29 +120,29 @@ fn bench_export(c: &mut Criterion) {
     }
     stop_profiling();
 
+    let bench_json_path = std::env::temp_dir().join("bench_export.json");
+    let bench_json_str = bench_json_path.display().to_string();
     group.bench_function("json_export", |b| {
         b.iter(|| {
-            let _ = export_global_events(
-                black_box(ExportFormat::Json),
-                black_box("/tmp/bench_export.json"),
-            );
+            let _ = export_global_events(black_box(ExportFormat::Json), black_box(&bench_json_str));
         });
     });
 
+    let bench_csv_path = std::env::temp_dir().join("bench_export.csv");
+    let bench_csv_str = bench_csv_path.display().to_string();
     group.bench_function("csv_export", |b| {
         b.iter(|| {
-            let _ = export_global_events(
-                black_box(ExportFormat::Csv),
-                black_box("/tmp/bench_export.csv"),
-            );
+            let _ = export_global_events(black_box(ExportFormat::Csv), black_box(&bench_csv_str));
         });
     });
 
+    let bench_trace_path = std::env::temp_dir().join("bench_export_trace.json");
+    let bench_trace_str = bench_trace_path.display().to_string();
     group.bench_function("chrome_trace_export", |b| {
         b.iter(|| {
             let _ = export_global_events(
                 black_box(ExportFormat::ChromeTrace),
-                black_box("/tmp/bench_export_trace.json"),
+                black_box(&bench_trace_str),
             );
         });
     });
@@ -150,9 +150,9 @@ fn bench_export(c: &mut Criterion) {
     group.finish();
 
     // Cleanup
-    let _ = std::fs::remove_file("/tmp/bench_export.json");
-    let _ = std::fs::remove_file("/tmp/bench_export.csv");
-    let _ = std::fs::remove_file("/tmp/bench_export_trace.json");
+    let _ = std::fs::remove_file(&bench_json_path);
+    let _ = std::fs::remove_file(&bench_csv_path);
+    let _ = std::fs::remove_file(&bench_trace_path);
     clear_global_events();
 }
 

@@ -78,28 +78,28 @@ torsh_optimizer_step(optimizer);
 python setup.py install
 
 # Or via pip (when available)
-pip install torsh
+pip install RsTorch
 ```
 
 ### Basic Usage
 
 ```python
-import torsh
+import rstorch
 
 # Tensor operations
-x = torsh.tensor([[1, 2], [3, 4]], dtype=torsh.float32)
-y = torsh.tensor([[5, 6], [7, 8]], dtype=torsh.float32)
-z = torsh.matmul(x, y)
+x = rstorch.tensor([[1, 2], [3, 4]], dtype=rstorch.float32)
+y = rstorch.tensor([[5, 6], [7, 8]], dtype=rstorch.float32)
+z = rstorch.matmul(x, y)
 
 # Autograd
-x = torsh.tensor([2.0], requires_grad=True)
+x = rstorch.tensor([2.0], requires_grad=True)
 y = x ** 2
 y.backward()
 print(x.grad)  # tensor([4.0])
 
 # Neural networks
-import torsh.nn as nn
-import torsh.nn.functional as F
+import rstorch.nn as nn
+import rstorch.nn.functional as F
 
 class Net(nn.Module):
     def __init__(self):
@@ -112,7 +112,7 @@ class Net(nn.Module):
         return self.fc2(x)
 
 model = Net()
-optimizer = torsh.optim.Adam(model.parameters(), lr=0.001)
+optimizer = rstorch.optim.Adam(model.parameters(), lr=0.001)
 ```
 
 ### PyTorch Compatibility
@@ -120,17 +120,17 @@ optimizer = torsh.optim.Adam(model.parameters(), lr=0.001)
 ```python
 # Convert between PyTorch and ToRSh
 import torch
-import torsh
+import rstorch
 
 # PyTorch to ToRSh
 torch_tensor = torch.randn(10, 20)
-torsh_tensor = torsh.from_pytorch(torch_tensor)
+torsh_tensor = rstorch.from_pytorch(torch_tensor)
 
 # ToRSh to PyTorch
 torch_tensor = torsh_tensor.to_pytorch()
 
 # Share memory (zero-copy)
-shared = torsh.as_tensor(torch_tensor)
+shared = rstorch.as_tensor(torch_tensor)
 ```
 
 ## Error Handling
@@ -153,10 +153,10 @@ if (error != NULL) {
 
 ```python
 try:
-    result = torsh.matmul(a, b)
-except torsh.ShapeMismatchError as e:
+    result = rstorch.matmul(a, b)
+except rstorch.ShapeMismatchError as e:
     print(f"Shape error: {e}")
-except torsh.OutOfMemoryError as e:
+except rstorch.OutOfMemoryError as e:
     print(f"Memory error: {e}")
 ```
 
@@ -232,9 +232,4 @@ The FFI layer adds minimal overhead:
 
 ## License
 
-Licensed under either of
-
-- Apache License, Version 2.0 ([LICENSE-APACHE](../../LICENSE-APACHE))
-- MIT license ([LICENSE-MIT](../../LICENSE-MIT))
-
-at your option.
+Licensed under the Apache License, Version 2.0. See [LICENSE](../../LICENSE) for details.

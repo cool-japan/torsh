@@ -48,7 +48,7 @@ impl SparseLinear {
     /// ```rust
     /// use torsh_sparse::nn::basic::SparseLinear;
     ///
-    /// let layer = SparseLinear::new(784, 128, 0.9, true).unwrap();
+    /// let layer = SparseLinear::new(784, 128, 0.9, true).expect("valid linear config");
     /// ```
     pub fn new(
         in_features: usize,
@@ -437,7 +437,7 @@ impl SparseEmbedding {
     /// ```rust
     /// use torsh_sparse::nn::basic::SparseEmbedding;
     ///
-    /// let embedding = SparseEmbedding::new(10000, 300, 0.8).unwrap();
+    /// let embedding = SparseEmbedding::new(10000, 300, 0.8).expect("valid embedding config");
     /// ```
     pub fn new(vocab_size: usize, embedding_dim: usize, sparsity: f32) -> TorshResult<Self> {
         if !(0.0..=1.0).contains(&sparsity) {

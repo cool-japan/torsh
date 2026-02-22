@@ -369,7 +369,7 @@ mod tests {
     #[test]
     fn test_storage_integration() {
         let device = CpuDevice::new();
-        let storage = TestStorage::allocate(&device, 100).unwrap();
+        let storage = TestStorage::allocate(&device, 100).expect("allocate should succeed");
         let shared = SharedStorage::new(storage);
 
         assert_eq!(shared.get().len(), 100);
@@ -383,14 +383,15 @@ mod tests {
     #[test]
     fn test_storage_view_integration() {
         let device = CpuDevice::new();
-        let storage = TestStorage::allocate(&device, 100).unwrap();
+        let storage = TestStorage::allocate(&device, 100).expect("allocate should succeed");
         let shared = SharedStorage::new(storage);
 
-        let view = StorageView::new(shared.clone(), 10, 20).unwrap();
+        let view =
+            StorageView::new(shared.clone(), 10, 20).expect("StorageView::new should succeed");
         assert_eq!(view.offset(), 10);
         assert_eq!(view.view_len(), 20);
 
-        let sub_view = view.slice(5, 10).unwrap();
+        let sub_view = view.slice(5, 10).expect("slice should succeed");
         assert_eq!(sub_view.offset(), 15); // 10 + 5
         assert_eq!(sub_view.view_len(), 10);
     }
@@ -434,15 +435,17 @@ mod tests {
     #[test]
     fn test_optimized_view_creation() {
         let device = CpuDevice::new();
-        let storage = TestStorage::allocate(&device, 1000).unwrap();
+        let storage = TestStorage::allocate(&device, 1000).expect("allocate should succeed");
         let shared = SharedStorage::new(storage);
 
         // Test sequential access view
-        let view = utils::create_optimized_view(shared.clone(), AccessPattern::Sequential).unwrap();
+        let view = utils::create_optimized_view(shared.clone(), AccessPattern::Sequential)
+            .expect("create_optimized_view should succeed");
         assert_eq!(view.view_len(), 1000); // Should use full view for sequential access
 
         // Test random access view
-        let view = utils::create_optimized_view(shared.clone(), AccessPattern::Random).unwrap();
+        let view = utils::create_optimized_view(shared.clone(), AccessPattern::Random)
+            .expect("create_optimized_view should succeed");
         assert!(view.view_len() <= 64 * 1024); // Should use smaller chunk for random access
     }
 
@@ -452,7 +455,7 @@ mod tests {
         use super::prelude::*;
 
         let device = CpuDevice::new();
-        let storage = TestStorage::allocate(&device, 10).unwrap();
+        let storage = TestStorage::allocate(&device, 10).expect("allocate should succeed");
         let _shared = SharedStorage::new(storage);
 
         let _format = MemoryFormat::Contiguous;

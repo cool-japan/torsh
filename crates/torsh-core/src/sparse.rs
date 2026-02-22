@@ -1034,7 +1034,8 @@ mod tests {
         let values = [1.0_f32.to_ne_bytes(), 2.0_f32.to_ne_bytes()].concat();
         let shape = Shape::new(vec![2, 2]);
 
-        let storage = CooStorage::new(indices, values, DType::F32, shape).unwrap();
+        let storage = CooStorage::new(indices, values, DType::F32, shape)
+            .expect("CooStorage::new should succeed");
 
         assert_eq!(storage.nnz(), 2);
         assert_eq!(storage.format(), SparseFormat::COO);
@@ -1047,14 +1048,15 @@ mod tests {
         let values = [1.0_f32.to_ne_bytes(), 2.0_f32.to_ne_bytes()].concat();
         let shape = Shape::new(vec![2, 2]);
 
-        let coo_storage = CooStorage::new(indices, values, DType::F32, shape).unwrap();
+        let coo_storage = CooStorage::new(indices, values, DType::F32, shape)
+            .expect("CooStorage::new should succeed");
 
         // Convert COO -> CSR
-        let csr_storage = coo_storage.to_csr().unwrap();
+        let csr_storage = coo_storage.to_csr().expect("to_csr should succeed");
         assert_eq!(csr_storage.format(), SparseFormat::CSR);
 
         // Convert CSR -> COO
-        let coo_again = csr_storage.to_coo().unwrap();
+        let coo_again = csr_storage.to_coo().expect("to_coo should succeed");
         assert_eq!(coo_again.format(), SparseFormat::COO);
     }
 

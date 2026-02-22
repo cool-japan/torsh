@@ -361,46 +361,76 @@ mod tests {
 
     #[tokio::test]
     async fn test_async_add() {
-        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
-        let b = Tensor::from_data(vec![4.0f32, 5.0, 6.0], vec![3], DeviceType::Cpu).unwrap();
+        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
+        let b = Tensor::from_data(vec![4.0f32, 5.0, 6.0], vec![3], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let result = a.add_async(&b).await.unwrap();
+        let result = a
+            .add_async(&b)
+            .await
+            .expect("async operation should succeed");
         let expected = vec![5.0f32, 7.0, 9.0];
 
-        assert_eq!(result.to_vec().unwrap(), expected);
+        assert_eq!(
+            result.to_vec().expect("to_vec conversion should succeed"),
+            expected
+        );
     }
 
     #[tokio::test]
     async fn test_async_matmul() {
-        let a =
-            Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu).unwrap();
-        let b =
-            Tensor::from_data(vec![5.0f32, 6.0, 7.0, 8.0], vec![2, 2], DeviceType::Cpu).unwrap();
+        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
+        let b = Tensor::from_data(vec![5.0f32, 6.0, 7.0, 8.0], vec![2, 2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let result = a.matmul_async(&b).await.unwrap();
+        let result = a
+            .matmul_async(&b)
+            .await
+            .expect("async operation should succeed");
         assert_eq!(result.shape().dims(), &[2, 2]);
 
         // [1*5+2*7, 1*6+2*8] = [19, 22]
         // [3*5+4*7, 3*6+4*8] = [43, 50]
         let expected = vec![19.0f32, 22.0, 43.0, 50.0];
-        assert_eq!(result.to_vec().unwrap(), expected);
+        assert_eq!(
+            result.to_vec().expect("to_vec conversion should succeed"),
+            expected
+        );
     }
 
     #[tokio::test]
     async fn test_async_batch() {
-        let a = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu).unwrap();
-        let b = Tensor::from_data(vec![3.0f32, 4.0], vec![2], DeviceType::Cpu).unwrap();
-        let c = Tensor::from_data(vec![5.0f32, 6.0], vec![2], DeviceType::Cpu).unwrap();
+        let a = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
+        let b = Tensor::from_data(vec![3.0f32, 4.0], vec![2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
+        let c = Tensor::from_data(vec![5.0f32, 6.0], vec![2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
         let batch = AsyncBatch::new()
             .add_operation(a.add_async(&b))
             .add_operation(a.mul_async(&c));
 
-        let results = batch.execute_all().await.unwrap();
+        let results = batch
+            .execute_all()
+            .await
+            .expect("async operation should succeed");
 
         assert_eq!(results.len(), 2);
-        assert_eq!(results[0].to_vec().unwrap(), vec![4.0f32, 6.0]); // a + b
-        assert_eq!(results[1].to_vec().unwrap(), vec![5.0f32, 12.0]); // a * c
+        assert_eq!(
+            results[0]
+                .to_vec()
+                .expect("to_vec conversion should succeed"),
+            vec![4.0f32, 6.0]
+        ); // a + b
+        assert_eq!(
+            results[1]
+                .to_vec()
+                .expect("to_vec conversion should succeed"),
+            vec![5.0f32, 12.0]
+        ); // a * c
     }
 
     #[test]

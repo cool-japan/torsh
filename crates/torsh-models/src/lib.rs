@@ -39,6 +39,9 @@ pub mod video;
 pub mod vision;
 pub mod vision_3d;
 
+#[cfg(feature = "diffusion_extended")]
+pub mod diffusion;
+
 // Re-exports
 pub use downloader::{DownloadProgress, ModelDownloader};
 pub use lazy_loading::{CacheStats, LazyModelLoader, LazyTensor, StreamingModelLoader};

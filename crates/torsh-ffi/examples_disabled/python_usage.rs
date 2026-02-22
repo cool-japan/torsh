@@ -6,11 +6,11 @@ fn main() {
     // In a real scenario, this would be called from Python
     println!("Example Python usage:");
     println!("```python");
-    println!("import torsh");
+    println!("import rstorch");
     println!();
     println!("# Create tensors");
-    println!("x = torsh.tensor([[1.0, 2.0], [3.0, 4.0]])");
-    println!("y = torsh.tensor([[5.0, 6.0], [7.0, 8.0]])");
+    println!("x = rstorch.tensor([[1.0, 2.0], [3.0, 4.0]])");
+    println!("y = rstorch.tensor([[5.0, 6.0], [7.0, 8.0]])");
     println!();
     println!("# Basic operations");
     println!("z = x + y");
@@ -21,11 +21,11 @@ fn main() {
     println!("print(result)");
     println!();
     println!("# Neural network");
-    println!("model = torsh.Linear(2, 1)");
+    println!("model = rstorch.Linear(2, 1)");
     println!("output = model.forward(x)");
     println!();
     println!("# Optimizer");
-    println!("optimizer = torsh.SGD(model.parameters(), lr=0.01)");
+    println!("optimizer = rstorch.SGD(model.parameters(), lr=0.01)");
     println!("optimizer.step()");
     println!("```");
 }

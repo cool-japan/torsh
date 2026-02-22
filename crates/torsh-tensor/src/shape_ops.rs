@@ -46,18 +46,18 @@ impl<T: TensorElement + Copy> Tensor<T> {
     /// use torsh_tensor::creation::zeros;
     ///
     /// // Reshape a 1D tensor to 2D
-    /// let t = zeros::<f32>(&[6]).unwrap();
-    /// let reshaped = t.view(&[2, 3]).unwrap();
+    /// let t = zeros::<f32>(&[6]).expect("tensor creation should succeed");
+    /// let reshaped = t.view(&[2, 3]).expect("view should succeed");
     /// assert_eq!(reshaped.shape().dims(), &[2, 3]);
     ///
     /// // Use -1 to infer a dimension
-    /// let t2 = zeros::<f32>(&[12]).unwrap();
-    /// let auto = t2.view(&[-1, 4]).unwrap();  // Infers 3 for first dimension
+    /// let t2 = zeros::<f32>(&[12]).expect("tensor creation should succeed");
+    /// let auto = t2.view(&[-1, 4]).expect("view should succeed");  // Infers 3 for first dimension
     /// assert_eq!(auto.shape().dims(), &[3, 4]);
     ///
     /// // Flatten to 1D
-    /// let matrix = zeros::<f32>(&[3, 4, 5]).unwrap();
-    /// let flat = matrix.view(&[-1]).unwrap();
+    /// let matrix = zeros::<f32>(&[3, 4, 5]).expect("tensor creation should succeed");
+    /// let flat = matrix.view(&[-1]).expect("view should succeed");
     /// assert_eq!(flat.shape().dims(), &[60]);
     /// ```
     ///
@@ -386,24 +386,24 @@ impl<T: TensorElement + Copy> Tensor<T> {
     /// use torsh_tensor::creation::{zeros, arange};
     ///
     /// // Standard matrix transpose
-    /// let matrix = zeros::<f32>(&[3, 4]).unwrap();
-    /// let transposed = matrix.transpose(0, 1).unwrap();
+    /// let matrix = zeros::<f32>(&[3, 4]).expect("tensor creation should succeed");
+    /// let transposed = matrix.transpose(0, 1).expect("transpose should succeed");
     /// assert_eq!(transposed.shape().dims(), &[4, 3]);
     ///
     /// // Transpose in 3D tensor
-    /// let cube = zeros::<f32>(&[2, 3, 4]).unwrap();
-    /// let swapped = cube.transpose(0, 2).unwrap();
+    /// let cube = zeros::<f32>(&[2, 3, 4]).expect("tensor creation should succeed");
+    /// let swapped = cube.transpose(0, 2).expect("transpose should succeed");
     /// assert_eq!(swapped.shape().dims(), &[4, 3, 2]);
     ///
     /// // Use negative indexing
-    /// let t = zeros::<f32>(&[5, 6, 7]).unwrap();
-    /// let result = t.transpose(-2, -1).unwrap();
+    /// let t = zeros::<f32>(&[5, 6, 7]).expect("tensor creation should succeed");
+    /// let result = t.transpose(-2, -1).expect("transpose should succeed");
     /// assert_eq!(result.shape().dims(), &[5, 7, 6]);
     ///
     /// // Practical use: convert between row-major and column-major
-    /// let data = arange(0, 12, 1).unwrap();
-    /// let row_major = data.reshape(&[3, 4]).unwrap();
-    /// let col_major = row_major.transpose(0, 1).unwrap();
+    /// let data = arange(0, 12, 1).expect("arange should succeed");
+    /// let row_major = data.reshape(&[3, 4]).expect("reshape should succeed");
+    /// let col_major = row_major.transpose(0, 1).expect("transpose should succeed");
     /// ```
     ///
     /// # See Also
@@ -545,19 +545,19 @@ impl<T: TensorElement + Copy> Tensor<T> {
     /// use torsh_tensor::creation::zeros;
     ///
     /// // Remove a singleton dimension
-    /// let t = zeros::<f32>(&[3, 1, 4]).unwrap();
-    /// let squeezed = t.squeeze(1).unwrap();
+    /// let t = zeros::<f32>(&[3, 1, 4]).expect("tensor creation should succeed");
+    /// let squeezed = t.squeeze(1).expect("squeeze should succeed");
     /// assert_eq!(squeezed.shape().dims(), &[3, 4]);
     ///
     /// // Use negative indexing
-    /// let t2 = zeros::<f32>(&[2, 3, 1]).unwrap();
-    /// let squeezed2 = t2.squeeze(-1).unwrap();
+    /// let t2 = zeros::<f32>(&[2, 3, 1]).expect("tensor creation should succeed");
+    /// let squeezed2 = t2.squeeze(-1).expect("squeeze should succeed");
     /// assert_eq!(squeezed2.shape().dims(), &[2, 3]);
     ///
     /// // After a reduction operation
-    /// let matrix = zeros::<f32>(&[5, 10]).unwrap();
-    /// let reduced = matrix.sum_dim(&[1], true).unwrap();  // Shape: [5, 1]
-    /// let final_result = reduced.squeeze(1).unwrap();  // Shape: [5]
+    /// let matrix = zeros::<f32>(&[5, 10]).expect("tensor creation should succeed");
+    /// let reduced = matrix.sum_dim(&[1], true).expect("sum_dim should succeed");  // Shape: [5, 1]
+    /// let final_result = reduced.squeeze(1).expect("squeeze should succeed");  // Shape: [5]
     /// ```
     ///
     /// # See Also
@@ -610,18 +610,18 @@ impl<T: TensorElement + Copy> Tensor<T> {
     /// use torsh_tensor::creation::zeros;
     ///
     /// // Add a batch dimension at the beginning
-    /// let t = zeros::<f32>(&[3, 4]).unwrap();
-    /// let batched = t.unsqueeze(0).unwrap();
+    /// let t = zeros::<f32>(&[3, 4]).expect("tensor creation should succeed");
+    /// let batched = t.unsqueeze(0).expect("unsqueeze should succeed");
     /// assert_eq!(batched.shape().dims(), &[1, 3, 4]);
     ///
     /// // Add a dimension at the end
-    /// let t2 = zeros::<f32>(&[5]).unwrap();
-    /// let expanded = t2.unsqueeze(-1).unwrap();
+    /// let t2 = zeros::<f32>(&[5]).expect("tensor creation should succeed");
+    /// let expanded = t2.unsqueeze(-1).expect("unsqueeze should succeed");
     /// assert_eq!(expanded.shape().dims(), &[5, 1]);
     ///
     /// // Prepare for broadcasting
-    /// let weights = zeros::<f32>(&[64]).unwrap();
-    /// let weights_2d = weights.unsqueeze(0).unwrap();  // Shape: [1, 64]
+    /// let weights = zeros::<f32>(&[64]).expect("tensor creation should succeed");
+    /// let weights_2d = weights.unsqueeze(0).expect("unsqueeze should succeed");  // Shape: [1, 64]
     /// // Now can broadcast with shape [batch_size, 64]
     /// ```
     ///
@@ -659,12 +659,12 @@ impl<T: TensorElement + Copy> Tensor<T> {
     /// use torsh_tensor::creation::arange;
     ///
     /// // Reshape a sequence to a matrix
-    /// let t = arange(0, 12, 1).unwrap();
-    /// let matrix = t.reshape(&[3, 4]).unwrap();
+    /// let t = arange(0, 12, 1).expect("arange should succeed");
+    /// let matrix = t.reshape(&[3, 4]).expect("reshape should succeed");
     /// assert_eq!(matrix.shape().dims(), &[3, 4]);
     ///
     /// // Reshape with automatic dimension inference
-    /// let cube = t.reshape(&[2, -1, 3]).unwrap();  // Infers 2 for middle dimension
+    /// let cube = t.reshape(&[2, -1, 3]).expect("reshape should succeed");  // Infers 2 for middle dimension
     /// assert_eq!(cube.shape().dims(), &[2, 2, 3]);
     /// ```
     ///
@@ -1024,9 +1024,10 @@ mod tests {
     #[test]
     fn test_tensor_view() {
         let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0];
-        let tensor = Tensor::from_data(data, vec![2, 3], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![2, 3], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let reshaped = tensor.view(&[3, 2]).unwrap();
+        let reshaped = tensor.view(&[3, 2]).expect("view should succeed");
         assert_eq!(reshaped.shape().dims(), &[3, 2]);
         assert_eq!(reshaped.numel(), 6);
     }
@@ -1034,72 +1035,87 @@ mod tests {
     #[test]
     fn test_tensor_view_with_inference() {
         let data = vec![1.0f32; 24];
-        let tensor = Tensor::from_data(data, vec![2, 3, 4], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![2, 3, 4], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let reshaped = tensor.view(&[6, -1]).unwrap();
+        let reshaped = tensor.view(&[6, -1]).expect("view should succeed");
         assert_eq!(reshaped.shape().dims(), &[6, 4]);
     }
 
     #[test]
     fn test_tensor_slice() {
         let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0];
-        let tensor = Tensor::from_data(data, vec![2, 3], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![2, 3], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let slice = tensor.slice_tensor(1, 1, 3).unwrap();
+        let slice = tensor.slice_tensor(1, 1, 3).expect("slice should succeed");
         assert_eq!(slice.shape().dims(), &[2, 2]);
     }
 
     #[test]
     fn test_tensor_transpose() {
         let data = vec![1.0f32, 2.0, 3.0, 4.0];
-        let tensor = Tensor::from_data(data, vec![2, 2], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![2, 2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let transposed = tensor.transpose(0, 1).unwrap();
+        let transposed = tensor.transpose(0, 1).expect("transpose should succeed");
         assert_eq!(transposed.shape().dims(), &[2, 2]);
-        assert_eq!(transposed.get(&[0, 1]).unwrap(), 3.0);
-        assert_eq!(transposed.get(&[1, 0]).unwrap(), 2.0);
+        assert_eq!(
+            transposed.get(&[0, 1]).expect("data access should succeed"),
+            3.0
+        );
+        assert_eq!(
+            transposed.get(&[1, 0]).expect("data access should succeed"),
+            2.0
+        );
     }
 
     #[test]
     fn test_tensor_squeeze_unsqueeze() {
         let data = vec![1.0f32, 2.0, 3.0];
-        let tensor = Tensor::from_data(data, vec![1, 3], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![1, 3], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let squeezed = tensor.squeeze(0).unwrap();
+        let squeezed = tensor.squeeze(0).expect("squeeze should succeed");
         assert_eq!(squeezed.shape().dims(), &[3]);
 
-        let unsqueezed = squeezed.unsqueeze(0).unwrap();
+        let unsqueezed = squeezed.unsqueeze(0).expect("unsqueeze should succeed");
         assert_eq!(unsqueezed.shape().dims(), &[1, 3]);
     }
 
     #[test]
     fn test_tensor_permute() {
         let data = vec![1.0f32; 24];
-        let tensor = Tensor::from_data(data, vec![2, 3, 4], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![2, 3, 4], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let permuted = tensor.permute(&[2, 0, 1]).unwrap();
+        let permuted = tensor.permute(&[2, 0, 1]).expect("permute should succeed");
         assert_eq!(permuted.shape().dims(), &[4, 2, 3]);
     }
 
     #[test]
     fn test_is_contiguous() {
         let data = vec![1.0f32, 2.0, 3.0, 4.0];
-        let tensor = Tensor::from_data(data, vec![2, 2], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![2, 2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
         assert!(tensor.is_contiguous());
 
-        let transposed = tensor.transpose_view(0, 1).unwrap();
+        let transposed = tensor
+            .transpose_view(0, 1)
+            .expect("transpose view should succeed");
         assert!(!transposed.is_contiguous());
 
-        let contiguous = transposed.contiguous().unwrap();
+        let contiguous = transposed.contiguous().expect("contiguous should succeed");
         assert!(contiguous.is_contiguous());
     }
 
     #[test]
     fn test_expand() {
         let data = vec![1.0f32, 2.0];
-        let tensor = Tensor::from_data(data, vec![1, 2], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![1, 2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let expanded = tensor.expand(&[3, 2]).unwrap();
+        let expanded = tensor.expand(&[3, 2]).expect("expand should succeed");
         assert_eq!(expanded.shape().dims(), &[3, 2]);
         assert_eq!(expanded.numel(), 6);
     }
@@ -1107,7 +1123,8 @@ mod tests {
     #[test]
     fn test_view_error_handling() {
         let data = vec![1.0f32, 2.0, 3.0];
-        let tensor = Tensor::from_data(data, vec![3], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![3], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
         // Should fail - wrong total size
         assert!(tensor.view(&[2, 2]).is_err());
@@ -1118,37 +1135,45 @@ mod tests {
 
     #[test]
     fn test_movedim_single() {
-        let tensor = Tensor::from_data(vec![1.0f32; 24], vec![2, 3, 4], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32; 24], vec![2, 3, 4], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
         // Move dim 0 to position 2: [2,3,4] -> [3,4,2]
-        let result = tensor.movedim(&[0], &[2]).unwrap();
+        let result = tensor.movedim(&[0], &[2]).expect("movedim should succeed");
         assert_eq!(result.shape().dims(), &[3, 4, 2]);
     }
 
     #[test]
     fn test_movedim_multiple() {
-        let tensor = Tensor::from_data(vec![1.0f32; 24], vec![2, 3, 4], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32; 24], vec![2, 3, 4], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
         // Move dims [0, 1] to positions [2, 0]: [2,3,4] -> [3,4,2]
-        let result = tensor.movedim(&[0, 1], &[2, 0]).unwrap();
+        let result = tensor
+            .movedim(&[0, 1], &[2, 0])
+            .expect("movedim should succeed");
         assert_eq!(result.shape().dims(), &[3, 4, 2]);
     }
 
     #[test]
     fn test_movedim_negative_indices() {
-        let tensor = Tensor::from_data(vec![1.0f32; 24], vec![2, 3, 4], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32; 24], vec![2, 3, 4], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
         // Move last dim to first position: [2,3,4] -> [4,2,3]
-        let result = tensor.movedim(&[-1], &[0]).unwrap();
+        let result = tensor.movedim(&[-1], &[0]).expect("movedim should succeed");
         assert_eq!(result.shape().dims(), &[4, 2, 3]);
     }
 
     #[test]
     fn test_moveaxis_alias() {
-        let tensor = Tensor::from_data(vec![1.0f32; 24], vec![2, 3, 4], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32; 24], vec![2, 3, 4], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let result1 = tensor.movedim(&[0], &[2]).unwrap();
-        let result2 = tensor.moveaxis(&[0], &[2]).unwrap();
+        let result1 = tensor.movedim(&[0], &[2]).expect("movedim should succeed");
+        let result2 = tensor
+            .moveaxis(&[0], &[2])
+            .expect("moveaxis should succeed");
         assert_eq!(result1.shape().dims(), result2.shape().dims());
     }
 
@@ -1159,65 +1184,75 @@ mod tests {
             vec![2, 3],
             DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("tensor creation should succeed");
 
         // Swap dims 0 and 1: [2,3] -> [3,2]
-        let result = tensor.swapaxes(0, 1).unwrap();
+        let result = tensor.swapaxes(0, 1).expect("swapaxes should succeed");
         assert_eq!(result.shape().dims(), &[3, 2]);
     }
 
     #[test]
     fn test_swapaxes_3d() {
-        let tensor = Tensor::from_data(vec![1.0f32; 24], vec![2, 3, 4], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32; 24], vec![2, 3, 4], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
         // Swap dims 0 and 2: [2,3,4] -> [4,3,2]
-        let result = tensor.swapaxes(0, 2).unwrap();
+        let result = tensor.swapaxes(0, 2).expect("swapaxes should succeed");
         assert_eq!(result.shape().dims(), &[4, 3, 2]);
     }
 
     #[test]
     fn test_swapaxes_negative_indices() {
-        let tensor = Tensor::from_data(vec![1.0f32; 24], vec![2, 3, 4], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32; 24], vec![2, 3, 4], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
         // Swap last two dims: [2,3,4] -> [2,4,3]
-        let result = tensor.swapaxes(-1, -2).unwrap();
+        let result = tensor.swapaxes(-1, -2).expect("swapaxes should succeed");
         assert_eq!(result.shape().dims(), &[2, 4, 3]);
     }
 
     #[test]
     fn test_swapdims_alias() {
-        let tensor = Tensor::from_data(vec![1.0f32; 24], vec![2, 3, 4], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32; 24], vec![2, 3, 4], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let result1 = tensor.swapaxes(0, 2).unwrap();
-        let result2 = tensor.swapdims(0, 2).unwrap();
+        let result1 = tensor.swapaxes(0, 2).expect("swapaxes should succeed");
+        let result2 = tensor.swapdims(0, 2).expect("swapdims should succeed");
         assert_eq!(result1.shape().dims(), result2.shape().dims());
     }
 
     #[test]
     fn test_broadcast_to_same_shape() {
-        let tensor =
-            Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let result = tensor.broadcast_to(&[2, 2]).unwrap();
+        let result = tensor
+            .broadcast_to(&[2, 2])
+            .expect("broadcast_to should succeed");
         assert_eq!(result.shape().dims(), &[2, 2]);
     }
 
     #[test]
     fn test_broadcast_to_expand_dim() {
-        let tensor = Tensor::from_data(vec![1.0f32, 2.0], vec![1, 2], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0], vec![1, 2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
         // Broadcast [1, 2] to [3, 2]
-        let result = tensor.broadcast_to(&[3, 2]).unwrap();
+        let result = tensor
+            .broadcast_to(&[3, 2])
+            .expect("broadcast_to should succeed");
         assert_eq!(result.shape().dims(), &[3, 2]);
     }
 
     #[test]
     fn test_expand_as_basic() {
-        let tensor = Tensor::from_data(vec![1.0f32, 2.0], vec![1, 2], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0], vec![1, 2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let target = Tensor::from_data(vec![0.0f32; 6], vec![3, 2], DeviceType::Cpu).unwrap();
+        let target = Tensor::from_data(vec![0.0f32; 6], vec![3, 2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let result = tensor.expand_as(&target).unwrap();
+        let result = tensor.expand_as(&target).expect("expand_as should succeed");
         assert_eq!(result.shape().dims(), target.shape().dims());
         assert_eq!(result.shape().dims(), &[3, 2]);
     }

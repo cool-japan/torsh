@@ -35,7 +35,7 @@
 //!
 //! let result = manager.download_with_mirrors(
 //!     "models/bert-base-uncased.torsh",
-//!     Path::new("/tmp/model.torsh"),
+//!     &std::env::temp_dir().join("model.torsh"),
 //!     true
 //! ).await;
 //! # });
@@ -257,7 +257,7 @@ pub fn create_regional_manager(region: &str) -> torsh_core::error::Result<Mirror
 /// # tokio_test::block_on(async {
 /// let result = quick_download(
 ///     "models/bert-base-uncased.torsh",
-///     Path::new("/tmp/model.torsh")
+///     &std::env::temp_dir().join("model.torsh")
 /// ).await;
 /// # });
 /// ```
@@ -366,7 +366,7 @@ pub mod examples {
         let result = manager
             .download_with_mirrors(
                 "models/example.torsh",
-                Path::new("/tmp/example.torsh"),
+                &std::env::temp_dir().join("example.torsh"),
                 true,
             )
             .await?;

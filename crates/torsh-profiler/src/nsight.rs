@@ -489,6 +489,8 @@ mod tests {
         profiler.enable().unwrap();
         let range = profiler.start_nvtx_range("test_range").unwrap();
         assert_eq!(range.name(), "test_range");
+        // Ensure some measurable time has elapsed before checking duration
+        std::thread::sleep(std::time::Duration::from_millis(1));
         assert!(range.duration().as_nanos() > 0);
     }
 
@@ -561,11 +563,12 @@ mod tests {
             )
             .unwrap();
 
-        let temp_file = "/tmp/test_nsight_export.json";
-        let result = profiler.export_nsight_data(temp_file);
+        let temp_file = std::env::temp_dir().join("test_nsight_export.json");
+        let temp_str = temp_file.display().to_string();
+        let result = profiler.export_nsight_data(&temp_str);
         assert!(result.is_ok());
 
         // Clean up
-        let _ = std::fs::remove_file(temp_file);
+        let _ = std::fs::remove_file(&temp_file);
     }
 }

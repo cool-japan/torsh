@@ -451,7 +451,9 @@ pub fn create_linear_graph(op_types: &[&str]) -> ComputationGraph {
 
         if i > 0 {
             let prev_id = format!("node_{}", i - 1);
-            graph.connect_nodes(&prev_id, &node_id).unwrap();
+            graph
+                .connect_nodes(&prev_id, &node_id)
+                .expect("nodes were just added");
         }
     }
 
@@ -477,10 +479,18 @@ pub fn create_branching_graph() -> ComputationGraph {
     graph.add_node(merge);
 
     // Connect nodes
-    graph.connect_nodes("root", "branch1").unwrap();
-    graph.connect_nodes("root", "branch2").unwrap();
-    graph.connect_nodes("branch1", "merge").unwrap();
-    graph.connect_nodes("branch2", "merge").unwrap();
+    graph
+        .connect_nodes("root", "branch1")
+        .expect("nodes were just added");
+    graph
+        .connect_nodes("root", "branch2")
+        .expect("nodes were just added");
+    graph
+        .connect_nodes("branch1", "merge")
+        .expect("nodes were just added");
+    graph
+        .connect_nodes("branch2", "merge")
+        .expect("nodes were just added");
 
     graph
 }

@@ -544,7 +544,8 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
             })
             .collect();
 
-        value_index_pairs.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+        value_index_pairs
+            .sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
 
         // Keep only top-k values
         let top_k_indices: Vec<usize> = value_index_pairs
@@ -860,7 +861,8 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
             let end = start + values_per_element;
             if end <= compressed.data.len() && idx < original_size {
                 let bytes = &compressed.data[start..end];
-                let value = f64::from_le_bytes(bytes.try_into().unwrap());
+                let value =
+                    f64::from_le_bytes(bytes.try_into().expect("slice should be 8 bytes for f64"));
                 gradients[idx] = <T as torsh_core::dtype::TensorElement>::from_f64(value)
                     .expect("f64 conversion should succeed");
             }
@@ -887,7 +889,8 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
             let end = start + values_per_element;
             if end <= compressed.data.len() && idx < original_size {
                 let bytes = &compressed.data[start..end];
-                let value = f64::from_le_bytes(bytes.try_into().unwrap());
+                let value =
+                    f64::from_le_bytes(bytes.try_into().expect("slice should be 8 bytes for f64"));
                 gradients[idx] = <T as torsh_core::dtype::TensorElement>::from_f64(value)
                     .expect("f64 conversion should succeed");
             }
@@ -918,7 +921,8 @@ impl<T: FloatElement + FromPrimitive + ToPrimitive> GradientCompressor<T> {
             let start = i * values_per_element;
             let end = start + values_per_element;
             let bytes = &compressed.data[start..end];
-            let value = f64::from_le_bytes(bytes.try_into().unwrap());
+            let value =
+                f64::from_le_bytes(bytes.try_into().expect("slice should be 8 bytes for f64"));
             gradients[i] = <T as torsh_core::dtype::TensorElement>::from_f64(value)
                 .expect("f64 conversion should succeed");
         }

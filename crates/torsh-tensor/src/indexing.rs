@@ -1181,16 +1181,31 @@ mod tests {
 
     #[test]
     fn test_get_set() {
-        let tensor = tensor_2d(&[&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0]]).unwrap();
+        let tensor = tensor_2d(&[&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0]])
+            .expect("tensor creation should succeed");
 
         // Test get
-        assert_eq!(tensor.get(&[0, 0]).unwrap(), 1.0);
-        assert_eq!(tensor.get(&[0, 1]).unwrap(), 2.0);
-        assert_eq!(tensor.get(&[1, 2]).unwrap(), 6.0);
+        assert_eq!(
+            tensor.get(&[0, 0]).expect("data access should succeed"),
+            1.0
+        );
+        assert_eq!(
+            tensor.get(&[0, 1]).expect("data access should succeed"),
+            2.0
+        );
+        assert_eq!(
+            tensor.get(&[1, 2]).expect("data access should succeed"),
+            6.0
+        );
 
         // Test set
-        tensor.set(&[1, 1], 10.0).unwrap();
-        assert_eq!(tensor.get(&[1, 1]).unwrap(), 10.0);
+        tensor
+            .set(&[1, 1], 10.0)
+            .expect("data access should succeed");
+        assert_eq!(
+            tensor.get(&[1, 1]).expect("data access should succeed"),
+            10.0
+        );
 
         // Test out of bounds
         assert!(tensor.get(&[2, 0]).is_err());
@@ -1200,48 +1215,108 @@ mod tests {
     #[test]
     fn test_gather() {
         // Create a 3x3 tensor
-        let tensor = tensor_2d(&[&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0], &[7.0, 8.0, 9.0]]).unwrap();
+        let tensor = tensor_2d(&[&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0], &[7.0, 8.0, 9.0]])
+            .expect("tensor creation should succeed");
 
         // Create indices for gathering along dim=1
-        let indices = tensor_2d(&[&[0i64, 2, 1], &[1, 0, 2], &[2, 1, 0]]).unwrap();
+        let indices = tensor_2d(&[&[0i64, 2, 1], &[1, 0, 2], &[2, 1, 0]])
+            .expect("tensor creation should succeed");
 
-        let result = tensor.gather(1, &indices).unwrap();
+        let result = tensor.gather(1, &indices).expect("gather should succeed");
 
         // Expected: [[1, 3, 2], [5, 4, 6], [9, 8, 7]]
-        assert_eq!(result.get(&[0, 0]).unwrap(), 1.0);
-        assert_eq!(result.get(&[0, 1]).unwrap(), 3.0);
-        assert_eq!(result.get(&[0, 2]).unwrap(), 2.0);
-        assert_eq!(result.get(&[1, 0]).unwrap(), 5.0);
-        assert_eq!(result.get(&[1, 1]).unwrap(), 4.0);
-        assert_eq!(result.get(&[1, 2]).unwrap(), 6.0);
-        assert_eq!(result.get(&[2, 0]).unwrap(), 9.0);
-        assert_eq!(result.get(&[2, 1]).unwrap(), 8.0);
-        assert_eq!(result.get(&[2, 2]).unwrap(), 7.0);
+        assert_eq!(
+            result.get(&[0, 0]).expect("data access should succeed"),
+            1.0
+        );
+        assert_eq!(
+            result.get(&[0, 1]).expect("data access should succeed"),
+            3.0
+        );
+        assert_eq!(
+            result.get(&[0, 2]).expect("data access should succeed"),
+            2.0
+        );
+        assert_eq!(
+            result.get(&[1, 0]).expect("data access should succeed"),
+            5.0
+        );
+        assert_eq!(
+            result.get(&[1, 1]).expect("data access should succeed"),
+            4.0
+        );
+        assert_eq!(
+            result.get(&[1, 2]).expect("data access should succeed"),
+            6.0
+        );
+        assert_eq!(
+            result.get(&[2, 0]).expect("data access should succeed"),
+            9.0
+        );
+        assert_eq!(
+            result.get(&[2, 1]).expect("data access should succeed"),
+            8.0
+        );
+        assert_eq!(
+            result.get(&[2, 2]).expect("data access should succeed"),
+            7.0
+        );
     }
 
     #[test]
     fn test_scatter() {
         // Create a 3x3 tensor of zeros
-        let tensor = zeros::<f32>(&[3, 3]).unwrap();
+        let tensor = zeros::<f32>(&[3, 3]).expect("tensor creation should succeed");
 
         // Create indices for scattering along dim=1
-        let indices = tensor_2d(&[&[0i64, 2, 1], &[1, 0, 2], &[2, 1, 0]]).unwrap();
+        let indices = tensor_2d(&[&[0i64, 2, 1], &[1, 0, 2], &[2, 1, 0]])
+            .expect("tensor creation should succeed");
 
         // Source values
-        let src = tensor_2d(&[&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0], &[7.0, 8.0, 9.0]]).unwrap();
+        let src = tensor_2d(&[&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0], &[7.0, 8.0, 9.0]])
+            .expect("tensor creation should succeed");
 
-        let result = tensor.scatter(1, &indices, &src).unwrap();
+        let result = tensor
+            .scatter(1, &indices, &src)
+            .expect("scatter should succeed");
 
         // Expected: [[1, 3, 2], [5, 4, 6], [9, 8, 7]]
-        assert_eq!(result.get(&[0, 0]).unwrap(), 1.0);
-        assert_eq!(result.get(&[0, 1]).unwrap(), 3.0);
-        assert_eq!(result.get(&[0, 2]).unwrap(), 2.0);
-        assert_eq!(result.get(&[1, 0]).unwrap(), 5.0);
-        assert_eq!(result.get(&[1, 1]).unwrap(), 4.0);
-        assert_eq!(result.get(&[1, 2]).unwrap(), 6.0);
-        assert_eq!(result.get(&[2, 0]).unwrap(), 9.0);
-        assert_eq!(result.get(&[2, 1]).unwrap(), 8.0);
-        assert_eq!(result.get(&[2, 2]).unwrap(), 7.0);
+        assert_eq!(
+            result.get(&[0, 0]).expect("data access should succeed"),
+            1.0
+        );
+        assert_eq!(
+            result.get(&[0, 1]).expect("data access should succeed"),
+            3.0
+        );
+        assert_eq!(
+            result.get(&[0, 2]).expect("data access should succeed"),
+            2.0
+        );
+        assert_eq!(
+            result.get(&[1, 0]).expect("data access should succeed"),
+            5.0
+        );
+        assert_eq!(
+            result.get(&[1, 1]).expect("data access should succeed"),
+            4.0
+        );
+        assert_eq!(
+            result.get(&[1, 2]).expect("data access should succeed"),
+            6.0
+        );
+        assert_eq!(
+            result.get(&[2, 0]).expect("data access should succeed"),
+            9.0
+        );
+        assert_eq!(
+            result.get(&[2, 1]).expect("data access should succeed"),
+            8.0
+        );
+        assert_eq!(
+            result.get(&[2, 2]).expect("data access should succeed"),
+            7.0
+        );
     }
 
     #[test]
@@ -1252,27 +1327,57 @@ mod tests {
             &[5.0, 6.0, 7.0, 8.0],
             &[9.0, 10.0, 11.0, 12.0],
         ])
-        .unwrap();
+        .expect("tensor creation should succeed");
 
         // Select rows 0 and 2
-        let row_indices = crate::creation::tensor_1d(&[0i64, 2]).unwrap();
-        let result = tensor.index_select(0, &row_indices).unwrap();
+        let row_indices =
+            crate::creation::tensor_1d(&[0i64, 2]).expect("tensor creation should succeed");
+        let result = tensor
+            .index_select(0, &row_indices)
+            .expect("index_select should succeed");
 
         assert_eq!(result.shape().dims(), &[2, 4]);
-        assert_eq!(result.get(&[0, 0]).unwrap(), 1.0);
-        assert_eq!(result.get(&[0, 3]).unwrap(), 4.0);
-        assert_eq!(result.get(&[1, 0]).unwrap(), 9.0);
-        assert_eq!(result.get(&[1, 3]).unwrap(), 12.0);
+        assert_eq!(
+            result.get(&[0, 0]).expect("data access should succeed"),
+            1.0
+        );
+        assert_eq!(
+            result.get(&[0, 3]).expect("data access should succeed"),
+            4.0
+        );
+        assert_eq!(
+            result.get(&[1, 0]).expect("data access should succeed"),
+            9.0
+        );
+        assert_eq!(
+            result.get(&[1, 3]).expect("data access should succeed"),
+            12.0
+        );
 
         // Select columns 1 and 3
-        let col_indices = crate::creation::tensor_1d(&[1i64, 3]).unwrap();
-        let result = tensor.index_select(1, &col_indices).unwrap();
+        let col_indices =
+            crate::creation::tensor_1d(&[1i64, 3]).expect("tensor creation should succeed");
+        let result = tensor
+            .index_select(1, &col_indices)
+            .expect("index_select should succeed");
 
         assert_eq!(result.shape().dims(), &[3, 2]);
-        assert_eq!(result.get(&[0, 0]).unwrap(), 2.0);
-        assert_eq!(result.get(&[0, 1]).unwrap(), 4.0);
-        assert_eq!(result.get(&[2, 0]).unwrap(), 10.0);
-        assert_eq!(result.get(&[2, 1]).unwrap(), 12.0);
+        assert_eq!(
+            result.get(&[0, 0]).expect("data access should succeed"),
+            2.0
+        );
+        assert_eq!(
+            result.get(&[0, 1]).expect("data access should succeed"),
+            4.0
+        );
+        assert_eq!(
+            result.get(&[2, 0]).expect("data access should succeed"),
+            10.0
+        );
+        assert_eq!(
+            result.get(&[2, 1]).expect("data access should succeed"),
+            12.0
+        );
     }
 
     #[test]
@@ -1283,22 +1388,39 @@ mod tests {
             &[5.0, 6.0, 7.0, 8.0],
             &[9.0, 10.0, 11.0, 12.0],
         ])
-        .unwrap();
+        .expect("tensor creation should succeed");
 
         // Select rows 0 and 2 using list indexing
         let indices = vec![TensorIndex::List(vec![0, 2]), TensorIndex::All];
-        let result = tensor.index(&indices).unwrap();
+        let result = tensor.index(&indices).expect("indexing should succeed");
 
         assert_eq!(result.shape().dims(), &[2, 4]);
-        assert_eq!(result.get(&[0, 0]).unwrap(), 1.0);
-        assert_eq!(result.get(&[0, 3]).unwrap(), 4.0);
-        assert_eq!(result.get(&[1, 0]).unwrap(), 9.0);
-        assert_eq!(result.get(&[1, 3]).unwrap(), 12.0);
+        assert_eq!(
+            result.get(&[0, 0]).expect("data access should succeed"),
+            1.0
+        );
+        assert_eq!(
+            result.get(&[0, 3]).expect("data access should succeed"),
+            4.0
+        );
+        assert_eq!(
+            result.get(&[1, 0]).expect("data access should succeed"),
+            9.0
+        );
+        assert_eq!(
+            result.get(&[1, 3]).expect("data access should succeed"),
+            12.0
+        );
 
         // Test index_with_list convenience method
-        let result2 = tensor.index_with_list(0, &[0, 2]).unwrap();
+        let result2 = tensor
+            .index_with_list(0, &[0, 2])
+            .expect("index_with_list should succeed");
         assert_eq!(result.shape(), result2.shape());
-        assert_eq!(result.get(&[0, 0]).unwrap(), result2.get(&[0, 0]).unwrap());
+        assert_eq!(
+            result.get(&[0, 0]).expect("data access should succeed"),
+            result2.get(&[0, 0]).expect("data access should succeed")
+        );
     }
 
     #[test]
@@ -1306,7 +1428,8 @@ mod tests {
         use crate::creation::tensor_1d;
 
         // Create test tensor
-        let tensor = tensor_1d(&[10.0, 20.0, 30.0, 40.0, 50.0]).unwrap();
+        let tensor =
+            tensor_1d(&[10.0, 20.0, 30.0, 40.0, 50.0]).expect("tensor creation should succeed");
 
         // Create boolean mask
         let mask = Tensor::from_data(
@@ -1314,34 +1437,40 @@ mod tests {
             vec![5],
             crate::DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("tensor creation should succeed");
 
         // Test mask_select (global mask)
-        let result = tensor.mask_select(&mask).unwrap();
+        let result = tensor
+            .mask_select(&mask)
+            .expect("mask_select should succeed");
         assert_eq!(result.shape().dims(), &[3]);
-        assert_eq!(result.get(&[0]).unwrap(), 10.0);
-        assert_eq!(result.get(&[1]).unwrap(), 30.0);
-        assert_eq!(result.get(&[2]).unwrap(), 50.0);
+        assert_eq!(result.get(&[0]).expect("data access should succeed"), 10.0);
+        assert_eq!(result.get(&[1]).expect("data access should succeed"), 30.0);
+        assert_eq!(result.get(&[2]).expect("data access should succeed"), 50.0);
 
         // Test dimensional mask indexing
-        let result2 = tensor.index_with_mask(0, &mask).unwrap();
+        let result2 = tensor
+            .index_with_mask(0, &mask)
+            .expect("index_with_mask should succeed");
         assert_eq!(result2.shape().dims(), &[3]);
-        assert_eq!(result2.get(&[0]).unwrap(), 10.0);
-        assert_eq!(result2.get(&[1]).unwrap(), 30.0);
-        assert_eq!(result2.get(&[2]).unwrap(), 50.0);
+        assert_eq!(result2.get(&[0]).expect("data access should succeed"), 10.0);
+        assert_eq!(result2.get(&[1]).expect("data access should succeed"), 30.0);
+        assert_eq!(result2.get(&[2]).expect("data access should succeed"), 50.0);
     }
 
     #[test]
     fn test_where_condition() {
         use crate::creation::tensor_1d;
 
-        let tensor = tensor_1d(&[1.0, 2.0, 3.0, 4.0, 5.0]).unwrap();
+        let tensor = tensor_1d(&[1.0, 2.0, 3.0, 4.0, 5.0]).expect("tensor creation should succeed");
 
         // Create mask for values > 3.0
-        let mask = tensor.where_condition(|&x| x > 3.0).unwrap();
+        let mask = tensor
+            .where_condition(|&x| x > 3.0)
+            .expect("where_condition should succeed");
 
         {
-            let mask_data = mask.data().unwrap();
+            let mask_data = mask.data().expect("data access should succeed");
             assert!(!mask_data[0]); // 1.0 <= 3.0
             assert!(!mask_data[1]); // 2.0 <= 3.0
             assert!(!mask_data[2]); // 3.0 <= 3.0
@@ -1350,26 +1479,28 @@ mod tests {
         } // Explicitly drop the lock
 
         // Use the mask to select elements
-        let selected = tensor.mask_select(&mask).unwrap();
+        let selected = tensor
+            .mask_select(&mask)
+            .expect("mask_select should succeed");
         assert_eq!(selected.shape().dims(), &[2]);
-        assert_eq!(selected.get(&[0]).unwrap(), 4.0);
-        assert_eq!(selected.get(&[1]).unwrap(), 5.0);
+        assert_eq!(selected.get(&[0]).expect("data access should succeed"), 4.0);
+        assert_eq!(selected.get(&[1]).expect("data access should succeed"), 5.0);
     }
 
     #[test]
     fn test_newaxis_indexing() {
         use crate::creation::tensor_1d;
 
-        let tensor = tensor_1d(&[1.0, 2.0, 3.0]).unwrap();
+        let tensor = tensor_1d(&[1.0, 2.0, 3.0]).expect("tensor creation should succeed");
 
         // Add new axis at beginning
         let indices = vec![TensorIndex::NewAxis, TensorIndex::All];
-        let result = tensor.index(&indices).unwrap();
+        let result = tensor.index(&indices).expect("indexing should succeed");
         assert_eq!(result.shape().dims(), &[1, 3]);
 
         // Add new axis at end
         let indices = vec![TensorIndex::All, TensorIndex::NewAxis];
-        let result = tensor.index(&indices).unwrap();
+        let result = tensor.index(&indices).expect("indexing should succeed");
         assert_eq!(result.shape().dims(), &[3, 1]);
 
         // Add multiple new axes
@@ -1379,23 +1510,24 @@ mod tests {
             TensorIndex::NewAxis,
             TensorIndex::NewAxis,
         ];
-        let result = tensor.index(&indices).unwrap();
+        let result = tensor.index(&indices).expect("indexing should succeed");
         assert_eq!(result.shape().dims(), &[1, 3, 1, 1]);
     }
 
     #[test]
     fn test_ellipsis_indexing() {
         // Create 3D tensor
-        let tensor = crate::creation::zeros::<f32>(&[2, 3, 4]).unwrap();
+        let tensor =
+            crate::creation::zeros::<f32>(&[2, 3, 4]).expect("tensor creation should succeed");
 
         // Test ellipsis in middle
         let indices = vec![TensorIndex::Index(0), TensorIndex::Ellipsis];
-        let result = tensor.index(&indices).unwrap();
+        let result = tensor.index(&indices).expect("indexing should succeed");
         assert_eq!(result.shape().dims(), &[3, 4]);
 
         // Test ellipsis at end
         let indices = vec![TensorIndex::Index(1), TensorIndex::Ellipsis];
-        let result = tensor.index(&indices).unwrap();
+        let result = tensor.index(&indices).expect("indexing should succeed");
         assert_eq!(result.shape().dims(), &[3, 4]);
     }
 
@@ -1408,46 +1540,55 @@ mod tests {
             &[9.0, 10.0, 11.0, 12.0],
             &[13.0, 14.0, 15.0, 16.0],
         ])
-        .unwrap();
+        .expect("operation should succeed");
 
         // Combine list indexing with range indexing
         let indices = vec![
             TensorIndex::List(vec![0, 2, 3]),
             TensorIndex::Range(Some(1), Some(4), None),
         ];
-        let result = tensor.index(&indices).unwrap();
+        let result = tensor.index(&indices).expect("indexing should succeed");
 
         assert_eq!(result.shape().dims(), &[3, 3]);
-        assert_eq!(result.get(&[0, 0]).unwrap(), 2.0); // tensor[0, 1]
-        assert_eq!(result.get(&[1, 0]).unwrap(), 10.0); // tensor[2, 1]
-        assert_eq!(result.get(&[2, 2]).unwrap(), 16.0); // tensor[3, 3]
+        assert_eq!(
+            result.get(&[0, 0]).expect("data access should succeed"),
+            2.0
+        ); // tensor[0, 1]
+        assert_eq!(
+            result.get(&[1, 0]).expect("data access should succeed"),
+            10.0
+        ); // tensor[2, 1]
+        assert_eq!(
+            result.get(&[2, 2]).expect("data access should succeed"),
+            16.0
+        ); // tensor[3, 3]
     }
 
     #[test]
     fn test_negative_indexing() {
         use crate::creation::tensor_1d;
 
-        let tensor = tensor_1d(&[1.0, 2.0, 3.0, 4.0, 5.0]).unwrap();
+        let tensor = tensor_1d(&[1.0, 2.0, 3.0, 4.0, 5.0]).expect("tensor creation should succeed");
 
         // Test negative single index
         let indices = vec![TensorIndex::Index(-1)];
-        let result = tensor.index(&indices).unwrap();
+        let result = tensor.index(&indices).expect("indexing should succeed");
         assert_eq!(result.numel(), 1);
-        assert_eq!(result.item().unwrap(), 5.0);
+        assert_eq!(result.item().expect("item extraction should succeed"), 5.0);
 
         // Test negative range
         let indices = vec![TensorIndex::Range(Some(-3), Some(-1), None)];
-        let result = tensor.index(&indices).unwrap();
+        let result = tensor.index(&indices).expect("indexing should succeed");
         assert_eq!(result.shape().dims(), &[2]);
-        assert_eq!(result.get(&[0]).unwrap(), 3.0);
-        assert_eq!(result.get(&[1]).unwrap(), 4.0);
+        assert_eq!(result.get(&[0]).expect("data access should succeed"), 3.0);
+        assert_eq!(result.get(&[1]).expect("data access should succeed"), 4.0);
 
         // Test negative list indexing
         let indices = vec![TensorIndex::List(vec![-1, -2, 0])];
-        let result = tensor.index(&indices).unwrap();
+        let result = tensor.index(&indices).expect("indexing should succeed");
         assert_eq!(result.shape().dims(), &[3]);
-        assert_eq!(result.get(&[0]).unwrap(), 5.0); // -1 -> index 4
-        assert_eq!(result.get(&[1]).unwrap(), 4.0); // -2 -> index 3
-        assert_eq!(result.get(&[2]).unwrap(), 1.0); // 0 -> index 0
+        assert_eq!(result.get(&[0]).expect("data access should succeed"), 5.0); // -1 -> index 4
+        assert_eq!(result.get(&[1]).expect("data access should succeed"), 4.0); // -2 -> index 3
+        assert_eq!(result.get(&[2]).expect("data access should succeed"), 1.0); // 0 -> index 0
     }
 }

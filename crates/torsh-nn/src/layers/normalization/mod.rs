@@ -70,7 +70,7 @@ pub use batch::{BatchNorm1d, BatchNorm2d, BatchNorm3d};
 pub use instance::{InstanceNorm1d, InstanceNorm2d, InstanceNorm3d};
 
 // Re-export layer and group normalization
-pub use layer_group::{GroupNorm, LayerNorm};
+pub use layer_group::{GroupNorm, LayerNorm, RMSNorm};
 
 // Re-export weight-based normalization techniques
 pub use weight_based::{SpectralNorm, WeightNorm, WeightStandardization};
@@ -116,6 +116,11 @@ impl NormalizationFactory {
         SwitchableNorm2d::new(num_features)
     }
 
+    /// Create RMS normalization for transformer models
+    pub fn rms_norm(normalized_shape: Vec<usize>) -> torsh_core::error::Result<RMSNorm> {
+        RMSNorm::new(normalized_shape)
+    }
+
     /// Create batch normalization optimized for training
     pub fn batch_norm_training(num_features: usize) -> torsh_core::error::Result<BatchNorm2d> {
         BatchNorm2d::with_config(num_features, NormalizationConfig::training())
@@ -159,6 +164,16 @@ impl NormalizationPresets {
     pub fn small_batch_group_norm(num_channels: usize) -> torsh_core::error::Result<GroupNorm> {
         let num_groups = if num_channels >= 32 { 32 } else { num_channels };
         GroupNorm::new(num_groups, num_channels)
+    }
+
+    /// RMS normalization for LLaMA-style transformers
+    pub fn llama_rms_norm(hidden_size: usize) -> torsh_core::error::Result<RMSNorm> {
+        RMSNorm::with_config(vec![hidden_size], 1e-6, true)
+    }
+
+    /// RMS normalization for GPT-style models
+    pub fn gpt_rms_norm(hidden_size: usize) -> torsh_core::error::Result<RMSNorm> {
+        RMSNorm::with_config(vec![hidden_size], 1e-5, true)
     }
 }
 

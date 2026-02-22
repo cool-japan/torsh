@@ -509,7 +509,7 @@ impl SemanticMeaningAnalyzer {
 
 impl Default for SemanticMeaningAnalyzer {
     fn default() -> Self {
-        Self::new(MeaningAnalysisConfig::default()).unwrap()
+        Self::new(MeaningAnalysisConfig::default()).expect("default meaning config should be valid")
     }
 }
 

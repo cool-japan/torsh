@@ -712,8 +712,13 @@ impl TemporalPatternAnalyzer {
         let time_span = self
             .error_history
             .last()
-            .unwrap()
-            .duration_since(*self.error_history.first().unwrap())
+            .expect("error_history is non-empty")
+            .duration_since(
+                *self
+                    .error_history
+                    .first()
+                    .expect("error_history is non-empty"),
+            )
             .as_secs_f64();
 
         self.error_history.len() as f64 / time_span.max(1.0)

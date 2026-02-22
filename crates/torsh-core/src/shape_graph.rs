@@ -825,7 +825,9 @@ mod tests {
         let mut graph = ShapeGraph::new();
         let input = graph.add_input(vec![2, 3, 4]);
 
-        let shape = graph.infer_shape(input).unwrap();
+        let shape = graph
+            .infer_shape(input)
+            .expect("infer_shape should succeed");
         assert_eq!(shape, vec![2, 3, 4]);
     }
 
@@ -835,7 +837,9 @@ mod tests {
         let input = graph.add_input(vec![2, 3, 4]);
         let reshaped = graph.reshape(input, vec![2, 12]);
 
-        let shape = graph.infer_shape(reshaped).unwrap();
+        let shape = graph
+            .infer_shape(reshaped)
+            .expect("infer_shape should succeed");
         assert_eq!(shape, vec![2, 12]);
     }
 
@@ -845,7 +849,9 @@ mod tests {
         let input = graph.add_input(vec![2, 3, 4]);
         let transposed = graph.transpose(input, vec![2, 0, 1]);
 
-        let shape = graph.infer_shape(transposed).unwrap();
+        let shape = graph
+            .infer_shape(transposed)
+            .expect("infer_shape should succeed");
         assert_eq!(shape, vec![4, 2, 3]);
     }
 
@@ -855,7 +861,9 @@ mod tests {
         let input = graph.add_input(vec![1, 3, 1]);
         let broadcasted = graph.broadcast(input, vec![2, 3, 4]);
 
-        let shape = graph.infer_shape(broadcasted).unwrap();
+        let shape = graph
+            .infer_shape(broadcasted)
+            .expect("infer_shape should succeed");
         assert_eq!(shape, vec![2, 3, 4]);
     }
 
@@ -866,7 +874,9 @@ mod tests {
         let input2 = graph.add_input(vec![2, 5, 4]);
         let concatenated = graph.concatenate(input1, input2, 1);
 
-        let shape = graph.infer_shape(concatenated).unwrap();
+        let shape = graph
+            .infer_shape(concatenated)
+            .expect("infer_shape should succeed");
         assert_eq!(shape, vec![2, 8, 4]);
     }
 
@@ -877,7 +887,9 @@ mod tests {
         let input2 = graph.add_input(vec![2, 3, 4]);
         let stacked = graph.stack(input1, input2, 1);
 
-        let shape = graph.infer_shape(stacked).unwrap();
+        let shape = graph
+            .infer_shape(stacked)
+            .expect("infer_shape should succeed");
         assert_eq!(shape, vec![2, 2, 3, 4]);
     }
 
@@ -887,7 +899,9 @@ mod tests {
         let input = graph.add_input(vec![2, 1, 3, 1, 4]);
         let squeezed = graph.squeeze(input, None);
 
-        let shape = graph.infer_shape(squeezed).unwrap();
+        let shape = graph
+            .infer_shape(squeezed)
+            .expect("infer_shape should succeed");
         assert_eq!(shape, vec![2, 3, 4]);
     }
 
@@ -897,7 +911,9 @@ mod tests {
         let input = graph.add_input(vec![2, 3, 4]);
         let unsqueezed = graph.unsqueeze(input, vec![1, 3]);
 
-        let shape = graph.infer_shape(unsqueezed).unwrap();
+        let shape = graph
+            .infer_shape(unsqueezed)
+            .expect("infer_shape should succeed");
         assert_eq!(shape, vec![2, 1, 3, 1, 4]);
     }
 
@@ -907,7 +923,9 @@ mod tests {
         let input = graph.add_input(vec![2, 3, 4, 5]);
         let flattened = graph.flatten(input, 1, 2);
 
-        let shape = graph.infer_shape(flattened).unwrap();
+        let shape = graph
+            .infer_shape(flattened)
+            .expect("infer_shape should succeed");
         assert_eq!(shape, vec![2, 12, 5]);
     }
 
@@ -919,7 +937,9 @@ mod tests {
         let transposed = graph.transpose(reshaped, vec![1, 0]);
         let unsqueezed = graph.unsqueeze(transposed, vec![1]);
 
-        let shape = graph.infer_shape(unsqueezed).unwrap();
+        let shape = graph
+            .infer_shape(unsqueezed)
+            .expect("infer_shape should succeed");
         assert_eq!(shape, vec![12, 1, 2]);
     }
 
@@ -957,13 +977,24 @@ mod tests {
         let reshaped = graph.reshape(input, vec![2, 12]);
         let transposed = graph.transpose(reshaped, vec![1, 0]);
 
-        let sorted = graph.topological_sort().unwrap();
+        let sorted = graph
+            .topological_sort()
+            .expect("topological_sort should succeed");
         assert_eq!(sorted.len(), 3);
 
         // Input should come before reshape, reshape before transpose
-        let input_pos = sorted.iter().position(|&id| id == input).unwrap();
-        let reshape_pos = sorted.iter().position(|&id| id == reshaped).unwrap();
-        let transpose_pos = sorted.iter().position(|&id| id == transposed).unwrap();
+        let input_pos = sorted
+            .iter()
+            .position(|&id| id == input)
+            .expect("input should be in sorted list");
+        let reshape_pos = sorted
+            .iter()
+            .position(|&id| id == reshaped)
+            .expect("reshaped should be in sorted list");
+        let transpose_pos = sorted
+            .iter()
+            .position(|&id| id == transposed)
+            .expect("transposed should be in sorted list");
 
         assert!(input_pos < reshape_pos);
         assert!(reshape_pos < transpose_pos);
@@ -976,10 +1007,14 @@ mod tests {
         let reshaped = graph.reshape(input, vec![2, 12]);
 
         // First inference
-        let shape1 = graph.infer_shape(reshaped).unwrap();
+        let shape1 = graph
+            .infer_shape(reshaped)
+            .expect("infer_shape should succeed");
 
         // Second inference should use cache
-        let shape2 = graph.infer_shape(reshaped).unwrap();
+        let shape2 = graph
+            .infer_shape(reshaped)
+            .expect("infer_shape should succeed");
 
         assert_eq!(shape1, shape2);
         assert_eq!(shape1, vec![2, 12]);
@@ -992,13 +1027,17 @@ mod tests {
         let reshaped = graph.reshape(input, vec![2, 12]);
 
         // Infer and cache
-        let _ = graph.infer_shape(reshaped).unwrap();
+        let _ = graph
+            .infer_shape(reshaped)
+            .expect("infer_shape should succeed");
 
         // Clear cache
         graph.clear_cache();
 
         // Should still work after clearing cache
-        let shape = graph.infer_shape(reshaped).unwrap();
+        let shape = graph
+            .infer_shape(reshaped)
+            .expect("infer_shape should succeed");
         assert_eq!(shape, vec![2, 12]);
     }
 

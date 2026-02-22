@@ -90,17 +90,18 @@ impl Benchmarkable for KernelFusionBench {
     fn setup(&mut self, size: usize) -> Self::Input {
         match self.operation_type {
             FusionType::ElementwiseActivation => {
-                let a = rand::<f32>(&[size, size]).unwrap();
-                let b = rand::<f32>(&[size, size]).unwrap();
+                let a = rand::<f32>(&[size, size]).expect("tensor creation should succeed");
+                let b = rand::<f32>(&[size, size]).expect("tensor creation should succeed");
                 (a, b, vec![])
             }
             FusionType::ConvBatchNormActivation => {
-                let input = rand::<f32>(&[1, 64, size, size]).unwrap();
-                let weight = rand::<f32>(&[64, 64, 3, 3]).unwrap();
-                let bn_weight = ones::<f32>(&[64]).unwrap();
-                let bn_bias = zeros::<f32>(&[64]).unwrap();
-                let running_mean = zeros::<f32>(&[64]).unwrap();
-                let running_var = ones::<f32>(&[64]).unwrap();
+                let input =
+                    rand::<f32>(&[1, 64, size, size]).expect("tensor creation should succeed");
+                let weight = rand::<f32>(&[64, 64, 3, 3]).expect("tensor creation should succeed");
+                let bn_weight = ones::<f32>(&[64]).expect("tensor creation should succeed");
+                let bn_bias = zeros::<f32>(&[64]).expect("tensor creation should succeed");
+                let running_mean = zeros::<f32>(&[64]).expect("tensor creation should succeed");
+                let running_var = ones::<f32>(&[64]).expect("tensor creation should succeed");
                 (
                     input,
                     weight,
@@ -108,21 +109,23 @@ impl Benchmarkable for KernelFusionBench {
                 )
             }
             FusionType::LinearActivation => {
-                let input = rand::<f32>(&[size, 512]).unwrap();
-                let weight = rand::<f32>(&[512, 256]).unwrap();
-                let bias = zeros::<f32>(&[256]).unwrap();
+                let input = rand::<f32>(&[size, 512]).expect("tensor creation should succeed");
+                let weight = rand::<f32>(&[512, 256]).expect("tensor creation should succeed");
+                let bias = zeros::<f32>(&[256]).expect("tensor creation should succeed");
                 (input, weight, vec![bias])
             }
             FusionType::MultipleElementwise => {
-                let a = rand::<f32>(&[size, size]).unwrap();
-                let b = rand::<f32>(&[size, size]).unwrap();
-                let c = rand::<f32>(&[size, size]).unwrap();
-                let d = rand::<f32>(&[size, size]).unwrap();
+                let a = rand::<f32>(&[size, size]).expect("tensor creation should succeed");
+                let b = rand::<f32>(&[size, size]).expect("tensor creation should succeed");
+                let c = rand::<f32>(&[size, size]).expect("tensor creation should succeed");
+                let d = rand::<f32>(&[size, size]).expect("tensor creation should succeed");
                 (a, b, vec![c, d])
             }
             FusionType::ReductionFusion => {
-                let input = rand::<f32>(&[size, size, 128]).unwrap();
-                let mean_tensor = zeros::<f32>(&[size, size]).unwrap();
+                let input =
+                    rand::<f32>(&[size, size, 128]).expect("tensor creation should succeed");
+                let mean_tensor =
+                    zeros::<f32>(&[size, size]).expect("tensor creation should succeed");
                 (input, mean_tensor, vec![])
             }
         }
@@ -136,7 +139,7 @@ impl Benchmarkable for KernelFusionBench {
         let _unfused_result = match self.operation_type {
             FusionType::ElementwiseActivation => {
                 // Unfused: add then relu
-                let add_result = a.add(b).unwrap();
+                let add_result = a.add(b).expect("tensor operation should succeed");
                 mock_relu(&add_result)
             }
             FusionType::ConvBatchNormActivation => {
@@ -152,15 +155,21 @@ impl Benchmarkable for KernelFusionBench {
             }
             FusionType::MultipleElementwise => {
                 // Unfused: multiple separate elementwise operations
-                let step1 = a.add(b).unwrap();
-                let step2 = step1.mul(&extra_tensors[0]).unwrap();
-                step2.add(&extra_tensors[1]).unwrap()
+                let step1 = a.add(b).expect("tensor operation should succeed");
+                let step2 = step1
+                    .mul(&extra_tensors[0])
+                    .expect("tensor operation should succeed");
+                step2
+                    .add(&extra_tensors[1])
+                    .expect("tensor operation should succeed")
             }
             FusionType::ReductionFusion => {
                 // Unfused: reduction then normalization
                 let reduced = mock_mean_reduction(a);
-                let weight = ones::<f32>(&reduced.shape().as_slice().to_vec()).unwrap();
-                let bias = zeros::<f32>(&reduced.shape().as_slice().to_vec()).unwrap();
+                let weight = ones::<f32>(&reduced.shape().as_slice().to_vec())
+                    .expect("tensor creation should succeed");
+                let bias = zeros::<f32>(&reduced.shape().as_slice().to_vec())
+                    .expect("tensor creation should succeed");
                 mock_layer_norm(&reduced, &weight, &bias)
             }
         };
@@ -313,48 +322,48 @@ impl Benchmarkable for GraphOptimizationBench {
         match self.optimization_type {
             OptimizationType::ConstantFolding => {
                 vec![
-                    rand::<f32>(&[size, size]).unwrap(),
-                    ones::<f32>(&[size, size]).unwrap(),
-                    full::<f32>(&[size, size], 2.0).unwrap(),
-                    zeros::<f32>(&[size, size]).unwrap(),
+                    rand::<f32>(&[size, size]).expect("tensor creation should succeed"),
+                    ones::<f32>(&[size, size]).expect("tensor creation should succeed"),
+                    full::<f32>(&[size, size], 2.0).expect("tensor creation should succeed"),
+                    zeros::<f32>(&[size, size]).expect("tensor creation should succeed"),
                 ]
             }
             OptimizationType::DeadCodeElimination => {
                 vec![
-                    rand::<f32>(&[size, size]).unwrap(),
-                    rand::<f32>(&[size, size]).unwrap(),
-                    rand::<f32>(&[size, size]).unwrap(), // This will be "unused"
-                    rand::<f32>(&[size, size]).unwrap(),
+                    rand::<f32>(&[size, size]).expect("tensor creation should succeed"),
+                    rand::<f32>(&[size, size]).expect("tensor creation should succeed"),
+                    rand::<f32>(&[size, size]).expect("tensor creation should succeed"), // This will be "unused"
+                    rand::<f32>(&[size, size]).expect("tensor creation should succeed"),
                 ]
             }
             OptimizationType::CommonSubexpressionElimination => {
                 vec![
-                    rand::<f32>(&[size, size]).unwrap(),
-                    rand::<f32>(&[size, size]).unwrap(),
-                    rand::<f32>(&[size, size]).unwrap(),
+                    rand::<f32>(&[size, size]).expect("tensor creation should succeed"),
+                    rand::<f32>(&[size, size]).expect("tensor creation should succeed"),
+                    rand::<f32>(&[size, size]).expect("tensor creation should succeed"),
                 ]
             }
             OptimizationType::OperatorFusion => {
                 vec![
-                    rand::<f32>(&[size, size]).unwrap(),
-                    rand::<f32>(&[size, size]).unwrap(),
-                    rand::<f32>(&[size, size]).unwrap(),
-                    ones::<f32>(&[size, size]).unwrap(),
+                    rand::<f32>(&[size, size]).expect("tensor creation should succeed"),
+                    rand::<f32>(&[size, size]).expect("tensor creation should succeed"),
+                    rand::<f32>(&[size, size]).expect("tensor creation should succeed"),
+                    ones::<f32>(&[size, size]).expect("tensor creation should succeed"),
                 ]
             }
             OptimizationType::MemoryOptimization => {
                 vec![
-                    rand::<f32>(&[size, size]).unwrap(),
-                    rand::<f32>(&[size, size]).unwrap(),
-                    rand::<f32>(&[size, size]).unwrap(),
+                    rand::<f32>(&[size, size]).expect("tensor creation should succeed"),
+                    rand::<f32>(&[size, size]).expect("tensor creation should succeed"),
+                    rand::<f32>(&[size, size]).expect("tensor creation should succeed"),
                 ]
             }
             OptimizationType::ComputationReordering => {
                 vec![
-                    rand::<f32>(&[size, size]).unwrap(),
-                    rand::<f32>(&[size, size]).unwrap(),
-                    rand::<f32>(&[size, size]).unwrap(),
-                    rand::<f32>(&[size, size]).unwrap(),
+                    rand::<f32>(&[size, size]).expect("tensor creation should succeed"),
+                    rand::<f32>(&[size, size]).expect("tensor creation should succeed"),
+                    rand::<f32>(&[size, size]).expect("tensor creation should succeed"),
+                    rand::<f32>(&[size, size]).expect("tensor creation should succeed"),
                 ]
             }
         }
@@ -366,39 +375,70 @@ impl Benchmarkable for GraphOptimizationBench {
         let _unoptimized_result = match self.optimization_type {
             OptimizationType::ConstantFolding => {
                 // Unoptimized: compute constants at runtime
-                let temp1 = input[1].add(&input[2]).unwrap(); // 1 + 2 = 3
-                input[0].mul(&temp1).unwrap()
+                let temp1 = input[1]
+                    .add(&input[2])
+                    .expect("tensor operation should succeed"); // 1 + 2 = 3
+                input[0]
+                    .mul(&temp1)
+                    .expect("tensor operation should succeed")
             }
             OptimizationType::DeadCodeElimination => {
                 // Unoptimized: include dead code
-                let _unused = input[2].mul(&input[1]).unwrap(); // Dead code
-                let temp = input[0].add(&input[1]).unwrap();
-                temp.mul(&input[3]).unwrap()
+                let _unused = input[2]
+                    .mul(&input[1])
+                    .expect("tensor operation should succeed"); // Dead code
+                let temp = input[0]
+                    .add(&input[1])
+                    .expect("tensor operation should succeed");
+                temp.mul(&input[3])
+                    .expect("tensor operation should succeed")
             }
             OptimizationType::CommonSubexpressionElimination => {
                 // Unoptimized: recompute common subexpressions
-                let temp1 = input[0].add(&input[1]).unwrap();
-                let temp2 = temp1.mul(&input[2]).unwrap();
-                let temp3 = input[0].add(&input[1]).unwrap(); // Recomputed
-                temp2.add(&temp3).unwrap()
+                let temp1 = input[0]
+                    .add(&input[1])
+                    .expect("tensor operation should succeed");
+                let temp2 = temp1
+                    .mul(&input[2])
+                    .expect("tensor operation should succeed");
+                let temp3 = input[0]
+                    .add(&input[1])
+                    .expect("tensor operation should succeed"); // Recomputed
+                temp2.add(&temp3).expect("tensor operation should succeed")
             }
             OptimizationType::OperatorFusion => {
                 // Unoptimized: separate operations
-                let step1 = input[0].add(&input[1]).unwrap();
-                let step2 = step1.mul(&input[2]).unwrap();
-                step2.add(&input[3]).unwrap()
+                let step1 = input[0]
+                    .add(&input[1])
+                    .expect("tensor operation should succeed");
+                let step2 = step1
+                    .mul(&input[2])
+                    .expect("tensor operation should succeed");
+                step2
+                    .add(&input[3])
+                    .expect("tensor operation should succeed")
             }
             OptimizationType::MemoryOptimization => {
                 // Unoptimized: create intermediate tensors
-                let temp1 = input[0].add(&input[1]).unwrap();
-                let temp2 = temp1.mul(&input[2]).unwrap();
-                temp2.add(&input[0]).unwrap()
+                let temp1 = input[0]
+                    .add(&input[1])
+                    .expect("tensor operation should succeed");
+                let temp2 = temp1
+                    .mul(&input[2])
+                    .expect("tensor operation should succeed");
+                temp2
+                    .add(&input[0])
+                    .expect("tensor operation should succeed")
             }
             OptimizationType::ComputationReordering => {
                 // Unoptimized: poor computation order
-                let temp1 = input[0].mul(&input[3]).unwrap(); // Cache miss prone
-                let temp2 = input[1].add(&input[2]).unwrap();
-                temp1.add(&temp2).unwrap()
+                let temp1 = input[0]
+                    .mul(&input[3])
+                    .expect("tensor operation should succeed"); // Cache miss prone
+                let temp2 = input[1]
+                    .add(&input[2])
+                    .expect("tensor operation should succeed");
+                temp1.add(&temp2).expect("tensor operation should succeed")
             }
         };
         let unoptimized_time = unoptimized_start.elapsed();
@@ -510,7 +550,7 @@ fn mock_fused_multiple_elementwise(
 ) -> Tensor<f32> {
     // Simulate fused multiple elementwise operations
     std::thread::sleep(std::time::Duration::from_nanos(80));
-    let temp = a.add(b).unwrap();
+    let temp = a.add(b).expect("tensor operation should succeed");
     temp.mul(c).unwrap_or(temp)
 }
 
@@ -525,7 +565,7 @@ fn mock_mean_reduction(input: &Tensor<f32>) -> Tensor<f32> {
     let binding = input.shape();
     let shape = binding.dims();
     if shape.len() >= 2 {
-        rand::<f32>(&shape[..shape.len() - 1]).unwrap()
+        rand::<f32>(&shape[..shape.len() - 1]).expect("tensor creation should succeed")
     } else {
         input.clone()
     }
@@ -541,7 +581,7 @@ fn mock_optimized_constant_folding(input: &Tensor<f32>, _zeros: &Tensor<f32>) ->
     let binding = input.shape();
     let dims = binding.dims();
     input
-        .mul(&full::<f32>(dims, 3.0).unwrap())
+        .mul(&full::<f32>(dims, 3.0).expect("tensor creation should succeed"))
         .unwrap_or_else(|_| input.clone()) // 1+2=3 pre-computed
 }
 
@@ -552,15 +592,15 @@ fn mock_optimized_dead_code_elimination(
 ) -> Tensor<f32> {
     // Simulate optimized computation without dead code
     std::thread::sleep(std::time::Duration::from_nanos(60)); // Faster without dead code
-    let temp = a.add(b).unwrap();
+    let temp = a.add(b).expect("tensor operation should succeed");
     temp.mul(d).unwrap_or(temp)
 }
 
 fn mock_optimized_cse(a: &Tensor<f32>, b: &Tensor<f32>, c: &Tensor<f32>) -> Tensor<f32> {
     // Simulate optimized computation with common subexpression elimination
     std::thread::sleep(std::time::Duration::from_nanos(70)); // Faster due to CSE
-    let common_expr = a.add(b).unwrap(); // Computed once, reused
-    let temp = common_expr.mul(c).unwrap();
+    let common_expr = a.add(b).expect("tensor operation should succeed"); // Computed once, reused
+    let temp = common_expr.mul(c).expect("tensor operation should succeed");
     temp.add(&common_expr).unwrap_or(temp)
 }
 
@@ -578,7 +618,7 @@ fn mock_optimized_operator_fusion(
 fn mock_optimized_memory(a: &Tensor<f32>, b: &Tensor<f32>, c: &Tensor<f32>) -> Tensor<f32> {
     // Simulate optimized computation with in-place operations
     std::thread::sleep(std::time::Duration::from_nanos(55)); // Faster due to memory optimization
-    let temp = a.add(b).unwrap();
+    let temp = a.add(b).expect("tensor operation should succeed");
     temp.mul(c).unwrap_or(temp)
 }
 
@@ -590,8 +630,8 @@ fn mock_optimized_reordering(
 ) -> Tensor<f32> {
     // Simulate optimized computation with better ordering
     std::thread::sleep(std::time::Duration::from_nanos(58)); // Faster due to reordering
-    let temp1 = b.add(c).unwrap(); // Better cache locality
-    let temp2 = a.mul(d).unwrap();
+    let temp1 = b.add(c).expect("tensor operation should succeed"); // Better cache locality
+    let temp2 = a.mul(d).expect("tensor operation should succeed");
     temp1.add(&temp2).unwrap_or(temp1)
 }
 

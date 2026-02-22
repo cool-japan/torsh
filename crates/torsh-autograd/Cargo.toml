@@ -7,6 +7,11 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 description = "Automatic differentiation engine for ToRSh with PyTorch-compatible API"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-autograd"
+rust-version.workspace = true
+keywords = ["deep-learning", "autograd", "autodiff", "pytorch", "machine-learning"]
+categories = ["science", "mathematics"]
 
 [lints]
 workspace = true

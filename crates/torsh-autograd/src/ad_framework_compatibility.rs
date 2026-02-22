@@ -901,7 +901,7 @@ impl ADFrameworkCompatibilityManager {
         if let Some(level) = self
             .compatibility_matrix
             .read()
-            .unwrap()
+            .expect("rwlock should not be poisoned")
             .get(&(source.clone(), target.clone()))
         {
             return Ok(*level);
@@ -928,7 +928,7 @@ impl ADFrameworkCompatibilityManager {
         // Cache the result
         self.compatibility_matrix
             .write()
-            .unwrap()
+            .expect("rwlock should not be poisoned")
             .insert((source.clone(), target.clone()), compatibility);
 
         Ok(compatibility)
@@ -1048,7 +1048,7 @@ impl ADFrameworkCompatibilityManager {
         // Cache the plan
         self.migration_cache
             .lock()
-            .unwrap()
+            .expect("lock should not be poisoned")
             .insert(cache_key, plan.clone());
 
         Ok(plan)

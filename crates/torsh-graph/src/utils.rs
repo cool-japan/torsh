@@ -62,7 +62,7 @@ pub fn graph_laplacian(edge_index: &Tensor, num_nodes: usize, normalized: bool) 
         &[num_nodes, num_nodes],
         DeviceType::Cpu,
     )
-    .unwrap();
+    .expect("adjacency matrix creation should succeed");
 
     if normalized {
         // Normalized Laplacian: L = I - D^(-1/2) @ A @ D^(-1/2)
@@ -88,7 +88,8 @@ pub fn graph_laplacian(edge_index: &Tensor, num_nodes: usize, normalized: bool) 
             }
         }
 
-        from_vec(laplacian_data, &[num_nodes, num_nodes], DeviceType::Cpu).unwrap()
+        from_vec(laplacian_data, &[num_nodes, num_nodes], DeviceType::Cpu)
+            .expect("laplacian matrix creation should succeed")
     } else {
         // Unnormalized Laplacian: L = D - A
         let mut laplacian_data = vec![0.0; num_nodes * num_nodes];
@@ -104,7 +105,8 @@ pub fn graph_laplacian(edge_index: &Tensor, num_nodes: usize, normalized: bool) 
             }
         }
 
-        from_vec(laplacian_data, &[num_nodes, num_nodes], DeviceType::Cpu).unwrap()
+        from_vec(laplacian_data, &[num_nodes, num_nodes], DeviceType::Cpu)
+            .expect("laplacian matrix creation should succeed")
     }
 }
 
@@ -124,10 +126,13 @@ pub fn degree_matrix(edge_index: &Tensor, num_nodes: usize) -> Tensor {
     }
 
     // Create diagonal degree matrix
-    let mut degree_matrix = zeros(&[num_nodes, num_nodes]).unwrap();
+    let mut degree_matrix =
+        zeros(&[num_nodes, num_nodes]).expect("degree matrix creation should succeed");
     for i in 0..num_nodes {
         // Set diagonal element to degree value
-        degree_matrix.set_item(&[i, i], degrees[i]).unwrap();
+        degree_matrix
+            .set_item(&[i, i], degrees[i])
+            .expect("setting degree matrix diagonal should succeed");
     }
 
     degree_matrix
@@ -247,22 +252,26 @@ pub mod metrics {
             .map(|neighbors| neighbors.len() as f64)
             .collect();
         let degree_f32: Vec<f32> = degree_values.into_iter().map(|x| x as f32).collect();
-        let degree = from_vec(degree_f32, &[num_nodes], DeviceType::Cpu).unwrap();
+        let degree = from_vec(degree_f32, &[num_nodes], DeviceType::Cpu)
+            .expect("degree tensor creation should succeed");
 
         // Betweenness centrality (simplified implementation)
         let betweenness_values = compute_betweenness_centrality(&adjacency_list, num_nodes);
         let betweenness_f32: Vec<f32> = betweenness_values.into_iter().map(|x| x as f32).collect();
-        let betweenness = from_vec(betweenness_f32, &[num_nodes], DeviceType::Cpu).unwrap();
+        let betweenness = from_vec(betweenness_f32, &[num_nodes], DeviceType::Cpu)
+            .expect("betweenness tensor creation should succeed");
 
         // Closeness centrality
         let closeness_values = compute_closeness_centrality(&adjacency_list, num_nodes);
         let closeness_f32: Vec<f32> = closeness_values.into_iter().map(|x| x as f32).collect();
-        let closeness = from_vec(closeness_f32, &[num_nodes], DeviceType::Cpu).unwrap();
+        let closeness = from_vec(closeness_f32, &[num_nodes], DeviceType::Cpu)
+            .expect("closeness tensor creation should succeed");
 
         // Eigenvector centrality (power iteration approximation)
         let eigenvector_values = compute_eigenvector_centrality(&adjacency_list, num_nodes);
         let eigenvector_f32: Vec<f32> = eigenvector_values.into_iter().map(|x| x as f32).collect();
-        let eigenvector = from_vec(eigenvector_f32, &[num_nodes], DeviceType::Cpu).unwrap();
+        let eigenvector = from_vec(eigenvector_f32, &[num_nodes], DeviceType::Cpu)
+            .expect("eigenvector tensor creation should succeed");
 
         CentralityMeasures {
             degree,
@@ -320,7 +329,8 @@ pub mod metrics {
         }
 
         let coeffs_f32: Vec<f32> = clustering_coeffs.into_iter().map(|x| x as f32).collect();
-        from_vec(coeffs_f32, &[num_nodes], DeviceType::Cpu).unwrap()
+        from_vec(coeffs_f32, &[num_nodes], DeviceType::Cpu)
+            .expect("clustering coefficients tensor creation should succeed")
     }
 
     /// Compute graph diameter
@@ -605,7 +615,7 @@ pub mod sampling {
 
         // Create edge tensor
         let subgraph_edge_index = if subgraph_edges.is_empty() {
-            zeros(&[2, 0]).unwrap()
+            zeros(&[2, 0]).expect("empty edge tensor creation should succeed")
         } else {
             let num_edges = subgraph_edges.len();
             let mut edge_vec = Vec::with_capacity(2 * num_edges);
@@ -617,7 +627,8 @@ pub mod sampling {
                 edge_vec.push(edge[1] as f32);
             }
 
-            from_vec(edge_vec, &[2, num_edges], DeviceType::Cpu).unwrap()
+            from_vec(edge_vec, &[2, num_edges], DeviceType::Cpu)
+                .expect("edge tensor creation should succeed")
         };
 
         (subgraph_edge_index, sampled_nodes)

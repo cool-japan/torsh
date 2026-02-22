@@ -161,7 +161,8 @@ impl SciRS2StatsProcessor {
             skewness: T::from_f64(skewness).expect("f64 conversion should succeed"),
             kurtosis: T::from_f64(kurtosis).expect("f64 conversion should succeed"),
             min: T::from_f64(sorted_data[0]).expect("f64 conversion should succeed"),
-            max: T::from_f64(sorted_data[sorted_data.len() - 1]).unwrap(),
+            max: T::from_f64(sorted_data[sorted_data.len() - 1])
+                .expect("f64 conversion should succeed"),
             q25: T::from_f64(q25).expect("f64 conversion should succeed"),
             median: T::from_f64(median).expect("f64 conversion should succeed"),
             q75: T::from_f64(q75).expect("f64 conversion should succeed"),
@@ -255,7 +256,8 @@ impl SciRS2StatsProcessor {
                 standard_error,
                 degrees_of_freedom,
             ),
-            effect_size: T::from_f64((sample_mean - expected) / sample_var.sqrt()).unwrap(),
+            effect_size: T::from_f64((sample_mean - expected) / sample_var.sqrt())
+                .expect("f64 conversion should succeed"),
         })
     }
 
@@ -330,7 +332,8 @@ impl SciRS2StatsProcessor {
                 standard_error,
                 degrees_of_freedom,
             ),
-            effect_size: T::from_f64((mean1 - mean2) / ((var1 + var2) / 2.0).sqrt()).unwrap(), // Cohen's d
+            effect_size: T::from_f64((mean1 - mean2) / ((var1 + var2) / 2.0).sqrt())
+                .expect("f64 conversion should succeed"), // Cohen's d
         })
     }
 
@@ -405,8 +408,9 @@ impl SciRS2StatsProcessor {
             ],
             r_squared: T::from_f64(r_squared).expect("f64 conversion should succeed"),
             adjusted_r_squared: T::from_f64(1.0 - (1.0 - r_squared) * (n - 1.0) / (n - 2.0))
-                .unwrap(),
-            f_statistic: T::from_f64(r_squared * (n - 2.0) / (1.0 - r_squared)).unwrap(),
+                .expect("f64 conversion should succeed"),
+            f_statistic: T::from_f64(r_squared * (n - 2.0) / (1.0 - r_squared))
+                .expect("f64 conversion should succeed"),
             residuals: {
                 let residuals_data: Vec<T> = y_vals
                     .iter()
@@ -473,7 +477,8 @@ impl SciRS2StatsProcessor {
             log_likelihood: T::from_f64(log_likelihood).expect("f64 conversion should succeed"),
             aic: T::from_f64(-2.0 * log_likelihood + 2.0 * 2.0)
                 .expect("f64 conversion should succeed"), // 2 parameters
-            bic: T::from_f64(-2.0 * log_likelihood + 2.0 * n.ln()).unwrap(),
+            bic: T::from_f64(-2.0 * log_likelihood + 2.0 * n.ln())
+                .expect("f64 conversion should succeed"),
             goodness_of_fit: {
                 let values_f64: Vec<f64> = values
                     .iter()

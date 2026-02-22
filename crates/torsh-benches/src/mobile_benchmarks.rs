@@ -55,48 +55,51 @@ impl Benchmarkable for ARMOptimizationBench {
         match self.instruction_set {
             ARMInstructionSet::Armv7Neon => {
                 // 32-bit ARM setup with smaller tensors
-                let a = rand::<f32>(&[size, size]).unwrap();
-                let b = rand::<f32>(&[size, size]).unwrap();
-                let extras = vec![rand::<f32>(&[size]).unwrap()];
+                let a = rand::<f32>(&[size, size]).expect("tensor creation should succeed");
+                let b = rand::<f32>(&[size, size]).expect("tensor creation should succeed");
+                let extras = vec![rand::<f32>(&[size]).expect("tensor creation should succeed")];
                 (a, b, extras)
             }
             ARMInstructionSet::Armv8Neon => {
                 // 64-bit ARM setup
-                let a = rand::<f32>(&[size, size]).unwrap();
-                let b = rand::<f32>(&[size, size]).unwrap();
-                let extras = vec![rand::<f32>(&[size]).unwrap(), rand::<f32>(&[size]).unwrap()];
+                let a = rand::<f32>(&[size, size]).expect("tensor creation should succeed");
+                let b = rand::<f32>(&[size, size]).expect("tensor creation should succeed");
+                let extras = vec![
+                    rand::<f32>(&[size]).expect("tensor creation should succeed"),
+                    rand::<f32>(&[size]).expect("tensor creation should succeed"),
+                ];
                 (a, b, extras)
             }
             ARMInstructionSet::Armv8Sve => {
                 // SVE setup with scalable vectors
-                let a = rand::<f32>(&[size, size]).unwrap();
-                let b = rand::<f32>(&[size, size]).unwrap();
+                let a = rand::<f32>(&[size, size]).expect("tensor creation should succeed");
+                let b = rand::<f32>(&[size, size]).expect("tensor creation should succeed");
                 let extras = vec![
-                    rand::<f32>(&[size]).unwrap(),
-                    rand::<f32>(&[size]).unwrap(),
-                    rand::<f32>(&[size]).unwrap(),
+                    rand::<f32>(&[size]).expect("tensor creation should succeed"),
+                    rand::<f32>(&[size]).expect("tensor creation should succeed"),
+                    rand::<f32>(&[size]).expect("tensor creation should succeed"),
                 ];
                 (a, b, extras)
             }
             ARMInstructionSet::Armv8Dot => {
                 // Dot product instruction setup
-                let a = rand::<f32>(&[size, size]).unwrap();
-                let b = rand::<f32>(&[size, size]).unwrap();
-                let extras = vec![rand::<f32>(&[size]).unwrap()];
+                let a = rand::<f32>(&[size, size]).expect("tensor creation should succeed");
+                let b = rand::<f32>(&[size, size]).expect("tensor creation should succeed");
+                let extras = vec![rand::<f32>(&[size]).expect("tensor creation should succeed")];
                 (a, b, extras)
             }
             ARMInstructionSet::Armv8Fp16 => {
                 // FP16 setup (simulated as F32)
-                let a = rand::<f32>(&[size, size]).unwrap();
-                let b = rand::<f32>(&[size, size]).unwrap();
-                let extras = vec![rand::<f32>(&[size]).unwrap()];
+                let a = rand::<f32>(&[size, size]).expect("tensor creation should succeed");
+                let b = rand::<f32>(&[size, size]).expect("tensor creation should succeed");
+                let extras = vec![rand::<f32>(&[size]).expect("tensor creation should succeed")];
                 (a, b, extras)
             }
             ARMInstructionSet::Armv8I8mm => {
                 // INT8 matrix multiplication setup
-                let a = rand::<f32>(&[size, size]).unwrap(); // Would be INT8 in real implementation
-                let b = rand::<f32>(&[size, size]).unwrap();
-                let extras = vec![rand::<f32>(&[size]).unwrap()];
+                let a = rand::<f32>(&[size, size]).expect("tensor creation should succeed"); // Would be INT8 in real implementation
+                let b = rand::<f32>(&[size, size]).expect("tensor creation should succeed");
+                let extras = vec![rand::<f32>(&[size]).expect("tensor creation should succeed")];
                 (a, b, extras)
             }
         }
@@ -243,8 +246,8 @@ impl Benchmarkable for MobileGPUBench {
             GPUWorkloadType::Memory => vec![size * 4, size * 4], // Larger for memory tests
         };
 
-        let input = rand::<f32>(&input_size).unwrap();
-        let weights = rand::<f32>(&[size, size]).unwrap();
+        let input = rand::<f32>(&input_size).expect("tensor creation should succeed");
+        let weights = rand::<f32>(&[size, size]).expect("tensor creation should succeed");
         let sizes = vec![size, size / 2, size / 4, size / 8];
 
         (input, weights, sizes)
@@ -377,7 +380,8 @@ impl Benchmarkable for MobilePlatformBench {
             MobileScenario::PerformanceMode => size * 2, // Large for performance
         };
 
-        let input = rand::<f32>(&[tensor_size, tensor_size]).unwrap();
+        let input =
+            rand::<f32>(&[tensor_size, tensor_size]).expect("tensor creation should succeed");
         let config = MobilePlatformConfig {
             cpu_cores: get_cpu_cores(&self.platform),
             memory_gb: get_memory_gb(&self.platform),
@@ -1023,10 +1027,10 @@ pub fn run_mobile_benchmarks() {
     // Generate mobile-specific report
     runner
         .generate_report("target/mobile_benchmark_reports")
-        .unwrap();
+        .expect("report generation should succeed");
     runner
         .export_csv("target/mobile_benchmark_results.csv")
-        .unwrap();
+        .expect("CSV export should succeed");
 }
 
 #[cfg(test)]

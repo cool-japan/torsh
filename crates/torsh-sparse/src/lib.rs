@@ -21,13 +21,13 @@
 //!
 //! // Create a COO tensor from triplets
 //! let triplets = vec![(0, 0, 1.0f32), (1, 1, 2.0f32), (2, 2, 3.0f32)];
-//! let coo = CooTensor::from_triplets(triplets, (3, 3)).unwrap();
+//! let coo = CooTensor::from_triplets(triplets, (3, 3)).expect("valid triplets");
 //!
 //! // Convert to CSR format for efficient row operations
-//! let csr = coo.to_csr().unwrap();
+//! let csr = coo.to_csr().expect("COO to CSR conversion");
 //!
 //! // Perform sparse operations
-//! let result = csr.transpose().unwrap();
+//! let result = csr.transpose().expect("transpose");
 //! ```
 //!
 //! ## Performance Considerations
@@ -290,7 +290,7 @@ pub enum SparseFormat {
 ///     tensor.sparsity()
 /// }
 ///
-/// let coo = CooTensor::from_triplets(vec![(0, 0, 1.0)], (10, 10)).unwrap();
+/// let coo = CooTensor::from_triplets(vec![(0, 0, 1.0)], (10, 10)).expect("valid triplets");
 /// println!("Sparsity: {:.2}%", analyze_sparsity(&coo) * 100.0);
 /// ```
 pub trait SparseTensor {
@@ -360,7 +360,7 @@ pub trait SparseTensor {
     /// # Example
     /// ```rust,no_run
     /// # use torsh_sparse::{SparseTensor, CooTensor};
-    /// let tensor = CooTensor::from_triplets(vec![(0, 0, 1.0)], (10, 10)).unwrap();
+    /// let tensor = CooTensor::from_triplets(vec![(0, 0, 1.0)], (10, 10)).expect("valid triplets");
     /// assert_eq!(tensor.sparsity(), 0.99); // 99% sparse (1 non-zero out of 100 elements)
     /// ```
     fn sparsity(&self) -> f32 {
@@ -679,9 +679,9 @@ pub struct FormatPerformanceResult {
 /// use torsh_sparse::{CooTensor, compare_format_performance};
 ///
 /// let triplets = vec![(0, 0, 1.0f32), (1, 1, 2.0f32), (100, 100, 3.0f32)];
-/// let coo = CooTensor::from_triplets(triplets, (1000, 1000)).unwrap();
+/// let coo = CooTensor::from_triplets(triplets, (1000, 1000)).expect("valid triplets");
 ///
-/// let comparison = compare_format_performance(&coo, true).unwrap();
+/// let comparison = compare_format_performance(&coo, true).expect("comparison");
 /// println!("Recommended format: {:?}", comparison.recommended_format);
 /// println!("Performance improvement: {:.2}x", comparison.improvement_factor);
 /// ```

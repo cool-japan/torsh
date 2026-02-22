@@ -104,7 +104,7 @@ jobs:
       shell: bash
 
     - name: Test import
-      run: python -c "import torsh_python as torsh; print(f'ToRSh version: {torsh.__version__}')"
+      run: python -c "import rstorch_python as rstorch; print(f'ToRSh version: {rstorch.__version__}')"
 
   # =============================================================================
   # Python Type Checking

@@ -280,33 +280,33 @@ mod tests {
 
     #[test]
     fn test_relu() {
-        let tensor = Tensor::from_data(vec![-2.0f32, -1.0, 0.0, 1.0, 2.0], vec![5], DeviceType::Cpu).unwrap();
-        let result = tensor.relu().unwrap();
-        let data = result.data().unwrap();
+        let tensor = Tensor::from_data(vec![-2.0f32, -1.0, 0.0, 1.0, 2.0], vec![5], DeviceType::Cpu).expect("tensor creation failed");
+        let result = tensor.relu().expect("relu failed");
+        let data = result.data().expect("data retrieval failed");
         assert_eq!(data.as_slice(), &[0.0, 0.0, 0.0, 1.0, 2.0]);
     }
 
     #[test]
     fn test_relu_inplace() {
-        let mut tensor = Tensor::from_data(vec![-2.0f32, -1.0, 0.0, 1.0, 2.0], vec![5], DeviceType::Cpu).unwrap();
-        tensor.relu_().unwrap();
-        let data = tensor.data().unwrap();
+        let mut tensor = Tensor::from_data(vec![-2.0f32, -1.0, 0.0, 1.0, 2.0], vec![5], DeviceType::Cpu).expect("tensor creation failed");
+        tensor.relu_().expect("relu_ failed");
+        let data = tensor.data().expect("data retrieval failed");
         assert_eq!(data.as_slice(), &[0.0, 0.0, 0.0, 1.0, 2.0]);
     }
 
     #[test]
     fn test_leaky_relu() {
-        let tensor = Tensor::from_data(vec![-2.0f32, -1.0, 0.0, 1.0, 2.0], vec![5], DeviceType::Cpu).unwrap();
-        let result = tensor.leaky_relu(0.1).unwrap();
-        let data = result.data().unwrap();
+        let tensor = Tensor::from_data(vec![-2.0f32, -1.0, 0.0, 1.0, 2.0], vec![5], DeviceType::Cpu).expect("tensor creation failed");
+        let result = tensor.leaky_relu(0.1).expect("leaky_relu failed");
+        let data = result.data().expect("data retrieval failed");
         assert_eq!(data.as_slice(), &[-0.2, -0.1, 0.0, 1.0, 2.0]);
     }
 
     #[test]
     fn test_sigmoid() {
-        let tensor = Tensor::from_data(vec![0.0f32, 1.0, -1.0], vec![3], DeviceType::Cpu).unwrap();
-        let result = tensor.sigmoid().unwrap();
-        let data = result.data().unwrap();
+        let tensor = Tensor::from_data(vec![0.0f32, 1.0, -1.0], vec![3], DeviceType::Cpu).expect("tensor creation failed");
+        let result = tensor.sigmoid().expect("sigmoid failed");
+        let data = result.data().expect("data retrieval failed");
 
         // sigmoid(0) = 0.5, sigmoid(1) ≈ 0.731, sigmoid(-1) ≈ 0.269
         assert!((data[0] - 0.5).abs() < 1e-6);
@@ -316,9 +316,9 @@ mod tests {
 
     #[test]
     fn test_tanh() {
-        let tensor = Tensor::from_data(vec![0.0f32, 1.0, -1.0], vec![3], DeviceType::Cpu).unwrap();
-        let result = tensor.tanh().unwrap();
-        let data = result.data().unwrap();
+        let tensor = Tensor::from_data(vec![0.0f32, 1.0, -1.0], vec![3], DeviceType::Cpu).expect("tensor creation failed");
+        let result = tensor.tanh().expect("tanh failed");
+        let data = result.data().expect("data retrieval failed");
 
         // tanh(0) = 0, tanh(1) ≈ 0.761, tanh(-1) ≈ -0.761
         assert!((data[0] - 0.0).abs() < 1e-6);
@@ -328,9 +328,9 @@ mod tests {
 
     #[test]
     fn test_gelu() {
-        let tensor = Tensor::from_data(vec![0.0f32, 1.0, -1.0], vec![3], DeviceType::Cpu).unwrap();
-        let result = tensor.gelu().unwrap();
-        let data = result.data().unwrap();
+        let tensor = Tensor::from_data(vec![0.0f32, 1.0, -1.0], vec![3], DeviceType::Cpu).expect("tensor creation failed");
+        let result = tensor.gelu().expect("gelu failed");
+        let data = result.data().expect("data retrieval failed");
 
         // GELU should preserve relative ordering and be smooth
         assert!((data[0] - 0.0).abs() < 1e-5); // GELU(0) ≈ 0
@@ -340,9 +340,9 @@ mod tests {
 
     #[test]
     fn test_softmax() {
-        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
-        let result = tensor.softmax(-1).unwrap();
-        let data = result.data().unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("tensor creation failed");
+        let result = tensor.softmax(-1).expect("softmax failed");
+        let data = result.data().expect("data retrieval failed");
 
         // Check that values sum to 1
         let sum: f32 = data.iter().sum();
@@ -355,9 +355,9 @@ mod tests {
 
     #[test]
     fn test_log_softmax() {
-        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
-        let result = tensor.log_softmax(-1).unwrap();
-        let data = result.data().unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("tensor creation failed");
+        let result = tensor.log_softmax(-1).expect("log_softmax failed");
+        let data = result.data().expect("data retrieval failed");
 
         // log_softmax values should be negative (since softmax values are < 1)
         assert!(data[0] < 0.0);
@@ -375,11 +375,11 @@ mod tests {
             vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0],
             vec![2, 3],
             DeviceType::Cpu
-        ).unwrap();
+        ).expect("tensor creation failed");
 
         // Test softmax along last dimension (dim=-1)
-        let result = tensor.softmax(-1).unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.softmax(-1).expect("softmax failed");
+        let data = result.data().expect("data retrieval failed");
 
         // Check that each row sums to 1
         let row1_sum: f32 = data[0..3].iter().sum();

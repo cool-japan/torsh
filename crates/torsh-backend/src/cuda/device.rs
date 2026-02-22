@@ -9,13 +9,19 @@ use std::sync::Arc;
 use torsh_core::DeviceType;
 
 /// CUDA device implementation
+///
+/// IMPORTANT: Field declaration order determines drop order in Rust.
+/// `default_stream` and `memory_manager` MUST appear before `context`
+/// so they are dropped before the CUDA context is released.
+/// Destroying CUDA resources (streams, allocations) after their context
+/// is released causes SIGSEGV in libcuda.
 #[derive(Debug, Clone)]
 pub struct CudaDevice {
     device_id: usize,
     device: CustDevice,
-    context: Arc<Context>,
-    memory_manager: Arc<CudaMemoryManager>,
     default_stream: Arc<CudaStream>,
+    memory_manager: Arc<CudaMemoryManager>,
+    context: Arc<Context>,
 }
 
 impl CudaDevice {

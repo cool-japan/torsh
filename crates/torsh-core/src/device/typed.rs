@@ -637,26 +637,29 @@ mod tests {
             .with_memory(512 * 1024 * 1024)
             .with_features(vec!["avx".to_string()]);
 
-        let device = builder.build().unwrap();
+        let device = builder.build().expect("build should succeed");
         assert_eq!(device.device_type(), DeviceType::Cpu);
         assert_eq!(device.requirements().min_memory, Some(512 * 1024 * 1024));
     }
 
     #[test]
     fn test_typed_device_factory() {
-        let cpu_device = TypedDeviceFactory::create_cpu().unwrap();
+        let cpu_device = TypedDeviceFactory::create_cpu().expect("create_cpu should succeed");
         assert_eq!(cpu_device.device_type(), DeviceType::Cpu);
 
-        let runtime_device = TypedDeviceFactory::create_from_type(DeviceType::Cpu).unwrap();
+        let runtime_device = TypedDeviceFactory::create_from_type(DeviceType::Cpu)
+            .expect("create_from_type should succeed");
         assert_eq!(runtime_device.device_type(), DeviceType::Cpu);
     }
 
     #[test]
     fn test_typed_operation_execution() {
-        let device = TypedDeviceFactory::create_cpu().unwrap();
+        let device = TypedDeviceFactory::create_cpu().expect("create_cpu should succeed");
         let operation = MockOperation;
 
-        let result = device.execute_typed_operation(operation).unwrap();
+        let result = device
+            .execute_typed_operation(operation)
+            .expect("operation should succeed");
         assert_eq!(result, 42);
     }
 
@@ -665,12 +668,16 @@ mod tests {
         let requirements = DeviceRequirements::basic();
         let selector = TypedDeviceSelector::<PhantomCpu>::new(requirements);
 
-        let device = TypedDeviceFactory::create_cpu().unwrap();
+        let device = TypedDeviceFactory::create_cpu().expect("create_cpu should succeed");
         let candidates = vec![&device as &dyn Device];
 
-        let selected = selector.select_best_device(&candidates).unwrap();
+        let selected = selector
+            .select_best_device(&candidates)
+            .expect("select_best_device should succeed");
         assert!(selected.is_some());
-        assert!(selector.has_suitable_device(&candidates).unwrap());
+        assert!(selector
+            .has_suitable_device(&candidates)
+            .expect("has_suitable_device should succeed"));
     }
 
     #[test]
@@ -684,11 +691,11 @@ mod tests {
     #[test]
     fn test_utils_functions() {
         let builder = utils::builder::<PhantomCpu>();
-        let device = builder.build().unwrap();
+        let device = builder.build().expect("build should succeed");
 
         let requirements = DeviceRequirements::basic();
-        let satisfies =
-            utils::satisfies_requirements::<PhantomCpu>(&device, &requirements).unwrap();
+        let satisfies = utils::satisfies_requirements::<PhantomCpu>(&device, &requirements)
+            .expect("satisfies_requirements should succeed");
         assert!(satisfies);
 
         assert!(utils::validate_operation::<PhantomCpu, MockOperation>());

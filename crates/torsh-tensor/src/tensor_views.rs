@@ -424,16 +424,20 @@ mod tests {
 
     #[test]
     fn test_tensor_view() {
-        let tensor = ones::<f32>(&[2, 3, 4]).unwrap();
-        let view = tensor.create_view(&[6, 4]).unwrap();
+        let tensor = ones::<f32>(&[2, 3, 4]).expect("ones creation should succeed");
+        let view = tensor
+            .create_view(&[6, 4])
+            .expect("create_view should succeed");
         assert_eq!(view.shape().dims(), &[6, 4]);
         assert_eq!(view.shape().numel(), 24);
     }
 
     #[test]
     fn test_tensor_slice() {
-        let tensor = arange(0.0f32, 12.0, 1.0).unwrap();
-        let _reshaped = tensor.create_view(&[3, 4]).unwrap();
+        let tensor = arange(0.0f32, 12.0, 1.0).expect("arange should succeed");
+        let _reshaped = tensor
+            .create_view(&[3, 4])
+            .expect("create_view should succeed");
         // This would work in a full implementation
         // let slice = reshaped.slice(0, 1, 3).unwrap();
         // assert_eq!(slice.shape().dims(), &[2, 4]);
@@ -441,27 +445,27 @@ mod tests {
 
     #[test]
     fn test_tensor_squeeze_unsqueeze() {
-        let tensor = ones::<f32>(&[1, 3, 1, 4]).unwrap();
-        let squeezed = tensor.squeeze(0).unwrap();
+        let tensor = ones::<f32>(&[1, 3, 1, 4]).expect("ones creation should succeed");
+        let squeezed = tensor.squeeze(0).expect("squeeze should succeed");
         assert_eq!(squeezed.shape().dims(), &[3, 1, 4]);
 
-        let squeezed_all = tensor.squeeze_all().unwrap();
+        let squeezed_all = tensor.squeeze_all().expect("squeeze_all should succeed");
         assert_eq!(squeezed_all.shape().dims(), &[3, 4]);
 
-        let unsqueezed = tensor.unsqueeze(2).unwrap();
+        let unsqueezed = tensor.unsqueeze(2).expect("unsqueeze should succeed");
         assert_eq!(unsqueezed.shape().dims(), &[1, 3, 1, 1, 4]);
     }
 
     #[test]
     fn test_tensor_permute() {
-        let tensor = ones::<f32>(&[2, 3, 4]).unwrap();
-        let permuted = tensor.permute(&[2, 0, 1]).unwrap();
+        let tensor = ones::<f32>(&[2, 3, 4]).expect("ones creation should succeed");
+        let permuted = tensor.permute(&[2, 0, 1]).expect("permute should succeed");
         assert_eq!(permuted.shape().dims(), &[4, 2, 3]);
     }
 
     #[test]
     fn test_tensor_alias() {
-        let tensor = ones::<f32>(&[10, 10]).unwrap();
+        let tensor = ones::<f32>(&[10, 10]).expect("ones creation should succeed");
         let alias = tensor.alias();
         assert!(!alias.is_mutable());
         assert!(alias.ref_count() >= 2); // Original + alias
@@ -469,8 +473,10 @@ mod tests {
 
     #[test]
     fn test_view_memory_usage() {
-        let tensor = ones::<f32>(&[100, 100]).unwrap();
-        let view = tensor.create_view(&[1000, 10]).unwrap();
+        let tensor = ones::<f32>(&[100, 100]).expect("ones creation should succeed");
+        let view = tensor
+            .create_view(&[1000, 10])
+            .expect("create_view should succeed");
         let usage = view.view_memory_usage();
         assert_eq!(usage.view_elements, 10000);
         assert_eq!(usage.memory_efficiency, 1.0); // Full tensor view

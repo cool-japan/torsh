@@ -250,37 +250,40 @@ mod tests {
     #[test]
     fn test_tensorboard_scalars_export() {
         let events = create_test_events();
-        let path = "/tmp/test_tensorboard_scalars.log";
+        let scalars_path = std::env::temp_dir().join("test_tensorboard_scalars.log");
+        let path = scalars_path.display().to_string();
 
-        export_tensorboard_scalars(&events, path).unwrap();
+        export_tensorboard_scalars(&events, &path).unwrap();
 
         // Verify file was created
-        assert!(std::fs::metadata(path).is_ok());
+        assert!(std::fs::metadata(&path).is_ok());
 
         // Clean up
-        let _ = std::fs::remove_file(path);
+        let _ = std::fs::remove_file(&path);
     }
 
     #[test]
     fn test_tensorboard_histograms_export() {
         let events = create_test_events();
-        let path = "/tmp/test_tensorboard_histograms.log";
+        let histograms_path = std::env::temp_dir().join("test_tensorboard_histograms.log");
+        let path = histograms_path.display().to_string();
 
-        export_tensorboard_histograms(&events, path).unwrap();
+        export_tensorboard_histograms(&events, &path).unwrap();
 
         // Verify file was created
-        assert!(std::fs::metadata(path).is_ok());
+        assert!(std::fs::metadata(&path).is_ok());
 
         // Clean up
-        let _ = std::fs::remove_file(path);
+        let _ = std::fs::remove_file(&path);
     }
 
     #[test]
     fn test_tensorboard_profile_export() {
         let events = create_test_events();
-        let base_path = "/tmp/test_tensorboard_profile";
+        let profile_path = std::env::temp_dir().join("test_tensorboard_profile");
+        let base_path = profile_path.display().to_string();
 
-        export_tensorboard_profile(&events, base_path).unwrap();
+        export_tensorboard_profile(&events, &base_path).unwrap();
 
         // Verify files were created
         assert!(std::fs::metadata(format!("{base_path}_scalars.log")).is_ok());

@@ -459,7 +459,11 @@ impl MetricsCollector {
 
         // Compute loss improvement from history
         let loss_improvement = if self.round_history.len() >= 2 {
-            let current_loss = self.round_history.back().unwrap().global_loss;
+            let current_loss = self
+                .round_history
+                .back()
+                .expect("round_history has >= 2 entries")
+                .global_loss;
             let previous_loss = self.round_history[self.round_history.len() - 2].global_loss;
             previous_loss - current_loss
         } else {

@@ -39,13 +39,29 @@ fn main() {
 
     println!("\n==============================================");
     println!("Demo completed successfully!");
-    println!("Check the /tmp directory for generated files:");
-    println!("  - /tmp/confusion_matrix.json");
-    println!("  - /tmp/confusion_matrix.csv");
-    println!("  - /tmp/confusion_matrix.tex");
-    println!("  - /tmp/confusion_matrix.md");
-    println!("  - /tmp/metrics_dashboard.html");
-    println!("  - /tmp/metrics_report.tex");
+    let temp_display = std::env::temp_dir();
+    println!(
+        "Check the {} directory for generated files:",
+        temp_display.display()
+    );
+    println!(
+        "  - {}",
+        temp_display.join("confusion_matrix.json").display()
+    );
+    println!(
+        "  - {}",
+        temp_display.join("confusion_matrix.csv").display()
+    );
+    println!(
+        "  - {}",
+        temp_display.join("confusion_matrix.tex").display()
+    );
+    println!("  - {}", temp_display.join("confusion_matrix.md").display());
+    println!(
+        "  - {}",
+        temp_display.join("metrics_dashboard.html").display()
+    );
+    println!("  - {}", temp_display.join("metrics_report.tex").display());
     println!("==============================================");
 }
 
@@ -73,10 +89,13 @@ fn confusion_matrix_export_demo() {
         println!("   {}", &json[..200.min(json.len())]);
         println!("   ...");
         // Save to file
-        if let Err(e) = std::fs::write("/tmp/confusion_matrix.json", json) {
-            println!("   ⚠ Failed to save JSON: {}", e);
+        if let Err(e) = std::fs::write(std::env::temp_dir().join("confusion_matrix.json"), json) {
+            println!("   \u{26a0} Failed to save JSON: {}", e);
         } else {
-            println!("   ✓ Saved to /tmp/confusion_matrix.json");
+            println!(
+                "   \u{2713} Saved to {}",
+                std::env::temp_dir().join("confusion_matrix.json").display()
+            );
         }
     }
 
@@ -85,10 +104,13 @@ fn confusion_matrix_export_demo() {
     let csv = cm_plot.to_csv();
     println!("{}", &csv[..150.min(csv.len())]);
     println!("   ...");
-    if let Err(e) = std::fs::write("/tmp/confusion_matrix.csv", csv) {
+    if let Err(e) = std::fs::write(std::env::temp_dir().join("confusion_matrix.csv"), csv) {
         println!("   ⚠ Failed to save CSV: {}", e);
     } else {
-        println!("   ✓ Saved to /tmp/confusion_matrix.csv");
+        println!(
+            "   ✓ Saved to {}",
+            std::env::temp_dir().join("confusion_matrix.csv").display()
+        );
     }
 
     println!("\n3️⃣ LaTeX Export:");
@@ -96,10 +118,13 @@ fn confusion_matrix_export_demo() {
     let latex = cm_plot.to_latex();
     println!("{}", &latex[..200.min(latex.len())]);
     println!("   ...");
-    if let Err(e) = std::fs::write("/tmp/confusion_matrix.tex", latex) {
+    if let Err(e) = std::fs::write(std::env::temp_dir().join("confusion_matrix.tex"), latex) {
         println!("   ⚠ Failed to save LaTeX: {}", e);
     } else {
-        println!("   ✓ Saved to /tmp/confusion_matrix.tex");
+        println!(
+            "   ✓ Saved to {}",
+            std::env::temp_dir().join("confusion_matrix.tex").display()
+        );
     }
 
     println!("\n4️⃣ Markdown Export:");
@@ -107,10 +132,13 @@ fn confusion_matrix_export_demo() {
     let markdown = cm_plot.to_markdown();
     println!("{}", &markdown[..150.min(markdown.len())]);
     println!("   ...");
-    if let Err(e) = std::fs::write("/tmp/confusion_matrix.md", markdown) {
-        println!("   ⚠ Failed to save Markdown: {}", e);
+    if let Err(e) = std::fs::write(std::env::temp_dir().join("confusion_matrix.md"), markdown) {
+        println!("   \u{26a0} Failed to save Markdown: {}", e);
     } else {
-        println!("   ✓ Saved to /tmp/confusion_matrix.md");
+        println!(
+            "   \u{2713} Saved to {}",
+            std::env::temp_dir().join("confusion_matrix.md").display()
+        );
     }
 
     println!("\n5️⃣ HTML Export:");
@@ -195,7 +223,9 @@ fn interactive_dashboard_demo() {
     dashboard.add_custom_plot("Performance Metrics", metrics_html);
 
     // Save dashboard
-    if let Err(e) = dashboard.save_to_file("/tmp/metrics_dashboard.html") {
+    let dashboard_path = std::env::temp_dir().join("metrics_dashboard.html");
+    let dashboard_str = dashboard_path.display().to_string();
+    if let Err(e) = dashboard.save_to_file(&dashboard_str) {
         println!("⚠ Failed to save dashboard: {}", e);
     } else {
         println!("✓ Created interactive dashboard");
@@ -203,7 +233,7 @@ fn interactive_dashboard_demo() {
         println!("  • Hover effects and animations");
         println!("  • Click interactions on table cells");
         println!("  • Professional gradient styling");
-        println!("  • Saved to /tmp/metrics_dashboard.html");
+        println!("  • Saved to {}", dashboard_str);
         println!("\n  💡 Open the file in a web browser to see the interactive dashboard!");
     }
 }
@@ -272,15 +302,17 @@ Accuracy & - & - & 0.895 \\
     );
 
     // Save report
-    if let Err(e) = report.save_to_file("/tmp/metrics_report.tex") {
+    let report_path = std::env::temp_dir().join("metrics_report.tex");
+    let report_str = report_path.display().to_string();
+    if let Err(e) = report.save_to_file(&report_str) {
         println!("⚠ Failed to save LaTeX report: {}", e);
     } else {
         println!("✓ Created LaTeX report");
         println!("  • Professional academic formatting");
         println!("  • Multiple sections with proper LaTeX structure");
         println!("  • Tables and figures ready for compilation");
-        println!("  • Saved to /tmp/metrics_report.tex");
-        println!("\n  💡 Compile with: pdflatex /tmp/metrics_report.tex");
+        println!("  • Saved to {}", report_str);
+        println!("\n  💡 Compile with: pdflatex {}", report_str);
     }
 }
 

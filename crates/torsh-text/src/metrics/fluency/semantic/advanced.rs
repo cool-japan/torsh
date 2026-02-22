@@ -549,7 +549,7 @@ impl AdvancedSemanticAnalyzer {
 
 impl Default for AdvancedSemanticAnalyzer {
     fn default() -> Self {
-        Self::new(AdvancedSemanticConfig::default()).unwrap()
+        Self::new(AdvancedSemanticConfig::default()).expect("default advanced semantic config should be valid")
     }
 }
 

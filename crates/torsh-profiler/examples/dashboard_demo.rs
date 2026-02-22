@@ -101,14 +101,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let dashboard_html = dashboard.generate_dashboard_html()?;
 
     // Export dashboard to file
-    let dashboard_file = "/tmp/torsh_dashboard.html";
-    std::fs::write(dashboard_file, &dashboard_html)?;
-    println!("✅ Dashboard HTML exported to: {dashboard_file}");
+    let dashboard_file = std::env::temp_dir().join("torsh_dashboard.html");
+    let dashboard_file_str = dashboard_file.display().to_string();
+    std::fs::write(&dashboard_file, &dashboard_html)?;
+    println!("✅ Dashboard HTML exported to: {dashboard_file_str}");
 
     // Export dashboard data to JSON
-    let dashboard_data_file = "/tmp/torsh_dashboard_data.json";
-    dashboard.export_data_json(dashboard_data_file)?;
-    println!("✅ Dashboard data exported to: {dashboard_data_file}");
+    let dashboard_data_file = std::env::temp_dir().join("torsh_dashboard_data.json");
+    let dashboard_data_str = dashboard_data_file.display().to_string();
+    dashboard.export_data_json(&dashboard_data_str)?;
+    println!("✅ Dashboard data exported to: {dashboard_data_str}");
 
     // Show dashboard metrics
     if let Some(current_data) = dashboard.get_current_data()? {
@@ -161,11 +163,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   • Data export to JSON format working");
 
     println!("\n📁 Generated Files:");
-    println!("   • Dashboard HTML: {dashboard_file}");
-    println!("   • Dashboard Data: {dashboard_data_file}");
+    println!("   • Dashboard HTML: {dashboard_file_str}");
+    println!("   • Dashboard Data: {dashboard_data_str}");
 
     println!("\n💡 Next Steps:");
-    println!("   • Open {dashboard_file} in a web browser to view the dashboard");
+    println!("   • Open {dashboard_file_str} in a web browser to view the dashboard");
     println!("   • Use dashboard.start() to run real-time monitoring server");
     println!("   • Integrate with your application for continuous monitoring");
 

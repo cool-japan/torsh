@@ -46,7 +46,7 @@ where
     ///
     /// let signal = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu).expect("tensor creation should succeed");
     /// let kernel = Tensor::from_data(vec![1.0f32, 0.5], vec![2], DeviceType::Cpu).expect("tensor creation should succeed");
-    /// let correlation = signal.correlate1d(&kernel, "same").unwrap();
+    /// let correlation = signal.correlate1d(&kernel, "same").expect("operation should succeed");
     /// ```
     #[allow(clippy::needless_range_loop)]
     pub fn correlate1d(&self, other: &Self, mode: &str) -> Result<Self> {
@@ -133,7 +133,7 @@ where
     /// use torsh_core::device::DeviceType;
     ///
     /// let noisy_signal = Tensor::from_data(vec![1.0f32, 5.0, 2.0, 8.0, 3.0], vec![5], DeviceType::Cpu).expect("tensor creation should succeed");
-    /// let smoothed = noisy_signal.moving_average(3).unwrap();
+    /// let smoothed = noisy_signal.moving_average(3).expect("operation should succeed");
     /// ```
     pub fn moving_average(&self, window_size: usize) -> Result<Self> {
         let input_shape = self.shape();
@@ -196,7 +196,7 @@ where
     /// use torsh_core::device::DeviceType;
     ///
     /// let signal = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu).expect("tensor creation should succeed");
-    /// let smoothed = signal.gaussian_filter(1.0, 5).unwrap();
+    /// let smoothed = signal.gaussian_filter(1.0, 5).expect("operation should succeed");
     /// ```
     pub fn gaussian_filter(&self, sigma: f64, kernel_size: usize) -> Result<Self> {
         let input_shape = self.shape();
@@ -264,7 +264,7 @@ where
     /// use torsh_core::device::DeviceType;
     ///
     /// let noisy_signal = Tensor::from_data(vec![1.0f32, 100.0, 2.0, 3.0, 200.0, 4.0], vec![6], DeviceType::Cpu).expect("tensor creation should succeed");
-    /// let denoised = noisy_signal.median_filter(3).unwrap();
+    /// let denoised = noisy_signal.median_filter(3).expect("operation should succeed");
     /// ```
     pub fn median_filter(&self, window_size: usize) -> Result<Self> {
         let input_shape = self.shape();
@@ -499,11 +499,11 @@ mod tests {
 
     #[test]
     fn test_correlate1d_full() {
-        let signal = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu).unwrap();
-        let kernel = Tensor::from_data(vec![1.0f32, 0.5], vec![2], DeviceType::Cpu).unwrap();
+        let signal = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu).expect("operation should succeed");
+        let kernel = Tensor::from_data(vec![1.0f32, 0.5], vec![2], DeviceType::Cpu).expect("operation should succeed");
 
-        let result = signal.correlate1d(&kernel, "full").unwrap();
-        let data = result.data().unwrap();
+        let result = signal.correlate1d(&kernel, "full").expect("operation should succeed");
+        let data = result.data().expect("data retrieval should succeed");
 
         // Expected output size: 4 + 2 - 1 = 5
         assert_eq!(data.len(), 5);
@@ -511,11 +511,11 @@ mod tests {
 
     #[test]
     fn test_correlate1d_valid() {
-        let signal = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu).unwrap();
-        let kernel = Tensor::from_data(vec![1.0f32, 0.5], vec![2], DeviceType::Cpu).unwrap();
+        let signal = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu).expect("operation should succeed");
+        let kernel = Tensor::from_data(vec![1.0f32, 0.5], vec![2], DeviceType::Cpu).expect("operation should succeed");
 
-        let result = signal.correlate1d(&kernel, "valid").unwrap();
-        let data = result.data().unwrap();
+        let result = signal.correlate1d(&kernel, "valid").expect("operation should succeed");
+        let data = result.data().expect("data retrieval should succeed");
 
         // Expected output size: 4 - 2 + 1 = 3
         assert_eq!(data.len(), 3);
@@ -523,11 +523,11 @@ mod tests {
 
     #[test]
     fn test_correlate1d_same() {
-        let signal = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu).unwrap();
-        let kernel = Tensor::from_data(vec![1.0f32, 0.5], vec![2], DeviceType::Cpu).unwrap();
+        let signal = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu).expect("operation should succeed");
+        let kernel = Tensor::from_data(vec![1.0f32, 0.5], vec![2], DeviceType::Cpu).expect("operation should succeed");
 
-        let result = signal.correlate1d(&kernel, "same").unwrap();
-        let data = result.data().unwrap();
+        let result = signal.correlate1d(&kernel, "same").expect("operation should succeed");
+        let data = result.data().expect("data retrieval should succeed");
 
         // Expected output size: 4 (same as input)
         assert_eq!(data.len(), 4);
@@ -535,9 +535,9 @@ mod tests {
 
     #[test]
     fn test_moving_average() {
-        let signal = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu).unwrap();
-        let result = signal.moving_average(3).unwrap();
-        let data = result.data().unwrap();
+        let signal = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu).expect("operation should succeed");
+        let result = signal.moving_average(3).expect("operation should succeed");
+        let data = result.data().expect("data retrieval should succeed");
 
         // Expected output: [(1+2+3)/3, (2+3+4)/3, (3+4+5)/3] = [2.0, 3.0, 4.0]
         assert_eq!(data.len(), 3);
@@ -548,20 +548,20 @@ mod tests {
 
     #[test]
     fn test_gaussian_filter() {
-        let signal = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu).unwrap();
+        let signal = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu).expect("operation should succeed");
         let result = signal.gaussian_filter(1.0, 3);
 
         // Should not error and should produce smoothed output
         assert!(result.is_ok());
-        let smoothed = result.unwrap();
-        assert_eq!(smoothed.data().unwrap().len(), signal.shape().numel());
+        let smoothed = result.expect("operation should succeed");
+        assert_eq!(smoothed.data().expect("data retrieval should succeed").len(), signal.shape().numel());
     }
 
     #[test]
     fn test_median_filter() {
-        let signal = Tensor::from_data(vec![1.0f32, 100.0, 2.0, 3.0, 200.0, 4.0], vec![6], DeviceType::Cpu).unwrap();
-        let result = signal.median_filter(3).unwrap();
-        let data = result.data().unwrap();
+        let signal = Tensor::from_data(vec![1.0f32, 100.0, 2.0, 3.0, 200.0, 4.0], vec![6], DeviceType::Cpu).expect("operation should succeed");
+        let result = signal.median_filter(3).expect("operation should succeed");
+        let data = result.data().expect("data retrieval should succeed");
 
         // Median filter should reduce the impact of outliers (100.0, 200.0)
         assert_eq!(data.len(), 6);
@@ -572,9 +572,9 @@ mod tests {
 
     #[test]
     fn test_highpass_diff() {
-        let signal = Tensor::from_data(vec![1.0f32, 3.0, 2.0, 5.0], vec![4], DeviceType::Cpu).unwrap();
-        let result = signal.highpass_diff().unwrap();
-        let data = result.data().unwrap();
+        let signal = Tensor::from_data(vec![1.0f32, 3.0, 2.0, 5.0], vec![4], DeviceType::Cpu).expect("operation should succeed");
+        let result = signal.highpass_diff().expect("highpass diff should succeed");
+        let data = result.data().expect("data retrieval should succeed");
 
         // Expected differences: [3-1, 2-3, 5-2] = [2.0, -1.0, 3.0]
         assert_eq!(data.len(), 3);
@@ -585,9 +585,9 @@ mod tests {
 
     #[test]
     fn test_lowpass_avg() {
-        let signal = Tensor::from_data(vec![1.0f32, 3.0, 2.0, 4.0], vec![4], DeviceType::Cpu).unwrap();
-        let result = signal.lowpass_avg().unwrap();
-        let data = result.data().unwrap();
+        let signal = Tensor::from_data(vec![1.0f32, 3.0, 2.0, 4.0], vec![4], DeviceType::Cpu).expect("operation should succeed");
+        let result = signal.lowpass_avg().expect("lowpass avg should succeed");
+        let data = result.data().expect("data retrieval should succeed");
 
         // Expected averages: [(1+3)/2, (3+2)/2, (2+4)/2] = [2.0, 2.5, 3.0]
         assert_eq!(data.len(), 3);
@@ -599,12 +599,12 @@ mod tests {
     #[test]
     fn test_signal_processing_error_cases() {
         // Test invalid dimensions
-        let signal_2d = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu).unwrap();
+        let signal_2d = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu).expect("operation should succeed");
         assert!(signal_2d.moving_average(2).is_err());
         assert!(signal_2d.median_filter(3).is_err());
 
         // Test invalid parameters
-        let signal_1d = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+        let signal_1d = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("operation should succeed");
         assert!(signal_1d.moving_average(0).is_err()); // Zero window size
         assert!(signal_1d.moving_average(5).is_err()); // Window larger than signal
         assert!(signal_1d.median_filter(4).is_err()); // Even window size
@@ -614,8 +614,8 @@ mod tests {
 
     #[test]
     fn test_utils_gaussian_kernel() {
-        let kernel = utils::gaussian_kernel::<f32>(5, 1.0, DeviceType::Cpu).unwrap();
-        let data = kernel.data().unwrap();
+        let kernel = utils::gaussian_kernel::<f32>(5, 1.0, DeviceType::Cpu).expect("operation should succeed");
+        let data = kernel.data().expect("data retrieval should succeed");
 
         // Kernel should sum to approximately 1
         let sum: f32 = data.iter().sum();
@@ -632,8 +632,8 @@ mod tests {
 
     #[test]
     fn test_utils_box_kernel() {
-        let kernel = utils::box_kernel::<f32>(3, DeviceType::Cpu).unwrap();
-        let data = kernel.data().unwrap();
+        let kernel = utils::box_kernel::<f32>(3, DeviceType::Cpu).expect("operation should succeed");
+        let data = kernel.data().expect("data retrieval should succeed");
 
         // All values should be 1/3
         for &val in data.iter() {
@@ -643,8 +643,8 @@ mod tests {
 
     #[test]
     fn test_utils_derivative_kernel() {
-        let kernel = utils::derivative_kernel::<f32>(DeviceType::Cpu).unwrap();
-        let data = kernel.data().unwrap();
+        let kernel = utils::derivative_kernel::<f32>(DeviceType::Cpu).expect("operation should succeed");
+        let data = kernel.data().expect("data retrieval should succeed");
 
         // Should be [-1, 0, 1]
         assert_eq!(data.len(), 3);

@@ -18,7 +18,7 @@ where
 {
     Python::attach(|py| {
         let code_str = format!(
-            "import sys\nsys.path.insert(0, '{}')\nimport torsh_python as torsh\n\n{}",
+            "import sys\nsys.path.insert(0, '{}')\nimport rstorch_python as rstorch\n\n{}",
             env!("CARGO_MANIFEST_DIR"),
             code
         );
@@ -37,7 +37,7 @@ where
 fn test_device_creation_cpu() {
     let result: String = run_python_code(
         r#"
-result = str(torsh.PyDevice("cpu"))
+result = str(rstorch.PyDevice("cpu"))
 "#,
         |r| r.extract(),
     )
@@ -50,7 +50,7 @@ result = str(torsh.PyDevice("cpu"))
 fn test_device_creation_cuda_default() {
     let result: String = run_python_code(
         r#"
-result = str(torsh.PyDevice("cuda"))
+result = str(rstorch.PyDevice("cuda"))
 "#,
         |r| r.extract(),
     )
@@ -63,7 +63,7 @@ result = str(torsh.PyDevice("cuda"))
 fn test_device_creation_cuda_with_index() {
     let result: String = run_python_code(
         r#"
-result = str(torsh.PyDevice("cuda:2"))
+result = str(rstorch.PyDevice("cuda:2"))
 "#,
         |r| r.extract(),
     )
@@ -76,7 +76,7 @@ result = str(torsh.PyDevice("cuda:2"))
 fn test_device_creation_metal_default() {
     let result: String = run_python_code(
         r#"
-result = str(torsh.PyDevice("metal"))
+result = str(rstorch.PyDevice("metal"))
 "#,
         |r| r.extract(),
     )
@@ -89,7 +89,7 @@ result = str(torsh.PyDevice("metal"))
 fn test_device_creation_metal_with_index() {
     let result: String = run_python_code(
         r#"
-result = str(torsh.PyDevice("metal:1"))
+result = str(rstorch.PyDevice("metal:1"))
 "#,
         |r| r.extract(),
     )
@@ -102,7 +102,7 @@ result = str(torsh.PyDevice("metal:1"))
 fn test_device_creation_from_integer() {
     let result: String = run_python_code(
         r#"
-result = str(torsh.PyDevice(3))
+result = str(rstorch.PyDevice(3))
 "#,
         |r| r.extract(),
     )
@@ -115,7 +115,7 @@ result = str(torsh.PyDevice(3))
 fn test_device_type_property_cpu() {
     let result: String = run_python_code(
         r#"
-device = torsh.PyDevice("cpu")
+device = rstorch.PyDevice("cpu")
 result = device.type
 "#,
         |r| r.extract(),
@@ -129,7 +129,7 @@ result = device.type
 fn test_device_type_property_cuda() {
     let result: String = run_python_code(
         r#"
-device = torsh.PyDevice("cuda:5")
+device = rstorch.PyDevice("cuda:5")
 result = device.type
 "#,
         |r| r.extract(),
@@ -146,9 +146,9 @@ fn test_device_index_property_cpu() {
             r#"
 import sys
 sys.path.insert(0, '{}')
-import torsh_python as torsh
+import rstorch_python as rstorch
 
-device = torsh.PyDevice("cpu")
+device = rstorch.PyDevice("cpu")
 result = device.index
 "#,
             env!("CARGO_MANIFEST_DIR")
@@ -168,7 +168,7 @@ result = device.index
 fn test_device_index_property_cuda() {
     let result: u32 = run_python_code(
         r#"
-device = torsh.PyDevice("cuda:7")
+device = rstorch.PyDevice("cuda:7")
 result = device.index
 "#,
         |r| r.extract(),
@@ -182,7 +182,7 @@ result = device.index
 fn test_device_repr_cpu() {
     let result: String = run_python_code(
         r#"
-device = torsh.PyDevice("cpu")
+device = rstorch.PyDevice("cpu")
 result = repr(device)
 "#,
         |r| r.extract(),
@@ -196,7 +196,7 @@ result = repr(device)
 fn test_device_repr_cuda() {
     let result: String = run_python_code(
         r#"
-device = torsh.PyDevice("cuda:4")
+device = rstorch.PyDevice("cuda:4")
 result = repr(device)
 "#,
         |r| r.extract(),
@@ -210,8 +210,8 @@ result = repr(device)
 fn test_device_equality_same() {
     let result: bool = run_python_code(
         r#"
-device1 = torsh.PyDevice("cuda:2")
-device2 = torsh.PyDevice("cuda:2")
+device1 = rstorch.PyDevice("cuda:2")
+device2 = rstorch.PyDevice("cuda:2")
 result = device1 == device2
 "#,
         |r| r.extract(),
@@ -225,8 +225,8 @@ result = device1 == device2
 fn test_device_equality_different_index() {
     let result: bool = run_python_code(
         r#"
-device1 = torsh.PyDevice("cuda:2")
-device2 = torsh.PyDevice("cuda:3")
+device1 = rstorch.PyDevice("cuda:2")
+device2 = rstorch.PyDevice("cuda:3")
 result = device1 == device2
 "#,
         |r| r.extract(),
@@ -240,8 +240,8 @@ result = device1 == device2
 fn test_device_equality_different_type() {
     let result: bool = run_python_code(
         r#"
-device1 = torsh.PyDevice("cpu")
-device2 = torsh.PyDevice("cuda:0")
+device1 = rstorch.PyDevice("cpu")
+device2 = rstorch.PyDevice("cuda:0")
 result = device1 == device2
 "#,
         |r| r.extract(),
@@ -258,10 +258,10 @@ fn test_device_hash_consistency() {
             r#"
 import sys
 sys.path.insert(0, '{}')
-import torsh_python as torsh
+import rstorch_python as rstorch
 
-device1 = torsh.PyDevice("cuda:2")
-device2 = torsh.PyDevice("cuda:2")
+device1 = rstorch.PyDevice("cuda:2")
+device2 = rstorch.PyDevice("cuda:2")
 result = hash(device1) == hash(device2)
 "#,
             env!("CARGO_MANIFEST_DIR")
@@ -281,8 +281,8 @@ result = hash(device1) == hash(device2)
 fn test_device_in_set() {
     let result: bool = run_python_code(
         r#"
-device1 = torsh.PyDevice("cuda:2")
-device2 = torsh.PyDevice("cuda:2")
+device1 = rstorch.PyDevice("cuda:2")
+device2 = rstorch.PyDevice("cuda:2")
 device_set = {device1}
 result = device2 in device_set
 "#,
@@ -300,10 +300,10 @@ fn test_device_invalid_string() {
             r#"
 import sys
 sys.path.insert(0, '{}')
-import torsh_python as torsh
+import rstorch_python as rstorch
 
 try:
-    device = torsh.PyDevice("invalid")
+    device = rstorch.PyDevice("invalid")
     result = False
 except ValueError:
     result = True
@@ -328,10 +328,10 @@ fn test_device_invalid_cuda_id() {
             r#"
 import sys
 sys.path.insert(0, '{}')
-import torsh_python as torsh
+import rstorch_python as rstorch
 
 try:
-    device = torsh.PyDevice("cuda:abc")
+    device = rstorch.PyDevice("cuda:abc")
     result = False
 except ValueError:
     result = True
@@ -356,10 +356,10 @@ fn test_device_negative_integer() {
             r#"
 import sys
 sys.path.insert(0, '{}')
-import torsh_python as torsh
+import rstorch_python as rstorch
 
 try:
-    device = torsh.PyDevice(-1)
+    device = rstorch.PyDevice(-1)
     result = False
 except ValueError:
     result = True
@@ -384,10 +384,10 @@ fn test_device_invalid_type() {
             r#"
 import sys
 sys.path.insert(0, '{}')
-import torsh_python as torsh
+import rstorch_python as rstorch
 
 try:
-    device = torsh.PyDevice([1, 2, 3])
+    device = rstorch.PyDevice([1, 2, 3])
     result = False
 except ValueError:
     result = True
@@ -412,7 +412,7 @@ except ValueError:
 fn test_device_count_function() {
     let result: u32 = run_python_code(
         r#"
-result = torsh.device_count()
+result = rstorch.device_count()
 "#,
         |r| r.extract(),
     )
@@ -426,7 +426,7 @@ result = torsh.device_count()
 fn test_is_available_function() {
     let result: bool = run_python_code(
         r#"
-result = torsh.is_available()
+result = rstorch.is_available()
 "#,
         |r| r.extract(),
     )
@@ -439,7 +439,7 @@ result = torsh.is_available()
 fn test_cuda_is_available_function() {
     let result: bool = run_python_code(
         r#"
-result = torsh.cuda_is_available()
+result = rstorch.cuda_is_available()
 "#,
         |r| r.extract(),
     )
@@ -453,7 +453,7 @@ result = torsh.cuda_is_available()
 fn test_mps_is_available_function() {
     let result: bool = run_python_code(
         r#"
-result = torsh.mps_is_available()
+result = rstorch.mps_is_available()
 "#,
         |r| r.extract(),
     )
@@ -467,8 +467,8 @@ result = torsh.mps_is_available()
 fn test_get_device_name_function_cpu() {
     let result: String = run_python_code(
         r#"
-device = torsh.PyDevice("cpu")
-result = torsh.get_device_name(device)
+device = rstorch.PyDevice("cpu")
+result = rstorch.get_device_name(device)
 "#,
         |r| r.extract(),
     )
@@ -481,8 +481,8 @@ result = torsh.get_device_name(device)
 fn test_get_device_name_function_cuda() {
     let result: String = run_python_code(
         r#"
-device = torsh.PyDevice("cuda:3")
-result = torsh.get_device_name(device)
+device = rstorch.PyDevice("cuda:3")
+result = rstorch.get_device_name(device)
 "#,
         |r| r.extract(),
     )
@@ -495,7 +495,7 @@ result = torsh.get_device_name(device)
 fn test_get_device_name_function_none() {
     let result: String = run_python_code(
         r#"
-result = torsh.get_device_name(None)
+result = rstorch.get_device_name(None)
 "#,
         |r| r.extract(),
     )
@@ -508,7 +508,7 @@ result = torsh.get_device_name(None)
 fn test_cpu_constant() {
     let result: String = run_python_code(
         r#"
-result = str(torsh.cpu)
+result = str(rstorch.cpu)
 "#,
         |r| r.extract(),
     )
@@ -521,8 +521,8 @@ result = str(torsh.cpu)
 fn test_device_constants_equality() {
     let result: bool = run_python_code(
         r#"
-device = torsh.PyDevice("cpu")
-result = device == torsh.cpu
+device = rstorch.PyDevice("cpu")
+result = device == rstorch.cpu
 "#,
         |r| r.extract(),
     )

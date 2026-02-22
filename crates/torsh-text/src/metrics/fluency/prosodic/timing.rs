@@ -755,7 +755,7 @@ impl DurationAnalyzer {
             NormalizationMethod::Quantile => {
                 // Simple quantile normalization (median-based)
                 let mut sorted_durations = durations.to_vec();
-                sorted_durations.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                sorted_durations.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
                 let median = if sorted_durations.len() % 2 == 0 {
                     let mid = sorted_durations.len() / 2;
                     (sorted_durations[mid - 1] + sorted_durations[mid]) / 2.0
@@ -1319,7 +1319,7 @@ impl TimingAnalyzer {
 
         // Final lengthening (common in natural speech)
         if !timing_info.syllable_durations.is_empty() {
-            let final_duration = timing_info.syllable_durations.last().unwrap();
+            let final_duration = timing_info.syllable_durations.last().expect("syllable_durations verified non-empty above");
             let mean_duration = timing_info.average_syllable_duration();
 
             if mean_duration > 0.0 {
@@ -1607,6 +1607,6 @@ impl Default for TimingAnalyzer {
             calculate_speech_rate: true,
             analyze_timing_variability: true,
         })
-        .unwrap()
+        .expect("timing config should be valid")
     }
 }

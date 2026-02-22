@@ -746,11 +746,12 @@ mod tests {
             .update_baseline("test_metric", "test_category", vec![100.0, 105.0, 95.0])
             .unwrap();
 
-        let temp_file = "/tmp/test_baselines.json";
-        detector.save_baselines(temp_file).unwrap();
+        let temp_file = std::env::temp_dir().join("test_baselines.json");
+        let temp_str = temp_file.display().to_string();
+        detector.save_baselines(&temp_str).unwrap();
 
         let mut new_detector = create_regression_detector();
-        new_detector.load_baselines(temp_file).unwrap();
+        new_detector.load_baselines(&temp_str).unwrap();
 
         assert_eq!(new_detector.baselines.len(), 1);
         assert!(new_detector
@@ -758,7 +759,7 @@ mod tests {
             .contains_key("test_category::test_metric"));
 
         // Clean up
-        let _ = std::fs::remove_file(temp_file);
+        let _ = std::fs::remove_file(&temp_file);
     }
 
     #[test]

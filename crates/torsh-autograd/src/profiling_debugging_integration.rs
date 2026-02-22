@@ -148,7 +148,7 @@ impl Default for ProfilingConfig {
     fn default() -> Self {
         Self {
             tool: ProfilingTool::Perf,
-            output_directory: PathBuf::from("/tmp/autograd_profiling"),
+            output_directory: std::env::temp_dir().join("autograd_profiling"),
             session_name: "autograd_session".to_string(),
             duration_limit: Some(Duration::from_secs(300)), // 5 minutes
             sampling_frequency: Some(1000),                 // 1 kHz
@@ -194,7 +194,7 @@ impl Default for DebuggingConfig {
             memory_error_detection: true,
             thread_error_detection: true,
             break_on_error: false,
-            output_directory: PathBuf::from("/tmp/autograd_debugging"),
+            output_directory: std::env::temp_dir().join("autograd_debugging"),
             log_level: LogLevel::Info,
             custom_parameters: HashMap::new(),
         }
@@ -877,7 +877,7 @@ impl Default for IntegrationConfig {
             enable_continuous_profiling: false,
             profile_threshold_ms: 100, // Profile operations > 100ms
             memory_threshold_mb: 100,  // Profile if using > 100MB
-            output_base_directory: PathBuf::from("/tmp/autograd_analysis"),
+            output_base_directory: std::env::temp_dir().join("autograd_analysis"),
         }
     }
 }
@@ -951,7 +951,7 @@ impl ProfilingDebuggingManager {
         mut config: ProfilingConfig,
     ) -> AutogradResult<ProfilingSession> {
         // Override output directory if not set
-        if config.output_directory == PathBuf::from("/tmp/autograd_profiling") {
+        if config.output_directory == std::env::temp_dir().join("autograd_profiling") {
             config.output_directory = self.config.output_base_directory.join("profiling");
         }
 
@@ -1003,7 +1003,7 @@ impl ProfilingDebuggingManager {
         mut config: DebuggingConfig,
     ) -> AutogradResult<DebuggingSession> {
         // Override output directory if not set
-        if config.output_directory == PathBuf::from("/tmp/autograd_debugging") {
+        if config.output_directory == std::env::temp_dir().join("autograd_debugging") {
             config.output_directory = self.config.output_base_directory.join("debugging");
         }
 

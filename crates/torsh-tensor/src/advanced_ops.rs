@@ -1206,64 +1206,90 @@ mod tests {
 
     #[test]
     fn test_scalar_creation() {
-        let scalar = Tensor::<f32>::scalar(42.0).unwrap();
+        let scalar = Tensor::<f32>::scalar(42.0).expect("operation should succeed");
         assert_eq!(scalar.shape().dims(), &[] as &[usize]);
-        assert_eq!(scalar.item().unwrap(), 42.0);
+        assert_eq!(scalar.item().expect("item extraction should succeed"), 42.0);
     }
 
     #[test]
     fn test_max_reduction() {
         let data = vec![1.0f32, 5.0, 3.0, 2.0];
-        let tensor = Tensor::from_data(data, vec![4], DeviceType::Cpu).unwrap();
-        let max_val = tensor.max(None, false).unwrap();
-        assert_eq!(max_val.item().unwrap(), 5.0);
+        let tensor =
+            Tensor::from_data(data, vec![4], DeviceType::Cpu).expect("operation should succeed");
+        let max_val = tensor.max(None, false).expect("operation should succeed");
+        assert_eq!(max_val.item().expect("item extraction should succeed"), 5.0);
     }
 
     #[test]
     fn test_norm_computation() {
         let data = vec![3.0f32, 4.0]; // 3-4-5 triangle
-        let tensor = Tensor::from_data(data, vec![2], DeviceType::Cpu).unwrap();
-        let norm = tensor.norm().unwrap();
-        assert!((norm.item().unwrap() - 5.0).abs() < 1e-6);
+        let tensor =
+            Tensor::from_data(data, vec![2], DeviceType::Cpu).expect("operation should succeed");
+        let norm = tensor.norm().expect("norm computation should succeed");
+        assert!((norm.item().expect("item extraction should succeed") - 5.0).abs() < 1e-6);
     }
 
     #[test]
     fn test_apply_operations() {
         let data = vec![1.0f32, 2.0, 3.0, 4.0];
-        let mut tensor = Tensor::from_data(data, vec![4], DeviceType::Cpu).unwrap();
+        let mut tensor =
+            Tensor::from_data(data, vec![4], DeviceType::Cpu).expect("operation should succeed");
 
         // Test apply_
-        tensor.apply_(|x| x * 2.0).unwrap();
-        assert_eq!(tensor.data().unwrap(), vec![2.0, 4.0, 6.0, 8.0]);
+        tensor
+            .apply_(|x| x * 2.0)
+            .expect("operation should succeed");
+        assert_eq!(
+            tensor.data().expect("data retrieval should succeed"),
+            vec![2.0, 4.0, 6.0, 8.0]
+        );
 
         // Test map
-        let original = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
-        let mapped = original.map(|x| x + 1.0).unwrap();
-        assert_eq!(mapped.data().unwrap(), vec![2.0, 3.0, 4.0]);
-        assert_eq!(original.data().unwrap(), vec![1.0, 2.0, 3.0]); // Original unchanged
+        let original = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu)
+            .expect("operation should succeed");
+        let mapped = original.map(|x| x + 1.0).expect("operation should succeed");
+        assert_eq!(
+            mapped.data().expect("data retrieval should succeed"),
+            vec![2.0, 3.0, 4.0]
+        );
+        assert_eq!(
+            original.data().expect("data retrieval should succeed"),
+            vec![1.0, 2.0, 3.0]
+        ); // Original unchanged
     }
 
     #[test]
     fn test_activation_functions() {
         let data = vec![-1.0f32, 0.0, 1.0, 2.0];
-        let tensor = Tensor::from_data(data, vec![4], DeviceType::Cpu).unwrap();
+        let tensor =
+            Tensor::from_data(data, vec![4], DeviceType::Cpu).expect("operation should succeed");
 
         // Test ReLU
-        let relu_result = tensor.relu().unwrap();
-        assert_eq!(relu_result.data().unwrap(), vec![0.0, 0.0, 1.0, 2.0]);
+        let relu_result = tensor.relu().expect("relu should succeed");
+        assert_eq!(
+            relu_result.data().expect("data retrieval should succeed"),
+            vec![0.0, 0.0, 1.0, 2.0]
+        );
 
         // Test abs
-        let abs_result = tensor.abs().unwrap();
-        assert_eq!(abs_result.data().unwrap(), vec![1.0, 0.0, 1.0, 2.0]);
+        let abs_result = tensor.abs().expect("abs computation should succeed");
+        assert_eq!(
+            abs_result.data().expect("data retrieval should succeed"),
+            vec![1.0, 0.0, 1.0, 2.0]
+        );
 
         // Test clamp
-        let clamped = tensor.clamp(-0.5, 1.5).unwrap();
-        assert_eq!(clamped.data().unwrap(), vec![-0.5, 0.0, 1.0, 1.5]);
+        let clamped = tensor.clamp(-0.5, 1.5).expect("operation should succeed");
+        assert_eq!(
+            clamped.data().expect("data retrieval should succeed"),
+            vec![-0.5, 0.0, 1.0, 1.5]
+        );
     }
 
     #[test]
     fn test_storage_sharing() {
-        let tensor1 = Tensor::<f32>::zeros(&[2, 2], DeviceType::Cpu).unwrap();
+        let tensor1 =
+            Tensor::<f32>::zeros(&[2, 2], DeviceType::Cpu).expect("operation should succeed");
         let tensor2 = tensor1.clone();
         let tensor3 = tensor1.clone_data();
 
@@ -1273,51 +1299,58 @@ mod tests {
 
     #[test]
     fn test_basic_matmul() {
-        let a =
-            Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu).unwrap();
-        let b =
-            Tensor::from_data(vec![5.0f32, 6.0, 7.0, 8.0], vec![2, 2], DeviceType::Cpu).unwrap();
+        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu)
+            .expect("operation should succeed");
+        let b = Tensor::from_data(vec![5.0f32, 6.0, 7.0, 8.0], vec![2, 2], DeviceType::Cpu)
+            .expect("operation should succeed");
 
-        let result = a.basic_matmul(&b).unwrap();
+        let result = a.basic_matmul(&b).expect("operation should succeed");
         assert_eq!(result.shape().dims(), &[2, 2]);
 
         // Expected: [1*5+2*7, 1*6+2*8] = [19, 22]
         //           [3*5+4*7, 3*6+4*8] = [43, 50]
         let expected = vec![19.0, 22.0, 43.0, 50.0];
-        assert_eq!(result.data().unwrap(), expected);
+        assert_eq!(
+            result.data().expect("data retrieval should succeed"),
+            expected
+        );
     }
 
     #[test]
     fn test_reductions() {
         let data = vec![1.0f32, 2.0, 3.0, 4.0];
-        let tensor = Tensor::from_data(data, vec![4], DeviceType::Cpu).unwrap();
+        let tensor =
+            Tensor::from_data(data, vec![4], DeviceType::Cpu).expect("operation should succeed");
 
-        let sum = tensor.sum().unwrap();
-        assert_eq!(sum.item().unwrap(), 10.0);
+        let sum = tensor.sum().expect("sum should succeed");
+        assert_eq!(sum.item().expect("item extraction should succeed"), 10.0);
 
-        let mean = tensor.mean(None, false).unwrap();
-        assert_eq!(mean.item().unwrap(), 2.5);
+        let mean = tensor.mean(None, false).expect("operation should succeed");
+        assert_eq!(mean.item().expect("item extraction should succeed"), 2.5);
     }
 
     #[test]
     fn test_copy_on_write() {
-        let mut tensor1 = Tensor::<f32>::ones(&[2], DeviceType::Cpu).unwrap();
+        let mut tensor1 =
+            Tensor::<f32>::ones(&[2], DeviceType::Cpu).expect("operation should succeed");
         let tensor2 = tensor1.clone();
 
         // Both should share storage initially
         assert!(tensor1.shares_storage(&tensor2));
 
         // After make_unique, they should not share storage
-        tensor1.make_unique().unwrap();
+        tensor1.make_unique().expect("make_unique should succeed");
         assert!(!tensor1.shares_storage(&tensor2));
     }
 
     #[test]
     fn test_item_extraction() {
-        let scalar = Tensor::from_data(vec![42.0f32], vec![], DeviceType::Cpu).unwrap();
-        assert_eq!(scalar.item().unwrap(), 42.0);
+        let scalar = Tensor::from_data(vec![42.0f32], vec![], DeviceType::Cpu)
+            .expect("operation should succeed");
+        assert_eq!(scalar.item().expect("item extraction should succeed"), 42.0);
 
-        let vector = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu).unwrap();
+        let vector = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu)
+            .expect("operation should succeed");
         assert!(vector.item().is_err()); // Should fail for multi-element tensor
     }
 }

@@ -84,8 +84,10 @@ impl Benchmarkable for WASMPerformanceBench {
             }
         };
 
-        let input = rand::<f32>(&[adjusted_size, adjusted_size]).unwrap();
-        let weights = rand::<f32>(&[adjusted_size, adjusted_size]).unwrap();
+        let input =
+            rand::<f32>(&[adjusted_size, adjusted_size]).expect("tensor creation should succeed");
+        let weights =
+            rand::<f32>(&[adjusted_size, adjusted_size]).expect("tensor creation should succeed");
 
         let config = WASMBenchmarkConfig {
             memory_pages: calculate_memory_pages(adjusted_size),
@@ -249,17 +251,22 @@ impl Benchmarkable for BrowserSpecificBench {
         };
 
         let adjusted_size = std::cmp::min(size, browser_size_limit);
-        let input = rand::<f32>(&[adjusted_size, adjusted_size]).unwrap();
+        let input =
+            rand::<f32>(&[adjusted_size, adjusted_size]).expect("tensor creation should succeed");
 
         let mut auxiliary_tensors = Vec::new();
         if self.feature_support.simd_support {
-            auxiliary_tensors.push(rand::<f32>(&[adjusted_size]).unwrap());
+            auxiliary_tensors
+                .push(rand::<f32>(&[adjusted_size]).expect("tensor creation should succeed"));
         }
         if self.feature_support.threads_support {
-            auxiliary_tensors.push(rand::<f32>(&[adjusted_size]).unwrap());
+            auxiliary_tensors
+                .push(rand::<f32>(&[adjusted_size]).expect("tensor creation should succeed"));
         }
         if self.feature_support.webgl_support {
-            auxiliary_tensors.push(rand::<f32>(&[adjusted_size, 4]).unwrap()); // RGBA data
+            auxiliary_tensors
+                .push(rand::<f32>(&[adjusted_size, 4]).expect("tensor creation should succeed"));
+            // RGBA data
         }
 
         (input, auxiliary_tensors)
@@ -915,10 +922,10 @@ pub fn run_wasm_benchmarks() {
     // Generate WASM-specific report
     runner
         .generate_report("target/wasm_benchmark_reports")
-        .unwrap();
+        .expect("report generation should succeed");
     runner
         .export_csv("target/wasm_benchmark_results.csv")
-        .unwrap();
+        .expect("CSV export should succeed");
 }
 
 #[cfg(test)]

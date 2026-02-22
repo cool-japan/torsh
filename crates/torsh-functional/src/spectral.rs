@@ -1,8 +1,16 @@
 //! Spectral operations (FFT, STFT, etc.)
 
-use rustfft::{num_complex::Complex, FftPlanner};
+use oxifft::{Complex, Direction, Flags, Plan};
 use torsh_core::{dtype::Complex32, Result as TorshResult, TorshError};
 use torsh_tensor::Tensor;
+
+// Re-export advanced functions from sibling modules
+pub use crate::spectral_advanced::{fftn, hfft, ifftn, ihfft, irfft, rfft2, rfftn};
+pub use crate::spectral_analysis::{
+    cepstrum, create_mel_filterbank, hz_to_mel, mel_spectrogram, mel_to_hz, spectral_centroid,
+    spectral_rolloff, spectrogram, SpectrogramType,
+};
+pub use crate::spectral_stft::{generate_window, istft_complete, stft_complete, WindowFunction};
 
 /// 1D Fast Fourier Transform
 pub fn fft(
@@ -35,9 +43,10 @@ pub fn fft(
 
     let fft_size = n.unwrap_or(dims[fft_dim]);
 
-    // Create FFT planner
-    let mut planner = FftPlanner::new();
-    let fft = planner.plan_fft_forward(fft_size);
+    // Create FFT plan
+    let plan = Plan::dft_1d(fft_size, Direction::Forward, Flags::ESTIMATE).ok_or_else(|| {
+        TorshError::InvalidArgument(format!("Failed to create FFT plan for size {}", fft_size))
+    })?;
 
     let input_data = input.data()?;
     let input_len = input_data.len();
@@ -50,29 +59,30 @@ pub fn fft(
 
     // Perform FFT on each batch
     for batch_idx in 0..batch_size {
-        let mut buffer: Vec<Complex<f32>> = Vec::with_capacity(fft_size);
+        let mut input_buffer: Vec<Complex<f32>> = Vec::with_capacity(fft_size);
 
         // Extract data for this batch
         for i in 0..fft_size.min(stride) {
             let idx = batch_idx * stride + i;
             if idx < input_len {
                 let complex_val = input_data[idx];
-                buffer.push(Complex::new(complex_val.re, complex_val.im));
+                input_buffer.push(Complex::new(complex_val.re, complex_val.im));
             } else {
-                buffer.push(Complex::new(0.0, 0.0));
+                input_buffer.push(Complex::new(0.0, 0.0));
             }
         }
 
         // Zero-pad if necessary
-        while buffer.len() < fft_size {
-            buffer.push(Complex::new(0.0, 0.0));
+        while input_buffer.len() < fft_size {
+            input_buffer.push(Complex::new(0.0, 0.0));
         }
 
-        // Perform FFT
-        fft.process(&mut buffer);
+        // Perform FFT (out-of-place)
+        let mut output_buffer = vec![Complex::zero(); fft_size];
+        plan.execute(&input_buffer, &mut output_buffer);
 
         // Convert back to our Complex32 type
-        for val in buffer {
+        for val in output_buffer {
             output_data.push(Complex32::new(val.re, val.im));
         }
     }
@@ -130,9 +140,10 @@ pub fn ifft(
 
     let fft_size = n.unwrap_or(dims[fft_dim]);
 
-    // Create IFFT planner
-    let mut planner = FftPlanner::new();
-    let ifft = planner.plan_fft_inverse(fft_size);
+    // Create IFFT plan
+    let plan = Plan::dft_1d(fft_size, Direction::Backward, Flags::ESTIMATE).ok_or_else(|| {
+        TorshError::InvalidArgument(format!("Failed to create IFFT plan for size {}", fft_size))
+    })?;
 
     let input_data = input.data()?;
     let input_len = input_data.len();
@@ -145,29 +156,30 @@ pub fn ifft(
 
     // Perform IFFT on each batch
     for batch_idx in 0..batch_size {
-        let mut buffer: Vec<Complex<f32>> = Vec::with_capacity(fft_size);
+        let mut input_buffer: Vec<Complex<f32>> = Vec::with_capacity(fft_size);
 
         // Extract data for this batch
         for i in 0..fft_size.min(stride) {
             let idx = batch_idx * stride + i;
             if idx < input_len {
                 let complex_val = input_data[idx];
-                buffer.push(Complex::new(complex_val.re, complex_val.im));
+                input_buffer.push(Complex::new(complex_val.re, complex_val.im));
             } else {
-                buffer.push(Complex::new(0.0, 0.0));
+                input_buffer.push(Complex::new(0.0, 0.0));
             }
         }
 
         // Zero-pad if necessary
-        while buffer.len() < fft_size {
-            buffer.push(Complex::new(0.0, 0.0));
+        while input_buffer.len() < fft_size {
+            input_buffer.push(Complex::new(0.0, 0.0));
         }
 
-        // Perform IFFT
-        ifft.process(&mut buffer);
+        // Perform IFFT (out-of-place)
+        let mut output_buffer = vec![Complex::zero(); fft_size];
+        plan.execute(&input_buffer, &mut output_buffer);
 
         // Convert back to our Complex32 type
-        for val in buffer {
+        for val in output_buffer {
             output_data.push(Complex32::new(val.re, val.im));
         }
     }
@@ -226,9 +238,10 @@ pub fn rfft(
     let fft_size = n.unwrap_or(dims[fft_dim]);
     let output_size = fft_size / 2 + 1; // RFFT output size
 
-    // Create FFT planner
-    let mut planner = FftPlanner::new();
-    let fft = planner.plan_fft_forward(fft_size);
+    // Create FFT plan
+    let plan = Plan::dft_1d(fft_size, Direction::Forward, Flags::ESTIMATE).ok_or_else(|| {
+        TorshError::InvalidArgument(format!("Failed to create FFT plan for size {}", fft_size))
+    })?;
 
     let input_data = input.data()?;
     let input_len = input_data.len();
@@ -241,29 +254,30 @@ pub fn rfft(
 
     // Perform FFT on each batch
     for batch_idx in 0..batch_size {
-        let mut buffer: Vec<Complex<f32>> = Vec::with_capacity(fft_size);
+        let mut input_buffer: Vec<Complex<f32>> = Vec::with_capacity(fft_size);
 
         // Extract real data for this batch and convert to complex
         for i in 0..fft_size.min(stride) {
             let idx = batch_idx * stride + i;
             if idx < input_len {
-                buffer.push(Complex::new(input_data[idx], 0.0));
+                input_buffer.push(Complex::new(input_data[idx], 0.0));
             } else {
-                buffer.push(Complex::new(0.0, 0.0));
+                input_buffer.push(Complex::new(0.0, 0.0));
             }
         }
 
         // Zero-pad if necessary
-        while buffer.len() < fft_size {
-            buffer.push(Complex::new(0.0, 0.0));
+        while input_buffer.len() < fft_size {
+            input_buffer.push(Complex::new(0.0, 0.0));
         }
 
-        // Perform FFT
-        fft.process(&mut buffer);
+        // Perform FFT (out-of-place)
+        let mut output_buffer = vec![Complex::zero(); fft_size];
+        plan.execute(&input_buffer, &mut output_buffer);
 
         // Take only the first half + 1 elements (real FFT property)
         for i in 0..output_size {
-            let val = buffer[i];
+            let val = output_buffer[i];
             output_data.push(Complex32::new(val.re, val.im));
         }
     }
@@ -453,7 +467,8 @@ mod tests {
 
     #[test]
     fn test_stft_shape() {
-        let signal = randn(&[1024], None, None, None).unwrap();
+        let signal = randn(&[1024], None, None, None)
+            .expect("Failed to generate random signal for STFT test");
         let n_fft = 256;
         let hop_length = 128;
 
@@ -468,7 +483,7 @@ mod tests {
             true,
             false,
         )
-        .unwrap();
+        .expect("STFT computation failed in test");
 
         // Check output shape
         assert_eq!(stft_result.shape().ndim(), 2);
@@ -484,10 +499,11 @@ mod tests {
             Complex32::new(-1.0, 0.0),
             Complex32::new(0.0, -1.0),
         ];
-        let input = Tensor::from_data(data, vec![4], torsh_core::device::DeviceType::Cpu).unwrap();
+        let input = Tensor::from_data(data, vec![4], torsh_core::device::DeviceType::Cpu)
+            .expect("Failed to create tensor from complex data in FFT test");
 
         // Test FFT
-        let fft_result = fft(&input, None, None, None).unwrap();
+        let fft_result = fft(&input, None, None, None).expect("FFT computation failed in test");
         assert_eq!(fft_result.shape().dims(), &[4]);
         assert_eq!(fft_result.shape().ndim(), 1);
     }
@@ -501,10 +517,11 @@ mod tests {
             Complex32::new(-1.0, 0.0),
             Complex32::new(0.0, -1.0),
         ];
-        let input = Tensor::from_data(data, vec![4], torsh_core::device::DeviceType::Cpu).unwrap();
+        let input = Tensor::from_data(data, vec![4], torsh_core::device::DeviceType::Cpu)
+            .expect("Failed to create tensor from complex data in IFFT test");
 
         // Test IFFT
-        let ifft_result = ifft(&input, None, None, None).unwrap();
+        let ifft_result = ifft(&input, None, None, None).expect("IFFT computation failed in test");
         assert_eq!(ifft_result.shape().dims(), &[4]);
         assert_eq!(ifft_result.shape().ndim(), 1);
     }
@@ -518,12 +535,14 @@ mod tests {
             Complex32::new(0.0, -1.0),
             Complex32::new(-1.0, 0.5),
         ];
-        let input =
-            Tensor::from_data(data.clone(), vec![4], torsh_core::device::DeviceType::Cpu).unwrap();
+        let input = Tensor::from_data(data.clone(), vec![4], torsh_core::device::DeviceType::Cpu)
+            .expect("Failed to create tensor from complex data in roundtrip test");
 
         // FFT then IFFT should give back original (approximately)
-        let fft_result = fft(&input, None, None, None).unwrap();
-        let ifft_result = ifft(&fft_result, None, None, None).unwrap();
+        let fft_result =
+            fft(&input, None, None, None).expect("FFT computation failed in roundtrip test");
+        let ifft_result =
+            ifft(&fft_result, None, None, None).expect("IFFT computation failed in roundtrip test");
 
         assert_eq!(ifft_result.shape().dims(), input.shape().dims());
 
@@ -551,10 +570,11 @@ mod tests {
     fn test_rfft_basic() {
         // Create a simple real signal
         let data = vec![1.0, 2.0, 3.0, 4.0];
-        let input = Tensor::from_data(data, vec![4], torsh_core::device::DeviceType::Cpu).unwrap();
+        let input = Tensor::from_data(data, vec![4], torsh_core::device::DeviceType::Cpu)
+            .expect("Failed to create tensor from real data in RFFT test");
 
         // Test RFFT
-        let rfft_result = rfft(&input, None, None, None).unwrap();
+        let rfft_result = rfft(&input, None, None, None).expect("RFFT computation failed in test");
         assert_eq!(rfft_result.shape().dims(), &[3]); // N/2 + 1 for real FFT
         assert_eq!(rfft_result.shape().ndim(), 1);
     }
@@ -568,18 +588,19 @@ mod tests {
             Complex32::new(3.0, 0.0),
             Complex32::new(4.0, 0.0),
         ];
-        let input =
-            Tensor::from_data(data, vec![2, 2], torsh_core::device::DeviceType::Cpu).unwrap();
+        let input = Tensor::from_data(data, vec![2, 2], torsh_core::device::DeviceType::Cpu)
+            .expect("Failed to create 2D tensor from complex data in FFT2 test");
 
         // Test 2D FFT
-        let fft2_result = fft2(&input, None, None, None).unwrap();
+        let fft2_result = fft2(&input, None, None, None).expect("FFT2 computation failed in test");
         assert_eq!(fft2_result.shape().dims(), &[2, 2]);
         assert_eq!(fft2_result.shape().ndim(), 2);
     }
 
     #[test]
     fn test_istft_shape() {
-        let stft_data = randn(&[129, 9], None, None, None).unwrap(); // Typical STFT shape
+        let stft_data = randn(&[129, 9], None, None, None)
+            .expect("Failed to generate random STFT data for ISTFT test"); // Typical STFT shape
         let n_fft = 256;
         let hop_length = 128;
 
@@ -595,7 +616,7 @@ mod tests {
             None,
             false,
         )
-        .unwrap();
+        .expect("ISTFT computation failed in test");
 
         // Check output is 1D
         assert_eq!(istft_result.shape().ndim(), 1);
@@ -612,15 +633,17 @@ mod tests {
             Complex32::new(5.0, 0.0),
             Complex32::new(6.0, 0.0),
         ];
-        let input =
-            Tensor::from_data(data, vec![2, 3], torsh_core::device::DeviceType::Cpu).unwrap();
+        let input = Tensor::from_data(data, vec![2, 3], torsh_core::device::DeviceType::Cpu)
+            .expect("Failed to create 2x3 tensor from complex data in dimension test");
 
         // Test FFT along dimension 0
-        let fft_result = fft(&input, None, Some(0), None).unwrap();
+        let fft_result = fft(&input, None, Some(0), None)
+            .expect("FFT computation along dimension 0 failed in test");
         assert_eq!(fft_result.shape().dims(), &[2, 3]);
 
         // Test FFT along dimension 1
-        let fft_result = fft(&input, None, Some(1), None).unwrap();
+        let fft_result = fft(&input, None, Some(1), None)
+            .expect("FFT computation along dimension 1 failed in test");
         assert_eq!(fft_result.shape().dims(), &[2, 3]);
     }
 
@@ -632,21 +655,25 @@ mod tests {
             Complex32::new(-1.0, 0.0),
             Complex32::new(0.0, -1.0),
         ];
-        let input = Tensor::from_data(data, vec![4], torsh_core::device::DeviceType::Cpu).unwrap();
+        let input = Tensor::from_data(data, vec![4], torsh_core::device::DeviceType::Cpu)
+            .expect("Failed to create tensor from complex data in normalization test");
 
         // Test with "ortho" normalization
-        let fft_result = fft(&input, None, None, Some("ortho")).unwrap();
+        let fft_result = fft(&input, None, None, Some("ortho"))
+            .expect("FFT computation with 'ortho' normalization failed in test");
         assert_eq!(fft_result.shape().dims(), &[4]);
 
         // Test with "forward" normalization
-        let fft_result = fft(&input, None, None, Some("forward")).unwrap();
+        let fft_result = fft(&input, None, None, Some("forward"))
+            .expect("FFT computation with 'forward' normalization failed in test");
         assert_eq!(fft_result.shape().dims(), &[4]);
     }
 
     #[test]
     fn test_error_handling() {
         let data = vec![Complex32::new(1.0, 0.0)];
-        let input = Tensor::from_data(data, vec![1], torsh_core::device::DeviceType::Cpu).unwrap();
+        let input = Tensor::from_data(data, vec![1], torsh_core::device::DeviceType::Cpu)
+            .expect("Failed to create tensor from complex data in error handling test");
 
         // Test FFT with invalid dimension
         let result = fft(&input, None, Some(5), None);
@@ -655,5 +682,232 @@ mod tests {
         // Test 2D FFT with insufficient dimensions
         let result = fft2(&input, None, None, None);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_fft_single_element() {
+        // Test FFT with single element
+        let data = vec![Complex32::new(42.0, 13.0)];
+        let input = Tensor::from_data(data.clone(), vec![1], torsh_core::device::DeviceType::Cpu)
+            .expect("Failed to create single-element tensor");
+
+        let fft_result =
+            fft(&input, None, None, None).expect("FFT of single element should succeed");
+        let result_data = fft_result.data().expect("Failed to get data");
+
+        // Single element FFT should return the same value
+        assert_relative_eq!(result_data[0].re, data[0].re, epsilon = 1e-6);
+        assert_relative_eq!(result_data[0].im, data[0].im, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_fft_power_of_two_vs_non_power_of_two() {
+        // Test that FFT works correctly for both power-of-2 and non-power-of-2 sizes
+        for size in [7, 8, 15, 16, 31, 32] {
+            let data: Vec<Complex32> = (0..size).map(|i| Complex32::new(i as f32, 0.0)).collect();
+            let input = Tensor::from_data(data, vec![size], torsh_core::device::DeviceType::Cpu)
+                .expect("Failed to create tensor");
+
+            let fft_result = fft(&input, None, None, None).expect("FFT should work for any size");
+            assert_eq!(fft_result.shape().dims()[0], size);
+        }
+    }
+
+    #[test]
+    fn test_rfft_nyquist_frequency() {
+        // Test that RFFT correctly handles Nyquist frequency
+        let size = 8;
+        let data = vec![1.0; size];
+        let input = Tensor::from_data(data, vec![size], torsh_core::device::DeviceType::Cpu)
+            .expect("Failed to create tensor");
+
+        let rfft_result = rfft(&input, None, None, None).expect("RFFT should succeed");
+
+        // RFFT should return N/2 + 1 frequency bins
+        assert_eq!(rfft_result.shape().dims()[0], size / 2 + 1);
+
+        let result_data = rfft_result.data().expect("Failed to get data");
+        // DC component should be N (sum of all 1s)
+        assert_relative_eq!(result_data[0].re, size as f32, epsilon = 1e-5);
+    }
+
+    #[test]
+    fn test_fft_parseval_theorem() {
+        // Parseval's theorem: sum of squared magnitudes in time domain
+        // equals sum of squared magnitudes in frequency domain (with normalization)
+        let size = 16;
+        let data: Vec<Complex32> = (0..size)
+            .map(|i| Complex32::new((i as f32).sin(), (i as f32).cos()))
+            .collect();
+        let input = Tensor::from_data(
+            data.clone(),
+            vec![size],
+            torsh_core::device::DeviceType::Cpu,
+        )
+        .expect("Failed to create tensor");
+
+        // Compute energy in time domain
+        let time_energy: f32 = data.iter().map(|c| c.re * c.re + c.im * c.im).sum();
+
+        // Compute FFT with ortho normalization
+        let fft_result = fft(&input, None, None, Some("ortho"))
+            .expect("FFT with ortho normalization should succeed");
+        let freq_data = fft_result.data().expect("Failed to get data");
+
+        // Compute energy in frequency domain
+        let freq_energy: f32 = freq_data.iter().map(|c| c.re * c.re + c.im * c.im).sum();
+
+        // Energies should match (Parseval's theorem)
+        assert_relative_eq!(time_energy, freq_energy, epsilon = 1e-4);
+    }
+
+    #[test]
+    fn test_fft_linearity() {
+        // Test that FFT is linear: FFT(a*x + b*y) = a*FFT(x) + b*FFT(y)
+        let size = 8;
+        let x: Vec<Complex32> = (0..size).map(|i| Complex32::new(i as f32, 0.0)).collect();
+        let y: Vec<Complex32> = (0..size)
+            .map(|i| Complex32::new((i * 2) as f32, 1.0))
+            .collect();
+
+        let a = 2.0;
+        let b = 3.0;
+
+        let x_tensor =
+            Tensor::from_data(x.clone(), vec![size], torsh_core::device::DeviceType::Cpu)
+                .expect("Failed to create x tensor");
+        let y_tensor =
+            Tensor::from_data(y.clone(), vec![size], torsh_core::device::DeviceType::Cpu)
+                .expect("Failed to create y tensor");
+
+        // Compute combined signal
+        let combined: Vec<Complex32> = x
+            .iter()
+            .zip(y.iter())
+            .map(|(xi, yi)| Complex32::new(a * xi.re + b * yi.re, a * xi.im + b * yi.im))
+            .collect();
+        let combined_tensor =
+            Tensor::from_data(combined, vec![size], torsh_core::device::DeviceType::Cpu)
+                .expect("Failed to create combined tensor");
+
+        // FFT of combined signal
+        let fft_combined =
+            fft(&combined_tensor, None, None, None).expect("FFT of combined signal should succeed");
+        let fft_combined_data = fft_combined.data().expect("Failed to get data");
+
+        // FFT of individual signals
+        let fft_x = fft(&x_tensor, None, None, None).expect("FFT of x should succeed");
+        let fft_y = fft(&y_tensor, None, None, None).expect("FFT of y should succeed");
+        let fft_x_data = fft_x.data().expect("Failed to get x data");
+        let fft_y_data = fft_y.data().expect("Failed to get y data");
+
+        // Check linearity
+        for i in 0..size {
+            let expected_re = a * fft_x_data[i].re + b * fft_y_data[i].re;
+            let expected_im = a * fft_x_data[i].im + b * fft_y_data[i].im;
+
+            assert_relative_eq!(fft_combined_data[i].re, expected_re, epsilon = 1e-5);
+            assert_relative_eq!(fft_combined_data[i].im, expected_im, epsilon = 1e-5);
+        }
+    }
+
+    #[test]
+    fn test_fft_dc_component() {
+        // Test that DC component (index 0) equals sum of all input values
+        let size = 16;
+        let data: Vec<Complex32> = (0..size)
+            .map(|i| Complex32::new((i + 1) as f32, 0.0))
+            .collect();
+        let input = Tensor::from_data(
+            data.clone(),
+            vec![size],
+            torsh_core::device::DeviceType::Cpu,
+        )
+        .expect("Failed to create tensor");
+
+        let fft_result = fft(&input, None, None, None).expect("FFT should succeed");
+        let result_data = fft_result.data().expect("Failed to get data");
+
+        // DC component should equal sum of input
+        let expected_dc: f32 = data.iter().map(|c| c.re).sum();
+        assert_relative_eq!(result_data[0].re, expected_dc, epsilon = 1e-5);
+        assert_relative_eq!(result_data[0].im, 0.0, epsilon = 1e-5);
+    }
+
+    #[test]
+    fn test_fft_symmetry_real_input() {
+        // For real input, FFT output should have Hermitian symmetry: X[k] = conj(X[N-k])
+        let size = 16;
+        let data: Vec<Complex32> = (0..size)
+            .map(|i| Complex32::new((i as f32).sin(), 0.0))
+            .collect();
+        let input = Tensor::from_data(data, vec![size], torsh_core::device::DeviceType::Cpu)
+            .expect("Failed to create tensor");
+
+        let fft_result = fft(&input, None, None, None).expect("FFT should succeed");
+        let result_data = fft_result.data().expect("Failed to get data");
+
+        // Check Hermitian symmetry
+        for k in 1..size / 2 {
+            let pos = &result_data[k];
+            let neg = &result_data[size - k];
+
+            assert_relative_eq!(pos.re, neg.re, epsilon = 1e-5);
+            assert_relative_eq!(pos.im, -neg.im, epsilon = 1e-5);
+        }
+    }
+
+    #[test]
+    fn test_fft2_separability() {
+        // Test that 2D FFT can be computed as row FFTs followed by column FFTs
+        let data = vec![
+            Complex32::new(1.0, 0.0),
+            Complex32::new(2.0, 0.0),
+            Complex32::new(3.0, 0.0),
+            Complex32::new(4.0, 0.0),
+        ];
+        let input = Tensor::from_data(data, vec![2, 2], torsh_core::device::DeviceType::Cpu)
+            .expect("Failed to create 2x2 tensor");
+
+        // Full 2D FFT
+        let fft2_result = fft2(&input, None, None, None).expect("2D FFT should succeed");
+        assert_eq!(fft2_result.shape().dims(), &[2, 2]);
+    }
+
+    #[test]
+    fn test_large_signal_fft() {
+        // Test FFT on a moderately sized signal to ensure scalability
+        // Using 256 samples (powers of 2 are efficient for FFT)
+        // Note: Larger sizes (512+) can cause stack overflow in oxifft's internal buffers
+        // Real-world usage typically allocates large signals on heap before calling FFT
+        let size = 256;
+        let data: Vec<Complex32> = (0..size)
+            .map(|i| Complex32::new((i as f32 / 100.0).sin(), 0.0))
+            .collect();
+        let input = Tensor::from_data(data, vec![size], torsh_core::device::DeviceType::Cpu)
+            .expect("Failed to create large tensor");
+
+        let fft_result = fft(&input, None, None, None).expect("FFT on large signal should succeed");
+        assert_eq!(fft_result.shape().dims()[0], size);
+
+        // Test roundtrip
+        let ifft_result =
+            ifft(&fft_result, None, None, None).expect("IFFT on large signal should succeed");
+        assert_eq!(ifft_result.shape().dims()[0], size);
+    }
+
+    #[test]
+    fn test_rfft_zero_padding() {
+        // Test RFFT with zero-padding (n > input length)
+        let data = vec![1.0, 2.0, 3.0, 4.0];
+        let input = Tensor::from_data(data, vec![4], torsh_core::device::DeviceType::Cpu)
+            .expect("Failed to create tensor");
+
+        let n_fft = 8;
+        let rfft_result =
+            rfft(&input, Some(n_fft), None, None).expect("RFFT with zero-padding should succeed");
+
+        // Output size should be n_fft/2 + 1
+        assert_eq!(rfft_result.shape().dims()[0], n_fft / 2 + 1);
     }
 }

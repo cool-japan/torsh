@@ -261,14 +261,14 @@ impl TensorInfo {
     pub fn min_value(&self) -> Option<f64> {
         self.data
             .iter()
-            .min_by(|a, b| a.partial_cmp(b).unwrap())
+            .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .copied()
     }
 
     pub fn max_value(&self) -> Option<f64> {
         self.data
             .iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .copied()
     }
 
@@ -394,7 +394,10 @@ impl EdgeCaseHandler {
                 );
                 warnings.push(warning);
                 if self.config.enable_warnings {
-                    eprintln!("WARNING: {}", warnings.last().unwrap());
+                    eprintln!(
+                        "WARNING: {}",
+                        warnings.last().expect("warnings is non-empty")
+                    );
                 }
                 false
             }

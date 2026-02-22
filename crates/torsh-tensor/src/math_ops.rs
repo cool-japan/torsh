@@ -1567,53 +1567,90 @@ mod tests {
     #[test]
     fn test_scalar_operations() {
         let data = vec![1.0f32, 2.0, 3.0, 4.0];
-        let tensor = Tensor::from_data(data, vec![4], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![4], DeviceType::Cpu)
+            .expect("failed to create tensor for scalar ops");
 
-        let result = tensor.add_scalar(5.0).unwrap();
-        assert_eq!(result.data().unwrap(), vec![6.0, 7.0, 8.0, 9.0]);
+        let result = tensor.add_scalar(5.0).expect("add_scalar should succeed");
+        assert_eq!(
+            result.data().expect("failed to get add_scalar result data"),
+            vec![6.0, 7.0, 8.0, 9.0]
+        );
 
-        let result = tensor.mul_scalar(2.0).unwrap();
-        assert_eq!(result.data().unwrap(), vec![2.0, 4.0, 6.0, 8.0]);
+        let result = tensor.mul_scalar(2.0).expect("mul_scalar should succeed");
+        assert_eq!(
+            result.data().expect("failed to get mul_scalar result data"),
+            vec![2.0, 4.0, 6.0, 8.0]
+        );
 
-        let result = tensor.sub_scalar(1.0).unwrap();
-        assert_eq!(result.data().unwrap(), vec![0.0, 1.0, 2.0, 3.0]);
+        let result = tensor.sub_scalar(1.0).expect("sub_scalar should succeed");
+        assert_eq!(
+            result.data().expect("failed to get sub_scalar result data"),
+            vec![0.0, 1.0, 2.0, 3.0]
+        );
 
-        let result = tensor.div_scalar(2.0).unwrap();
-        assert_eq!(result.data().unwrap(), vec![0.5, 1.0, 1.5, 2.0]);
+        let result = tensor.div_scalar(2.0).expect("div_scalar should succeed");
+        assert_eq!(
+            result.data().expect("failed to get div_scalar result data"),
+            vec![0.5, 1.0, 1.5, 2.0]
+        );
     }
 
     #[test]
     fn test_elementwise_operations() {
-        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
-        let b = Tensor::from_data(vec![4.0f32, 5.0, 6.0], vec![3], DeviceType::Cpu).unwrap();
+        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu)
+            .expect("failed to create tensor a");
+        let b = Tensor::from_data(vec![4.0f32, 5.0, 6.0], vec![3], DeviceType::Cpu)
+            .expect("failed to create tensor b");
 
-        let result = a.add(&b).unwrap();
-        assert_eq!(result.data().unwrap(), vec![5.0, 7.0, 9.0]);
+        let result = a.add(&b).expect("elementwise add should succeed");
+        assert_eq!(
+            result.data().expect("failed to get add result data"),
+            vec![5.0, 7.0, 9.0]
+        );
 
-        let result = a.sub(&b).unwrap();
-        assert_eq!(result.data().unwrap(), vec![-3.0, -3.0, -3.0]);
+        let result = a.sub(&b).expect("elementwise sub should succeed");
+        assert_eq!(
+            result.data().expect("failed to get sub result data"),
+            vec![-3.0, -3.0, -3.0]
+        );
 
-        let result = a.mul(&b).unwrap();
-        assert_eq!(result.data().unwrap(), vec![4.0, 10.0, 18.0]);
+        let result = a.mul(&b).expect("elementwise mul should succeed");
+        assert_eq!(
+            result.data().expect("failed to get mul result data"),
+            vec![4.0, 10.0, 18.0]
+        );
 
-        let result = b.div(&a).unwrap();
-        assert_eq!(result.data().unwrap(), vec![4.0, 2.5, 2.0]);
+        let result = b.div(&a).expect("elementwise div should succeed");
+        assert_eq!(
+            result.data().expect("failed to get div result data"),
+            vec![4.0, 2.5, 2.0]
+        );
     }
 
     #[test]
     fn test_mathematical_functions() {
         let data = vec![1.0f32, 4.0, 9.0, 16.0];
-        let tensor = Tensor::from_data(data, vec![4], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![4], DeviceType::Cpu)
+            .expect("failed to create tensor for math functions");
 
-        let sqrt_result = tensor.sqrt().unwrap();
-        assert_eq!(sqrt_result.data().unwrap(), vec![1.0, 2.0, 3.0, 4.0]);
+        let sqrt_result = tensor.sqrt().expect("sqrt should succeed");
+        assert_eq!(
+            sqrt_result.data().expect("failed to get sqrt result data"),
+            vec![1.0, 2.0, 3.0, 4.0]
+        );
 
         let data2 = vec![0.0f32, 1.0, 2.0];
-        let tensor2 = Tensor::from_data(data2, vec![3], DeviceType::Cpu).unwrap();
+        let tensor2 = Tensor::from_data(data2, vec![3], DeviceType::Cpu)
+            .expect("failed to create tensor2 for exp");
 
-        let exp_result = tensor2.exp().unwrap();
+        let exp_result = tensor2.exp().expect("exp should succeed");
         let expected_exp = vec![1.0, std::f32::consts::E, std::f32::consts::E.powi(2)];
-        for (got, &expected) in exp_result.data().unwrap().iter().zip(&expected_exp) {
+        for (got, &expected) in exp_result
+            .data()
+            .expect("failed to get exp result data")
+            .iter()
+            .zip(&expected_exp)
+        {
             assert!((got - expected).abs() < 1e-6);
         }
     }
@@ -1621,16 +1658,17 @@ mod tests {
     #[test]
     fn test_trigonometric_functions() {
         let data = vec![0.0f32, std::f32::consts::PI / 2.0, std::f32::consts::PI];
-        let tensor = Tensor::from_data(data, vec![3], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![3], DeviceType::Cpu)
+            .expect("failed to create tensor for trig functions");
 
-        let sin_result = tensor.sin().unwrap();
-        let sin_data = sin_result.data().unwrap();
+        let sin_result = tensor.sin().expect("sin should succeed");
+        let sin_data = sin_result.data().expect("failed to get sin result data");
         assert!((sin_data[0] - 0.0).abs() < 1e-6);
         assert!((sin_data[1] - 1.0).abs() < 1e-6);
         assert!((sin_data[2] - 0.0).abs() < 1e-6);
 
-        let cos_result = tensor.cos().unwrap();
-        let cos_data = cos_result.data().unwrap();
+        let cos_result = tensor.cos().expect("cos should succeed");
+        let cos_data = cos_result.data().expect("failed to get cos result data");
         assert!((cos_data[0] - 1.0).abs() < 1e-6);
         assert!((cos_data[1] - 0.0).abs() < 1e-6);
         assert!((cos_data[2] - (-1.0)).abs() < 1e-6);
@@ -1638,67 +1676,117 @@ mod tests {
 
     #[test]
     fn test_operator_overloads() {
-        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
-        let b = Tensor::from_data(vec![4.0f32, 5.0, 6.0], vec![3], DeviceType::Cpu).unwrap();
+        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu)
+            .expect("failed to create tensor a for operator overloads");
+        let b = Tensor::from_data(vec![4.0f32, 5.0, 6.0], vec![3], DeviceType::Cpu)
+            .expect("failed to create tensor b for operator overloads");
 
         let result = &a + &b;
-        assert_eq!(result.data().unwrap(), vec![5.0, 7.0, 9.0]);
+        assert_eq!(
+            result.data().expect("failed to get add operator result"),
+            vec![5.0, 7.0, 9.0]
+        );
 
         let result = &b - &a;
-        assert_eq!(result.data().unwrap(), vec![3.0, 3.0, 3.0]);
+        assert_eq!(
+            result.data().expect("failed to get sub operator result"),
+            vec![3.0, 3.0, 3.0]
+        );
 
         let result = &a * &b;
-        assert_eq!(result.data().unwrap(), vec![4.0, 10.0, 18.0]);
+        assert_eq!(
+            result.data().expect("failed to get mul operator result"),
+            vec![4.0, 10.0, 18.0]
+        );
 
         let result = &b / &a;
-        assert_eq!(result.data().unwrap(), vec![4.0, 2.5, 2.0]);
+        assert_eq!(
+            result.data().expect("failed to get div operator result"),
+            vec![4.0, 2.5, 2.0]
+        );
 
         let neg_result = -&a;
-        assert_eq!(neg_result.data().unwrap(), vec![-1.0, -2.0, -3.0]);
+        assert_eq!(
+            neg_result
+                .data()
+                .expect("failed to get neg operator result"),
+            vec![-1.0, -2.0, -3.0]
+        );
     }
 
     #[test]
     fn test_power_operations() {
         let data = vec![2.0f32, 3.0, 4.0];
-        let tensor = Tensor::from_data(data, vec![3], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![3], DeviceType::Cpu)
+            .expect("failed to create tensor for power ops");
 
-        let pow_result = tensor.pow(2.0).unwrap();
-        assert_eq!(pow_result.data().unwrap(), vec![4.0, 9.0, 16.0]);
+        let pow_result = tensor.pow(2.0).expect("pow should succeed");
+        assert_eq!(
+            pow_result.data().expect("failed to get pow result data"),
+            vec![4.0, 9.0, 16.0]
+        );
 
-        let exponents =
-            Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
-        let pow_tensor_result = tensor.pow_tensor(&exponents).unwrap();
-        assert_eq!(pow_tensor_result.data().unwrap(), vec![2.0, 9.0, 64.0]);
+        let exponents = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu)
+            .expect("failed to create exponents tensor");
+        let pow_tensor_result = tensor
+            .pow_tensor(&exponents)
+            .expect("pow_tensor should succeed");
+        assert_eq!(
+            pow_tensor_result
+                .data()
+                .expect("failed to get pow_tensor result data"),
+            vec![2.0, 9.0, 64.0]
+        );
     }
 
     #[test]
     fn test_rounding_functions() {
         let data = vec![1.2f32, 2.7, -1.5, -2.3];
-        let tensor = Tensor::from_data(data, vec![4], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![4], DeviceType::Cpu)
+            .expect("failed to create tensor for rounding");
 
-        let floor_result = tensor.floor().unwrap();
-        assert_eq!(floor_result.data().unwrap(), vec![1.0, 2.0, -2.0, -3.0]);
+        let floor_result = tensor.floor().expect("floor should succeed");
+        assert_eq!(
+            floor_result
+                .data()
+                .expect("failed to get floor result data"),
+            vec![1.0, 2.0, -2.0, -3.0]
+        );
 
-        let ceil_result = tensor.ceil().unwrap();
-        assert_eq!(ceil_result.data().unwrap(), vec![2.0, 3.0, -1.0, -2.0]);
+        let ceil_result = tensor.ceil().expect("ceil should succeed");
+        assert_eq!(
+            ceil_result.data().expect("failed to get ceil result data"),
+            vec![2.0, 3.0, -1.0, -2.0]
+        );
 
-        let round_result = tensor.round().unwrap();
-        assert_eq!(round_result.data().unwrap(), vec![1.0, 3.0, -2.0, -2.0]);
+        let round_result = tensor.round().expect("round should succeed");
+        assert_eq!(
+            round_result
+                .data()
+                .expect("failed to get round result data"),
+            vec![1.0, 3.0, -2.0, -2.0]
+        );
     }
 
     #[test]
     fn test_sign_function() {
         let data = vec![-3.0f32, 0.0, 5.0, -1.0];
-        let tensor = Tensor::from_data(data, vec![4], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![4], DeviceType::Cpu)
+            .expect("failed to create tensor for sign");
 
-        let sign_result = tensor.sign().unwrap();
-        assert_eq!(sign_result.data().unwrap(), vec![-1.0, 0.0, 1.0, -1.0]);
+        let sign_result = tensor.sign().expect("sign should succeed");
+        assert_eq!(
+            sign_result.data().expect("failed to get sign result data"),
+            vec![-1.0, 0.0, 1.0, -1.0]
+        );
     }
 
     #[test]
     fn test_shape_mismatch_error() {
-        let a = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu).unwrap();
-        let b = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+        let a = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu)
+            .expect("failed to create tensor a for shape mismatch test");
+        let b = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu)
+            .expect("failed to create tensor b for shape mismatch test");
 
         assert!(a.add(&b).is_err());
         assert!(a.mul(&b).is_err());
@@ -1709,20 +1797,21 @@ mod tests {
     fn test_relu_inplace() {
         let mut tensor =
             Tensor::from_data(vec![-2.0f32, -1.0, 0.0, 1.0, 2.0], vec![5], DeviceType::Cpu)
-                .unwrap();
+                .expect("failed to create tensor for relu inplace");
 
-        tensor.relu_().unwrap();
-        let result = tensor.data().unwrap();
+        tensor.relu_().expect("relu_ should succeed");
+        let result = tensor.data().expect("failed to get relu_ result data");
 
         assert_eq!(result, vec![0.0, 0.0, 0.0, 1.0, 2.0]);
     }
 
     #[test]
     fn test_sigmoid_inplace() {
-        let mut tensor = Tensor::from_data(vec![0.0f32], vec![1], DeviceType::Cpu).unwrap();
+        let mut tensor = Tensor::from_data(vec![0.0f32], vec![1], DeviceType::Cpu)
+            .expect("failed to create tensor for sigmoid inplace");
 
-        tensor.sigmoid_().unwrap();
-        let result = tensor.data().unwrap();
+        tensor.sigmoid_().expect("sigmoid_ should succeed");
+        let result = tensor.data().expect("failed to get sigmoid_ result data");
 
         // sigmoid(0) = 0.5
         assert!((result[0] - 0.5).abs() < 1e-6);
@@ -1730,10 +1819,11 @@ mod tests {
 
     #[test]
     fn test_tanh_inplace() {
-        let mut tensor = Tensor::from_data(vec![0.0f32], vec![1], DeviceType::Cpu).unwrap();
+        let mut tensor = Tensor::from_data(vec![0.0f32], vec![1], DeviceType::Cpu)
+            .expect("failed to create tensor for tanh inplace");
 
-        tensor.tanh_().unwrap();
-        let result = tensor.data().unwrap();
+        tensor.tanh_().expect("tanh_ should succeed");
+        let result = tensor.data().expect("failed to get tanh_ result data");
 
         // tanh(0) = 0
         assert!(result[0].abs() < 1e-6);
@@ -1743,17 +1833,18 @@ mod tests {
     fn test_clamp_inplace() {
         let mut tensor =
             Tensor::from_data(vec![-2.0f32, -1.0, 0.0, 1.0, 2.0], vec![5], DeviceType::Cpu)
-                .unwrap();
+                .expect("failed to create tensor for clamp inplace");
 
-        tensor.clamp_(-1.0, 1.0).unwrap();
-        let result = tensor.data().unwrap();
+        tensor.clamp_(-1.0, 1.0).expect("clamp_ should succeed");
+        let result = tensor.data().expect("failed to get clamp_ result data");
 
         assert_eq!(result, vec![-1.0, -1.0, 0.0, 1.0, 1.0]);
     }
 
     #[test]
     fn test_inplace_with_requires_grad_error() {
-        let mut tensor = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu).unwrap();
+        let mut tensor = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu)
+            .expect("failed to create tensor for requires_grad test");
         tensor.requires_grad = true;
 
         // In-place operations should fail on tensors with requires_grad=true

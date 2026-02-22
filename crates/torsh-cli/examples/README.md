@@ -430,8 +430,8 @@ exclude_layers:
 
 ## Additional Resources
 
-- **Documentation**: `/tmp/TORSH_CLI_BETA1_ENHANCEMENTS.md`
-- **Quick Start**: `/tmp/TORSH_CLI_BETA1_QUICK_START.md`
+- **Documentation**: [ToRSh CLI Guide](https://github.com/cool-japan/torsh)
+- **Quick Start**: [Getting Started](https://github.com/cool-japan/torsh)
 - **ToRSh Project**: [GitHub Repository]
 - **Community**: [Discord/Forum]
 

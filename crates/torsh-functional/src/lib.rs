@@ -55,7 +55,12 @@ pub mod signal;
 pub mod sparse;
 pub mod special;
 pub mod spectral;
+pub mod spectral_advanced;
+pub mod spectral_analysis;
+pub mod spectral_stft;
+pub mod tensor_decomposition;
 pub mod tensor_ops;
+pub mod transformations;
 pub mod type_promotion;
 pub mod utils;
 pub mod wavelet;
@@ -167,7 +172,11 @@ pub use manipulation::{
 };
 pub use math::{cdist, einsum};
 pub use reduction::{unique, unique_consecutive, UniqueResult};
-pub use spectral::{istft, stft};
+pub use spectral::{
+    cepstrum, create_mel_filterbank, fftn, generate_window, hfft, hz_to_mel, ifftn, ihfft, irfft,
+    istft, istft_complete, mel_spectrogram, mel_to_hz, rfft2, rfftn, spectral_centroid,
+    spectral_rolloff, spectrogram, stft, stft_complete, SpectrogramType, WindowFunction,
+};
 pub use tensor_ops::{
     cosine_similarity, embedding, linear, one_hot, pairwise_distance, pixel_shuffle,
     pixel_unshuffle,
@@ -382,6 +391,15 @@ pub use utils::{
     validate_loss_params, validate_non_empty, validate_pooling_params, validate_positive,
     validate_range, validate_tensor_dims,
 };
+
+// Advanced functional transformations
+pub use transformations::{
+    einsum_optimized, tensor_contract, tensor_fold, tensor_map, tensor_outer, tensor_reduce,
+    tensor_scan, tensor_zip,
+};
+
+// Tensor decomposition operations
+pub use tensor_decomposition::{cp_decomposition, tucker_decomposition};
 
 /// Align tensors to have the same number of dimensions
 pub fn align_tensors(tensors: &[Tensor]) -> TorshResult<Vec<Tensor>> {

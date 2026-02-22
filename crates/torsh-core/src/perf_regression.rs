@@ -713,7 +713,9 @@ mod tests {
             p99_ns: 1188.0,
         };
 
-        let comparison = tracker.check_regression("test_op", &current_stats).unwrap();
+        let comparison = tracker
+            .check_regression("test_op", &current_stats)
+            .expect("check_regression should succeed");
         assert!(!comparison.is_regression(15.0)); // Should not be flagged
 
         // Test with worse performance
@@ -728,7 +730,9 @@ mod tests {
             p99_ns: 1290.0,
         };
 
-        let comparison = tracker.check_regression("test_op", &worse_stats).unwrap();
+        let comparison = tracker
+            .check_regression("test_op", &worse_stats)
+            .expect("check_regression should succeed");
         assert!(comparison.is_regression(15.0));
     }
 

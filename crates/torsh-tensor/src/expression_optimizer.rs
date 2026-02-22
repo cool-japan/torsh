@@ -369,8 +369,14 @@ impl ExpressionGraph {
         }
 
         // Add the edge
-        self.nodes.get_mut(&to).unwrap().add_input(from);
-        self.adjacency.get_mut(&from).unwrap().insert(to);
+        self.nodes
+            .get_mut(&to)
+            .expect("node verified to exist")
+            .add_input(from);
+        self.adjacency
+            .get_mut(&from)
+            .expect("adjacency verified to exist")
+            .insert(to);
 
         // 'to' is no longer a root since it has an input
         self.roots.remove(&to);
@@ -424,7 +430,9 @@ impl ExpressionGraph {
             // Reduce in-degree of dependent nodes
             if let Some(dependents) = self.adjacency.get(&node_id) {
                 for &dependent_id in dependents {
-                    let degree = in_degree.get_mut(&dependent_id).unwrap();
+                    let degree = in_degree
+                        .get_mut(&dependent_id)
+                        .expect("dependent_id should be in in_degree map");
                     *degree -= 1;
                     if *degree == 0 {
                         queue.push_back(dependent_id);
@@ -463,7 +471,7 @@ impl ExpressionGraph {
             let mut current = start_node;
             while let Some(dependents) = self.adjacency.get(&current) {
                 if dependents.len() == 1 {
-                    let next = *dependents.iter().next().unwrap();
+                    let next = *dependents.iter().next().expect("dependents is non-empty");
                     if visited.contains(&next) {
                         break;
                     }
@@ -502,7 +510,7 @@ impl ExpressionGraph {
             let mut current = node_id;
             while let Some(dependents) = self.adjacency.get(&current) {
                 if dependents.len() == 1 {
-                    let next = *dependents.iter().next().unwrap();
+                    let next = *dependents.iter().next().expect("dependents is non-empty");
                     if visited.contains(&next) {
                         break;
                     }
@@ -918,11 +926,22 @@ mod tests {
         let node2 = graph.add_node(OperationType::Mul);
         let node3 = graph.add_node(OperationType::Sum);
 
-        graph.add_edge(node1, node3).unwrap();
-        graph.add_edge(node2, node3).unwrap();
+        graph
+            .add_edge(node1, node3)
+            .expect("add_edge should succeed");
+        graph
+            .add_edge(node2, node3)
+            .expect("add_edge should succeed");
 
         assert_eq!(graph.nodes().len(), 3);
-        assert_eq!(graph.get_node(node3).unwrap().inputs.len(), 2);
+        assert_eq!(
+            graph
+                .get_node(node3)
+                .expect("get_node should succeed")
+                .inputs
+                .len(),
+            2
+        );
         assert!(graph.verify_integrity().is_ok());
     }
 
@@ -934,15 +953,26 @@ mod tests {
         let b = graph.add_node(OperationType::Mul);
         let c = graph.add_node(OperationType::Sum);
 
-        graph.add_edge(a, c).unwrap();
-        graph.add_edge(b, c).unwrap();
+        graph.add_edge(a, c).expect("add_edge should succeed");
+        graph.add_edge(b, c).expect("add_edge should succeed");
 
-        let sorted = graph.topological_sort().unwrap();
+        let sorted = graph
+            .topological_sort()
+            .expect("topological sort should succeed");
 
         // c should come after both a and b
-        let pos_a = sorted.iter().position(|&x| x == a).unwrap();
-        let pos_b = sorted.iter().position(|&x| x == b).unwrap();
-        let pos_c = sorted.iter().position(|&x| x == c).unwrap();
+        let pos_a = sorted
+            .iter()
+            .position(|&x| x == a)
+            .expect("position should succeed");
+        let pos_b = sorted
+            .iter()
+            .position(|&x| x == b)
+            .expect("position should succeed");
+        let pos_c = sorted
+            .iter()
+            .position(|&x| x == c)
+            .expect("position should succeed");
 
         assert!(pos_c > pos_a);
         assert!(pos_c > pos_b);
@@ -956,8 +986,8 @@ mod tests {
         let b = graph.add_node(OperationType::Mul);
         let c = graph.add_node(OperationType::Relu);
 
-        graph.add_edge(a, b).unwrap();
-        graph.add_edge(b, c).unwrap();
+        graph.add_edge(a, b).expect("add_edge should succeed");
+        graph.add_edge(b, c).expect("add_edge should succeed");
 
         let chains = graph.detect_fusable_chains();
         assert_eq!(chains.len(), 1);
@@ -984,12 +1014,14 @@ mod tests {
 
         let a = graph.add_node(OperationType::Add);
         let b = graph.add_node(OperationType::Mul);
-        graph.add_edge(a, b).unwrap();
+        graph.add_edge(a, b).expect("add_edge should succeed");
 
         let optimizer = ExpressionOptimizer::new();
-        let stats = optimizer.optimize(&mut graph).unwrap();
+        let stats = optimizer
+            .optimize(&mut graph)
+            .expect("optimization should succeed");
 
-        assert!(stats.optimization_time_us > 0);
+        // optimization_time_us can be 0 if the optimization completes in < 1μs
         assert_eq!(stats.nodes_before, 2);
     }
 

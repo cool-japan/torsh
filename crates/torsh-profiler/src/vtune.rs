@@ -613,12 +613,13 @@ mod tests {
             )
             .unwrap();
 
-        let temp_file = "/tmp/test_vtune_export.json";
-        let result = profiler.export_vtune_data(temp_file);
+        let temp_file = std::env::temp_dir().join("test_vtune_export.json");
+        let temp_str = temp_file.display().to_string();
+        let result = profiler.export_vtune_data(&temp_str);
         assert!(result.is_ok());
 
         // Clean up
-        let _ = std::fs::remove_file(temp_file);
+        let _ = std::fs::remove_file(&temp_file);
     }
 
     #[test]
@@ -631,7 +632,7 @@ mod tests {
             microarchitecture_analysis: true,
             hardware_events: false,
             sampling_frequency: 2000,
-            output_dir: Some("/tmp/vtune".to_string()),
+            output_dir: Some(std::env::temp_dir().join("vtune").display().to_string()),
             cpu_mask: Some(0xFF),
         };
 

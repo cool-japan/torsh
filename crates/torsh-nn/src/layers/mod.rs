@@ -5,6 +5,7 @@
 //! - `attention`: Attention mechanism layers (MultiheadAttention)
 //! - `blocks`: Pre-built blocks (ResNet blocks, DenseNet blocks, SE blocks, MBConv blocks)
 //! - `conv`: Convolutional layers (Conv1d, Conv2d, Conv3d)
+//! - `cross_attention`: Cross-attention layers for encoder-decoder architectures
 //! - `embedding`: Embedding layers
 //! - `lazy`: Lazy initialization layers (LazyLinear, LazyConv1d, LazyConv2d)
 //! - `linear`: Linear/fully connected layers
@@ -20,8 +21,10 @@ pub mod advanced;
 pub mod attention;
 pub mod blocks;
 pub mod conv;
+pub mod cross_attention;
 pub mod efficientnet;
 pub mod embedding;
+pub mod ip_adapter;
 pub mod lazy;
 pub mod linear;
 pub mod mobilenet;
@@ -38,8 +41,10 @@ pub use advanced::*;
 pub use attention::*;
 pub use blocks::*;
 pub use conv::*;
+pub use cross_attention::*;
 pub use efficientnet::*;
 pub use embedding::*;
+pub use ip_adapter::*;
 pub use lazy::*;
 pub use linear::*;
 pub use mobilenet::*;

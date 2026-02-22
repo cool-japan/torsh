@@ -318,29 +318,29 @@ impl ApiDocGenerator {
     fn generate_python_example(&self, function_name: &str) -> String {
         match function_name {
             "torsh_tensor_zeros" => r#"```python
-import torsh_ffi as torsh
+import rstorch
 
 # Create a 2x3 tensor filled with zeros
 shape = [2, 3]
-tensor = torsh.tensor_zeros(shape)
+tensor = rstorch.tensor_zeros(shape)
 print(f"Created tensor with shape: {tensor.shape()}")
 ```"#
                 .to_string(),
             "torsh_tensor_add" => r#"```python
-import torsh_ffi as torsh
+import rstorch
 
 # Create two tensors and add them
-a = torsh.tensor_ones([2, 3])
-b = torsh.tensor_ones([2, 3])
-result = torsh.tensor_add(a, b)
+a = rstorch.tensor_ones([2, 3])
+b = rstorch.tensor_ones([2, 3])
+result = rstorch.tensor_add(a, b)
 print("Added two tensors successfully")
 ```"#
                 .to_string(),
             "torsh_linear_create" => r#"```python
-import torsh_ffi as torsh
+import rstorch
 
 # Create a linear layer with 10 input features and 5 output features
-layer = torsh.linear_create(in_features=10, out_features=5, bias=True)
+layer = rstorch.linear_create(in_features=10, out_features=5, bias=True)
 print("Created linear layer")
 ```"#
                 .to_string(),

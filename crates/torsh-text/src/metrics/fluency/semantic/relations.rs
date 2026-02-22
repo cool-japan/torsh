@@ -534,7 +534,7 @@ impl SemanticRelationsAnalyzer {
 
 impl Default for SemanticRelationsAnalyzer {
     fn default() -> Self {
-        Self::new(RelationsAnalysisConfig::default()).unwrap()
+        Self::new(RelationsAnalysisConfig::default()).expect("default relations config should be valid")
     }
 }
 

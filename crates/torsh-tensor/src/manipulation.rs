@@ -696,22 +696,26 @@ mod tests {
     // Stack tests
     #[test]
     fn test_stack_1d() {
-        let a = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu).unwrap();
-        let b = Tensor::from_data(vec![3.0f32, 4.0], vec![2], DeviceType::Cpu).unwrap();
+        let a = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu)
+            .expect("failed to create tensor a");
+        let b = Tensor::from_data(vec![3.0f32, 4.0], vec![2], DeviceType::Cpu)
+            .expect("failed to create tensor b");
 
-        let result = Tensor::stack(&[a, b], 0).unwrap();
+        let result = Tensor::stack(&[a, b], 0).expect("stack should succeed for 1d tensors");
 
         assert_eq!(result.shape().dims(), &[2, 2]);
-        let data = result.data().unwrap();
+        let data = result.data().expect("failed to get stacked tensor data");
         assert_eq!(data, vec![1.0, 2.0, 3.0, 4.0]);
     }
 
     #[test]
     fn test_stack_negative_dim() {
-        let a = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu).unwrap();
-        let b = Tensor::from_data(vec![3.0f32, 4.0], vec![2], DeviceType::Cpu).unwrap();
+        let a = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu)
+            .expect("failed to create tensor a");
+        let b = Tensor::from_data(vec![3.0f32, 4.0], vec![2], DeviceType::Cpu)
+            .expect("failed to create tensor b");
 
-        let result = Tensor::stack(&[a, b], -1).unwrap();
+        let result = Tensor::stack(&[a, b], -1).expect("stack should succeed with negative dim");
         assert_eq!(result.shape().dims(), &[2, 2]);
     }
 
@@ -723,22 +727,31 @@ mod tests {
             vec![6],
             DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("failed to create tensor for chunk_even");
 
-        let chunks = tensor.chunk(3, 0).unwrap();
+        let chunks = tensor.chunk(3, 0).expect("chunk into 3 should succeed");
         assert_eq!(chunks.len(), 3);
         assert_eq!(chunks[0].shape().dims(), &[2]);
-        assert_eq!(chunks[0].data().unwrap(), vec![1.0, 2.0]);
-        assert_eq!(chunks[1].data().unwrap(), vec![3.0, 4.0]);
-        assert_eq!(chunks[2].data().unwrap(), vec![5.0, 6.0]);
+        assert_eq!(
+            chunks[0].data().expect("failed to get chunk 0 data"),
+            vec![1.0, 2.0]
+        );
+        assert_eq!(
+            chunks[1].data().expect("failed to get chunk 1 data"),
+            vec![3.0, 4.0]
+        );
+        assert_eq!(
+            chunks[2].data().expect("failed to get chunk 2 data"),
+            vec![5.0, 6.0]
+        );
     }
 
     #[test]
     fn test_chunk_uneven() {
-        let tensor =
-            Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu)
+            .expect("failed to create tensor for chunk_uneven");
 
-        let chunks = tensor.chunk(2, 0).unwrap();
+        let chunks = tensor.chunk(2, 0).expect("uneven chunk should succeed");
         assert_eq!(chunks.len(), 2);
         assert_eq!(chunks[0].shape().dims(), &[3]);
         assert_eq!(chunks[1].shape().dims(), &[2]);
@@ -752,20 +765,26 @@ mod tests {
             vec![6],
             DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("failed to create tensor for split_even");
 
-        let splits = tensor.split(2, 0).unwrap();
+        let splits = tensor.split(2, 0).expect("split by 2 should succeed");
         assert_eq!(splits.len(), 3);
-        assert_eq!(splits[0].data().unwrap(), vec![1.0, 2.0]);
-        assert_eq!(splits[1].data().unwrap(), vec![3.0, 4.0]);
+        assert_eq!(
+            splits[0].data().expect("failed to get split 0 data"),
+            vec![1.0, 2.0]
+        );
+        assert_eq!(
+            splits[1].data().expect("failed to get split 1 data"),
+            vec![3.0, 4.0]
+        );
     }
 
     #[test]
     fn test_split_uneven() {
-        let tensor =
-            Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu)
+            .expect("failed to create tensor for split_uneven");
 
-        let splits = tensor.split(2, 0).unwrap();
+        let splits = tensor.split(2, 0).expect("uneven split should succeed");
         assert_eq!(splits.len(), 3);
         assert_eq!(splits[0].shape().dims(), &[2]);
         assert_eq!(splits[1].shape().dims(), &[2]);
@@ -775,115 +794,153 @@ mod tests {
     // Flip tests
     #[test]
     fn test_flip_1d() {
-        let tensor =
-            Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu)
+            .expect("failed to create 1d tensor for flip");
 
-        let result = tensor.flip(&[0]).unwrap();
-        assert_eq!(result.data().unwrap(), vec![4.0, 3.0, 2.0, 1.0]);
+        let result = tensor.flip(&[0]).expect("flip dim 0 should succeed");
+        assert_eq!(
+            result.data().expect("failed to get flipped data"),
+            vec![4.0, 3.0, 2.0, 1.0]
+        );
     }
 
     #[test]
     fn test_flip_2d() {
-        let tensor =
-            Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu)
+            .expect("failed to create 2d tensor for flip");
 
-        let result = tensor.flip(&[0]).unwrap();
-        assert_eq!(result.data().unwrap(), vec![3.0, 4.0, 1.0, 2.0]);
+        let result = tensor.flip(&[0]).expect("flip 2d dim 0 should succeed");
+        assert_eq!(
+            result.data().expect("failed to get 2d flipped data"),
+            vec![3.0, 4.0, 1.0, 2.0]
+        );
     }
 
     #[test]
     fn test_fliplr() {
-        let tensor =
-            Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu)
+            .expect("failed to create tensor for fliplr");
 
-        let result = tensor.fliplr().unwrap();
-        assert_eq!(result.data().unwrap(), vec![2.0, 1.0, 4.0, 3.0]);
+        let result = tensor.fliplr().expect("fliplr should succeed");
+        assert_eq!(
+            result.data().expect("failed to get fliplr data"),
+            vec![2.0, 1.0, 4.0, 3.0]
+        );
     }
 
     #[test]
     fn test_flipud() {
-        let tensor =
-            Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu)
+            .expect("failed to create tensor for flipud");
 
-        let result = tensor.flipud().unwrap();
-        assert_eq!(result.data().unwrap(), vec![3.0, 4.0, 1.0, 2.0]);
+        let result = tensor.flipud().expect("flipud should succeed");
+        assert_eq!(
+            result.data().expect("failed to get flipud data"),
+            vec![3.0, 4.0, 1.0, 2.0]
+        );
     }
 
     // Roll tests
     #[test]
     fn test_roll_1d() {
-        let tensor =
-            Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu)
+            .expect("failed to create tensor for roll");
 
-        let result = tensor.roll(&[1], &[0]).unwrap();
-        assert_eq!(result.data().unwrap(), vec![4.0, 1.0, 2.0, 3.0]);
+        let result = tensor.roll(&[1], &[0]).expect("roll by 1 should succeed");
+        assert_eq!(
+            result.data().expect("failed to get rolled data"),
+            vec![4.0, 1.0, 2.0, 3.0]
+        );
     }
 
     #[test]
     fn test_roll_negative() {
-        let tensor =
-            Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu)
+            .expect("failed to create tensor for negative roll");
 
-        let result = tensor.roll(&[-1], &[0]).unwrap();
-        assert_eq!(result.data().unwrap(), vec![2.0, 3.0, 4.0, 1.0]);
+        let result = tensor
+            .roll(&[-1], &[0])
+            .expect("negative roll should succeed");
+        assert_eq!(
+            result.data().expect("failed to get negatively rolled data"),
+            vec![2.0, 3.0, 4.0, 1.0]
+        );
     }
 
     // Rot90 tests
     #[test]
     fn test_rot90_once() {
-        let tensor =
-            Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu)
+            .expect("failed to create tensor for rot90");
 
-        let result = tensor.rot90(1, &[0, 1]).unwrap();
+        let result = tensor.rot90(1, &[0, 1]).expect("rot90 once should succeed");
         assert_eq!(result.shape().dims(), &[2, 2]);
         // After 90° rotation: [[1,2],[3,4]] -> [[2,4],[1,3]]
     }
 
     #[test]
     fn test_rot90_twice() {
-        let tensor =
-            Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu)
+            .expect("failed to create tensor for rot90 twice");
 
-        let result = tensor.rot90(2, &[0, 1]).unwrap();
+        let result = tensor
+            .rot90(2, &[0, 1])
+            .expect("rot90 twice should succeed");
         assert_eq!(result.shape().dims(), &[2, 2]);
         // After 180° rotation: [[1,2],[3,4]] -> [[4,3],[2,1]]
-        assert_eq!(result.data().unwrap(), vec![4.0, 3.0, 2.0, 1.0]);
+        assert_eq!(
+            result.data().expect("failed to get rot90 twice data"),
+            vec![4.0, 3.0, 2.0, 1.0]
+        );
     }
 
     // Tile tests
     #[test]
     fn test_tile_1d() {
-        let tensor = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu)
+            .expect("failed to create tensor for tile 1d");
 
-        let result = tensor.tile(&[2]).unwrap();
+        let result = tensor.tile(&[2]).expect("tile 1d should succeed");
         assert_eq!(result.shape().dims(), &[4]);
-        assert_eq!(result.data().unwrap(), vec![1.0, 2.0, 1.0, 2.0]);
+        assert_eq!(
+            result.data().expect("failed to get tiled 1d data"),
+            vec![1.0, 2.0, 1.0, 2.0]
+        );
     }
 
     #[test]
     fn test_tile_2d() {
-        let tensor = Tensor::from_data(vec![1.0f32, 2.0], vec![1, 2], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0], vec![1, 2], DeviceType::Cpu)
+            .expect("failed to create tensor for tile 2d");
 
-        let result = tensor.tile(&[2, 1]).unwrap();
+        let result = tensor.tile(&[2, 1]).expect("tile 2d should succeed");
         assert_eq!(result.shape().dims(), &[2, 2]);
     }
 
     // Repeat interleave tests
     #[test]
     fn test_repeat_interleave_flatten() {
-        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu)
+            .expect("failed to create tensor for repeat_interleave");
 
-        let result = tensor.repeat_interleave(2, None).unwrap();
+        let result = tensor
+            .repeat_interleave(2, None)
+            .expect("repeat_interleave flatten should succeed");
         assert_eq!(result.shape().dims(), &[6]);
-        assert_eq!(result.data().unwrap(), vec![1.0, 1.0, 2.0, 2.0, 3.0, 3.0]);
+        assert_eq!(
+            result.data().expect("failed to get repeat_interleave data"),
+            vec![1.0, 1.0, 2.0, 2.0, 3.0, 3.0]
+        );
     }
 
     #[test]
     fn test_repeat_interleave_dim() {
-        let tensor =
-            Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu)
+            .expect("failed to create tensor for repeat_interleave dim");
 
-        let result = tensor.repeat_interleave(2, Some(0)).unwrap();
+        let result = tensor
+            .repeat_interleave(2, Some(0))
+            .expect("repeat_interleave along dim 0 should succeed");
         assert_eq!(result.shape().dims(), &[4, 2]);
     }
 
@@ -895,32 +952,48 @@ mod tests {
             vec![6],
             DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("failed to create tensor for unflatten");
 
-        let result = tensor.unflatten(0, &[2, 3]).unwrap();
+        let result = tensor
+            .unflatten(0, &[2, 3])
+            .expect("unflatten to [2,3] should succeed");
         assert_eq!(result.shape().dims(), &[2, 3]);
-        assert_eq!(result.data().unwrap(), vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+        assert_eq!(
+            result.data().expect("failed to get unflattened data"),
+            vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+        );
     }
 
     #[test]
     fn test_unflatten_multiple_dims() {
-        let tensor = Tensor::from_data(vec![1.0f32; 24], vec![24], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32; 24], vec![24], DeviceType::Cpu)
+            .expect("failed to create tensor for unflatten multiple dims");
 
-        let result = tensor.unflatten(0, &[2, 3, 4]).unwrap();
+        let result = tensor
+            .unflatten(0, &[2, 3, 4])
+            .expect("unflatten to [2,3,4] should succeed");
         assert_eq!(result.shape().dims(), &[2, 3, 4]);
     }
 
     // Take along dim tests
     #[test]
     fn test_take_along_dim_flatten() {
-        let tensor =
-            Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu)
+            .expect("failed to create tensor for take_along_dim");
 
-        let indices = Tensor::from_data(vec![0i64, 2, 1], vec![3], DeviceType::Cpu).unwrap();
+        let indices = Tensor::from_data(vec![0i64, 2, 1], vec![3], DeviceType::Cpu)
+            .expect("failed to create indices tensor");
 
-        let result = tensor.take_along_dim(&indices, None).unwrap();
+        let result = tensor
+            .take_along_dim(&indices, None)
+            .expect("take_along_dim flatten should succeed");
         assert_eq!(result.shape().dims(), &[3]);
-        assert_eq!(result.data().unwrap(), vec![1.0, 3.0, 2.0]);
+        assert_eq!(
+            result
+                .data()
+                .expect("failed to get take_along_dim flatten data"),
+            vec![1.0, 3.0, 2.0]
+        );
     }
 
     #[test]
@@ -930,15 +1003,20 @@ mod tests {
             vec![2, 3],
             DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("failed to create 2d tensor for take_along_dim");
 
-        let indices =
-            Tensor::from_data(vec![0i64, 2, 1, 1, 0, 2], vec![2, 3], DeviceType::Cpu).unwrap();
+        let indices = Tensor::from_data(vec![0i64, 2, 1, 1, 0, 2], vec![2, 3], DeviceType::Cpu)
+            .expect("failed to create 2d indices tensor");
 
-        let result = tensor.take_along_dim(&indices, Some(1)).unwrap();
+        let result = tensor
+            .take_along_dim(&indices, Some(1))
+            .expect("take_along_dim 2d should succeed");
         assert_eq!(result.shape().dims(), &[2, 3]);
         // Row 0: [1.0, 2.0, 3.0] indexed by [0, 2, 1] = [1.0, 3.0, 2.0]
         // Row 1: [4.0, 5.0, 6.0] indexed by [1, 0, 2] = [5.0, 4.0, 6.0]
-        assert_eq!(result.data().unwrap(), vec![1.0, 3.0, 2.0, 5.0, 4.0, 6.0]);
+        assert_eq!(
+            result.data().expect("failed to get take_along_dim 2d data"),
+            vec![1.0, 3.0, 2.0, 5.0, 4.0, 6.0]
+        );
     }
 }

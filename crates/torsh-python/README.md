@@ -1,8 +1,7 @@
 # ToRSh Python Bindings
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Python Versions](https://img.shields.io/pypi/pyversions/torsh.svg)](https://pypi.org/project/torsh/)
+[![Python Versions](https://img.shields.io/pypi/pyversions/RsTorch.svg)](https://pypi.org/project/RsTorch/)
 
 Python bindings for **ToRSh** - a PyTorch-compatible deep learning framework built in pure Rust.
 
@@ -30,27 +29,27 @@ maturin develop --release
 #### From PyPI (Coming Soon)
 
 ```bash
-pip install torsh
+pip install RsTorch
 ```
 
 ### Basic Usage
 
 ```python
-import torsh
+import rstorch
 
 # Device management
-cpu = torsh.PyDevice("cpu")
-cuda = torsh.PyDevice("cuda:0")
+cpu = rstorch.PyDevice("cpu")
+cuda = rstorch.PyDevice("cuda:0")
 print(f"Device: {cpu.type}, Index: {cpu.index}")
 
 # Data types
-float32 = torsh.PyDType("float32")
-int64 = torsh.PyDType("int64")
+float32 = rstorch.PyDType("float32")
+int64 = rstorch.PyDType("int64")
 print(f"DType: {float32.name}, Size: {float32.itemsize} bytes")
 
 # Check device availability
-print(f"CUDA available: {torsh.cuda_is_available()}")
-print(f"MPS available: {torsh.mps_is_available()}")
+print(f"CUDA available: {rstorch.cuda_is_available()}")
+print(f"MPS available: {rstorch.mps_is_available()}")
 ```
 
 See [examples/basic_usage.py](examples/basic_usage.py) for more examples.
@@ -59,7 +58,7 @@ See [examples/basic_usage.py](examples/basic_usage.py) for more examples.
 
 ### Current Status
 
-**Version**: 0.1.0-alpha.2
+**Version**: 0.1.0
 
 **Note**: This crate is in active development. Many features are currently disabled due to dependency conflicts with scirs2-autograd and are being re-enabled incrementally.
 
@@ -75,11 +74,11 @@ See [examples/basic_usage.py](examples/basic_usage.py) for more examples.
 #### ❌ Currently Disabled (Coming Soon)
 
 - Tensor operations and creation functions
-- Neural network layers (torsh.nn)
-- Optimization algorithms (torsh.optim)
-- Automatic differentiation (torsh.autograd)
-- Distributed training (torsh.distributed)
-- Functional operations (torsh.F)
+- Neural network layers (rstorch.nn)
+- Optimization algorithms (rstorch.optim)
+- Automatic differentiation (rstorch.autograd)
+- Distributed training (rstorch.distributed)
+- Functional operations (rstorch.F)
 
 See [TODO.md](TODO.md) for the full roadmap and progress tracking.
 
@@ -89,36 +88,36 @@ See [TODO.md](TODO.md) for the full roadmap and progress tracking.
 
 ```python
 # Create devices
-cpu = torsh.PyDevice("cpu")
-cuda0 = torsh.PyDevice("cuda")      # Default to cuda:0
-cuda1 = torsh.PyDevice("cuda:1")    # Specific GPU
-metal = torsh.PyDevice("metal:0")   # Apple Silicon
+cpu = rstorch.PyDevice("cpu")
+cuda0 = rstorch.PyDevice("cuda")      # Default to cuda:0
+cuda1 = rstorch.PyDevice("cuda:1")    # Specific GPU
+metal = rstorch.PyDevice("metal:0")   # Apple Silicon
 
 # Device properties
 print(cuda1.type)   # "cuda"
 print(cuda1.index)  # 1
 
 # Device equality
-cpu1 = torsh.PyDevice("cpu")
-cpu2 = torsh.PyDevice("cpu")
+cpu1 = rstorch.PyDevice("cpu")
+cpu2 = rstorch.PyDevice("cpu")
 assert cpu1 == cpu2
 
 # Utility functions
-torsh.device_count()        # Number of devices
-torsh.is_available()        # General availability
-torsh.cuda_is_available()   # CUDA availability
-torsh.mps_is_available()    # Metal Performance Shaders availability
+rstorch.device_count()        # Number of devices
+rstorch.is_available()        # General availability
+rstorch.cuda_is_available()   # CUDA availability
+rstorch.mps_is_available()    # Metal Performance Shaders availability
 ```
 
 #### Data Types
 
 ```python
 # Create dtypes
-float32 = torsh.PyDType("float32")  # or "f32"
-float64 = torsh.PyDType("float64")  # or "f64"
-int32 = torsh.PyDType("int32")      # or "i32"
-int64 = torsh.PyDType("int64")      # or "i64"
-bool_type = torsh.PyDType("bool")
+float32 = rstorch.PyDType("float32")  # or "f32"
+float64 = rstorch.PyDType("float64")  # or "f64"
+int32 = rstorch.PyDType("int32")      # or "i32"
+int64 = rstorch.PyDType("int64")      # or "i64"
+bool_type = rstorch.PyDType("bool")
 
 # DType properties
 print(float32.name)              # "float32"
@@ -127,30 +126,30 @@ print(float32.is_floating_point) # True
 print(float32.is_signed)         # True
 
 # DType constants
-torsh.float32  # Predefined dtype
-torsh.float64
-torsh.int32
-torsh.int64
-torsh.bool
+rstorch.float32  # Predefined dtype
+rstorch.float64
+rstorch.int32
+rstorch.int64
+rstorch.bool
 
 # PyTorch-style aliases
-torsh.float   # Same as float32
-torsh.double  # Same as float64
-torsh.long    # Same as int64
-torsh.int     # Same as int32
+rstorch.float   # Same as float32
+rstorch.double  # Same as float64
+rstorch.long    # Same as int64
+rstorch.int     # Same as int32
 ```
 
 #### Error Handling
 
 ```python
 # Custom errors
-error = torsh.TorshError("Custom error message")
+error = rstorch.TorshError("Custom error message")
 print(str(error))    # "Custom error message"
 print(repr(error))   # "TorshError('Custom error message')"
 
 # Built-in validation with helpful errors
 try:
-    invalid_device = torsh.PyDevice("invalid")
+    invalid_device = rstorch.PyDevice("invalid")
 except ValueError as e:
     print(f"Error: {e}")  # "Unknown device: invalid"
 ```
@@ -269,21 +268,21 @@ Benchmarks will be added once tensor operations are re-enabled.
 
 ## 🗺️ Roadmap
 
-### v0.1.0-alpha.3 (Next Release)
+### v0.1.0 (Next Release)
 
 - [ ] Re-enable tensor operations
 - [ ] Re-enable basic neural network layers
 - [ ] Add tensor creation functions (zeros, ones, randn)
 - [ ] Add basic tensor operations (add, mul, matmul)
 
-### v0.1.0-alpha.4
+### v0.1.0
 
 - [ ] Re-enable autograd support
 - [ ] Re-enable optimizer implementations
 - [ ] Add data loading utilities
 - [ ] Performance benchmarks
 
-### v0.1.0-beta.1
+### v0.1.0
 
 - [ ] Distributed training support
 - [ ] Complete PyTorch API compatibility
@@ -304,12 +303,7 @@ Contributions are welcome! Please follow these guidelines:
 
 ## 📄 License
 
-Licensed under either of:
-
-- Apache License, Version 2.0 ([LICENSE-APACHE](../../LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license ([LICENSE-MIT](../../LICENSE-MIT) or http://opensource.org/licenses/MIT)
-
-at your option.
+Licensed under the Apache License, Version 2.0. See [LICENSE](../../LICENSE) for details.
 
 ## 🙏 Acknowledgments
 
@@ -331,4 +325,4 @@ at your option.
 
 ---
 
-**Status**: 🚧 Active Development | **Version**: 0.1.0-alpha.2 | **Last Updated**: 2025-10-24
+**Status**: 🚧 Active Development | **Version**: 0.1.0 | **Last Updated**: 2025-10-24

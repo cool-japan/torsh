@@ -11,15 +11,15 @@ This script showcases:
 
 import numpy as np
 import torch  # For comparison/conversion
-import torsh
+import rstorch
 
 def main():
     print("=== ToRSh Integration Examples ===\n")
     
     # Create sample data
     print("1. Creating sample data...")
-    data = torsh.randn([100, 3])  # 100 samples, 3 features
-    labels = torsh.randint(0, 2, [100])  # Binary classification labels
+    data = rstorch.randn([100, 3])  # 100 samples, 3 features
+    labels = rstorch.randint(0, 2, [100])  # Binary classification labels
     
     print(f"Data shape: {data.shape}")
     print(f"Labels shape: {labels.shape}")
@@ -30,11 +30,11 @@ def main():
     print("-" * 40)
     
     # Create SciPy integration instance
-    scipy_integration = torsh.SciPyIntegration()
+    scipy_integration = rstorch.SciPyIntegration()
     
     # Example 1: Linear algebra operations
     print("2.1 Linear Algebra Operations")
-    matrix = torsh.randn([5, 5])
+    matrix = rstorch.randn([5, 5])
     
     # Eigenvalue decomposition
     eigenresult = scipy_integration.eigendecomposition(matrix, compute_eigenvectors=True)
@@ -48,7 +48,7 @@ def main():
     
     # Example 2: Optimization
     print("\n2.2 Optimization Example")
-    initial_guess = torsh.zeros([2])
+    initial_guess = rstorch.zeros([2])
     
     # Define objective function (Python function for SciPy)
     def objective(x):
@@ -60,7 +60,7 @@ def main():
     
     # Example 3: Signal processing
     print("\n2.3 Signal Processing")
-    signal = torsh.randn([1000])  # Random signal
+    signal = rstorch.randn([1000])  # Random signal
     
     # Apply digital filter
     filtered_result = scipy_integration.filter_signal(
@@ -74,8 +74,8 @@ def main():
     
     # Example 4: Statistical tests
     print("\n2.4 Statistical Tests")
-    sample1 = torsh.randn([50])
-    sample2 = torsh.randn([50]) + 0.5  # Shifted mean
+    sample1 = rstorch.randn([50])
+    sample2 = rstorch.randn([50]) + 0.5  # Shifted mean
     
     # Independent t-test
     statistic, p_value = scipy_integration.statistical_test(
@@ -90,11 +90,11 @@ def main():
     print("-" * 40)
     
     # Create Pandas support instance
-    pandas_support = torsh.PandasSupport()
+    pandas_support = rstorch.PandasSupport()
     
     # Example 1: Convert tensor to DataFrame
     print("3.1 Tensor to DataFrame Conversion")
-    df_tensor = torsh.randn([20, 4])
+    df_tensor = rstorch.randn([20, 4])
     columns = ["feature_1", "feature_2", "feature_3", "target"]
     
     # Convert to pandas DataFrame
@@ -117,14 +117,14 @@ def main():
     
     # Group-by analysis
     # First create a categorical column
-    category_data = torsh.randint(0, 3, [20])  # 3 categories
+    category_data = rstorch.randint(0, 3, [20])  # 3 categories
     category_df = pandas_support.to_series(category_data, name="category")
     
     print("Group-by analysis would be performed with categorical data")
     
     # Example 3: Time series analysis
     print("\n3.3 Time Series Analysis")
-    time_series = torsh.randn([100])
+    time_series = rstorch.randn([100])
     ts_series = pandas_support.to_series(time_series, name="values")
     
     # Time series analysis
@@ -147,12 +147,12 @@ def main():
     print("-" * 40)
     
     # Create plotting utilities instance
-    plotter = torsh.PlottingUtilities()
+    plotter = rstorch.PlottingUtilities()
     
     # Example 1: Line plot
     print("4.1 Line Plot")
-    x_data = torsh.linspace(0, 10, 100)
-    y_data = torsh.sin(x_data)
+    x_data = rstorch.linspace(0, 10, 100)
+    y_data = rstorch.sin(x_data)
     
     line_plot = plotter.line_plot(
         x_data, y_data, 
@@ -166,8 +166,8 @@ def main():
     
     # Example 2: Scatter plot
     print("\n4.2 Scatter Plot")
-    x_scatter = torsh.randn([100])
-    y_scatter = x_scatter * 2 + torsh.randn([100]) * 0.5  # Linear relationship with noise
+    x_scatter = rstorch.randn([100])
+    y_scatter = x_scatter * 2 + rstorch.randn([100]) * 0.5  # Linear relationship with noise
     
     scatter_plot = plotter.scatter_plot(
         x_scatter, y_scatter,
@@ -178,7 +178,7 @@ def main():
     
     # Example 3: Histogram
     print("\n4.3 Histogram")
-    hist_data = torsh.randn([1000])
+    hist_data = rstorch.randn([1000])
     
     histogram = plotter.histogram(
         hist_data, bins=30, density=False,
@@ -189,7 +189,7 @@ def main():
     
     # Example 4: Heatmap
     print("\n4.4 Heatmap")
-    heatmap_data = torsh.randn([10, 10])
+    heatmap_data = rstorch.randn([10, 10])
     
     heatmap = plotter.heatmap(
         heatmap_data,
@@ -201,9 +201,9 @@ def main():
     # Example 5: Box plot
     print("\n4.5 Box Plot")
     box_data = [
-        torsh.randn([50]),
-        torsh.randn([50]) + 1,
-        torsh.randn([50]) + 2
+        rstorch.randn([50]),
+        rstorch.randn([50]) + 1,
+        rstorch.randn([50]) + 2
     ]
     
     box_plot = plotter.box_plot(
@@ -216,7 +216,7 @@ def main():
     
     # Example 6: Statistical plots
     print("\n4.6 Statistical Plots")
-    stat_config = torsh.StatPlotConfig(
+    stat_config = rstorch.StatPlotConfig(
         show_confidence=True,
         confidence_level=0.95,
         bins=25,
@@ -240,11 +240,11 @@ def main():
     print("-" * 40)
     
     # Create Jupyter widgets instance
-    jupyter_widgets = torsh.JupyterWidgets()
+    jupyter_widgets = rstorch.JupyterWidgets()
     
     # Example 1: Tensor visualization widget
     print("5.1 Tensor Visualization Widget")
-    viz_tensor = torsh.randn([50, 2])  # 2D data for scatter plot
+    viz_tensor = rstorch.randn([50, 2])  # 2D data for scatter plot
     
     tensor_widget = jupyter_widgets.create_tensor_widget(
         viz_tensor, "scatter", title="Tensor Visualization"
@@ -276,7 +276,7 @@ def main():
     
     # Example 3: Data exploration widget
     print("\n5.3 Data Exploration Widget")
-    exploration_data = torsh.randn([100, 5])  # 5 features
+    exploration_data = rstorch.randn([100, 5])  # 5 features
     
     data_explorer = jupyter_widgets.create_data_explorer(
         exploration_data,
@@ -321,7 +321,7 @@ def main():
     
     # Benchmark operations
     print("6.1 SciPy Operations Benchmark")
-    benchmark_tensor = torsh.randn([100, 100])
+    benchmark_tensor = rstorch.randn([100, 100])
     
     # scipy_benchmarks = scipy_integration.benchmark_operations(
     #     tensor_size=[100, 100], num_iterations=10
@@ -338,11 +338,11 @@ def main():
     
     # NumPy conversion
     print("7.1 NumPy Integration")
-    torsh_tensor = torsh.randn([5, 5])
-    numpy_array = torsh.to_numpy(torsh_tensor)
+    torsh_tensor = rstorch.randn([5, 5])
+    numpy_array = rstorch.to_numpy(torsh_tensor)
     print(f"Converted to NumPy - shape: {numpy_array.shape}, dtype: {numpy_array.dtype}")
     
-    back_to_torsh = torsh.from_numpy(numpy_array)
+    back_to_torsh = rstorch.from_numpy(numpy_array)
     print(f"Converted back to ToRSh - shape: {back_to_torsh.shape}")
     
     # PyTorch conversion (if available)

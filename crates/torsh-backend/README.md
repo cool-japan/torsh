@@ -31,7 +31,7 @@ let backend = Backend::new(BackendType::Metal)?; // Explicit Metal
 
 ```toml
 [dependencies]
-torsh-backends = { version = "0.1.0-alpha.2", features = ["cuda", "metal"] }
+torsh-backends = { version = "0.1.0", features = ["cuda", "metal"] }
 
 # Available features:
 # - "cpu" (default): CPU backend with SIMD optimizations
@@ -233,17 +233,12 @@ The previous separate backend crates (`torsh-backend-cpu`, `torsh-backend-cuda`,
 
 ```toml
 # Old (deprecated)
-torsh-backend-cuda = "0.1.0-alpha.2"
+torsh-backend-cuda = "0.1.0"
 
 # New (unified)
-torsh-backends = { version = "0.1.0-alpha.2", features = ["cuda"] }
+torsh-backends = { version = "0.1.0", features = ["cuda"] }
 ```
 
 ## License
 
-Licensed under either of
-
-- Apache License, Version 2.0 ([LICENSE-APACHE](../../LICENSE-APACHE))
-- MIT license ([LICENSE-MIT](../../LICENSE-MIT))
-
-at your option.
+Licensed under the Apache License, Version 2.0. See [LICENSE](../../LICENSE) for details.

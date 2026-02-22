@@ -1256,7 +1256,9 @@ mod tests {
         let b = vec![5.0f32, 6.0, 7.0, 8.0]; // 2x2
         let mut c = vec![0.0f32; 4]; // 2x2
 
-        optimizer.optimized_matmul(&a, &b, &mut c, 2, 2, 2).unwrap();
+        optimizer
+            .optimized_matmul(&a, &b, &mut c, 2, 2, 2)
+            .expect("optimized_matmul should succeed");
 
         // Expected: [19, 22, 43, 50]
         assert!((c[0] - 19.0).abs() < 1e-6);
@@ -1285,7 +1287,7 @@ mod tests {
 
         optimizer
             .optimized_conv2d(&input, &kernel, &mut output, 3, 3, 2, 2, 1, 0)
-            .unwrap();
+            .expect("operation should succeed");
 
         // Basic sanity check - all outputs should be computed
         assert!(output.iter().all(|&x| x >= 0.0));

@@ -8,6 +8,10 @@ repository.workspace = true
 homepage.workspace = true
 rust-version.workspace = true
 description = "Time series analysis components for ToRSh - powered by SciRS2"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-series"
+keywords = ["deep-learning", "time-series", "forecasting", "machine-learning", "signal"]
+categories = ["science", "algorithms"]
 
 [lints]
 workspace = true

@@ -88,8 +88,10 @@ fn demo_overhead_measurement() -> TorshResult<()> {
     );
 
     // Export with overhead tracking
-    export_global_json("/tmp/overhead_demo.json")?;
-    println!("   📁 Exported profiling data to /tmp/overhead_demo.json");
+    let overhead_path = std::env::temp_dir().join("overhead_demo.json");
+    let overhead_str = overhead_path.display().to_string();
+    export_global_json(&overhead_str)?;
+    println!("   📁 Exported profiling data to {}", overhead_str);
 
     println!();
     Ok(())
@@ -114,14 +116,20 @@ fn demo_custom_export_formats() -> TorshResult<()> {
     println!("   Available custom formats: {formats:?}");
 
     // Export using different custom formats
-    export_global_custom("compact_json", "/tmp/compact_demo.json")?;
-    println!("   📁 Exported compact JSON to /tmp/compact_demo.json");
+    let compact_path = std::env::temp_dir().join("compact_demo.json");
+    let compact_str = compact_path.display().to_string();
+    export_global_custom("compact_json", &compact_str)?;
+    println!("   📁 Exported compact JSON to {}", compact_str);
 
-    export_global_custom("performance_csv", "/tmp/performance_demo.csv")?;
-    println!("   📁 Exported performance CSV to /tmp/performance_demo.csv");
+    let perf_csv_path = std::env::temp_dir().join("performance_demo.csv");
+    let perf_csv_str = perf_csv_path.display().to_string();
+    export_global_custom("performance_csv", &perf_csv_str)?;
+    println!("   📁 Exported performance CSV to {}", perf_csv_str);
 
-    export_global_custom("simple_text", "/tmp/simple_demo.txt")?;
-    println!("   📁 Exported simple text to /tmp/simple_demo.txt");
+    let simple_path = std::env::temp_dir().join("simple_demo.txt");
+    let simple_str = simple_path.display().to_string();
+    export_global_custom("simple_text", &simple_str)?;
+    println!("   📁 Exported simple text to {}", simple_str);
 
     // Register and use a custom format
     let custom_format = CustomExportFormat {
@@ -135,8 +143,10 @@ fn demo_custom_export_formats() -> TorshResult<()> {
     };
 
     register_global_custom_export_format(custom_format);
-    export_global_custom("demo_format", "/tmp/custom_demo.demo")?;
-    println!("   📁 Exported custom format to /tmp/custom_demo.demo");
+    let custom_demo_path = std::env::temp_dir().join("custom_demo.demo");
+    let custom_demo_str = custom_demo_path.display().to_string();
+    export_global_custom("demo_format", &custom_demo_str)?;
+    println!("   📁 Exported custom format to {}", custom_demo_str);
 
     println!();
     Ok(())

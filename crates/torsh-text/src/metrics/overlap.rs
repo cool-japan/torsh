@@ -970,7 +970,7 @@ impl WordOverlapCalculator {
             }
         }
 
-        pairs.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap());
+        pairs.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
         pairs
     }
 
@@ -1010,7 +1010,7 @@ impl WordOverlapCalculator {
         }
 
         let mut sorted_overlaps = overlaps.to_vec();
-        sorted_overlaps.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted_overlaps.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         let mean = overlaps.iter().sum::<f64>() / overlaps.len() as f64;
         let variance =

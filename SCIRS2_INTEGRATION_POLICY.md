@@ -55,7 +55,7 @@ OxiBLAS (Pure Rust BLAS/LAPACK) + OxiCode + ndarray, rand, num-traits
 - ❌ `intel-mkl-src` - Intel MKL bindings
 - ❌ `ndarray-linalg` - Replaced with scirs2-linalg independent implementation
 
-**REMOVED Dependencies (v0.1.0-beta.1+):**
+**REMOVED Dependencies (v0.1.0+):**
 - ❌ `libc` - C standard library (torsh-backend, torsh-cli, torsh-core)
 - ❌ Optional `lapack-backend` feature in torsh-linalg
 
@@ -194,7 +194,7 @@ OxiBLAS (Pure Rust BLAS/LAPACK) + OxiCode + ndarray, rand, num-traits
 - **Use Cases**: Tokenization, text features, language models, sentiment analysis, named entity recognition
 - **ToRSh Modules**: `torsh-text` (enhanced)
 - **Status**: ✅ REQUIRED - NLP capabilities
-- **Integration Status** (v0.1.0-rc.1):
+- **Integration Status** (v0.1.0):
   - ✅ **Core Functionality**: Basic text processing, metrics, tokenization fully implemented
   - ⏳ **Pending scirs2-text v0.2.0+**: Advanced NLP features using placeholder implementations
     - Embeddings generation (line 96 of scirs2_text_integration.rs)
@@ -570,7 +570,7 @@ use scirs2_core::random::{thread_rng, Normal, RandBeta};
 **Based On**: [SciRS2 POLICY v3.0.0](https://github.com/cool-japan/scirs/blob/master/SCIRS2_POLICY.md)
 **SciRS2 Version**: v0.1.1 (Stable)
 **OxiBLAS Version**: v0.1.2 (Stable)
-**ToRSh Version**: v0.1.0-beta.1
+**ToRSh Version**: v0.1.0
 **Next Review**: Q2 2026
 **Owner**: ToRSh Architecture Team / COOLJAPAN OU
 
@@ -645,8 +645,8 @@ use scirs2_core::random::{thread_rng, Normal, RandBeta};
 # ndarray = "0.16"       # REMOVED: Use scirs2_autograd::ndarray instead (SciRS2 POLICY)
 
 # ✅ SciRS2 POLICY COMPLIANT dependencies
-scirs2-core = "0.1.0-beta.3"
-scirs2-autograd = "0.1.0-beta.3"
+scirs2-core = "0.1.0"
+scirs2-autograd = "0.1.0"
 ```
 
 ### Migration Pattern 2: Random Number Generation Integration
@@ -734,7 +734,7 @@ Self { rng: thread_rng() }        // For fast, non-deterministic
 
 ## Quick Reference
 
-### Current Workspace Integration (v0.1.0-beta.1)
+### Current Workspace Integration (v0.1.0)
 ```toml
 [workspace.dependencies]
 # Essential SciRS2 dependencies for ToRSh - STABLE INTEGRATION
@@ -761,8 +761,8 @@ scirs2-linalg = { version = "0.1.1" }  # Includes scipy.linalg compatibility (35
 scirs2-neural = { version = "0.1.1" }
 
 # OptiRS integration for advanced optimization (still RC)
-optirs = { version = "0.1.0-rc", default-features = false }
-optirs-core = { version = "0.1.0-rc", default-features = false }
+optirs = { version = "0.1.0", default-features = false }
+optirs-core = { version = "0.1.0", default-features = false }
 optirs-core = { path = "../optirs/optirs-core", default-features = false }
 ```
 

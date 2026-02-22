@@ -30,7 +30,9 @@ impl WandbClient {
     /// Create a new W&B client
     pub fn new(project_name: impl Into<String>) -> Self {
         let project_name = project_name.into();
-        let artifact_dir = PathBuf::from("/tmp/wandb-artifacts").join(&project_name);
+        let artifact_dir = std::env::temp_dir()
+            .join("wandb-artifacts")
+            .join(&project_name);
 
         Self {
             api_key: None,

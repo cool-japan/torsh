@@ -1,6 +1,6 @@
 # ToRSh-Vision Roadmap
 
-## Version 0.1.0-rc.1 (Current)
+## Version 0.1.0 (Current)
 
 **Status:** Feature Complete for Initial Release
 **Release Date:** 2026-01-28
@@ -314,4 +314,4 @@ Please open issues for:
 - Priority levels reflect ToRSh project goals, not individual use cases
 
 **Last Updated:** 2026-01-28
-**Current Version:** 0.1.0-rc.1
+**Current Version:** 0.1.0

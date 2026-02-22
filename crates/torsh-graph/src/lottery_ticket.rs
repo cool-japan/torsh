@@ -274,7 +274,12 @@ impl LotteryTicketFinder {
             }
 
             let param_data = param.to_vec()?;
-            let mask_data = self.mask.masks.get(name).unwrap().to_vec()?;
+            let mask_data = self
+                .mask
+                .masks
+                .get(name)
+                .expect("mask should exist for prunable param")
+                .to_vec()?;
 
             for (i, &weight) in param_data.iter().enumerate() {
                 if mask_data[i] > 0.5 {
@@ -285,7 +290,7 @@ impl LotteryTicketFinder {
         }
 
         // Sort by magnitude
-        all_magnitudes.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap());
+        all_magnitudes.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal));
 
         // Determine threshold for pruning
         let num_to_prune = (all_magnitudes.len() as f32 * target_sparsity) as usize;
@@ -412,7 +417,7 @@ impl GraphPruning {
 
         // Sort edges by score
         let mut scored_edges: Vec<_> = edge_scores.iter().enumerate().collect();
-        scored_edges.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
+        scored_edges.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap_or(std::cmp::Ordering::Equal));
 
         // Keep top edges
         let num_keep = (graph.num_edges as f32 * keep_ratio).ceil() as usize;
@@ -490,7 +495,7 @@ impl GraphPruning {
 
         // Sort nodes by score
         let mut scored_nodes: Vec<_> = node_scores.iter().enumerate().collect();
-        scored_nodes.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
+        scored_nodes.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap_or(std::cmp::Ordering::Equal));
 
         // Keep top nodes
         let num_keep = (graph.num_nodes as f32 * keep_ratio).ceil() as usize;
@@ -541,7 +546,7 @@ impl GraphPruning {
         // Add destination indices
         for &e in &kept_edge_indices {
             let dst = edge_data[graph.num_edges + e] as usize;
-            new_edges.push(node_map[dst].unwrap() as f32);
+            new_edges.push(node_map[dst].expect("destination node should be in node map") as f32);
         }
 
         let num_new_edges = kept_edge_indices.len();

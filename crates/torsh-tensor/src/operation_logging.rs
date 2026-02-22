@@ -597,7 +597,7 @@ pub fn init_global_logger(config: LogConfig) {
 pub fn global_logger() -> Option<OperationLogger> {
     GLOBAL_LOGGER
         .lock()
-        .unwrap()
+        .expect("lock should not be poisoned")
         .as_ref()
         .map(|l| l.clone_logger())
 }
@@ -756,7 +756,9 @@ mod tests {
 
         let temp_dir = std::env::temp_dir();
         let temp_file = temp_dir.join("test_log.json");
-        logger.export_to_file(&temp_file).unwrap();
+        logger
+            .export_to_file(&temp_file)
+            .expect("file export should succeed");
 
         assert!(temp_file.exists());
         std::fs::remove_file(temp_file).ok();

@@ -8,6 +8,10 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 rust-version.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/torsh-cluster"
+keywords = ["deep-learning", "clustering", "unsupervised", "machine-learning", "k-means"]
+categories = ["science", "algorithms"]
 
 [lints]
 workspace = true
@@ -38,7 +42,7 @@ scirs2-linalg = { workspace = true }
 thiserror = { workspace = true }
 
 # Serialization
-serde = { version = "1.0", features = ["derive"], optional = true }
+serde = { workspace = true, optional = true }
 
 # Optional logging
 log = { workspace = true, optional = true }

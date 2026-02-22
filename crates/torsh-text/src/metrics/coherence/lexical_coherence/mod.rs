@@ -1062,7 +1062,7 @@ impl IncrementalProcessor {
         }
 
         if chunk_results.len() == 1 {
-            return Ok(chunk_results.into_iter().next().unwrap());
+            return Ok(chunk_results.into_iter().next().expect("chunk_results verified non-empty above"));
         }
 
         // Simple merging strategy - average the scores

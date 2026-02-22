@@ -2,7 +2,7 @@
 
 [![npm version](https://badge.fury.io/js/%40torsh%2Fcore.svg)](https://www.npmjs.com/package/@torsh/core)
 [![Node.js CI](https://github.com/torsh-team/torsh/workflows/Node.js%20CI/badge.svg)](https://github.com/torsh-team/torsh/actions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 This package provides Node.js/TypeScript bindings for the ToRSh deep learning framework. It allows JavaScript and TypeScript developers to leverage ToRSh's high-performance tensor operations and neural network capabilities in Node.js applications.
 
@@ -530,7 +530,7 @@ Contributions are welcome! Please see the main ToRSh repository for contribution
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache-2.0 License - see the [LICENSE](LICENSE) file for details.
 
 ## Support
 

@@ -1,6 +1,6 @@
 # ToRSh Development Roadmap
 
-**Status**: v0.1.0-beta.1 (First Beta Release - December 30, 2025) 🎉
+**Status**: v0.1.0 (Released - February 19, 2026)
 
 ---
 
@@ -166,9 +166,9 @@ Build a **PyTorch-compatible deep learning framework in pure Rust** that combine
 - **Completeness**: Full scientific computing platform through SciRS2 integration
 - **Deployment**: Single binary, no Python runtime, edge-to-cloud ready
 
-## ✨ What We Have Now (Beta 1) 🎉
+## ✨ What We Have Now (v0.1.0)
 
-### 🚀 Beta Status: Production-Ready Core ✅
+### 🚀 v0.1.0 Status: Production-Ready Core ✅
 
 ✅ **Performance issues resolved** (January 1, 2026): All 7 phases of SIMD optimization complete. See completed section above for benchmark results.
 
@@ -190,15 +190,15 @@ Build a **PyTorch-compatible deep learning framework in pure Rust** that combine
 - **Sparse Tensors**: COO, CSR formats
 - **Special Functions**: Gamma, Bessel, error functions
 
-### Quality Metrics ✅ (Beta-Grade)
-- **9061 Unit Tests Passing**: 99.99% pass rate (exceeds beta standards)
+### Quality Metrics ✅
+- **9061 Unit Tests Passing**: 99.99% pass rate
 - **Zero Compilation Errors**: All workspace packages compile cleanly
 - **Zero Warnings**: 100% compliance with no-warnings policy
 - **29/29 Packages**: 100% compilation success (torsh-distributed tests excluded)
 - **Stable Dependencies**: Built on SciRS2 0.1.1 stable (no RC versions)
 
-### Beta 1 Milestone (December 2025) 🎉
-- **🎓 Graduated from Alpha to Beta**: API stabilization phase begins
+### v0.1.0 Milestone
+- **🎓 API Stabilization**: Core APIs are stable
 - **🎯 100% Pure Rust (Default Features)**: Zero C/Fortran dependencies in default build
   - Removed `libc` → Pure Rust `sysinfo`
   - Removed `ndarray-linalg`/`lapack`/`blas` → OxiBLAS 0.1.2
@@ -206,7 +206,7 @@ Build a **PyTorch-compatible deep learning framework in pure Rust** that combine
   - No C/Fortran compiler needed
 - **SciRS2 0.1.1 Stable**: Upgraded from 0.1 to 0.1.1 (production-ready release)
 - **OxiBLAS 0.1.2 Stable**: Performance improvements and bug fixes
-- **OptiRS RC.2**: Upgraded from RC.1 to RC.2
+- **OptiRS**: Upgraded to latest version
 - **✅ SciRS2 POLICY 100% Compliance**:
   - Completed rayon → scirs2_core::parallel_ops migration
   - All parallel operations use scirs2_core exclusively
@@ -216,8 +216,8 @@ Build a **PyTorch-compatible deep learning framework in pure Rust** that combine
 - **Dependency Upgrades**: Polars 0.52, Tempfile 3.24, Cranelift 0.127
 - **Published Dependencies**: No local patches, all from crates.io
 
-### Beta Commitments
-- **API Stability**: Core APIs (torsh, torsh-nn, torsh-tensor, torsh-autograd) entering stabilization
+### Release Commitments
+- **API Stability**: Core APIs (torsh, torsh-nn, torsh-tensor, torsh-autograd) stabilized
 - **Production-Ready Core**: All core crates ready for production use
 - **Semver Compliance**: Breaking changes minimized and well-documented
 - **Quality Guarantee**: 99.99% test pass rate, zero warnings
@@ -491,15 +491,15 @@ Build a **PyTorch-compatible deep learning framework in pure Rust** that combine
    - [x] Spectral operations
    - [x] Filtering operations
 
-## 🚀 What's Next: Beta Roadmap
+## 🚀 What's Next: Post-v0.1.0 Roadmap
 
-### Beta Phase Goals (Q1 2026)
+### Post-Release Goals (Q1 2026)
 
 #### 1. API Stabilization 🔧
 - **Goal**: Lock down public APIs for backward compatibility
 - **What**: Review all public interfaces based on user feedback
 - **Why**: Users need confidence that their code won't break
-- **Status**: Collecting feedback from beta users
+- **Status**: Collecting feedback from users
 
 #### 2. GPU Acceleration Complete 🎮
 - **Goal**: Production-ready CUDA and Metal backends
@@ -574,7 +574,7 @@ Build a **PyTorch-compatible deep learning framework in pure Rust** that combine
 
 ## 🤝 How You Can Help
 
-### As a Beta User
+### As a User
 
 **Try it and give feedback!**
 1. **Test with your models** - Try porting PyTorch code and report what breaks
@@ -601,10 +601,10 @@ Below are detailed checklists of what's implemented. These are primarily for mai
 
 ---
 
-## 🚀 **MAJOR INTEGRATION PLAN: SciRS2-Core Beta.3 Performance Features** (2025-09-28)
+## 🚀 **MAJOR INTEGRATION PLAN: SciRS2-Core Performance Features** (2025-09-28)
 
 ### 📋 **Integration Context**
-Following comprehensive requirements submitted to SciRS2 team for SIMD operations, parallel processing, and GPU acceleration, **SciRS2 team has confirmed ALL requirements are met and exceeded** in beta.3. This integration plan implements the 4-phase rollout recommended by SciRS2 team.
+Following comprehensive requirements submitted to SciRS2 team for SIMD operations, parallel processing, and GPU acceleration, **SciRS2 team has confirmed ALL requirements are met and exceeded** in the stable release. This integration plan implements the 4-phase rollout recommended by SciRS2 team.
 
 ### **✅ SciRS2 Response Confirmation**
 - **SIMD Operations**: AVX2/SSE4.1/NEON support with 2-4x speedup guarantee
@@ -786,7 +786,7 @@ Following comprehensive requirements submitted to SciRS2 team for SIMD operation
 
 ---
 
-## Current Status (Beta 1 Release) ✅
+## Current Status (v0.1.0 Release) ✅
 
 ### Infrastructure Complete with Outstanding Test Results
 - [x] Core tensor system with PyTorch-compatible API
@@ -804,7 +804,7 @@ Following comprehensive requirements submitted to SciRS2 team for SIMD operation
 
 ---
 
-## Phase 1: Core Compatibility (Current Beta 1 Status) ✅
+## Phase 1: Core Compatibility (v0.1.0 Status) ✅
 
 ### Essential for PyTorch Parity
 1. **Complete Tensor Operations**

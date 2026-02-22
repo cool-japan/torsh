@@ -13,8 +13,8 @@ pub trait TensorConvenience<T: TensorElement> {
     /// # Examples
     /// ```
     /// # use torsh_tensor::{tensor_2d, convenience::TensorConvenience};
-    /// let tensor = tensor_2d!([&[1.0, 2.0], &[3.0, 4.0]]).unwrap();
-    /// let transposed = tensor.T().unwrap();
+    /// let tensor = tensor_2d!([&[1.0, 2.0], &[3.0, 4.0]]).expect("tensor creation failed");
+    /// let transposed = tensor.T().expect("transpose failed");
     /// ```
     #[allow(non_snake_case)]
     fn T(&self) -> Result<Tensor<T>>;
@@ -309,24 +309,26 @@ mod tests {
 
     #[test]
     fn test_transpose_shortcuts() {
-        let tensor = crate::creation::tensor_2d_arrays(&[[1.0f32, 2.0], [3.0, 4.0]]).unwrap();
+        let tensor = crate::creation::tensor_2d_arrays(&[[1.0f32, 2.0], [3.0, 4.0]])
+            .expect("tensor creation failed");
 
         // Test .T() shortcut
-        let transposed = tensor.T().unwrap();
+        let transposed = tensor.T().expect("T() failed");
         assert_eq!(transposed.shape().dims(), &[2, 2]);
 
         // Test .mT() alias
-        let mt_transposed = tensor.mT().unwrap();
+        let mt_transposed = tensor.mT().expect("mT() failed");
         assert_eq!(mt_transposed.shape().dims(), &[2, 2]);
 
         // Test .H() (should be same as .T() for real numbers)
-        let hermitian = tensor.H().unwrap();
+        let hermitian = tensor.H().expect("H() failed");
         assert_eq!(hermitian.shape().dims(), &[2, 2]);
     }
 
     #[test]
     fn test_tensor_properties() {
-        let tensor = crate::creation::tensor_2d_arrays(&[[1.0f32, 2.0], [3.0, 4.0]]).unwrap();
+        let tensor = crate::creation::tensor_2d_arrays(&[[1.0f32, 2.0], [3.0, 4.0]])
+            .expect("tensor creation failed");
 
         assert_eq!(tensor.numel(), 4);
         assert_eq!(tensor.shape().dims(), &[2, 2]);
@@ -335,46 +337,51 @@ mod tests {
         assert!(tensor.is_contiguous());
 
         // Test scalar tensor
-        let scalar = crate::creation::tensor_scalar(42.0f32).unwrap();
+        let scalar = crate::creation::tensor_scalar(42.0f32).expect("scalar creation failed");
         assert!(scalar.is_scalar());
-        assert_eq!(scalar.item().unwrap(), 42.0);
+        assert_eq!(scalar.item().expect("item retrieval failed"), 42.0);
     }
 
     #[test]
     fn test_shape_convenience() {
         // Create a 3D tensor with shape [2, 1, 2] using zeros and reshape
         let tensor = crate::creation::zeros::<f32>(&[4])
-            .unwrap()
+            .expect("zeros creation failed")
             .reshape(&[2, 1, 2])
-            .unwrap();
+            .expect("reshape failed");
 
         // Test squeeze_all (should remove dimension of size 1)
-        let squeezed = tensor.squeeze_all().unwrap();
+        let squeezed = tensor.squeeze_all().expect("squeeze_all failed");
         assert_eq!(squeezed.shape().dims(), &[2, 2]);
 
         // Test flatten
-        let flattened = tensor.flatten().unwrap();
+        let flattened = tensor.flatten().expect("flatten failed");
         assert_eq!(flattened.shape().dims(), &[4]);
 
         // Test flatten_from
-        let flat_from_1 = tensor.flatten_from(1).unwrap();
+        let flat_from_1 = tensor.flatten_from(1).expect("flatten_from failed");
         assert_eq!(flat_from_1.shape().dims(), &[2, 2]);
     }
 
     #[test]
     fn test_detach() {
-        let tensor = crate::creation::tensor_1d(&[1.0f32, 2.0, 3.0]).unwrap();
+        let tensor =
+            crate::creation::tensor_1d(&[1.0f32, 2.0, 3.0]).expect("tensor creation failed");
         let detached = tensor.detach();
 
         // Should have same data and shape
         assert_eq!(tensor.shape().dims(), detached.shape().dims());
-        assert_eq!(tensor.data().unwrap(), detached.data().unwrap());
+        assert_eq!(
+            tensor.data().expect("data retrieval failed"),
+            detached.data().expect("detached data retrieval failed")
+        );
     }
 
     #[test]
     fn test_fluent_api() {
         use crate::TensorFluentExt;
-        let tensor = crate::creation::tensor_1d(&[1.0f32, 2.0, 3.0, 4.0]).unwrap();
+        let tensor =
+            crate::creation::tensor_1d(&[1.0f32, 2.0, 3.0, 4.0]).expect("tensor creation failed");
 
         // Test method chaining with fluent API
         let result = tensor
@@ -386,7 +393,7 @@ mod tests {
             .unwrap();
 
         let expected = vec![3.0, 5.0, 7.0, 9.0];
-        let actual = result.to_vec().unwrap();
+        let actual = result.to_vec().expect("to_vec failed");
 
         for (exp, act) in expected.iter().zip(actual.iter()) {
             assert!((exp - act).abs() < f32::EPSILON);
@@ -396,8 +403,10 @@ mod tests {
     #[test]
     fn test_fluent_api_operations() {
         use crate::TensorFluentExt;
-        let tensor1 = crate::creation::tensor_1d(&[1.0f32, 2.0, 3.0, 4.0]).unwrap();
-        let tensor2 = crate::creation::tensor_1d(&[2.0f32, 2.0, 2.0, 2.0]).unwrap();
+        let tensor1 =
+            crate::creation::tensor_1d(&[1.0f32, 2.0, 3.0, 4.0]).expect("tensor1 creation failed");
+        let tensor2 =
+            crate::creation::tensor_1d(&[2.0f32, 2.0, 2.0, 2.0]).expect("tensor2 creation failed");
 
         // Test tensor operations with fluent API
         let result = tensor1
@@ -408,14 +417,15 @@ mod tests {
             .unwrap()
             .unwrap();
 
-        let actual = result.to_vec().unwrap();
+        let actual = result.to_vec().expect("to_vec failed");
         assert!((actual[0] - 9.0).abs() < f32::EPSILON);
     }
 
     #[test]
     fn test_fluent_api_mathematical_operations() {
         use crate::TensorFluentExt;
-        let tensor = crate::creation::tensor_1d(&[1.0f32, 2.0, 3.0, 4.0]).unwrap();
+        let tensor =
+            crate::creation::tensor_1d(&[1.0f32, 2.0, 3.0, 4.0]).expect("tensor creation failed");
 
         // Test mathematical operations with fluent API
         let result = tensor
@@ -426,7 +436,7 @@ mod tests {
             .unwrap()
             .unwrap();
 
-        let actual = result.to_vec().unwrap();
+        let actual = result.to_vec().expect("to_vec failed");
         // Check that all values are between 0 and 1 (sigmoid property)
         for val in actual.iter() {
             assert!(*val > 0.0 && *val < 1.0);
@@ -446,13 +456,13 @@ mod tests {
 /// use torsh_core::device::DeviceType;
 ///
 /// let result = Tensor::from_data(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu)
-///     .unwrap()
+///     .expect("tensor creation failed")
 ///     .fluent()
 ///     .add_scalar(1.0)
 ///     .mul_scalar(2.0)
 ///     .relu()
 ///     .sum()
-///     .unwrap();
+///     .expect("operation should succeed");
 /// ```
 pub trait TensorFluentExt<T: TensorElement> {
     /// Start fluent chaining

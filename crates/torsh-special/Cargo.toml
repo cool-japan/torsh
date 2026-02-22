@@ -7,7 +7,11 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 description = "Special mathematical functions for ToRSh with SciRS2 integration"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-special"
 rust-version.workspace = true
+keywords = ["deep-learning", "special-functions", "mathematics", "machine-learning", "bessel"]
+categories = ["science", "mathematics"]
 
 [lints]
 workspace = true

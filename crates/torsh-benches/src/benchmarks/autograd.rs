@@ -41,7 +41,9 @@ impl Benchmarkable for IndexingBench {
 
     fn setup(&mut self, size: usize) -> Self::Input {
         let shape = vec![size, size, size]; // 3D tensor for comprehensive indexing tests
-        rand::<f32>(&shape).unwrap().requires_grad_(true)
+        rand::<f32>(&shape)
+            .expect("tensor creation should succeed")
+            .requires_grad_(true)
     }
 
     fn run(&mut self, input: &Self::Input) -> Self::Output {
@@ -110,9 +112,15 @@ impl Benchmarkable for BackwardPassBench {
     fn setup(&mut self, size: usize) -> Self::Input {
         let shape = vec![size, size];
         vec![
-            rand::<f32>(&shape).unwrap().requires_grad_(true),
-            rand::<f32>(&shape).unwrap().requires_grad_(true),
-            rand::<f32>(&shape).unwrap().requires_grad_(true),
+            rand::<f32>(&shape)
+                .expect("tensor creation should succeed")
+                .requires_grad_(true),
+            rand::<f32>(&shape)
+                .expect("tensor creation should succeed")
+                .requires_grad_(true),
+            rand::<f32>(&shape)
+                .expect("tensor creation should succeed")
+                .requires_grad_(true),
         ]
     }
 
@@ -129,9 +137,15 @@ impl Benchmarkable for BackwardPassBench {
         // Forward pass with timing
         let (forward_result, forward_duration) = measure_execution_time(|| {
             // Simulate a complex forward computation
-            let intermediate1 = tensor_a.mul(tensor_b).unwrap();
-            let intermediate2 = intermediate1.add(tensor_c).unwrap();
-            let result = intermediate2.pow_scalar(2.0).unwrap();
+            let intermediate1 = tensor_a
+                .mul(tensor_b)
+                .expect("tensor operation should succeed");
+            let intermediate2 = intermediate1
+                .add(tensor_c)
+                .expect("tensor operation should succeed");
+            let result = intermediate2
+                .pow_scalar(2.0)
+                .expect("tensor operation should succeed");
             result
         });
 
@@ -140,8 +154,10 @@ impl Benchmarkable for BackwardPassBench {
         // Backward pass with timing
         let (_backward_result, backward_duration) = measure_execution_time(|| {
             // Simulate backward pass - need scalar for backward()
-            let scalar_result = forward_result.sum().unwrap();
-            scalar_result.backward().unwrap();
+            let scalar_result = forward_result
+                .sum()
+                .expect("tensor operation should succeed");
+            scalar_result.backward().expect("backward should succeed");
             gradient_computation_count += 3; // One gradient per input tensor
         });
 
@@ -236,8 +252,12 @@ impl Benchmarkable for GradientComputeBench {
     fn setup(&mut self, size: usize) -> Self::Input {
         let shape = vec![size, size];
         (
-            rand::<f32>(&shape).unwrap().requires_grad_(true),
-            rand::<f32>(&shape).unwrap().requires_grad_(true),
+            rand::<f32>(&shape)
+                .expect("tensor creation should succeed")
+                .requires_grad_(true),
+            rand::<f32>(&shape)
+                .expect("tensor creation should succeed")
+                .requires_grad_(true),
         )
     }
 
@@ -247,13 +267,19 @@ impl Benchmarkable for GradientComputeBench {
 
         match self.operation_type {
             GradientOp::ElementwiseAdd => {
-                let (result, forward_time) =
-                    measure_execution_time(|| tensor_a.add(tensor_b).unwrap());
+                let (result, forward_time) = measure_execution_time(|| {
+                    tensor_a
+                        .add(tensor_b)
+                        .expect("tensor operation should succeed")
+                });
 
                 let output = result;
                 let (_, backward_time) = measure_execution_time(|| {
-                    let scalar_output = output.sum().unwrap().requires_grad_(true);
-                    scalar_output.backward().unwrap();
+                    let scalar_output = output
+                        .sum()
+                        .expect("tensor operation should succeed")
+                        .requires_grad_(true);
+                    scalar_output.backward().expect("backward should succeed");
                 });
 
                 gradient_computations.push(GradientComputation {
@@ -264,13 +290,19 @@ impl Benchmarkable for GradientComputeBench {
                 });
             }
             GradientOp::ElementwiseMul => {
-                let (result, forward_time) =
-                    measure_execution_time(|| tensor_a.mul(tensor_b).unwrap());
+                let (result, forward_time) = measure_execution_time(|| {
+                    tensor_a
+                        .mul(tensor_b)
+                        .expect("tensor operation should succeed")
+                });
 
                 let output = result;
                 let (_, backward_time) = measure_execution_time(|| {
-                    let scalar_output = output.sum().unwrap().requires_grad_(true);
-                    scalar_output.backward().unwrap();
+                    let scalar_output = output
+                        .sum()
+                        .expect("tensor operation should succeed")
+                        .requires_grad_(true);
+                    scalar_output.backward().expect("backward should succeed");
                 });
 
                 gradient_computations.push(GradientComputation {
@@ -281,13 +313,19 @@ impl Benchmarkable for GradientComputeBench {
                 });
             }
             GradientOp::MatrixMul => {
-                let (result, forward_time) =
-                    measure_execution_time(|| tensor_a.matmul(tensor_b).unwrap());
+                let (result, forward_time) = measure_execution_time(|| {
+                    tensor_a
+                        .matmul(tensor_b)
+                        .expect("tensor operation should succeed")
+                });
 
                 let output = result;
                 let (_, backward_time) = measure_execution_time(|| {
-                    let scalar_output = output.sum().unwrap().requires_grad_(true);
-                    scalar_output.backward().unwrap();
+                    let scalar_output = output
+                        .sum()
+                        .expect("tensor operation should succeed")
+                        .requires_grad_(true);
+                    scalar_output.backward().expect("backward should succeed");
                 });
 
                 gradient_computations.push(GradientComputation {
@@ -298,11 +336,13 @@ impl Benchmarkable for GradientComputeBench {
                 });
             }
             GradientOp::Reduction => {
-                let (result, forward_time) = measure_execution_time(|| tensor_a.sum().unwrap());
+                let (result, forward_time) = measure_execution_time(|| {
+                    tensor_a.sum().expect("tensor operation should succeed")
+                });
 
                 let output = result;
                 let (_, backward_time) = measure_execution_time(|| {
-                    output.backward().unwrap();
+                    output.backward().expect("backward should succeed");
                 });
 
                 gradient_computations.push(GradientComputation {
@@ -315,15 +355,24 @@ impl Benchmarkable for GradientComputeBench {
             GradientOp::Composite => {
                 // Complex composite operation: (a * b + a) ^ 2
                 let (result, forward_time) = measure_execution_time(|| {
-                    let mul_result = tensor_a.mul(tensor_b).unwrap();
-                    let add_result = mul_result.add(tensor_a).unwrap();
-                    add_result.pow_scalar(2.0).unwrap()
+                    let mul_result = tensor_a
+                        .mul(tensor_b)
+                        .expect("tensor operation should succeed");
+                    let add_result = mul_result
+                        .add(tensor_a)
+                        .expect("tensor operation should succeed");
+                    add_result
+                        .pow_scalar(2.0)
+                        .expect("tensor operation should succeed")
                 });
 
                 let output = result;
                 let (_, backward_time) = measure_execution_time(|| {
-                    let scalar_output = output.sum().unwrap().requires_grad_(true);
-                    scalar_output.backward().unwrap();
+                    let scalar_output = output
+                        .sum()
+                        .expect("tensor operation should succeed")
+                        .requires_grad_(true);
+                    scalar_output.backward().expect("backward should succeed");
                 });
 
                 gradient_computations.push(GradientComputation {
@@ -438,7 +487,9 @@ impl Benchmarkable for CheckpointingBench {
 
     fn setup(&mut self, size: usize) -> Self::Input {
         let shape = vec![size, size];
-        rand::<f32>(&shape).unwrap().requires_grad_(true)
+        rand::<f32>(&shape)
+            .expect("tensor creation should succeed")
+            .requires_grad_(true)
     }
 
     fn run(&mut self, input: &Self::Input) -> Self::Output {
@@ -452,9 +503,11 @@ impl Benchmarkable for CheckpointingBench {
             // Forward pass
             let (forward_result, forward_time) = measure_execution_time(|| {
                 // Simulate a multi-layer forward pass
-                let layer1 = input.pow_scalar(2.0).unwrap();
-                let layer2 = layer1.mul(input).unwrap();
-                let layer3 = layer2.add(input).unwrap();
+                let layer1 = input
+                    .pow_scalar(2.0)
+                    .expect("tensor operation should succeed");
+                let layer2 = layer1.mul(input).expect("tensor operation should succeed");
+                let layer3 = layer2.add(input).expect("tensor operation should succeed");
                 layer3
             });
 
@@ -466,8 +519,10 @@ impl Benchmarkable for CheckpointingBench {
                     CheckpointStrategy::None => {
                         // Standard backward pass - keep all intermediates
                         let (_, bwd_time) = measure_execution_time(|| {
-                            let scalar_result = forward_result.sum().unwrap();
-                            scalar_result.backward().unwrap();
+                            let scalar_result = forward_result
+                                .sum()
+                                .expect("tensor operation should succeed");
+                            scalar_result.backward().expect("backward should succeed");
                         });
                         ((), bwd_time, Duration::from_nanos(0))
                     }
@@ -475,12 +530,16 @@ impl Benchmarkable for CheckpointingBench {
                         // Full checkpointing - recompute everything
                         let (_, recomp_time) = measure_execution_time(|| {
                             // Simulate recomputation
-                            let _recomputed = input.pow_scalar(2.0).unwrap();
+                            let _recomputed = input
+                                .pow_scalar(2.0)
+                                .expect("tensor operation should succeed");
                         });
 
                         let (_, bwd_time) = measure_execution_time(|| {
-                            let scalar_result = forward_result.sum().unwrap();
-                            scalar_result.backward().unwrap();
+                            let scalar_result = forward_result
+                                .sum()
+                                .expect("tensor operation should succeed");
+                            scalar_result.backward().expect("backward should succeed");
                         });
 
                         memory_saved += calculate_tensor_memory(&forward_result) / 2;
@@ -490,12 +549,15 @@ impl Benchmarkable for CheckpointingBench {
                         // Selective checkpointing - recompute some layers
                         let (_, recomp_time) = measure_execution_time(|| {
                             // Simulate partial recomputation
-                            let _recomputed = input.mul(input).unwrap();
+                            let _recomputed =
+                                input.mul(input).expect("tensor operation should succeed");
                         });
 
                         let (_, bwd_time) = measure_execution_time(|| {
-                            let scalar_result = forward_result.sum().unwrap();
-                            scalar_result.backward().unwrap();
+                            let scalar_result = forward_result
+                                .sum()
+                                .expect("tensor operation should succeed");
+                            scalar_result.backward().expect("backward should succeed");
                         });
 
                         memory_saved += calculate_tensor_memory(&forward_result) / 4;
@@ -507,20 +569,26 @@ impl Benchmarkable for CheckpointingBench {
 
                         if should_checkpoint {
                             let (_, recomp_time) = measure_execution_time(|| {
-                                let _recomputed = input.pow_scalar(1.5).unwrap();
+                                let _recomputed = input
+                                    .pow_scalar(1.5)
+                                    .expect("tensor operation should succeed");
                             });
 
                             let (_, bwd_time) = measure_execution_time(|| {
-                                let scalar_result = forward_result.sum().unwrap();
-                                scalar_result.backward().unwrap();
+                                let scalar_result = forward_result
+                                    .sum()
+                                    .expect("tensor operation should succeed");
+                                scalar_result.backward().expect("backward should succeed");
                             });
 
                             memory_saved += calculate_tensor_memory(&forward_result) / 3;
                             ((), bwd_time, recomp_time)
                         } else {
                             let (_, bwd_time) = measure_execution_time(|| {
-                                let scalar_result = forward_result.sum().unwrap();
-                                scalar_result.backward().unwrap();
+                                let scalar_result = forward_result
+                                    .sum()
+                                    .expect("tensor operation should succeed");
+                                scalar_result.backward().expect("backward should succeed");
                             });
                             ((), bwd_time, Duration::from_nanos(0))
                         }
@@ -635,10 +703,18 @@ impl Benchmarkable for GradientClippingBench {
         let shape = vec![size, size];
         // Create multiple "parameter" tensors to simulate a model
         vec![
-            rand::<f32>(&shape).unwrap().requires_grad_(true),
-            rand::<f32>(&shape).unwrap().requires_grad_(true),
-            rand::<f32>(&shape).unwrap().requires_grad_(true),
-            rand::<f32>(&shape).unwrap().requires_grad_(true),
+            rand::<f32>(&shape)
+                .expect("tensor creation should succeed")
+                .requires_grad_(true),
+            rand::<f32>(&shape)
+                .expect("tensor creation should succeed")
+                .requires_grad_(true),
+            rand::<f32>(&shape)
+                .expect("tensor creation should succeed")
+                .requires_grad_(true),
+            rand::<f32>(&shape)
+                .expect("tensor creation should succeed")
+                .requires_grad_(true),
         ]
     }
 

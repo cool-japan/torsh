@@ -415,6 +415,238 @@ impl Module for GroupNorm {
     }
 }
 
+/// Root Mean Square Layer Normalization (RMSNorm)
+///
+/// RMSNorm is a simpler and faster alternative to LayerNorm that only normalizes
+/// by the root mean square (without mean centering). Used in modern transformers
+/// like LLaMA, Gopher, and others.
+///
+/// # Mathematical Formulation
+///
+/// ```text
+/// RMS(x) = sqrt(mean(x^2) + eps)
+/// y = (x / RMS(x)) * weight
+/// ```
+///
+/// # Performance Benefits
+///
+/// - Faster than LayerNorm (no mean calculation/subtraction)
+/// - Simpler gradient computation
+/// - Similar or better performance in many applications
+///
+/// # PyTorch Compatibility
+///
+/// Compatible with PyTorch's RMSNorm implementations from various libraries.
+/// Weight parameter is applied after normalization.
+///
+/// # Examples
+///
+/// ```rust
+/// # use torsh_nn::layers::normalization::RMSNorm;
+/// # use torsh_nn::Module;
+/// # use torsh_tensor::creation::randn;
+/// # use torsh_core::error::Result;
+/// # fn main() -> Result<()> {
+/// // Create RMSNorm for transformer hidden dimension
+/// let rms_norm = RMSNorm::new(vec![768])?;
+///
+/// // Apply to transformer hidden states [batch, seq_len, hidden_dim]
+/// let hidden_states = randn(&[2, 128, 768])?;
+/// let normalized = rms_norm.forward(&hidden_states)?;
+/// # Ok(())
+/// # }
+/// ```
+pub struct RMSNorm {
+    base: ModuleBase,
+    normalized_shape: Vec<usize>,
+    eps: f32,
+    affine: bool,
+}
+
+impl RMSNorm {
+    /// Create a new RMSNorm layer with default epsilon (1e-6)
+    ///
+    /// # Arguments
+    ///
+    /// * `normalized_shape` - Shape of the features to normalize over
+    ///
+    /// # Returns
+    ///
+    /// Result containing the layer or an error
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use torsh_nn::layers::normalization::RMSNorm;
+    /// # use torsh_core::error::Result;
+    /// # fn main() -> Result<()> {
+    /// // For transformer models (normalize last dimension)
+    /// let rms_norm = RMSNorm::new(vec![768])?;
+    ///
+    /// // For multi-dimensional normalization
+    /// let rms_norm_2d = RMSNorm::new(vec![64, 64])?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn new(normalized_shape: Vec<usize>) -> Result<Self> {
+        Self::with_config(normalized_shape, 1e-6, true)
+    }
+
+    /// Create RMSNorm with custom configuration
+    ///
+    /// # Arguments
+    ///
+    /// * `normalized_shape` - Shape of features to normalize
+    /// * `eps` - Small constant for numerical stability (default: 1e-6)
+    /// * `affine` - Whether to include learnable scale parameter (default: true)
+    ///
+    /// # Returns
+    ///
+    /// Result containing the configured layer
+    pub fn with_config(normalized_shape: Vec<usize>, eps: f32, affine: bool) -> Result<Self> {
+        let mut base = ModuleBase::new();
+
+        // Initialize scale parameter if affine
+        if affine {
+            let weight = ones(&normalized_shape)?;
+            base.register_parameter("weight".to_string(), Parameter::new(weight));
+        }
+
+        Ok(Self {
+            base,
+            normalized_shape,
+            eps,
+            affine,
+        })
+    }
+
+    /// Get the normalized shape
+    pub fn normalized_shape(&self) -> &[usize] {
+        &self.normalized_shape
+    }
+
+    /// Get the epsilon value
+    pub fn eps(&self) -> f32 {
+        self.eps
+    }
+
+    /// Get whether affine transformation is enabled
+    pub fn affine(&self) -> bool {
+        self.affine
+    }
+
+    /// Compute RMS (Root Mean Square) for the input
+    fn compute_rms(&self, input: &Tensor) -> Result<Tensor> {
+        let input_shape = input.shape();
+        let dims = input_shape.dims();
+
+        // Determine which dimensions to normalize over
+        let normalized_dims = self.normalized_shape.len();
+        let input_dims = dims.len();
+
+        if input_dims < normalized_dims {
+            return Err(torsh_core::error::TorshError::InvalidShape(format!(
+                "Input has {} dims but normalized_shape has {} dims",
+                input_dims, normalized_dims
+            )));
+        }
+
+        // Check that the last dimensions match normalized_shape
+        let start_idx = input_dims - normalized_dims;
+        for (i, &norm_dim) in self.normalized_shape.iter().enumerate() {
+            if dims[start_idx + i] != norm_dim {
+                return Err(torsh_core::error::TorshError::InvalidShape(format!(
+                    "Expected dimension {} to be {}, got {}",
+                    start_idx + i,
+                    norm_dim,
+                    dims[start_idx + i]
+                )));
+            }
+        }
+
+        // Calculate the number of elements to normalize over
+        let norm_elements: usize = self.normalized_shape.iter().product();
+        let batch_size: usize = dims[..start_idx].iter().product();
+
+        let input_data = input.to_vec()?;
+        let mut rms_values = vec![0.0f32; batch_size];
+
+        // Compute RMS for each batch element
+        // RMS = sqrt(mean(x^2))
+        for batch in 0..batch_size {
+            let mut sum_sq = 0.0;
+
+            let batch_start = batch * norm_elements;
+            for i in 0..norm_elements {
+                let val = input_data[batch_start + i];
+                sum_sq += val * val;
+            }
+
+            let mean_sq = sum_sq / norm_elements as f32;
+            let rms = (mean_sq + self.eps).sqrt();
+
+            rms_values[batch] = rms;
+        }
+
+        // Reshape to match input batch dimensions for broadcasting
+        let mut batch_shape = dims[..start_idx].to_vec();
+        for _ in 0..normalized_dims {
+            batch_shape.push(1);
+        }
+
+        let rms_tensor = Tensor::from_data(rms_values, dims[..start_idx].to_vec(), input.device())?
+            .reshape(&batch_shape.iter().map(|&x| x as i32).collect::<Vec<i32>>())?;
+
+        Ok(rms_tensor)
+    }
+}
+
+impl Module for RMSNorm {
+    fn forward(&self, input: &Tensor) -> Result<Tensor> {
+        // Compute RMS
+        let rms = self.compute_rms(input)?;
+
+        // Normalize: x / RMS(x)
+        let normalized = input.div(&rms)?;
+
+        // Apply learnable scale if affine
+        if self.affine {
+            if let Some(weight) = self.base.parameters.get("weight") {
+                let weight_tensor = weight.tensor().read().clone();
+                normalized.mul(&weight_tensor)
+            } else {
+                Ok(normalized)
+            }
+        } else {
+            Ok(normalized)
+        }
+    }
+
+    fn parameters(&self) -> HashMap<String, Parameter> {
+        self.base.named_parameters()
+    }
+
+    fn named_parameters(&self) -> HashMap<String, Parameter> {
+        self.base.named_parameters()
+    }
+
+    fn training(&self) -> bool {
+        self.base.training()
+    }
+
+    fn train(&mut self) {
+        self.base.set_training(true);
+    }
+
+    fn eval(&mut self) {
+        self.base.set_training(false);
+    }
+
+    fn to_device(&mut self, device: DeviceType) -> Result<()> {
+        self.base.to_device(device)
+    }
+}
+
 // Re-export the layer and group normalization components (already defined in this module)
 
 #[cfg(test)]
@@ -453,5 +685,106 @@ mod tests {
         // Wrong number of channels
         let input_wrong_channels = zeros(&[2, 16, 16, 16]).unwrap();
         assert!(group_norm.forward(&input_wrong_channels).is_err());
+    }
+
+    #[test]
+    fn test_rms_norm_creation() {
+        let rms_norm = RMSNorm::new(vec![768]).unwrap();
+        assert_eq!(rms_norm.normalized_shape(), &[768]);
+        assert_eq!(rms_norm.eps(), 1e-6);
+        assert!(rms_norm.affine());
+
+        // Non-affine variant
+        let rms_norm_no_affine = RMSNorm::with_config(vec![512], 1e-8, false).unwrap();
+        assert!(!rms_norm_no_affine.affine());
+        assert_eq!(rms_norm_no_affine.eps(), 1e-8);
+    }
+
+    #[test]
+    fn test_rms_norm_forward() {
+        use torsh_tensor::creation::ones;
+
+        let rms_norm = RMSNorm::new(vec![4]).unwrap();
+
+        // Test with ones - RMS of ones is 1.0
+        let input = ones(&[2, 4]).unwrap();
+        let output = rms_norm.forward(&input);
+        assert!(output.is_ok(), "RMSNorm forward failed: {:?}", output.err());
+
+        if let Ok(result) = output {
+            let result_shape = result.shape();
+            assert_eq!(result_shape.dims(), &[2, 4]);
+        }
+    }
+
+    #[test]
+    fn test_rms_norm_3d_input() {
+        use torsh_tensor::creation::randn;
+
+        // Typical transformer use case: [batch, seq_len, hidden_dim]
+        let rms_norm = RMSNorm::new(vec![768]).unwrap();
+        let input = randn(&[2, 128, 768]).unwrap();
+
+        let output = rms_norm.forward(&input);
+        assert!(output.is_ok(), "3D RMSNorm forward failed");
+
+        if let Ok(result) = output {
+            assert_eq!(result.shape().dims(), &[2, 128, 768]);
+        }
+    }
+
+    #[test]
+    fn test_rms_norm_no_affine() {
+        use torsh_tensor::creation::ones;
+
+        let rms_norm = RMSNorm::with_config(vec![4], 1e-6, false).unwrap();
+
+        // Should have no parameters
+        assert!(rms_norm.parameters().is_empty());
+
+        // Should still normalize
+        let input = ones(&[2, 4]).unwrap();
+        let output = rms_norm.forward(&input);
+        assert!(output.is_ok());
+    }
+
+    #[test]
+    fn test_rms_norm_multi_dimensional() {
+        use torsh_tensor::creation::randn;
+
+        // Test normalization over last 2 dimensions
+        let rms_norm = RMSNorm::new(vec![8, 8]).unwrap();
+        let input = randn(&[4, 8, 8]).unwrap();
+
+        let output = rms_norm.forward(&input);
+        assert!(output.is_ok());
+
+        if let Ok(result) = output {
+            assert_eq!(result.shape().dims(), &[4, 8, 8]);
+        }
+    }
+
+    #[test]
+    fn test_rms_norm_shape_mismatch() {
+        let rms_norm = RMSNorm::new(vec![768]).unwrap();
+
+        // Input with wrong feature dimension
+        let input = zeros(&[2, 128, 512]).unwrap();
+        let result = rms_norm.forward(&input);
+        assert!(result.is_err(), "Should error on shape mismatch");
+    }
+
+    #[test]
+    fn test_rms_norm_training_modes() {
+        let mut rms_norm = RMSNorm::new(vec![64]).unwrap();
+
+        // Test training mode switching (default is training mode)
+        assert!(rms_norm.training());
+
+        rms_norm.eval();
+        assert!(!rms_norm.training());
+
+        rms_norm.train();
+        assert!(rms_norm.training());
     }
 }

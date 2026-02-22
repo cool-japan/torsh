@@ -7,6 +7,9 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 description = "Command-line tools for the ToRSh deep learning framework"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-cli"
+rust-version.workspace = true
 keywords = ["machine-learning", "deep-learning", "neural-networks", "cli", "tools"]
 categories = ["command-line-utilities", "science"]
 
@@ -29,7 +32,7 @@ scirs2-linalg = { workspace = true, optional = true }
 scirs2-metrics = { workspace = true, optional = true }
 
 # CLI framework
-clap = { version = "4.5.56", features = ["derive", "env", "color"] }
+clap = { version = "4.5.60", features = ["derive", "env", "color"] }
 clap_complete = "4.5"
 
 # Async runtime

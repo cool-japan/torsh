@@ -775,14 +775,16 @@ mod tests {
                 Some("Test".to_string()),
                 vec!["math".to_string()],
             )
-            .unwrap();
+            .expect("registration should succeed");
 
         // Check registration
         assert!(registry.is_registered::<f32>("scale"));
         assert!(!registry.is_registered::<f32>("nonexistent"));
 
         // Get metadata
-        let metadata = registry.get_metadata::<f32>("scale").unwrap();
+        let metadata = registry
+            .get_metadata::<f32>("scale")
+            .expect("metadata retrieval should succeed");
         assert_eq!(metadata.name, "scale");
         assert_eq!(
             metadata.description,
@@ -799,7 +801,9 @@ mod tests {
         assert_eq!(ops, vec!["scale".to_string()]);
 
         // Unregister
-        registry.unregister::<f32>("scale").unwrap();
+        registry
+            .unregister::<f32>("scale")
+            .expect("unregister should succeed");
         assert!(!registry.is_registered::<f32>("scale"));
     }
 
@@ -809,22 +813,26 @@ mod tests {
         let scale_op = Box::new(ScaleOperation);
         registry
             .register::<f32>(scale_op, "1.0.0", None, vec![])
-            .unwrap();
+            .expect("unregister should succeed");
 
         // Create test tensor
         let data = vec![1.0f32, 2.0, 3.0, 4.0];
-        let tensor = Tensor::from_data(data, vec![2, 2], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![2, 2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
         // Apply scale operation
         let params = OperationParams::new().with_float("scale", 2.0);
         let results = tensor
             .apply_custom_op_with_registry(&registry, "scale", &[], &params)
-            .unwrap();
+            .expect("tensor creation should succeed");
 
         assert_eq!(results.len(), 1);
         let result = &results[0];
         let expected_data = vec![2.0f32, 4.0, 6.0, 8.0];
-        assert_eq!(result.data().unwrap(), expected_data);
+        assert_eq!(
+            result.data().expect("data retrieval should succeed"),
+            expected_data
+        );
     }
 
     #[test]
@@ -833,26 +841,31 @@ mod tests {
         let concat_op = Box::new(ConcatOperation);
         registry
             .register::<f32>(concat_op, "1.0.0", None, vec![])
-            .unwrap();
+            .expect("registration should succeed");
 
         // Create test tensors (1D to work with current cat implementation)
         let data1 = vec![1.0f32, 2.0];
-        let tensor1 = Tensor::from_data(data1, vec![2], DeviceType::Cpu).unwrap();
+        let tensor1 = Tensor::from_data(data1, vec![2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
         let data2 = vec![3.0f32, 4.0];
-        let tensor2 = Tensor::from_data(data2, vec![2], DeviceType::Cpu).unwrap();
+        let tensor2 = Tensor::from_data(data2, vec![2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
         // Apply concat operation along axis 0
         let params = OperationParams::new().with_int("axis", 0);
         let results = tensor1
             .apply_custom_op_with_registry(&registry, "concat", &[&tensor2], &params)
-            .unwrap();
+            .expect("tensor creation should succeed");
 
         assert_eq!(results.len(), 1);
         let result = &results[0];
         assert_eq!(result.shape().dims(), &[4]); // 2 + 2 = 4 elements
         let expected_data = vec![1.0f32, 2.0, 3.0, 4.0];
-        assert_eq!(result.data().unwrap(), expected_data);
+        assert_eq!(
+            result.data().expect("data retrieval should succeed"),
+            expected_data
+        );
     }
 
     #[test]
@@ -861,14 +874,16 @@ mod tests {
         let concat_op = Box::new(ConcatOperation);
         registry
             .register::<f32>(concat_op, "1.0.0", None, vec![])
-            .unwrap();
+            .expect("registration should succeed");
 
         // Create tensors with incompatible dimensions (2D vs 1D should fail)
         let data1 = vec![1.0f32, 2.0];
-        let tensor1 = Tensor::from_data(data1, vec![2], DeviceType::Cpu).unwrap(); // 1D tensor
+        let tensor1 = Tensor::from_data(data1, vec![2], DeviceType::Cpu)
+            .expect("tensor creation should succeed"); // 1D tensor
 
         let data2 = vec![3.0f32, 4.0, 5.0, 6.0];
-        let tensor2 = Tensor::from_data(data2, vec![2, 2], DeviceType::Cpu).unwrap(); // 2D tensor
+        let tensor2 = Tensor::from_data(data2, vec![2, 2], DeviceType::Cpu)
+            .expect("tensor creation should succeed"); // 2D tensor
 
         // This should fail validation due to different number of dimensions
         let params = OperationParams::new().with_int("axis", 0);
@@ -890,7 +905,7 @@ mod tests {
             &input_shapes,
             &params,
         )
-        .unwrap();
+        .expect("custom dtype operation should succeed");
         assert_eq!(output_shapes, vec![vec![7]]); // 3 + 4 = 7 along axis 0
     }
 
@@ -904,7 +919,7 @@ mod tests {
 
         registry
             .register::<f32>(scale_op1, "1.0.0", None, vec![])
-            .unwrap();
+            .expect("registration should succeed");
         let result = registry.register::<f32>(scale_op2, "1.0.0", None, vec![]);
         assert!(result.is_err());
 
@@ -914,7 +929,8 @@ mod tests {
 
         // Try to apply non-existent operation
         let data = vec![1.0f32, 2.0];
-        let tensor = Tensor::from_data(data, vec![1, 2], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![1, 2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
         let params = OperationParams::new();
         let result = tensor.apply_custom_op_with_registry(&registry, "nonexistent", &[], &params);
         assert!(result.is_err());
@@ -928,19 +944,27 @@ mod tests {
         let scale_op = Box::new(ScaleOperation);
         registry
             .register::<f32>(scale_op, "1.0.0", None, vec![])
-            .unwrap();
+            .expect("registration should succeed");
 
         // Use the operation via the tensor extension trait
         let data = vec![1.0f32, 2.0, 3.0];
-        let tensor = Tensor::from_data(data, vec![3], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![3], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
         let params = OperationParams::new().with_float("scale", 3.0);
 
-        let results = tensor.apply_custom_op("scale", &[], &params).unwrap();
+        let results = tensor
+            .apply_custom_op("scale", &[], &params)
+            .expect("custom_op should succeed");
         assert_eq!(results.len(), 1);
         let expected_data = vec![3.0f32, 6.0, 9.0];
-        assert_eq!(results[0].data().unwrap(), expected_data);
+        assert_eq!(
+            results[0].data().expect("data retrieval should succeed"),
+            expected_data
+        );
 
         // Clean up
-        registry.unregister::<f32>("scale").unwrap();
+        registry
+            .unregister::<f32>("scale")
+            .expect("unregister should succeed");
     }
 }

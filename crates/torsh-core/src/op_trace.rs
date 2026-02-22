@@ -685,7 +685,9 @@ mod tests {
         // Manually start/complete trace
         let trace_id = {
             let mut inner = tracer.inner.lock().expect("lock should not be poisoned");
-            inner.start_trace("test_op".to_string()).unwrap()
+            inner
+                .start_trace("test_op".to_string())
+                .expect("start_trace should succeed")
         };
 
         assert!(tracer.get_trace(trace_id).is_some());
@@ -695,7 +697,7 @@ mod tests {
             inner.complete_trace(trace_id);
         }
 
-        let trace = tracer.get_trace(trace_id).unwrap();
+        let trace = tracer.get_trace(trace_id).expect("trace should exist");
         assert_eq!(trace.operation, "test_op");
         assert!(trace.duration.is_some());
     }
@@ -707,7 +709,9 @@ mod tests {
 
         let trace_id = {
             let mut inner = tracer.inner.lock().expect("lock should not be poisoned");
-            inner.start_trace("matmul".to_string()).unwrap()
+            inner
+                .start_trace("matmul".to_string())
+                .expect("start_trace should succeed")
         };
 
         // Record inputs/outputs by directly accessing the tracer
@@ -726,7 +730,7 @@ mod tests {
             inner.complete_trace(trace_id);
         }
 
-        let trace = tracer.get_trace(trace_id).unwrap();
+        let trace = tracer.get_trace(trace_id).expect("trace should exist");
         assert_eq!(trace.inputs.len(), 2);
         assert_eq!(trace.outputs.len(), 1);
         assert_eq!(trace.inputs[0].shape, vec![10, 20]);
@@ -761,12 +765,16 @@ mod tests {
 
         let parent_id = {
             let mut inner = tracer.inner.lock().expect("lock should not be poisoned");
-            inner.start_trace("parent_op".to_string()).unwrap()
+            inner
+                .start_trace("parent_op".to_string())
+                .expect("start_trace should succeed")
         };
 
         let child_id = {
             let mut inner = tracer.inner.lock().expect("lock should not be poisoned");
-            inner.start_trace("child_op".to_string()).unwrap()
+            inner
+                .start_trace("child_op".to_string())
+                .expect("start_trace should succeed")
         };
 
         {
@@ -775,8 +783,12 @@ mod tests {
             inner.complete_trace(parent_id);
         }
 
-        let parent_trace = tracer.get_trace(parent_id).unwrap();
-        let child_trace = tracer.get_trace(child_id).unwrap();
+        let parent_trace = tracer
+            .get_trace(parent_id)
+            .expect("parent trace should exist");
+        let child_trace = tracer
+            .get_trace(child_id)
+            .expect("child trace should exist");
 
         assert_eq!(parent_trace.depth, 0);
         assert_eq!(child_trace.depth, 1);
@@ -803,7 +815,9 @@ mod tests {
         for i in 0..5 {
             let trace_id = {
                 let mut inner = tracer.inner.lock().expect("lock should not be poisoned");
-                inner.start_trace(format!("op_{}", i)).unwrap()
+                inner
+                    .start_trace(format!("op_{}", i))
+                    .expect("start_trace should succeed")
             };
 
             let mut inner = tracer.inner.lock().expect("lock should not be poisoned");
@@ -822,7 +836,9 @@ mod tests {
 
         let trace_id = {
             let mut inner = tracer.inner.lock().expect("lock should not be poisoned");
-            inner.start_trace("failing_op".to_string()).unwrap()
+            inner
+                .start_trace("failing_op".to_string())
+                .expect("start_trace should succeed")
         };
 
         {
@@ -830,7 +846,7 @@ mod tests {
             inner.mark_error(trace_id, "Test error".to_string());
         }
 
-        let trace = tracer.get_trace(trace_id).unwrap();
+        let trace = tracer.get_trace(trace_id).expect("trace should exist");
         assert!(trace.had_error);
         assert_eq!(trace.error_message, Some("Test error".to_string()));
 
@@ -850,7 +866,9 @@ mod tests {
         for i in 0..10 {
             let trace_id = {
                 let mut inner = tracer.inner.lock().expect("lock should not be poisoned");
-                inner.start_trace(format!("op_{}", i)).unwrap()
+                inner
+                    .start_trace(format!("op_{}", i))
+                    .expect("start_trace should succeed")
             };
 
             let mut inner = tracer.inner.lock().expect("lock should not be poisoned");
@@ -868,7 +886,9 @@ mod tests {
 
         let trace_id = {
             let mut inner = tracer.inner.lock().expect("lock should not be poisoned");
-            inner.start_trace("test_op".to_string()).unwrap()
+            inner
+                .start_trace("test_op".to_string())
+                .expect("start_trace should succeed")
         };
 
         assert!(tracer.get_trace(trace_id).is_some());

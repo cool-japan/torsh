@@ -28,7 +28,7 @@ mod vision_tests {
 
     /// ResNet integration test - Currently disabled
     ///
-    /// # Status: Known Issue (v0.1.0-rc.1)
+    /// # Status: Known Issue (v0.1.0)
     /// This test is disabled due to underlying torsh-nn API compatibility issues.
     ///
     /// **Root Cause:** Linear layer matrix multiplication shape handling needs updates
@@ -110,7 +110,7 @@ mod nlp_tests {
 
     /// RoBERTa integration test - Currently disabled
     ///
-    /// # Status: Known Issue (v0.1.0-rc.1)
+    /// # Status: Known Issue (v0.1.0)
     /// This test is disabled due to underlying torsh-nn API compatibility issues.
     ///
     /// **Root Cause:** Linear layer matrix multiplication in transformer attention
@@ -164,7 +164,7 @@ mod audio_tests {
 
     /// Wav2Vec2 integration test - Currently disabled
     ///
-    /// # Status: Known Issue (v0.1.0-rc.1)
+    /// # Status: Known Issue (v0.1.0)
     /// This test is disabled due to convolutional feature extractor dimension handling.
     ///
     /// **Root Cause:** Conv1d feature extractor produces output dimensions that don't
@@ -233,7 +233,7 @@ mod multimodal_tests {
 
     /// CLIP integration test - Currently disabled
     ///
-    /// # Status: Known Issue (v0.1.0-rc.1)
+    /// # Status: Known Issue (v0.1.0)
     /// This test is disabled due to tensor dimension mismatches between vision and text encoders.
     ///
     /// **Root Cause:** The vision encoder (based on ViT) and text encoder (based on Transformer)
@@ -414,7 +414,8 @@ mod utility_tests {
 
     #[test]
     fn test_model_registry() -> Result<(), Box<dyn std::error::Error>> {
-        let registry = ModelRegistry::new("/tmp/torsh_test_cache")?;
+        let cache_dir = std::env::temp_dir().join("torsh_test_cache");
+        let registry = ModelRegistry::new(cache_dir.to_string_lossy().as_ref())?;
 
         // Test registry operations (these would work with actual models)
         let models = registry.list_models();

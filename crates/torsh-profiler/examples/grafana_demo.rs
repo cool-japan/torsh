@@ -111,9 +111,10 @@ fn create_custom_dashboard() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // Export to file
-    let filename = "/tmp/torsh_custom_dashboard.json";
-    dashboard.export_to_file(filename)?;
-    println!("✓ Custom dashboard saved to: {}", filename);
+    let filename = std::env::temp_dir().join("torsh_custom_dashboard.json");
+    let filename_str = filename.display().to_string();
+    dashboard.export_to_file(&filename_str)?;
+    println!("\u{2713} Custom dashboard saved to: {}", filename_str);
 
     // Print preview
     let json = dashboard.export_json()?;
@@ -127,9 +128,13 @@ fn create_custom_dashboard() -> Result<(), Box<dyn std::error::Error>> {
 
 fn create_profiling_dashboard() -> Result<(), Box<dyn std::error::Error>> {
     let dashboard = DashboardTemplates::create_profiling_dashboard();
-    let filename = "/tmp/torsh_profiling_overview.json";
-    dashboard.export_to_file(filename)?;
-    println!("✓ Profiling overview dashboard saved to: {}", filename);
+    let filename = std::env::temp_dir().join("torsh_profiling_overview.json");
+    let filename_str = filename.display().to_string();
+    dashboard.export_to_file(&filename_str)?;
+    println!(
+        "\u{2713} Profiling overview dashboard saved to: {}",
+        filename_str
+    );
 
     let panel_count = dashboard.dashboard().panels.len();
     println!("  - {} panels configured", panel_count);
@@ -140,9 +145,13 @@ fn create_profiling_dashboard() -> Result<(), Box<dyn std::error::Error>> {
 
 fn create_memory_dashboard() -> Result<(), Box<dyn std::error::Error>> {
     let dashboard = DashboardTemplates::create_memory_dashboard();
-    let filename = "/tmp/torsh_memory_profiling.json";
-    dashboard.export_to_file(filename)?;
-    println!("✓ Memory profiling dashboard saved to: {}", filename);
+    let filename = std::env::temp_dir().join("torsh_memory_profiling.json");
+    let filename_str = filename.display().to_string();
+    dashboard.export_to_file(&filename_str)?;
+    println!(
+        "\u{2713} Memory profiling dashboard saved to: {}",
+        filename_str
+    );
 
     let panel_count = dashboard.dashboard().panels.len();
     println!("  - {} panels configured", panel_count);
@@ -153,9 +162,13 @@ fn create_memory_dashboard() -> Result<(), Box<dyn std::error::Error>> {
 
 fn create_performance_dashboard() -> Result<(), Box<dyn std::error::Error>> {
     let dashboard = DashboardTemplates::create_performance_dashboard();
-    let filename = "/tmp/torsh_performance_metrics.json";
-    dashboard.export_to_file(filename)?;
-    println!("✓ Performance metrics dashboard saved to: {}", filename);
+    let filename = std::env::temp_dir().join("torsh_performance_metrics.json");
+    let filename_str = filename.display().to_string();
+    dashboard.export_to_file(&filename_str)?;
+    println!(
+        "\u{2713} Performance metrics dashboard saved to: {}",
+        filename_str
+    );
 
     let panel_count = dashboard.dashboard().panels.len();
     println!("  - {} panels configured", panel_count);
@@ -286,9 +299,13 @@ fn create_advanced_dashboard() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // Export
-    let filename = "/tmp/torsh_advanced_monitoring.json";
-    dashboard.export_to_file(filename)?;
-    println!("✓ Advanced monitoring dashboard saved to: {}", filename);
+    let filename = std::env::temp_dir().join("torsh_advanced_monitoring.json");
+    let filename_str = filename.display().to_string();
+    dashboard.export_to_file(&filename_str)?;
+    println!(
+        "\u{2713} Advanced monitoring dashboard saved to: {}",
+        filename_str
+    );
 
     let panel_count = dashboard.dashboard().panels.len();
     let var_count = dashboard.dashboard().templating.list.len();

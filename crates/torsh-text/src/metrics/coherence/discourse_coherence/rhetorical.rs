@@ -728,7 +728,7 @@ impl DiscourseTreeBuilder {
         _markers: &[DiscourseMarker],
     ) -> Result<DiscourseNode, RhetoricalAnalysisError> {
         if nodes.len() == 1 {
-            return Ok(nodes.pop().unwrap());
+            return Ok(nodes.pop().expect("nodes verified to have exactly one element"));
         }
 
         // Find best pair to combine based on rhetorical relations

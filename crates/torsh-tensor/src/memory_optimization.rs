@@ -557,7 +557,7 @@ impl CompressionManager {
 
             self.compressed_allocations
                 .write()
-                .unwrap()
+                .expect("rwlock should not be poisoned")
                 .insert(ptr as usize, allocation);
             Ok(NonNull::new_unchecked(ptr as *mut T))
         }
@@ -566,7 +566,7 @@ impl CompressionManager {
     fn is_compressed<T: TensorElement>(&self, ptr: NonNull<T>) -> bool {
         self.compressed_allocations
             .read()
-            .unwrap()
+            .expect("rwlock should not be poisoned")
             .contains_key(&(ptr.as_ptr() as usize))
     }
 
@@ -789,11 +789,12 @@ mod tests {
         let pool: AdvancedMemoryPool<f32> = AdvancedMemoryPool::new();
 
         // Allocate memory
-        let ptr = pool.allocate(1024).unwrap();
+        let ptr = pool.allocate(1024).expect("allocation should succeed");
         // Allocation succeeded (ptr is NonNull, so it's guaranteed to be non-null)
 
         // Deallocate memory
-        pool.deallocate(ptr, 1024).unwrap();
+        pool.deallocate(ptr, 1024)
+            .expect("deallocation should succeed");
 
         let stats = pool.get_stats();
         assert_eq!(stats.total_allocations, 1);
@@ -804,12 +805,14 @@ mod tests {
         let pool: AdvancedMemoryPool<f32> = AdvancedMemoryPool::new();
 
         // First allocation
-        let ptr1 = pool.allocate(1024).unwrap();
-        pool.deallocate(ptr1, 1024).unwrap();
+        let ptr1 = pool.allocate(1024).expect("allocation should succeed");
+        pool.deallocate(ptr1, 1024)
+            .expect("deallocation should succeed");
 
         // Second allocation should potentially reuse
-        let ptr2 = pool.allocate(1024).unwrap();
-        pool.deallocate(ptr2, 1024).unwrap();
+        let ptr2 = pool.allocate(1024).expect("allocation should succeed");
+        pool.deallocate(ptr2, 1024)
+            .expect("deallocation should succeed");
 
         let stats = pool.get_stats();
         assert_eq!(stats.total_allocations, 2);
@@ -846,11 +849,14 @@ mod tests {
 
         // Allocate and deallocate some memory to create fragmentation
         for i in 0..10 {
-            let ptr = pool.allocate(1024 * (i + 1)).unwrap();
-            pool.deallocate(ptr, 1024 * (i + 1)).unwrap();
+            let ptr = pool
+                .allocate(1024 * (i + 1))
+                .expect("allocation should succeed");
+            pool.deallocate(ptr, 1024 * (i + 1))
+                .expect("deallocation should succeed");
         }
 
-        let report = pool.defragment().unwrap();
+        let report = pool.defragment().expect("defragmentation should succeed");
         // Duration may be 0 nanoseconds on fast systems with optimized builds
         // Just verify the report was created successfully (already done via unwrap())
         // and check that duration is not negative (impossible for Duration type)
@@ -869,7 +875,8 @@ mod tests {
     #[test]
     fn test_compression_manager() {
         let manager = CompressionManager::new();
-        let ptr = NonNull::new(ptr::null_mut::<f32>().wrapping_add(0x1000)).unwrap();
+        let ptr = NonNull::new(ptr::null_mut::<f32>().wrapping_add(0x1000))
+            .expect("pointer should be non-null");
 
         assert!(!manager.is_compressed(ptr));
     }

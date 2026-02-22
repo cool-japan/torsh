@@ -562,7 +562,7 @@ impl CoherenceMetricsCalculator {
         }
 
         let mut sorted_data = distribution.to_vec();
-        sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         let mean = distribution.iter().sum::<f64>() / distribution.len() as f64;
         let median = self.calculate_median(&sorted_data);
@@ -968,7 +968,7 @@ impl CoherenceMetricsCalculator {
         // Median Absolute Deviation (MAD)
         let median = self.calculate_median(sorted_data);
         let mut deviations: Vec<f64> = sorted_data.iter().map(|x| (x - median).abs()).collect();
-        deviations.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        deviations.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         let mad = self.calculate_median(&deviations);
         let robust_std_dev = 1.4826 * mad; // Scale factor for normal distribution
 
@@ -1006,7 +1006,7 @@ impl CoherenceMetricsCalculator {
         let mean = data.iter().sum::<f64>() / data.len() as f64;
         let median = {
             let mut sorted = data.to_vec();
-            sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
             self.calculate_median(&sorted)
         };
 
@@ -1094,9 +1094,9 @@ impl CoherenceMetricsCalculator {
         data: &[f64],
     ) -> Result<DistributionSummary, CoherenceMetricsError> {
         let mut sorted = data.to_vec();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
-        let range = sorted.last().unwrap() - sorted.first().unwrap();
+        let range = sorted.last().unwrap_or(&0.0) - sorted.first().unwrap_or(&0.0);
         let q1_index = (0.25 * (sorted.len() - 1) as f64) as usize;
         let q3_index = (0.75 * (sorted.len() - 1) as f64) as usize;
         let interquartile_range = sorted[q3_index] - sorted[q1_index];

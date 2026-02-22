@@ -415,14 +415,14 @@ mod tests {
     fn test_qint8_quantization_dequantization() {
         // Test basic quantization and dequantization
         let float_data = vec![0.0f32, 1.0, 2.0, -1.0, -2.0];
-        let tensor = Tensor::from_data(float_data.clone(), vec![5], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(float_data.clone(), vec![5], DeviceType::Cpu).expect("operation should succeed");
 
         // Test manual quantization
         let scale = 0.1f32;
         let zero_point = 0i8;
-        let quantized = tensor.quantize_qint8(scale, zero_point).unwrap();
-        let dequantized = quantized.dequantize_f32().unwrap();
-        let dequantized_data = dequantized.data().unwrap();
+        let quantized = tensor.quantize_qint8(scale, zero_point).expect("operation should succeed");
+        let dequantized = quantized.dequantize_f32().expect("dequantization should succeed");
+        let dequantized_data = dequantized.data().expect("data retrieval should succeed");
 
         // Check that values are approximately preserved
         for (original, recovered) in float_data.iter().zip(dequantized_data.iter()) {
@@ -435,14 +435,14 @@ mod tests {
     fn test_quint8_quantization_dequantization() {
         // Test basic quantization and dequantization for unsigned
         let float_data = vec![0.0f32, 1.0, 2.0, 3.0, 4.0];
-        let tensor = Tensor::from_data(float_data.clone(), vec![5], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(float_data.clone(), vec![5], DeviceType::Cpu).expect("operation should succeed");
 
         // Test manual quantization
         let scale = 0.1f32;
         let zero_point = 128u8;
-        let quantized = tensor.quantize_quint8(scale, zero_point).unwrap();
-        let dequantized = quantized.dequantize_f32().unwrap();
-        let dequantized_data = dequantized.data().unwrap();
+        let quantized = tensor.quantize_quint8(scale, zero_point).expect("operation should succeed");
+        let dequantized = quantized.dequantize_f32().expect("dequantization should succeed");
+        let dequantized_data = dequantized.data().expect("data retrieval should succeed");
 
         // Check that values are approximately preserved
         for (original, recovered) in float_data.iter().zip(dequantized_data.iter()) {
@@ -455,11 +455,11 @@ mod tests {
     fn test_auto_quantization_qint8() {
         // Test automatic quantization parameter computation
         let float_data = vec![-5.0f32, -2.5, 0.0, 2.5, 5.0];
-        let tensor = Tensor::from_data(float_data.clone(), vec![5], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(float_data.clone(), vec![5], DeviceType::Cpu).expect("operation should succeed");
 
-        let (quantized, scale, _zero_point) = tensor.auto_quantize_qint8().unwrap();
-        let dequantized = quantized.dequantize_f32().unwrap();
-        let dequantized_data = dequantized.data().unwrap();
+        let (quantized, scale, _zero_point) = tensor.auto_quantize_qint8().expect("auto qint8 quantization should succeed");
+        let dequantized = quantized.dequantize_f32().expect("dequantization should succeed");
+        let dequantized_data = dequantized.data().expect("data retrieval should succeed");
 
         // Scale should be (max - min) / 255
         let expected_scale = (5.0 - (-5.0)) / 255.0;
@@ -477,11 +477,11 @@ mod tests {
     fn test_auto_quantization_quint8() {
         // Test automatic quantization for unsigned range
         let float_data = vec![0.0f32, 2.0, 4.0, 6.0, 8.0];
-        let tensor = Tensor::from_data(float_data.clone(), vec![5], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(float_data.clone(), vec![5], DeviceType::Cpu).expect("operation should succeed");
 
-        let (quantized, scale, _zero_point) = tensor.auto_quantize_quint8().unwrap();
-        let dequantized = quantized.dequantize_f32().unwrap();
-        let dequantized_data = dequantized.data().unwrap();
+        let (quantized, scale, _zero_point) = tensor.auto_quantize_quint8().expect("auto quint8 quantization should succeed");
+        let dequantized = quantized.dequantize_f32().expect("dequantization should succeed");
+        let dequantized_data = dequantized.data().expect("data retrieval should succeed");
 
         // Scale should be (max - min) / 255
         let expected_scale = (8.0 - 0.0) / 255.0;
@@ -501,18 +501,18 @@ mod tests {
         let data1 = vec![1.0f32, 2.0, 3.0];
         let data2 = vec![0.5f32, 1.0, 1.5];
 
-        let tensor1 = Tensor::from_data(data1, vec![3], DeviceType::Cpu).unwrap();
-        let tensor2 = Tensor::from_data(data2, vec![3], DeviceType::Cpu).unwrap();
+        let tensor1 = Tensor::from_data(data1, vec![3], DeviceType::Cpu).expect("operation should succeed");
+        let tensor2 = Tensor::from_data(data2, vec![3], DeviceType::Cpu).expect("operation should succeed");
 
         let scale = 0.1f32;
         let zero_point = 0i8;
 
-        let q1 = tensor1.quantize_qint8(scale, zero_point).unwrap();
-        let q2 = tensor2.quantize_qint8(scale, zero_point).unwrap();
+        let q1 = tensor1.quantize_qint8(scale, zero_point).expect("operation should succeed");
+        let q2 = tensor2.quantize_qint8(scale, zero_point).expect("operation should succeed");
 
-        let q_result = q1.add_quantized(&q2).unwrap();
-        let dequantized_result = q_result.dequantize_f32().unwrap();
-        let result_data = dequantized_result.data().unwrap();
+        let q_result = q1.add_quantized(&q2).expect("operation should succeed");
+        let dequantized_result = q_result.dequantize_f32().expect("dequantization should succeed");
+        let result_data = dequantized_result.data().expect("data retrieval should succeed");
 
         // Check that quantized addition gives approximately correct results
         let expected = vec![1.5f32, 3.0, 4.5];
@@ -528,18 +528,18 @@ mod tests {
         let data1 = vec![2.0f32, 3.0, 4.0];
         let data2 = vec![1.5f32, 2.0, 0.5];
 
-        let tensor1 = Tensor::from_data(data1, vec![3], DeviceType::Cpu).unwrap();
-        let tensor2 = Tensor::from_data(data2, vec![3], DeviceType::Cpu).unwrap();
+        let tensor1 = Tensor::from_data(data1, vec![3], DeviceType::Cpu).expect("operation should succeed");
+        let tensor2 = Tensor::from_data(data2, vec![3], DeviceType::Cpu).expect("operation should succeed");
 
         let scale = 0.1f32;
         let zero_point = 0i8;
 
-        let q1 = tensor1.quantize_qint8(scale, zero_point).unwrap();
-        let q2 = tensor2.quantize_qint8(scale, zero_point).unwrap();
+        let q1 = tensor1.quantize_qint8(scale, zero_point).expect("operation should succeed");
+        let q2 = tensor2.quantize_qint8(scale, zero_point).expect("operation should succeed");
 
-        let q_result = q1.mul_quantized(&q2).unwrap();
-        let dequantized_result = q_result.dequantize_f32().unwrap();
-        let result_data = dequantized_result.data().unwrap();
+        let q_result = q1.mul_quantized(&q2).expect("operation should succeed");
+        let dequantized_result = q_result.dequantize_f32().expect("dequantization should succeed");
+        let result_data = dequantized_result.data().expect("data retrieval should succeed");
 
         // Check that quantized multiplication gives approximately correct results
         let expected = vec![3.0f32, 6.0, 2.0];
@@ -569,17 +569,17 @@ mod tests {
         assert_eq!(one_quint8.value, 129);
 
         // Test conversion functions
-        let qint8_from_f64 = QInt8::from_f64(2.5).unwrap();
+        let qint8_from_f64 = QInt8::from_f64(2.5).expect("QInt8 from_f64 should succeed");
         assert_eq!(qint8_from_f64.dequantize(), 3.0); // Should be rounded to nearest integer (2.5 -> 3)
 
-        let quint8_from_f64 = QUInt8::from_f64(3.7).unwrap();
+        let quint8_from_f64 = QUInt8::from_f64(3.7).expect("QUInt8 from_f64 should succeed");
         assert!((quint8_from_f64.dequantize() - 4.0).abs() < 0.1); // Should be close to 4.0
     }
 
     #[test]
     fn test_quantization_error_handling() {
         // Test error handling for empty tensors
-        let empty_tensor: Tensor<f32> = Tensor::from_data(vec![], vec![0], DeviceType::Cpu).unwrap();
+        let empty_tensor: Tensor<f32> = Tensor::from_data(vec![], vec![0], DeviceType::Cpu).expect("operation should succeed");
         assert!(empty_tensor.auto_quantize_qint8().is_err());
         assert!(empty_tensor.auto_quantize_quint8().is_err());
 
@@ -587,11 +587,11 @@ mod tests {
         let data1 = vec![1.0f32, 2.0];
         let data2 = vec![1.0f32, 2.0];
 
-        let tensor1 = Tensor::from_data(data1, vec![2], DeviceType::Cpu).unwrap();
-        let tensor2 = Tensor::from_data(data2, vec![2], DeviceType::Cpu).unwrap();
+        let tensor1 = Tensor::from_data(data1, vec![2], DeviceType::Cpu).expect("operation should succeed");
+        let tensor2 = Tensor::from_data(data2, vec![2], DeviceType::Cpu).expect("operation should succeed");
 
-        let q1 = tensor1.quantize_qint8(0.1, 0).unwrap();
-        let q2 = tensor2.quantize_qint8(0.2, 0).unwrap(); // Different scale
+        let q1 = tensor1.quantize_qint8(0.1, 0).expect("operation should succeed");
+        let q2 = tensor2.quantize_qint8(0.2, 0).expect("operation should succeed"); // Different scale
 
         assert!(q1.add_quantized(&q2).is_err()); // Should fail due to different scales
     }
@@ -612,12 +612,12 @@ mod tests {
     fn test_quantization_precision_boundary() {
         // Test quantization at the boundaries of the data type ranges
         let float_data = vec![f32::MIN, f32::MAX, 0.0f32];
-        let tensor = Tensor::from_data(float_data, vec![3], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(float_data, vec![3], DeviceType::Cpu).expect("operation should succeed");
 
-        let (quantized, _scale, _zero_point) = tensor.auto_quantize_qint8().unwrap();
-        let dequantized = quantized.dequantize_f32().unwrap();
+        let (quantized, _scale, _zero_point) = tensor.auto_quantize_qint8().expect("auto qint8 quantization should succeed");
+        let dequantized = quantized.dequantize_f32().expect("dequantization should succeed");
 
         // Should not panic and should produce valid results
-        assert!(!dequantized.data().unwrap().iter().any(|&x| x.is_nan()));
+        assert!(!dequantized.data().expect("data retrieval should succeed").iter().any(|&x| x.is_nan()));
     }
 }

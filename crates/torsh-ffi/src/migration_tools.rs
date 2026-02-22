@@ -640,7 +640,7 @@ impl MigrationTool {
         }
 
         // Add ToRSh-specific imports if needed
-        if !migrated.contains("use torsh") && !migrated.contains("import torsh") {
+        if !migrated.contains("use torsh") && !migrated.contains("import rstorch") {
             migrated = format!("use torsh::prelude::*;\n\n{}", migrated);
         }
 

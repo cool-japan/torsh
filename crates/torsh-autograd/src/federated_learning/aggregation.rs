@@ -528,7 +528,7 @@ impl FederatedAggregator {
 
                 let mut median_gradient = Vec::new();
                 for mut values in param_values {
-                    values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                    values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
                     let mid = values.len() / 2;
                     let median = if values.len() % 2 == 0 {
                         (values[mid - 1] + values[mid]) / 2.0
@@ -581,7 +581,7 @@ impl FederatedAggregator {
 
                 let mut trimmed_mean_gradient = Vec::new();
                 for mut values in param_values {
-                    values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                    values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
                     // Remove extreme values
                     for _ in 0..trim_count {
@@ -638,14 +638,18 @@ impl FederatedAggregator {
             for &other_client_id in &client_ids {
                 if client_id != other_client_id {
                     let distance = self.compute_gradient_distance(
-                        client_updates.get(client_id).unwrap(),
-                        client_updates.get(other_client_id).unwrap(),
+                        client_updates
+                            .get(client_id)
+                            .expect("client_id verified in loop"),
+                        client_updates
+                            .get(other_client_id)
+                            .expect("other_client_id verified in loop"),
                     )?;
                     distances.push(distance);
                 }
             }
 
-            distances.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            distances.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
             let score: f64 = distances.iter().take(num_clients - num_byzantine - 1).sum();
 
             scores.insert(client_id, score);
@@ -654,12 +658,15 @@ impl FederatedAggregator {
         // Find client with minimum score
         let best_client = scores
             .iter()
-            .min_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+            .min_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
             .map(|(k, _)| *k)
             .ok_or(FederatedError::AggregationFailed)?;
 
         // Return the gradients of the best client
-        Ok(client_updates.get(best_client).unwrap().clone())
+        Ok(client_updates
+            .get(best_client)
+            .expect("best_client verified above")
+            .clone())
     }
 
     /// Adaptive weighted aggregation based on client quality
@@ -993,7 +1000,7 @@ impl FederatedAggregator {
     pub fn get_aggregation_history(&self) -> Vec<AggregationRound> {
         self.aggregation_history
             .lock()
-            .unwrap()
+            .expect("lock should not be poisoned")
             .iter()
             .cloned()
             .collect()

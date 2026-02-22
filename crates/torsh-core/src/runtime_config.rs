@@ -721,7 +721,9 @@ mod tests {
 
         config.set_operation_config("test_op", op_config.clone());
 
-        let retrieved = config.get_operation_config("test_op").unwrap();
+        let retrieved = config
+            .get_operation_config("test_op")
+            .expect("get_operation_config should succeed");
         assert!(!retrieved.enable_metrics);
         assert!(retrieved.enable_validation);
         assert_eq!(retrieved.timeout_ms, Some(5000));

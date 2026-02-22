@@ -4,7 +4,7 @@
 **SciRS2 Integration**: 99% - Comprehensive time series analysis with scirs2-series, scirs2-stats, and scirs2-signal integration
 **Build Status**: ✅ All tests passing (225/225) | Library builds successfully (+32 new tests from recent enhancements)
 
-## 🔧 Latest Enhancements & Fixes (v0.1.0-alpha.2)
+## 🔧 Latest Enhancements & Fixes (v0.1.0)
 
 ### New Features Implemented (Latest Session)
 - ✅ **Advanced Cross-Validation Suite** - Purged CV, Combinatorial Purged CV, Nested CV, Scored CV (NEW! 2025-11-14)

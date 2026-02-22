@@ -124,12 +124,12 @@ impl LexicalChainBuilder {
 
         // Sort candidates by relatedness and position
         candidates.sort_by(|a, b| {
-            let relatedness_cmp = b.1.partial_cmp(&a.1).unwrap();
+            let relatedness_cmp = b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal);
             if relatedness_cmp == std::cmp::Ordering::Equal {
                 // If relatedness is equal, prefer closer positions
                 let pos_a = self.calculate_average_position(&all_words[&a.0]);
                 let pos_b = self.calculate_average_position(&all_words[&b.0]);
-                pos_a.partial_cmp(&pos_b).unwrap()
+                pos_a.partial_cmp(&pos_b).unwrap_or(std::cmp::Ordering::Equal)
             } else {
                 relatedness_cmp
             }
@@ -486,7 +486,7 @@ impl LexicalChainBuilder {
                     .words
                     .iter()
                     .map(|(chain_word, _)| self.calculate_word_similarity(chain_word, word))
-                    .max_by(|a, b| a.partial_cmp(b).unwrap())
+                    .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
                     .unwrap_or(0.0);
 
                 if max_relatedness >= self.config.similarity_threshold {

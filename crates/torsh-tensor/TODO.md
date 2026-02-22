@@ -1,7 +1,7 @@
 # torsh-tensor TODO
 
 ## Version Information
-- **Version**: v0.1.0-alpha.2
+- **Version**: v0.1.0
 - **Last Updated**: 2025-11-14
 - **Major Changes**: Added shape inference debugging system with detailed traces, comprehensive tensor value tracking, updated TODO with accurate completion status
 
@@ -865,7 +865,7 @@ The tensor crate is well-implemented with SIMD optimizations, comprehensive broa
 - **Standard build**: ✅ All 336 tests pass (100% success rate)
 - **cargo fmt**: ✅ Code formatting complete - no issues
 - **cargo clippy**: ✅ Zero warnings with `-D warnings` flag
-- **--all-features build**: ⚠️ Some feature combinations require scirs2 modules (`gpu`, `profiling`, `tensor_cores`) that are not yet available in the current scirs2 version (v0.1.0-beta.2). These features are planned for future scirs2 releases. Standard feature combinations work perfectly.
+- **--all-features build**: ⚠️ Some feature combinations require scirs2 modules (`gpu`, `profiling`, `tensor_cores`) that are not yet available in the current scirs2 version (v0.1.0). These features are planned for future scirs2 releases. Standard feature combinations work perfectly.
 
 ### Recommended Usage
 For production use, rely on the standard feature set which has been thoroughly tested and validated. Advanced features requiring unreleased scirs2 modules will be enabled once those modules become available in future scirs2 versions.

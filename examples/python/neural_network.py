@@ -12,10 +12,10 @@ import os
 # Add the python package to the path for development
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'python'))
 
-import torsh
-import torsh.nn as nn
-import torsh.optim as optim
-import torsh.nn.functional as F
+import rstorch
+import rstorch.nn as nn
+import rstorch.optim as optim
+import rstorch.nn.functional as F
 import numpy as np
 
 class SimpleNet(nn.Module):
@@ -62,8 +62,8 @@ def main():
     print(f"Target shape: {y_np.shape}")
     
     # Convert to ToRSh tensors
-    X = torsh.tensor(X_np, requires_grad=False)
-    y = torsh.tensor(y_np, requires_grad=False)
+    X = rstorch.tensor(X_np, requires_grad=False)
+    y = rstorch.tensor(y_np, requires_grad=False)
     
     print(f"Input tensor: {X.shape}, dtype: {X.dtype}")
     print(f"Target tensor: {y.shape}, dtype: {y.dtype}")
@@ -131,7 +131,7 @@ def main():
     print("\n6. Evaluating the model...")
     model.eval()
     
-    with torsh.no_grad():
+    with rstorch.no_grad():
         # Make predictions on the full dataset
         test_predictions = model(X)
         test_loss = F.mse_loss(test_predictions, y)
@@ -149,8 +149,8 @@ def main():
         
         # Compute some basic metrics
         residuals = test_predictions - y
-        mae = torsh.mean(torsh.abs(residuals))
-        rmse = torsh.sqrt(test_loss)
+        mae = rstorch.mean(rstorch.abs(residuals))
+        rmse = rstorch.sqrt(test_loss)
         
         print(f"\nMetrics:")
         print(f"Mean Absolute Error: {mae.item():.6f}")

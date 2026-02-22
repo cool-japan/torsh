@@ -65,7 +65,7 @@ impl SparseAttention {
     /// use torsh_sparse::nn::attention::SparseAttention;
     ///
     /// // Create 8-head attention with 512 model dimension and 0.9 sparsity
-    /// let attention = SparseAttention::new(512, 8, 0.9, 0.1).unwrap();
+    /// let attention = SparseAttention::new(512, 8, 0.9, 0.1).expect("valid attention config");
     /// ```
     pub fn new(
         model_dim: usize,

@@ -804,7 +804,6 @@ pub fn load_sparse_matrix(_filepath: &Path) -> TorshResult<Box<dyn SparseTensor>
 mod tests {
     use super::*;
     use crate::coo::CooTensor;
-    use std::path::PathBuf;
     use torsh_core::{DType, Shape};
 
     #[test]
@@ -894,7 +893,7 @@ mod tests {
     fn test_stub_functions_without_feature() {
         let shape = Shape::new(vec![2, 2]);
         let coo = CooTensor::empty(shape, DType::F32).unwrap();
-        let temp_path = PathBuf::from("/tmp/test.h5");
+        let temp_path = std::env::temp_dir().join("test.h5");
 
         // These should return errors when HDF5 feature is not enabled
         #[cfg(not(feature = "hdf5_support"))]

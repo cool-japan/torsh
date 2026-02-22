@@ -1,6 +1,6 @@
-# Known Issues - torsh-models v0.1.0-rc.1
+# Known Issues - torsh-models v0.1.0
 
-This document tracks known issues and limitations in torsh-models v0.1.0-rc.1 that will be addressed in future releases.
+This document tracks known issues and limitations in torsh-models v0.1.0 that will be addressed in future releases.
 
 ## Integration Test Failures
 
@@ -241,7 +241,7 @@ cargo test --package torsh-models --test integration_tests <test_name> -- --igno
 
 | Milestone | Target | Status |
 |-----------|--------|--------|
-| v0.1.0-rc.1 | Current | ✅ Released - Known issues documented |
+| v0.1.0 | Current | ✅ Released - Known issues documented |
 | v0.1.0 | 2026-Q1 | 🔄 Final polishing, no API changes |
 | v0.2.0 | 2026-Q2 | 📋 Planned - Fix all integration test issues |
 
@@ -266,5 +266,5 @@ If you encounter issues not listed here or need assistance:
 ---
 
 **Last Updated:** 2026-01-28
-**Version:** 0.1.0-rc.1
+**Version:** 0.1.0
 **Maintainer:** COOLJAPAN OU (Team Kitasan)

@@ -378,7 +378,7 @@ mod tests {
         let entry = LockFreeCacheEntry::new(42);
 
         assert!(entry.is_valid());
-        assert_eq!(*entry.get().unwrap(), 42);
+        assert_eq!(*entry.get().expect("get should succeed"), 42);
         assert_eq!(entry.access_count(), 1);
 
         entry.invalidate();

@@ -450,76 +450,87 @@ impl AutogradProfiler {
     pub fn generate_report(&self, profile: &AutogradProfile) -> Result<String> {
         let mut report = String::new();
 
-        writeln!(report, "=== Autograd Performance Report ===").unwrap();
-        writeln!(report, "Session: {}", profile.session_id).unwrap();
-        writeln!(report, "Duration: {:?}", profile.duration).unwrap();
-        writeln!(report, "Total Operations: {}", profile.total_operations).unwrap();
-        writeln!(report).unwrap();
+        writeln!(report, "=== Autograd Performance Report ===")
+            .expect("write to string should not fail");
+        writeln!(report, "Session: {}", profile.session_id)
+            .expect("write to string should not fail");
+        writeln!(report, "Duration: {:?}", profile.duration)
+            .expect("write to string should not fail");
+        writeln!(report, "Total Operations: {}", profile.total_operations)
+            .expect("write to string should not fail");
+        writeln!(report).expect("write to string should not fail");
 
         // Summary statistics
-        writeln!(report, "=== Summary Statistics ===").unwrap();
-        writeln!(report, "Total Time: {:?}", profile.summary.total_time).unwrap();
-        writeln!(report, "Forward Time: {:?}", profile.summary.forward_time).unwrap();
-        writeln!(report, "Backward Time: {:?}", profile.summary.backward_time).unwrap();
+        writeln!(report, "=== Summary Statistics ===").expect("write to string should not fail");
+        writeln!(report, "Total Time: {:?}", profile.summary.total_time)
+            .expect("write to string should not fail");
+        writeln!(report, "Forward Time: {:?}", profile.summary.forward_time)
+            .expect("write to string should not fail");
+        writeln!(report, "Backward Time: {:?}", profile.summary.backward_time)
+            .expect("write to string should not fail");
         writeln!(
             report,
             "Peak Memory: {} MB",
             profile.summary.peak_memory / 1024 / 1024
         )
-        .unwrap();
+        .expect("write to string should not fail");
         writeln!(
             report,
             "Average Memory: {} MB",
             profile.summary.average_memory / 1024 / 1024
         )
-        .unwrap();
+        .expect("write to string should not fail");
         if profile.summary.total_flops > 0.0 {
-            writeln!(report, "Total FLOPS: {:.2e}", profile.summary.total_flops).unwrap();
+            writeln!(report, "Total FLOPS: {:.2e}", profile.summary.total_flops)
+                .expect("write to string should not fail");
             writeln!(
                 report,
                 "FLOPS/sec: {:.2e}",
                 profile.summary.flops_per_second
             )
-            .unwrap();
+            .expect("write to string should not fail");
         }
         if let Some(ref most_expensive) = profile.summary.most_expensive_operation {
-            writeln!(report, "Most Expensive Operation: {most_expensive}").unwrap();
+            writeln!(report, "Most Expensive Operation: {most_expensive}")
+                .expect("write to string should not fail");
         }
-        writeln!(report).unwrap();
+        writeln!(report).expect("write to string should not fail");
 
         // Hardware utilization
-        writeln!(report, "=== Hardware Utilization ===").unwrap();
+        writeln!(report, "=== Hardware Utilization ===").expect("write to string should not fail");
         writeln!(
             report,
             "CPU Utilization: {:.1}%",
             profile.hardware_utilization.cpu_utilization
         )
-        .unwrap();
+        .expect("write to string should not fail");
         if let Some(gpu_util) = profile.hardware_utilization.gpu_utilization {
-            writeln!(report, "GPU Utilization: {gpu_util:.1}%").unwrap();
+            writeln!(report, "GPU Utilization: {gpu_util:.1}%")
+                .expect("write to string should not fail");
         }
         writeln!(
             report,
             "Memory Utilization: {:.1}%",
             profile.hardware_utilization.memory_utilization
         )
-        .unwrap();
+        .expect("write to string should not fail");
         writeln!(
             report,
             "Memory Bandwidth: {:.1}%",
             profile.hardware_utilization.memory_bandwidth_utilization
         )
-        .unwrap();
+        .expect("write to string should not fail");
         writeln!(
             report,
             "Cache Hit Rate: {:.1}%",
             profile.hardware_utilization.cache_hit_rate
         )
-        .unwrap();
-        writeln!(report).unwrap();
+        .expect("write to string should not fail");
+        writeln!(report).expect("write to string should not fail");
 
         // Top operations by time
-        writeln!(report, "=== Top Operations by Time ===").unwrap();
+        writeln!(report, "=== Top Operations by Time ===")
+            .expect("write to string should not fail");
         let mut ops_by_time: Vec<_> = profile.operation_profiles.iter().collect();
         ops_by_time.sort_by(|a, b| b.1.total_time.cmp(&a.1.total_time));
 
@@ -533,13 +544,14 @@ impl AutogradProfiler {
                 op_profile.average_time,
                 op_profile.execution_count
             )
-            .unwrap();
+            .expect("write to string should not fail");
         }
-        writeln!(report).unwrap();
+        writeln!(report).expect("write to string should not fail");
 
         // Performance bottlenecks
         if !profile.bottlenecks.is_empty() {
-            writeln!(report, "=== Performance Bottlenecks ===").unwrap();
+            writeln!(report, "=== Performance Bottlenecks ===")
+                .expect("write to string should not fail");
             for (i, bottleneck) in profile.bottlenecks.iter().enumerate() {
                 writeln!(
                     report,
@@ -549,21 +561,24 @@ impl AutogradProfiler {
                     bottleneck.operation,
                     bottleneck.severity
                 )
-                .unwrap();
-                writeln!(report, "   Description: {}", bottleneck.description).unwrap();
-                writeln!(report, "   Suggestion: {}", bottleneck.suggestion).unwrap();
-                writeln!(report).unwrap();
+                .expect("write to string should not fail");
+                writeln!(report, "   Description: {}", bottleneck.description)
+                    .expect("write to string should not fail");
+                writeln!(report, "   Suggestion: {}", bottleneck.suggestion)
+                    .expect("write to string should not fail");
+                writeln!(report).expect("write to string should not fail");
             }
         }
 
         // Memory timeline summary
         if !profile.memory_timeline.is_empty() {
-            writeln!(report, "=== Memory Usage Timeline ===").unwrap();
+            writeln!(report, "=== Memory Usage Timeline ===")
+                .expect("write to string should not fail");
             let peak_snapshot = profile
                 .memory_timeline
                 .iter()
                 .max_by_key(|s| s.total_memory)
-                .unwrap();
+                .expect("memory_timeline is non-empty");
             let avg_memory = profile
                 .memory_timeline
                 .iter()
@@ -576,14 +591,15 @@ impl AutogradProfiler {
                 "Peak Memory: {} MB",
                 peak_snapshot.total_memory / 1024 / 1024
             )
-            .unwrap();
-            writeln!(report, "Average Memory: {} MB", avg_memory / 1024 / 1024).unwrap();
+            .expect("write to string should not fail");
+            writeln!(report, "Average Memory: {} MB", avg_memory / 1024 / 1024)
+                .expect("write to string should not fail");
             writeln!(
                 report,
                 "Memory Snapshots: {}",
                 profile.memory_timeline.len()
             )
-            .unwrap();
+            .expect("write to string should not fail");
         }
 
         Ok(report)
@@ -619,40 +635,43 @@ impl AutogradProfiler {
         // For now, return a simplified JSON representation
         let mut json = String::new();
 
-        writeln!(json, "{{").unwrap();
-        writeln!(json, "  \"session_id\": \"{}\",", profile.session_id).unwrap();
-        writeln!(json, "  \"duration_ms\": {},", profile.duration.as_millis()).unwrap();
+        writeln!(json, "{{").expect("write to string should not fail");
+        writeln!(json, "  \"session_id\": \"{}\",", profile.session_id)
+            .expect("write to string should not fail");
+        writeln!(json, "  \"duration_ms\": {},", profile.duration.as_millis())
+            .expect("write to string should not fail");
         writeln!(
             json,
             "  \"total_operations\": {},",
             profile.total_operations
         )
-        .unwrap();
+        .expect("write to string should not fail");
         writeln!(
             json,
             "  \"peak_memory_mb\": {},",
             profile.summary.peak_memory / 1024 / 1024
         )
-        .unwrap();
-        writeln!(json, "  \"hardware_utilization\": {{").unwrap();
+        .expect("write to string should not fail");
+        writeln!(json, "  \"hardware_utilization\": {{").expect("write to string should not fail");
         writeln!(
             json,
             "    \"cpu\": {},",
             profile.hardware_utilization.cpu_utilization
         )
-        .unwrap();
+        .expect("write to string should not fail");
         if let Some(gpu_util) = profile.hardware_utilization.gpu_utilization {
-            writeln!(json, "    \"gpu\": {gpu_util},").unwrap();
+            writeln!(json, "    \"gpu\": {gpu_util},").expect("write to string should not fail");
         }
         writeln!(
             json,
             "    \"memory\": {}",
             profile.hardware_utilization.memory_utilization
         )
-        .unwrap();
-        writeln!(json, "  }},").unwrap();
-        writeln!(json, "  \"bottlenecks\": {},", profile.bottlenecks.len()).unwrap();
-        writeln!(json, "}}").unwrap();
+        .expect("write to string should not fail");
+        writeln!(json, "  }},").expect("write to string should not fail");
+        writeln!(json, "  \"bottlenecks\": {},", profile.bottlenecks.len())
+            .expect("write to string should not fail");
+        writeln!(json, "}}").expect("write to string should not fail");
 
         Ok(json)
     }

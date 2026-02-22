@@ -62,7 +62,7 @@ impl GraphConvolution {
     /// use torsh_sparse::nn::graph::GraphConvolution;
     ///
     /// // Create GCN layer: 16 input features -> 32 output features
-    /// let gcn = GraphConvolution::new(16, 32, true, true, true).unwrap();
+    /// let gcn = GraphConvolution::new(16, 32, true, true, true).expect("valid GCN config");
     /// ```
     pub fn new(
         in_features: usize,
@@ -107,10 +107,10 @@ impl GraphConvolution {
     /// use torsh_tensor::creation::randn;
     /// use torsh_sparse::CsrTensor;
     ///
-    /// let gcn = GraphConvolution::new(4, 2, false, true, true).unwrap();
-    /// let features = randn::<f32>(&[10, 4]).unwrap(); // 10 nodes, 4 features each
+    /// let gcn = GraphConvolution::new(4, 2, false, true, true).expect("valid GCN config");
+    /// let features = randn::<f32>(&[10, 4]).expect("valid shape"); // 10 nodes, 4 features each
     /// // adjacency would be a 10x10 sparse matrix
-    /// // let output = gcn.forward(&features, &adjacency).unwrap();
+    /// // let output = gcn.forward(&features, &adjacency).expect("forward pass");
     /// ```
     pub fn forward(&self, node_features: &Tensor, adjacency: &CsrTensor) -> TorshResult<Tensor> {
         // Validate input dimensions

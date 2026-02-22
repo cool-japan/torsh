@@ -265,9 +265,15 @@ pub mod utils {
         graph.add_node(output);
 
         // Connect nodes
-        graph.connect_nodes("input", "conv1").unwrap();
-        graph.connect_nodes("conv1", "relu1").unwrap();
-        graph.connect_nodes("relu1", "output").unwrap();
+        graph
+            .connect_nodes("input", "conv1")
+            .expect("nodes were just added");
+        graph
+            .connect_nodes("conv1", "relu1")
+            .expect("nodes were just added");
+        graph
+            .connect_nodes("relu1", "output")
+            .expect("nodes were just added");
 
         graph
     }

@@ -61,7 +61,7 @@ use super::validation::validate_url;
 /// // Download with intelligent endpoint selection
 /// manager.download_with_intelligent_selection(
 ///     "models/llama-7b.torsh",
-///     Path::new("/tmp/model.torsh"),
+///     &std::env::temp_dir().join("model.torsh"),
 ///     true
 /// ).await?;
 /// # Ok(())

@@ -53,16 +53,24 @@ impl Benchmarkable for TensorCreationBench {
         let mut tensors = Vec::new();
 
         // Benchmark different creation methods
-        tensors.push(prevent_optimization(rand::<f32>(&shape).unwrap()));
-        tensors.push(prevent_optimization(zeros::<f32>(&shape).unwrap()));
-        tensors.push(prevent_optimization(ones::<f32>(&shape).unwrap()));
         tensors.push(prevent_optimization(
-            full::<f32>(&shape, std::f32::consts::PI).unwrap(),
+            rand::<f32>(&shape).expect("tensor creation should succeed"),
+        ));
+        tensors.push(prevent_optimization(
+            zeros::<f32>(&shape).expect("tensor creation should succeed"),
+        ));
+        tensors.push(prevent_optimization(
+            ones::<f32>(&shape).expect("tensor creation should succeed"),
+        ));
+        tensors.push(prevent_optimization(
+            full::<f32>(&shape, std::f32::consts::PI).expect("tensor creation should succeed"),
         ));
 
         // Identity matrix (for square tensors)
         if shape[0] == shape[1] {
-            tensors.push(prevent_optimization(eye::<f32>(shape[0]).unwrap()));
+            tensors.push(prevent_optimization(
+                eye::<f32>(shape[0]).expect("tensor creation should succeed"),
+            ));
         }
 
         tensors
@@ -139,8 +147,8 @@ impl Benchmarkable for TensorArithmeticBench {
 
     fn setup(&mut self, size: usize) -> Self::Input {
         let shape = vec![size, size];
-        let tensor_a = rand::<f32>(&shape).unwrap();
-        let tensor_b = rand::<f32>(&shape).unwrap();
+        let tensor_a = rand::<f32>(&shape).expect("tensor creation should succeed");
+        let tensor_b = rand::<f32>(&shape).expect("tensor creation should succeed");
         let scalar = 2.5f32;
 
         (tensor_a, tensor_b, scalar)
@@ -163,7 +171,9 @@ impl Benchmarkable for TensorArithmeticBench {
             }
             ArithmeticOp::Multiplication => {
                 // Element-wise multiplication (Hadamard product)
-                let product = tensor_a.mul(tensor_b).unwrap();
+                let product = tensor_a
+                    .mul(tensor_b)
+                    .expect("tensor operation should succeed");
                 results.push(prevent_optimization(product));
             }
             ArithmeticOp::Division => {
@@ -248,8 +258,8 @@ impl Benchmarkable for MatmulBench {
 
     fn setup(&mut self, size: usize) -> Self::Input {
         // Create matrices optimized for multiplication: [size, size] × [size, size]
-        let matrix_a = rand::<f32>(&[size, size]).unwrap();
-        let matrix_b = rand::<f32>(&[size, size]).unwrap();
+        let matrix_a = rand::<f32>(&[size, size]).expect("tensor creation should succeed");
+        let matrix_b = rand::<f32>(&[size, size]).expect("tensor creation should succeed");
 
         (matrix_a, matrix_b)
     }
@@ -258,7 +268,9 @@ impl Benchmarkable for MatmulBench {
         let (matrix_a, matrix_b) = input;
 
         // Perform matrix multiplication
-        let result = matrix_a.matmul(matrix_b).unwrap();
+        let result = matrix_a
+            .matmul(matrix_b)
+            .expect("tensor operation should succeed");
         prevent_optimization(result)
     }
 
@@ -308,18 +320,18 @@ impl Benchmarkable for ReductionBench {
     fn setup(&mut self, size: usize) -> Self::Input {
         // Create a larger tensor for meaningful reduction operations
         let shape = vec![size, size];
-        rand::<f32>(&shape).unwrap()
+        rand::<f32>(&shape).expect("tensor creation should succeed")
     }
 
     fn run(&mut self, input: &Self::Input) -> Self::Output {
         let mut results = Vec::new();
 
         // Sum reduction (all elements)
-        let sum_all = input.sum().unwrap();
+        let sum_all = input.sum().expect("tensor operation should succeed");
         results.push(prevent_optimization(sum_all));
 
         // Norm computation
-        let norm = input.norm().unwrap();
+        let norm = input.norm().expect("tensor operation should succeed");
         results.push(prevent_optimization(norm));
 
         // Additional reduction operations would go here
@@ -442,33 +454,39 @@ impl Benchmarkable for AdvancedTensorOpsBench {
 
     fn setup(&mut self, size: usize) -> Self::Input {
         let shape = vec![size, size];
-        rand::<f32>(&shape).unwrap()
+        rand::<f32>(&shape).expect("tensor creation should succeed")
     }
 
     fn run(&mut self, input: &Self::Input) -> Self::Output {
         match self.operation_type {
             AdvancedOp::Transpose => {
-                let result = input.transpose(0, 1).unwrap();
+                let result = input
+                    .transpose(0, 1)
+                    .expect("tensor reshape should succeed");
                 prevent_optimization(result)
             }
             AdvancedOp::Reshape => {
                 let new_shape = vec![input.shape().numel() as i32];
-                let result = input.view(&new_shape).unwrap();
+                let result = input
+                    .view(&new_shape)
+                    .expect("tensor reshape should succeed");
                 prevent_optimization(result)
             }
             AdvancedOp::Contiguous => {
-                let result = input.contiguous().unwrap();
+                let result = input.contiguous().expect("tensor reshape should succeed");
                 prevent_optimization(result)
             }
             AdvancedOp::Views => {
                 // Create a view and then reshape it
-                let flat = input.view(&[input.shape().numel() as i32]).unwrap();
+                let flat = input
+                    .view(&[input.shape().numel() as i32])
+                    .expect("tensor reshape should succeed");
                 let reshaped = flat
                     .view(&[
                         input.shape().dims()[0] as i32,
                         input.shape().dims()[1] as i32,
                     ])
-                    .unwrap();
+                    .expect("tensor reshape should succeed");
                 prevent_optimization(reshaped)
             }
         }

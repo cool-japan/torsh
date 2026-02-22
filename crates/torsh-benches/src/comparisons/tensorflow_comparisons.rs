@@ -288,8 +288,8 @@ impl Benchmarkable for TorshVsTensorFlowMatmul {
     type Output = Vec<ComparisonResult>;
 
     fn setup(&mut self, size: usize) -> Self::Input {
-        let a = torsh_tensor::creation::rand::<f32>(&[size, size]).unwrap();
-        let b = torsh_tensor::creation::rand::<f32>(&[size, size]).unwrap();
+        let a = torsh_tensor::creation::rand::<f32>(&[size, size]).expect("tensor creation should succeed");
+        let b = torsh_tensor::creation::rand::<f32>(&[size, size]).expect("tensor creation should succeed");
         (a, b)
     }
 
@@ -366,8 +366,8 @@ impl Benchmarkable for TorshVsTensorFlowElementwise {
     type Output = Vec<ComparisonResult>;
 
     fn setup(&mut self, size: usize) -> Self::Input {
-        let a = torsh_tensor::creation::rand::<f32>(&[size]).unwrap();
-        let b = torsh_tensor::creation::rand::<f32>(&[size]).unwrap();
+        let a = torsh_tensor::creation::rand::<f32>(&[size]).expect("tensor creation should succeed");
+        let b = torsh_tensor::creation::rand::<f32>(&[size]).expect("tensor creation should succeed");
         (a, b)
     }
 
@@ -460,7 +460,7 @@ impl Benchmarkable for TorshVsTensorFlowConv2d {
             1,
         );
         let input =
-            torsh_tensor::creation::rand::<f32>(&[batch_size, in_channels, size, size]).unwrap();
+            torsh_tensor::creation::rand::<f32>(&[batch_size, in_channels, size, size]).expect("tensor creation should succeed");
 
         (conv, input)
     }

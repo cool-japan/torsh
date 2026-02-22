@@ -78,7 +78,8 @@ impl Benchmarkable for DataLoaderThroughputBench {
         let num_samples = size * 10; // Scale samples with size
         let mut tensors = Vec::new();
         for _ in 0..num_samples {
-            tensors.push(rand::<f32>(&[32, 32]).unwrap()); // Fixed size tensors
+            tensors.push(rand::<f32>(&[32, 32]).expect("tensor creation should succeed"));
+            // Fixed size tensors
         }
 
         TensorDataset::new(tensors)
@@ -140,17 +141,18 @@ impl Benchmarkable for MultiWorkerDataLoaderBench {
         let num_samples = size * 20;
         let mut tensors = Vec::new();
         for _ in 0..num_samples {
-            tensors.push(rand::<f32>(&[64, 64]).unwrap());
+            tensors.push(rand::<f32>(&[64, 64]).expect("tensor creation should succeed"));
         }
         TensorDataset::new(tensors)
     }
 
     fn run(&mut self, input: &Self::Input) -> Self::Output {
-        let dataloader = simple_random_dataloader(input.clone(), 16, Some(42)).unwrap();
+        let dataloader = simple_random_dataloader(input.clone(), 16, Some(42))
+            .expect("dataloader creation should succeed");
         dataloader
             .iter()
             .take(10)
-            .map(|batch| batch.unwrap())
+            .map(|batch| batch.expect("batch should succeed"))
             .collect() // Take first 10 batches
     }
 
@@ -197,7 +199,7 @@ impl Benchmarkable for BatchSizeScalingBench {
         let num_samples = std::cmp::max(self.batch_size * 8, size * 10);
         let mut tensors = Vec::new();
         for _ in 0..num_samples {
-            tensors.push(rand::<f32>(&[32, 32]).unwrap());
+            tensors.push(rand::<f32>(&[32, 32]).expect("tensor creation should succeed"));
         }
         TensorDataset::new(tensors)
     }
@@ -207,12 +209,12 @@ impl Benchmarkable for BatchSizeScalingBench {
             .batch_size(self.batch_size)
             .drop_last(true)
             .build()
-            .unwrap();
+            .expect("dataloader creation should succeed");
 
         dataloader
             .iter()
             .take(5)
-            .map(|batch| batch.unwrap())
+            .map(|batch| batch.expect("batch should succeed"))
             .collect() // Take first 5 batches
     }
 
@@ -256,7 +258,7 @@ impl Benchmarkable for TransformPipelineBench {
         let num_samples = size * 10;
         let mut tensors = Vec::new();
         for _ in 0..num_samples {
-            tensors.push(rand::<f32>(&[32, 32]).unwrap());
+            tensors.push(rand::<f32>(&[32, 32]).expect("tensor creation should succeed"));
         }
         TensorDataset::new(tensors)
     }
@@ -264,11 +266,12 @@ impl Benchmarkable for TransformPipelineBench {
     fn run(&mut self, input: &Self::Input) -> Self::Output {
         // For this benchmark, we'll just use a simple dataloader
         // Transform integration would be done at the dataset level
-        let dataloader = simple_dataloader(input.clone(), 16, false).unwrap();
+        let dataloader = simple_dataloader(input.clone(), 16, false)
+            .expect("dataloader creation should succeed");
         dataloader
             .iter()
             .take(8)
-            .map(|batch| batch.unwrap())
+            .map(|batch| batch.expect("batch should succeed"))
             .collect()
     }
 
@@ -354,7 +357,7 @@ impl Benchmarkable for SamplingStrategyBench {
         let num_samples = size * 100;
         let mut tensors = Vec::new();
         for _ in 0..num_samples {
-            tensors.push(rand::<f32>(&[16, 16]).unwrap());
+            tensors.push(rand::<f32>(&[16, 16]).expect("tensor creation should succeed"));
         }
         TensorDataset::new(tensors)
     }
@@ -411,7 +414,7 @@ impl Benchmarkable for ConcatDatasetBench {
         let num_samples = size * 10;
         let mut tensors = Vec::new();
         for _ in 0..num_samples {
-            tensors.push(rand::<f32>(&[16, 16]).unwrap());
+            tensors.push(rand::<f32>(&[16, 16]).expect("tensor creation should succeed"));
         }
         TensorDataset::new(tensors)
     }
@@ -493,7 +496,7 @@ impl Benchmarkable for DistributedSamplerBench {
         let num_samples = size * 100;
         let mut tensors = Vec::new();
         for _ in 0..num_samples {
-            tensors.push(rand::<f32>(&[8, 8]).unwrap());
+            tensors.push(rand::<f32>(&[8, 8]).expect("tensor creation should succeed"));
         }
         TensorDataset::new(tensors)
     }
@@ -574,13 +577,14 @@ impl Benchmarkable for DataLoadingMemoryBench {
         let num_samples = size * 50;
         let mut tensors = Vec::new();
         for _ in 0..num_samples {
-            tensors.push(rand::<f32>(&[64, 64]).unwrap());
+            tensors.push(rand::<f32>(&[64, 64]).expect("tensor creation should succeed"));
         }
         TensorDataset::new(tensors)
     }
 
     fn run(&mut self, input: &Self::Input) -> Self::Output {
-        let dataloader = simple_random_dataloader(input.clone(), 32, Some(42)).unwrap();
+        let dataloader = simple_random_dataloader(input.clone(), 32, Some(42))
+            .expect("dataloader creation should succeed");
 
         let mut count = 0;
         for _batch in dataloader.iter().take(20) {
@@ -635,7 +639,7 @@ impl Benchmarkable for PrefetchingBench {
         let num_samples = size * 30;
         let mut tensors = Vec::new();
         for _ in 0..num_samples {
-            tensors.push(rand::<f32>(&[32, 32]).unwrap());
+            tensors.push(rand::<f32>(&[32, 32]).expect("tensor creation should succeed"));
         }
         TensorDataset::new(tensors)
     }
@@ -643,11 +647,12 @@ impl Benchmarkable for PrefetchingBench {
     fn run(&mut self, input: &Self::Input) -> Self::Output {
         // Note: The simple API doesn't expose prefetch_factor,
         // so this is a simplified version of the benchmark
-        let dataloader = simple_dataloader(input.clone(), 16, false).unwrap();
+        let dataloader = simple_dataloader(input.clone(), 16, false)
+            .expect("dataloader creation should succeed");
         dataloader
             .iter()
             .take(15)
-            .map(|batch| batch.unwrap())
+            .map(|batch| batch.expect("batch should succeed"))
             .collect()
     }
 

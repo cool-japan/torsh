@@ -425,7 +425,10 @@ mod tests {
         config.set_validation_level(ValidationLevel::Essential);
 
         assert!(validate_allocation_size(100, 4).is_ok());
-        assert_eq!(validate_allocation_size(100, 4).unwrap(), 400);
+        assert_eq!(
+            validate_allocation_size(100, 4).expect("validate_allocation_size should succeed"),
+            400
+        );
 
         // Test overflow detection
         let result = validate_allocation_size(usize::MAX, 2);
@@ -463,7 +466,10 @@ mod tests {
             result.is_ok(),
             "Expected compatible shapes to broadcast successfully"
         );
-        assert_eq!(result.unwrap(), vec![3, 4, 5]);
+        assert_eq!(
+            result.expect("validate_broadcast_compatible should succeed"),
+            vec![3, 4, 5]
+        );
 
         let incompatible1 = Shape::new(vec![3, 2, 5]);
         let incompatible2 = Shape::new(vec![3, 4, 5]);

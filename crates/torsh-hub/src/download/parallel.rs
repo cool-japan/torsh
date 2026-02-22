@@ -51,8 +51,8 @@ use super::validation::validate_url;
 /// # #[tokio::main]
 /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let downloads = vec![
-///     ("https://example.com/file1.txt".to_string(), PathBuf::from("/tmp/file1.txt")),
-///     ("https://example.com/file2.txt".to_string(), PathBuf::from("/tmp/file2.txt")),
+///     ("https://example.com/file1.txt".to_string(), std::env::temp_dir().join("file1.txt")),
+///     ("https://example.com/file2.txt".to_string(), std::env::temp_dir().join("file2.txt")),
 /// ];
 /// let config = ParallelDownloadConfig::default();
 /// let results = download_files_parallel(downloads, config, true).await?;
@@ -167,7 +167,7 @@ pub async fn download_files_parallel(
 /// let config = ParallelDownloadConfig::default();
 /// let result = download_file_streaming(
 ///     "https://example.com/huge_file.bin",
-///     Path::new("/tmp/huge_file.bin"),
+///     &std::env::temp_dir().join("huge_file.bin"),
 ///     config,
 ///     true,
 ///     None // No chunk processing
@@ -554,7 +554,7 @@ pub struct CdnStatistics {
 ///     "torsh-ai",
 ///     "examples",
 ///     "main",
-///     Path::new("/tmp/torsh-examples"),
+///     &std::env::temp_dir().join("torsh-examples"),
 ///     true
 /// );
 /// ```
@@ -738,8 +738,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_default_cdn_manager() {
-        let result =
-            download_with_default_cdn("test/file.txt", Path::new("/tmp/test.txt"), false).await;
+        let test_dest = std::env::temp_dir().join("test.txt");
+        let result = download_with_default_cdn("test/file.txt", &test_dest, false).await;
 
         // This should fail since we're using dummy URLs, but it tests the setup
         assert!(result.is_err());
@@ -747,8 +747,8 @@ mod tests {
 
     #[test]
     fn test_temp_file_path_generation() {
-        let dest_path = Path::new("/tmp/test.txt");
+        let dest_path = std::env::temp_dir().join("test.txt");
         let temp_path = dest_path.with_extension("tmp");
-        assert_eq!(temp_path, Path::new("/tmp/test.tmp"));
+        assert_eq!(temp_path, std::env::temp_dir().join("test.tmp"));
     }
 }

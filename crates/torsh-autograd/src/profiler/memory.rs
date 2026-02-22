@@ -329,7 +329,10 @@ impl MemoryTracker {
         };
 
         // Predict peak memory
-        let current_memory = recent_snapshots.last().unwrap().total_memory;
+        let current_memory = recent_snapshots
+            .last()
+            .expect("recent_snapshots is non-empty")
+            .total_memory;
         let predicted_peak = if slope > 0.0 {
             current_memory + (slope * self.interval.as_secs_f64()) as usize
         } else {

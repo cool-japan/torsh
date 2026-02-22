@@ -591,7 +591,9 @@ pub mod bench {
 
             let start = Instant::now();
             for _ in 0..iterations {
-                accumulator.accumulate_simd(&gradients, None).unwrap();
+                accumulator
+                    .accumulate_simd(&gradients, None)
+                    .expect("simd accumulation should succeed");
             }
             let duration = start.elapsed();
 

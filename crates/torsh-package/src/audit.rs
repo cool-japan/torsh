@@ -584,7 +584,7 @@ mod tests {
 
     #[test]
     fn test_audit_logger() {
-        let config = AuditLogConfig::new(PathBuf::from("/tmp/test-audit.log"));
+        let config = AuditLogConfig::new(std::env::temp_dir().join("test-audit.log"));
         let mut logger = AuditLogger::new(config).unwrap();
 
         let event = AuditEvent::new(AuditEventType::PackageDownload, "Test download".to_string());
@@ -596,7 +596,7 @@ mod tests {
 
     #[test]
     fn test_log_download() {
-        let config = AuditLogConfig::new(PathBuf::from("/tmp/test-audit.log"));
+        let config = AuditLogConfig::new(std::env::temp_dir().join("test-audit.log"));
         let mut logger = AuditLogger::new(config).unwrap();
 
         logger
@@ -608,7 +608,7 @@ mod tests {
 
     #[test]
     fn test_log_access_denied() {
-        let config = AuditLogConfig::new(PathBuf::from("/tmp/test-audit.log"));
+        let config = AuditLogConfig::new(std::env::temp_dir().join("test-audit.log"));
         let mut logger = AuditLogger::new(config).unwrap();
 
         logger
@@ -620,7 +620,7 @@ mod tests {
 
     #[test]
     fn test_security_violation_logging() {
-        let config = AuditLogConfig::new(PathBuf::from("/tmp/test-audit.log"));
+        let config = AuditLogConfig::new(std::env::temp_dir().join("test-audit.log"));
         let mut logger = AuditLogger::new(config).unwrap();
 
         logger
@@ -647,7 +647,7 @@ mod tests {
 
     #[test]
     fn test_buffer_flush() {
-        let mut config = AuditLogConfig::new(PathBuf::from("/tmp/test-audit.log"));
+        let mut config = AuditLogConfig::new(std::env::temp_dir().join("test-audit.log"));
         config.buffer_size = 2;
 
         let mut logger = AuditLogger::new(config).unwrap();

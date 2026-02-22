@@ -7,6 +7,11 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 description = "Model packaging and distribution utilities for ToRSh"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-package"
+rust-version.workspace = true
+keywords = ["deep-learning", "model-packaging", "deployment", "machine-learning", "serialization"]
+categories = ["science", "encoding"]
 
 [lints]
 workspace = true
@@ -24,7 +29,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 oxicode = { workspace = true }
 thiserror = { workspace = true }
-zip = { workspace = true }
+oxiarc-archive = { workspace = true }
 tar = { workspace = true }
 flate2 = { workspace = true }
 sha2 = { workspace = true }
@@ -48,9 +53,9 @@ scirs2-core = { workspace = true, features = ["parallel"] }
 # Utilities
 uuid = { workspace = true, features = ["v4"] }
 rand = { workspace = true }
-md5 = "0.8"
-hostname = "0.4"
-once_cell = "1.21"
+md5 = { workspace = true }
+hostname = { workspace = true }
+once_cell = { workspace = true }
 
 # Async support (optional)
 tokio = { workspace = true, optional = true, features = ["fs", "io-util", "time", "sync"] }
@@ -58,7 +63,7 @@ futures = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
-torsh-nn = { path = "../torsh-nn" }
+torsh-nn = { workspace = true }
 criterion = { workspace = true, features = ["html_reports"] }
 
 # Temporarily disabled due to API changes

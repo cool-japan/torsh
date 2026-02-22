@@ -4,7 +4,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/torsh.svg)](https://crates.io/crates/torsh)
 [![Documentation](https://docs.rs/torsh/badge.svg)](https://docs.rs/torsh)
-[![MIT/Apache 2.0](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](./LICENSE-MIT)
+[![Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](./LICENSE)
 [![Build Status](https://github.com/cool-japan/torsh/workflows/CI/badge.svg)](https://github.com/cool-japan/torsh/actions)
 [![SciRS2 Integration](https://img.shields.io/badge/SciRS2-100%25%20Integrated-brightgreen.svg)](https://github.com/cool-japan/scirs)
 
@@ -99,12 +99,12 @@ Add ToRSh to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-torsh = "0.1.0-beta.1"
-torsh-nn = "0.1.0-beta.1"      # Neural networks
-torsh-graph = "0.1.0-beta.1"   # Graph neural networks
-torsh-series = "0.1.0-beta.1"  # Time series analysis
-torsh-vision = "0.1.0-beta.1"  # Computer vision
-torsh-metrics = "0.1.0-beta.1" # Evaluation metrics
+torsh = "0.1.0"
+torsh-nn = "0.1.0"      # Neural networks
+torsh-graph = "0.1.0"   # Graph neural networks
+torsh-series = "0.1.0"  # Time series analysis
+torsh-vision = "0.1.0"  # Computer vision
+torsh-metrics = "0.1.0" # Evaluation metrics
 ```
 
 ## 🚀 Quick Start
@@ -339,24 +339,24 @@ cargo bench --package torsh-benches -- advanced_optimizers
 
 ## 🎯 Where We're Going
 
-### Alpha → Beta Roadmap
+### Roadmap
 
-**Alpha Phase (Current)** - *Foundations*
+**v0.1.0 (Current)** - *Initial Release*
 - ✅ Core tensor operations with PyTorch API compatibility
 - ✅ Automatic differentiation engine
 - ✅ Essential neural network layers
 - ✅ CPU backend with SIMD optimizations
 - ✅ Comprehensive SciRS2 integration (18 crates)
+- ✅ 100% Pure Rust (default features)
 
-**Beta Phase** - *Production Hardening*
-- 🔄 API stabilization and refinement
-- 🔄 Complete CUDA backend with cuDNN integration
+**v0.2.0** - *Performance & Polish*
+- 🔄 Enhanced CUDA backend with cuDNN integration
 - 🔄 Enhanced distributed training capabilities
 - 🔄 Performance optimization and profiling tools
 - 🔄 Comprehensive documentation and examples
 
 **v1.0 Vision** - *Production Ready*
-- 🎯 100% PyTorch API compatibility for common workflows
+- 🎯 95%+ PyTorch API compatibility for common workflows
 - 🎯 Full GPU acceleration (CUDA, Metal, WebGPU)
 - 🎯 Enterprise-grade deployment tools
 - 🎯 Extensive pre-trained model zoo
@@ -546,19 +546,19 @@ make test     # Full test suite
 make docs     # Build documentation
 ```
 
-### What to Expect in Alpha
+### Getting Started
 
-- ✅ Core functionality is stable and tested (1000+ tests passing)
-- ⚠️ APIs may change based on feedback
-- ⚠️ Some features are experimental
-- ⚠️ Documentation is growing but not complete
+- ✅ Core functionality is stable and tested (9,000+ tests passing)
+- ✅ APIs are stabilized for core crates
+- ⚠️ Some advanced features are still under active development
+- ✅ Comprehensive documentation available
 - ✅ We're responsive to issues and feedback
 
-Your early adoption and feedback directly influences ToRSh's evolution!
+Your adoption and feedback directly influences ToRSh's evolution!
 
 ## 📄 License
 
-ToRSh is dual-licensed under MIT and Apache 2.0 licenses. See [LICENSE-MIT](./LICENSE-MIT) and [LICENSE-APACHE](./LICENSE-APACHE) for details.
+ToRSh is licensed under the Apache License, Version 2.0. See [LICENSE](./LICENSE) for details.
 
 ## 🙏 Acknowledgments
 

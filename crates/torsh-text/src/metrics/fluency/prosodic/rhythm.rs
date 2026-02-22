@@ -404,7 +404,7 @@ impl RhythmTemplateMatcher {
         }
 
         // Sort matches by confidence
-        matches.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap());
+        matches.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap_or(std::cmp::Ordering::Equal));
 
         Ok(matches)
     }
@@ -649,7 +649,7 @@ impl RhythmClassifier {
         // Find best classification
         let (primary_class, primary_score) = class_scores
             .iter()
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .map(|(class, &score)| (class.clone(), score))
             .unwrap_or((RhythmClass::Irregular, 0.0));
 
@@ -1358,6 +1358,6 @@ impl Default for RhythmAnalyzer {
             rhythm_complexity_threshold: 0.5,
             min_pattern_length: 3,
         })
-        .unwrap()
+        .expect("rhythm config should be valid")
     }
 }

@@ -638,7 +638,10 @@ impl CommunicationEfficientGradient {
             self.accumulation_buffer = Some(HashMap::new());
         }
 
-        let buffer = self.accumulation_buffer.as_mut().unwrap();
+        let buffer = self
+            .accumulation_buffer
+            .as_mut()
+            .expect("accumulation buffer should be initialized");
 
         for (param_name, gradient) in &self.original_gradient {
             let accumulated = buffer

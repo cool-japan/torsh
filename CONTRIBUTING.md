@@ -4,7 +4,7 @@ Thank you for your interest in contributing to ToRSh! This document provides gui
 
 ## 🎯 Project Status
 
-ToRSh is currently in **beta stage** (v0.1.0-beta.1). We're actively working towards production release (v1.0). Your contributions help us build a production-ready deep learning framework in pure Rust.
+ToRSh v0.1.0 is now released. We're actively working towards v1.0. Your contributions help us build a production-ready deep learning framework in pure Rust.
 
 ## 🚀 Getting Started
 
@@ -248,11 +248,7 @@ docs(nn): add examples for custom layer implementation
 
 ## ⚖️ License
 
-By contributing to ToRSh, you agree that your contributions will be licensed under either:
-- Apache License, Version 2.0 ([LICENSE-APACHE](./LICENSE-APACHE))
-- MIT license ([LICENSE-MIT](./LICENSE-MIT))
-
-at the user's option (dual-licensed).
+By contributing to ToRSh, you agree that your contributions will be licensed under the Apache License, Version 2.0 ([LICENSE](./LICENSE)).
 
 ## 🤝 Code of Conduct
 
@@ -299,5 +295,5 @@ Every contribution, no matter how small, helps make ToRSh better. Whether you're
 
 ---
 
-**Last Updated**: December 30, 2025
-**Version**: 0.1.0-beta.1
+**Last Updated**: February 19, 2026
+**Version**: 0.1.0

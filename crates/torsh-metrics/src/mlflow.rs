@@ -29,7 +29,8 @@ impl MLflowClient {
     /// Create a new MLflow client
     pub fn new(tracking_uri: impl Into<String>, experiment_name: impl Into<String>) -> Self {
         let experiment_name = experiment_name.into();
-        let artifact_location = PathBuf::from("/tmp/mlflow-artifacts")
+        let artifact_location = std::env::temp_dir()
+            .join("mlflow-artifacts")
             .join(&experiment_name)
             .join(format!("run_{}", generate_run_id()));
 

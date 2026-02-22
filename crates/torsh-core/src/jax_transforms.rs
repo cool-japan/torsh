@@ -733,7 +733,13 @@ mod tests {
         registry.register(metadata.clone());
 
         assert_eq!(registry.len(), 1);
-        assert_eq!(registry.get(TransformId::new(1)).unwrap().name, "test");
+        assert_eq!(
+            registry
+                .get(TransformId::new(1))
+                .expect("get should succeed")
+                .name,
+            "test"
+        );
     }
 
     #[test]
@@ -775,8 +781,20 @@ mod tests {
             .with_metadata("key1", "value1")
             .with_metadata("key2", "value2");
 
-        assert_eq!(metadata.custom_metadata.get("key1").unwrap(), "value1");
-        assert_eq!(metadata.custom_metadata.get("key2").unwrap(), "value2");
+        assert_eq!(
+            metadata
+                .custom_metadata
+                .get("key1")
+                .expect("key1 should exist"),
+            "value1"
+        );
+        assert_eq!(
+            metadata
+                .custom_metadata
+                .get("key2")
+                .expect("key2 should exist"),
+            "value2"
+        );
     }
 
     #[test]

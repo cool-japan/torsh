@@ -3,6 +3,7 @@
 //! These tests verify end-to-end functionality of the package system,
 //! including complex scenarios and edge cases.
 
+use oxiarc_archive::zip::ZipCompressionLevel;
 use tempfile::TempDir;
 use torsh_package::{
     BuilderConfig, ExportConfig, ImportConfig, Package, PackageBuilder, PackageExporter,
@@ -110,7 +111,7 @@ fn test_complete_package_lifecycle() {
 /// Test package with compression settings
 #[test]
 fn test_compression_levels() {
-    let temp_dir = TempDir::new().unwrap();
+    let temp_dir = TempDir::new().expect("Failed to create temp directory");
 
     // Create test data - highly compressible
     let compressible_data = "A".repeat(10000);
@@ -126,29 +127,35 @@ fn test_compression_levels() {
         .insert(resource.name.clone(), resource);
 
     // Test different compression levels
-    let compression_levels = vec![1, 6, 9];
+    let compression_levels = vec![
+        ("fastest", ZipCompressionLevel::Fast),
+        ("normal", ZipCompressionLevel::Normal),
+        ("best", ZipCompressionLevel::Best),
+    ];
     let mut file_sizes = Vec::new();
 
-    for level in compression_levels {
+    for (name, level) in compression_levels {
         let path = temp_dir
             .path()
-            .join(format!("compression_level_{}.torshpkg", level));
+            .join(format!("compression_{}.torshpkg", name));
 
         let config = ExportConfig {
-            compression_level: Some(level),
+            compression: level,
             ..Default::default()
         };
 
         let exporter = PackageExporter::new(config);
-        exporter.export_package(&package, &path).unwrap();
+        exporter
+            .export_package(&package, &path)
+            .expect("Failed to export package");
 
-        let metadata = std::fs::metadata(&path).unwrap();
+        let metadata = std::fs::metadata(&path).expect("Failed to read exported package metadata");
         file_sizes.push(metadata.len());
 
         // Verify we can still load the compressed package
-        let loaded = Package::load(&path).unwrap();
+        let loaded = Package::load(&path).expect("Failed to load compressed package");
         assert_eq!(loaded.metadata().name, "compression_test");
-        assert!(loaded.verify().unwrap());
+        assert!(loaded.verify().expect("Failed to verify loaded package"));
     }
 
     // Higher compression levels should produce smaller files (generally)

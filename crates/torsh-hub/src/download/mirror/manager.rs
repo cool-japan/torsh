@@ -47,7 +47,7 @@ use torsh_core::error::{Result, TorshError};
 /// // Download with automatic mirror selection and failover
 /// let result = manager.download_with_mirrors(
 ///     "models/bert-base-uncased.torsh",
-///     Path::new("/tmp/model.torsh"),
+///     &std::env::temp_dir().join("model.torsh"),
 ///     true
 /// ).await;
 /// # });

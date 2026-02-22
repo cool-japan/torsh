@@ -50,71 +50,72 @@ impl Benchmarkable for EdgeInferenceBench {
     fn setup(&mut self, size: usize) -> Self::Input {
         match self.model_type {
             EdgeModelType::MobileNetV3 => {
-                let input = rand::<f32>(&[1, 3, 224, 224]).unwrap(); // Standard mobile input
+                let input = rand::<f32>(&[1, 3, 224, 224]).expect("tensor creation should succeed"); // Standard mobile input
                 let weights = vec![
-                    rand::<f32>(&[32, 3, 3, 3]).unwrap(),  // Initial conv
-                    rand::<f32>(&[32]).unwrap(),           // Bias
-                    rand::<f32>(&[96, 32, 1, 1]).unwrap(), // Depthwise conv
-                    rand::<f32>(&[96]).unwrap(),           // Bias
-                    rand::<f32>(&[1000, 96]).unwrap(),     // Final linear
-                    rand::<f32>(&[1000]).unwrap(),         // Final bias
+                    rand::<f32>(&[32, 3, 3, 3]).expect("tensor creation should succeed"), // Initial conv
+                    rand::<f32>(&[32]).expect("tensor creation should succeed"),          // Bias
+                    rand::<f32>(&[96, 32, 1, 1]).expect("tensor creation should succeed"), // Depthwise conv
+                    rand::<f32>(&[96]).expect("tensor creation should succeed"),           // Bias
+                    rand::<f32>(&[1000, 96]).expect("tensor creation should succeed"), // Final linear
+                    rand::<f32>(&[1000]).expect("tensor creation should succeed"),     // Final bias
                 ];
                 (input, weights)
             }
             EdgeModelType::SqueezeNet => {
-                let input = rand::<f32>(&[1, 3, 227, 227]).unwrap();
+                let input = rand::<f32>(&[1, 3, 227, 227]).expect("tensor creation should succeed");
                 let weights = vec![
-                    rand::<f32>(&[96, 3, 7, 7]).unwrap(),  // Conv1
-                    rand::<f32>(&[16, 96, 1, 1]).unwrap(), // Fire module squeeze
-                    rand::<f32>(&[64, 16, 1, 1]).unwrap(), // Fire module expand1x1
-                    rand::<f32>(&[64, 16, 3, 3]).unwrap(), // Fire module expand3x3
-                    rand::<f32>(&[1000, 128]).unwrap(),    // Final conv
+                    rand::<f32>(&[96, 3, 7, 7]).expect("tensor creation should succeed"), // Conv1
+                    rand::<f32>(&[16, 96, 1, 1]).expect("tensor creation should succeed"), // Fire module squeeze
+                    rand::<f32>(&[64, 16, 1, 1]).expect("tensor creation should succeed"), // Fire module expand1x1
+                    rand::<f32>(&[64, 16, 3, 3]).expect("tensor creation should succeed"), // Fire module expand3x3
+                    rand::<f32>(&[1000, 128]).expect("tensor creation should succeed"), // Final conv
                 ];
                 (input, weights)
             }
             EdgeModelType::TinyBERT => {
                 let seq_len = std::cmp::min(size, 128); // Limit sequence length for edge
-                let input = rand::<f32>(&[1, seq_len, 312]).unwrap(); // Reduced hidden size
+                let input =
+                    rand::<f32>(&[1, seq_len, 312]).expect("tensor creation should succeed"); // Reduced hidden size
                 let weights = vec![
-                    rand::<f32>(&[312, 312]).unwrap(),  // Query
-                    rand::<f32>(&[312, 312]).unwrap(),  // Key
-                    rand::<f32>(&[312, 312]).unwrap(),  // Value
-                    rand::<f32>(&[312, 312]).unwrap(),  // Output projection
-                    rand::<f32>(&[1248, 312]).unwrap(), // FFN intermediate
-                    rand::<f32>(&[312, 1248]).unwrap(), // FFN output
+                    rand::<f32>(&[312, 312]).expect("tensor creation should succeed"), // Query
+                    rand::<f32>(&[312, 312]).expect("tensor creation should succeed"), // Key
+                    rand::<f32>(&[312, 312]).expect("tensor creation should succeed"), // Value
+                    rand::<f32>(&[312, 312]).expect("tensor creation should succeed"), // Output projection
+                    rand::<f32>(&[1248, 312]).expect("tensor creation should succeed"), // FFN intermediate
+                    rand::<f32>(&[312, 1248]).expect("tensor creation should succeed"), // FFN output
                 ];
                 (input, weights)
             }
             EdgeModelType::QuantizedResNet => {
-                let input = rand::<f32>(&[1, 3, 224, 224]).unwrap();
+                let input = rand::<f32>(&[1, 3, 224, 224]).expect("tensor creation should succeed");
                 let weights = vec![
-                    rand::<f32>(&[64, 3, 7, 7]).unwrap(), // Initial conv (simulated INT8 as F32)
-                    rand::<f32>(&[64, 64, 3, 3]).unwrap(), // Basic block conv1
-                    rand::<f32>(&[64, 64, 3, 3]).unwrap(), // Basic block conv2
-                    rand::<f32>(&[1000, 64]).unwrap(),    // Final linear
+                    rand::<f32>(&[64, 3, 7, 7]).expect("tensor creation should succeed"), // Initial conv (simulated INT8 as F32)
+                    rand::<f32>(&[64, 64, 3, 3]).expect("tensor creation should succeed"), // Basic block conv1
+                    rand::<f32>(&[64, 64, 3, 3]).expect("tensor creation should succeed"), // Basic block conv2
+                    rand::<f32>(&[1000, 64]).expect("tensor creation should succeed"), // Final linear
                 ];
                 (input, weights)
             }
             EdgeModelType::PrunedMobileNet => {
-                let input = rand::<f32>(&[1, 3, 224, 224]).unwrap();
+                let input = rand::<f32>(&[1, 3, 224, 224]).expect("tensor creation should succeed");
                 // Simulated pruned weights with sparsity
                 let weights = vec![
                     create_sparse_tensor(&[32, 3, 3, 3], 0.3), // 30% sparsity
-                    rand::<f32>(&[32]).unwrap(),
+                    rand::<f32>(&[32]).expect("tensor creation should succeed"),
                     create_sparse_tensor(&[96, 32, 1, 1], 0.5), // 50% sparsity
-                    rand::<f32>(&[96]).unwrap(),
+                    rand::<f32>(&[96]).expect("tensor creation should succeed"),
                     create_sparse_tensor(&[1000, 96], 0.7), // 70% sparsity
                 ];
                 (input, weights)
             }
             EdgeModelType::DistilledModel => {
-                let input = rand::<f32>(&[1, 3, 128, 128]).unwrap(); // Smaller input for distilled model
+                let input = rand::<f32>(&[1, 3, 128, 128]).expect("tensor creation should succeed"); // Smaller input for distilled model
                 let weights = vec![
-                    rand::<f32>(&[16, 3, 3, 3]).unwrap(), // Reduced channels
-                    rand::<f32>(&[16]).unwrap(),
-                    rand::<f32>(&[32, 16, 3, 3]).unwrap(),
-                    rand::<f32>(&[32]).unwrap(),
-                    rand::<f32>(&[1000, 32]).unwrap(), // Much smaller final layer
+                    rand::<f32>(&[16, 3, 3, 3]).expect("tensor creation should succeed"), // Reduced channels
+                    rand::<f32>(&[16]).expect("tensor creation should succeed"),
+                    rand::<f32>(&[32, 16, 3, 3]).expect("tensor creation should succeed"),
+                    rand::<f32>(&[32]).expect("tensor creation should succeed"),
+                    rand::<f32>(&[1000, 32]).expect("tensor creation should succeed"), // Much smaller final layer
                 ];
                 (input, weights)
             }
@@ -374,38 +375,38 @@ impl Benchmarkable for EdgeMemoryBench {
             AllocationPattern::Static => {
                 // Pre-allocate fixed-size tensors
                 vec![
-                    zeros::<f32>(&[tensor_size]).unwrap(),
-                    zeros::<f32>(&[tensor_size]).unwrap(),
-                    zeros::<f32>(&[tensor_size]).unwrap(),
-                    zeros::<f32>(&[tensor_size]).unwrap(),
+                    zeros::<f32>(&[tensor_size]).expect("tensor creation should succeed"),
+                    zeros::<f32>(&[tensor_size]).expect("tensor creation should succeed"),
+                    zeros::<f32>(&[tensor_size]).expect("tensor creation should succeed"),
+                    zeros::<f32>(&[tensor_size]).expect("tensor creation should succeed"),
                 ]
             }
             AllocationPattern::Dynamic => {
                 // Create tensors of varying sizes
                 vec![
-                    rand::<f32>(&[tensor_size / 4]).unwrap(),
-                    rand::<f32>(&[tensor_size / 2]).unwrap(),
-                    rand::<f32>(&[tensor_size]).unwrap(),
-                    rand::<f32>(&[tensor_size / 8]).unwrap(),
+                    rand::<f32>(&[tensor_size / 4]).expect("tensor creation should succeed"),
+                    rand::<f32>(&[tensor_size / 2]).expect("tensor creation should succeed"),
+                    rand::<f32>(&[tensor_size]).expect("tensor creation should succeed"),
+                    rand::<f32>(&[tensor_size / 8]).expect("tensor creation should succeed"),
                 ]
             }
             AllocationPattern::Streaming => {
                 // Small tensors for streaming
                 let stream_size = std::cmp::min(1024, tensor_size / 10);
                 vec![
-                    rand::<f32>(&[stream_size]).unwrap(),
-                    rand::<f32>(&[stream_size]).unwrap(),
-                    rand::<f32>(&[stream_size]).unwrap(),
-                    rand::<f32>(&[stream_size]).unwrap(),
+                    rand::<f32>(&[stream_size]).expect("tensor creation should succeed"),
+                    rand::<f32>(&[stream_size]).expect("tensor creation should succeed"),
+                    rand::<f32>(&[stream_size]).expect("tensor creation should succeed"),
+                    rand::<f32>(&[stream_size]).expect("tensor creation should succeed"),
                 ]
             }
             AllocationPattern::Cached => {
                 // Mix of small and large tensors for caching
                 vec![
-                    rand::<f32>(&[tensor_size / 2]).unwrap(), // Large cached tensor
-                    rand::<f32>(&[tensor_size / 16]).unwrap(), // Small working tensor
-                    rand::<f32>(&[tensor_size / 8]).unwrap(), // Medium cached tensor
-                    rand::<f32>(&[tensor_size / 32]).unwrap(), // Tiny working tensor
+                    rand::<f32>(&[tensor_size / 2]).expect("tensor creation should succeed"), // Large cached tensor
+                    rand::<f32>(&[tensor_size / 16]).expect("tensor creation should succeed"), // Small working tensor
+                    rand::<f32>(&[tensor_size / 8]).expect("tensor creation should succeed"), // Medium cached tensor
+                    rand::<f32>(&[tensor_size / 32]).expect("tensor creation should succeed"), // Tiny working tensor
                 ]
             }
         }
@@ -472,7 +473,7 @@ pub struct EdgeMemoryMetrics {
 // Helper functions
 
 fn create_sparse_tensor(shape: &[usize], _sparsity: f32) -> Tensor<f32> {
-    let data = rand::<f32>(shape).unwrap();
+    let data = rand::<f32>(shape).expect("tensor creation should succeed");
     // Simulate sparsity by zeroing out elements (simplified)
     // In a real implementation, this would use proper sparse tensor format
     data
@@ -703,7 +704,7 @@ fn mock_conv2d(input: &Tensor<f32>, weight: &Tensor<f32>) -> Tensor<f32> {
     let weight_shape = weight.shape();
     let weight_dims = weight_shape.dims();
     let output_shape = vec![input_dims[0], weight_dims[0], input_dims[2], input_dims[3]];
-    rand::<f32>(&output_shape).unwrap()
+    rand::<f32>(&output_shape).expect("tensor creation should succeed")
 }
 
 fn mock_depthwise_conv(input: &Tensor<f32>, _weight: &Tensor<f32>) -> Tensor<f32> {
@@ -711,7 +712,7 @@ fn mock_depthwise_conv(input: &Tensor<f32>, _weight: &Tensor<f32>) -> Tensor<f32
     let input_shape = input.shape();
     let input_dims = input_shape.dims();
     let output_shape = vec![input_dims[0], input_dims[1], input_dims[2], input_dims[3]];
-    rand::<f32>(&output_shape).unwrap()
+    rand::<f32>(&output_shape).expect("tensor creation should succeed")
 }
 
 fn mock_linear(
@@ -726,7 +727,7 @@ fn mock_linear(
     let weight_dims = weight_shape.dims();
     if input_dims.len() >= 2 && weight_dims.len() >= 2 {
         let output_shape = vec![input_dims[0], weight_dims[0]];
-        rand::<f32>(&output_shape).unwrap()
+        rand::<f32>(&output_shape).expect("tensor creation should succeed")
     } else {
         input.clone()
     }
@@ -761,7 +762,7 @@ fn mock_global_avgpool(input: &Tensor<f32>) -> Tensor<f32> {
     let input_shape = input.shape();
     let input_dims = input_shape.dims();
     if input_dims.len() == 4 {
-        rand::<f32>(&[input_dims[0], input_dims[1]]).unwrap()
+        rand::<f32>(&[input_dims[0], input_dims[1]]).expect("tensor creation should succeed")
     } else {
         input.clone()
     }
@@ -868,10 +869,10 @@ pub fn run_edge_deployment_benchmarks() {
     // Generate edge-specific report
     runner
         .generate_report("target/edge_deployment_reports")
-        .unwrap();
+        .expect("report generation should succeed");
     runner
         .export_csv("target/edge_deployment_results.csv")
-        .unwrap();
+        .expect("CSV export should succeed");
 }
 
 #[cfg(test)]

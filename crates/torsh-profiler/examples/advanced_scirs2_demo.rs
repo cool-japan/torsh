@@ -115,9 +115,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Export comprehensive profiling data
     println!("💾 Exporting Enhanced SciRS2 Data:");
-    let export_path = "/tmp/advanced_scirs2_demo.json";
-    profiler.export_scirs2_format(export_path)?;
-    println!("   ✅ Enhanced data exported to {}", export_path);
+    let export_path = std::env::temp_dir().join("advanced_scirs2_demo.json");
+    let export_str = export_path.display().to_string();
+    profiler.export_scirs2_format(&export_str)?;
+    println!("   ✅ Enhanced data exported to {}", export_str);
     println!();
 
     println!("🎯 Advanced SciRS2-Enhanced Profiling Complete!");

@@ -1064,8 +1064,9 @@ impl NumericalGradientComparator {
         }
 
         // Sort rankings
-        accuracy_ranking.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-        performance_ranking.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        accuracy_ranking.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+        performance_ranking
+            .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
         // Compute consensus gradient
         let num_elements = method_results

@@ -350,7 +350,8 @@ mod integration_tests {
     #[test]
     fn test_tensor_creation_and_basic_ops() {
         let data = vec![1.0f32, 2.0, 3.0, 4.0];
-        let tensor = Tensor::from_data(data, vec![2, 2], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![2, 2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
         assert_eq!(tensor.shape().dims(), &[2, 2]);
         assert_eq!(tensor.numel(), 4);
@@ -360,63 +361,92 @@ mod integration_tests {
     #[test]
     fn test_tensor_reshape_and_view() {
         let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0];
-        let tensor = Tensor::from_data(data, vec![2, 3], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![2, 3], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let reshaped = tensor.view(&[3, 2]).unwrap();
+        let reshaped = tensor.view(&[3, 2]).expect("view should succeed");
         assert_eq!(reshaped.shape().dims(), &[3, 2]);
 
-        let slice = tensor.slice_tensor(0, 0, 1).unwrap();
+        let slice = tensor
+            .slice_tensor(0, 0, 1)
+            .expect("slice_tensor should succeed");
         assert_eq!(slice.shape().dims(), &[1, 3]);
     }
 
     #[test]
     fn test_tensor_math_operations() {
-        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
-        let b = Tensor::from_data(vec![4.0f32, 5.0, 6.0], vec![3], DeviceType::Cpu).unwrap();
+        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
+        let b = Tensor::from_data(vec![4.0f32, 5.0, 6.0], vec![3], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let sum = a.add(&b).unwrap();
-        assert_eq!(sum.data().unwrap(), vec![5.0, 7.0, 9.0]);
+        let sum = a.add(&b).expect("addition should succeed");
+        assert_eq!(
+            sum.data().expect("data retrieval should succeed"),
+            vec![5.0, 7.0, 9.0]
+        );
 
-        let product = a.mul(&b).unwrap();
-        assert_eq!(product.data().unwrap(), vec![4.0, 10.0, 18.0]);
+        let product = a.mul(&b).expect("multiplication should succeed");
+        assert_eq!(
+            product.data().expect("data retrieval should succeed"),
+            vec![4.0, 10.0, 18.0]
+        );
     }
 
     #[test]
     fn test_tensor_advanced_operations() {
         let data = vec![1.0f32, 4.0, 9.0, 16.0];
-        let tensor = Tensor::from_data(data, vec![4], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![4], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let sqrt_result = tensor.sqrt().unwrap();
-        assert_eq!(sqrt_result.data().unwrap(), vec![1.0, 2.0, 3.0, 4.0]);
+        let sqrt_result = tensor.sqrt().expect("sqrt should succeed");
+        assert_eq!(
+            sqrt_result.data().expect("data retrieval should succeed"),
+            vec![1.0, 2.0, 3.0, 4.0]
+        );
 
-        let norm = tensor.norm().unwrap();
-        assert!(norm.item().unwrap() > 0.0);
+        let norm = tensor.norm().expect("norm should succeed");
+        assert!(norm.item().expect("item extraction should succeed") > 0.0);
     }
 
     #[test]
     fn test_tensor_data_operations() {
-        let mut tensor = Tensor::<f32>::zeros(&[2, 3], DeviceType::Cpu).unwrap();
+        let mut tensor =
+            Tensor::<f32>::zeros(&[2, 3], DeviceType::Cpu).expect("zeros creation should succeed");
 
-        tensor.fill_(5.0).unwrap();
-        assert_eq!(tensor.get_item(&[0, 0]).unwrap(), 5.0);
+        tensor.fill_(5.0).expect("fill should succeed");
+        assert_eq!(
+            tensor.get_item(&[0, 0]).expect("get_item should succeed"),
+            5.0
+        );
 
-        let indices = Tensor::from_data(vec![0i64, 2], vec![2], DeviceType::Cpu).unwrap();
-        let _src = Tensor::from_data(vec![10.0f32, 20.0], vec![2], DeviceType::Cpu).unwrap();
+        let indices = Tensor::from_data(vec![0i64, 2], vec![2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
+        let _src = Tensor::from_data(vec![10.0f32, 20.0], vec![2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
         let data_1d = vec![1.0f32, 2.0, 3.0, 4.0, 5.0];
-        let tensor_1d = Tensor::from_data(data_1d, vec![5], DeviceType::Cpu).unwrap();
-        let gathered = tensor_1d.gather(0, &indices).unwrap();
-        assert_eq!(gathered.data().unwrap(), vec![1.0, 3.0]);
+        let tensor_1d = Tensor::from_data(data_1d, vec![5], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
+        let gathered = tensor_1d
+            .gather(0, &indices)
+            .expect("gather should succeed");
+        assert_eq!(
+            gathered.data().expect("data retrieval should succeed"),
+            vec![1.0, 3.0]
+        );
     }
 
     #[test]
     fn test_tensor_storage_optimization() {
         // Small tensor should use in-memory storage
-        let small = Tensor::<f32>::zeros(&[10], DeviceType::Cpu).unwrap();
+        let small =
+            Tensor::<f32>::zeros(&[10], DeviceType::Cpu).expect("zeros creation should succeed");
         assert_eq!(small.storage_type(), "in_memory");
 
         // Test copy-on-write behavior
-        let tensor1 = Tensor::<f32>::ones(&[5], DeviceType::Cpu).unwrap();
+        let tensor1 =
+            Tensor::<f32>::ones(&[5], DeviceType::Cpu).expect("ones creation should succeed");
         let tensor2 = tensor1.clone();
         assert!(tensor1.shares_storage(&tensor2));
     }
@@ -424,7 +454,7 @@ mod integration_tests {
     #[test]
     fn test_gradient_operations() {
         let tensor = Tensor::<f32>::ones(&[2, 2], DeviceType::Cpu)
-            .unwrap()
+            .expect("ones creation should succeed")
             .requires_grad_(true);
 
         assert!(tensor.requires_grad());

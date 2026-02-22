@@ -1232,7 +1232,10 @@ mod tests {
 
         let result = validator.validate_elementwise(&[&shape1, &shape2], "add");
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), vec![3, 4]);
+        assert_eq!(
+            result.expect("validate_elementwise should succeed"),
+            vec![3, 4]
+        );
     }
 
     #[test]
@@ -1253,7 +1256,7 @@ mod tests {
 
         let result = validator.validate_matmul(&left, &right);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), vec![3, 5]);
+        assert_eq!(result.expect("validate_matmul should succeed"), vec![3, 5]);
     }
 
     #[test]
@@ -1467,7 +1470,10 @@ mod tests {
         // Valid reduction
         let result = validator.validate_reduction(&input, Some(&[1]), true, "sum");
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), vec![2, 1, 4]);
+        assert_eq!(
+            result.expect("validate_reduction should succeed"),
+            vec![2, 1, 4]
+        );
 
         // Invalid dimension
         let result = validator.validate_reduction(&input, Some(&[5]), false, "mean");
@@ -1486,7 +1492,7 @@ mod tests {
         // Valid indexing
         let result = validator.validate_indexing(&shape, &[5, 10]);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), vec![30]);
+        assert_eq!(result.expect("validate_indexing should succeed"), vec![30]);
 
         // Out of bounds positive index
         let result = validator.validate_indexing(&shape, &[15, 5]);

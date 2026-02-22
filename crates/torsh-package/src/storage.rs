@@ -602,15 +602,17 @@ mod tests {
 
     #[test]
     fn test_local_storage_creation() {
-        let temp_dir = TempDir::new().unwrap();
-        let storage = LocalStorage::new(temp_dir.path().to_path_buf()).unwrap();
+        let temp_dir = TempDir::new().expect("Failed to create temp directory for test");
+        let storage = LocalStorage::new(temp_dir.path().to_path_buf())
+            .expect("Failed to create storage path");
         assert_eq!(storage.backend_type(), "local");
     }
 
     #[test]
     fn test_local_storage_put_get() {
-        let temp_dir = TempDir::new().unwrap();
-        let mut storage = LocalStorage::new(temp_dir.path().to_path_buf()).unwrap();
+        let temp_dir = TempDir::new().expect("Failed to create temp directory for test");
+        let mut storage = LocalStorage::new(temp_dir.path().to_path_buf())
+            .expect("Failed to create storage path");
 
         let data = b"test package data";
         storage.put("test/package.bin", data).unwrap();
@@ -621,8 +623,9 @@ mod tests {
 
     #[test]
     fn test_local_storage_exists() {
-        let temp_dir = TempDir::new().unwrap();
-        let mut storage = LocalStorage::new(temp_dir.path().to_path_buf()).unwrap();
+        let temp_dir = TempDir::new().expect("Failed to create temp directory for test");
+        let mut storage = LocalStorage::new(temp_dir.path().to_path_buf())
+            .expect("Failed to create storage path");
 
         assert!(!storage.exists("nonexistent").unwrap());
 
@@ -632,8 +635,9 @@ mod tests {
 
     #[test]
     fn test_local_storage_delete() {
-        let temp_dir = TempDir::new().unwrap();
-        let mut storage = LocalStorage::new(temp_dir.path().to_path_buf()).unwrap();
+        let temp_dir = TempDir::new().expect("Failed to create temp directory for test");
+        let mut storage = LocalStorage::new(temp_dir.path().to_path_buf())
+            .expect("Failed to create storage path");
 
         storage.put("to_delete", b"data").unwrap();
         assert!(storage.exists("to_delete").unwrap());
@@ -644,8 +648,9 @@ mod tests {
 
     #[test]
     fn test_local_storage_list() {
-        let temp_dir = TempDir::new().unwrap();
-        let mut storage = LocalStorage::new(temp_dir.path().to_path_buf()).unwrap();
+        let temp_dir = TempDir::new().expect("Failed to create temp directory for test");
+        let mut storage = LocalStorage::new(temp_dir.path().to_path_buf())
+            .expect("Failed to create storage path");
 
         storage.put("models/model1.bin", b"data1").unwrap();
         storage.put("models/model2.bin", b"data2").unwrap();
@@ -660,8 +665,9 @@ mod tests {
 
     #[test]
     fn test_local_storage_metadata() {
-        let temp_dir = TempDir::new().unwrap();
-        let mut storage = LocalStorage::new(temp_dir.path().to_path_buf()).unwrap();
+        let temp_dir = TempDir::new().expect("Failed to create temp directory for test");
+        let mut storage = LocalStorage::new(temp_dir.path().to_path_buf())
+            .expect("Failed to create storage path");
 
         let data = b"test data";
         storage.put("metadata_test", data).unwrap();
@@ -673,8 +679,9 @@ mod tests {
 
     #[test]
     fn test_storage_manager_caching() {
-        let temp_dir = TempDir::new().unwrap();
-        let storage = LocalStorage::new(temp_dir.path().to_path_buf()).unwrap();
+        let temp_dir = TempDir::new().expect("Failed to create temp directory for test");
+        let storage = LocalStorage::new(temp_dir.path().to_path_buf())
+            .expect("Failed to create storage path");
         let mut manager = StorageManager::new(Box::new(storage)).with_cache_size(1024 * 1024);
 
         let data = b"cached data";
@@ -695,8 +702,9 @@ mod tests {
 
     #[test]
     fn test_storage_manager_cache_eviction() {
-        let temp_dir = TempDir::new().unwrap();
-        let storage = LocalStorage::new(temp_dir.path().to_path_buf()).unwrap();
+        let temp_dir = TempDir::new().expect("Failed to create temp directory for test");
+        let storage = LocalStorage::new(temp_dir.path().to_path_buf())
+            .expect("Failed to create storage path");
         let mut manager = StorageManager::new(Box::new(storage)).with_cache_size(100); // Small cache
 
         // Add data larger than cache
@@ -713,8 +721,9 @@ mod tests {
 
     #[test]
     fn test_storage_manager_stats() {
-        let temp_dir = TempDir::new().unwrap();
-        let storage = LocalStorage::new(temp_dir.path().to_path_buf()).unwrap();
+        let temp_dir = TempDir::new().expect("Failed to create temp directory for test");
+        let storage = LocalStorage::new(temp_dir.path().to_path_buf())
+            .expect("Failed to create storage path");
         let mut manager = StorageManager::new(Box::new(storage));
 
         let data = b"test data";
@@ -732,8 +741,9 @@ mod tests {
 
     #[test]
     fn test_storage_manager_copy() {
-        let temp_dir = TempDir::new().unwrap();
-        let storage = LocalStorage::new(temp_dir.path().to_path_buf()).unwrap();
+        let temp_dir = TempDir::new().expect("Failed to create temp directory for test");
+        let storage = LocalStorage::new(temp_dir.path().to_path_buf())
+            .expect("Failed to create storage path");
         let mut manager = StorageManager::new(Box::new(storage));
 
         let data = b"copy test data";

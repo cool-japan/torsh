@@ -493,48 +493,48 @@ mod tests {
 
     #[test]
     fn test_to_f32() {
-        let tensor = Tensor::from_data(vec![1i32, 2, 3, 4], vec![4], DeviceType::Cpu).unwrap();
-        let f32_tensor = tensor.to_f32().unwrap();
-        let data = f32_tensor.data().unwrap();
+        let tensor = Tensor::from_data(vec![1i32, 2, 3, 4], vec![4], DeviceType::Cpu).expect("operation should succeed");
+        let f32_tensor = tensor.to_f32().expect("f32 conversion should succeed");
+        let data = f32_tensor.data().expect("data retrieval should succeed");
         assert_eq!(data.as_slice(), &[1.0f32, 2.0, 3.0, 4.0]);
     }
 
     #[test]
     fn test_to_i32() {
-        let tensor = Tensor::from_data(vec![1.7f32, 2.3, -3.9, 4.0], vec![4], DeviceType::Cpu).unwrap();
-        let i32_tensor = tensor.to_i32().unwrap();
-        let data = i32_tensor.data().unwrap();
+        let tensor = Tensor::from_data(vec![1.7f32, 2.3, -3.9, 4.0], vec![4], DeviceType::Cpu).expect("operation should succeed");
+        let i32_tensor = tensor.to_i32().expect("i32 conversion should succeed");
+        let data = i32_tensor.data().expect("data retrieval should succeed");
         assert_eq!(data.as_slice(), &[2i32, 2, -4, 4]); // Rounded values
     }
 
     #[test]
     fn test_to_bool() {
-        let tensor = Tensor::from_data(vec![0.0f32, 1.0, -2.5, 0.0], vec![4], DeviceType::Cpu).unwrap();
-        let bool_tensor = tensor.to_bool().unwrap();
-        let data = bool_tensor.data().unwrap();
+        let tensor = Tensor::from_data(vec![0.0f32, 1.0, -2.5, 0.0], vec![4], DeviceType::Cpu).expect("operation should succeed");
+        let bool_tensor = tensor.to_bool().expect("bool conversion should succeed");
+        let data = bool_tensor.data().expect("data retrieval should succeed");
         assert_eq!(data.as_slice(), &[false, true, true, false]);
     }
 
     #[test]
     fn test_bool_to_f32() {
-        let tensor = Tensor::from_data(vec![true, false, true, false], vec![4], DeviceType::Cpu).unwrap();
-        let f32_tensor = tensor.to_f32().unwrap();
-        let data = f32_tensor.data().unwrap();
+        let tensor = Tensor::from_data(vec![true, false, true, false], vec![4], DeviceType::Cpu).expect("operation should succeed");
+        let f32_tensor = tensor.to_f32().expect("f32 conversion should succeed");
+        let data = f32_tensor.data().expect("data retrieval should succeed");
         assert_eq!(data.as_slice(), &[1.0f32, 0.0, 1.0, 0.0]);
     }
 
     #[test]
     fn test_to_device_cpu() {
-        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
-        let cpu_tensor = tensor.to_cpu().unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("operation should succeed");
+        let cpu_tensor = tensor.to_cpu().expect("cpu transfer should succeed");
         assert_eq!(cpu_tensor.device, DeviceType::Cpu);
     }
 
     #[test]
     fn test_to_complex32() {
-        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
-        let complex_tensor = tensor.to_complex32().unwrap();
-        let data = complex_tensor.data().unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("operation should succeed");
+        let complex_tensor = tensor.to_complex32().expect("complex32 conversion should succeed");
+        let data = complex_tensor.data().expect("data retrieval should succeed");
 
         assert_eq!(data[0].re, 1.0);
         assert_eq!(data[0].im, 0.0);
@@ -553,13 +553,13 @@ mod tests {
             .map(|(&r, &i)| torsh_core::dtype::Complex32::new(r, i))
             .collect();
 
-        let complex_tensor = Tensor::from_data(complex_data, vec![3], DeviceType::Cpu).unwrap();
+        let complex_tensor = Tensor::from_data(complex_data, vec![3], DeviceType::Cpu).expect("operation should succeed");
 
-        let real_part = complex_tensor.real_part().unwrap();
-        let imag_part = complex_tensor.imag_part().unwrap();
+        let real_part = complex_tensor.real_part().expect("real_part extraction should succeed");
+        let imag_part = complex_tensor.imag_part().expect("imag_part extraction should succeed");
 
-        let real_data_result = real_part.data().unwrap();
-        let imag_data_result = imag_part.data().unwrap();
+        let real_data_result = real_part.data().expect("data retrieval should succeed");
+        let imag_data_result = imag_part.data().expect("data retrieval should succeed");
 
         assert_eq!(real_data_result.as_slice(), &[1.0f32, 2.0, 3.0]);
         assert_eq!(imag_data_result.as_slice(), &[4.0f32, 5.0, 6.0]);
@@ -572,9 +572,9 @@ mod tests {
             torsh_core::dtype::Complex32::new(0.0, 1.0), // magnitude = 1.0
         ];
 
-        let complex_tensor = Tensor::from_data(complex_data, vec![2], DeviceType::Cpu).unwrap();
-        let magnitude = complex_tensor.magnitude().unwrap();
-        let mag_data = magnitude.data().unwrap();
+        let complex_tensor = Tensor::from_data(complex_data, vec![2], DeviceType::Cpu).expect("operation should succeed");
+        let magnitude = complex_tensor.magnitude().expect("magnitude computation should succeed");
+        let mag_data = magnitude.data().expect("data retrieval should succeed");
 
         assert!((mag_data[0] - 5.0).abs() < 1e-6);
         assert!((mag_data[1] - 1.0).abs() < 1e-6);
@@ -582,11 +582,11 @@ mod tests {
 
     #[test]
     fn test_complex_from_parts() {
-        let real = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu).unwrap();
-        let imag = Tensor::from_data(vec![3.0f32, 4.0], vec![2], DeviceType::Cpu).unwrap();
+        let real = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu).expect("operation should succeed");
+        let imag = Tensor::from_data(vec![3.0f32, 4.0], vec![2], DeviceType::Cpu).expect("operation should succeed");
 
-        let complex_tensor = complex_from_parts(&real, &imag).unwrap();
-        let data = complex_tensor.data().unwrap();
+        let complex_tensor = complex_from_parts(&real, &imag).expect("operation should succeed");
+        let data = complex_tensor.data().expect("data retrieval should succeed");
 
         assert_eq!(data[0].re, 1.0);
         assert_eq!(data[0].im, 3.0);
@@ -596,13 +596,13 @@ mod tests {
 
     #[test]
     fn test_promote_types() {
-        let tensor1 = Tensor::from_data(vec![1i32, 2], vec![2], DeviceType::Cpu).unwrap();
-        let tensor2 = Tensor::from_data(vec![3.5f32, 4.5], vec![2], DeviceType::Cpu).unwrap();
+        let tensor1 = Tensor::from_data(vec![1i32, 2], vec![2], DeviceType::Cpu).expect("operation should succeed");
+        let tensor2 = Tensor::from_data(vec![3.5f32, 4.5], vec![2], DeviceType::Cpu).expect("operation should succeed");
 
-        let (promoted1, promoted2) = promote_types(&tensor1, &tensor2).unwrap();
+        let (promoted1, promoted2) = promote_types(&tensor1, &tensor2).expect("operation should succeed");
 
-        let data1 = promoted1.data().unwrap();
-        let data2 = promoted2.data().unwrap();
+        let data1 = promoted1.data().expect("data retrieval should succeed");
+        let data2 = promoted2.data().expect("data retrieval should succeed");
 
         assert_eq!(data1.as_slice(), &[1.0f64, 2.0]);
         assert_eq!(data2.as_slice(), &[3.5f64, 4.5]);
@@ -615,7 +615,7 @@ mod tests {
             vec![f64::MAX, f64::MIN],
             vec![2],
             DeviceType::Cpu
-        ).unwrap();
+        ).expect("operation should succeed");
 
         // This should fail because f64::MAX cannot be represented as f32
         assert!(large_tensor.to_f32().is_err());
@@ -623,9 +623,9 @@ mod tests {
 
     #[test]
     fn test_to_f16() {
-        let tensor = Tensor::from_data(vec![1.0f32, 2.5, -3.75, 4.0], vec![4], DeviceType::Cpu).unwrap();
-        let f16_tensor = tensor.to_f16().unwrap();
-        let data = f16_tensor.data().unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.5, -3.75, 4.0], vec![4], DeviceType::Cpu).expect("operation should succeed");
+        let f16_tensor = tensor.to_f16().expect("f16 conversion should succeed");
+        let data = f16_tensor.data().expect("data retrieval should succeed");
 
         // Convert back to f32 for comparison
         assert!((data[0].to_f32() - 1.0).abs() < 1e-3);
@@ -636,9 +636,9 @@ mod tests {
 
     #[test]
     fn test_to_bf16() {
-        let tensor = Tensor::from_data(vec![1.0f32, 2.5, -3.75, 4.0], vec![4], DeviceType::Cpu).unwrap();
-        let bf16_tensor = tensor.to_bf16().unwrap();
-        let data = bf16_tensor.data().unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.5, -3.75, 4.0], vec![4], DeviceType::Cpu).expect("operation should succeed");
+        let bf16_tensor = tensor.to_bf16().expect("bf16 conversion should succeed");
+        let data = bf16_tensor.data().expect("data retrieval should succeed");
 
         // BF16 has less precision than F16, use larger epsilon
         assert!((data[0].to_f32() - 1.0).abs() < 1e-2);
@@ -649,34 +649,34 @@ mod tests {
 
     #[test]
     fn test_to_u8() {
-        let tensor = Tensor::from_data(vec![0.0f32, 127.5, 255.0, 100.7], vec![4], DeviceType::Cpu).unwrap();
-        let u8_tensor = tensor.to_u8().unwrap();
-        let data = u8_tensor.data().unwrap();
+        let tensor = Tensor::from_data(vec![0.0f32, 127.5, 255.0, 100.7], vec![4], DeviceType::Cpu).expect("operation should succeed");
+        let u8_tensor = tensor.to_u8().expect("u8 conversion should succeed");
+        let data = u8_tensor.data().expect("data retrieval should succeed");
         assert_eq!(data.as_slice(), &[0u8, 128, 255, 101]);
     }
 
     #[test]
     fn test_to_i8() {
-        let tensor = Tensor::from_data(vec![-128.0f32, -50.5, 0.0, 127.0], vec![4], DeviceType::Cpu).unwrap();
-        let i8_tensor = tensor.to_i8().unwrap();
-        let data = i8_tensor.data().unwrap();
+        let tensor = Tensor::from_data(vec![-128.0f32, -50.5, 0.0, 127.0], vec![4], DeviceType::Cpu).expect("operation should succeed");
+        let i8_tensor = tensor.to_i8().expect("i8 conversion should succeed");
+        let data = i8_tensor.data().expect("data retrieval should succeed");
         assert_eq!(data.as_slice(), &[-128i8, -50, 0, 127]);
     }
 
     #[test]
     fn test_to_i16() {
-        let tensor = Tensor::from_data(vec![-1000.0f32, -50.5, 0.0, 1000.7], vec![4], DeviceType::Cpu).unwrap();
-        let i16_tensor = tensor.to_i16().unwrap();
-        let data = i16_tensor.data().unwrap();
+        let tensor = Tensor::from_data(vec![-1000.0f32, -50.5, 0.0, 1000.7], vec![4], DeviceType::Cpu).expect("operation should succeed");
+        let i16_tensor = tensor.to_i16().expect("i16 conversion should succeed");
+        let data = i16_tensor.data().expect("data retrieval should succeed");
         assert_eq!(data.as_slice(), &[-1000i16, -50, 0, 1001]);
     }
 
     #[test]
     fn test_generic_to_tensor() {
         // Test generic conversion using to_tensor<U>
-        let tensor = Tensor::from_data(vec![1.5f32, 2.5, 3.5], vec![3], DeviceType::Cpu).unwrap();
-        let f64_tensor: Tensor<f64> = tensor.to_tensor().unwrap();
-        let data = f64_tensor.data().unwrap();
+        let tensor = Tensor::from_data(vec![1.5f32, 2.5, 3.5], vec![3], DeviceType::Cpu).expect("operation should succeed");
+        let f64_tensor: Tensor<f64> = tensor.to_tensor().expect("tensor type conversion should succeed");
+        let data = f64_tensor.data().expect("data retrieval should succeed");
         assert!((data[0] - 1.5).abs() < 1e-6);
         assert!((data[1] - 2.5).abs() < 1e-6);
         assert!((data[2] - 3.5).abs() < 1e-6);
@@ -685,14 +685,14 @@ mod tests {
     #[test]
     fn test_mixed_precision_workflow() {
         // Simulate mixed-precision training workflow
-        let f32_tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu).unwrap();
+        let f32_tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu).expect("operation should succeed");
 
         // Convert to f16 for forward pass
-        let f16_tensor = f32_tensor.to_f16().unwrap();
+        let f16_tensor = f32_tensor.to_f16().expect("f16 conversion should succeed");
 
         // Convert back to f32 for loss computation
-        let f32_result: Tensor<f32> = f16_tensor.to_tensor().unwrap();
-        let data = f32_result.data().unwrap();
+        let f32_result: Tensor<f32> = f16_tensor.to_tensor().expect("tensor type conversion should succeed");
+        let data = f32_result.data().expect("data retrieval should succeed");
 
         // Values should be approximately equal (within f16 precision)
         assert!((data[0] - 1.0).abs() < 1e-3);

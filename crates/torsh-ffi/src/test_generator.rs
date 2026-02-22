@@ -79,7 +79,7 @@ impl TestGenerator for PythonTestGenerator {
         output.push_str("\"\"\"Automatically generated tests for ToRSh Python bindings\"\"\"\n\n");
         output.push_str("import unittest\n");
         output.push_str("import numpy as np\n");
-        output.push_str("import torsh\n\n");
+        output.push_str("import rstorch\n\n");
 
         // Test class
         output.push_str("class TestTorshBindings(unittest.TestCase):\n");
@@ -117,7 +117,7 @@ impl TestGenerator for PythonTestGenerator {
             match input {
                 TestInput::TensorData(data) => {
                     output.push_str(&format!(
-                        "        input_{} = torsh.tensor({})\n",
+                        "        input_{} = rstorch.tensor({})\n",
                         i,
                         format_tensor_data(data)
                     ));
@@ -139,13 +139,13 @@ impl TestGenerator for PythonTestGenerator {
 
         // Generate test operation based on category
         let operation = match test_case.category {
-            TestCategory::TensorCreation => "torsh.tensor(input_0)",
+            TestCategory::TensorCreation => "rstorch.tensor(input_0)",
             TestCategory::BasicOperations => "input_0.add(input_1)",
             TestCategory::MatrixOperations => "input_0.matmul(input_1)",
             TestCategory::Activations => "input_0.relu()",
             TestCategory::Reductions => "input_0.sum()",
             TestCategory::ShapeOperations => "input_0.reshape(*input_1)",
-            TestCategory::NeuralNetwork => "torsh.nn.linear(input_0, input_1, input_2)",
+            TestCategory::NeuralNetwork => "rstorch.nn.linear(input_0, input_1, input_2)",
             TestCategory::ErrorHandling => "# Error handling test",
         };
 
@@ -567,7 +567,7 @@ impl TestSuiteGenerator {
 
         for (lang, generator) in &self.generators {
             let test_content = generator.generate_test_file(&test_cases);
-            let filename = format!("test_torsh_bindings.{}", generator.file_extension());
+            let filename = format!("test_rstorch_bindings.{}", generator.file_extension());
             let file_path = output_dir.join(lang).join(filename);
 
             // Create directory if it doesn't exist

@@ -6,12 +6,12 @@
 //! # Examples
 //!
 //! ```python
-//! import torsh
+//! import rstorch
 //!
 //! # Create devices
-//! cpu = torsh.PyDevice("cpu")
-//! cuda = torsh.PyDevice("cuda:0")
-//! metal = torsh.PyDevice("metal:0")
+//! cpu = rstorch.PyDevice("cpu")
+//! cuda = rstorch.PyDevice("cuda:0")
+//! metal = rstorch.PyDevice("metal:0")
 //!
 //! # Check device properties
 //! print(cpu.type)    # "cpu"
@@ -31,16 +31,16 @@ use torsh_core::device::DeviceType;
 ///
 /// ```python
 /// # Create CPU device
-/// cpu = torsh.PyDevice("cpu")
+/// cpu = rstorch.PyDevice("cpu")
 ///
 /// # Create CUDA device (default index 0)
-/// cuda = torsh.PyDevice("cuda")
+/// cuda = rstorch.PyDevice("cuda")
 ///
 /// # Create CUDA device with specific index
-/// cuda1 = torsh.PyDevice("cuda:1")
+/// cuda1 = rstorch.PyDevice("cuda:1")
 ///
 /// # Create from integer (defaults to CUDA)
-/// cuda2 = torsh.PyDevice(2)  # cuda:2
+/// cuda2 = rstorch.PyDevice(2)  # cuda:2
 ///
 /// # Check device properties
 /// print(cpu.type)     # "cpu"
@@ -76,9 +76,9 @@ impl PyDevice {
     /// # Examples
     ///
     /// ```python
-    /// cpu = torsh.PyDevice("cpu")
-    /// cuda = torsh.PyDevice("cuda:0")
-    /// cuda_from_int = torsh.PyDevice(1)  # cuda:1
+    /// cpu = rstorch.PyDevice("cpu")
+    /// cuda = rstorch.PyDevice("cuda:0")
+    /// cuda_from_int = rstorch.PyDevice(1)  # cuda:1
     /// ```
     #[new]
     fn new(device: &Bound<'_, PyAny>) -> PyResult<Self> {
@@ -168,10 +168,10 @@ impl PyDevice {
     /// # Examples
     ///
     /// ```python
-    /// cpu = torsh.PyDevice("cpu")
+    /// cpu = rstorch.PyDevice("cpu")
     /// print(cpu.type)  # "cpu"
     ///
-    /// cuda = torsh.PyDevice("cuda:3")
+    /// cuda = rstorch.PyDevice("cuda:3")
     /// print(cuda.type)  # "cuda"
     /// ```
     #[getter]
@@ -194,10 +194,10 @@ impl PyDevice {
     /// # Examples
     ///
     /// ```python
-    /// cpu = torsh.PyDevice("cpu")
+    /// cpu = rstorch.PyDevice("cpu")
     /// print(cpu.index)  # None
     ///
-    /// cuda = torsh.PyDevice("cuda:2")
+    /// cuda = rstorch.PyDevice("cuda:2")
     /// print(cuda.index)  # 2
     /// ```
     #[getter]

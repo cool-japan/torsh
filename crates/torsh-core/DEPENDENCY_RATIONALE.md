@@ -12,7 +12,7 @@ This document explains the rationale behind each dependency choice, alternatives
 
 ## Core Dependencies
 
-### scirs2-core (v0.1.0-rc.2)
+### scirs2-core
 
 **Purpose**: Foundation for scientific computing primitives, unified access to ndarray, random, and numeric operations.
 
@@ -36,7 +36,7 @@ This document explains the rationale behind each dependency choice, alternatives
 
 **Why Chosen**: Scirs2-core provides the best balance of performance, type safety, and ecosystem integration.
 
-**Version Constraint**: `= 0.1.0-rc.2` (exact version for API stability during RC period)
+**Version Constraint**: Workspace-managed (latest stable)
 
 ---
 
@@ -151,7 +151,7 @@ static DEVICE_REGISTRY: OnceLock<DeviceRegistry> = OnceLock::new();
 
 ## SciRS2 Ecosystem
 
-### scirs2-linalg (v0.1.0-rc.2)
+### scirs2-linalg
 
 **Purpose**: Linear algebra operations (matrix multiplication, decomposition, etc.).
 
@@ -161,11 +161,11 @@ static DEVICE_REGISTRY: OnceLock<DeviceRegistry> = OnceLock::new();
 - **Completeness**: Full suite of linear algebra routines
 - **Type Safety**: Strong typing for matrix operations
 
-**Version Constraint**: `= 0.1.0-rc.2` (matches scirs2-core version)
+**Version Constraint**: Workspace-managed (latest stable)
 
 ---
 
-### scirs2-stats (v0.1.0-rc.2)
+### scirs2-stats
 
 **Purpose**: Statistical functions and distributions.
 
@@ -175,11 +175,11 @@ static DEVICE_REGISTRY: OnceLock<DeviceRegistry> = OnceLock::new();
 - **Analysis**: Statistical analysis tools for ML
 - **Benchmarking**: Performance statistics and regression detection
 
-**Version Constraint**: `= 0.1.0-rc.2` (matches scirs2-core version)
+**Version Constraint**: Workspace-managed (latest stable)
 
 ---
 
-### numrs2 (v0.1.0-beta.3)
+### numrs2
 
 **Purpose**: Numerical computing library for scientific operations.
 
@@ -188,7 +188,7 @@ static DEVICE_REGISTRY: OnceLock<DeviceRegistry> = OnceLock::new();
 - **Numerical Algorithms**: Optimized numerical methods
 - **Interoperability**: Works seamlessly with scirs2
 
-**Version Constraint**: `= 0.1.0-beta.3` (beta stability acceptable for this functionality)
+**Version Constraint**: Workspace-managed (latest stable)
 
 ## Optional Dependencies
 
@@ -300,9 +300,8 @@ assert_relative_eq!(result, expected, epsilon = 1e-6);
 
 ### Version Constraints Strategy
 
-1. **Core Dependencies (scirs2-*)**: Exact version (`= x.y.z`) during RC/alpha
-   - **Reason**: API stability during development
-   - **Post-1.0**: Will use semver compatible (`>= x.y`)
+1. **Core Dependencies (scirs2-*)**: Workspace-managed versions
+   - **Reason**: Centralized version management
 
 2. **Standard Crates**: Semver compatible (`>= x.y`)
    - **Reason**: Leverage ecosystem improvements
@@ -327,7 +326,7 @@ New dependencies must satisfy ALL of:
 1. **Necessity**: Cannot reasonably implement ourselves
 2. **Maintenance**: Actively maintained (commit in last 6 months)
 3. **Quality**: High-quality code, good documentation
-4. **License**: Compatible with our MIT/Apache-2.0 license
+4. **License**: Compatible with our Apache-2.0 license
 5. **Size**: Reasonable compile-time and binary size impact
 6. **Alternatives**: Alternatives evaluated and documented
 
@@ -347,7 +346,7 @@ New dependencies must satisfy ALL of:
 4. **Audit**: Regular `cargo tree` audits
 5. **Alternatives**: Consider lighter alternatives
 
-**Current Stats** (as of v0.1.0-alpha.2):
+**Current Stats** (as of v0.1.0):
 ```
 Total dependencies: ~30 (including transitives)
 Compile time: ~90 seconds (clean build)
@@ -442,4 +441,4 @@ Every dependency is justified, alternatives are documented, and we maintain stri
 ---
 
 *Last Updated: 2025-10-23*
-*Version: 0.1.0-alpha.2*
+*Version: 0.1.0*

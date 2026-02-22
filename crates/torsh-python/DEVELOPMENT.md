@@ -205,10 +205,10 @@ Tests are organized in three categories:
 3. **Python Tests** (future - `python/tests/`)
    ```python
    # python/tests/test_device.py
-   import torsh
+   import rstorch
 
    def test_device_creation():
-       device = torsh.PyDevice("cpu")
+       device = rstorch.PyDevice("cpu")
        assert device.type == "cpu"
    ```
 
@@ -275,9 +275,9 @@ fn test_python_function() {
         let code = r#"
 import sys
 sys.path.insert(0, '{manifest_dir}')
-import torsh_python as torsh
+import rstorch_python as rstorch
 
-device = torsh.PyDevice("cpu")
+device = rstorch.PyDevice("cpu")
 result = str(device)
 "#;
         let module = PyModule::from_code(
@@ -363,8 +363,8 @@ profiler = cProfile.Profile()
 profiler.enable()
 
 # Your code here
-import torsh
-device = torsh.PyDevice("cpu")
+import rstorch
+device = rstorch.PyDevice("cpu")
 
 profiler.disable()
 stats = pstats.Stats(profiler)
@@ -397,15 +397,15 @@ vim Cargo.toml pyproject.toml
 
 # Commit
 git add Cargo.toml pyproject.toml CHANGELOG.md
-git commit -m "chore: bump version to 0.1.0-alpha.3"
+git commit -m "chore: bump version to 0.1.0"
 ```
 
 ### Creating a Release
 
 ```bash
 # Tag the release
-git tag v0.1.0-alpha.3
-git push origin v0.1.0-alpha.3
+git tag v0.1.0
+git push origin v0.1.0
 
 # GitHub Actions will automatically:
 # 1. Build wheels for all platforms
@@ -528,7 +528,7 @@ maturin develop --release
 
 #### Import Error in Python
 
-**Problem**: `ImportError: cannot import name 'torsh_python'`
+**Problem**: `ImportError: cannot import name 'rstorch_python'`
 
 **Solution**:
 ```bash

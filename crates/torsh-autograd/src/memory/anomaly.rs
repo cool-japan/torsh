@@ -508,9 +508,9 @@ impl MemoryAnomalyDetector {
                 if history.len() > 1 {
                     let total_time = history
                         .back()
-                        .unwrap()
+                        .expect("history is non-empty")
                         .timestamp
-                        .duration_since(history.front().unwrap().timestamp);
+                        .duration_since(history.front().expect("history is non-empty").timestamp);
                     pattern.allocation_frequency = if total_time.as_secs_f64() > 0.0 {
                         history.len() as f64 / total_time.as_secs_f64()
                     } else {
@@ -674,7 +674,10 @@ impl MemoryAnomalyDetector {
         }
 
         // Calculate current frequency
-        let recent_interval = history.back().unwrap().inter_allocation_time;
+        let recent_interval = history
+            .back()
+            .expect("history has >= 2 entries")
+            .inter_allocation_time;
         let current_frequency = if recent_interval.as_secs_f64() > 0.0 {
             1.0 / recent_interval.as_secs_f64()
         } else {
@@ -722,9 +725,14 @@ impl MemoryAnomalyDetector {
         let total_bytes: usize = recent_records.iter().map(|r| r.size).sum();
         let time_span = recent_records
             .first()
-            .unwrap()
+            .expect("recent_records is non-empty")
             .timestamp
-            .duration_since(recent_records.last().unwrap().timestamp);
+            .duration_since(
+                recent_records
+                    .last()
+                    .expect("recent_records is non-empty")
+                    .timestamp,
+            );
 
         if time_span.as_secs_f64() > 0.0 {
             let growth_rate = total_bytes as f64 / time_span.as_secs_f64();

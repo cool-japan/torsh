@@ -25,19 +25,19 @@
 //! ## Usage
 //!
 //! ```python
-//! import torsh
+//! import rstorch
 //!
 //! # Create tensors
-//! x = torsh.randn([2, 3])
-//! y = torsh.ones([3, 4])
+//! x = rstorch.randn([2, 3])
+//! y = rstorch.ones([3, 4])
 //!
 //! # Neural network
-//! model = torsh.Linear(3, 4)
-//! optimizer = torsh.Adam(model.parameters(), lr=0.001)
+//! model = rstorch.Linear(3, 4)
+//! optimizer = rstorch.Adam(model.parameters(), lr=0.001)
 //!
 //! # Training loop
 //! output = model(x)
-//! loss = torsh.mse_loss(output, target)
+//! loss = rstorch.mse_loss(output, target)
 //! loss.backward()
 //! optimizer.step()
 //! ```
@@ -122,7 +122,7 @@ use scipy_integration::{LinalgResult, OptimizationResult, SciPyIntegration, Sign
 /// This is the main Python module entry point, following the QuantRS2-py architecture.
 /// Python bindings are ALWAYS enabled (no feature gates) as this is a Python extension module.
 #[pymodule]
-fn torsh(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn rstorch(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Add version information
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add(
@@ -269,9 +269,9 @@ mod tests {
     fn test_module_creation() {
         // This test validates module creation but requires Python environment
         // Run with: maturin develop && python -m pytest tests/
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let module = PyModule::new(py, "test_torsh").unwrap();
-            let result = torsh(&module);
+            let result = rstorch(&module);
             assert!(result.is_ok(), "Module creation failed: {:?}", result.err());
         });
     }
@@ -281,9 +281,9 @@ mod tests {
     fn test_module_has_version() {
         // This test validates version attribute but requires Python environment
         // Run with: maturin develop && python -m pytest tests/
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let module = PyModule::new(py, "test_torsh").unwrap();
-            torsh(&module).unwrap();
+            rstorch(&module).unwrap();
             let version = module.getattr("__version__").unwrap();
             assert!(!version.to_string().is_empty());
         });

@@ -874,7 +874,9 @@ mod tests {
     #[test]
     fn test_mlir_builder_input() {
         let mut builder = MlirBuilder::new();
-        let input = builder.add_tensor_input(&[10, 20], DType::F32).unwrap();
+        let input = builder
+            .add_tensor_input(&[10, 20], DType::F32)
+            .expect("add_tensor_input should succeed");
         assert_eq!(input, MlirValue(0));
         assert_eq!(builder.num_operations(), 1);
     }
@@ -882,9 +884,15 @@ mod tests {
     #[test]
     fn test_mlir_builder_matmul() {
         let mut builder = MlirBuilder::new();
-        let lhs = builder.add_tensor_input(&[128, 256], DType::F32).unwrap();
-        let rhs = builder.add_tensor_input(&[256, 512], DType::F32).unwrap();
-        let result = builder.add_matmul(lhs, rhs).unwrap();
+        let lhs = builder
+            .add_tensor_input(&[128, 256], DType::F32)
+            .expect("add_tensor_input should succeed");
+        let rhs = builder
+            .add_tensor_input(&[256, 512], DType::F32)
+            .expect("add_tensor_input should succeed");
+        let result = builder
+            .add_matmul(lhs, rhs)
+            .expect("add_matmul should succeed");
 
         assert_eq!(result, MlirValue(2));
         assert_eq!(builder.num_operations(), 3);
@@ -893,9 +901,15 @@ mod tests {
     #[test]
     fn test_mlir_builder_add() {
         let mut builder = MlirBuilder::new();
-        let lhs = builder.add_tensor_input(&[10], DType::F32).unwrap();
-        let rhs = builder.add_tensor_input(&[10], DType::F32).unwrap();
-        let result = builder.add_add(lhs, rhs, DType::F32).unwrap();
+        let lhs = builder
+            .add_tensor_input(&[10], DType::F32)
+            .expect("add_tensor_input should succeed");
+        let rhs = builder
+            .add_tensor_input(&[10], DType::F32)
+            .expect("add_tensor_input should succeed");
+        let result = builder
+            .add_add(lhs, rhs, DType::F32)
+            .expect("add_add should succeed");
 
         assert_eq!(result, MlirValue(2));
     }
@@ -903,11 +917,17 @@ mod tests {
     #[test]
     fn test_mlir_module_build() {
         let mut builder = MlirBuilder::new();
-        let lhs = builder.add_tensor_input(&[128, 256], DType::F32).unwrap();
-        let rhs = builder.add_tensor_input(&[256, 512], DType::F32).unwrap();
-        let _result = builder.add_matmul(lhs, rhs).unwrap();
+        let lhs = builder
+            .add_tensor_input(&[128, 256], DType::F32)
+            .expect("add_tensor_input should succeed");
+        let rhs = builder
+            .add_tensor_input(&[256, 512], DType::F32)
+            .expect("add_tensor_input should succeed");
+        let _result = builder
+            .add_matmul(lhs, rhs)
+            .expect("add_matmul should succeed");
 
-        let module = builder.build().unwrap();
+        let module = builder.build().expect("build should succeed");
         assert_eq!(module.name(), "main");
         assert_eq!(module.operations().len(), 3);
     }
@@ -915,11 +935,17 @@ mod tests {
     #[test]
     fn test_mlir_module_operations_by_dialect() {
         let mut builder = MlirBuilder::new();
-        let lhs = builder.add_tensor_input(&[128, 256], DType::F32).unwrap();
-        let rhs = builder.add_tensor_input(&[256, 512], DType::F32).unwrap();
-        let _result = builder.add_matmul(lhs, rhs).unwrap();
+        let lhs = builder
+            .add_tensor_input(&[128, 256], DType::F32)
+            .expect("add_tensor_input should succeed");
+        let rhs = builder
+            .add_tensor_input(&[256, 512], DType::F32)
+            .expect("add_tensor_input should succeed");
+        let _result = builder
+            .add_matmul(lhs, rhs)
+            .expect("add_matmul should succeed");
 
-        let module = builder.build().unwrap();
+        let module = builder.build().expect("build should succeed");
         let counts = module.operations_by_dialect();
 
         assert_eq!(counts.len(), 2); // Tensor and Linalg
@@ -928,11 +954,17 @@ mod tests {
     #[test]
     fn test_mlir_module_to_text() {
         let mut builder = MlirBuilder::with_name("test");
-        let lhs = builder.add_tensor_input(&[10, 20], DType::F32).unwrap();
-        let rhs = builder.add_tensor_input(&[10, 20], DType::F32).unwrap();
-        let _result = builder.add_add(lhs, rhs, DType::F32).unwrap();
+        let lhs = builder
+            .add_tensor_input(&[10, 20], DType::F32)
+            .expect("add_tensor_input should succeed");
+        let rhs = builder
+            .add_tensor_input(&[10, 20], DType::F32)
+            .expect("add_tensor_input should succeed");
+        let _result = builder
+            .add_add(lhs, rhs, DType::F32)
+            .expect("add_add should succeed");
 
-        let module = builder.build().unwrap();
+        let module = builder.build().expect("build should succeed");
         let text = module.to_mlir_text();
 
         assert!(text.contains("module @test"));
@@ -964,8 +996,12 @@ mod tests {
     #[test]
     fn test_mlir_transpose() {
         let mut builder = MlirBuilder::new();
-        let input = builder.add_tensor_input(&[128, 256], DType::F32).unwrap();
-        let transposed = builder.add_transpose(input, &[1, 0]).unwrap();
+        let input = builder
+            .add_tensor_input(&[128, 256], DType::F32)
+            .expect("add_tensor_input should succeed");
+        let transposed = builder
+            .add_transpose(input, &[1, 0])
+            .expect("add_transpose should succeed");
 
         assert_eq!(transposed, MlirValue(1));
         assert_eq!(builder.num_operations(), 2);
@@ -990,14 +1026,22 @@ mod tests {
         let mut builder = MlirBuilder::with_name("complex");
 
         // Build: C = (A @ B) + D
-        let a = builder.add_tensor_input(&[128, 256], DType::F32).unwrap();
-        let b = builder.add_tensor_input(&[256, 512], DType::F32).unwrap();
-        let d = builder.add_tensor_input(&[128, 512], DType::F32).unwrap();
+        let a = builder
+            .add_tensor_input(&[128, 256], DType::F32)
+            .expect("add_tensor_input should succeed");
+        let b = builder
+            .add_tensor_input(&[256, 512], DType::F32)
+            .expect("add_tensor_input should succeed");
+        let d = builder
+            .add_tensor_input(&[128, 512], DType::F32)
+            .expect("add_tensor_input should succeed");
 
-        let matmul = builder.add_matmul(a, b).unwrap();
-        let _result = builder.add_add(matmul, d, DType::F32).unwrap();
+        let matmul = builder.add_matmul(a, b).expect("add_matmul should succeed");
+        let _result = builder
+            .add_add(matmul, d, DType::F32)
+            .expect("add_add should succeed");
 
-        let module = builder.build().unwrap();
+        let module = builder.build().expect("build should succeed");
         assert_eq!(module.operations().len(), 5);
 
         let dialect_counts = module.operations_by_dialect();
@@ -1007,8 +1051,12 @@ mod tests {
     #[test]
     fn test_mlir_type_validation_invalid_matmul_dims() {
         let mut builder = MlirBuilder::new();
-        let a = builder.add_tensor_input(&[128, 256], DType::F32).unwrap();
-        let b = builder.add_tensor_input(&[128, 512], DType::F32).unwrap(); // Wrong dimension
+        let a = builder
+            .add_tensor_input(&[128, 256], DType::F32)
+            .expect("add_tensor_input should succeed");
+        let b = builder
+            .add_tensor_input(&[128, 512], DType::F32)
+            .expect("add_tensor_input should succeed"); // Wrong dimension
 
         // Should fail: 256 != 128
         let result = builder.add_matmul(a, b);
@@ -1018,8 +1066,12 @@ mod tests {
     #[test]
     fn test_mlir_type_validation_invalid_matmul_rank() {
         let mut builder = MlirBuilder::new();
-        let a = builder.add_tensor_input(&[128], DType::F32).unwrap(); // 1D tensor
-        let b = builder.add_tensor_input(&[128, 512], DType::F32).unwrap();
+        let a = builder
+            .add_tensor_input(&[128], DType::F32)
+            .expect("add_tensor_input should succeed"); // 1D tensor
+        let b = builder
+            .add_tensor_input(&[128, 512], DType::F32)
+            .expect("add_tensor_input should succeed");
 
         // Should fail: 1D tensor not allowed for matmul
         let result = builder.add_matmul(a, b);
@@ -1029,7 +1081,9 @@ mod tests {
     #[test]
     fn test_mlir_type_validation_invalid_transpose() {
         let mut builder = MlirBuilder::new();
-        let input = builder.add_tensor_input(&[10, 20, 30], DType::F32).unwrap();
+        let input = builder
+            .add_tensor_input(&[10, 20, 30], DType::F32)
+            .expect("add_tensor_input should succeed");
 
         // Should fail: permutation length doesn't match tensor rank
         let result = builder.add_transpose(input, &[1, 0]);
@@ -1039,12 +1093,18 @@ mod tests {
     #[test]
     fn test_mlir_type_inference_matmul() {
         let mut builder = MlirBuilder::new();
-        let a = builder.add_tensor_input(&[128, 256], DType::F32).unwrap();
-        let b = builder.add_tensor_input(&[256, 512], DType::F64).unwrap();
-        let result = builder.add_matmul(a, b).unwrap();
+        let a = builder
+            .add_tensor_input(&[128, 256], DType::F32)
+            .expect("add_tensor_input should succeed");
+        let b = builder
+            .add_tensor_input(&[256, 512], DType::F64)
+            .expect("add_tensor_input should succeed");
+        let result = builder.add_matmul(a, b).expect("add_matmul should succeed");
 
         // Verify result type was inferred correctly
-        let result_type = builder.get_value_type(result).unwrap();
+        let result_type = builder
+            .get_value_type(result)
+            .expect("get_value_type should succeed");
         match result_type {
             MlirType::Tensor {
                 shape,
@@ -1060,11 +1120,17 @@ mod tests {
     #[test]
     fn test_mlir_type_inference_transpose() {
         let mut builder = MlirBuilder::new();
-        let input = builder.add_tensor_input(&[10, 20, 30], DType::F32).unwrap();
-        let result = builder.add_transpose(input, &[2, 0, 1]).unwrap();
+        let input = builder
+            .add_tensor_input(&[10, 20, 30], DType::F32)
+            .expect("add_tensor_input should succeed");
+        let result = builder
+            .add_transpose(input, &[2, 0, 1])
+            .expect("add_transpose should succeed");
 
         // Verify result shape was inferred correctly
-        let result_type = builder.get_value_type(result).unwrap();
+        let result_type = builder
+            .get_value_type(result)
+            .expect("get_value_type should succeed");
         match result_type {
             MlirType::Tensor {
                 shape,

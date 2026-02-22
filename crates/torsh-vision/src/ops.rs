@@ -309,7 +309,7 @@ pub fn standard_preprocessing_config() -> color::NormalizationConfig {
 }
 
 // DEFERRED: ResizeConfig and other configuration-based APIs
-// These provide more flexible operation parameters but are not essential for v0.1.0-rc.1
+// These provide more flexible operation parameters but are not essential for v0.1.0
 // Current API uses function parameters directly (e.g., resize_with_mode)
 // Planned for v0.2.0 - See ROADMAP.md
 //

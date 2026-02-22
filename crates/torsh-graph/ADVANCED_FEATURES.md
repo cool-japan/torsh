@@ -404,7 +404,7 @@ let prediction = sparse_tgn.forward(&new_temporal_event)?;
 ```rust
 // Add to your Cargo.toml
 [dependencies]
-torsh-graph = { version = "0.1.0-alpha.2", features = ["all"] }
+torsh-graph = { version = "0.1.0", features = ["all"] }
 
 // Import the modules you need
 use torsh_graph::{

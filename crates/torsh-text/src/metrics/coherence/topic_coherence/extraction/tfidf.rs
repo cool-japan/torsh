@@ -77,7 +77,7 @@ impl TopicExtractor for TfIdfExtractor {
 
         // Sort words by TF-IDF score
         let mut scored_words: Vec<_> = tfidf_scores.into_iter().collect();
-        scored_words.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        scored_words.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
         // Group top words into topics using similarity
         let mut topics = Vec::new();

@@ -436,11 +436,12 @@ mod tests {
 
     #[test]
     fn test_scalar_operations() {
-        let tensor = tensor_1d(&[1.0f32, 2.0, 3.0, 4.0]).unwrap();
+        let tensor =
+            tensor_1d(&[1.0f32, 2.0, 3.0, 4.0]).expect("tensor_1d creation should succeed");
 
         let result = tensor
             .expr()
-            .unwrap()
+            .expect("tensor_1d creation should succeed")
             .add_scalar(1.0)
             .mul_scalar(2.0)
             .eval_vec();
@@ -450,24 +451,28 @@ mod tests {
 
     #[test]
     fn test_element_wise_operations() {
-        let a = tensor_1d(&[1.0f32, 2.0, 3.0, 4.0]).unwrap();
-        let b = tensor_1d(&[2.0f32, 2.0, 2.0, 2.0]).unwrap();
+        let a = tensor_1d(&[1.0f32, 2.0, 3.0, 4.0]).expect("tensor_1d creation should succeed");
+        let b = tensor_1d(&[2.0f32, 2.0, 2.0, 2.0]).expect("tensor_1d creation should succeed");
 
-        let result = a.expr().unwrap().add(b.expr().unwrap()).eval_vec();
+        let result = a
+            .expr()
+            .expect("expression should exist")
+            .add(b.expr().expect("expression should exist"))
+            .eval_vec();
 
         assert_eq!(result, vec![3.0, 4.0, 5.0, 6.0]);
     }
 
     #[test]
     fn test_complex_expression() {
-        let a = tensor_1d(&[1.0f32, 2.0, 3.0, 4.0]).unwrap();
-        let b = tensor_1d(&[2.0f32, 2.0, 2.0, 2.0]).unwrap();
+        let a = tensor_1d(&[1.0f32, 2.0, 3.0, 4.0]).expect("tensor_1d creation should succeed");
+        let b = tensor_1d(&[2.0f32, 2.0, 2.0, 2.0]).expect("tensor_1d creation should succeed");
 
         // (a + b) * 2 + 1
         let result = a
             .expr()
-            .unwrap()
-            .add(b.expr().unwrap())
+            .expect("tensor_1d creation should succeed")
+            .add(b.expr().expect("expression should exist"))
             .mul_scalar(2.0)
             .add_scalar(1.0)
             .eval_vec();
@@ -477,60 +482,74 @@ mod tests {
 
     #[test]
     fn test_negation() {
-        let tensor = tensor_1d(&[1.0f32, 2.0, -3.0, 4.0]).unwrap();
+        let tensor =
+            tensor_1d(&[1.0f32, 2.0, -3.0, 4.0]).expect("tensor_1d creation should succeed");
 
-        let result = tensor.expr().unwrap().neg().eval_vec();
+        let result = tensor
+            .expr()
+            .expect("expression should exist")
+            .neg()
+            .eval_vec();
 
         assert_eq!(result, vec![-1.0, -2.0, 3.0, -4.0]);
     }
 
     #[test]
     fn test_eval_tensor() {
-        let tensor = tensor_1d(&[1.0f32, 2.0, 3.0, 4.0]).unwrap();
+        let tensor =
+            tensor_1d(&[1.0f32, 2.0, 3.0, 4.0]).expect("tensor_1d creation should succeed");
 
         let result = tensor
             .expr()
-            .unwrap()
+            .expect("tensor_1d creation should succeed")
             .mul_scalar(2.0)
             .eval_tensor(vec![4], DeviceType::Cpu)
-            .unwrap();
+            .expect("tensor_1d creation should succeed");
 
-        let data = result.to_vec().unwrap();
+        let data = result.to_vec().expect("to_vec conversion should succeed");
         assert_eq!(data, vec![2.0, 4.0, 6.0, 8.0]);
     }
 
     #[test]
     fn test_division() {
-        let a = tensor_1d(&[10.0f32, 20.0, 30.0, 40.0]).unwrap();
-        let b = tensor_1d(&[2.0f32, 4.0, 5.0, 8.0]).unwrap();
+        let a = tensor_1d(&[10.0f32, 20.0, 30.0, 40.0]).expect("tensor_1d creation should succeed");
+        let b = tensor_1d(&[2.0f32, 4.0, 5.0, 8.0]).expect("tensor_1d creation should succeed");
 
-        let result = a.expr().unwrap().div(b.expr().unwrap()).eval_vec();
+        let result = a
+            .expr()
+            .expect("expression should exist")
+            .div(b.expr().expect("expression should exist"))
+            .eval_vec();
 
         assert_eq!(result, vec![5.0, 5.0, 6.0, 5.0]);
     }
 
     #[test]
     fn test_subtraction() {
-        let a = tensor_1d(&[10.0f32, 20.0, 30.0, 40.0]).unwrap();
-        let b = tensor_1d(&[1.0f32, 2.0, 3.0, 4.0]).unwrap();
+        let a = tensor_1d(&[10.0f32, 20.0, 30.0, 40.0]).expect("tensor_1d creation should succeed");
+        let b = tensor_1d(&[1.0f32, 2.0, 3.0, 4.0]).expect("tensor_1d creation should succeed");
 
-        let result = a.expr().unwrap().sub(b.expr().unwrap()).eval_vec();
+        let result = a
+            .expr()
+            .expect("expression should exist")
+            .sub(b.expr().expect("expression should exist"))
+            .eval_vec();
 
         assert_eq!(result, vec![9.0, 18.0, 27.0, 36.0]);
     }
 
     #[test]
     fn test_multiple_operations_chain() {
-        let a = tensor_1d(&[1.0f32, 2.0, 3.0, 4.0]).unwrap();
-        let b = tensor_1d(&[2.0f32, 2.0, 2.0, 2.0]).unwrap();
-        let c = tensor_1d(&[3.0f32, 3.0, 3.0, 3.0]).unwrap();
+        let a = tensor_1d(&[1.0f32, 2.0, 3.0, 4.0]).expect("tensor_1d creation should succeed");
+        let b = tensor_1d(&[2.0f32, 2.0, 2.0, 2.0]).expect("tensor_1d creation should succeed");
+        let c = tensor_1d(&[3.0f32, 3.0, 3.0, 3.0]).expect("tensor_1d creation should succeed");
 
         // ((a + b) * c) / 2 + 1
         let result = a
             .expr()
-            .unwrap()
-            .add(b.expr().unwrap())
-            .mul(c.expr().unwrap())
+            .expect("tensor_1d creation should succeed")
+            .add(b.expr().expect("expression should exist"))
+            .mul(c.expr().expect("expression should exist"))
             .div_scalar(2.0)
             .add_scalar(1.0)
             .eval_vec();

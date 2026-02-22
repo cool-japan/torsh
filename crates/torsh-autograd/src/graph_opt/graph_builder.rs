@@ -293,7 +293,9 @@ impl OptimizedGraph {
                 .graph
                 .neighbors_directed(node_idx, petgraph::Direction::Outgoing)
             {
-                let neighbor_degree = in_degree.get_mut(&neighbor_idx).unwrap();
+                let neighbor_degree = in_degree
+                    .get_mut(&neighbor_idx)
+                    .expect("neighbor should exist in in_degree map");
                 *neighbor_degree -= 1;
 
                 if *neighbor_degree == 0 {

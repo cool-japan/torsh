@@ -1,21 +1,17 @@
 //! Package exporter functionality
 
 use crate::{Package, PackageManifest, Resource, ResourceType};
+use oxiarc_archive::zip::{ZipCompressionLevel, ZipWriter};
 use std::fs::File;
-use std::io::{self, Write};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use torsh_core::error::{Result, TorshError};
-use zip::write::{ExtendedFileOptions, FileOptions, ZipWriter};
-use zip::CompressionMethod;
 
 /// Configuration for package export
 #[derive(Debug, Clone)]
 pub struct ExportConfig {
-    /// Compression method to use
-    pub compression: CompressionMethod,
-
-    /// Compression level (0-9)
-    pub compression_level: Option<i64>,
+    /// Compression level to use
+    pub compression: ZipCompressionLevel,
 
     /// Include source code
     pub include_source: bool,
@@ -36,8 +32,7 @@ pub struct ExportConfig {
 impl Default for ExportConfig {
     fn default() -> Self {
         Self {
-            compression: CompressionMethod::Deflated,
-            compression_level: Some(6),
+            compression: ZipCompressionLevel::Normal,
             include_source: false,
             include_debug_info: false,
             sign_package: false,
@@ -76,17 +71,13 @@ impl PackageExporter {
         // Create zip file
         let file = File::create(path)?;
         let mut zip = ZipWriter::new(file);
-
-        // Set compression options
-        let options = FileOptions::<ExtendedFileOptions>::default()
-            .compression_method(self.config.compression)
-            .compression_level(self.config.compression_level);
+        zip.set_compression(self.config.compression);
 
         // Write manifest
         if self.config.verbose {
             println!("Writing manifest...");
         }
-        self.write_manifest(&mut zip, &package.manifest, &options)?;
+        self.write_manifest(&mut zip, &package.manifest)?;
 
         // Write resources
         let mut total_size = 0u64;
@@ -111,7 +102,7 @@ impl PackageExporter {
                 continue;
             }
 
-            self.write_resource(&mut zip, name, resource, &options)?;
+            self.write_resource(&mut zip, name, resource)?;
         }
 
         // Finalize zip
@@ -126,32 +117,28 @@ impl PackageExporter {
     }
 
     /// Write manifest to zip
-    fn write_manifest<W: Write + io::Seek>(
+    fn write_manifest<W: Write>(
         &self,
         zip: &mut ZipWriter<W>,
         manifest: &PackageManifest,
-        options: &FileOptions<ExtendedFileOptions>,
     ) -> Result<()> {
         // Serialize manifest
         let json = serde_json::to_string_pretty(manifest)
             .map_err(|e| TorshError::SerializationError(e.to_string()))?;
 
         // Write to zip
-        zip.start_file("MANIFEST.json", options.clone())
+        zip.add_file("MANIFEST.json", json.as_bytes())
             .map_err(|e| TorshError::IoError(e.to_string()))?;
-
-        zip.write_all(json.as_bytes())?;
 
         Ok(())
     }
 
     /// Write resource to zip
-    fn write_resource<W: Write + io::Seek>(
+    fn write_resource<W: Write>(
         &self,
         zip: &mut ZipWriter<W>,
         name: &str,
         resource: &Resource,
-        options: &FileOptions<ExtendedFileOptions>,
     ) -> Result<()> {
         // Determine path in archive
         let archive_path = match resource.resource_type {
@@ -164,10 +151,8 @@ impl PackageExporter {
         };
 
         // Write to zip
-        zip.start_file(&archive_path, options.clone())
+        zip.add_file(&archive_path, &resource.data)
             .map_err(|e| TorshError::IoError(e.to_string()))?;
-
-        zip.write_all(&resource.data)?;
 
         // Write metadata if present
         if !resource.metadata.is_empty() {
@@ -175,10 +160,8 @@ impl PackageExporter {
             let metadata_json = serde_json::to_string(&resource.metadata)
                 .map_err(|e| TorshError::SerializationError(e.to_string()))?;
 
-            zip.start_file(&metadata_path, options.clone())
+            zip.add_file(&metadata_path, metadata_json.as_bytes())
                 .map_err(|e| TorshError::IoError(e.to_string()))?;
-
-            zip.write_all(metadata_json.as_bytes())?;
         }
 
         Ok(())
@@ -300,14 +283,13 @@ mod tests {
     #[test]
     fn test_export_config() {
         let config = ExportConfig::default();
-        assert_eq!(config.compression, CompressionMethod::Deflated);
-        assert_eq!(config.compression_level, Some(6));
+        assert_eq!(config.compression, ZipCompressionLevel::Normal);
         assert!(!config.include_source);
     }
 
     #[test]
     fn test_package_export() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("Failed to create temp directory for test");
         let output_path = temp_dir.path().join("test.torshpkg");
 
         let mut package = Package::new("test_package".to_string(), "1.0.0".to_string());
@@ -321,14 +303,16 @@ mod tests {
         package.resources.insert(resource.name.clone(), resource);
 
         let exporter = PackageExporter::new(ExportConfig::default());
-        exporter.export_package(&package, &output_path).unwrap();
+        exporter
+            .export_package(&package, &output_path)
+            .expect("Failed to export package in test");
 
         assert!(output_path.exists());
     }
 
     #[test]
     fn test_export_builder() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("Failed to create temp directory for test");
         let output_path = temp_dir.path().join("test.torshpkg");
 
         let path = ExportBuilder::new("test".to_string(), "1.0.0".to_string())
@@ -337,7 +321,7 @@ mod tests {
             .license("MIT".to_string())
             .output_path(&output_path)
             .export()
-            .unwrap();
+            .expect("Failed to export using builder in test");
 
         assert_eq!(path, output_path);
         assert!(path.exists());

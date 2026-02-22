@@ -101,11 +101,13 @@ impl TfModel {
 
             // Load the saved model
             let mut graph = Graph::new();
-            let session =
-                Session::from_saved_model(&session_opts, tags, &mut graph, path.to_str().unwrap())
-                    .map_err(|e| {
-                        TorshError::Other(format!("Failed to load TensorFlow model: {}", e))
-                    })?;
+            let path_str = path.to_str().ok_or_else(|| {
+                TorshError::Other("Model path contains invalid UTF-8".to_string())
+            })?;
+            let session = Session::from_saved_model(&session_opts, tags, &mut graph, path_str)
+                .map_err(|e| {
+                    TorshError::Other(format!("Failed to load TensorFlow model: {}", e))
+                })?;
 
             // Extract input and output information
             let input_names = Self::extract_input_names(&graph)?;

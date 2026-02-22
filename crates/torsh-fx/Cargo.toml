@@ -7,7 +7,11 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 description = "Graph-based model representation and transformation for ToRSh"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-fx"
 rust-version.workspace = true
+keywords = ["deep-learning", "graph", "model-optimization", "machine-learning", "fx"]
+categories = ["science", "algorithms"]
 
 [lints]
 workspace = true
@@ -24,8 +28,8 @@ oxicode = { workspace = true }
 once_cell = { workspace = true }
 md5 = { workspace = true }
 flate2 = { workspace = true }
-uuid = { version = "1.20", features = ["v4", "serde"] }
-tokio = { version = "1.49", features = ["macros", "rt-multi-thread"] }
+uuid = { workspace = true }
+tokio = { workspace = true }
 chrono = { workspace = true }
 
 # SciRS2 dependencies (POLICY COMPLIANCE)

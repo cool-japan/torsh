@@ -691,7 +691,7 @@ mod tests {
 
     #[test]
     fn test_fft_plan_creation() {
-        let plan = FFTPlan::new(8, true).unwrap();
+        let plan = FFTPlan::new(8, true).expect("FFT plan creation should succeed");
         assert_eq!(plan.size, 8);
         assert_eq!(plan.twiddles.len(), 4);
         assert_eq!(plan.bit_reversed_indices.len(), 8);
@@ -718,17 +718,20 @@ mod tests {
     fn test_fft_basic() {
         // Test with a simple signal
         let data = vec![1.0, 0.0, 0.0, 0.0];
-        let tensor = Tensor::from_data(data, vec![4], torsh_core::device::DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![4], torsh_core::device::DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
         // Test that FFT works correctly
         let result = tensor.fft();
         assert!(result.is_ok(), "FFT should work with valid input");
 
-        let fft_result = result.unwrap();
+        let fft_result = result.expect("FFT operation should succeed");
         assert_eq!(fft_result.shape().dims(), &[4]);
 
         // The FFT of [1, 0, 0, 0] should be [1, 1, 1, 1]
-        let output_data = fft_result.to_vec().unwrap();
+        let output_data = fft_result
+            .to_vec()
+            .expect("to_vec conversion should succeed");
         assert_eq!(output_data.len(), 4);
         // Check that the DC component is 1
         assert!((output_data[0].re - 1.0).abs() < 1e-6);
@@ -737,13 +740,13 @@ mod tests {
 
     #[test]
     fn test_windowing_functions() {
-        let hann_window = windows::hann::<f64>(8).unwrap();
+        let hann_window = windows::hann::<f64>(8).expect("FFT operation should succeed");
         assert_eq!(hann_window.shape().dims(), &[8]);
 
-        let hamming_window = windows::hamming::<f64>(8).unwrap();
+        let hamming_window = windows::hamming::<f64>(8).expect("FFT operation should succeed");
         assert_eq!(hamming_window.shape().dims(), &[8]);
 
-        let blackman_window = windows::blackman::<f64>(8).unwrap();
+        let blackman_window = windows::blackman::<f64>(8).expect("FFT operation should succeed");
         assert_eq!(blackman_window.shape().dims(), &[8]);
     }
 }

@@ -1303,7 +1303,7 @@ mod tests {
         let result = inspector.inspect(&shape, DType::F32, &cpu_device, Some(&data));
         assert!(result.is_ok());
 
-        let inspection = result.unwrap();
+        let inspection = result.expect("inspect should succeed");
         assert_eq!(inspection.properties.shape, vec![2, 3, 4]);
         assert_eq!(inspection.properties.total_elements, 24);
         assert!(inspection.validation.is_valid);
@@ -1329,7 +1329,7 @@ mod tests {
         let result = inspector.inspect(&shape, DType::F32, &cpu_device, None::<&[f32]>);
         assert!(result.is_ok());
 
-        let inspection = result.unwrap();
+        let inspection = result.expect("inspect should succeed");
         assert!(!inspection.validation.warnings.is_empty());
     }
 
@@ -1354,7 +1354,7 @@ mod tests {
         let result = inspector.inspect(&shape, DType::F32, &cpu_device, Some(&data));
         assert!(result.is_ok());
 
-        let inspection = result.unwrap();
+        let inspection = result.expect("inspect should succeed");
 
         // Check visual representation is generated
         assert!(!inspection.memory_layout.visual_representation.is_empty());
@@ -1450,7 +1450,7 @@ mod tests {
         let result = inspector.inspect(&shape, DType::F32, &cpu_device, None::<&[f32]>);
         assert!(result.is_ok());
 
-        let inspection = result.unwrap();
+        let inspection = result.expect("inspect should succeed");
         let recommendations = debug_utils::generate_performance_recommendations(&inspection);
 
         // Should recommend batching for small tensors
@@ -1463,7 +1463,7 @@ mod tests {
         let large_result = inspector.inspect(&large_shape, DType::F32, &cpu_device, None::<&[f32]>);
         assert!(large_result.is_ok());
 
-        let large_inspection = large_result.unwrap();
+        let large_inspection = large_result.expect("inspect should succeed");
         let large_recommendations =
             debug_utils::generate_performance_recommendations(&large_inspection);
 
@@ -1481,11 +1481,11 @@ mod tests {
         let result = inspector.inspect(&shape, DType::F32, &cpu_device, None::<&[f32]>);
         assert!(result.is_ok());
 
-        let inspection = result.unwrap();
+        let inspection = result.expect("inspect should succeed");
         let json_result = debug_utils::export_to_json(&inspection);
         assert!(json_result.is_ok());
 
-        let json_string = json_result.unwrap();
+        let json_string = json_result.expect("export_to_json should succeed");
         assert!(json_string.contains("properties"));
         assert!(json_string.contains("memory_layout"));
         assert!(json_string.contains("validation"));

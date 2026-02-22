@@ -1020,10 +1020,10 @@ mod tests {
         assert!(!storage.is_empty());
         assert_eq!(storage.storage_type(), "in_memory");
 
-        assert_eq!(storage.get(0).unwrap(), 1.0);
-        assert_eq!(storage.get(3).unwrap(), 4.0);
+        assert_eq!(storage.get(0).expect("get(0) failed"), 1.0);
+        assert_eq!(storage.get(3).expect("get(3) failed"), 4.0);
 
-        let slice = storage.get_slice(1, 2).unwrap();
+        let slice = storage.get_slice(1, 2).expect("get_slice failed");
         assert_eq!(slice, vec![2.0, 3.0]);
     }
 
@@ -1031,7 +1031,8 @@ mod tests {
     fn test_optimal_storage_selection() {
         // Small data should use in-memory storage (200 f32 = 800 bytes < 1024 threshold)
         let small_data = vec![1.0f32; 200];
-        let small_storage = TensorStorage::create_optimal(small_data).unwrap();
+        let small_storage =
+            TensorStorage::create_optimal(small_data).expect("create_optimal failed");
 
         #[cfg(feature = "simd")]
         {
@@ -1057,22 +1058,23 @@ mod tests {
     #[cfg(feature = "simd")]
     fn test_aligned_storage() {
         let data = vec![1.0f32, 2.0, 3.0, 4.0];
-        let storage = TensorStorage::aligned(data.clone()).unwrap();
+        let storage =
+            TensorStorage::aligned(data.clone()).expect("aligned storage creation failed");
 
         assert_eq!(storage.len(), 4);
         assert!(!storage.is_empty());
         assert_eq!(storage.storage_type(), "aligned_simd");
 
         // Test basic element access
-        assert_eq!(storage.get(0).unwrap(), 1.0);
-        assert_eq!(storage.get(3).unwrap(), 4.0);
+        assert_eq!(storage.get(0).expect("get(0) failed"), 1.0);
+        assert_eq!(storage.get(3).expect("get(3) failed"), 4.0);
 
         // Test slice access
-        let slice = storage.get_slice(1, 2).unwrap();
+        let slice = storage.get_slice(1, 2).expect("get_slice failed");
         assert_eq!(slice, vec![2.0, 3.0]);
 
         // Test conversion to vec
-        let vec = storage.to_vec().unwrap();
+        let vec = storage.to_vec().expect("to_vec failed");
         assert_eq!(vec, data);
     }
 
@@ -1081,12 +1083,14 @@ mod tests {
     fn test_optimal_storage_selection_with_aligned() {
         // Medium-size data should use aligned storage when SIMD is enabled
         let medium_data = vec![1.0f32; 2000]; // Above ALIGNED_STORAGE_THRESHOLD
-        let medium_storage = TensorStorage::create_optimal(medium_data).unwrap();
+        let medium_storage = TensorStorage::create_optimal(medium_data)
+            .expect("create_optimal for medium data failed");
         assert_eq!(medium_storage.storage_type(), "aligned_simd");
 
         // Small data should still use in-memory storage
         let small_data = vec![1.0f32; 100]; // Below ALIGNED_STORAGE_THRESHOLD
-        let small_storage = TensorStorage::create_optimal(small_data).unwrap();
+        let small_storage = TensorStorage::create_optimal(small_data)
+            .expect("create_optimal for small data failed");
         assert_eq!(small_storage.storage_type(), "in_memory");
     }
 }

@@ -668,7 +668,7 @@ mod tests {
         assert_eq!(registry.list_backends().len(), 0);
 
         // Test adding search path
-        registry.add_search_path("/tmp/plugins");
+        registry.add_search_path(&std::env::temp_dir().join("plugins").display().to_string());
         assert_eq!(registry.search_paths.len(), 4); // 3 default + 1 added
     }
 

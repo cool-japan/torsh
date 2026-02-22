@@ -69,7 +69,7 @@ impl SparseConv2d {
     ///     3, 64, (3, 3),
     ///     Some((1, 1)), Some((1, 1)), None,
     ///     0.9, true
-    /// ).unwrap();
+    /// ).expect("valid conv2d config");
     /// ```
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -419,7 +419,7 @@ impl SparseConv1d {
     /// use torsh_sparse::nn::convolution::SparseConv1d;
     ///
     /// // Create sparse 1D conv: 16->32 channels, kernel size 3, 80% sparse
-    /// let conv = SparseConv1d::new(16, 32, 3, None, None, None, 0.8, true).unwrap();
+    /// let conv = SparseConv1d::new(16, 32, 3, None, None, None, 0.8, true).expect("valid conv1d config");
     /// ```
     #[allow(clippy::too_many_arguments)]
     pub fn new(

@@ -105,7 +105,7 @@ impl DiscoursePatternAnalyzer {
 
         // Limit to maximum patterns per document
         if patterns.len() > self.config.max_patterns_per_document {
-            patterns.sort_by(|a, b| b.quality_score.partial_cmp(&a.quality_score).unwrap());
+            patterns.sort_by(|a, b| b.quality_score.partial_cmp(&a.quality_score).unwrap_or(std::cmp::Ordering::Equal));
             patterns.truncate(self.config.max_patterns_per_document);
         }
 
@@ -134,7 +134,7 @@ impl DiscoursePatternAnalyzer {
         // Return the pattern with the highest score
         pattern_scores
             .into_iter()
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .map(|(pattern_type, _)| pattern_type)
             .unwrap_or(DiscoursePatternType::Mixed)
     }

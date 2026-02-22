@@ -502,7 +502,10 @@ impl MultiCloudProfiler {
                 "https://storage.blob.core.windows.net/profiling/data".to_string()
             }
             CloudProvider::GCP => "gs://profiling-bucket/data".to_string(),
-            _ => "/tmp/profiling-data".to_string(),
+            _ => std::env::temp_dir()
+                .join("profiling-data")
+                .display()
+                .to_string(),
         }
     }
 

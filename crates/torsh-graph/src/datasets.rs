@@ -112,7 +112,15 @@ impl GraphDatasetLoader for EdgeListLoader {
             )
         })?;
 
-        Ok(GraphData::new(x, edge_index.to_f32_simd().unwrap()))
+        Ok(GraphData::new(
+            x,
+            edge_index.to_f32_simd().map_err(|e| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("Edge index conversion failed: {:?}", e),
+                )
+            })?,
+        ))
     }
 
     fn load_from_directory<P: AsRef<Path>>(&self, path: P) -> IoResult<Vec<GraphData>> {
@@ -286,7 +294,15 @@ impl GMLLoader {
                 )
             })?;
 
-        Ok(GraphData::new(x, edge_index.to_f32_simd().unwrap()))
+        Ok(GraphData::new(
+            x,
+            edge_index.to_f32_simd().map_err(|e| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("Edge index conversion failed: {:?}", e),
+                )
+            })?,
+        ))
     }
 }
 
@@ -428,7 +444,15 @@ impl JSONLoader {
             )
         })?;
 
-        Ok(GraphData::new(x, edge_index.to_f32_simd().unwrap()))
+        Ok(GraphData::new(
+            x,
+            edge_index.to_f32_simd().map_err(|e| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("Edge index conversion failed: {:?}", e),
+                )
+            })?,
+        ))
     }
 }
 
@@ -459,7 +483,7 @@ impl GraphDatasetCollection {
                         &[nodes_per_graph, num_features],
                         DeviceType::Cpu,
                     )
-                    .unwrap();
+                    .expect("feature tensor creation with valid dimensions should succeed");
                     graph.x = x;
                 }
 
@@ -497,7 +521,8 @@ impl GraphDatasetCollection {
             .map(|&x| x + (rng.random::<f32>() - 0.5) * 2.0 * noise_level)
             .collect();
 
-        let noisy_x = from_vec(noisy_features, graph.x.shape().dims(), DeviceType::Cpu).unwrap();
+        let noisy_x = from_vec(noisy_features, graph.x.shape().dims(), DeviceType::Cpu)
+            .expect("noisy feature tensor creation with same dimensions should succeed");
 
         GraphData {
             x: noisy_x,
@@ -604,8 +629,9 @@ impl TemporalGraphLoader {
                             &[1, self.node_features],
                             DeviceType::Cpu,
                         )
-                        .unwrap();
-                        let edge_index = from_vec(vec![], &[2, 0], DeviceType::Cpu).unwrap();
+                        .expect("placeholder tensor creation should succeed");
+                        let edge_index = from_vec(vec![], &[2, 0], DeviceType::Cpu)
+                            .expect("empty edge tensor creation should succeed");
                         graphs.push(GraphData::new(x, edge_index));
                     }
                 }

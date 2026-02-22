@@ -260,41 +260,41 @@ fn bench_export_format_comparison(c: &mut Criterion) {
 
     // Benchmark JSON export
     setup_events();
+    let bench_json_path = std::env::temp_dir().join("bench_json.json");
+    let bench_json_str = bench_json_path.display().to_string();
     group.bench_function("json", |b| {
         b.iter(|| {
-            let _ = export_global_events(
-                black_box(ExportFormat::Json),
-                black_box("/tmp/bench_json.json"),
-            );
+            let _ = export_global_events(black_box(ExportFormat::Json), black_box(&bench_json_str));
         });
     });
-    std::fs::remove_file("/tmp/bench_json.json").ok();
+    std::fs::remove_file(&bench_json_path).ok();
     clear_global_events();
 
     // Benchmark CSV export
     setup_events();
+    let bench_csv_path = std::env::temp_dir().join("bench_csv.csv");
+    let bench_csv_str = bench_csv_path.display().to_string();
     group.bench_function("csv", |b| {
         b.iter(|| {
-            let _ = export_global_events(
-                black_box(ExportFormat::Csv),
-                black_box("/tmp/bench_csv.csv"),
-            );
+            let _ = export_global_events(black_box(ExportFormat::Csv), black_box(&bench_csv_str));
         });
     });
-    std::fs::remove_file("/tmp/bench_csv.csv").ok();
+    std::fs::remove_file(&bench_csv_path).ok();
     clear_global_events();
 
     // Benchmark Chrome Trace export
     setup_events();
+    let bench_chrome_path = std::env::temp_dir().join("bench_chrome.json");
+    let bench_chrome_str = bench_chrome_path.display().to_string();
     group.bench_function("chrome_trace", |b| {
         b.iter(|| {
             let _ = export_global_events(
                 black_box(ExportFormat::ChromeTrace),
-                black_box("/tmp/bench_chrome.json"),
+                black_box(&bench_chrome_str),
             );
         });
     });
-    std::fs::remove_file("/tmp/bench_chrome.json").ok();
+    std::fs::remove_file(&bench_chrome_path).ok();
     clear_global_events();
 
     group.finish();

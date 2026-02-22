@@ -701,7 +701,10 @@ impl SpecializedLibraryManager {
 
         for (lib_name, library) in &self.libraries {
             if library.supported_types().contains(&computation_type) {
-                let config = self.configs.get(lib_name).unwrap();
+                let config = self
+                    .configs
+                    .get(lib_name)
+                    .expect("config should exist for registered library");
 
                 // Check priority first
                 if config.priority > best_priority {

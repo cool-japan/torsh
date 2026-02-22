@@ -211,7 +211,11 @@ impl AggregationEngine {
     pub fn with_config(method: AggregationMethod, config: CommunicationConfig) -> Self {
         let mut engine = Self::new(method);
         engine.config = Some(config);
-        engine.byzantine_resilience = engine.config.as_ref().unwrap().fault_tolerance;
+        engine.byzantine_resilience = engine
+            .config
+            .as_ref()
+            .expect("config was just set")
+            .fault_tolerance;
         engine
     }
 
@@ -451,7 +455,7 @@ impl AggregationEngine {
 
         // Compute median norm for outlier detection
         let mut sorted_norms = gradient_norms.clone();
-        sorted_norms.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted_norms.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         let median_norm = sorted_norms[sorted_norms.len() / 2];
 
         // Filter out gradients that are too far from the median (potential Byzantine)
@@ -638,7 +642,8 @@ impl AggregationEngine {
                     .cloned()
                     .collect();
 
-                position_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                position_values
+                    .sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
                 let median = if position_values.len() % 2 == 0 {
                     let mid = position_values.len() / 2;
@@ -680,7 +685,8 @@ impl AggregationEngine {
                     .cloned()
                     .collect();
 
-                position_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                position_values
+                    .sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
                 let trim_count = (position_values.len() as f64 * trim_ratio) as usize;
                 let trimmed_slice =

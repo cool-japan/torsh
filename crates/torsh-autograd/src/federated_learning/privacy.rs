@@ -399,7 +399,8 @@ impl PrivacyEngine {
         use scirs2_core::random::Distribution;
 
         let mut rng = thread_rng();
-        let normal = Normal::new(mean, std_dev).unwrap();
+        let normal =
+            Normal::new(mean, std_dev).expect("normal distribution parameters should be valid");
         normal.sample(&mut rng)
     }
 

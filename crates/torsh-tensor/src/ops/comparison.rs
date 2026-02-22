@@ -360,84 +360,84 @@ mod tests {
 
     #[test]
     fn test_comparison_operations() {
-        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu).unwrap();
-        let b = Tensor::from_data(vec![1.0f32, 3.0, 2.0, 4.0], vec![2, 2], DeviceType::Cpu).unwrap();
+        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu).expect("operation should succeed");
+        let b = Tensor::from_data(vec![1.0f32, 3.0, 2.0, 4.0], vec![2, 2], DeviceType::Cpu).expect("operation should succeed");
 
         // Test element-wise equality
-        let eq_result = a.eq(&b).unwrap();
-        let eq_data = eq_result.data().unwrap();
+        let eq_result = a.eq(&b).expect("operation should succeed");
+        let eq_data = eq_result.data().expect("data retrieval should succeed");
         assert_eq!(eq_data.as_slice(), &[true, false, false, true]);
 
         // Test element-wise greater than
-        let gt_result = a.gt(&b).unwrap();
-        let gt_data = gt_result.data().unwrap();
+        let gt_result = a.gt(&b).expect("operation should succeed");
+        let gt_data = gt_result.data().expect("data retrieval should succeed");
         assert_eq!(gt_data.as_slice(), &[false, false, true, false]);
 
         // Test element-wise less than
-        let lt_result = a.lt(&b).unwrap();
-        let lt_data = lt_result.data().unwrap();
+        let lt_result = a.lt(&b).expect("operation should succeed");
+        let lt_data = lt_result.data().expect("data retrieval should succeed");
         assert_eq!(lt_data.as_slice(), &[false, true, false, false]);
     }
 
     #[test]
     fn test_scalar_comparisons() {
-        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu).unwrap();
+        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu).expect("operation should succeed");
 
         // Test scalar equality
-        let eq_scalar_result = a.eq_scalar(2.0).unwrap();
-        let eq_scalar_data = eq_scalar_result.data().unwrap();
+        let eq_scalar_result = a.eq_scalar(2.0).expect("operation should succeed");
+        let eq_scalar_data = eq_scalar_result.data().expect("data retrieval should succeed");
         assert_eq!(eq_scalar_data.as_slice(), &[false, true, false, false]);
 
         // Test scalar greater than
-        let gt_scalar_result = a.gt_scalar(2.0).unwrap();
-        let gt_scalar_data = gt_scalar_result.data().unwrap();
+        let gt_scalar_result = a.gt_scalar(2.0).expect("operation should succeed");
+        let gt_scalar_data = gt_scalar_result.data().expect("data retrieval should succeed");
         assert_eq!(gt_scalar_data.as_slice(), &[false, false, true, true]);
     }
 
     #[test]
     fn test_logical_operations() {
-        let a = Tensor::from_data(vec![true, false, true, false], vec![4], DeviceType::Cpu).unwrap();
-        let b = Tensor::from_data(vec![true, true, false, false], vec![4], DeviceType::Cpu).unwrap();
+        let a = Tensor::from_data(vec![true, false, true, false], vec![4], DeviceType::Cpu).expect("operation should succeed");
+        let b = Tensor::from_data(vec![true, true, false, false], vec![4], DeviceType::Cpu).expect("operation should succeed");
 
         // Test logical AND
-        let and_result = a.logical_and(&b).unwrap();
-        let and_data = and_result.data().unwrap();
+        let and_result = a.logical_and(&b).expect("operation should succeed");
+        let and_data = and_result.data().expect("data retrieval should succeed");
         assert_eq!(and_data.as_slice(), &[true, false, false, false]);
 
         // Test logical OR
-        let or_result = a.logical_or(&b).unwrap();
-        let or_data = or_result.data().unwrap();
+        let or_result = a.logical_or(&b).expect("operation should succeed");
+        let or_data = or_result.data().expect("data retrieval should succeed");
         assert_eq!(or_data.as_slice(), &[true, true, true, false]);
 
         // Test logical NOT
-        let not_result = a.logical_not().unwrap();
-        let not_data = not_result.data().unwrap();
+        let not_result = a.logical_not().expect("operation should succeed");
+        let not_data = not_result.data().expect("data retrieval should succeed");
         assert_eq!(not_data.as_slice(), &[false, true, false, true]);
     }
 
     #[test]
     fn test_maximum_minimum() {
-        let a = Tensor::from_data(vec![1.0f32, 4.0, 2.0, 3.0], vec![4], DeviceType::Cpu).unwrap();
-        let b = Tensor::from_data(vec![2.0f32, 3.0, 4.0, 1.0], vec![4], DeviceType::Cpu).unwrap();
+        let a = Tensor::from_data(vec![1.0f32, 4.0, 2.0, 3.0], vec![4], DeviceType::Cpu).expect("operation should succeed");
+        let b = Tensor::from_data(vec![2.0f32, 3.0, 4.0, 1.0], vec![4], DeviceType::Cpu).expect("operation should succeed");
 
         // Test maximum
-        let max_result = a.maximum(&b).unwrap();
-        let max_data = max_result.data().unwrap();
+        let max_result = a.maximum(&b).expect("operation should succeed");
+        let max_data = max_result.data().expect("data retrieval should succeed");
         assert_eq!(max_data.as_slice(), &[2.0, 4.0, 4.0, 3.0]);
 
         // Test minimum
-        let min_result = a.minimum(&b).unwrap();
-        let min_data = min_result.data().unwrap();
+        let min_result = a.minimum(&b).expect("operation should succeed");
+        let min_data = min_result.data().expect("data retrieval should succeed");
         assert_eq!(min_data.as_slice(), &[1.0, 3.0, 2.0, 1.0]);
     }
 
     #[test]
     fn test_masked_fill() {
-        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu).unwrap();
-        let mask = Tensor::from_data(vec![true, false, true, false], vec![4], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu).expect("operation should succeed");
+        let mask = Tensor::from_data(vec![true, false, true, false], vec![4], DeviceType::Cpu).expect("operation should succeed");
 
-        let result = tensor.masked_fill(&mask, 0.0).unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.masked_fill(&mask, 0.0).expect("operation should succeed");
+        let data = result.data().expect("data retrieval should succeed");
 
         assert_eq!(data.as_slice(), &[0.0, 2.0, 0.0, 4.0]);
     }
@@ -448,35 +448,35 @@ mod tests {
             vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0],
             vec![2, 3],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("operation should succeed");
         let mask = Tensor::from_data(
             vec![true, false, true, false, true, false],
             vec![2, 3],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("operation should succeed");
 
-        let result = tensor.masked_fill(&mask, -1.0).unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.masked_fill(&mask, -1.0).expect("operation should succeed");
+        let data = result.data().expect("data retrieval should succeed");
 
         assert_eq!(data.as_slice(), &[-1.0, 2.0, -1.0, 4.0, -1.0, 6.0]);
     }
 
     #[test]
     fn test_masked_fill_inplace() {
-        let mut tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu).unwrap();
-        let mask = Tensor::from_data(vec![false, true, false, true], vec![4], DeviceType::Cpu).unwrap();
+        let mut tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu).expect("operation should succeed");
+        let mask = Tensor::from_data(vec![false, true, false, true], vec![4], DeviceType::Cpu).expect("operation should succeed");
 
-        tensor.masked_fill_(&mask, 99.0).unwrap();
-        let data = tensor.data().unwrap();
+        tensor.masked_fill_(&mask, 99.0).expect("operation should succeed");
+        let data = tensor.data().expect("data retrieval should succeed");
 
         assert_eq!(data.as_slice(), &[1.0, 99.0, 3.0, 99.0]);
     }
 
     #[test]
     fn test_masked_fill_requires_grad() {
-        let mut tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu).unwrap();
+        let mut tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu).expect("operation should succeed");
         tensor.requires_grad = true;
-        let mask = Tensor::from_data(vec![true, false, true, false], vec![4], DeviceType::Cpu).unwrap();
+        let mask = Tensor::from_data(vec![true, false, true, false], vec![4], DeviceType::Cpu).expect("operation should succeed");
 
         let result = tensor.masked_fill_(&mask, 0.0);
 
@@ -485,10 +485,10 @@ mod tests {
 
     #[test]
     fn test_nonzero_1d() {
-        let tensor = Tensor::from_data(vec![0.0f32, 1.0, 0.0, 2.0, 0.0, 3.0], vec![6], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![0.0f32, 1.0, 0.0, 2.0, 0.0, 3.0], vec![6], DeviceType::Cpu).expect("operation should succeed");
 
-        let result = tensor.nonzero().unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.nonzero().expect("operation should succeed");
+        let data = result.data().expect("data retrieval should succeed");
         let shape = result.shape().dims();
 
         assert_eq!(shape, &[3, 1]); // 3 non-zero elements, 1D tensor
@@ -501,10 +501,10 @@ mod tests {
             vec![0.0f32, 1.0, 0.0, 2.0, 0.0, 3.0],
             vec![2, 3],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("operation should succeed");
 
-        let result = tensor.nonzero().unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.nonzero().expect("operation should succeed");
+        let data = result.data().expect("data retrieval should succeed");
         let shape = result.shape().dims();
 
         assert_eq!(shape, &[3, 2]); // 3 non-zero elements, 2D tensor
@@ -515,9 +515,9 @@ mod tests {
 
     #[test]
     fn test_nonzero_all_zeros() {
-        let tensor = Tensor::from_data(vec![0.0f32, 0.0, 0.0], vec![3], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![0.0f32, 0.0, 0.0], vec![3], DeviceType::Cpu).expect("operation should succeed");
 
-        let result = tensor.nonzero().unwrap();
+        let result = tensor.nonzero().expect("operation should succeed");
         let shape = result.shape().dims();
 
         assert_eq!(shape, &[0, 1]); // No non-zero elements
@@ -525,10 +525,10 @@ mod tests {
 
     #[test]
     fn test_nonzero_all_nonzero() {
-        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("operation should succeed");
 
-        let result = tensor.nonzero().unwrap();
-        let data = result.data().unwrap();
+        let result = tensor.nonzero().expect("operation should succeed");
+        let data = result.data().expect("data retrieval should succeed");
         let shape = result.shape().dims();
 
         assert_eq!(shape, &[3, 1]); // All 3 elements are non-zero

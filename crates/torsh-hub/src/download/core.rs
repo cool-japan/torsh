@@ -43,7 +43,7 @@ use super::validation::validate_url;
 ///
 /// let result = download_file(
 ///     "https://example.com/file.txt",
-///     Path::new("/tmp/downloaded_file.txt"),
+///     &std::env::temp_dir().join("downloaded_file.txt"),
 ///     true
 /// );
 /// ```
@@ -149,7 +149,7 @@ pub fn download_file(url: &str, dest_path: &Path, progress: bool) -> Result<()> 
 ///
 /// let result = download_with_retry(
 ///     "https://example.com/file.txt",
-///     Path::new("/tmp/downloaded_file.txt"),
+///     &std::env::temp_dir().join("downloaded_file.txt"),
 ///     3,  // max 3 retries
 ///     true
 /// );
@@ -236,7 +236,7 @@ pub fn print_progress(current: u64, total: u64) {
 /// let config = ParallelDownloadConfig::default();
 /// let result = download_file_parallel(
 ///     "https://example.com/large_file.zip",
-///     Path::new("/tmp/large_file.zip"),
+///     &std::env::temp_dir().join("large_file.zip"),
 ///     config,
 ///     true
 /// ).await?;
@@ -362,7 +362,10 @@ async fn download_file_chunked(
         let downloaded_bytes = downloaded_bytes.clone();
 
         async move {
-            let _permit = semaphore.acquire().await.unwrap();
+            let _permit = semaphore
+                .acquire()
+                .await
+                .expect("semaphore should not be closed");
             download_chunk(
                 &client,
                 &url,
@@ -639,12 +642,10 @@ mod tests {
 
     #[test]
     fn test_temporary_file_path_generation() {
-        use std::path::PathBuf;
-
-        let dest_path = PathBuf::from("/tmp/test.txt");
+        let dest_path = std::env::temp_dir().join("test.txt");
         let temp_path = dest_path.with_extension("tmp");
 
-        assert_eq!(temp_path, PathBuf::from("/tmp/test.tmp"));
+        assert_eq!(temp_path, std::env::temp_dir().join("test.tmp"));
     }
 
     #[test]

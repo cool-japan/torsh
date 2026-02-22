@@ -974,7 +974,9 @@ mod tests {
         assert_eq!(manager.queued_transfer_count(), 0);
 
         let request = TransferRequest::new(DeviceType::Cpu, DeviceType::Cpu, 1024);
-        let handle = manager.execute_transfer(request).unwrap();
+        let handle = manager
+            .execute_transfer(request)
+            .expect("execute_transfer should succeed");
 
         assert!(handle.is_complete());
         assert_eq!(handle.progress(), 1.0);
@@ -985,9 +987,15 @@ mod tests {
         let manager = BandwidthManager::new();
         let request = TransferRequest::new(DeviceType::Cpu, DeviceType::Cuda(0), 1024 * 1024);
 
-        assert!(manager.can_allocate_bandwidth(&request).unwrap());
-        manager.allocate_bandwidth(&request).unwrap();
-        manager.deallocate_bandwidth(&request).unwrap();
+        assert!(manager
+            .can_allocate_bandwidth(&request)
+            .expect("can_allocate_bandwidth should succeed"));
+        manager
+            .allocate_bandwidth(&request)
+            .expect("allocate_bandwidth should succeed");
+        manager
+            .deallocate_bandwidth(&request)
+            .expect("deallocate_bandwidth should succeed");
     }
 
     #[test]
@@ -996,12 +1004,12 @@ mod tests {
 
         let can_p2p = manager
             .can_use_p2p(&DeviceType::Cuda(0), &DeviceType::Cuda(1))
-            .unwrap();
+            .expect("can_use_p2p should succeed");
         assert!(can_p2p);
 
         let cannot_p2p = manager
             .can_use_p2p(&DeviceType::Cpu, &DeviceType::Cuda(0))
-            .unwrap();
+            .expect("can_use_p2p should succeed");
         assert!(!cannot_p2p);
     }
 
@@ -1049,7 +1057,7 @@ mod tests {
         assert_eq!(handle.destination(), DeviceType::Cuda(0));
         assert_eq!(handle.size_bytes(), 1024);
 
-        let result = handle.wait().unwrap();
+        let result = handle.wait().expect("wait should succeed");
         assert_eq!(result.bytes_transferred, 1024);
     }
 }

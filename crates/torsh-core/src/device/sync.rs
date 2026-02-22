@@ -804,27 +804,29 @@ mod tests {
 
     #[test]
     fn test_device_event_basic() {
-        let event = DeviceEvent::new(DeviceType::Cpu).unwrap();
+        let event = DeviceEvent::new(DeviceType::Cpu).expect("event creation should succeed");
         assert_eq!(event.device(), DeviceType::Cpu);
-        assert!(!event.query().unwrap());
+        assert!(!event.query().expect("query should succeed"));
 
-        event.record().unwrap();
-        event.wait().unwrap();
-        assert!(event.query().unwrap());
+        event.record().expect("record should succeed");
+        event.wait().expect("wait should succeed");
+        assert!(event.query().expect("query should succeed"));
     }
 
     #[test]
     fn test_device_event_timeout() {
-        let event = DeviceEvent::new(DeviceType::Cpu).unwrap();
-        event.record().unwrap();
+        let event = DeviceEvent::new(DeviceType::Cpu).expect("event creation should succeed");
+        event.record().expect("record should succeed");
 
-        let completed = event.wait_timeout(Duration::from_millis(100)).unwrap();
+        let completed = event
+            .wait_timeout(Duration::from_millis(100))
+            .expect("wait_timeout should succeed");
         assert!(completed); // Should complete quickly
     }
 
     #[test]
     fn test_device_stream() {
-        let stream = DeviceStream::new(DeviceType::Cpu).unwrap();
+        let stream = DeviceStream::new(DeviceType::Cpu).expect("stream creation should succeed");
         assert_eq!(stream.device(), DeviceType::Cpu);
         assert_eq!(stream.priority(), StreamPriority::Normal);
 
@@ -835,16 +837,16 @@ mod tests {
             .submit_operation(move || {
                 *executed_clone.lock().expect("lock should not be poisoned") = true;
             })
-            .unwrap();
+            .expect("submit_operation should succeed");
 
-        stream.synchronize().unwrap();
+        stream.synchronize().expect("synchronize should succeed");
         assert!(*executed.lock().expect("lock should not be poisoned"));
     }
 
     #[test]
     fn test_device_barrier() {
         let devices = vec![DeviceType::Cpu, DeviceType::Cuda(0)];
-        let barrier = DeviceBarrier::new(devices.clone()).unwrap();
+        let barrier = DeviceBarrier::new(devices.clone()).expect("barrier creation should succeed");
 
         assert_eq!(barrier.devices(), &devices);
         assert_eq!(barrier.arrived_count(), 0);
@@ -861,22 +863,23 @@ mod tests {
             assert_eq!(*guard, 42);
         }
 
-        let try_guard = mutex.try_lock().unwrap();
+        let try_guard = mutex.try_lock().expect("try_lock should succeed");
         assert!(try_guard.is_some());
-        assert_eq!(*try_guard.unwrap(), 42);
+        assert_eq!(*try_guard.expect("guard should be Some"), 42);
     }
 
     #[test]
     fn test_sync_manager() {
         let manager = DeviceSyncManager::new();
-        let stream = Arc::new(DeviceStream::new(DeviceType::Cpu).unwrap());
+        let stream =
+            Arc::new(DeviceStream::new(DeviceType::Cpu).expect("stream creation should succeed"));
         let stream_id = stream.id();
 
         manager.register_stream(stream.clone());
 
         let retrieved = manager.get_stream(DeviceType::Cpu, stream_id);
         assert!(retrieved.is_some());
-        assert_eq!(retrieved.unwrap().id(), stream_id);
+        assert_eq!(retrieved.expect("stream should be found").id(), stream_id);
 
         let stats = manager.statistics();
         assert_eq!(stats.total_streams, 1);
@@ -884,9 +887,10 @@ mod tests {
 
     #[test]
     fn test_stream_priorities() {
-        let high_stream =
-            DeviceStream::with_priority(DeviceType::Cpu, StreamPriority::High).unwrap();
-        let low_stream = DeviceStream::with_priority(DeviceType::Cpu, StreamPriority::Low).unwrap();
+        let high_stream = DeviceStream::with_priority(DeviceType::Cpu, StreamPriority::High)
+            .expect("stream creation should succeed");
+        let low_stream = DeviceStream::with_priority(DeviceType::Cpu, StreamPriority::Low)
+            .expect("stream creation should succeed");
 
         assert_eq!(high_stream.priority(), StreamPriority::High);
         assert_eq!(low_stream.priority(), StreamPriority::Low);
@@ -894,26 +898,26 @@ mod tests {
 
     #[test]
     fn test_event_reset() {
-        let event = DeviceEvent::new(DeviceType::Cpu).unwrap();
-        event.record().unwrap();
-        event.wait().unwrap();
-        assert!(event.query().unwrap());
+        let event = DeviceEvent::new(DeviceType::Cpu).expect("event creation should succeed");
+        event.record().expect("record should succeed");
+        event.wait().expect("wait should succeed");
+        assert!(event.query().expect("query should succeed"));
 
-        event.reset().unwrap();
-        assert!(!event.query().unwrap());
+        event.reset().expect("reset should succeed");
+        assert!(!event.query().expect("query should succeed"));
     }
 
     #[test]
     fn test_utils_functions() {
-        let event1 = DeviceEvent::new(DeviceType::Cpu).unwrap();
-        let event2 = DeviceEvent::new(DeviceType::Cpu).unwrap();
+        let event1 = DeviceEvent::new(DeviceType::Cpu).expect("event creation should succeed");
+        let event2 = DeviceEvent::new(DeviceType::Cpu).expect("event creation should succeed");
         let events = vec![&event1, &event2];
 
-        event1.record().unwrap();
-        event2.record().unwrap();
+        event1.record().expect("record should succeed");
+        event2.record().expect("record should succeed");
 
-        utils::wait_events(&events).unwrap();
-        assert!(utils::all_events_complete(&events).unwrap());
+        utils::wait_events(&events).expect("wait_events should succeed");
+        assert!(utils::all_events_complete(&events).expect("all_events_complete should succeed"));
 
         let times = utils::measure_event_times(&events);
         assert_eq!(times.len(), 2);
@@ -922,7 +926,10 @@ mod tests {
     #[tokio::test]
     async fn test_device_async() {
         let async_op = DeviceAsync::new(DeviceType::Cpu);
-        let result = async_op.execute(|| 42).join().unwrap();
+        let result = async_op
+            .execute(|| 42)
+            .join()
+            .expect("async execute should succeed");
         assert_eq!(result, 42);
     }
 }

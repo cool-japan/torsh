@@ -8,6 +8,10 @@ repository.workspace = true
 homepage.workspace = true
 rust-version.workspace = true
 description = "Graph neural network components for ToRSh - powered by SciRS2"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-graph"
+keywords = ["deep-learning", "graph-neural-net", "gnn", "machine-learning", "pytorch"]
+categories = ["science", "algorithms"]
 
 [lints]
 workspace = true

@@ -161,7 +161,7 @@ This session represents **major API ergonomics improvements** that make torsh-nn
 - **Deprecated API Migration**: Updated all uses of deprecated scirs2_core methods
   - Changed `rng.gen::<f32>()` to `rng.random::<f32>()` (2 occurrences)
   - Removed unused Rng import from gradcheck.rs
-  - Maintained compatibility with scirs2_core v0.1.0-rc.1+
+  - Maintained compatibility with scirs2_core v0.1.0+
 
 #### Technical Improvements ✅:
 - **Clean Compilation**: torsh-nn now compiles with zero warnings

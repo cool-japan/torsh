@@ -667,7 +667,7 @@ mod tests {
         let accelerator = GpuShapeAccelerator::new(config);
         assert!(accelerator.is_ok());
 
-        let accelerator = accelerator.unwrap();
+        let accelerator = accelerator.expect("accelerator creation should succeed");
         // GPU may or may not be available depending on build configuration
         let _gpu_available = accelerator.is_gpu_available();
     }
@@ -676,15 +676,16 @@ mod tests {
     #[cfg(feature = "std")]
     fn test_accelerator_broadcast() {
         let config = AcceleratorConfig::default();
-        let accelerator = GpuShapeAccelerator::new(config).unwrap();
+        let accelerator =
+            GpuShapeAccelerator::new(config).expect("accelerator creation should succeed");
 
-        let shape1 = Shape::from_dims(vec![10, 20, 30]).unwrap();
-        let shape2 = Shape::from_dims(vec![1, 20, 30]).unwrap();
+        let shape1 = Shape::from_dims(vec![10, 20, 30]).expect("shape creation should succeed");
+        let shape2 = Shape::from_dims(vec![1, 20, 30]).expect("shape creation should succeed");
 
         let result = accelerator.broadcast(&shape1, &shape2);
         assert!(result.is_ok());
 
-        let result = result.unwrap();
+        let result = result.expect("broadcast should succeed");
         assert_eq!(result.dims(), &[10, 20, 30]);
     }
 
@@ -692,15 +693,16 @@ mod tests {
     #[cfg(feature = "std")]
     fn test_accelerator_reshape() {
         let config = AcceleratorConfig::default();
-        let accelerator = GpuShapeAccelerator::new(config).unwrap();
+        let accelerator =
+            GpuShapeAccelerator::new(config).expect("accelerator creation should succeed");
 
-        let shape = Shape::from_dims(vec![10, 20, 30]).unwrap();
+        let shape = Shape::from_dims(vec![10, 20, 30]).expect("shape creation should succeed");
         let new_dims = vec![10, 600];
 
         let result = accelerator.reshape(&shape, &new_dims);
         assert!(result.is_ok());
 
-        let result = result.unwrap();
+        let result = result.expect("reshape should succeed");
         assert_eq!(result.dims(), &[10, 600]);
     }
 
@@ -708,9 +710,10 @@ mod tests {
     #[cfg(feature = "std")]
     fn test_accelerator_reshape_invalid() {
         let config = AcceleratorConfig::default();
-        let accelerator = GpuShapeAccelerator::new(config).unwrap();
+        let accelerator =
+            GpuShapeAccelerator::new(config).expect("accelerator creation should succeed");
 
-        let shape = Shape::from_dims(vec![10, 20, 30]).unwrap();
+        let shape = Shape::from_dims(vec![10, 20, 30]).expect("shape creation should succeed");
         let new_dims = vec![10, 100]; // Wrong number of elements
 
         let result = accelerator.reshape(&shape, &new_dims);
@@ -721,7 +724,8 @@ mod tests {
     #[cfg(feature = "std")]
     fn test_accelerator_batch_validate() {
         let config = AcceleratorConfig::default();
-        let accelerator = GpuShapeAccelerator::new(config).unwrap();
+        let accelerator =
+            GpuShapeAccelerator::new(config).expect("accelerator creation should succeed");
 
         let shapes = vec![
             vec![10, 20],
@@ -734,7 +738,7 @@ mod tests {
         let result = accelerator.batch_validate(&shapes);
         assert!(result.is_ok());
 
-        let result = result.unwrap();
+        let result = result.expect("batch_validate should succeed");
         assert_eq!(result.len(), 5);
         assert!(result[0]); // Valid
         assert!(result[1]); // Valid
@@ -747,13 +751,14 @@ mod tests {
     #[cfg(feature = "std")]
     fn test_accelerator_compute_strides() {
         let config = AcceleratorConfig::default();
-        let accelerator = GpuShapeAccelerator::new(config).unwrap();
+        let accelerator =
+            GpuShapeAccelerator::new(config).expect("accelerator creation should succeed");
 
         let dims = vec![10, 20, 30];
         let result = accelerator.compute_strides(&dims);
         assert!(result.is_ok());
 
-        let strides = result.unwrap();
+        let strides = result.expect("compute_strides should succeed");
         assert_eq!(strides, vec![600, 30, 1]);
     }
 
@@ -761,13 +766,14 @@ mod tests {
     #[cfg(feature = "std")]
     fn test_accelerator_compute_strides_empty() {
         let config = AcceleratorConfig::default();
-        let accelerator = GpuShapeAccelerator::new(config).unwrap();
+        let accelerator =
+            GpuShapeAccelerator::new(config).expect("accelerator creation should succeed");
 
         let dims = vec![];
         let result = accelerator.compute_strides(&dims);
         assert!(result.is_ok());
 
-        let strides = result.unwrap();
+        let strides = result.expect("compute_strides should succeed");
         assert!(strides.is_empty());
     }
 
@@ -775,11 +781,12 @@ mod tests {
     #[cfg(feature = "std")]
     fn test_accelerator_stats_tracking() {
         let config = AcceleratorConfig::default();
-        let accelerator = GpuShapeAccelerator::new(config).unwrap();
+        let accelerator =
+            GpuShapeAccelerator::new(config).expect("accelerator creation should succeed");
 
         // Perform some operations
-        let shape1 = Shape::from_dims(vec![10, 20]).unwrap();
-        let shape2 = Shape::from_dims(vec![1, 20]).unwrap();
+        let shape1 = Shape::from_dims(vec![10, 20]).expect("shape creation should succeed");
+        let shape2 = Shape::from_dims(vec![1, 20]).expect("shape creation should succeed");
         let _ = accelerator.broadcast(&shape1, &shape2);
 
         let stats = accelerator.stats();
@@ -795,7 +802,8 @@ mod tests {
     #[cfg(feature = "std")]
     fn test_accelerator_config_update() {
         let config = AcceleratorConfig::default();
-        let mut accelerator = GpuShapeAccelerator::new(config).unwrap();
+        let mut accelerator =
+            GpuShapeAccelerator::new(config).expect("accelerator creation should succeed");
 
         assert_eq!(accelerator.config().broadcast_threshold, 10_000_000);
 
@@ -809,14 +817,15 @@ mod tests {
     #[cfg(feature = "std")]
     fn test_accelerator_high_dimensional_strides() {
         let config = AcceleratorConfig::new().with_stride_dimension_threshold(5);
-        let accelerator = GpuShapeAccelerator::new(config).unwrap();
+        let accelerator =
+            GpuShapeAccelerator::new(config).expect("accelerator creation should succeed");
 
         // Create a 12D tensor (exceeds threshold of 5)
         let dims = vec![2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
         let result = accelerator.compute_strides(&dims);
         assert!(result.is_ok());
 
-        let strides = result.unwrap();
+        let strides = result.expect("compute_strides should succeed");
         assert_eq!(strides.len(), dims.len());
 
         // Verify strides are computed correctly
@@ -831,7 +840,8 @@ mod tests {
     #[cfg(feature = "std")]
     fn test_accelerator_large_batch_validation() {
         let config = AcceleratorConfig::new().with_batch_validation_threshold(10);
-        let accelerator = GpuShapeAccelerator::new(config).unwrap();
+        let accelerator =
+            GpuShapeAccelerator::new(config).expect("accelerator creation should succeed");
 
         // Create a batch of 50 shapes (exceeds threshold of 10)
         let shapes: Vec<Vec<usize>> = (0..50)
@@ -847,7 +857,7 @@ mod tests {
         let result = accelerator.batch_validate(&shapes);
         assert!(result.is_ok());
 
-        let validations = result.unwrap();
+        let validations = result.expect("batch_validate should succeed");
         assert_eq!(validations.len(), 50);
 
         // Check that invalid shapes (every 10th) are marked as invalid

@@ -136,37 +136,43 @@ pub mod patterns {
 
         #[test]
         fn test_neural_net_shapes() {
-            let fc_input = NeuralNetShapes::fully_connected_input(32, 784).unwrap();
+            let fc_input = NeuralNetShapes::fully_connected_input(32, 784)
+                .expect("shape creation should succeed");
             assert_eq!(fc_input.dims(), &[32, 784]);
 
-            let conv_input = NeuralNetShapes::conv2d_input(16, 3, 224, 224).unwrap();
+            let conv_input = NeuralNetShapes::conv2d_input(16, 3, 224, 224)
+                .expect("shape creation should succeed");
             assert_eq!(conv_input.dims(), &[16, 3, 224, 224]);
 
-            let sequence = NeuralNetShapes::sequence(8, 50, 512).unwrap();
+            let sequence =
+                NeuralNetShapes::sequence(8, 50, 512).expect("shape creation should succeed");
             assert_eq!(sequence.dims(), &[8, 50, 512]);
         }
 
         #[test]
         fn test_vision_shapes() {
-            let rgb = VisionShapes::rgb_image(224, 224).unwrap();
+            let rgb = VisionShapes::rgb_image(224, 224).expect("shape creation should succeed");
             assert_eq!(rgb.dims(), &[3, 224, 224]);
 
-            let grayscale = VisionShapes::grayscale_image(128, 128).unwrap();
+            let grayscale =
+                VisionShapes::grayscale_image(128, 128).expect("shape creation should succeed");
             assert_eq!(grayscale.dims(), &[1, 128, 128]);
 
-            let boxes = VisionShapes::bounding_boxes(10).unwrap();
+            let boxes = VisionShapes::bounding_boxes(10).expect("shape creation should succeed");
             assert_eq!(boxes.dims(), &[10, 4]);
         }
 
         #[test]
         fn test_nlp_shapes() {
-            let tokens = NlpShapes::token_indices(4, 128).unwrap();
+            let tokens = NlpShapes::token_indices(4, 128).expect("shape creation should succeed");
             assert_eq!(tokens.dims(), &[4, 128]);
 
-            let embeddings = NlpShapes::embeddings(30000, 768).unwrap();
+            let embeddings =
+                NlpShapes::embeddings(30000, 768).expect("shape creation should succeed");
             assert_eq!(embeddings.dims(), &[30000, 768]);
 
-            let hidden = NlpShapes::transformer_hidden(2, 50, 512).unwrap();
+            let hidden =
+                NlpShapes::transformer_hidden(2, 50, 512).expect("shape creation should succeed");
             assert_eq!(hidden.dims(), &[2, 50, 512]);
         }
     }
@@ -326,13 +332,16 @@ pub mod utils {
         #[test]
         fn test_reshape_calculation() {
             let shape = Shape::new(vec![2, 3, 4]);
-            let numel = calculate_reshape_numel(&shape, &[6, 4]).unwrap();
+            let numel = calculate_reshape_numel(&shape, &[6, 4])
+                .expect("reshape calculation should succeed");
             assert_eq!(numel, 24);
 
-            let inferred = infer_reshape_dimension(&shape, &[-1, 4]).unwrap();
+            let inferred = infer_reshape_dimension(&shape, &[-1, 4])
+                .expect("reshape inference should succeed");
             assert_eq!(inferred, vec![6, 4]);
 
-            let inferred2 = infer_reshape_dimension(&shape, &[2, -1]).unwrap();
+            let inferred2 = infer_reshape_dimension(&shape, &[2, -1])
+                .expect("reshape inference should succeed");
             assert_eq!(inferred2, vec![2, 12]);
         }
 
@@ -370,7 +379,8 @@ mod tests {
         assert_eq!(shape.ndim(), 3);
 
         // Test pattern utilities
-        let conv_shape = patterns::NeuralNetShapes::conv2d_input(1, 3, 224, 224).unwrap();
+        let conv_shape = patterns::NeuralNetShapes::conv2d_input(1, 3, 224, 224)
+            .expect("shape creation should succeed");
         assert_eq!(conv_shape.dims(), &[1, 3, 224, 224]);
 
         // Test utility functions

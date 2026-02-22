@@ -958,94 +958,94 @@ mod tests {
 
     #[test]
     fn test_add_inplace() {
-        let mut a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
-        let b = Tensor::from_data(vec![4.0f32, 5.0, 6.0], vec![3], DeviceType::Cpu).unwrap();
+        let mut a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("tensor creation failed");
+        let b = Tensor::from_data(vec![4.0f32, 5.0, 6.0], vec![3], DeviceType::Cpu).expect("tensor creation failed");
 
-        a.add_(&b).unwrap();
-        let result = a.data().unwrap();
+        a.add_(&b).expect("add_ failed");
+        let result = a.data().expect("data retrieval failed");
 
         assert_eq!(result, vec![5.0, 7.0, 9.0]);
     }
 
     #[test]
     fn test_mul_inplace() {
-        let mut a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
-        let b = Tensor::from_data(vec![2.0f32, 3.0, 4.0], vec![3], DeviceType::Cpu).unwrap();
+        let mut a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("tensor creation failed");
+        let b = Tensor::from_data(vec![2.0f32, 3.0, 4.0], vec![3], DeviceType::Cpu).expect("tensor creation failed");
 
-        a.mul_(&b).unwrap();
-        let result = a.data().unwrap();
+        a.mul_(&b).expect("mul_ failed");
+        let result = a.data().expect("data retrieval failed");
 
         assert_eq!(result, vec![2.0, 6.0, 12.0]);
     }
 
     #[test]
     fn test_sub_inplace() {
-        let mut a = Tensor::from_data(vec![5.0f32, 7.0, 9.0], vec![3], DeviceType::Cpu).unwrap();
-        let b = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+        let mut a = Tensor::from_data(vec![5.0f32, 7.0, 9.0], vec![3], DeviceType::Cpu).expect("tensor creation failed");
+        let b = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("tensor creation failed");
 
-        a.sub_(&b).unwrap();
-        let result = a.data().unwrap();
+        a.sub_(&b).expect("sub_ failed");
+        let result = a.data().expect("data retrieval failed");
 
         assert_eq!(result, vec![4.0, 5.0, 6.0]);
     }
 
     #[test]
     fn test_div_inplace() {
-        let mut a = Tensor::from_data(vec![6.0f32, 12.0, 18.0], vec![3], DeviceType::Cpu).unwrap();
-        let b = Tensor::from_data(vec![2.0f32, 3.0, 6.0], vec![3], DeviceType::Cpu).unwrap();
+        let mut a = Tensor::from_data(vec![6.0f32, 12.0, 18.0], vec![3], DeviceType::Cpu).expect("tensor creation failed");
+        let b = Tensor::from_data(vec![2.0f32, 3.0, 6.0], vec![3], DeviceType::Cpu).expect("tensor creation failed");
 
-        a.div_(&b).unwrap();
-        let result = a.data().unwrap();
+        a.div_(&b).expect("div_ failed");
+        let result = a.data().expect("data retrieval failed");
 
         assert_eq!(result, vec![3.0, 4.0, 3.0]);
     }
 
     #[test]
     fn test_add_scalar_inplace() {
-        let mut tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+        let mut tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("tensor creation failed");
 
-        tensor.add_scalar_(10.0).unwrap();
-        let result = tensor.data().unwrap();
+        tensor.add_scalar_(10.0).expect("add_scalar_ failed");
+        let result = tensor.data().expect("data retrieval failed");
 
         assert_eq!(result, vec![11.0, 12.0, 13.0]);
     }
 
     #[test]
     fn test_mul_scalar_inplace() {
-        let mut tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+        let mut tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("tensor creation failed");
 
-        tensor.mul_scalar_(2.0).unwrap();
-        let result = tensor.data().unwrap();
+        tensor.mul_scalar_(2.0).expect("mul_scalar_ failed");
+        let result = tensor.data().expect("data retrieval failed");
 
         assert_eq!(result, vec![2.0, 4.0, 6.0]);
     }
 
     #[test]
     fn test_div_scalar_inplace() {
-        let mut tensor = Tensor::from_data(vec![10.0f32, 20.0, 30.0], vec![3], DeviceType::Cpu).unwrap();
+        let mut tensor = Tensor::from_data(vec![10.0f32, 20.0, 30.0], vec![3], DeviceType::Cpu).expect("tensor creation failed");
 
-        tensor.div_scalar_(10.0).unwrap();
-        let result = tensor.data().unwrap();
+        tensor.div_scalar_(10.0).expect("div_scalar_ failed");
+        let result = tensor.data().expect("data retrieval failed");
 
         assert_eq!(result, vec![1.0, 2.0, 3.0]);
     }
 
     #[test]
     fn test_inplace_method_chaining() {
-        let mut tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
-        let b = Tensor::from_data(vec![1.0f32, 1.0, 1.0], vec![3], DeviceType::Cpu).unwrap();
+        let mut tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("tensor creation failed");
+        let b = Tensor::from_data(vec![1.0f32, 1.0, 1.0], vec![3], DeviceType::Cpu).expect("tensor creation failed");
 
         // Test method chaining
-        tensor.add_(&b).unwrap().mul_scalar_(2.0).unwrap();
-        let result = tensor.data().unwrap();
+        tensor.add_(&b).expect("add_ failed").mul_scalar_(2.0).expect("mul_scalar_ failed");
+        let result = tensor.data().expect("data retrieval failed");
 
         assert_eq!(result, vec![4.0, 6.0, 8.0]); // (1+1)*2, (2+1)*2, (3+1)*2
     }
 
     #[test]
     fn test_inplace_shape_mismatch_error() {
-        let mut a = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu).unwrap();
-        let b = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+        let mut a = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu).expect("tensor creation failed");
+        let b = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("tensor creation failed");
 
         assert!(a.add_(&b).is_err());
         assert!(a.mul_(&b).is_err());

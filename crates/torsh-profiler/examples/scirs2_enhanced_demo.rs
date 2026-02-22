@@ -40,10 +40,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Export results
     println!("💾 Exporting profiling data...");
-    if let Err(e) = export_global_json("/tmp/scirs2_enhanced_demo.json") {
+    let export_path = std::env::temp_dir().join("scirs2_enhanced_demo.json");
+    let export_str = export_path.display().to_string();
+    if let Err(e) = export_global_json(&export_str) {
         eprintln!("Export failed: {}", e);
     } else {
-        println!("   ✅ Exported to /tmp/scirs2_enhanced_demo.json");
+        println!("   ✅ Exported to {}", export_str);
     }
 
     println!();

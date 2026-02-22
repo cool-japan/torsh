@@ -539,14 +539,14 @@ mod tests {
 
     #[test]
     fn test_access_tracker_creation() {
-        let shape = Shape::from_array([100, 100]).unwrap();
+        let shape = Shape::from_array([100, 100]).expect("shape creation should succeed");
         let tracker = AccessTracker::new(shape, MemoryFormat::Contiguous);
         assert_eq!(tracker.statistics().total_accesses, 0);
     }
 
     #[test]
     fn test_sequential_access_detection() {
-        let shape = Shape::from_array([100, 100]).unwrap();
+        let shape = Shape::from_array([100, 100]).expect("shape creation should succeed");
         let mut tracker = AccessTracker::new(shape, MemoryFormat::Contiguous);
 
         // Simulate sequential access
@@ -561,7 +561,7 @@ mod tests {
 
     #[test]
     fn test_strided_access_detection() {
-        let shape = Shape::from_array([100, 100]).unwrap();
+        let shape = Shape::from_array([100, 100]).expect("shape creation should succeed");
         let mut tracker = AccessTracker::new(shape, MemoryFormat::Contiguous);
 
         // Simulate strided access (every 10th element)
@@ -577,7 +577,7 @@ mod tests {
 
     #[test]
     fn test_random_access_detection() {
-        let shape = Shape::from_array([100, 100]).unwrap();
+        let shape = Shape::from_array([100, 100]).expect("shape creation should succeed");
         let mut tracker = AccessTracker::new(shape, MemoryFormat::Contiguous);
 
         // Simulate random access
@@ -592,7 +592,7 @@ mod tests {
 
     #[test]
     fn test_cache_hit_rate() {
-        let shape = Shape::from_array([100, 100]).unwrap();
+        let shape = Shape::from_array([100, 100]).expect("shape creation should succeed");
         let mut tracker = AccessTracker::new(shape, MemoryFormat::Contiguous);
 
         // Sequential access should have high cache hit rate
@@ -613,7 +613,7 @@ mod tests {
     #[test]
     fn test_register_and_track_tensor() {
         let mut optimizer = LayoutOptimizer::new();
-        let shape = Shape::from_array([100, 100]).unwrap();
+        let shape = Shape::from_array([100, 100]).expect("shape creation should succeed");
 
         optimizer.register_tensor(1, shape, MemoryFormat::Contiguous);
         assert_eq!(optimizer.tracked_tensors().len(), 1);
@@ -623,31 +623,39 @@ mod tests {
     #[test]
     fn test_record_access() {
         let mut optimizer = LayoutOptimizer::new();
-        let shape = Shape::from_array([100, 100]).unwrap();
+        let shape = Shape::from_array([100, 100]).expect("shape creation should succeed");
 
         optimizer.register_tensor(1, shape, MemoryFormat::Contiguous);
 
         for i in 0..50 {
-            optimizer.record_access(1, i).unwrap();
+            optimizer
+                .record_access(1, i)
+                .expect("record_access should succeed");
         }
 
-        let stats = optimizer.get_statistics(1).unwrap();
+        let stats = optimizer
+            .get_statistics(1)
+            .expect("get_statistics should succeed");
         assert_eq!(stats.total_accesses, 50);
     }
 
     #[test]
     fn test_optimization_recommendation() {
         let mut optimizer = LayoutOptimizer::new().with_threshold(0.05);
-        let shape = Shape::from_array([100, 100]).unwrap();
+        let shape = Shape::from_array([100, 100]).expect("shape creation should succeed");
 
         optimizer.register_tensor(1, shape, MemoryFormat::Strided);
 
         // Simulate sequential access pattern
         for i in 0..200 {
-            optimizer.record_access(1, i).unwrap();
+            optimizer
+                .record_access(1, i)
+                .expect("record_access should succeed");
         }
 
-        let recommendation = optimizer.recommend_layout(1).unwrap();
+        let recommendation = optimizer
+            .recommend_layout(1)
+            .expect("recommend_layout should succeed");
         assert!(recommendation.is_some());
 
         if let Some(rec) = recommendation {
@@ -660,23 +668,27 @@ mod tests {
     #[test]
     fn test_insufficient_data_no_recommendation() {
         let mut optimizer = LayoutOptimizer::new();
-        let shape = Shape::from_array([100, 100]).unwrap();
+        let shape = Shape::from_array([100, 100]).expect("shape creation should succeed");
 
         optimizer.register_tensor(1, shape, MemoryFormat::Contiguous);
 
         // Only a few accesses
         for i in 0..10 {
-            optimizer.record_access(1, i).unwrap();
+            optimizer
+                .record_access(1, i)
+                .expect("record_access should succeed");
         }
 
-        let recommendation = optimizer.recommend_layout(1).unwrap();
+        let recommendation = optimizer
+            .recommend_layout(1)
+            .expect("recommend_layout should succeed");
         assert!(recommendation.is_none()); // Not enough data
     }
 
     #[test]
     fn test_clear_tensor() {
         let mut optimizer = LayoutOptimizer::new();
-        let shape = Shape::from_array([100, 100]).unwrap();
+        let shape = Shape::from_array([100, 100]).expect("shape creation should succeed");
 
         optimizer.register_tensor(1, shape, MemoryFormat::Contiguous);
         assert_eq!(optimizer.tracked_tensors().len(), 1);
@@ -694,7 +706,7 @@ mod tests {
     #[test]
     fn test_transformation_cost_estimation() {
         let optimizer = LayoutOptimizer::new();
-        let shape = Shape::from_array([1000, 1000]).unwrap();
+        let shape = Shape::from_array([1000, 1000]).expect("shape creation should succeed");
 
         let cost = optimizer.estimate_cost(&shape);
         assert!(cost.memory_copies > 0);
@@ -704,7 +716,7 @@ mod tests {
 
     #[test]
     fn test_custom_cache_line_size() {
-        let shape = Shape::from_array([100, 100]).unwrap();
+        let shape = Shape::from_array([100, 100]).expect("shape creation should succeed");
         let tracker = AccessTracker::new(shape, MemoryFormat::Contiguous).with_cache_line_size(128);
 
         assert_eq!(tracker.cache_line_size, 128);

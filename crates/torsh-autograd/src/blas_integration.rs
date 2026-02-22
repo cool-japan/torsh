@@ -686,7 +686,10 @@ impl BlasManager {
 
         tracing::info!(
             "BLAS manager initialized with provider: {}",
-            self.active_provider.as_ref().unwrap().implementation()
+            self.active_provider
+                .as_ref()
+                .expect("provider should be initialized")
+                .implementation()
         );
 
         Ok(())

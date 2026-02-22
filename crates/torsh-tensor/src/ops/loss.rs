@@ -299,11 +299,11 @@ mod tests {
 
     #[test]
     fn test_mse_loss() {
-        let predictions = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
-        let targets = Tensor::from_data(vec![1.5f32, 2.5, 2.5], vec![3], DeviceType::Cpu).unwrap();
+        let predictions = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("tensor creation failed");
+        let targets = Tensor::from_data(vec![1.5f32, 2.5, 2.5], vec![3], DeviceType::Cpu).expect("tensor creation failed");
 
-        let loss = predictions.mse_loss(&targets).unwrap();
-        let loss_data = loss.data().unwrap();
+        let loss = predictions.mse_loss(&targets).expect("mse_loss failed");
+        let loss_data = loss.data().expect("data retrieval failed");
 
         // MSE = mean((1.0-1.5)^2, (2.0-2.5)^2, (3.0-2.5)^2) = mean(0.25, 0.25, 0.25) = 0.25
         assert!((loss_data[0] - 0.25).abs() < 1e-6);
@@ -311,11 +311,11 @@ mod tests {
 
     #[test]
     fn test_l1_loss() {
-        let predictions = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
-        let targets = Tensor::from_data(vec![1.5f32, 2.5, 2.5], vec![3], DeviceType::Cpu).unwrap();
+        let predictions = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("tensor creation failed");
+        let targets = Tensor::from_data(vec![1.5f32, 2.5, 2.5], vec![3], DeviceType::Cpu).expect("tensor creation failed");
 
-        let loss = predictions.l1_loss(&targets).unwrap();
-        let loss_data = loss.data().unwrap();
+        let loss = predictions.l1_loss(&targets).expect("l1_loss failed");
+        let loss_data = loss.data().expect("data retrieval failed");
 
         // L1 = mean(|1.0-1.5|, |2.0-2.5|, |3.0-2.5|) = mean(0.5, 0.5, 0.5) = 0.5
         assert!((loss_data[0] - 0.5).abs() < 1e-6);
@@ -323,11 +323,11 @@ mod tests {
 
     #[test]
     fn test_huber_loss() {
-        let predictions = Tensor::from_data(vec![1.0f32, 2.0, 5.0], vec![3], DeviceType::Cpu).unwrap();
-        let targets = Tensor::from_data(vec![1.5f32, 2.5, 2.0], vec![3], DeviceType::Cpu).unwrap();
+        let predictions = Tensor::from_data(vec![1.0f32, 2.0, 5.0], vec![3], DeviceType::Cpu).expect("tensor creation failed");
+        let targets = Tensor::from_data(vec![1.5f32, 2.5, 2.0], vec![3], DeviceType::Cpu).expect("tensor creation failed");
 
-        let loss = predictions.huber_loss(&targets, 1.0).unwrap();
-        let loss_data = loss.data().unwrap();
+        let loss = predictions.huber_loss(&targets, 1.0).expect("huber_loss failed");
+        let loss_data = loss.data().expect("data retrieval failed");
 
         // For delta=1.0:
         // |1.0-1.5| = 0.5 < 1.0, so L = 0.5 * 0.5^2 = 0.125
@@ -339,11 +339,11 @@ mod tests {
 
     #[test]
     fn test_bce_loss() {
-        let predictions = Tensor::from_data(vec![0.8f32, 0.2, 0.9], vec![3], DeviceType::Cpu).unwrap();
-        let targets = Tensor::from_data(vec![1.0f32, 0.0, 1.0], vec![3], DeviceType::Cpu).unwrap();
+        let predictions = Tensor::from_data(vec![0.8f32, 0.2, 0.9], vec![3], DeviceType::Cpu).expect("tensor creation failed");
+        let targets = Tensor::from_data(vec![1.0f32, 0.0, 1.0], vec![3], DeviceType::Cpu).expect("tensor creation failed");
 
-        let loss = predictions.bce_loss(&targets).unwrap();
-        let loss_data = loss.data().unwrap();
+        let loss = predictions.bce_loss(&targets).expect("bce_loss failed");
+        let loss_data = loss.data().expect("data retrieval failed");
 
         // BCE loss should be positive and finite
         assert!(loss_data[0] > 0.0);
@@ -357,13 +357,13 @@ mod tests {
             vec![-0.5f32, -1.0, -2.0, -1.5, -0.3, -3.0],
             vec![2, 3],
             DeviceType::Cpu
-        ).unwrap();
+        ).expect("tensor creation failed");
 
         // Target classes
-        let targets = Tensor::from_data(vec![0i64, 1], vec![2], DeviceType::Cpu).unwrap();
+        let targets = Tensor::from_data(vec![0i64, 1], vec![2], DeviceType::Cpu).expect("tensor creation failed");
 
-        let loss = log_probs.nll_loss(&targets).unwrap();
-        let loss_data = loss.data().unwrap();
+        let loss = log_probs.nll_loss(&targets).expect("nll_loss failed");
+        let loss_data = loss.data().expect("data retrieval failed");
 
         // NLL = -mean(log_probs[0,0], log_probs[1,1]) = -mean(-0.5, -0.3) = 0.4
         assert!((loss_data[0] - 0.4).abs() < 1e-6);
@@ -376,13 +376,13 @@ mod tests {
             vec![1.0f32, 2.0, 0.5, 0.8, 3.0, 0.2],
             vec![2, 3],
             DeviceType::Cpu
-        ).unwrap();
+        ).expect("tensor creation failed");
 
         // Target classes
-        let targets = Tensor::from_data(vec![1i64, 1], vec![2], DeviceType::Cpu).unwrap();
+        let targets = Tensor::from_data(vec![1i64, 1], vec![2], DeviceType::Cpu).expect("tensor creation failed");
 
-        let loss = logits.cross_entropy(&targets).unwrap();
-        let loss_data = loss.data().unwrap();
+        let loss = logits.cross_entropy(&targets).expect("cross_entropy failed");
+        let loss_data = loss.data().expect("data retrieval failed");
 
         // Cross entropy should be positive
         assert!(loss_data[0] > 0.0);
@@ -391,22 +391,22 @@ mod tests {
 
     #[test]
     fn test_reduction_modes() {
-        let predictions = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
-        let targets = Tensor::from_data(vec![1.5f32, 2.5, 2.5], vec![3], DeviceType::Cpu).unwrap();
+        let predictions = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("tensor creation failed");
+        let targets = Tensor::from_data(vec![1.5f32, 2.5, 2.5], vec![3], DeviceType::Cpu).expect("tensor creation failed");
 
         // Test None reduction
-        let loss_none = predictions.mse_loss_with_reduction(&targets, Reduction::None).unwrap();
-        let loss_none_data = loss_none.data().unwrap();
+        let loss_none = predictions.mse_loss_with_reduction(&targets, Reduction::None).expect("mse_loss_with_reduction failed");
+        let loss_none_data = loss_none.data().expect("data retrieval failed");
         assert_eq!(loss_none_data.len(), 3); // Should have 3 elements
 
         // Test Sum reduction
-        let loss_sum = predictions.mse_loss_with_reduction(&targets, Reduction::Sum).unwrap();
-        let loss_sum_data = loss_sum.data().unwrap();
+        let loss_sum = predictions.mse_loss_with_reduction(&targets, Reduction::Sum).expect("mse_loss_with_reduction failed");
+        let loss_sum_data = loss_sum.data().expect("data retrieval failed");
         assert_eq!(loss_sum_data.len(), 1); // Should be scalar
 
         // Test Mean reduction (default)
-        let loss_mean = predictions.mse_loss(&targets).unwrap();
-        let loss_mean_data = loss_mean.data().unwrap();
+        let loss_mean = predictions.mse_loss(&targets).expect("mse_loss failed");
+        let loss_mean_data = loss_mean.data().expect("data retrieval failed");
         assert_eq!(loss_mean_data.len(), 1); // Should be scalar
 
         // Mean should be Sum / count

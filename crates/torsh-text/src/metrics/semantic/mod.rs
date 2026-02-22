@@ -726,8 +726,8 @@ impl SemanticAnalyzer {
                 let mut similarity_engine = self.similarity_engine.lock().expect("lock should not be poisoned");
                 let result = similarity_engine.compute_similarity(
                     self.config.similarity_algorithm,
-                    features1.as_ref().unwrap(),
-                    features2.as_ref().unwrap(),
+                    features1.as_ref().expect("features1 verified to be Some"),
+                    features2.as_ref().expect("features2 verified to be Some"),
                 )?;
                 drop(similarity_engine);
 
@@ -947,7 +947,7 @@ impl SemanticAnalyzer {
             confidence_score,
             similarity_analysis: similarity_result,
             feature_analysis: if features1.is_some() && features2.is_some() {
-                Some((features1.unwrap(), features2.unwrap()))
+                Some((features1.expect("features1 verified to be Some"), features2.expect("features2 verified to be Some")))
             } else {
                 None
             },

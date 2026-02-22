@@ -35,6 +35,7 @@ pub mod datasets_impl;
 pub mod error_handling;
 pub mod examples;
 pub mod explainability;
+pub mod feature_detection_advanced;
 pub mod hardware;
 pub mod interactive;
 pub mod io;
@@ -44,8 +45,10 @@ pub mod ops;
 pub mod optimized_impl;
 pub mod prelude;
 pub mod scirs2_integration;
+pub mod segmentation_advanced;
 pub mod self_supervised;
 pub mod spatial;
+pub mod streaming;
 pub mod transforms;
 pub mod unified_transforms;
 pub mod utils;
@@ -98,6 +101,26 @@ pub use self_supervised::{
     SimCLRAugmentation, Solarize, SwAVAugmentation,
 };
 
+// Advanced segmentation algorithms (NEW in 0.1.5 integration)
+pub use segmentation_advanced::{
+    graph_cuts, region_growing, watershed, Connectivity, GraphCutsConfig, RegionGrowingConfig,
+    WatershedConfig, WatershedMarkers,
+};
+
+// Advanced feature detection and matching (NEW in 0.1.5 integration)
+pub use feature_detection_advanced::{
+    apply_ratio_test, AttentionMatcher, AttentionMatcherConfig, BruteForceMatcher, DistanceMetric,
+    Feature as AdvancedFeature, FeatureMatch as AdvancedFeatureMatch, LearnedSiftConfig,
+    LearnedSiftDetector, MultiScaleConfig, MultiScaleDetector, SuperPointConfig,
+    SuperPointDetector,
+};
+
+// Real-time streaming and performance (NEW in 0.1.5 integration)
+pub use streaming::{
+    BatchProcessor, Frame, FrameMetadata, FramePreprocessor, QualityAdaptation, StreamConfig,
+    StreamProcessor, StreamStats,
+};
+
 // Comprehensive benchmarking suite
 pub use benchmarks::{
     run_full_benchmark_suite, run_quick_benchmark, AccuracyMetrics, BenchmarkConfig,
@@ -129,6 +152,9 @@ pub enum VisionError {
 
     #[error("Invalid input: {0}")]
     InvalidInput(String),
+
+    #[error("Invalid parameter: {0}")]
+    InvalidParameter(String),
 
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),

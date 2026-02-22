@@ -110,7 +110,7 @@ git push origin feature/your-feature-name
 
 ### ✅ Required Practices
 
-1. **UNIFIED ndarray Access (v0.1.0-RC.1+)**
+1. **UNIFIED ndarray Access**
    ```rust
    // ✅ CORRECT
    use scirs2_core::ndarray::*;  // ALL array operations
@@ -119,7 +119,7 @@ git push origin feature/your-feature-name
    use ndarray::{Array, array};  // POLICY VIOLATION
    ```
 
-2. **UNIFIED random Access (v0.1.0-RC.1+)**
+2. **UNIFIED random Access**
    ```rust
    // ✅ CORRECT
    use scirs2_core::random::*;  // ALL RNG and distributions
@@ -383,7 +383,7 @@ What actually happened.
 - OS: [e.g., Ubuntu 22.04]
 - Rust version: [e.g., 1.70.0]
 - Python version: [e.g., 3.11]
-- ToRSh version: [e.g., 0.1.0-alpha.2]
+- ToRSh version: [e.g., 0.1.0]
 
 **Additional context**
 Any other relevant information.
@@ -441,7 +441,7 @@ chore: update CI workflow for Python 3.12
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the same license as the project (MIT OR Apache-2.0).
+By contributing, you agree that your contributions will be licensed under the same license as the project (Apache-2.0).
 
 ---
 

@@ -67,7 +67,17 @@ pub use scirs2_text_integration::{
     SentimentLabel, SentimentResult, TextConfig, TextEmbeddings, Topic,
 };
 pub use tokenization::*;
-pub use utils::*;
+// Note: utils::PreprocessingStep (trait) is excluded to avoid ambiguity with datasets::PreprocessingStep (enum).
+// Access the trait via `torsh_text::utils::PreprocessingStep` or through the prelude.
+#[allow(deprecated)]
+pub use utils::{
+    clean_text, count_words, label_encode, normalize_text, one_hot_encode,
+    pad_and_truncate_sequences, pad_sequence, split_sentences, truncate_sequence, BatchProcessor,
+    BatchTextStats, CustomStep, MaxLengthTruncateStep, MinLengthFilterStep, OptimizedBatchOps,
+    PaddingStrategy, PreprocessingStats, PreprocessingUtils, RemoveExtraWhitespaceStep,
+    StreamingBatchProcessor, TextAugmenter, TextCleaner, TextNormalizer, TextPreprocessingPipeline,
+    TruncationStrategy,
+};
 pub use vocab::*;
 
 // Version information

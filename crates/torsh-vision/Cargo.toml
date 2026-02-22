@@ -8,8 +8,10 @@ repository.workspace = true
 homepage.workspace = true
 description = "Computer vision utilities for ToRSh deep learning framework"
 readme = "README.md"
+documentation = "https://docs.rs/torsh-vision"
+rust-version.workspace = true
 keywords = ["deep-learning", "machine-learning", "vision", "computer-vision", "pytorch"]
-categories = ["science", "computer-vision"]
+categories = ["science", "multimedia::images"]
 
 [lints]
 workspace = true
@@ -40,7 +42,7 @@ anyhow = { workspace = true }
 
 # Utilities
 reqwest = { version = "0.13", features = ["blocking"], optional = true }
-zip = { workspace = true, optional = true }
+oxiarc-archive = { workspace = true, optional = true }
 dirs = "6.0"
 parking_lot = { workspace = true }
 # rusttype = "0.9"  # REMOVED: Unmaintained (RUSTSEC-2021-0140), not used in code
@@ -55,7 +57,7 @@ tempfile = { workspace = true }
 
 [features]
 default = ["pretrained"]
-pretrained = ["reqwest", "zip"]
+pretrained = ["reqwest", "oxiarc-archive"]
 # Feature flag to exclude examples that need API updates
 _disabled = []
 

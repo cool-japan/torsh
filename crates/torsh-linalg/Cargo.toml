@@ -7,7 +7,11 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 description = "Linear algebra operations for ToRSh with SciRS2 integration"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-linalg"
 rust-version.workspace = true
+keywords = ["deep-learning", "linear-algebra", "matrix", "machine-learning", "blas"]
+categories = ["science", "mathematics"]
 
 [lints]
 workspace = true

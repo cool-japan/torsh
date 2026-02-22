@@ -66,16 +66,16 @@ pub fn tensor_2d_arrays<T: TensorElement, const M: usize, const N: usize>(
 /// use torsh_tensor::creation::zeros;
 ///
 /// // Create a 1D tensor with 5 elements
-/// let t = zeros::<f32>(&[5]).unwrap();
+/// let t = zeros::<f32>(&[5]).expect("operation should succeed");
 /// assert_eq!(t.shape().dims(), &[5]);
 ///
 /// // Create a 2D tensor (matrix)
-/// let m = zeros::<f32>(&[3, 4]).unwrap();
+/// let m = zeros::<f32>(&[3, 4]).expect("operation should succeed");
 /// assert_eq!(m.shape().dims(), &[3, 4]);
 /// assert_eq!(m.numel(), 12);
 ///
 /// // Create a 3D tensor
-/// let cube = zeros::<f32>(&[2, 3, 4]).unwrap();
+/// let cube = zeros::<f32>(&[2, 3, 4]).expect("operation should succeed");
 /// assert_eq!(cube.shape().dims(), &[2, 3, 4]);
 /// ```
 ///
@@ -129,16 +129,16 @@ pub fn zeros_device<T: TensorElement>(shape: &[usize], device: DeviceType) -> Re
 /// use torsh_tensor::creation::ones;
 ///
 /// // Create a 1D tensor
-/// let t = ones::<f32>(&[5]).unwrap();
-/// assert_eq!(t.to_vec().unwrap(), vec![1.0; 5]);
+/// let t = ones::<f32>(&[5]).expect("operation should succeed");
+/// assert_eq!(t.to_vec().expect("to_vec should succeed"), vec![1.0; 5]);
 ///
 /// // Create a 2D tensor and use it as a mask
-/// let mask = ones::<f32>(&[2, 3]).unwrap();
+/// let mask = ones::<f32>(&[2, 3]).expect("operation should succeed");
 /// assert_eq!(mask.shape().dims(), &[2, 3]);
 ///
 /// // Different data types
-/// let int_ones = ones::<i32>(&[4]).unwrap();
-/// assert_eq!(int_ones.to_vec().unwrap(), vec![1; 4]);
+/// let int_ones = ones::<i32>(&[4]).expect("operation should succeed");
+/// assert_eq!(int_ones.to_vec().expect("to_vec should succeed"), vec![1; 4]);
 /// ```
 ///
 /// # See Also
@@ -181,16 +181,16 @@ pub fn ones_device<T: TensorElement>(shape: &[usize], device: DeviceType) -> Res
 /// use torsh_tensor::creation::full;
 ///
 /// // Create a tensor filled with a specific value
-/// let t = full(&[2, 3], 7.0f32).unwrap();
+/// let t = full(&[2, 3], 7.0f32).expect("operation should succeed");
 /// assert_eq!(t.shape().dims(), &[2, 3]);
-/// assert_eq!(t.to_vec().unwrap(), vec![7.0; 6]);
+/// assert_eq!(t.to_vec().expect("to_vec should succeed"), vec![7.0; 6]);
 ///
 /// // Initialize bias tensor
-/// let bias = full(&[256], 0.01f32).unwrap();
+/// let bias = full(&[256], 0.01f32).expect("operation should succeed");
 /// assert_eq!(bias.numel(), 256);
 ///
 /// // Create constant tensor for operations
-/// let pi_tensor = full(&[10], std::f32::consts::PI).unwrap();
+/// let pi_tensor = full(&[10], std::f32::consts::PI).expect("operation should succeed");
 /// ```
 ///
 /// # See Also
@@ -225,10 +225,10 @@ pub fn full<T: TensorElement>(shape: &[usize], value: T) -> Result<Tensor<T>> {
 /// use torsh_tensor::creation::eye;
 ///
 /// // Create a 3x3 identity matrix
-/// let identity = eye::<f32>(3).unwrap();
+/// let identity = eye::<f32>(3).expect("operation should succeed");
 /// assert_eq!(identity.shape().dims(), &[3, 3]);
 ///
-/// let data = identity.to_vec().unwrap();
+/// let data = identity.to_vec().expect("to_vec should succeed");
 /// // Expected: [1, 0, 0,
 /// //            0, 1, 0,
 /// //            0, 0, 1]
@@ -238,7 +238,7 @@ pub fn full<T: TensorElement>(shape: &[usize], value: T) -> Result<Tensor<T>> {
 /// assert_eq!(data[8], 1.0);  // (2,2)
 ///
 /// // Use in linear algebra operations
-/// let matrix = eye::<f32>(4).unwrap();
+/// let matrix = eye::<f32>(4).expect("operation should succeed");
 /// // matrix @ vector preserves the vector (identity property)
 /// ```
 ///
@@ -277,19 +277,19 @@ pub fn eye<T: TensorElement>(n: usize) -> Result<Tensor<T>> {
 /// use torsh_tensor::creation::arange;
 ///
 /// // Create a sequence from 0 to 9
-/// let t = arange(0, 10, 1).unwrap();
-/// assert_eq!(t.to_vec().unwrap(), vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+/// let t = arange(0, 10, 1).expect("operation should succeed");
+/// assert_eq!(t.to_vec().expect("to_vec should succeed"), vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
 ///
 /// // Create a sequence with step size 2
-/// let evens = arange(0, 10, 2).unwrap();
-/// assert_eq!(evens.to_vec().unwrap(), vec![0, 2, 4, 6, 8]);
+/// let evens = arange(0, 10, 2).expect("operation should succeed");
+/// assert_eq!(evens.to_vec().expect("to_vec should succeed"), vec![0, 2, 4, 6, 8]);
 ///
 /// // Floating point sequences
-/// let floats = arange(0.0f32, 1.0, 0.25).unwrap();
+/// let floats = arange(0.0f32, 1.0, 0.25).expect("operation should succeed");
 /// assert_eq!(floats.shape().dims(), &[4]);
 ///
 /// // Use for indexing or creating coordinate grids
-/// let indices = arange(0, 100, 1).unwrap();
+/// let indices = arange(0, 100, 1).expect("operation should succeed");
 /// ```
 ///
 /// # See Also
@@ -356,17 +356,17 @@ pub fn linspace<T: FloatElement>(start: T, end: T, steps: usize) -> Result<Tenso
 /// use torsh_tensor::creation::rand;
 ///
 /// // Create random tensor
-/// let t = rand::<f32>(&[3, 3]).unwrap();
+/// let t = rand::<f32>(&[3, 3]).expect("operation should succeed");
 /// assert_eq!(t.shape().dims(), &[3, 3]);
 ///
 /// // Values should be in [0, 1)
-/// let data = t.to_vec().unwrap();
+/// let data = t.to_vec().expect("to_vec should succeed");
 /// for &val in &data {
 ///     assert!(val >= 0.0 && val < 1.0);
 /// }
 ///
 /// // Use for random initialization
-/// let weights = rand::<f32>(&[128, 64]).unwrap();
+/// let weights = rand::<f32>(&[128, 64]).expect("operation should succeed");
 /// assert_eq!(weights.numel(), 128 * 64);
 /// ```
 ///
@@ -411,15 +411,15 @@ where
 /// use torsh_tensor::creation::randn;
 ///
 /// // Create random normal tensor
-/// let t = randn::<f32>(&[1000]).unwrap();
+/// let t = randn::<f32>(&[1000]).expect("operation should succeed");
 /// assert_eq!(t.shape().dims(), &[1000]);
 ///
 /// // Initialize neural network layer weights
-/// let weights = randn::<f32>(&[512, 256]).unwrap();
+/// let weights = randn::<f32>(&[512, 256]).expect("operation should succeed");
 /// assert_eq!(weights.shape().dims(), &[512, 256]);
 ///
 /// // The values follow normal distribution with mean~0 and std~1
-/// let data = t.to_vec().unwrap();
+/// let data = t.to_vec().expect("to_vec should succeed");
 /// let mean: f32 = data.iter().sum::<f32>() / data.len() as f32;
 /// assert!((mean.abs() < 0.2), "Mean should be close to 0");
 /// ```
@@ -714,11 +714,11 @@ mod complex_tests {
 
     #[test]
     fn test_complex_zeros() {
-        let tensor = complex32_zeros(&[2, 3]).unwrap();
+        let tensor = complex32_zeros(&[2, 3]).expect("operation should succeed");
         assert_eq!(tensor.shape().dims(), &[2, 3]);
         assert_eq!(tensor.numel(), 6);
 
-        let data = tensor.to_vec().unwrap();
+        let data = tensor.to_vec().expect("to_vec should succeed");
         for &val in &data {
             assert_eq!(val.re, 0.0);
             assert_eq!(val.im, 0.0);
@@ -727,10 +727,10 @@ mod complex_tests {
 
     #[test]
     fn test_complex_ones() {
-        let tensor = complex32_ones(&[2, 2]).unwrap();
+        let tensor = complex32_ones(&[2, 2]).expect("operation should succeed");
         assert_eq!(tensor.shape().dims(), &[2, 2]);
 
-        let data = tensor.to_vec().unwrap();
+        let data = tensor.to_vec().expect("to_vec should succeed");
         for &val in &data {
             assert_eq!(val.re, 1.0);
             assert_eq!(val.im, 0.0);
@@ -739,13 +739,14 @@ mod complex_tests {
 
     #[test]
     fn test_complex_from_parts() {
-        let real = tensor![1.0f32, 2.0, 3.0].unwrap();
-        let imag = tensor![4.0f32, 5.0, 6.0].unwrap();
+        let real = tensor![1.0f32, 2.0, 3.0].expect("operation should succeed");
+        let imag = tensor![4.0f32, 5.0, 6.0].expect("operation should succeed");
 
-        let complex_tensor: Tensor<Complex32> = complex_from_parts(&real, &imag).unwrap();
+        let complex_tensor: Tensor<Complex32> =
+            complex_from_parts(&real, &imag).expect("operation should succeed");
         assert_eq!(complex_tensor.shape().dims(), &[3]);
 
-        let data = complex_tensor.to_vec().unwrap();
+        let data = complex_tensor.to_vec().expect("to_vec should succeed");
         assert_eq!(data[0].re, 1.0);
         assert_eq!(data[0].im, 4.0);
         assert_eq!(data[1].re, 2.0);
@@ -756,8 +757,8 @@ mod complex_tests {
 
     #[test]
     fn test_complex_from_parts_shape_mismatch() {
-        let real = tensor![1.0f32, 2.0].unwrap();
-        let imag = tensor![4.0f32, 5.0, 6.0].unwrap();
+        let real = tensor![1.0f32, 2.0].expect("operation should succeed");
+        let imag = tensor![4.0f32, 5.0, 6.0].expect("operation should succeed");
 
         let result: Result<Tensor<Complex32>> = complex_from_parts(&real, &imag);
         assert!(result.is_err());
@@ -765,10 +766,10 @@ mod complex_tests {
 
     #[test]
     fn test_complex_rand() {
-        let tensor = complex32_rand(&[10]).unwrap();
+        let tensor = complex32_rand(&[10]).expect("operation should succeed");
         assert_eq!(tensor.shape().dims(), &[10]);
 
-        let data = tensor.to_vec().unwrap();
+        let data = tensor.to_vec().expect("to_vec should succeed");
         // Check that we have some variation in real and imaginary parts
         let all_same_real = data.iter().all(|&c| c.re == data[0].re);
         let all_same_imag = data.iter().all(|&c| c.im == data[0].im);
@@ -779,12 +780,12 @@ mod complex_tests {
 
     #[test]
     fn test_complex_randn() {
-        let tensor = complex64_randn(&[5, 5]).unwrap();
+        let tensor = complex64_randn(&[5, 5]).expect("operation should succeed");
         assert_eq!(tensor.shape().dims(), &[5, 5]);
         assert_eq!(tensor.numel(), 25);
 
         // Test that values are reasonably distributed (not all zeros)
-        let data = tensor.to_vec().unwrap();
+        let data = tensor.to_vec().expect("to_vec should succeed");
         let has_nonzero_real = data.iter().any(|&c| c.re.abs() > 0.01);
         let has_nonzero_imag = data.iter().any(|&c| c.im.abs() > 0.01);
 
@@ -794,18 +795,19 @@ mod complex_tests {
 
     #[test]
     fn test_complex_like_functions() {
-        let base = tensor![1.0f32, 2.0, 3.0].unwrap();
+        let base = tensor![1.0f32, 2.0, 3.0].expect("operation should succeed");
 
-        let zeros: Tensor<Complex32> = complex_zeros_like(&base).unwrap();
+        let zeros: Tensor<Complex32> = complex_zeros_like(&base).expect("operation should succeed");
         assert_eq!(zeros.shape().dims(), base.shape().dims());
 
-        let ones: Tensor<Complex32> = complex_ones_like(&base).unwrap();
+        let ones: Tensor<Complex32> = complex_ones_like(&base).expect("operation should succeed");
         assert_eq!(ones.shape().dims(), base.shape().dims());
 
-        let random: Tensor<Complex32> = complex_rand_like(&base).unwrap();
+        let random: Tensor<Complex32> = complex_rand_like(&base).expect("operation should succeed");
         assert_eq!(random.shape().dims(), base.shape().dims());
 
-        let normal: Tensor<Complex32> = complex_randn_like(&base).unwrap();
+        let normal: Tensor<Complex32> =
+            complex_randn_like(&base).expect("operation should succeed");
         assert_eq!(normal.shape().dims(), base.shape().dims());
     }
 }

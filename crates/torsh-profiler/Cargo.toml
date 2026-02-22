@@ -7,7 +7,11 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 description = "Performance profiling and monitoring for ToRSh"
+readme = "README.md"
+documentation = "https://docs.rs/torsh-profiler"
 rust-version.workspace = true
+keywords = ["deep-learning", "profiling", "performance", "machine-learning", "monitoring"]
+categories = ["development-tools::profiling"]
 
 [lints]
 workspace = true

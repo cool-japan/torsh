@@ -8,6 +8,8 @@ repository.workspace = true
 homepage.workspace = true
 description = "A blazingly fast, production-ready deep learning framework written in pure Rust"
 readme = "README.md"
+documentation = "https://docs.rs/torsh"
+rust-version.workspace = true
 keywords = ["deep-learning", "machine-learning", "neural-network", "tensor", "autograd"]
 categories = ["science", "mathematics", "algorithms"]
 

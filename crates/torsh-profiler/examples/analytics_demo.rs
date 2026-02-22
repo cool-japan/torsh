@@ -102,8 +102,10 @@ fn demo_regression_detection() -> TorshResult<()> {
     }
 
     // Export regression baselines
-    detector.save_baselines("/tmp/regression_baselines.json")?;
-    println!("   📁 Exported regression baselines to /tmp/regression_baselines.json");
+    let baselines_path = std::env::temp_dir().join("regression_baselines.json");
+    let baselines_str = baselines_path.display().to_string();
+    detector.save_baselines(&baselines_str)?;
+    println!("   📁 Exported regression baselines to {}", baselines_str);
 
     println!();
     Ok(())
@@ -292,8 +294,10 @@ fn demo_anomaly_detection() -> TorshResult<()> {
     }
 
     // Export anomaly analysis
-    export_global_anomaly_analysis("/tmp/anomaly_analysis.json")?;
-    println!("   📁 Exported anomaly analysis to /tmp/anomaly_analysis.json");
+    let anomaly_path = std::env::temp_dir().join("anomaly_analysis.json");
+    let anomaly_str = anomaly_path.display().to_string();
+    export_global_anomaly_analysis(&anomaly_str)?;
+    println!("   📁 Exported anomaly analysis to {}", anomaly_str);
 
     println!();
     Ok(())
@@ -388,8 +392,10 @@ fn demo_pattern_recognition() -> TorshResult<()> {
     }
 
     // Export pattern analysis
-    export_global_pattern_analysis("/tmp/pattern_analysis.json")?;
-    println!("   📁 Exported pattern analysis to /tmp/pattern_analysis.json");
+    let pattern_path = std::env::temp_dir().join("pattern_analysis.json");
+    let pattern_str = pattern_path.display().to_string();
+    export_global_pattern_analysis(&pattern_str)?;
+    println!("   📁 Exported pattern analysis to {}", pattern_str);
 
     println!();
     Ok(())
@@ -478,8 +484,10 @@ fn demo_correlation_analysis() -> TorshResult<()> {
     }
 
     // Export correlation analysis
-    export_global_correlation_analysis("/tmp/correlation_analysis.json")?;
-    println!("   📁 Exported correlation analysis to /tmp/correlation_analysis.json");
+    let corr_path = std::env::temp_dir().join("correlation_analysis.json");
+    let corr_str = corr_path.display().to_string();
+    export_global_correlation_analysis(&corr_str)?;
+    println!("   📁 Exported correlation analysis to {}", corr_str);
 
     println!();
     Ok(())

@@ -754,7 +754,7 @@ mod tests {
             vec![1.0, 2.0, 3.0, 4.0],
             vec![2, 2],
             DeviceType::Cpu,
-        ).unwrap()
+        ).expect("tensor creation should succeed")
     }
 
     #[test]
@@ -762,7 +762,7 @@ mod tests {
         let tensor = create_test_tensor();
         let lazy = tensor.lazy();
 
-        let shape = lazy.shape().unwrap();
+        let shape = lazy.shape().expect("shape should be available");
         assert_eq!(shape.dims(), &[2, 2]);
     }
 
@@ -776,12 +776,12 @@ mod tests {
             .mul_scalar(2.0)
             .relu()
             .eval()
-            .unwrap();
+            .expect("addition should succeed");
 
         // Expected: ((tensor1 + tensor2) * 2).relu()
         // = ((1,2,3,4) + (1,2,3,4)) * 2).relu() = (2,4,6,8) * 2).relu() = (4,8,12,16).relu() = (4,8,12,16)
         let expected_data = vec![4.0, 8.0, 12.0, 16.0];
-        let result_data = result.to_vec().unwrap();
+        let result_data = result.to_vec().expect("to_vec conversion should succeed");
 
         for (expected, actual) in expected_data.iter().zip(result_data.iter()) {
             assert!((expected - actual).abs() < f32::EPSILON);
@@ -794,22 +794,22 @@ mod tests {
             vec![1.0, 2.0, 3.0, 4.0],
             vec![2, 2],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("tensor creation should succeed");
 
         let b = Tensor::from_data(
             vec![2.0, 0.0, 1.0, 3.0],
             vec![2, 2],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("tensor creation should succeed");
 
         let result = a.lazy()
             .matmul(b.lazy())
             .eval()
-            .unwrap();
+            .expect("tensor creation should succeed");
 
         // Matrix multiplication: [[1,2],[3,4]] * [[2,0],[1,3]] = [[4,6],[10,12]]
         let expected_data = vec![4.0, 6.0, 10.0, 12.0];
-        let result_data = result.to_vec().unwrap();
+        let result_data = result.to_vec().expect("to_vec conversion should succeed");
 
         for (expected, actual) in expected_data.iter().zip(result_data.iter()) {
             assert!((expected - actual).abs() < f32::EPSILON);
@@ -822,19 +822,19 @@ mod tests {
             vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
             vec![2, 3],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("tensor creation should succeed");
 
         let result = tensor.lazy()
             .reshape(&[3, 2])
             .t()
             .eval()
-            .unwrap();
+            .expect("tensor creation should succeed");
 
         assert_eq!(result.shape().dims(), &[2, 3]);
 
         // Original: [[1,2,3],[4,5,6]] -> reshape to [[1,2],[3,4],[5,6]] -> transpose to [[1,3,5],[2,4,6]]
         let expected_data = vec![1.0, 3.0, 5.0, 2.0, 4.0, 6.0];
-        let result_data = result.to_vec().unwrap();
+        let result_data = result.to_vec().expect("to_vec conversion should succeed");
 
         for (expected, actual) in expected_data.iter().zip(result_data.iter()) {
             assert!((expected - actual).abs() < f32::EPSILON);
@@ -847,17 +847,17 @@ mod tests {
             vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
             vec![2, 3],
             DeviceType::Cpu,
-        ).unwrap();
+        ).expect("tensor creation should succeed");
 
         // Test sum along dimension
         let sum_result = tensor.clone().lazy()
             .sum_dim(1)
             .eval()
-            .unwrap();
+            .expect("tensor creation should succeed");
 
         // Sum along dim 1: [[1,2,3],[4,5,6]] -> [6, 15]
         let expected_sum = vec![6.0, 15.0];
-        let result_sum = sum_result.to_vec().unwrap();
+        let result_sum = sum_result.to_vec().expect("to_vec conversion should succeed");
 
         for (expected, actual) in expected_sum.iter().zip(result_sum.iter()) {
             assert!((expected - actual).abs() < f32::EPSILON);
@@ -867,10 +867,10 @@ mod tests {
         let mean_result = tensor.lazy()
             .mean()
             .eval()
-            .unwrap();
+            .expect("mean should succeed");
 
         // Mean of all elements: (1+2+3+4+5+6)/6 = 3.5
-        let result_mean = mean_result.to_vec().unwrap();
+        let result_mean = mean_result.to_vec().expect("to_vec conversion should succeed");
         assert!((result_mean[0] - 3.5).abs() < f32::EPSILON);
     }
 
@@ -886,11 +886,11 @@ mod tests {
                 },
             )
             .eval()
-            .unwrap();
+            .expect("pow should succeed");
 
         // Square: [1,2,3,4] -> [1,4,9,16]
         let expected_data = vec![1.0, 4.0, 9.0, 16.0];
-        let result_data = result.to_vec().unwrap();
+        let result_data = result.to_vec().expect("to_vec conversion should succeed");
 
         for (expected, actual) in expected_data.iter().zip(result_data.iter()) {
             assert!((expected - actual).abs() < f32::EPSILON);
@@ -902,11 +902,11 @@ mod tests {
         let tensor = create_test_tensor(); // 2x2
 
         let lazy_reshaped = tensor.lazy().reshape(&[4, 1]);
-        let shape = lazy_reshaped.shape().unwrap();
+        let shape = lazy_reshaped.shape().expect("shape should be available");
         assert_eq!(shape.dims(), &[4, 1]);
 
         let lazy_transposed = lazy_reshaped.t();
-        let transposed_shape = lazy_transposed.shape().unwrap();
+        let transposed_shape = lazy_transposed.shape().expect("shape should be available");
         assert_eq!(transposed_shape.dims(), &[1, 4]);
     }
 
@@ -923,7 +923,7 @@ mod tests {
             .exp()
             .sum()
             .eval()
-            .unwrap();
+            .expect("addition should succeed");
 
         // Step by step:
         // a + b = [2,4,6,8]
@@ -932,7 +932,7 @@ mod tests {
         // exp() = [e^3, e^7, e^11, e^15]
         // sum() = e^3 + e^7 + e^11 + e^15
 
-        let result_val = result.to_vec().unwrap()[0];
+        let result_val = result.to_vec().expect("to_vec conversion should succeed")[0];
         let expected = 3.0_f32.exp() + 7.0_f32.exp() + 11.0_f32.exp() + 15.0_f32.exp();
 
         assert!((result_val - expected).abs() < 1e-4);
