@@ -65,6 +65,7 @@
 // Framework infrastructure - components designed for future use
 #![allow(dead_code)]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![feature(doc_cfg)]
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;
