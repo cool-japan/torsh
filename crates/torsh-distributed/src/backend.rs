@@ -285,6 +285,8 @@ pub struct MockBackend {
     status: BackendStatus,
     config: Option<BackendConfig>,
     metrics: HashMap<String, f64>,
+    /// The backend type this mock is pretending to be
+    backend_type: BackendType,
 }
 
 impl MockBackend {
@@ -295,6 +297,19 @@ impl MockBackend {
             status: BackendStatus::default(),
             config: None,
             metrics: HashMap::new(),
+            backend_type: BackendType::Gloo,
+        }
+    }
+
+    /// Create a mock backend that reports itself as the given backend type
+    pub fn with_backend_type(rank: u32, world_size: u32, backend_type: BackendType) -> Self {
+        Self {
+            rank,
+            world_size,
+            status: BackendStatus::default(),
+            config: None,
+            metrics: HashMap::new(),
+            backend_type,
         }
     }
 
@@ -321,7 +336,7 @@ impl MockBackend {
 #[async_trait]
 impl Backend for MockBackend {
     fn backend_type(&self) -> BackendType {
-        BackendType::Gloo // Pretend to be Gloo for testing
+        self.backend_type
     }
 
     fn capabilities(&self) -> BackendCapabilities {

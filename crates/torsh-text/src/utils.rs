@@ -1,7 +1,8 @@
 use crate::{Result, TextError};
 // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
 use regex::Regex;
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::Random;
+use scirs2_core::RngExt;
 use std::collections::HashMap;
 
 // Static regex patterns for performance optimization

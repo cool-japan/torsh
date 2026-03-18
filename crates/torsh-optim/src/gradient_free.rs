@@ -19,6 +19,7 @@
 
 use crate::{Optimizer, OptimizerError, OptimizerResult};
 use parking_lot::RwLock as PLRwLock;
+use scirs2_core::RngExt;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use torsh_core::{device::CpuDevice, DType};

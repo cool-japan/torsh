@@ -499,7 +499,8 @@ pub mod metrics {
 /// Graph sampling utilities
 pub mod sampling {
     use super::*;
-    use scirs2_core::random::{Random, Rng};
+    use scirs2_core::random::Random;
+    use scirs2_core::RngExt;
 
     /// Sample neighbors for GraphSAGE
     pub fn neighbor_sampling(

@@ -58,7 +58,7 @@ See [examples/basic_usage.py](examples/basic_usage.py) for more examples.
 
 ### Current Status
 
-**Version**: 0.1.0
+**Version**: 0.1.1
 
 **Note**: This crate is in active development. Many features are currently disabled due to dependency conflicts with scirs2-autograd and are being re-enabled incrementally.
 
@@ -268,21 +268,21 @@ Benchmarks will be added once tensor operations are re-enabled.
 
 ## 🗺️ Roadmap
 
-### v0.1.0 (Next Release)
+### v0.1.1 (Next Release)
 
 - [ ] Re-enable tensor operations
 - [ ] Re-enable basic neural network layers
 - [ ] Add tensor creation functions (zeros, ones, randn)
 - [ ] Add basic tensor operations (add, mul, matmul)
 
-### v0.1.0
+### v0.1.1
 
 - [ ] Re-enable autograd support
 - [ ] Re-enable optimizer implementations
 - [ ] Add data loading utilities
 - [ ] Performance benchmarks
 
-### v0.1.0
+### v0.1.1
 
 - [ ] Distributed training support
 - [ ] Complete PyTorch API compatibility
@@ -325,4 +325,4 @@ Licensed under the Apache License, Version 2.0. See [LICENSE](../../LICENSE) for
 
 ---
 
-**Status**: 🚧 Active Development | **Version**: 0.1.0 | **Last Updated**: 2025-10-24
+**Status**: 🚧 Active Development | **Version**: 0.1.1 | **Last Updated**: 2025-10-24

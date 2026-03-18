@@ -172,7 +172,8 @@ pub mod spectral {
 /// Graph generation utilities
 pub mod generation {
     use super::*;
-    use scirs2_core::random::{Random, Rng};
+    use scirs2_core::random::Random;
+    use scirs2_core::RngExt;
 
     /// Generate Erdős-Rényi random graph
     pub fn erdos_renyi(num_nodes: usize, edge_prob: f64) -> GraphData {

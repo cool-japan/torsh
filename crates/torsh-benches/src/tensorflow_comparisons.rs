@@ -44,7 +44,7 @@ impl TensorFlowBenchRunner {
 
     /// Initialize Python interpreter and check TensorFlow availability
     fn initialize_python(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        Python::with_gil(|py| -> PyResult<()> {
+        Python::attach(|py| -> PyResult<()> {
             // Try to import TensorFlow
             match py.import("tensorflow") {
                 Ok(tf) => {
@@ -102,7 +102,7 @@ impl TensorFlowBenchRunner {
         {
             use pyo3::prelude::*;
 
-            Python::with_gil(|py| -> PyResult<f64> {
+            Python::attach(|py| -> PyResult<f64> {
                 let _tf = py.import("tensorflow")?;
                 let _time_module = py.import("time")?;
 

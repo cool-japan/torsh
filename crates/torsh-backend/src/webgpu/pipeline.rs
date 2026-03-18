@@ -92,7 +92,7 @@ impl ComputePipeline {
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some(&format!("{} Pipeline Layout", descriptor.label)),
                     bind_group_layouts: &bind_group_layouts.iter().collect::<Vec<_>>(),
-                    push_constant_ranges: &[],
+                    immediate_size: 0,
                 });
 
         // Create shader module

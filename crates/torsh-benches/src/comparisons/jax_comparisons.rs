@@ -33,9 +33,7 @@ impl JAXBenchRunner {
         {
             use pyo3::prelude::*;
 
-            pyo3::prepare_freethreaded_python();
-
-            Python::with_gil(|py| -> PyResult<()> {
+            Python::attach(|py| -> PyResult<()> {
                 // Try to import JAX
                 match py.import("jax") {
                     Ok(jax) => {
@@ -90,7 +88,7 @@ impl JAXBenchRunner {
 
         use pyo3::prelude::*;
 
-        Python::with_gil(|py| -> PyResult<f64> {
+        Python::attach(|py| -> PyResult<f64> {
             let jax = py.import("jax")?;
             let jnp = py.import("jax.numpy")?;
             let time_module = py.import("time")?;

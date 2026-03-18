@@ -442,8 +442,12 @@ pub fn solve_stein(a: &Tensor, q: &Tensor) -> Result<Tensor> {
     let q_array = tensor_to_array2(q)?;
 
     // Solve using scirs2-linalg
-    let x_array = scirs2_linalg::matrix_equations::solve_stein(&a_array.view(), &q_array.view())
-        .map_err(|e| TorshError::ComputeError(format!("Stein solver failed: {e}")))?;
+    let x_array = scirs2_linalg::matrix_equations::solve_stein(
+        &a_array.view(),
+        &a_array.view(),
+        &q_array.view(),
+    )
+    .map_err(|e| TorshError::ComputeError(format!("Stein solver failed: {e}")))?;
 
     array2_to_tensor(&x_array.view(), a.device())
 }

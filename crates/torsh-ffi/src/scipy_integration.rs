@@ -79,7 +79,7 @@ impl Default for ScipyTolerances {
 }
 
 /// Result of optimization operations
-#[pyclass(name = "OptimizationResult")]
+#[pyclass(name = "OptimizationResult", from_py_object)]
 #[derive(Debug, Clone)]
 pub struct OptimizationResult {
     /// Final parameter values
@@ -103,7 +103,7 @@ pub struct OptimizationResult {
 }
 
 /// Result of linear algebra operations
-#[pyclass(name = "LinalgResult")]
+#[pyclass(name = "LinalgResult", from_py_object)]
 #[derive(Debug, Clone)]
 pub struct LinalgResult {
     /// Primary result tensor
@@ -121,7 +121,7 @@ pub struct LinalgResult {
 }
 
 /// Signal processing result
-#[pyclass(name = "SignalResult")]
+#[pyclass(name = "SignalResult", from_py_object)]
 #[derive(Debug, Clone)]
 pub struct SignalResult {
     /// Processed signal

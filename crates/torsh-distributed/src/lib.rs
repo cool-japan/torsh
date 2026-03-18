@@ -557,7 +557,7 @@ pub fn is_available() -> bool {
 /// Check if NCCL backend is available
 #[allow(unexpected_cfgs)]
 pub fn is_nccl_available() -> bool {
-    cfg!(feature = "nccl") && cfg!(feature = "cuda")
+    cfg!(feature = "nccl")
 }
 
 /// Check if MPI backend is available  

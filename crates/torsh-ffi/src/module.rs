@@ -7,7 +7,7 @@ use crate::tensor::PyTensor;
 use pyo3::prelude::*;
 
 /// Base class for neural network modules
-#[pyclass(name = "Module", subclass)]
+#[pyclass(name = "Module", subclass, from_py_object)]
 #[derive(Clone)]
 pub struct PyModule {
     // In a full implementation, this would wrap torsh_nn::Module

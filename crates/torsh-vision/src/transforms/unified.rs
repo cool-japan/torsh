@@ -3,6 +3,7 @@
 use crate::unified_transforms::{TransformContext, TransformParameter, UnifiedTransform};
 use crate::{Result, VisionError};
 use scirs2_core::random::{Random, Rng};
+use scirs2_core::RngExt;
 use std::collections::HashMap;
 use std::sync::Arc;
 use torsh_core::device::Device;

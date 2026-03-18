@@ -5,7 +5,7 @@ use crate::tensor::PyTensor;
 use pyo3::prelude::*;
 
 /// Base optimizer class
-#[pyclass(name = "Optimizer", subclass)]
+#[pyclass(name = "Optimizer", subclass, from_py_object)]
 #[derive(Clone)]
 pub struct PyOptimizer {
     learning_rate: f32,

@@ -14,7 +14,8 @@ use torsh_core::{
 use torsh_tensor::Tensor;
 
 // SciRS2 policy compliance for random number generation
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::Random;
+use scirs2_core::RngExt;
 
 // Conditional imports for std/no_std compatibility
 #[cfg(feature = "std")]

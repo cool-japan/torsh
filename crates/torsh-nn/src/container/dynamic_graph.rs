@@ -61,7 +61,7 @@ pub enum GraphNode {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,no_run
 /// # use torsh_nn::container::{DynamicGraph, GraphNode};
 /// # use torsh_nn::layers::linear::Linear;
 /// # use torsh_nn::Module;

@@ -1,6 +1,7 @@
 use crate::transforms::Transform;
 #[cfg(feature = "image-support")]
 use image::{DynamicImage, GenericImageView, ImageBuffer};
+use scirs2_core::RngExt;
 use torsh_core::error::{Result, TorshError};
 use torsh_tensor::Tensor;
 

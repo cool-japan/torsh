@@ -14,6 +14,7 @@
 //! - Differential Evolution (DE)
 
 use crate::{OptimizerError, OptimizerResult};
+use scirs2_core::RngExt;
 use std::collections::HashMap;
 use std::sync::Arc;
 use torsh_core::device::CpuDevice;

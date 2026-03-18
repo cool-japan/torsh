@@ -96,7 +96,8 @@ use std::collections::HashMap;
 
 use super::core::{rng_utils, Sampler, SamplerIterator};
 use scirs2_core::rand_prelude::SliceRandom;
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::Random;
+use scirs2_core::RngExt;
 
 /// Weighted random sampler for probability-based sampling.
 ///

@@ -2,7 +2,8 @@
 
 use std::collections::HashMap;
 
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::Random;
+use scirs2_core::RngExt;
 use torsh_core::{
     error::{Result, TorshError},
     DeviceType,

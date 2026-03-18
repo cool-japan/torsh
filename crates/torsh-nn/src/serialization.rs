@@ -209,7 +209,7 @@ impl ModelState {
         }
 
         let safetensors_data =
-            safetensors::serialize(&tensors, &Some(metadata_map)).map_err(|e| {
+            safetensors::serialize(&tensors, Some(metadata_map)).map_err(|e| {
                 TorshError::SerializationError(format!("SafeTensors serialization error: {}", e))
             })?;
 
