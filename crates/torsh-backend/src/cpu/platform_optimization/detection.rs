@@ -76,85 +76,83 @@ impl CpuInfo {
     /// Detect x86_64 CPU features using CPUID
     #[cfg(target_arch = "x86_64")]
     fn detect_x86_features(&mut self) {
-        unsafe {
-            // Check for CPUID availability
-            if !has_cpuid() {
-                return;
-            }
-
-            // Get basic CPUID information
-            let cpuid_result = __cpuid(1);
-
-            // Feature detection from CPUID.01H:EDX
-            self.features.sse = (cpuid_result.edx & (1 << 25)) != 0;
-            self.features.sse2 = (cpuid_result.edx & (1 << 26)) != 0;
-            self.features.fma = (cpuid_result.ecx & (1 << 12)) != 0;
-            self.features.popcnt = (cpuid_result.ecx & (1 << 23)) != 0;
-            self.features.aes = (cpuid_result.ecx & (1 << 25)) != 0;
-            self.features.avx = (cpuid_result.ecx & (1 << 28)) != 0;
-            self.features.f16c = (cpuid_result.ecx & (1 << 29)) != 0;
-            self.features.rdrand = (cpuid_result.ecx & (1 << 30)) != 0;
-
-            // Feature detection from CPUID.01H:ECX
-            self.features.sse3 = (cpuid_result.ecx & (1 << 0)) != 0;
-            self.features.pclmul = (cpuid_result.ecx & (1 << 1)) != 0;
-            self.features.ssse3 = (cpuid_result.ecx & (1 << 9)) != 0;
-            self.features.sse4_1 = (cpuid_result.ecx & (1 << 19)) != 0;
-            self.features.sse4_2 = (cpuid_result.ecx & (1 << 20)) != 0;
-            self.features.movbe = (cpuid_result.ecx & (1 << 22)) != 0;
-            self.features.xsave = (cpuid_result.ecx & (1 << 26)) != 0;
-
-            // Extended features (CPUID.07H:EBX)
-            let extended_result = __cpuid_count(7, 0);
-            self.features.avx2 = (extended_result.ebx & (1 << 5)) != 0;
-            self.features.bmi1 = (extended_result.ebx & (1 << 3)) != 0;
-            self.features.bmi2 = (extended_result.ebx & (1 << 8)) != 0;
-            self.features.rtm = (extended_result.ebx & (1 << 11)) != 0;
-            self.features.hle = (extended_result.ebx & (1 << 4)) != 0;
-            self.features.avx512f = (extended_result.ebx & (1 << 16)) != 0;
-            self.features.avx512dq = (extended_result.ebx & (1 << 17)) != 0;
-            self.features.rdseed = (extended_result.ebx & (1 << 18)) != 0;
-            self.features.adx = (extended_result.ebx & (1 << 19)) != 0;
-            self.features.avx512cd = (extended_result.ebx & (1 << 28)) != 0;
-            self.features.avx512bw = (extended_result.ebx & (1 << 30)) != 0;
-            self.features.avx512vl = (extended_result.ebx & (1 << 31)) != 0;
-
-            // More extended features (CPUID.07H:ECX)
-            self.features.prefetchw = (extended_result.ecx & (1 << 0)) != 0;
-            self.features.avx512vnni = (extended_result.ecx & (1 << 11)) != 0;
-            self.features.avx512bf16 = (extended_result.ecx & (1 << 5)) != 0;
-            self.features.sha = (extended_result.ecx & (1 << 29)) != 0;
-
-            // Extended function CPUID.80000001H
-            let extended_fn = __cpuid(0x80000001);
-            self.features.lzcnt = (extended_fn.ecx & (1 << 5)) != 0;
-            self.features.fma4 = (extended_fn.ecx & (1 << 16)) != 0;
-            self.features.rdtscp = (extended_fn.edx & (1 << 27)) != 0;
-
-            // Detect vendor
-            let vendor_result = __cpuid(0);
-            let vendor_bytes = [
-                (vendor_result.ebx as u32).to_le_bytes(),
-                (vendor_result.edx as u32).to_le_bytes(),
-                (vendor_result.ecx as u32).to_le_bytes(),
-            ];
-            self.vendor = String::from_utf8_lossy(&[
-                vendor_bytes[0][0],
-                vendor_bytes[0][1],
-                vendor_bytes[0][2],
-                vendor_bytes[0][3],
-                vendor_bytes[1][0],
-                vendor_bytes[1][1],
-                vendor_bytes[1][2],
-                vendor_bytes[1][3],
-                vendor_bytes[2][0],
-                vendor_bytes[2][1],
-                vendor_bytes[2][2],
-                vendor_bytes[2][3],
-            ])
-            .trim_end_matches('\0')
-            .to_string();
+        // Check for CPUID availability
+        if !has_cpuid() {
+            return;
         }
+
+        // Get basic CPUID information
+        let cpuid_result = __cpuid(1);
+
+        // Feature detection from CPUID.01H:EDX
+        self.features.sse = (cpuid_result.edx & (1 << 25)) != 0;
+        self.features.sse2 = (cpuid_result.edx & (1 << 26)) != 0;
+        self.features.fma = (cpuid_result.ecx & (1 << 12)) != 0;
+        self.features.popcnt = (cpuid_result.ecx & (1 << 23)) != 0;
+        self.features.aes = (cpuid_result.ecx & (1 << 25)) != 0;
+        self.features.avx = (cpuid_result.ecx & (1 << 28)) != 0;
+        self.features.f16c = (cpuid_result.ecx & (1 << 29)) != 0;
+        self.features.rdrand = (cpuid_result.ecx & (1 << 30)) != 0;
+
+        // Feature detection from CPUID.01H:ECX
+        self.features.sse3 = (cpuid_result.ecx & (1 << 0)) != 0;
+        self.features.pclmul = (cpuid_result.ecx & (1 << 1)) != 0;
+        self.features.ssse3 = (cpuid_result.ecx & (1 << 9)) != 0;
+        self.features.sse4_1 = (cpuid_result.ecx & (1 << 19)) != 0;
+        self.features.sse4_2 = (cpuid_result.ecx & (1 << 20)) != 0;
+        self.features.movbe = (cpuid_result.ecx & (1 << 22)) != 0;
+        self.features.xsave = (cpuid_result.ecx & (1 << 26)) != 0;
+
+        // Extended features (CPUID.07H:EBX)
+        let extended_result = __cpuid_count(7, 0);
+        self.features.avx2 = (extended_result.ebx & (1 << 5)) != 0;
+        self.features.bmi1 = (extended_result.ebx & (1 << 3)) != 0;
+        self.features.bmi2 = (extended_result.ebx & (1 << 8)) != 0;
+        self.features.rtm = (extended_result.ebx & (1 << 11)) != 0;
+        self.features.hle = (extended_result.ebx & (1 << 4)) != 0;
+        self.features.avx512f = (extended_result.ebx & (1 << 16)) != 0;
+        self.features.avx512dq = (extended_result.ebx & (1 << 17)) != 0;
+        self.features.rdseed = (extended_result.ebx & (1 << 18)) != 0;
+        self.features.adx = (extended_result.ebx & (1 << 19)) != 0;
+        self.features.avx512cd = (extended_result.ebx & (1 << 28)) != 0;
+        self.features.avx512bw = (extended_result.ebx & (1 << 30)) != 0;
+        self.features.avx512vl = (extended_result.ebx & (1 << 31)) != 0;
+
+        // More extended features (CPUID.07H:ECX)
+        self.features.prefetchw = (extended_result.ecx & (1 << 0)) != 0;
+        self.features.avx512vnni = (extended_result.ecx & (1 << 11)) != 0;
+        self.features.avx512bf16 = (extended_result.ecx & (1 << 5)) != 0;
+        self.features.sha = (extended_result.ecx & (1 << 29)) != 0;
+
+        // Extended function CPUID.80000001H
+        let extended_fn = __cpuid(0x80000001);
+        self.features.lzcnt = (extended_fn.ecx & (1 << 5)) != 0;
+        self.features.fma4 = (extended_fn.ecx & (1 << 16)) != 0;
+        self.features.rdtscp = (extended_fn.edx & (1 << 27)) != 0;
+
+        // Detect vendor
+        let vendor_result = __cpuid(0);
+        let vendor_bytes = [
+            (vendor_result.ebx as u32).to_le_bytes(),
+            (vendor_result.edx as u32).to_le_bytes(),
+            (vendor_result.ecx as u32).to_le_bytes(),
+        ];
+        self.vendor = String::from_utf8_lossy(&[
+            vendor_bytes[0][0],
+            vendor_bytes[0][1],
+            vendor_bytes[0][2],
+            vendor_bytes[0][3],
+            vendor_bytes[1][0],
+            vendor_bytes[1][1],
+            vendor_bytes[1][2],
+            vendor_bytes[1][3],
+            vendor_bytes[2][0],
+            vendor_bytes[2][1],
+            vendor_bytes[2][2],
+            vendor_bytes[2][3],
+        ])
+        .trim_end_matches('\0')
+        .to_string();
     }
 
     /// Detect x86_64 microarchitecture
@@ -191,51 +189,49 @@ impl CpuInfo {
     /// Detect x86_64 cache information
     #[cfg(target_arch = "x86_64")]
     fn detect_x86_cache_info(&mut self) {
-        unsafe {
-            if !has_cpuid() {
-                return;
+        if !has_cpuid() {
+            return;
+        }
+
+        // Use CPUID.04H for cache information
+        for level in 0..4 {
+            let cache_info = __cpuid_count(4, level);
+            let cache_type = cache_info.eax & 0x1F;
+
+            if cache_type == 0 {
+                break; // No more cache levels
             }
 
-            // Use CPUID.04H for cache information
-            for level in 0..4 {
-                let cache_info = __cpuid_count(4, level);
-                let cache_type = cache_info.eax & 0x1F;
+            let cache_level = (cache_info.eax >> 5) & 0x7;
+            let line_size = ((cache_info.ebx & 0xFFF) + 1) as usize;
+            let ways = (((cache_info.ebx >> 22) & 0x3FF) + 1) as usize;
+            let sets = (cache_info.ecx + 1) as usize;
+            let size = ways * sets * line_size;
 
-                if cache_type == 0 {
-                    break; // No more cache levels
+            match (cache_level, cache_type) {
+                (1, 1) => {
+                    // L1 data cache
+                    self.cache.l1d_size = size;
+                    self.cache.l1_line_size = line_size;
+                    self.cache.l1_associativity = ways;
                 }
-
-                let cache_level = (cache_info.eax >> 5) & 0x7;
-                let line_size = ((cache_info.ebx & 0xFFF) + 1) as usize;
-                let ways = (((cache_info.ebx >> 22) & 0x3FF) + 1) as usize;
-                let sets = (cache_info.ecx + 1) as usize;
-                let size = ways * sets * line_size;
-
-                match (cache_level, cache_type) {
-                    (1, 1) => {
-                        // L1 data cache
-                        self.cache.l1d_size = size;
-                        self.cache.l1_line_size = line_size;
-                        self.cache.l1_associativity = ways;
-                    }
-                    (1, 2) => {
-                        // L1 instruction cache
-                        self.cache.l1i_size = size;
-                    }
-                    (2, 3) => {
-                        // L2 unified cache
-                        self.cache.l2_size = size;
-                        self.cache.l2_line_size = line_size;
-                        self.cache.l2_associativity = ways;
-                    }
-                    (3, 3) => {
-                        // L3 unified cache
-                        self.cache.l3_size = size;
-                        self.cache.l3_line_size = line_size;
-                        self.cache.l3_associativity = ways;
-                    }
-                    _ => {}
+                (1, 2) => {
+                    // L1 instruction cache
+                    self.cache.l1i_size = size;
                 }
+                (2, 3) => {
+                    // L2 unified cache
+                    self.cache.l2_size = size;
+                    self.cache.l2_line_size = line_size;
+                    self.cache.l2_associativity = ways;
+                }
+                (3, 3) => {
+                    // L3 unified cache
+                    self.cache.l3_size = size;
+                    self.cache.l3_line_size = line_size;
+                    self.cache.l3_associativity = ways;
+                }
+                _ => {}
             }
         }
     }
@@ -589,38 +585,36 @@ pub fn detect_x86_microarchitecture() -> Option<X86Microarchitecture> {
             return Some(X86Microarchitecture::Unknown);
         }
 
-        unsafe {
-            let cpuid = __cpuid(0);
-            if cpuid.eax < 1 {
-                return Some(X86Microarchitecture::Unknown);
-            }
+        let cpuid = __cpuid(0);
+        if cpuid.eax < 1 {
+            return Some(X86Microarchitecture::Unknown);
+        }
 
-            let info = __cpuid(1);
-            let family = ((info.eax >> 8) & 0xF) + ((info.eax >> 20) & 0xFF);
-            let model = ((info.eax >> 4) & 0xF) | (((info.eax >> 16) & 0xF) << 4);
+        let info = __cpuid(1);
+        let family = ((info.eax >> 8) & 0xF) + ((info.eax >> 20) & 0xFF);
+        let model = ((info.eax >> 4) & 0xF) | (((info.eax >> 16) & 0xF) << 4);
 
-            // Intel detection
-            if cpuid.ebx == 0x756e6547 && cpuid.edx == 0x49656e69 && cpuid.ecx == 0x6c65746e {
-                return Some(match (family, model) {
-                    (6, 0x1E..=0x1F) => X86Microarchitecture::Nehalem,
-                    (6, 0x2A..=0x2D) => X86Microarchitecture::SandyBridge,
-                    (6, 0x3A | 0x3B) => X86Microarchitecture::IvyBridge,
-                    (6, 0x3C | 0x3E | 0x3F | 0x45 | 0x46) => X86Microarchitecture::Haswell,
-                    (6, 0x3D | 0x47 | 0x4F | 0x56) => X86Microarchitecture::Broadwell,
-                    (6, 0x4E | 0x5E | 0x8E) => X86Microarchitecture::Skylake,
-                    (6, 0x97 | 0x9A) => X86Microarchitecture::AlderLake,
-                    _ => X86Microarchitecture::Unknown,
-                });
-            }
+        // Intel detection
+        if cpuid.ebx == 0x756e6547 && cpuid.edx == 0x49656e69 && cpuid.ecx == 0x6c65746e {
+            return Some(match (family, model) {
+                (6, 0x1E..=0x1F) => X86Microarchitecture::Nehalem,
+                (6, 0x2A..=0x2D) => X86Microarchitecture::SandyBridge,
+                (6, 0x3A | 0x3B) => X86Microarchitecture::IvyBridge,
+                (6, 0x3C | 0x3E | 0x3F | 0x45 | 0x46) => X86Microarchitecture::Haswell,
+                (6, 0x3D | 0x47 | 0x4F | 0x56) => X86Microarchitecture::Broadwell,
+                (6, 0x4E | 0x5E | 0x8E) => X86Microarchitecture::Skylake,
+                (6, 0x97 | 0x9A) => X86Microarchitecture::AlderLake,
+                _ => X86Microarchitecture::Unknown,
+            });
+        }
 
-            // AMD detection
-            if cpuid.ebx == 0x68747541 && cpuid.edx == 0x69746e65 && cpuid.ecx == 0x444d4163 {
-                return Some(match family {
-                    0x17 => X86Microarchitecture::Zen,
-                    0x19 => X86Microarchitecture::Zen3,
-                    _ => X86Microarchitecture::Unknown,
-                });
-            }
+        // AMD detection
+        if cpuid.ebx == 0x68747541 && cpuid.edx == 0x69746e65 && cpuid.ecx == 0x444d4163 {
+            return Some(match family {
+                0x17 => X86Microarchitecture::Zen,
+                0x19 => X86Microarchitecture::Zen3,
+                _ => X86Microarchitecture::Unknown,
+            });
         }
     }
 

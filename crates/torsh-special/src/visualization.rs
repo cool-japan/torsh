@@ -303,7 +303,7 @@ pub fn benchmark_optimization_levels(
     for _ in 0..iterations {
         let _ = gamma::gamma(&x_tensor)?;
     }
-    let gamma_time = start_time.elapsed().as_nanos() as f64 / iterations as f64;
+    let gamma_time = start_time.elapsed().as_secs_f64() * 1e9 / iterations as f64;
     results.insert("gamma_standard".to_string(), gamma_time);
 
     // Benchmark fast gamma approximation
@@ -311,7 +311,7 @@ pub fn benchmark_optimization_levels(
     for _ in 0..iterations {
         let _ = fast_approximations::gamma_fast(&x_tensor)?;
     }
-    let gamma_fast_time = start_time.elapsed().as_nanos() as f64 / iterations as f64;
+    let gamma_fast_time = start_time.elapsed().as_secs_f64() * 1e9 / iterations as f64;
     results.insert("gamma_fast".to_string(), gamma_fast_time);
 
     // Benchmark standard error function
@@ -319,7 +319,7 @@ pub fn benchmark_optimization_levels(
     for _ in 0..iterations {
         let _ = error_functions::erf(&x_tensor)?;
     }
-    let erf_time = start_time.elapsed().as_nanos() as f64 / iterations as f64;
+    let erf_time = start_time.elapsed().as_secs_f64() * 1e9 / iterations as f64;
     results.insert("erf_standard".to_string(), erf_time);
 
     // Benchmark fast error function approximation
@@ -327,7 +327,7 @@ pub fn benchmark_optimization_levels(
     for _ in 0..iterations {
         let _ = fast_approximations::erf_fast(&x_tensor)?;
     }
-    let erf_fast_time = start_time.elapsed().as_nanos() as f64 / iterations as f64;
+    let erf_fast_time = start_time.elapsed().as_secs_f64() * 1e9 / iterations as f64;
     results.insert("erf_fast".to_string(), erf_fast_time);
 
     Ok(results)
