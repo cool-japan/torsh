@@ -95,7 +95,7 @@ pub struct StartArgs {
 #[derive(Args)]
 pub struct ResumeArgs {
     /// Checkpoint file to resume from
-    #[arg(short, long)]
+    #[arg(short = 'k', long)]
     pub checkpoint: PathBuf,
 
     /// Override epochs

@@ -108,7 +108,7 @@ pub struct SearchArgs {
     pub task: Option<String>,
 
     /// Filter by library (transformers, diffusers, etc.)
-    #[arg(short, long)]
+    #[arg(short = 'L', long)]
     pub library: Option<String>,
 
     /// Maximum number of results
