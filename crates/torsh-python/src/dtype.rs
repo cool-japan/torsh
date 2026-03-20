@@ -5,7 +5,7 @@ use pyo3::prelude::*;
 use torsh_core::dtype::DType;
 
 /// Python wrapper for ToRSh data types
-#[pyclass(name = "dtype")]
+#[pyclass(name = "dtype", from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyDType {
     pub(crate) dtype: DType,

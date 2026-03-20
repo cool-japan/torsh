@@ -1,5 +1,6 @@
 use crate::{Result, TextError};
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::Random;
+use scirs2_core::RngExt;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use tokenizers::{

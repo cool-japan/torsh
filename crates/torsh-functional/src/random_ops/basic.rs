@@ -4,7 +4,8 @@
 //! uniform distributions, normal distributions, and basic random sampling operations.
 //! All operations follow PyTorch's random generation API for compatibility.
 
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::Random;
+use scirs2_core::RngExt;
 use torsh_core::{Result as TorshResult, TorshError};
 use torsh_tensor::Tensor;
 

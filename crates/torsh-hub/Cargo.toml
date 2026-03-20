@@ -30,7 +30,7 @@ sha2 = { workspace = true }
 hex = { workspace = true }
 chrono = { workspace = true }
 tempfile = { workspace = true }
-toml = "0.9.12"
+toml = "1.0.6"
 flate2 = { workspace = true }
 tar = { workspace = true }
 base64 = "0.22.1"
@@ -41,7 +41,7 @@ scirs2-autograd.workspace = true
 # tensorflow = { version = "0.21", optional = true }  # DISABLED: tensorflow-sys build issues - use ONNX Runtime (ort) instead
 futures = { workspace = true }
 futures-util = { workspace = true }
-clap = { version = "4.5.60", features = ["derive"] }
+clap = { version = "4.6.0", features = ["derive"] }
 uuid = { workspace = true }
 indicatif = "0.18"
 

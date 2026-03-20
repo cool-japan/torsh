@@ -210,38 +210,36 @@ pub fn detect_cpu_features() -> BackendResult<CpuFeatures> {
             return Ok(CpuFeatures::default());
         }
 
-        unsafe {
-            let cpuid = __cpuid(1);
-            let sse = (cpuid.edx & (1 << 25)) != 0;
-            let sse2 = (cpuid.edx & (1 << 26)) != 0;
-            let sse3 = (cpuid.ecx & (1 << 0)) != 0;
-            let ssse3 = (cpuid.ecx & (1 << 9)) != 0;
-            let sse4_1 = (cpuid.ecx & (1 << 19)) != 0;
-            let sse4_2 = (cpuid.ecx & (1 << 20)) != 0;
+        let cpuid = __cpuid(1);
+        let sse = (cpuid.edx & (1 << 25)) != 0;
+        let sse2 = (cpuid.edx & (1 << 26)) != 0;
+        let sse3 = (cpuid.ecx & (1 << 0)) != 0;
+        let ssse3 = (cpuid.ecx & (1 << 9)) != 0;
+        let sse4_1 = (cpuid.ecx & (1 << 19)) != 0;
+        let sse4_2 = (cpuid.ecx & (1 << 20)) != 0;
 
-            let extended_features = __cpuid(7);
-            let avx = (cpuid.ecx & (1 << 28)) != 0;
-            let avx2 = (extended_features.ebx & (1 << 5)) != 0;
-            let avx512f = (extended_features.ebx & (1 << 16)) != 0;
-            let avx512cd = (extended_features.ebx & (1 << 28)) != 0;
-            let fma = (cpuid.ecx & (1 << 12)) != 0;
+        let extended_features = __cpuid(7);
+        let avx = (cpuid.ecx & (1 << 28)) != 0;
+        let avx2 = (extended_features.ebx & (1 << 5)) != 0;
+        let avx512f = (extended_features.ebx & (1 << 16)) != 0;
+        let avx512cd = (extended_features.ebx & (1 << 28)) != 0;
+        let fma = (cpuid.ecx & (1 << 12)) != 0;
 
-            Ok(CpuFeatures {
-                sse,
-                sse2,
-                sse3,
-                ssse3,
-                sse4_1,
-                sse4_2,
-                avx,
-                avx2,
-                avx512f,
-                avx512cd,
-                fma,
-                neon: false,
-                ..Default::default()
-            })
-        }
+        Ok(CpuFeatures {
+            sse,
+            sse2,
+            sse3,
+            ssse3,
+            sse4_1,
+            sse4_2,
+            avx,
+            avx2,
+            avx512f,
+            avx512cd,
+            fma,
+            neon: false,
+            ..Default::default()
+        })
     }
     #[cfg(target_arch = "aarch64")]
     {

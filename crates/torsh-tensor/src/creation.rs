@@ -2,7 +2,8 @@
 
 use crate::{FloatElement, Tensor, TensorElement};
 // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::Random;
+use scirs2_core::RngExt;
 use torsh_core::{
     device::DeviceType,
     dtype::{Complex32, Complex64, ComplexElement},

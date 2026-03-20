@@ -4,11 +4,11 @@ build-backend = "maturin"
 
 [project]
 name = "RsTorch"
-version = "0.1.0-alpha.2"
+version = "0.1.1"
 description = "PyTorch-compatible deep learning framework in Rust - Python bindings"
 readme = "README.md"
 requires-python = ">=3.8"
-license = { text = "MIT OR Apache-2.0" }
+license = { text = "Apache-2.0" }
 keywords = [
     "machine-learning",
     "deep-learning",
@@ -25,7 +25,6 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: MacOS :: MacOS X",
     "Operating System :: POSIX :: Linux",

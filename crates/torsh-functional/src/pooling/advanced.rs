@@ -1,7 +1,8 @@
 //! Advanced and specialized pooling operations
 
 use crate::utils::{function_context, validate_tensor_dims};
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::Random;
+use scirs2_core::RngExt;
 use torsh_core::{Result as TorshResult, TorshError};
 use torsh_tensor::Tensor;
 

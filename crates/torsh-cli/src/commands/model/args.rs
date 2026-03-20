@@ -255,7 +255,7 @@ pub struct ExtractArgs {
     pub input: PathBuf,
 
     /// Component to extract (weights, architecture, metadata)
-    #[arg(short, long)]
+    #[arg(short = 'x', long)]
     pub component: String,
 
     /// Output file path

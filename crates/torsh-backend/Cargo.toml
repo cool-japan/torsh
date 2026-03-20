@@ -58,7 +58,7 @@ num_cpus = { version = "1.17", optional = true }
 sysinfo = { workspace = true, optional = true }
 raw-cpuid = { version = "11.6", optional = true }
 # ⚠️ SciRS2 POLICY: wide is LEGACY - use scirs2-core::simd_ops for new code
-wide = { version = "1.1", optional = true }  # DEPRECATED: Use scirs2-core::simd_ops
+wide = { version = "1.2", optional = true }  # DEPRECATED: Use scirs2-core::simd_ops
 spin = { version = "0.10", optional = true }
 
 # CUDA backend dependencies (feature-gated)

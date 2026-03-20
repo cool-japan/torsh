@@ -173,10 +173,8 @@ impl CacheMetadata {
         #[cfg(target_arch = "x86_64")]
         {
             use std::arch::x86_64::__cpuid;
-            unsafe {
-                let cpuid = __cpuid(0);
-                format!("x86_64:{:08x}{:08x}{:08x}", cpuid.ebx, cpuid.edx, cpuid.ecx)
-            }
+            let cpuid = __cpuid(0);
+            format!("x86_64:{:08x}{:08x}{:08x}", cpuid.ebx, cpuid.edx, cpuid.ecx)
         }
         #[cfg(not(target_arch = "x86_64"))]
         {

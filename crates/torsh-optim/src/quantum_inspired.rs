@@ -11,6 +11,7 @@
 use crate::gradient_free::{GradientFreeConfig, ObjectiveFunction};
 use crate::{OptimizerError, OptimizerResult};
 use scirs2_core::random::{Random, Rng};
+use scirs2_core::RngExt;
 use std::f32::consts::PI;
 
 /// Quantum Particle Swarm Optimization

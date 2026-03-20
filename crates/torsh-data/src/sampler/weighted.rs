@@ -7,7 +7,7 @@
 use alloc::vec::Vec;
 
 // ✅ SciRS2 Policy Compliant - Using scirs2_core for all random operations
-use scirs2_core::random::Rng;
+use scirs2_core::RngExt;
 
 use super::core::{rng_utils, Sampler, SamplerIterator};
 

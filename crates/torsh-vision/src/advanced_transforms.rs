@@ -17,6 +17,7 @@ use crate::{Result, VisionError};
 use scirs2_core::legacy::rng; // For rng() function
 use scirs2_core::ndarray::{s, Array2, Array3, Array4};
 use scirs2_core::random::{Random, Rng}; // SciRS2 Policy: Use scirs2_core::random instead of rand
+use scirs2_core::RngExt;
 use std::sync::Arc;
 use torsh_core::device::{CpuDevice, Device, DeviceType};
 use torsh_core::dtype::DType;

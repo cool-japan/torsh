@@ -6,6 +6,7 @@
 
 use crate::{CooTensor, CsrTensor, SparseTensor, TorshResult};
 use scirs2_core::random::{Random, rng};
+use scirs2_core::RngExt;
 use std::collections::HashMap;
 use torsh_core::{Shape, TorshError};
 use torsh_tensor::{

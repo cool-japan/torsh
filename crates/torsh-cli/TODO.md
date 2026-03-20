@@ -1,11 +1,11 @@
 # ToRSh CLI Implementation Roadmap
 
-## Current Status: v0.1.0 - Foundation Complete, Active Implementation Phase
+## Current Status: v0.1.1 - Foundation Complete, Active Implementation Phase
 
 ### Overview
 The torsh-cli crate has an **excellent architectural foundation** with comprehensive command structure and CLI framework. We are actively implementing real functionality to replace stubs and mock implementations.
 
-### Recent Progress (v0.1.0)
+### Recent Progress (v0.1.1)
 - ✅ Basic model analysis with format detection (ToRSh, PyTorch, ONNX, TensorFlow, TFLite)
 - ✅ Enhanced system information and device detection
 - ✅ Real hardware detection for CUDA, Metal, ROCm, Vulkan, OpenCL
@@ -355,19 +355,19 @@ This roadmap prioritizes **real functionality over mock implementations** while 
 
 ## Success Metrics
 
-### v0.1.0 Goals (Current)
+### v0.1.1 Goals (Current)
 - [ ] 50% of model commands functional with real operations
 - [ ] Basic training workflow operational
 - [ ] Model inspection working with all supported formats
 - [ ] Zero SCIRS2 POLICY violations
 
-### v0.1.0 Goals (Next Release)
+### v0.1.1 Goals (Next Release)
 - [ ] 80% of core commands functional
 - [ ] Distributed training support
 - [ ] Complete quantization pipeline
 - [ ] Hub integration operational
 
-### v0.1.0 Goals (Production-Ready)
+### v0.1.1 Goals (Production-Ready)
 - [ ] 100% core functionality implemented
 - [ ] Comprehensive test coverage (>80%)
 - [ ] Performance comparable to PyTorch CLI tools

@@ -154,7 +154,10 @@ impl WebGpuBuffer {
         });
 
         // Wait for the mapping to complete
-        let _ = self.device.device().poll(wgpu::Maintain::Wait);
+        let _ = self.device.device().poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: None,
+        });
 
         // Check if mapping succeeded by trying to get mapped data
         *self.mapping_state.write() = MappingState::MappedRead;
@@ -189,7 +192,10 @@ impl WebGpuBuffer {
         });
 
         // Wait for the mapping to complete
-        let _ = self.device.device().poll(wgpu::Maintain::Wait);
+        let _ = self.device.device().poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: None,
+        });
 
         // Check if mapping succeeded by trying to get mapped data
         *self.mapping_state.write() = MappingState::MappedWrite;
@@ -197,11 +203,7 @@ impl WebGpuBuffer {
     }
 
     /// Get mapped range for reading
-    pub fn mapped_range(
-        &self,
-        offset: u64,
-        size: Option<u64>,
-    ) -> WebGpuResult<wgpu::BufferView<'_>> {
+    pub fn mapped_range(&self, offset: u64, size: Option<u64>) -> WebGpuResult<wgpu::BufferView> {
         let state = self.mapping_state.read();
         if *state != MappingState::MappedRead {
             return Err(WebGpuError::InvalidBufferUsage(format!(
@@ -220,7 +222,7 @@ impl WebGpuBuffer {
         &self,
         offset: u64,
         size: Option<u64>,
-    ) -> WebGpuResult<wgpu::BufferViewMut<'_>> {
+    ) -> WebGpuResult<wgpu::BufferViewMut> {
         let state = self.mapping_state.read();
         if *state != MappingState::MappedWrite {
             return Err(WebGpuError::InvalidBufferUsage(format!(

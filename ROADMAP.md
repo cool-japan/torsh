@@ -121,7 +121,7 @@ Zhang et al. (2019) "Lookahead Optimizer: k steps forward, 1 step back"
 
 ### torsh-text: Advanced NLP Feature Integration
 
-#### scirs2-text v0.2.0+ Integration
+#### scirs2-text v0.3.0+ Integration
 **Priority**: High
 **Status**: Pending scirs2-text production release
 **Affected Components**:
@@ -139,7 +139,7 @@ Zhang et al. (2019) "Lookahead Optimizer: k steps forward, 1 step back"
 All features have placeholder implementations providing basic functionality.
 
 **Planned Implementation**:
-Once scirs2-text v0.2.0+ provides production-ready APIs:
+Once scirs2-text v0.3.0+ provides production-ready APIs:
 1. Replace placeholder logic with scirs2-text native implementations
 2. Integrate pre-trained transformer models (BERT, RoBERTa, GPT)
 3. Enable GPU-accelerated inference

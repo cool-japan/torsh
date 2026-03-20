@@ -6,6 +6,9 @@ license.workspace = true
 description = "ToRSh Model Converter CLI - Convert between different model formats"
 homepage.workspace = true
 repository.workspace = true
+readme = "README.md"
+keywords = ["deep-learning", "model-conversion", "neural-network", "cli", "torsh"]
+categories = ["command-line-utilities", "science", "encoding"]
 
 [[bin]]
 name = "torsh-convert"

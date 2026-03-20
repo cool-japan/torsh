@@ -12,7 +12,7 @@ use torsh_core::device::DeviceType;
 use torsh_tensor::Tensor;
 
 /// Python wrapper for ToRSh Tensor (simplified version)
-#[pyclass(name = "Tensor")]
+#[pyclass(name = "Tensor", from_py_object)]
 #[derive(Clone)]
 pub struct PyTensor {
     pub(crate) tensor: Tensor<f32>, // For now, default to f32

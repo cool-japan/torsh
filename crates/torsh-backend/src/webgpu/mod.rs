@@ -113,9 +113,19 @@ pub fn is_available() -> bool {
             ..Default::default()
         });
 
-        // Check if we can enumerate adapters
-        let adapters = instance.enumerate_adapters(wgpu::Backends::all());
-        !adapters.is_empty()
+        // Check if we can enumerate adapters (async in wgpu 28)
+        // Spawn a thread to avoid "Cannot start a runtime from within a runtime" panic
+        let result = std::thread::spawn(move || {
+            let rt = match tokio::runtime::Runtime::new() {
+                Ok(rt) => rt,
+                Err(_) => return false,
+            };
+            let adapters = rt.block_on(instance.enumerate_adapters(wgpu::Backends::all()));
+            !adapters.is_empty()
+        })
+        .join()
+        .unwrap_or(false);
+        result
     }
 }
 
@@ -129,7 +139,7 @@ pub async fn enumerate_adapters() -> WebGpuResult<Vec<wgpu::Adapter>> {
     init().await?;
 
     let instance = instance();
-    let adapters = instance.enumerate_adapters(wgpu::Backends::all());
+    let adapters = instance.enumerate_adapters(wgpu::Backends::all()).await;
     Ok(adapters)
 }
 
@@ -145,7 +155,7 @@ pub async fn get_best_adapter() -> WebGpuResult<wgpu::Adapter> {
     let instance = instance();
 
     // Try to get a high-performance adapter first
-    if let Some(adapter) = instance
+    if let Ok(adapter) = instance
         .request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::HighPerformance,
             compatible_surface: None,
@@ -157,7 +167,7 @@ pub async fn get_best_adapter() -> WebGpuResult<wgpu::Adapter> {
     }
 
     // Fall back to any available adapter
-    if let Some(adapter) = instance
+    if let Ok(adapter) = instance
         .request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::None,
             compatible_surface: None,

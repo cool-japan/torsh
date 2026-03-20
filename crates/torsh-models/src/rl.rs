@@ -6,6 +6,7 @@
 
 // Framework infrastructure - components designed for future use
 #![allow(dead_code)]
+use scirs2_core::RngExt;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use torsh_core::{error::Result as TorshResult, DType, DeviceType};
@@ -113,7 +114,7 @@ impl DQN {
 
     /// Select action using epsilon-greedy policy
     pub fn select_action(&self, state: &Tensor, epsilon: f32) -> TorshResult<usize> {
-        use scirs2_core::random::{Random, Rng};
+        use scirs2_core::random::Random;
         let mut rng = Random::seed(42);
 
         if rng.random::<f32>() < epsilon {
@@ -465,7 +466,7 @@ impl PPOActor {
 
     fn categorical_sample(&self, probs: &Tensor) -> TorshResult<Tensor> {
         // Multinomial sampling
-        use scirs2_core::random::{Random, Rng};
+        use scirs2_core::random::Random;
         let mut rng = Random::seed(42);
         let random_val = rng.random::<f32>();
 
@@ -1064,7 +1065,7 @@ impl A3C {
             let probs = log_probs.exp()?;
 
             // Sample action (simplified multinomial)
-            use scirs2_core::random::{Random, Rng};
+            use scirs2_core::random::Random;
             let mut rng = Random::seed(42);
             let random_val = rng.random::<f32>();
             let cumprobs = probs.cumsum(1)?;

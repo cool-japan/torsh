@@ -4,7 +4,8 @@
 //! and Bernoulli distributions. These distributions are essential for categorical
 //! sampling, binary outcomes, and discrete choice modeling in machine learning.
 
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::Random;
+use scirs2_core::RngExt;
 use torsh_core::{Result as TorshResult, TorshError};
 use torsh_tensor::Tensor;
 

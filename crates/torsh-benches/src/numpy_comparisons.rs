@@ -37,9 +37,7 @@ impl NumPyBenchRunner {
         {
             use pyo3::prelude::*;
 
-            pyo3::prepare_freethreaded_python();
-
-            Python::with_gil(|py| -> PyResult<()> {
+            Python::attach(|py| -> PyResult<()> {
                 // Try to import NumPy
                 match py.import("numpy") {
                     Ok(_) => {
@@ -78,7 +76,7 @@ impl NumPyBenchRunner {
 
         use pyo3::prelude::*;
 
-        Python::with_gil(|py| -> PyResult<f64> {
+        Python::attach(|py| -> PyResult<f64> {
             let _np = py.import("numpy")?;
             let _time_module = py.import("time")?;
 

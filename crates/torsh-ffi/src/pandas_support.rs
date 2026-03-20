@@ -72,7 +72,7 @@ pub enum MissingValueStrategy {
 }
 
 /// Result of data analysis operations
-#[pyclass(name = "DataAnalysisResult")]
+#[pyclass(name = "DataAnalysisResult", from_py_object)]
 #[derive(Debug, Clone)]
 pub struct DataAnalysisResult {
     /// Primary result tensor/data
@@ -90,7 +90,7 @@ pub struct DataAnalysisResult {
 }
 
 /// DataFrame representation compatible with Pandas
-#[pyclass(name = "TorshDataFrame")]
+#[pyclass(name = "TorshDataFrame", from_py_object)]
 #[derive(Debug, Clone)]
 pub struct TorshDataFrame {
     /// Underlying tensor data
@@ -111,7 +111,7 @@ pub struct TorshDataFrame {
 }
 
 /// Series representation compatible with Pandas
-#[pyclass(name = "TorshSeries")]
+#[pyclass(name = "TorshSeries", from_py_object)]
 #[derive(Debug, Clone)]
 pub struct TorshSeries {
     /// Underlying tensor data

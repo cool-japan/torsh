@@ -12,7 +12,7 @@ use scirs2_core::random::prelude::*;
 use torsh_core::DType;
 
 /// Python wrapper for ToRSh Tensor
-#[pyclass(name = "Tensor")]
+#[pyclass(name = "Tensor", from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyTensor {
     storage: TensorStorage,

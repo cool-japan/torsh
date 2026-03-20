@@ -6,6 +6,7 @@
 use crate::dataset::Dataset;
 use crate::error::{DataError, Result};
 use crate::sampler::{Sampler, SamplerIterator};
+use scirs2_core::RngExt;
 use std::collections::HashMap;
 
 #[cfg(not(feature = "std"))]
@@ -617,7 +618,7 @@ pub mod federated_utils {
         availability_prob: f64,
     ) -> Vec<ClientId> {
         // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
-        use scirs2_core::random::{Random, Rng};
+        use scirs2_core::random::Random;
 
         let mut rng = Random::seed(42);
         client_ids

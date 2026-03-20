@@ -3,7 +3,8 @@
 //! This module provides implementations of popular RL algorithms and architectures
 //! including DQN, Actor-Critic, PPO, and DDPG models.
 
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::Random;
+use scirs2_core::RngExt;
 use std::collections::HashMap;
 use torsh_core::error::{Result, TorshError};
 use torsh_core::DeviceType;

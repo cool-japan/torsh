@@ -81,7 +81,11 @@ fn create_backend(
         #[cfg(feature = "nccl")]
         BackendType::Nccl => {
             // For now, use mock backend - NCCL backend needs implementation
-            Ok(Box::new(MockBackend::new(rank, world_size)))
+            Ok(Box::new(MockBackend::with_backend_type(
+                rank,
+                world_size,
+                BackendType::Nccl,
+            )))
         }
         #[cfg(not(feature = "nccl"))]
         BackendType::Nccl => Err(TorshDistributedError::feature_not_available(
@@ -91,7 +95,11 @@ fn create_backend(
         #[cfg(feature = "mpi")]
         BackendType::Mpi => {
             // For now, use mock backend - MPI backend needs implementation
-            Ok(Box::new(MockBackend::new(rank, world_size)))
+            Ok(Box::new(MockBackend::with_backend_type(
+                rank,
+                world_size,
+                BackendType::Mpi,
+            )))
         }
         #[cfg(not(feature = "mpi"))]
         BackendType::Mpi => Err(TorshDistributedError::feature_not_available(
@@ -100,7 +108,11 @@ fn create_backend(
         )),
         BackendType::Gloo => {
             // Use mock backend for now
-            Ok(Box::new(MockBackend::new(rank, world_size)))
+            Ok(Box::new(MockBackend::with_backend_type(
+                rank,
+                world_size,
+                BackendType::Gloo,
+            )))
         }
         BackendType::Custom(name) => Err(TorshDistributedError::feature_not_available(
             format!("Custom backend: {}", name),

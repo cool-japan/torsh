@@ -8,7 +8,8 @@
 // Framework infrastructure - components designed for future use
 #![allow(dead_code)]
 use crate::error_handling::{AutogradError, AutogradResult};
-use scirs2_core::random::{Random, Rng}; // SciRS2 POLICY compliant
+use scirs2_core::random::Random; // SciRS2 POLICY compliant
+use scirs2_core::RngExt;
 use std::collections::HashMap;
 
 /// Trait for searchable operations in DNAS

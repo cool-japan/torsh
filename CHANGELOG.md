@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-03-17
+
+### Changed
+- Version bump to 0.1.1
+- Updated all workspace crate versions
+
+### Fixed
+- Dependency version updates
+
 ## [0.1.0] - 2026-02-19
 
 ### Initial Release
@@ -112,7 +121,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-torsh = "0.1.0"
-torsh-nn = "0.1.0"      # Neural networks
-torsh-vision = "0.1.0"  # Computer vision
+torsh = "0.1.1"
+torsh-nn = "0.1.1"      # Neural networks
+torsh-vision = "0.1.1"  # Computer vision
 ```

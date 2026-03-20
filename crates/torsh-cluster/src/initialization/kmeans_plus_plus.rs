@@ -2,7 +2,8 @@
 
 use super::InitializationStrategy;
 use crate::error::{ClusterError, ClusterResult};
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::Random;
+use scirs2_core::RngExt;
 use torsh_tensor::Tensor;
 
 /// K-means++ initialization for better cluster initialization

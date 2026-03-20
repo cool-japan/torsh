@@ -35,7 +35,7 @@ OxiBLAS (Pure Rust BLAS/LAPACK) + OxiCode + ndarray, rand, num-traits
     ⚠️ ONLY scirs2-core may import these directly
 ```
 
-## Pure Rust Migration (v0.1.1)
+## Pure Rust Migration (v0.1.0)
 
 **Major architectural milestone:** ToRSh now runs on 100% Pure Rust stack with zero system dependencies (default features).
 
@@ -59,10 +59,10 @@ OxiBLAS (Pure Rust BLAS/LAPACK) + OxiCode + ndarray, rand, num-traits
 - ❌ `libc` - C standard library (torsh-backend, torsh-cli, torsh-core)
 - ❌ Optional `lapack-backend` feature in torsh-linalg
 
-**CURRENT Dependencies (v0.1.1+):**
-- ✅ `oxiblas-ndarray` v0.1.2 - Pure Rust ndarray integration
-- ✅ `oxiblas-blas` v0.1.2 - Pure Rust BLAS implementation
-- ✅ `oxiblas-lapack` v0.1.2 - Pure Rust LAPACK (supports Complex<f64>)
+**CURRENT Dependencies (v0.1.0+):**
+- ✅ `oxiblas-ndarray` v0.3.0 - Pure Rust ndarray integration
+- ✅ `oxiblas-blas` v0.3.0 - Pure Rust BLAS implementation
+- ✅ `oxiblas-lapack` v0.3.0 - Pure Rust LAPACK (supports Complex<f64>)
 - ✅ Accessed via `scirs2-core` features: `oxiblas-blas`, `oxiblas-lapack`, `oxiblas-ndarray`
 
 **Benefits:**
@@ -78,7 +78,7 @@ OxiBLAS (Pure Rust BLAS/LAPACK) + OxiCode + ndarray, rand, num-traits
 - ❌ `bincode` - Generic binary serialization
 
 **CURRENT Dependencies (COOLJAPAN Policy):**
-- ✅ `oxicode` v0.1.1 - SIMD-optimized binary serialization
+- ✅ `oxicode` v0.3.0 - SIMD-optimized binary serialization
 - ✅ Accessed via `scirs2-core` features: `oxicode`
 
 **Benefits:**
@@ -196,7 +196,7 @@ OxiBLAS (Pure Rust BLAS/LAPACK) + OxiCode + ndarray, rand, num-traits
 - **Status**: ✅ REQUIRED - NLP capabilities
 - **Integration Status** (v0.1.0):
   - ✅ **Core Functionality**: Basic text processing, metrics, tokenization fully implemented
-  - ⏳ **Pending scirs2-text v0.2.0+**: Advanced NLP features using placeholder implementations
+  - ⏳ **Pending scirs2-text v0.3.0+**: Advanced NLP features using placeholder implementations
     - Embeddings generation (line 96 of scirs2_text_integration.rs)
     - Sentiment analysis (line 142)
     - Named entity recognition (line 216)
@@ -206,7 +206,7 @@ OxiBLAS (Pure Rust BLAS/LAPACK) + OxiCode + ndarray, rand, num-traits
     - Topic modeling (line 552)
     - Document clustering (line 578)
     - Text paraphrasing (line 601)
-  - 📋 **Note**: Placeholder implementations provide basic functionality. Full features will be enabled when scirs2-text v0.2.0+ provides production-ready APIs
+  - 📋 **Note**: Placeholder implementations provide basic functionality. Full features will be enabled when scirs2-text v0.3.0+ provides production-ready APIs
 
 ### **DOMAIN-SPECIFIC (Optional)**
 
@@ -369,9 +369,9 @@ use scirs2_core::gpu::{GpuDevice, GpuKernel};
    - Provide migration guide if functionality moves
    - Remove after deprecation period
 
-### **Best Practices (SciRS2 v0.1.1 Stable)**
+### **Best Practices (SciRS2 v0.3.0 Stable)**
 
-#### 1. **UNIFIED Array Imports (scirs2-core v0.1.1)**
+#### 1. **UNIFIED Array Imports (scirs2-core v0.3.0)**
 
 ```rust
 // ✅ PREFERRED: Complete unified ndarray access through scirs2-core
@@ -403,7 +403,7 @@ mod tests {
 }
 ```
 
-#### 2. **UNIFIED Random Number Generation (scirs2-core v0.1.1)**
+#### 2. **UNIFIED Random Number Generation (scirs2-core v0.3.0)**
 
 ```rust
 // ✅ PREFERRED: Complete random functionality through scirs2-core
@@ -565,11 +565,11 @@ use scirs2_core::random::{thread_rng, Normal, RandBeta};
 
 ---
 
-**Document Version**: 4.0 - SciRS2 v0.1.1 Stable Integration
+**Document Version**: 4.0 - SciRS2 v0.3.0 Stable Integration
 **Last Updated**: 2025-12-30
 **Based On**: [SciRS2 POLICY v3.0.0](https://github.com/cool-japan/scirs/blob/master/SCIRS2_POLICY.md)
-**SciRS2 Version**: v0.1.1 (Stable)
-**OxiBLAS Version**: v0.1.2 (Stable)
+**SciRS2 Version**: v0.3.0 (Stable)
+**OxiBLAS Version**: v0.3.0 (Stable)
 **ToRSh Version**: v0.1.0
 **Next Review**: Q2 2026
 **Owner**: ToRSh Architecture Team / COOLJAPAN OU
@@ -645,8 +645,8 @@ use scirs2_core::random::{thread_rng, Normal, RandBeta};
 # ndarray = "0.16"       # REMOVED: Use scirs2_autograd::ndarray instead (SciRS2 POLICY)
 
 # ✅ SciRS2 POLICY COMPLIANT dependencies
-scirs2-core = "0.1.0"
-scirs2-autograd = "0.1.0"
+scirs2-core = "0.3.0"
+scirs2-autograd = "0.3.0"
 ```
 
 ### Migration Pattern 2: Random Number Generation Integration
@@ -738,31 +738,31 @@ Self { rng: thread_rng() }        // For fast, non-deterministic
 ```toml
 [workspace.dependencies]
 # Essential SciRS2 dependencies for ToRSh - STABLE INTEGRATION
-# Status: 100% SUCCESS (29/29 packages) - SciRS2 v0.1.1 stable + OxiBLAS v0.1.2
-scirs2-core = { version = "0.1.1", features = ["simd", "parallel", "memory_management", "serialization", "oxicode", "oxiblas-blas", "oxiblas-lapack", "oxiblas-ndarray", "validation", "types", "random"] }
-scirs2-autograd = { version = "0.1.1" }
-scirs2-special = { version = "0.1.1" }
-scirs2-sparse = { version = "0.1.1" }
-scirs2-optimize = { version = "0.1.1" }
-scirs2-signal = { version = "0.1.1" }
-scirs2-fft = { version = "0.1.1" }
+# Status: 100% SUCCESS (29/29 packages) - SciRS2 v0.3.0 stable + OxiBLAS v0.3.0
+scirs2-core = { version = "0.3.0", features = ["simd", "parallel", "memory_management", "serialization", "oxicode", "oxiblas-blas", "oxiblas-lapack", "oxiblas-ndarray", "validation", "types", "random"] }
+scirs2-autograd = { version = "0.3.0" }
+scirs2-special = { version = "0.3.0" }
+scirs2-sparse = { version = "0.3.0" }
+scirs2-optimize = { version = "0.3.0" }
+scirs2-signal = { version = "0.3.0" }
+scirs2-fft = { version = "0.3.0" }
 
 # Comprehensive SciRS2 integration (100% coverage - all stable)
-scirs2-cluster = { version = "0.1.1" }
-scirs2-datasets = { version = "0.1.1" }
-scirs2-graph = { version = "0.1.1" }
-scirs2-metrics = { version = "0.1.1" }
-scirs2-series = { version = "0.1.1" }
-scirs2-spatial = { version = "0.1.1" }
-scirs2-stats = { version = "0.1.1" }
-scirs2-text = { version = "0.1.1" }
-scirs2-vision = { version = "0.1.1" }
-scirs2-linalg = { version = "0.1.1" }  # Includes scipy.linalg compatibility (35 functions)
-scirs2-neural = { version = "0.1.1" }
+scirs2-cluster = { version = "0.3.0" }
+scirs2-datasets = { version = "0.3.0" }
+scirs2-graph = { version = "0.3.0" }
+scirs2-metrics = { version = "0.3.0" }
+scirs2-series = { version = "0.3.0" }
+scirs2-spatial = { version = "0.3.0" }
+scirs2-stats = { version = "0.3.0" }
+scirs2-text = { version = "0.3.0" }
+scirs2-vision = { version = "0.3.0" }
+scirs2-linalg = { version = "0.3.0" }  # Includes scipy.linalg compatibility (35 functions)
+scirs2-neural = { version = "0.3.0" }
 
 # OptiRS integration for advanced optimization (still RC)
-optirs = { version = "0.1.0", default-features = false }
-optirs-core = { version = "0.1.0", default-features = false }
+optirs = { version = "0.3.0", default-features = false }
+optirs-core = { version = "0.3.0", default-features = false }
 optirs-core = { path = "../optirs/optirs-core", default-features = false }
 ```
 

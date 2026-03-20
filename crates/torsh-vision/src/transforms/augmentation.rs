@@ -1,7 +1,8 @@
 use super::core::Transform;
 use crate::{Result, VisionError};
 // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
-use scirs2_core::random::{Random, Rng};
+use scirs2_core::random::Random;
+use scirs2_core::RngExt;
 use torsh_tensor::Tensor;
 
 /// Color jitter transform

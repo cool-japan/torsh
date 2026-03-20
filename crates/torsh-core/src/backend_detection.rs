@@ -248,28 +248,26 @@ impl BackendFeatureDetector {
     fn detect_x86_cpu_vendor(&self) -> Option<String> {
         use std::arch::x86_64::__cpuid;
 
-        unsafe {
-            let cpuid_result = __cpuid(0);
-            let vendor_string = format!(
-                "{}{}{}",
-                std::str::from_utf8(&cpuid_result.ebx.to_le_bytes()).unwrap_or(""),
-                std::str::from_utf8(&cpuid_result.edx.to_le_bytes()).unwrap_or(""),
-                std::str::from_utf8(&cpuid_result.ecx.to_le_bytes()).unwrap_or("")
-            );
+        let cpuid_result = __cpuid(0);
+        let vendor_string = format!(
+            "{}{}{}",
+            std::str::from_utf8(&cpuid_result.ebx.to_le_bytes()).unwrap_or(""),
+            std::str::from_utf8(&cpuid_result.edx.to_le_bytes()).unwrap_or(""),
+            std::str::from_utf8(&cpuid_result.ecx.to_le_bytes()).unwrap_or("")
+        );
 
-            match vendor_string.as_str() {
-                "GenuineIntel" => Some("Intel".to_string()),
-                "AuthenticAMD" => Some("AMD".to_string()),
-                "VIA VIA VIA " => Some("VIA".to_string()),
-                "CyrixInstead" => Some("Cyrix".to_string()),
-                "CentaurHauls" => Some("Centaur".to_string()),
-                "NexGenDriven" => Some("NexGen".to_string()),
-                "HygonGenuine" => Some("Hygon".to_string()),
-                _ => Some(format!(
-                    "Unknown ({})",
-                    vendor_string.trim_end_matches('\0')
-                )),
-            }
+        match vendor_string.as_str() {
+            "GenuineIntel" => Some("Intel".to_string()),
+            "AuthenticAMD" => Some("AMD".to_string()),
+            "VIA VIA VIA " => Some("VIA".to_string()),
+            "CyrixInstead" => Some("Cyrix".to_string()),
+            "CentaurHauls" => Some("Centaur".to_string()),
+            "NexGenDriven" => Some("NexGen".to_string()),
+            "HygonGenuine" => Some("Hygon".to_string()),
+            _ => Some(format!(
+                "Unknown ({})",
+                vendor_string.trim_end_matches('\0')
+            )),
         }
     }
 

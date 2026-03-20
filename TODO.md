@@ -1,6 +1,6 @@
 # ToRSh Development Roadmap
 
-**Status**: v0.1.0 (Released - February 19, 2026)
+**Status**: v0.1.1 (Released - March 17, 2026)
 
 ---
 
@@ -135,7 +135,7 @@
 - [ ] Create comparison tables for README
 - [ ] Set realistic performance targets:
   - v0.1.0: Within 5x of PyTorch CPU (currently: 10-50x slower)
-  - v0.2.0: Match PyTorch CPU
+  - v0.1.0: Match PyTorch CPU
   - v1.0.0: Beat PyTorch by 1.5-2x
 
 ### Priority 2: Update Documentation with Honest Claims
@@ -166,9 +166,9 @@ Build a **PyTorch-compatible deep learning framework in pure Rust** that combine
 - **Completeness**: Full scientific computing platform through SciRS2 integration
 - **Deployment**: Single binary, no Python runtime, edge-to-cloud ready
 
-## ✨ What We Have Now (v0.1.0)
+## ✨ What We Have Now (v0.1.1)
 
-### 🚀 v0.1.0 Status: Production-Ready Core ✅
+### 🚀 v0.1.1 Status: Production-Ready Core ✅
 
 ✅ **Performance issues resolved** (January 1, 2026): All 7 phases of SIMD optimization complete. See completed section above for benchmark results.
 
@@ -181,7 +181,7 @@ Build a **PyTorch-compatible deep learning framework in pure Rust** that combine
 - **CPU Backend**: SIMD-optimized operations with excellent performance
 
 ### Scientific Computing ✅
-- **18 SciRS2 Crates Integrated**: Complete scientific computing ecosystem (0.1.1 **stable**)
+- **19 SciRS2 Crates Integrated**: Complete scientific computing ecosystem (0.3.3 **stable**)
 - **OxiBLAS 0.1.2**: Optimized BLAS/LAPACK operations with performance improvements
 - **scipy.linalg Compatibility**: 35 new linear algebra functions (svd, eig, qr, lu, cholesky, etc.)
 - **Graph Neural Networks**: GCN, GAT, GraphSAGE
@@ -191,11 +191,11 @@ Build a **PyTorch-compatible deep learning framework in pure Rust** that combine
 - **Special Functions**: Gamma, Bessel, error functions
 
 ### Quality Metrics ✅
-- **9061 Unit Tests Passing**: 99.99% pass rate
+- **9875 Unit Tests Passing**: 100% pass rate
 - **Zero Compilation Errors**: All workspace packages compile cleanly
 - **Zero Warnings**: 100% compliance with no-warnings policy
-- **29/29 Packages**: 100% compilation success (torsh-distributed tests excluded)
-- **Stable Dependencies**: Built on SciRS2 0.1.1 stable (no RC versions)
+- **35/35 Packages**: 100% compilation success (torsh-distributed tests excluded)
+- **Stable Dependencies**: Built on SciRS2 0.3.3 stable (no RC versions)
 
 ### v0.1.0 Milestone
 - **🎓 API Stabilization**: Core APIs are stable
@@ -204,7 +204,7 @@ Build a **PyTorch-compatible deep learning framework in pure Rust** that combine
   - Removed `ndarray-linalg`/`lapack`/`blas` → OxiBLAS 0.1.2
   - No system BLAS/LAPACK required
   - No C/Fortran compiler needed
-- **SciRS2 0.1.1 Stable**: Upgraded from 0.1 to 0.1.1 (production-ready release)
+- **SciRS2 0.3.3 Stable**: Latest ecosystem release
 - **OxiBLAS 0.1.2 Stable**: Performance improvements and bug fixes
 - **OptiRS**: Upgraded to latest version
 - **✅ SciRS2 POLICY 100% Compliance**:
@@ -619,7 +619,7 @@ Following comprehensive requirements submitted to SciRS2 team for SIMD operation
 
 #### **Implementation Tasks** ✅
 - [x] **Update Cargo.toml dependencies** to use SciRS2 0.1.1 stable
-  - Already using `scirs2-core = { version = "0.1.1", features = ["parallel", ...] }`
+  - Already using `scirs2-core = { version = "0.3.0", features = ["parallel", ...] }`
 - [x] **Replace rayon usage** with SciRS2 parallel operations:
   - ✅ **torsh-tensor/src/math_ops.rs**: Replaced 2 `use rayon::prelude::*` with `scirs2_core::parallel_ops::*`
   - ✅ **torsh-backend/src/cpu/scirs2_integration.rs**: Replaced 11 inline rayon imports

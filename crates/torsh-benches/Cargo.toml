@@ -106,7 +106,7 @@ approx = { workspace = true }
 [build-dependencies]
 # COOLJAPAN Pure Rust Policy: Build dependencies for optional Python features
 # Only used when Python comparison features are enabled
-pyo3-build-config = { version = "0.27" }
+pyo3-build-config = { version = "0.28" }
 
 [features]
 default = ["std"]

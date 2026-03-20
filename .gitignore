@@ -71,3 +71,6 @@ crates/torsh-hub/targets/
 # Miscs
 .claude/
 **/.ipynb_checkpoints/
+
+# Rustc ICE dumps
+rustc-ice-*.txt

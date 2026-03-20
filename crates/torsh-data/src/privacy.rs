@@ -9,7 +9,7 @@ use crate::sampler::{Sampler, SamplerIterator};
 // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand_distr
 use scirs2_core::rand_prelude::Distribution;
 use scirs2_core::random::RandNormal;
-use scirs2_core::Rng;
+use scirs2_core::RngExt;
 use std::collections::HashMap;
 
 #[cfg(not(feature = "std"))]

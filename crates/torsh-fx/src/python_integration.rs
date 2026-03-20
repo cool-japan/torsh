@@ -493,7 +493,7 @@ impl PythonIntegrationService {
         setup.push_str("    classifiers=[\n");
         setup.push_str("        'Development Status :: 4 - Beta',\n");
         setup.push_str("        'Intended Audience :: Developers',\n");
-        setup.push_str("        'License :: OSI Approved :: MIT License',\n");
+        setup.push_str("        'License :: OSI Approved :: Apache Software License',\n");
         setup.push_str("        'Programming Language :: Python :: 3.8',\n");
         setup.push_str("        'Programming Language :: Python :: 3.9',\n");
         setup.push_str("        'Programming Language :: Python :: 3.10',\n");

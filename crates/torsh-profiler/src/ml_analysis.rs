@@ -12,6 +12,7 @@ use torsh_core::TorshError;
 // ✅ SciRS2 Enhanced Imports - Following SciRS2 Policy
 // Using available SciRS2-core features for enhanced performance analysis
 use scirs2_core::random::{Random, Rng};
+use scirs2_core::RngExt;
 
 /// Configuration for ML-based analysis
 #[derive(Debug, Clone, Serialize, Deserialize)]

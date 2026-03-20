@@ -47,7 +47,7 @@ use torsh_core::device::DeviceType;
 /// print(cuda1.type)   # "cuda"
 /// print(cuda1.index)  # 1
 /// ```
-#[pyclass(name = "device")]
+#[pyclass(name = "device", from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyDevice {
     pub(crate) device: DeviceType,

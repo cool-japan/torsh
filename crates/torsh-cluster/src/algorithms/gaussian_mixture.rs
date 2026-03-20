@@ -28,6 +28,7 @@ use crate::utils::validation::{validate_cluster_input, validate_n_clusters};
 use scirs2_autograd::{self as ag, tensor_ops::*};
 use scirs2_core::ndarray::{s, Array1, Array2, Array3, ArrayView1, ArrayView2, Axis};
 use scirs2_core::parallel_ops::{is_parallel_enabled, parallel_map};
+use scirs2_core::RngExt;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

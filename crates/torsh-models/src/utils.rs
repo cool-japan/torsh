@@ -485,7 +485,7 @@ pub fn save_tensors_to_safetensors<P: AsRef<Path>>(
             }
         };
         let shape: Vec<usize> = tensor.shape().dims().to_vec();
-        let data_size = shape.iter().product::<usize>() * (dtype.size() / 8);
+        let data_size = shape.iter().product::<usize>() * (dtype.bitsize() / 8);
 
         let tensor_view = TensorView::new(dtype, shape, &all_data[offset..offset + data_size])?;
         tensor_views.push((name.clone(), tensor_view));

@@ -29,7 +29,7 @@ pub struct PyTorchMatmulBench;
 impl PyTorchMatmulBench {
     /// Setup PyTorch tensors for matrix multiplication
     pub fn setup(&mut self, size: usize) -> PyResult<(Py<PyAny>, Py<PyAny>)> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let torch = PyModule::import(py, "torch")?;
 
             // Create random tensors
@@ -42,7 +42,7 @@ impl PyTorchMatmulBench {
 
     /// Run PyTorch matrix multiplication
     pub fn run(&mut self, input: &(Py<PyAny>, Py<PyAny>)) -> PyResult<Py<PyAny>> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let torch = PyModule::import(py, "torch")?;
             let result = torch.call_method1("matmul", (&input.0, &input.1))?;
             Ok(result.into())
@@ -66,7 +66,7 @@ pub struct PyTorchElementwiseBench;
 impl PyTorchElementwiseBench {
     /// Setup PyTorch tensors for element-wise operations
     pub fn setup(&mut self, size: usize) -> PyResult<(Py<PyAny>, Py<PyAny>)> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let torch = PyModule::import(py, "torch")?;
 
             let a = torch.call_method1("randn", (size,))?;
@@ -78,7 +78,7 @@ impl PyTorchElementwiseBench {
 
     /// Run PyTorch element-wise addition
     pub fn run(&mut self, input: &(Py<PyAny>, Py<PyAny>)) -> PyResult<Py<PyAny>> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let result = input.0.call_method1(py, "__add__", (&input.1,))?;
             Ok(result)
         })
@@ -107,7 +107,7 @@ impl PyTorchConvBench {
         height: usize,
         width: usize,
     ) -> PyResult<(Py<PyAny>, Py<PyAny>)> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let torch = PyModule::import(py, "torch")?;
             let nn = PyModule::import(py, "torch.nn")?;
 
@@ -123,7 +123,7 @@ impl PyTorchConvBench {
 
     /// Run PyTorch convolution forward pass
     pub fn run(&mut self, input: &(Py<PyAny>, Py<PyAny>)) -> PyResult<Py<PyAny>> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let result = input.1.call_method1(py, "__call__", (&input.0,))?;
             Ok(result)
         })
@@ -154,7 +154,7 @@ pub struct PyTorchAutogradBench;
 impl PyTorchAutogradBench {
     /// Setup PyTorch tensor with gradient tracking
     pub fn setup(&mut self, size: usize) -> PyResult<Py<PyAny>> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let torch = PyModule::import(py, "torch")?;
 
             // Create tensor with gradient tracking
@@ -171,7 +171,7 @@ impl PyTorchAutogradBench {
 
     /// Run PyTorch backward pass
     pub fn run(&mut self, input: &Py<PyAny>) -> PyResult<()> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             input.call_method0(py, "backward")?;
             Ok(())
         })
@@ -194,7 +194,7 @@ pub struct PyTorchDataLoaderBench;
 impl PyTorchDataLoaderBench {
     /// Setup PyTorch DataLoader with tensor dataset
     pub fn setup(&mut self, num_samples: usize, batch_size: usize) -> PyResult<Py<PyAny>> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let torch = PyModule::import(py, "torch")?;
             let torch_utils = PyModule::import(py, "torch.utils.data")?;
 
@@ -218,7 +218,7 @@ impl PyTorchDataLoaderBench {
 
     /// Run PyTorch data loading iteration
     pub fn run(&mut self, input: &Py<PyAny>) -> PyResult<usize> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let iter_method = input.call_method0(py, "__iter__")?;
             let mut count = 0;
 

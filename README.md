@@ -78,7 +78,7 @@ let matcher = FeatureMatcher::new(MatchingAlgorithm::NCC)?;
 - 🔧 **Multiple Backends**: CPU (SIMD), Metal, and more (CUDA support in progress)
 
 ### 🔬 SciRS2 Scientific Computing Integration
-- 📊 **Complete Ecosystem**: 18/18 SciRS2 crates integrated (100% coverage)
+- 📊 **Complete Ecosystem**: 19/19 SciRS2 crates integrated (100% coverage)
 - 🧠 **Graph Neural Networks**: GCN, GAT, GraphSAGE with spectral optimization
 - 📈 **Time Series Analysis**: STL decomposition, SSA, Kalman filters, state-space models
 - 🖼️ **Computer Vision Spatial Operations**: Feature matching, geometric transforms, interpolation
@@ -99,12 +99,12 @@ Add ToRSh to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-torsh = "0.1.0"
-torsh-nn = "0.1.0"      # Neural networks
-torsh-graph = "0.1.0"   # Graph neural networks
-torsh-series = "0.1.0"  # Time series analysis
-torsh-vision = "0.1.0"  # Computer vision
-torsh-metrics = "0.1.0" # Evaluation metrics
+torsh = "0.1.1"
+torsh-nn = "0.1.1"      # Neural networks
+torsh-graph = "0.1.1"   # Graph neural networks
+torsh-series = "0.1.1"  # Time series analysis
+torsh-vision = "0.1.1"  # Computer vision
+torsh-metrics = "0.1.1" # Evaluation metrics
 ```
 
 ## 🚀 Quick Start
@@ -325,7 +325,7 @@ cargo bench --package torsh-benches -- advanced_optimizers
 📊 Performance Overview:
   • Total Benchmarks: 50+
   • Domains Covered: 7
-  • SciRS2 Crates Used: 18/18 (100%)
+  • SciRS2 Crates Used: 19/19 (100%)
 
 📈 Domain Performance:
   • Random Generation: 12.5 μs average
@@ -341,7 +341,7 @@ cargo bench --package torsh-benches -- advanced_optimizers
 
 ### Roadmap
 
-**v0.1.0 (Current)** - *Initial Release*
+**v0.1.1 (Current)** - *Initial Release*
 - ✅ Core tensor operations with PyTorch API compatibility
 - ✅ Automatic differentiation engine
 - ✅ Essential neural network layers
@@ -396,17 +396,27 @@ ToRSh follows a modular architecture with specialized crates:
 ### ⚡ Performance and Analysis
 - **`torsh-benches`** [![crates.io](https://img.shields.io/crates/v/torsh-benches.svg)](https://crates.io/crates/torsh-benches) - Comprehensive benchmark suite
 - **`torsh-profiler`** [![crates.io](https://img.shields.io/crates/v/torsh-profiler.svg)](https://crates.io/crates/torsh-profiler) - Performance profiling and analysis
-- **`torsh-backends`** [![crates.io](https://img.shields.io/crates/v/torsh-backends.svg)](https://crates.io/crates/torsh-backends) - Multi-backend abstraction layer
 
-### 🖥️ Backend Implementations
-- **`torsh-backend-cpu`** [![crates.io](https://img.shields.io/crates/v/torsh-backend-cpu.svg)](https://crates.io/crates/torsh-backend-cpu) - CPU backend with SIMD optimizations
-- **`torsh-backend-cuda`** [![crates.io](https://img.shields.io/crates/v/torsh-backend-cuda.svg)](https://crates.io/crates/torsh-backend-cuda) - CUDA GPU backend
-- **`torsh-backend-metal`** - Metal backend (planned)
-- **`torsh-backend-webgpu`** - WebGPU backend (planned)
+### 🖥️ Backend & Infrastructure
+- **`torsh-backend`** [![crates.io](https://img.shields.io/crates/v/torsh-backend.svg)](https://crates.io/crates/torsh-backend) - Multi-backend abstraction (CPU/CUDA/Metal/WebGPU)
+- **`torsh-distributed`** [![crates.io](https://img.shields.io/crates/v/torsh-distributed.svg)](https://crates.io/crates/torsh-distributed) - Distributed training (DDP, FSDP, pipeline parallel)
+- **`torsh-jit`** [![crates.io](https://img.shields.io/crates/v/torsh-jit.svg)](https://crates.io/crates/torsh-jit) - JIT compilation and optimization
+- **`torsh-fx`** [![crates.io](https://img.shields.io/crates/v/torsh-fx.svg)](https://crates.io/crates/torsh-fx) - Graph-level transformations and analysis
+
+### 🧰 Utilities & Tools
+- **`torsh-linalg`** [![crates.io](https://img.shields.io/crates/v/torsh-linalg.svg)](https://crates.io/crates/torsh-linalg) - Linear algebra operations
+- **`torsh-signal`** [![crates.io](https://img.shields.io/crates/v/torsh-signal.svg)](https://crates.io/crates/torsh-signal) - Signal processing
+- **`torsh-special`** [![crates.io](https://img.shields.io/crates/v/torsh-special.svg)](https://crates.io/crates/torsh-special) - Special mathematical functions
+- **`torsh-functional`** [![crates.io](https://img.shields.io/crates/v/torsh-functional.svg)](https://crates.io/crates/torsh-functional) - Functional API (torch.nn.functional)
+- **`torsh-cluster`** [![crates.io](https://img.shields.io/crates/v/torsh-cluster.svg)](https://crates.io/crates/torsh-cluster) - Clustering algorithms
+- **`torsh-package`** [![crates.io](https://img.shields.io/crates/v/torsh-package.svg)](https://crates.io/crates/torsh-package) - Model packaging and export
+- **`torsh-utils`** [![crates.io](https://img.shields.io/crates/v/torsh-utils.svg)](https://crates.io/crates/torsh-utils) - Common utilities
+- **`torsh-ffi`** [![crates.io](https://img.shields.io/crates/v/torsh-ffi.svg)](https://crates.io/crates/torsh-ffi) - C/Python FFI bindings
+- **`torsh-cli`** [![crates.io](https://img.shields.io/crates/v/torsh-cli.svg)](https://crates.io/crates/torsh-cli) - Command-line interface
 
 ## 🔬 SciRS2 Integration Details
 
-ToRSh achieves **100% SciRS2 ecosystem integration** across 18 specialized crates:
+ToRSh achieves **100% SciRS2 ecosystem integration** across 19 specialized crates:
 
 | Domain | SciRS2 Crate | Features |
 |--------|--------------|----------|
@@ -423,7 +433,7 @@ ToRSh achieves **100% SciRS2 ecosystem integration** across 18 specialized crate
 | Datasets | `scirs2-datasets` [![crates.io](https://img.shields.io/crates/v/scirs2-datasets.svg)](https://crates.io/crates/scirs2-datasets) | Built-in datasets and data loading |
 | Text | `scirs2-text` [![crates.io](https://img.shields.io/crates/v/scirs2-text.svg)](https://crates.io/crates/scirs2-text) | NLP preprocessing and analysis |
 | Autograd | `scirs2-autograd` [![crates.io](https://img.shields.io/crates/v/scirs2-autograd.svg)](https://crates.io/crates/scirs2-autograd) | Advanced differentiation engine |
-| + 5 more | `scirs2-image`, `scirs2-signal`, `scirs2-ode`, `scirs2-optimize-genetic`, `scirs2-integrate` | Specialized scientific computing |
+| + 6 more | `scirs2-image`, `scirs2-signal`, `scirs2-ode`, `scirs2-optimize-genetic`, `scirs2-integrate`, `scirs2-sparse` | Specialized scientific computing |
 
 ## 🎯 PyTorch Migration Guide
 
@@ -504,7 +514,7 @@ make format    # Code formatting
 make audit     # Security audit
 ```
 
-**Test Coverage**: 200+ tests across all modules with 95%+ coverage.
+**Test Coverage**: 9,800+ tests across all modules.
 
 ## 📈 Performance Benchmarks
 
@@ -548,7 +558,7 @@ make docs     # Build documentation
 
 ### Getting Started
 
-- ✅ Core functionality is stable and tested (9,000+ tests passing)
+- ✅ Core functionality is stable and tested (9,800+ tests passing)
 - ✅ APIs are stabilized for core crates
 - ⚠️ Some advanced features are still under active development
 - ✅ Comprehensive documentation available
@@ -584,3 +594,18 @@ ToRSh is licensed under the Apache License, Version 2.0. See [LICENSE](./LICENSE
 *ToRSh: Where Performance Meets Scientific Computing*
 
 </div>
+## Sponsorship
+
+Torsh is developed and maintained by **COOLJAPAN OU (Team Kitasan)**.
+
+If you find Torsh useful, please consider sponsoring the project to support continued development of the Pure Rust ecosystem.
+
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-red?logo=github)](https://github.com/sponsors/cool-japan)
+
+**[https://github.com/sponsors/cool-japan](https://github.com/sponsors/cool-japan)**
+
+Your sponsorship helps us:
+- Maintain and improve the COOLJAPAN ecosystem
+- Keep the entire ecosystem (OxiBLAS, OxiFFT, SciRS2, etc.) 100% Pure Rust
+- Provide long-term support and security updates
+
