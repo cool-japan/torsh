@@ -968,7 +968,7 @@ fn create_onnx_config_from_params(
     params: &std::collections::HashMap<String, toml::Value>,
 ) -> crate::onnx::OnnxConfig {
     use crate::onnx::OnnxConfig;
-    use ort::session::builder::GraphOptimizationLevel;
+    use oxionnx::GraphOptimizationLevel;
 
     let mut config = OnnxConfig::default();
 
@@ -982,11 +982,11 @@ fn create_onnx_config_from_params(
     // Set optimization level
     if let Some(opt_level) = extract_param_string(params, "optimization_level") {
         config.graph_optimization_level = match opt_level.as_str() {
-            "disable" => GraphOptimizationLevel::Disable,
-            "basic" => GraphOptimizationLevel::Level1,
-            "extended" => GraphOptimizationLevel::Level2,
-            "all" => GraphOptimizationLevel::Level3,
-            _ => GraphOptimizationLevel::Level3,
+            "disable" => GraphOptimizationLevel::None,
+            "basic" => GraphOptimizationLevel::Basic,
+            "extended" => GraphOptimizationLevel::Extended,
+            "all" => GraphOptimizationLevel::All,
+            _ => GraphOptimizationLevel::All,
         };
     }
 

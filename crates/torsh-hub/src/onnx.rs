@@ -3,17 +3,12 @@
 //! This module provides functionality to load, convert, and run ONNX models
 //! within the ToRSh ecosystem.
 
-use ort::{
-    execution_providers::{
-        CPUExecutionProvider, CUDAExecutionProvider, CoreMLExecutionProvider,
-        DirectMLExecutionProvider, OpenVINOExecutionProvider, TensorRTExecutionProvider,
-    },
-    session::builder::{GraphOptimizationLevel, SessionBuilder},
-    session::Session,
-    value::Value,
+use oxionnx::{
+    CPUExecutionProvider, CUDAExecutionProvider, CoreMLExecutionProvider,
+    DirectMLExecutionProvider, GraphOptimizationLevel, OpenVINOExecutionProvider, Session,
+    SessionBuilder, TensorRTExecutionProvider, TensorInfo,
 };
-// SciRS2 POLICY: Use UNIFIED ndarray access (v0.1.0-RC.1+)
-// Note: For ONNX interop, we use (Vec<usize>, Vec<T>) tuple format instead of ndarray types
+use oxionnx::Tensor as OnnxTensor;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
@@ -74,7 +69,7 @@ impl Default for OnnxConfig {
     fn default() -> Self {
         Self {
             execution_providers: vec!["CPUExecutionProvider".to_string()],
-            graph_optimization_level: GraphOptimizationLevel::Level3,
+            graph_optimization_level: GraphOptimizationLevel::All,
             enable_profiling: false,
             enable_mem_pattern: true,
             enable_cpu_mem_arena: true,
@@ -88,21 +83,21 @@ impl Default for OnnxConfig {
 fn configure_execution_providers(
     mut session_builder: SessionBuilder,
     execution_providers: &[String],
-) -> ort::Result<SessionBuilder> {
+) -> SessionBuilder {
     for provider in execution_providers {
         session_builder = match provider.as_str() {
             "CPUExecutionProvider" => session_builder
-                .with_execution_providers([CPUExecutionProvider::default().build()])?,
+                .with_execution_providers([CPUExecutionProvider::default().build()]),
             "CUDAExecutionProvider" => session_builder
-                .with_execution_providers([CUDAExecutionProvider::default().build()])?,
+                .with_execution_providers([CUDAExecutionProvider::default().build()]),
             "TensorRTExecutionProvider" => session_builder
-                .with_execution_providers([TensorRTExecutionProvider::default().build()])?,
+                .with_execution_providers([TensorRTExecutionProvider::default().build()]),
             "OpenVINOExecutionProvider" => session_builder
-                .with_execution_providers([OpenVINOExecutionProvider::default().build()])?,
+                .with_execution_providers([OpenVINOExecutionProvider::default().build()]),
             "CoreMLExecutionProvider" => session_builder
-                .with_execution_providers([CoreMLExecutionProvider::default().build()])?,
+                .with_execution_providers([CoreMLExecutionProvider::default().build()]),
             "DirectMLExecutionProvider" => session_builder
-                .with_execution_providers([DirectMLExecutionProvider::default().build()])?,
+                .with_execution_providers([DirectMLExecutionProvider::default().build()]),
             _ => {
                 eprintln!(
                     "Warning: Unsupported execution provider '{}', skipping",
@@ -112,7 +107,7 @@ fn configure_execution_providers(
             }
         };
     }
-    Ok(session_builder)
+    session_builder
 }
 
 impl OnnxModel {
@@ -128,32 +123,24 @@ impl OnnxModel {
             )));
         }
 
-        // Create session builder (environment is handled internally in newer ONNX Runtime)
-        let mut session_builder = SessionBuilder::new()
-            .map_err(|e| TorshError::Other(format!("Failed to create session builder: {}", e)))?;
+        // Create session builder
+        let session_builder = Session::builder();
 
-        // Configure execution providers with the newer API
-        session_builder =
-            configure_execution_providers(session_builder, &config.execution_providers).map_err(
-                |e| TorshError::Other(format!("Failed to configure execution providers: {}", e)),
-            )?;
+        // Configure execution providers (infallible in oxionnx)
+        let session_builder =
+            configure_execution_providers(session_builder, &config.execution_providers);
 
-        // Set optimization level
-        session_builder = session_builder
-            .with_optimization_level(config.graph_optimization_level)
-            .map_err(|e| TorshError::Other(format!("Failed to set optimization level: {}", e)))?;
+        // Set optimization level (infallible in oxionnx)
+        let mut session_builder =
+            session_builder.with_optimization_level(config.graph_optimization_level);
 
-        // Set threading options
+        // Set threading options (no-op in oxionnx, kept for ort compatibility)
         if let Some(inter_threads) = config.inter_op_num_threads {
-            session_builder = session_builder
-                .with_inter_threads(inter_threads)
-                .map_err(|e| TorshError::Other(format!("Failed to set inter-op threads: {}", e)))?;
+            session_builder = session_builder.with_inter_threads(inter_threads);
         }
 
         if let Some(intra_threads) = config.intra_op_num_threads {
-            session_builder = session_builder
-                .with_intra_threads(intra_threads)
-                .map_err(|e| TorshError::Other(format!("Failed to set intra-op threads: {}", e)))?;
+            session_builder = session_builder.with_intra_threads(intra_threads);
         }
 
         // Load the model
@@ -162,17 +149,8 @@ impl OnnxModel {
             .map_err(|e| TorshError::Other(format!("Failed to load ONNX model: {}", e)))?;
 
         // Extract input and output information
-        let input_names = session
-            .inputs
-            .iter()
-            .map(|input| input.name.clone())
-            .collect();
-
-        let output_names = session
-            .outputs
-            .iter()
-            .map(|output| output.name.clone())
-            .collect();
+        let input_names = session.input_names().to_vec();
+        let output_names = session.output_names().to_vec();
 
         // Extract metadata
         let metadata = Self::extract_metadata(&session, path)?;
@@ -189,20 +167,16 @@ impl OnnxModel {
     pub fn from_bytes(model_bytes: &[u8], config: Option<OnnxConfig>) -> Result<Self> {
         let config = config.unwrap_or_default();
 
-        // Create session builder (environment is handled internally in newer ONNX Runtime)
-        let mut session_builder = SessionBuilder::new()
-            .map_err(|e| TorshError::Other(format!("Failed to create session builder: {}", e)))?;
+        // Create session builder
+        let session_builder = Session::builder();
 
-        // Configure execution providers with the newer API
-        session_builder =
-            configure_execution_providers(session_builder, &config.execution_providers).map_err(
-                |e| TorshError::Other(format!("Failed to configure execution providers: {}", e)),
-            )?;
+        // Configure execution providers (infallible in oxionnx)
+        let session_builder =
+            configure_execution_providers(session_builder, &config.execution_providers);
 
-        // Set optimization level
-        session_builder = session_builder
-            .with_optimization_level(config.graph_optimization_level)
-            .map_err(|e| TorshError::Other(format!("Failed to set optimization level: {}", e)))?;
+        // Set optimization level (infallible in oxionnx)
+        let session_builder =
+            session_builder.with_optimization_level(config.graph_optimization_level);
 
         // Load the model from bytes
         let session = session_builder
@@ -212,17 +186,8 @@ impl OnnxModel {
             })?;
 
         // Extract input and output information
-        let input_names = session
-            .inputs
-            .iter()
-            .map(|input| input.name.clone())
-            .collect();
-
-        let output_names = session
-            .outputs
-            .iter()
-            .map(|output| output.name.clone())
-            .collect();
+        let input_names = session.input_names().to_vec();
+        let output_names = session.output_names().to_vec();
 
         // Create basic metadata (without file path)
         let metadata = OnnxModelMetadata {
@@ -233,21 +198,21 @@ impl OnnxModel {
             domain: None,
             opset_version: 1,
             input_shapes: session
-                .inputs
+                .input_info()
                 .iter()
-                .map(|input| InputShape {
-                    name: input.name.clone(),
-                    shape: Self::extract_shape_from_value_type(&input.input_type),
-                    data_type: format!("{:?}", &input.input_type),
+                .map(|info| InputShape {
+                    name: info.name.clone(),
+                    shape: Self::extract_shape_from_tensor_info(info),
+                    data_type: format!("{:?}", info.dtype),
                 })
                 .collect(),
             output_shapes: session
-                .outputs
+                .output_info()
                 .iter()
-                .map(|output| OutputShape {
-                    name: output.name.clone(),
-                    shape: Self::extract_shape_from_value_type(&output.output_type),
-                    data_type: format!("{:?}", &output.output_type),
+                .map(|info| OutputShape {
+                    name: info.name.clone(),
+                    shape: Self::extract_shape_from_tensor_info(info),
+                    data_type: format!("{:?}", info.dtype),
                 })
                 .collect(),
         };
@@ -265,36 +230,35 @@ impl OnnxModel {
         &mut self,
         inputs: &HashMap<String, Tensor<f32>>,
     ) -> Result<HashMap<String, Tensor<f32>>> {
-        // Convert ToRSh tensors to ONNX values
-        let mut onnx_inputs = HashMap::new();
+        // Convert ToRSh tensors to ONNX tensors
+        let mut onnx_inputs: HashMap<&str, OnnxTensor> = HashMap::new();
 
         for input_name in &self.input_names {
             let tensor = inputs.get(input_name).ok_or_else(|| {
                 TorshError::InvalidArgument(format!("Missing input: {}", input_name))
             })?;
 
-            let onnx_value = self.tensor_to_onnx_value(tensor)?;
-            onnx_inputs.insert(input_name.clone(), onnx_value);
+            let onnx_tensor = Self::tensor_to_onnx_tensor(tensor)?;
+            onnx_inputs.insert(input_name.as_str(), onnx_tensor);
         }
 
         // Run inference
-        let outputs = {
-            let outputs = self
-                .session
-                .run(onnx_inputs)
-                .map_err(|e| TorshError::Other(format!("ONNX inference failed: {}", e)))?;
+        let outputs = self
+            .session
+            .run(&onnx_inputs)
+            .map_err(|e| TorshError::Other(format!("ONNX inference failed: {}", e)))?;
 
-            // Collect outputs while the mutable borrow is active
-            outputs.into_iter().collect::<Vec<_>>()
-        };
+        // Collect into owned vec to avoid borrow issues
+        let outputs_vec: Vec<(String, OnnxTensor)> = outputs.into_iter().collect();
 
-        // Convert ONNX values back to ToRSh tensors
+        // Convert ONNX tensors back to ToRSh tensors
         let mut result = HashMap::new();
         let output_names = self.output_names.clone();
-        for (i, (_name, output)) in outputs.into_iter().enumerate() {
-            let output_name = &output_names[i];
-            let tensor = Self::convert_onnx_value_to_tensor(output)?;
-            result.insert(output_name.clone(), tensor);
+        for (i, (_name, output)) in outputs_vec.into_iter().enumerate() {
+            if let Some(output_name) = output_names.get(i) {
+                let tensor = Self::convert_onnx_tensor_to_torsh(output)?;
+                result.insert(output_name.clone(), tensor);
+            }
         }
 
         Ok(result)
@@ -315,31 +279,26 @@ impl OnnxModel {
         &self.metadata
     }
 
-    /// Convert ToRSh tensor to ONNX value
-    fn tensor_to_onnx_value(&self, tensor: &Tensor<f32>) -> Result<Value> {
+    /// Convert ToRSh tensor to ONNX tensor
+    fn tensor_to_onnx_tensor(tensor: &Tensor<f32>) -> Result<OnnxTensor> {
         // Get tensor shape and convert to Vec<f32>
         let binding = tensor.shape();
         let shape: Vec<usize> = binding.dims().to_vec();
         let data: Vec<f32> = tensor.to_vec()?;
 
-        // Convert to ONNX value using (shape, data) tuple format
-        // This avoids ndarray version conflicts with ort crate
-        Ok(Value::from_array((shape, data))
-            .map_err(|e| TorshError::Other(format!("Failed to create ONNX value: {}", e)))?
-            .into())
+        // oxionnx::Tensor::new(data, shape) — note: reversed order from ort's (shape, data)
+        Ok(OnnxTensor::new(data, shape))
     }
 
-    /// Convert ONNX value to ToRSh tensor
-    fn convert_onnx_value_to_tensor(value: Value) -> Result<Tensor<f32>> {
-        // Extract array from ONNX value
-        let array = value
+    /// Convert ONNX tensor to ToRSh tensor
+    fn convert_onnx_tensor_to_torsh(value: OnnxTensor) -> Result<Tensor<f32>> {
+        // Extract shape and data from ONNX tensor
+        let (shape_slice, data_slice) = value
             .try_extract_tensor::<f32>()
-            .map_err(|e| TorshError::Other(format!("Failed to extract ONNX value: {}", e)))?;
+            .map_err(|e| TorshError::Other(format!("Failed to extract ONNX tensor: {}", e)))?;
 
-        // Get shape and data
-        let (shape, data) = array;
-        let shape: Vec<usize> = shape.iter().map(|&x| x as usize).collect();
-        let data: Vec<f32> = data.to_vec();
+        let shape: Vec<usize> = shape_slice.iter().copied().collect();
+        let data: Vec<f32> = data_slice.to_vec();
 
         // Create ToRSh tensor using the tensor creation API
         use torsh_tensor::creation::from_vec;
@@ -355,22 +314,22 @@ impl OnnxModel {
             .to_string();
 
         let input_shapes = session
-            .inputs
+            .input_info()
             .iter()
-            .map(|input| InputShape {
-                name: input.name.clone(),
-                shape: Self::extract_shape_from_value_type(&input.input_type),
-                data_type: format!("{:?}", &input.input_type),
+            .map(|info| InputShape {
+                name: info.name.clone(),
+                shape: Self::extract_shape_from_tensor_info(info),
+                data_type: format!("{:?}", info.dtype),
             })
             .collect();
 
         let output_shapes = session
-            .outputs
+            .output_info()
             .iter()
-            .map(|output| OutputShape {
-                name: output.name.clone(),
-                shape: Self::extract_shape_from_value_type(&output.output_type),
-                data_type: format!("{:?}", &output.output_type),
+            .map(|info| OutputShape {
+                name: info.name.clone(),
+                shape: Self::extract_shape_from_tensor_info(info),
+                data_type: format!("{:?}", info.dtype),
             })
             .collect();
 
@@ -386,28 +345,15 @@ impl OnnxModel {
         })
     }
 
-    /// Extract shape dimensions from ONNX ValueType
-    fn extract_shape_from_value_type(value_type: &ort::value::ValueType) -> Vec<Option<i64>> {
-        match value_type {
-            ort::value::ValueType::Tensor {
-                ty: _,
-                shape,
-                dimension_symbols: _,
-            } => {
-                // Extract dimensions from the tensor type shape
-                shape
-                    .iter()
-                    .map(|&dim| {
-                        if dim == -1 {
-                            None // Dynamic dimension
-                        } else {
-                            Some(dim)
-                        }
-                    })
-                    .collect()
-            }
-            _ => vec![], // Non-tensor types have no shape
-        }
+    /// Extract shape dimensions from oxionnx TensorInfo
+    ///
+    /// oxionnx `TensorInfo.shape` is `Vec<Option<usize>>` (None = dynamic dim).
+    /// We convert to `Vec<Option<i64>>` to match the existing `InputShape`/`OutputShape` types.
+    fn extract_shape_from_tensor_info(info: &TensorInfo) -> Vec<Option<i64>> {
+        info.shape
+            .iter()
+            .map(|dim| dim.map(|d| d as i64))
+            .collect()
     }
 }
 
@@ -509,7 +455,10 @@ impl torsh_nn::Module for OnnxToTorshWrapper {
     fn forward(&self, input: &Tensor<f32>) -> Result<Tensor<f32>> {
         // For simplicity, assume single input/output
         let (input_name, output_name) = {
-            let onnx_model = self.onnx_model.read().expect("lock should not be poisoned");
+            let onnx_model = self
+                .onnx_model
+                .read()
+                .map_err(|_| TorshError::Other("ONNX model lock poisoned".to_string()))?;
             if onnx_model.input_names.len() != 1 || onnx_model.output_names.len() != 1 {
                 return Err(TorshError::InvalidArgument(
                     "OnnxToTorshWrapper only supports models with single input and output"
@@ -528,7 +477,7 @@ impl torsh_nn::Module for OnnxToTorshWrapper {
         let outputs = self
             .onnx_model
             .write()
-            .expect("lock should not be poisoned")
+            .map_err(|_| TorshError::Other("ONNX model lock poisoned".to_string()))?
             .forward(&inputs)?;
 
         Ok(outputs
@@ -581,7 +530,7 @@ mod tests {
         assert_eq!(config.execution_providers.len(), 1);
         assert!(matches!(
             config.graph_optimization_level,
-            GraphOptimizationLevel::Level3
+            GraphOptimizationLevel::All
         ));
         assert!(!config.enable_profiling);
         assert!(config.enable_mem_pattern);
@@ -590,13 +539,13 @@ mod tests {
 
     #[test]
     fn test_onnx_loader_validate_model_nonexistent() {
-        let temp_file = NamedTempFile::new().unwrap();
+        let temp_file = NamedTempFile::new().expect("temp file creation should succeed");
         let path = temp_file.path().with_extension("onnx");
 
         // File doesn't exist, should return Ok(false)
         let result = OnnxLoader::validate_model(&path);
         assert!(result.is_ok());
-        assert!(!result.unwrap());
+        assert!(!result.expect("result should be Ok"));
     }
 
     #[test]

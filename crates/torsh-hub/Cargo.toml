@@ -34,7 +34,7 @@ toml = "1.0.6"
 flate2 = { workspace = true }
 tar = { workspace = true }
 base64 = "0.22.1"
-ort = { version = "=2.0.0-rc.10" }  # Pinned to rc.10 for API stability (rc.11 has breaking changes)
+oxionnx = { path = "../../../oxionnx", features = ["ndarray"] }
 # SciRS2 compliance - replaces direct ndarray and rand usage
 scirs2-core.workspace = true
 scirs2-autograd.workspace = true
