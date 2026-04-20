@@ -32,7 +32,7 @@ scirs2-linalg = { workspace = true, optional = true }
 scirs2-metrics = { workspace = true, optional = true }
 
 # CLI framework
-clap = { version = "4.6.0", features = ["derive", "env", "color"] }
+clap = { workspace = true, features = ["derive", "env", "color"] }
 clap_complete = "4.6"
 
 # Async runtime
@@ -70,7 +70,7 @@ uuid = { workspace = true }
 fastrand = "2.3"
 
 # Networking for model downloads
-reqwest = { version = "0.13", features = ["json", "stream"] }
+reqwest = { workspace = true, features = ["json", "stream"] }
 futures-util = { workspace = true }
 
 # System info - Pure Rust (libc removed for SciRS2 Pure Rust ecosystem)

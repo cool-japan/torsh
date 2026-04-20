@@ -452,12 +452,12 @@ impl TfLoader {
 
     /// Extract archive to destination
     fn extract_archive(archive_path: &Path, dest_path: &Path) -> Result<()> {
-        use flate2::read::GzDecoder;
+        use oxiarc_deflate::GzipStreamDecoder;
         use std::fs::File;
         use tar::Archive;
 
         let file = File::open(archive_path)?;
-        let decoder = GzDecoder::new(file);
+        let decoder = GzipStreamDecoder::new(file);
         let mut archive = Archive::new(decoder);
 
         archive

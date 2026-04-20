@@ -23,7 +23,7 @@ torsh-nn = { workspace = true }
 torsh-data = { workspace = true }
 
 # Vision processing
-image = "0.25"
+image = { workspace = true }
 imageproc = "0.26"
 
 # Scientific computing - comprehensive SciRS2 vision integration
@@ -41,7 +41,7 @@ thiserror = { workspace = true }
 anyhow = { workspace = true }
 
 # Utilities
-reqwest = { version = "0.13", features = ["blocking"], optional = true }
+reqwest = { workspace = true, features = ["blocking"], optional = true }
 oxiarc-archive = { workspace = true, optional = true }
 dirs = "6.0"
 parking_lot = { workspace = true }

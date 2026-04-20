@@ -601,13 +601,13 @@ pub fn format_bytes(bytes: u64) -> String {
 
 /// Compress a file using gzip compression
 pub fn compress_file(input_path: &Path, output_path: &Path) -> Result<FileCompressionStats> {
-    use flate2::write::GzEncoder;
-    use flate2::Compression;
+    use oxiarc_deflate::GzipStreamEncoder;
     use std::io::copy;
 
     let input_file = File::open(input_path)?;
     let output_file = File::create(output_path)?;
-    let mut encoder = GzEncoder::new(output_file, Compression::default());
+    // Level 6 matches the previous Compression::default() behaviour
+    let mut encoder = GzipStreamEncoder::new(output_file, 6);
 
     let original_size = input_file.metadata()?.len();
 
@@ -631,11 +631,11 @@ pub fn compress_file(input_path: &Path, output_path: &Path) -> Result<FileCompre
 
 /// Decompress a gzip file
 pub fn decompress_file(input_path: &Path, output_path: &Path) -> Result<()> {
-    use flate2::read::GzDecoder;
+    use oxiarc_deflate::GzipStreamDecoder;
     use std::io::copy;
 
     let input_file = File::open(input_path)?;
-    let mut decoder = GzDecoder::new(input_file);
+    let mut decoder = GzipStreamDecoder::new(input_file);
     let mut output_file = File::create(output_path)?;
 
     copy(&mut decoder, &mut output_file)?;

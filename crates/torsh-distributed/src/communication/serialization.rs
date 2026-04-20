@@ -131,33 +131,22 @@ where
 /// Compress tensor data for communication (optional optimization)
 #[cfg(feature = "compression")]
 pub fn compress_tensor_data(data: Vec<u8>) -> TorshResult<Vec<u8>> {
-    use flate2::write::GzEncoder;
-    use flate2::Compression;
-    use std::io::Write;
+    use oxiarc_deflate::gzip::gzip_compress;
 
-    let mut encoder = GzEncoder::new(Vec::new(), Compression::fast());
-    encoder.write_all(&data).map_err(|e| {
+    // Level 1 matches the previous Compression::fast() behaviour
+    gzip_compress(&data, 1).map_err(|e| {
         TorshDistributedError::SerializationError(format!("Compression failed: {}", e))
-    })?;
-
-    encoder.finish().map_err(|e| {
-        TorshDistributedError::SerializationError(format!("Compression finalization failed: {}", e))
     })
 }
 
 /// Decompress tensor data from communication
 #[cfg(feature = "compression")]
 pub fn decompress_tensor_data(compressed_data: &[u8]) -> TorshResult<Vec<u8>> {
-    use flate2::read::GzDecoder;
-    use std::io::Read;
+    use oxiarc_deflate::gzip::gzip_decompress;
 
-    let mut decoder = GzDecoder::new(compressed_data);
-    let mut decompressed = Vec::new();
-    decoder.read_to_end(&mut decompressed).map_err(|e| {
+    gzip_decompress(compressed_data).map_err(|e| {
         TorshDistributedError::SerializationError(format!("Decompression failed: {}", e))
-    })?;
-
-    Ok(decompressed)
+    })
 }
 
 #[cfg(test)]

@@ -44,7 +44,7 @@ serde = { workspace = true, features = ["derive"], optional = true }
 serde_json = { workspace = true, optional = true }
 oxicode = { workspace = true, optional = true }
 chrono = { workspace = true, optional = true }
-flate2 = { workspace = true, optional = true }
+oxiarc-deflate = { workspace = true, optional = true }
 safetensors = { workspace = true, optional = true }
 
 # Checksum verification
@@ -54,7 +54,7 @@ sha2 = { workspace = true }
 # Initialization handled by scirs2_core::random
 
 # For no_std HashMap support  
-hashbrown = { version = "0.16", default-features = false, features = ["alloc"] }
+hashbrown = { workspace = true, default-features = false, features = ["alloc"] }
 
 [dev-dependencies]
 approx = { workspace = true }
@@ -64,7 +64,7 @@ criterion = { workspace = true }
 [features]
 default = ["std"]
 std = ["torsh-core/std", "torsh-tensor/std"]
-serialize = ["serde", "serde_json", "oxicode", "chrono", "flate2", "torsh-core/serialize"]
+serialize = ["serde", "serde_json", "oxicode", "chrono", "oxiarc-deflate", "torsh-core/serialize"]
 safetensors = ["dep:safetensors", "serialize"]
 
 # Hardware acceleration features (forward-looking, currently stubbed)

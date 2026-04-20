@@ -263,7 +263,7 @@ impl Default for HubConfig {
             max_retries: 3,
             user_agent: format!(
                 "torsh-hub/{}",
-                option_env!("CARGO_PKG_VERSION").unwrap_or("0.1.1")
+                option_env!("CARGO_PKG_VERSION").unwrap_or("0.1.2")
             ),
         }
     }

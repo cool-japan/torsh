@@ -47,8 +47,8 @@ torsh-backend = { workspace = true, optional = true }
 # Re-export scirs2 functionality
 
 # Additional dependencies for examples
-rand = { version = "0.10.0", optional = true }
-memmap2 = { version = "0.9", optional = true }
+rand = { workspace = true, optional = true }
+memmap2 = { workspace = true, optional = true }
 
 [features]
 default = ["std", "nn", "optim", "data", "examples"]

@@ -31,15 +31,15 @@ oxicode = { workspace = true }
 thiserror = { workspace = true }
 oxiarc-archive = { workspace = true }
 tar = { workspace = true }
-flate2 = { workspace = true }
+oxiarc-deflate = { workspace = true }
 sha2 = { workspace = true }
 hex = { workspace = true }
 tempfile = { workspace = true }
 chrono = { workspace = true }
 semver = { workspace = true }
 
-# Advanced compression
-zstd = { workspace = true }
+# Advanced compression (COOLJAPAN Pure Rust Policy)
+oxiarc-zstd = { workspace = true }
 lzma-rs = { workspace = true }
 
 # Security features

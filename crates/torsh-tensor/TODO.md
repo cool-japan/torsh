@@ -696,7 +696,12 @@ The tensor crate is well-implemented with SIMD optimizations, comprehensive broa
 - [x] **COMPLETED**: Create operation logging with structured output (operation_logging.rs - 757 lines, full operation logging with structured output and performance tracking)
 - [x] **COMPLETED**: Add memory usage profiling with allocation tracking (memory_profiler.rs - 687 lines, comprehensive memory profiling with allocation tracking and detailed reports)
 - [x] **COMPLETED**: Implement shape inference debugging with detailed traces (shape_inference_debugger.rs - 870 lines, comprehensive shape debugging for ElementWise, MatMul, Broadcast, Concatenate operations with detailed error diagnosis - 10 tests passing)
-- [ ] Create performance regression testing framework (TODO - important for CI/CD)
+- [x] perf_regression_framework: Criterion baselines + CI threshold script (planned 2026-04-19)
+  - **Goal:** cargo bench produces baselines; scripts/check_perf_regression.sh exits non-zero if any bench regresses >10%.
+  - **Design:** benches/regression_baselines.rs with add_f32_{256,4096,65536} add_assign_f32_* relu_inplace_* clamp_inplace_* using Throughput::Bytes; criterion --save-baseline / --baseline flow; jq-based threshold script.
+  - **Files:** new crates/torsh-tensor/benches/regression_baselines.rs, new scripts/check_perf_regression.sh, new crates/torsh-tensor/benches/README.md, crates/torsh-tensor/Cargo.toml
+  - **Tests:** missing-baseline graceful exit-0; intentional-regression triggers exit non-zero
+  - **Risk:** machine-sensitive baselines — use relative % change only
 
 ### Advanced Features ✅ (2025-11-14) - SIGNIFICANT PROGRESS!
 - [x] **COMPLETED**: Add sparse tensor support with efficient storage formats (COO, CSR, CSC) (sparse.rs - 1681 lines, full COO/CSR/CSC implementation with format conversions and operations)
@@ -733,10 +738,20 @@ The tensor crate is well-implemented with SIMD optimizations, comprehensive broa
 - [ ] Separate concerns between computation and memory management
 
 ### Memory and Resource Management
-- [ ] Audit and optimize memory allocations in hot paths
+- [x] audit_hot_path_allocs: In-place SIMD f32 fast path for add_/sub_/mul_/div_ (planned 2026-04-19)
+  - **Goal:** add_/sub_/mul_/div_ on f32 tensors ≥1024 elements use scirs2_core simd_add_inplace/simd_sub_inplace/simd_mul_inplace/simd_div_inplace — zero allocations.
+  - **Design:** TypeId-checked dispatch in math_ops.rs add_/sub_/mul_/div_; with_slice_mut + transmute to &mut [f32]; call <f32 as SimdUnifiedOps>::simd_add_inplace(out, rhs).
+  - **Files:** crates/torsh-tensor/src/math_ops.rs (lines 784–891), crates/torsh-tensor/src/simd_ops_f32.rs
+  - **Tests:** parity vs scalar at {1,7,8,1023,1024,4096,65536}; self-alias test; integration + property tests
+  - **Risk:** aliasing UB — ensured by separate tensor ownership at call site
 - [ ] Implement proper resource cleanup for GPU resources
 - [ ] Fix potential memory leaks in error paths
-- [ ] Optimize temporary tensor allocation patterns
+- [x] temp_tensor_alloc_opt: GlobalMemoryPool true buffer reuse via `acquire_uninit<T>` API (planned 2026-04-19)
+  - **Goal:** Pool hits return the actual pooled allocation — zero malloc on hot path. acquire_uninit<T> / ReusedBuffer<T> RAII type.
+  - **Design:** Type-strict raw-pointer buckets, ReusedBuffer<T> with Weak back-ref to pool, Drop auto-returns to pool, into_vec() transfers ownership. Legacy allocate<T>() deprecated wrapper.
+  - **Files:** crates/torsh-tensor/src/memory_pool.rs, new crates/torsh-tensor/src/memory_pool/reused_buffer.rs
+  - **Tests:** acquire→release→acquire returns same ptr; into_vec ptr matches; drop-without-consume returns to pool; 8-thread stress test
+  - **Risk:** Vec::from_raw_parts alignment — use type-strict buckets, never reinterpret across types
 - [ ] Implement proper RAII for backend resources
 - [ ] Add memory usage monitoring and reporting
 
@@ -811,7 +826,12 @@ The tensor crate is well-implemented with SIMD optimizations, comprehensive broa
 ## Platform and Hardware Support
 
 ### CPU Architecture Support
-- [ ] Complete x86_64 SIMD optimization (SSE, AVX, AVX-512)
+- [x] x86_64_simd_complete: Live SIMD f32 fast path for add/sub/mul/div out-of-place in math_ops.rs (planned 2026-04-19)
+  - **Goal:** elementwise_operation f32 fast path using simd_add_into/simd_sub_into/simd_mul_into/simd_div_into from SimdUnifiedOps — replaces the fake par_iter branch.
+  - **Design:** New simd_ops_f32.rs module; TypeId-checked dispatch replacing math_ops.rs:608-652; op-kind enum; pool acquire_uninit for the result buffer.
+  - **Files:** new crates/torsh-tensor/src/simd_ops_f32.rs, crates/torsh-tensor/src/math_ops.rs, crates/torsh-tensor/src/lib.rs
+  - **Tests:** NaN/Inf propagation; parity at multiple sizes; criterion bench ≥4x vs baseline
+  - **Risk:** MaybeUninit soundness — simd_add_into writes full range before read
 - [ ] Add comprehensive ARM64/NEON support
 - [ ] Implement RISC-V vector extension support
 - [ ] Add WebAssembly SIMD support for browser deployment
@@ -869,3 +889,23 @@ The tensor crate is well-implemented with SIMD optimizations, comprehensive broa
 
 ### Recommended Usage
 For production use, rely on the standard feature set which has been thoroughly tested and validated. Advanced features requiring unreleased scirs2 modules will be enabled once those modules become available in future scirs2 versions.
+
+## v0.1.2 SIMD Performance Slice
+
+- [x] simd_activation_inplace: In-place SIMD f32 for relu_/leaky_relu_/clamp_ (planned 2026-04-19)
+  - **Goal:** Three pointwise activations without transcendentals use SIMD. sigmoid_/tanh_/gelu_ stay scalar (need transcendentals).
+  - **Design:** Add relu_assign_f32/leaky_relu_assign_f32/clamp_assign_f32 to simd_ops_f32.rs; dispatch in math_ops.rs relu_/leaky_relu_/clamp_ (lines 1397, 1507, 1534).
+  - **Files:** crates/torsh-tensor/src/simd_ops_f32.rs, crates/torsh-tensor/src/math_ops.rs
+  - **Tests:** -0.0 and subnormals; clamp min>max matches PyTorch; bitwise equality with scalar; bench ≥4x
+
+- [~] dhat_alloc_tracking_bench: dhat-based allocation tracking benchmark (planned 2026-04-19)
+  - **Goal:** Proves pool fix reduces total_blocks ≥50% on hot loop (add + add_ + relu_ × 10000 iter).
+  - **Design:** alloc_tracking.rs with global_allocator=dhat::Alloc; dhat::HeapStats::get() before/after; harness=false.
+  - **Files:** new crates/torsh-tensor/benches/alloc_tracking.rs, crates/torsh-tensor/Cargo.toml
+  - **Tests:** smoke run confirms delta_blocks < 1000 post pool fix
+
+- [x] promote_simd_parallel_defaults: Promote simd+parallel into default features (planned 2026-04-19)
+  - **Goal:** Out-of-box installs get SIMD/parallel paths. Add scirs2-core/simd to simd feature.
+  - **Design:** default = ["std", "simd", "parallel"]; simd feature += scirs2-core/simd; verify --no-default-features --features std still builds.
+  - **Files:** crates/torsh-tensor/Cargo.toml, possibly .github/workflows/
+  - **Tests:** cargo build default; cargo build --no-default-features --features std

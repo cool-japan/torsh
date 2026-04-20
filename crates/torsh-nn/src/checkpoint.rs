@@ -10,7 +10,7 @@ use torsh_tensor::Tensor;
 
 // Conditional imports for std/no_std compatibility
 #[cfg(feature = "std")]
-use std::{collections::HashMap, io::{Read, Write}, path::Path, sync::Arc, string::String, vec::Vec, boxed::Box};
+use std::{collections::HashMap, path::Path, sync::Arc, string::String, vec::Vec, boxed::Box};
 
 #[cfg(not(feature = "std"))]
 use alloc::{sync::Arc, string::String, vec::Vec, boxed::Box};
@@ -362,17 +362,10 @@ impl CheckpointManager {
 
         if self.config.compression_level > 0 {
             // Use compression
-            let mut encoder = flate2::write::GzEncoder::new(
-                Vec::new(),
-                flate2::Compression::new(self.config.compression_level),
-            );
-            encoder.write_all(&serialized).map_err(|e| {
-                TorshError::IOError(format!("Failed to compress checkpoint: {}", e))
-            })?;
-            let compressed = encoder.finish().map_err(|e| {
-                TorshError::IOError(format!("Failed to finish compression: {}", e))
-            })?;
-            
+            use oxiarc_deflate::gzip::gzip_compress;
+            let compressed = gzip_compress(&serialized, self.config.compression_level as u8)
+                .map_err(|e| TorshError::IOError(format!("Failed to compress checkpoint: {}", e)))?;
+
             std::fs::write(filepath, compressed).map_err(|e| {
                 TorshError::IOError(format!("Failed to write checkpoint file: {}", e))
             })?;
@@ -394,12 +387,9 @@ impl CheckpointManager {
 
         let deserialized_data = if self.config.compression_level > 0 {
             // Try decompression
-            let mut decoder = flate2::read::GzDecoder::new(&data[..]);
-            let mut decompressed = Vec::new();
-            decoder.read_to_end(&mut decompressed).map_err(|e| {
-                TorshError::IOError(format!("Failed to decompress checkpoint: {}", e))
-            })?;
-            decompressed
+            use oxiarc_deflate::gzip::gzip_decompress;
+            gzip_decompress(&data)
+                .map_err(|e| TorshError::IOError(format!("Failed to decompress checkpoint: {}", e)))?
         } else {
             data
         };

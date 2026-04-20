@@ -40,7 +40,7 @@ redis = { workspace = true, optional = true, features = ["tokio-comp"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 oxicode = { workspace = true }
-flate2 = { workspace = true, optional = true }
+oxiarc-deflate = { workspace = true, optional = true }
 
 # Error handling
 thiserror = { workspace = true }
@@ -70,7 +70,7 @@ redis = ["dep:redis"]
 # gloo = ["dep:gloo-sys"]
 
 # Optional feature flags for enhanced functionality
-compression = ["dep:flate2"]  # Enable compression support
+compression = ["dep:oxiarc-deflate"]  # Enable compression support
 scirs2-simd = []  # Enable SIMD optimizations
 scirs2-profiling = []  # Enable profiling support
 scirs2-memory = []  # Enable memory optimization features

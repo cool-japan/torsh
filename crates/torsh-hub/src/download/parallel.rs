@@ -611,13 +611,13 @@ pub fn download_github_repo(
 /// Extract a tar.gz archive
 ///
 /// This internal function handles the extraction of tar.gz archives using
-/// the flate2 and tar crates for decompression and archive extraction.
+/// the oxiarc-deflate and tar crates for decompression and archive extraction.
 fn extract_tarball(archive_path: &Path, dest_dir: &Path) -> Result<()> {
-    use flate2::read::GzDecoder;
+    use oxiarc_deflate::GzipStreamDecoder;
     use tar::Archive;
 
     let file = std::fs::File::open(archive_path)?;
-    let gz = GzDecoder::new(file);
+    let gz = GzipStreamDecoder::new(file);
     let mut archive = Archive::new(gz);
 
     // Create parent directory

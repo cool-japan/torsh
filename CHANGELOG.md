@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-04-20
+
+### Added
+- `simd_ops_f32` module: zero-allocation SIMD f32 arithmetic helpers (`add_into_f32`, `sub_into_f32`, `mul_into_f32`, `div_into_f32`, `add_assign_f32`, `sub_assign_f32`, `mul_assign_f32`, `div_assign_f32`) backed by `scirs2_core::simd_ops::SimdUnifiedOps` (AVX2/NEON with scalar fallback)
+- In-place activation SIMD helpers (`relu_assign_f32`, `leaky_relu_assign_f32`, `clamp_assign_f32`) with PyTorch-compatible NaN passthrough semantics
+- `BinaryF32Op` enum with `dispatch_into`/`dispatch_inplace` for zero-branch op selection
+- `GlobalMemoryPool::acquire_uninit<T>` / `global_acquire_uninit<T>` API: returns the actual pooled allocation via `ReusedBuffer<T>` RAII type (zero-copy on pool hit, replacing the copy-on-hit bug)
+- `ReusedBuffer<T>`: RAII pooled buffer with `as_uninit_slice_mut`, `into_vec`, `release_to_pool`; auto-returns to pool on drop
+- Performance regression framework: criterion benchmarks in `benches/regression_baselines.rs` and CI threshold script `scripts/check_perf_regression.sh`
+
+### Changed
+- `Tensor::add` / `sub` / `mul` / `div` for f32 tensors ≥ 1024 elements: dispatch to real SIMD via `simd_ops_f32` (replaces fake `par_iter` branch that was gated behind `cfg(feature = "simd")`)
+- `Tensor::add_` / `sub_` / `mul_` / `div_` for f32 ≥ 1024 elements: zero-allocation SIMD in-place arithmetic
+- `Tensor::relu_` / `leaky_relu_` / `clamp_` for f32 ≥ 1024 elements: SIMD-dispatched in-place activations
+- Default features now include `simd` and `parallel` (`default = ["std", "simd", "parallel"]`)
+- `simd` feature now enables `scirs2-core/simd` so scirs2 SIMD intrinsics activate automatically
+- `math_ops.rs` split into `math_ops.rs` (1917 lines) + `math_ops_tests.rs` (563 lines) to enforce < 2000 line policy
+- `GlobalMemoryPool::allocate<T>` deprecated (kept for compatibility); callers should use `global_acquire_uninit`
+
+### Fixed
+- `GlobalMemoryPool` pool hits no longer copy into a new `Vec` — the actual pooled allocation is returned
+
 ## [0.1.1] - 2026-03-17
 
 ### Changed

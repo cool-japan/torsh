@@ -42,7 +42,7 @@ thiserror = { workspace = true }
 anyhow = { workspace = true }
 
 # Utilities
-reqwest = { version = "0.13", features = ["blocking"], optional = true }
+reqwest = { workspace = true, features = ["blocking"], optional = true }
 oxiarc-archive = { workspace = true, optional = true }
 dirs = "6.0"
 lazy_static = { workspace = true }

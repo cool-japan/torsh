@@ -331,12 +331,12 @@ pub fn upload_model_directory(
 
 /// Create a package archive
 fn create_package_archive(src_dir: &Path, dest_path: &Path) -> Result<()> {
-    use flate2::write::GzEncoder;
-    use flate2::Compression;
+    use oxiarc_deflate::GzipStreamEncoder;
     use tar::Builder;
 
     let file = File::create(dest_path)?;
-    let encoder = GzEncoder::new(file, Compression::default());
+    // Level 6 matches the previous Compression::default() behaviour
+    let encoder = GzipStreamEncoder::new(file, 6);
     let mut archive = Builder::new(encoder);
 
     // Add all files in directory
@@ -352,7 +352,9 @@ fn create_package_archive(src_dir: &Path, dest_path: &Path) -> Result<()> {
         }
     }
 
-    archive.finish()?;
+    // Finalise the tar stream, then flush the gzip trailer explicitly
+    let encoder = archive.into_inner()?;
+    encoder.finish()?;
     Ok(())
 }
 

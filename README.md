@@ -99,12 +99,12 @@ Add ToRSh to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-torsh = "0.1.1"
-torsh-nn = "0.1.1"      # Neural networks
-torsh-graph = "0.1.1"   # Graph neural networks
-torsh-series = "0.1.1"  # Time series analysis
-torsh-vision = "0.1.1"  # Computer vision
-torsh-metrics = "0.1.1" # Evaluation metrics
+torsh = "0.1.2"
+torsh-nn = "0.1.2"      # Neural networks
+torsh-graph = "0.1.2"   # Graph neural networks
+torsh-series = "0.1.2"  # Time series analysis
+torsh-vision = "0.1.2"  # Computer vision
+torsh-metrics = "0.1.2" # Evaluation metrics
 ```
 
 ## 🚀 Quick Start
@@ -341,7 +341,9 @@ cargo bench --package torsh-benches -- advanced_optimizers
 
 ### Roadmap
 
-**v0.1.1 (Current)** - *Initial Release*
+**v0.1.2 (Current)** - *2026-04-20* — SIMD performance release: real AVX2/NEON dispatch for f32 arithmetic and activations, true buffer pool reuse, criterion regression framework, simd+parallel enabled by default
+
+**v0.1.1** - *Initial Release*
 - ✅ Core tensor operations with PyTorch API compatibility
 - ✅ Automatic differentiation engine
 - ✅ Essential neural network layers
