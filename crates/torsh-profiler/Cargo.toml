@@ -32,7 +32,7 @@ scirs2-core = { workspace = true, features = ["profiling"] }
 anyhow = { workspace = true }
 log = { workspace = true }
 tokio = { workspace = true }
-tokio-tungstenite = "0.28"
+tokio-tungstenite = "0.29"
 futures-util = { workspace = true }
 uuid = { workspace = true }
 prometheus = "0.14"

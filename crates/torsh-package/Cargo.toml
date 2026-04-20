@@ -30,7 +30,6 @@ serde_json = { workspace = true }
 oxicode = { workspace = true }
 thiserror = { workspace = true }
 oxiarc-archive = { workspace = true }
-tar = { workspace = true }
 oxiarc-deflate = { workspace = true }
 sha2 = { workspace = true }
 hex = { workspace = true }

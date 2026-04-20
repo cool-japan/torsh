@@ -331,13 +331,13 @@ pub fn upload_model_directory(
 
 /// Create a package archive
 fn create_package_archive(src_dir: &Path, dest_path: &Path) -> Result<()> {
+    use oxiarc_archive::TarWriter;
     use oxiarc_deflate::GzipStreamEncoder;
-    use tar::Builder;
 
     let file = File::create(dest_path)?;
     // Level 6 matches the previous Compression::default() behaviour
     let encoder = GzipStreamEncoder::new(file, 6);
-    let mut archive = Builder::new(encoder);
+    let mut archive = TarWriter::new(encoder);
 
     // Add all files in directory
     for entry in fs::read_dir(src_dir)? {
@@ -345,15 +345,26 @@ fn create_package_archive(src_dir: &Path, dest_path: &Path) -> Result<()> {
         let path = entry.path();
         let name = path
             .file_name()
-            .ok_or_else(|| TorshError::InvalidArgument("Invalid filename".to_string()))?;
+            .ok_or_else(|| TorshError::InvalidArgument("Invalid filename".to_string()))?
+            .to_str()
+            .ok_or_else(|| TorshError::InvalidArgument("Non-UTF8 filename".to_string()))?
+            .to_owned();
 
         if path.is_file() {
-            archive.append_file(name, &mut File::open(&path)?)?;
+            let data = fs::read(&path)?;
+            archive
+                .add_file(&name, &data)
+                .map_err(|e| TorshError::IoError(format!("Failed to add file to archive: {}", e)))?;
         }
     }
 
     // Finalise the tar stream, then flush the gzip trailer explicitly
-    let encoder = archive.into_inner()?;
+    archive
+        .finish()
+        .map_err(|e| TorshError::IoError(format!("Failed to finalize tar: {}", e)))?;
+    let encoder = archive
+        .into_inner()
+        .map_err(|e| TorshError::IoError(format!("Failed to get inner writer: {}", e)))?;
     encoder.finish()?;
     Ok(())
 }

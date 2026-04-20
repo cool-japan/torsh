@@ -30,9 +30,10 @@ sha2 = { workspace = true }
 hex = { workspace = true }
 chrono = { workspace = true }
 tempfile = { workspace = true }
-toml = "1.0.6"
+toml = "1.1.2"
 oxiarc-deflate = { workspace = true }
-tar = { workspace = true }
+oxiarc-archive = { workspace = true }
+oxiarc-core = { workspace = true }
 base64 = "0.22.1"
 oxionnx = { path = "../../../oxionnx", features = ["ndarray"] }
 # SciRS2 compliance - replaces direct ndarray and rand usage

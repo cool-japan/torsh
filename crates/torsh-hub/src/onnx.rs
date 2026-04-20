@@ -3,12 +3,12 @@
 //! This module provides functionality to load, convert, and run ONNX models
 //! within the ToRSh ecosystem.
 
+use oxionnx::Tensor as OnnxTensor;
 use oxionnx::{
     CPUExecutionProvider, CUDAExecutionProvider, CoreMLExecutionProvider,
     DirectMLExecutionProvider, GraphOptimizationLevel, OpenVINOExecutionProvider, Session,
-    SessionBuilder, TensorRTExecutionProvider, TensorInfo,
+    SessionBuilder, TensorInfo, TensorRTExecutionProvider,
 };
-use oxionnx::Tensor as OnnxTensor;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
@@ -85,27 +85,28 @@ fn configure_execution_providers(
     execution_providers: &[String],
 ) -> SessionBuilder {
     for provider in execution_providers {
-        session_builder = match provider.as_str() {
-            "CPUExecutionProvider" => session_builder
-                .with_execution_providers([CPUExecutionProvider::default().build()]),
-            "CUDAExecutionProvider" => session_builder
-                .with_execution_providers([CUDAExecutionProvider::default().build()]),
-            "TensorRTExecutionProvider" => session_builder
-                .with_execution_providers([TensorRTExecutionProvider::default().build()]),
-            "OpenVINOExecutionProvider" => session_builder
-                .with_execution_providers([OpenVINOExecutionProvider::default().build()]),
-            "CoreMLExecutionProvider" => session_builder
-                .with_execution_providers([CoreMLExecutionProvider::default().build()]),
-            "DirectMLExecutionProvider" => session_builder
-                .with_execution_providers([DirectMLExecutionProvider::default().build()]),
-            _ => {
-                eprintln!(
-                    "Warning: Unsupported execution provider '{}', skipping",
-                    provider
-                );
-                session_builder
-            }
-        };
+        session_builder =
+            match provider.as_str() {
+                "CPUExecutionProvider" => session_builder
+                    .with_execution_providers([CPUExecutionProvider::default().build()]),
+                "CUDAExecutionProvider" => session_builder
+                    .with_execution_providers([CUDAExecutionProvider::default().build()]),
+                "TensorRTExecutionProvider" => session_builder
+                    .with_execution_providers([TensorRTExecutionProvider::default().build()]),
+                "OpenVINOExecutionProvider" => session_builder
+                    .with_execution_providers([OpenVINOExecutionProvider::default().build()]),
+                "CoreMLExecutionProvider" => session_builder
+                    .with_execution_providers([CoreMLExecutionProvider::default().build()]),
+                "DirectMLExecutionProvider" => session_builder
+                    .with_execution_providers([DirectMLExecutionProvider::default().build()]),
+                _ => {
+                    eprintln!(
+                        "Warning: Unsupported execution provider '{}', skipping",
+                        provider
+                    );
+                    session_builder
+                }
+            };
     }
     session_builder
 }
@@ -350,10 +351,7 @@ impl OnnxModel {
     /// oxionnx `TensorInfo.shape` is `Vec<Option<usize>>` (None = dynamic dim).
     /// We convert to `Vec<Option<i64>>` to match the existing `InputShape`/`OutputShape` types.
     fn extract_shape_from_tensor_info(info: &TensorInfo) -> Vec<Option<i64>> {
-        info.shape
-            .iter()
-            .map(|dim| dim.map(|d| d as i64))
-            .collect()
+        info.shape.iter().map(|dim| dim.map(|d| d as i64)).collect()
     }
 }
 

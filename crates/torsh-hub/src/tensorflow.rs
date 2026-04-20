@@ -452,18 +452,42 @@ impl TfLoader {
 
     /// Extract archive to destination
     fn extract_archive(archive_path: &Path, dest_path: &Path) -> Result<()> {
+        use oxiarc_archive::TarStreamReader;
+        use oxiarc_core::EntryType;
         use oxiarc_deflate::GzipStreamDecoder;
         use std::fs::File;
-        use tar::Archive;
+        use std::io;
 
         let file = File::open(archive_path)?;
         let decoder = GzipStreamDecoder::new(file);
-        let mut archive = Archive::new(decoder);
-
-        archive
-            .unpack(dest_path)
-            .map_err(|e| TorshError::IoError(format!("Failed to extract archive: {}", e)))?;
-
+        let mut stream = TarStreamReader::new(decoder);
+        while let Some(mut entry) = stream
+            .next_entry()
+            .map_err(|e| TorshError::IoError(format!("Failed to read tar entry: {}", e)))?
+        {
+            let dest = dest_path.join(&entry.header.name);
+            match entry.header.entry_type() {
+                EntryType::Directory => {
+                    std::fs::create_dir_all(&dest).map_err(|e| {
+                        TorshError::IoError(format!("Failed to create dir: {}", e))
+                    })?;
+                }
+                EntryType::File => {
+                    if let Some(parent) = dest.parent() {
+                        std::fs::create_dir_all(parent).map_err(|e| {
+                            TorshError::IoError(format!("Failed to create parent dir: {}", e))
+                        })?;
+                    }
+                    let mut out = File::create(&dest).map_err(|e| {
+                        TorshError::IoError(format!("Failed to create file: {}", e))
+                    })?;
+                    io::copy(&mut entry, &mut out).map_err(|e| {
+                        TorshError::IoError(format!("Failed to write file: {}", e))
+                    })?;
+                }
+                _ => {}
+            }
+        }
         Ok(())
     }
 }
