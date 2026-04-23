@@ -385,10 +385,7 @@ impl<T: TensorElement + Copy> Tensor<T> {
                     std::slice::from_raw_parts(self_data.as_ptr() as *const f32, self_data.len())
                 };
                 let b_f32: &[f32] = unsafe {
-                    std::slice::from_raw_parts(
-                        other_data.as_ptr() as *const f32,
-                        other_data.len(),
-                    )
+                    std::slice::from_raw_parts(other_data.as_ptr() as *const f32, other_data.len())
                 };
                 let mut out = vec![0.0f32; self_data.len()];
                 crate::simd_ops_f32::add_into_f32(a_f32, b_f32, &mut out);
@@ -503,10 +500,7 @@ impl<T: TensorElement + Copy> Tensor<T> {
                     std::slice::from_raw_parts(self_data.as_ptr() as *const f32, self_data.len())
                 };
                 let b_f32: &[f32] = unsafe {
-                    std::slice::from_raw_parts(
-                        other_data.as_ptr() as *const f32,
-                        other_data.len(),
-                    )
+                    std::slice::from_raw_parts(other_data.as_ptr() as *const f32, other_data.len())
                 };
                 let mut out = vec![0.0f32; self_data.len()];
                 crate::simd_ops_f32::sub_into_f32(a_f32, b_f32, &mut out);
@@ -536,10 +530,7 @@ impl<T: TensorElement + Copy> Tensor<T> {
                     std::slice::from_raw_parts(self_data.as_ptr() as *const f32, self_data.len())
                 };
                 let b_f32: &[f32] = unsafe {
-                    std::slice::from_raw_parts(
-                        other_data.as_ptr() as *const f32,
-                        other_data.len(),
-                    )
+                    std::slice::from_raw_parts(other_data.as_ptr() as *const f32, other_data.len())
                 };
                 let mut out = vec![0.0f32; self_data.len()];
                 crate::simd_ops_f32::mul_into_f32(a_f32, b_f32, &mut out);
@@ -569,10 +560,7 @@ impl<T: TensorElement + Copy> Tensor<T> {
                     std::slice::from_raw_parts(self_data.as_ptr() as *const f32, self_data.len())
                 };
                 let b_f32: &[f32] = unsafe {
-                    std::slice::from_raw_parts(
-                        other_data.as_ptr() as *const f32,
-                        other_data.len(),
-                    )
+                    std::slice::from_raw_parts(other_data.as_ptr() as *const f32, other_data.len())
                 };
                 let mut out = vec![0.0f32; self_data.len()];
                 crate::simd_ops_f32::div_into_f32(a_f32, b_f32, &mut out);
@@ -798,10 +786,7 @@ impl<T: TensorElement + Copy> Tensor<T> {
                     std::slice::from_raw_parts_mut(out_t.as_mut_ptr() as *mut f32, out_t.len())
                 };
                 let rhs_f32: &[f32] = unsafe {
-                    std::slice::from_raw_parts(
-                        other_data.as_ptr() as *const f32,
-                        other_data.len(),
-                    )
+                    std::slice::from_raw_parts(other_data.as_ptr() as *const f32, other_data.len())
                 };
                 crate::simd_ops_f32::add_assign_f32(out_f32, rhs_f32);
                 Ok(())
@@ -813,9 +798,10 @@ impl<T: TensorElement + Copy> Tensor<T> {
         let other_data = other.data()?;
         for i in 0..len {
             let a = self.storage.get(i)?;
-            let b = *other_data
-                .get(i)
-                .ok_or_else(|| TorshError::IndexError { index: i, size: other_data.len() })?;
+            let b = *other_data.get(i).ok_or_else(|| TorshError::IndexError {
+                index: i,
+                size: other_data.len(),
+            })?;
             self.storage.set(i, a + b)?;
         }
         Ok(self)
@@ -845,10 +831,7 @@ impl<T: TensorElement + Copy> Tensor<T> {
                     std::slice::from_raw_parts_mut(out_t.as_mut_ptr() as *mut f32, out_t.len())
                 };
                 let rhs_f32: &[f32] = unsafe {
-                    std::slice::from_raw_parts(
-                        other_data.as_ptr() as *const f32,
-                        other_data.len(),
-                    )
+                    std::slice::from_raw_parts(other_data.as_ptr() as *const f32, other_data.len())
                 };
                 crate::simd_ops_f32::sub_assign_f32(out_f32, rhs_f32);
                 Ok(())
@@ -859,9 +842,10 @@ impl<T: TensorElement + Copy> Tensor<T> {
         let other_data = other.data()?;
         for i in 0..len {
             let a = self.storage.get(i)?;
-            let b = *other_data
-                .get(i)
-                .ok_or_else(|| TorshError::IndexError { index: i, size: other_data.len() })?;
+            let b = *other_data.get(i).ok_or_else(|| TorshError::IndexError {
+                index: i,
+                size: other_data.len(),
+            })?;
             self.storage.set(i, a - b)?;
         }
         Ok(self)
@@ -891,10 +875,7 @@ impl<T: TensorElement + Copy> Tensor<T> {
                     std::slice::from_raw_parts_mut(out_t.as_mut_ptr() as *mut f32, out_t.len())
                 };
                 let rhs_f32: &[f32] = unsafe {
-                    std::slice::from_raw_parts(
-                        other_data.as_ptr() as *const f32,
-                        other_data.len(),
-                    )
+                    std::slice::from_raw_parts(other_data.as_ptr() as *const f32, other_data.len())
                 };
                 crate::simd_ops_f32::mul_assign_f32(out_f32, rhs_f32);
                 Ok(())
@@ -905,9 +886,10 @@ impl<T: TensorElement + Copy> Tensor<T> {
         let other_data = other.data()?;
         for i in 0..len {
             let a = self.storage.get(i)?;
-            let b = *other_data
-                .get(i)
-                .ok_or_else(|| TorshError::IndexError { index: i, size: other_data.len() })?;
+            let b = *other_data.get(i).ok_or_else(|| TorshError::IndexError {
+                index: i,
+                size: other_data.len(),
+            })?;
             self.storage.set(i, a * b)?;
         }
         Ok(self)
@@ -937,10 +919,7 @@ impl<T: TensorElement + Copy> Tensor<T> {
                     std::slice::from_raw_parts_mut(out_t.as_mut_ptr() as *mut f32, out_t.len())
                 };
                 let rhs_f32: &[f32] = unsafe {
-                    std::slice::from_raw_parts(
-                        other_data.as_ptr() as *const f32,
-                        other_data.len(),
-                    )
+                    std::slice::from_raw_parts(other_data.as_ptr() as *const f32, other_data.len())
                 };
                 crate::simd_ops_f32::div_assign_f32(out_f32, rhs_f32);
                 Ok(())
@@ -951,9 +930,10 @@ impl<T: TensorElement + Copy> Tensor<T> {
         let other_data = other.data()?;
         for i in 0..len {
             let a = self.storage.get(i)?;
-            let b = *other_data
-                .get(i)
-                .ok_or_else(|| TorshError::IndexError { index: i, size: other_data.len() })?;
+            let b = *other_data.get(i).ok_or_else(|| TorshError::IndexError {
+                index: i,
+                size: other_data.len(),
+            })?;
             self.storage.set(i, a / b)?;
         }
         Ok(self)

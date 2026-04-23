@@ -85,9 +85,12 @@ static WEBGPU_INSTANCE: RwLock<Option<Arc<wgpu::Instance>>> = RwLock::new(None);
 pub async fn init() -> WebGpuResult<()> {
     let mut instance_lock = WEBGPU_INSTANCE.write();
     if instance_lock.is_none() {
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::all(),
-            ..Default::default()
+            flags: wgpu::InstanceFlags::default(),
+            memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
+            backend_options: wgpu::BackendOptions::default(),
+            display: None,
         });
         *instance_lock = Some(Arc::new(instance));
     }
@@ -108,9 +111,12 @@ pub fn is_available() -> bool {
     // Check if WebGPU is available on this platform
     cfg!(feature = "webgpu") && {
         // Try to create an instance
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::all(),
-            ..Default::default()
+            flags: wgpu::InstanceFlags::default(),
+            memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
+            backend_options: wgpu::BackendOptions::default(),
+            display: None,
         });
 
         // Check if we can enumerate adapters (async in wgpu 28)

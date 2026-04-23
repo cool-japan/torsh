@@ -352,9 +352,9 @@ fn create_package_archive(src_dir: &Path, dest_path: &Path) -> Result<()> {
 
         if path.is_file() {
             let data = fs::read(&path)?;
-            archive
-                .add_file(&name, &data)
-                .map_err(|e| TorshError::IoError(format!("Failed to add file to archive: {}", e)))?;
+            archive.add_file(&name, &data).map_err(|e| {
+                TorshError::IoError(format!("Failed to add file to archive: {}", e))
+            })?;
         }
     }
 

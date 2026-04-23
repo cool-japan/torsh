@@ -5,6 +5,7 @@
 
 // Framework infrastructure - components designed for future use
 #![allow(dead_code)]
+use hex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -438,12 +439,20 @@ impl MetadataManager {
 
     fn calculate_checksum(&self, file_path: &Path) -> Result<String> {
         use sha2::{Digest, Sha256};
+        use std::io::Read;
 
         let mut file = std::fs::File::open(file_path)?;
         let mut hasher = Sha256::new();
-        std::io::copy(&mut file, &mut hasher)?;
+        let mut buf = vec![0u8; 65536];
+        loop {
+            let n = file.read(&mut buf)?;
+            if n == 0 {
+                break;
+            }
+            hasher.update(&buf[..n]);
+        }
 
-        Ok(format!("{:x}", hasher.finalize()))
+        Ok(hex::encode(hasher.finalize()))
     }
 
     fn determine_file_type(&self, file_path: &Path) -> FileType {

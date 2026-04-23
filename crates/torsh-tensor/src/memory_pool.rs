@@ -101,7 +101,9 @@ impl<T: 'static> ReusedBuffer<T> {
     /// Returns a mutable view of the buffer as uninitialized elements.
     pub fn as_uninit_slice_mut(&mut self) -> &mut [MaybeUninit<T>] {
         // SAFETY: ptr is valid for `capacity` elements; we have exclusive access via &mut self.
-        unsafe { std::slice::from_raw_parts_mut(self.ptr.as_ptr() as *mut MaybeUninit<T>, self.capacity) }
+        unsafe {
+            std::slice::from_raw_parts_mut(self.ptr.as_ptr() as *mut MaybeUninit<T>, self.capacity)
+        }
     }
 
     /// Capacity in elements (not bytes).
@@ -183,9 +185,9 @@ impl<T: 'static> Drop for ReusedBuffer<T> {
                         let md_entry = ManuallyDrop::new(raw_entry);
                         // SAFETY: ManuallyDrop<RawEntry> has the same layout as RawEntry;
                         // we read it once here and never again.
-                        bucket.available_buffers.push_back(unsafe {
-                            std::ptr::read(&*md_entry as *const RawEntry)
-                        });
+                        bucket
+                            .available_buffers
+                            .push_back(unsafe { std::ptr::read(&*md_entry as *const RawEntry) });
                         bucket.deallocations += 1;
                         return;
                     }
@@ -557,8 +559,7 @@ impl GlobalMemoryPool {
 
         // SAFETY: layout is non-zero (we used .max(1) above).
         let raw_ptr = unsafe { std::alloc::alloc(layout) };
-        let ptr = NonNull::new(raw_ptr as *mut T)
-            .unwrap_or_else(|| handle_alloc_error(layout));
+        let ptr = NonNull::new(raw_ptr as *mut T).unwrap_or_else(|| handle_alloc_error(layout));
 
         let weak = self.self_weak.clone().unwrap_or_else(Weak::new);
         ReusedBuffer {
@@ -1071,7 +1072,10 @@ mod tests {
         let ptr2 = buf2.as_ptr_raw();
         buf2.release_to_pool();
 
-        assert_eq!(ptr1, ptr2, "pool should return the same allocation on second acquire");
+        assert_eq!(
+            ptr1, ptr2,
+            "pool should return the same allocation on second acquire"
+        );
     }
 
     #[test]
@@ -1105,7 +1109,10 @@ mod tests {
         buf2.release_to_pool();
 
         let stats = get_pool_statistics();
-        assert!(stats.pool_hits >= 1, "expected at least one pool hit after drop-return");
+        assert!(
+            stats.pool_hits >= 1,
+            "expected at least one pool hit after drop-return"
+        );
     }
 
     #[test]

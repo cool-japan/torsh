@@ -404,7 +404,11 @@ fn test_f32_add_inplace_simd() {
     let n = 4096;
     let a_data: Vec<f32> = (0..n).map(|i| i as f32).collect();
     let b_data: Vec<f32> = (0..n).map(|i| (i * 2) as f32).collect();
-    let ref_data: Vec<f32> = a_data.iter().zip(b_data.iter()).map(|(a, b)| a + b).collect();
+    let ref_data: Vec<f32> = a_data
+        .iter()
+        .zip(b_data.iter())
+        .map(|(a, b)| a + b)
+        .collect();
     let mut a = Tensor::<f32>::from_data(a_data, vec![n], DeviceType::Cpu)
         .expect("failed to create tensor a");
     let b = Tensor::<f32>::from_data(b_data, vec![n], DeviceType::Cpu)
@@ -427,7 +431,11 @@ fn test_f32_sub_inplace_simd() {
     let n = 4096;
     let a_data: Vec<f32> = (0..n).map(|i| (i * 3) as f32).collect();
     let b_data: Vec<f32> = (0..n).map(|i| i as f32).collect();
-    let ref_data: Vec<f32> = a_data.iter().zip(b_data.iter()).map(|(a, b)| a - b).collect();
+    let ref_data: Vec<f32> = a_data
+        .iter()
+        .zip(b_data.iter())
+        .map(|(a, b)| a - b)
+        .collect();
     let mut a = Tensor::<f32>::from_data(a_data, vec![n], DeviceType::Cpu)
         .expect("failed to create tensor a");
     let b = Tensor::<f32>::from_data(b_data, vec![n], DeviceType::Cpu)
@@ -450,7 +458,11 @@ fn test_f32_mul_inplace_simd() {
     let n = 4096;
     let a_data: Vec<f32> = (0..n).map(|i| (i as f32) * 0.5 + 1.0).collect();
     let b_data: Vec<f32> = (0..n).map(|i| (i as f32) * 0.25 + 0.5).collect();
-    let ref_data: Vec<f32> = a_data.iter().zip(b_data.iter()).map(|(a, b)| a * b).collect();
+    let ref_data: Vec<f32> = a_data
+        .iter()
+        .zip(b_data.iter())
+        .map(|(a, b)| a * b)
+        .collect();
     let mut a = Tensor::<f32>::from_data(a_data, vec![n], DeviceType::Cpu)
         .expect("failed to create tensor a");
     let b = Tensor::<f32>::from_data(b_data, vec![n], DeviceType::Cpu)
@@ -473,7 +485,11 @@ fn test_f32_div_inplace_simd() {
     let n = 4096;
     let a_data: Vec<f32> = (0..n).map(|i| (i as f32) + 1.0).collect();
     let b_data: Vec<f32> = (0..n).map(|i| (i as f32) * 0.5 + 1.0).collect();
-    let ref_data: Vec<f32> = a_data.iter().zip(b_data.iter()).map(|(a, b)| a / b).collect();
+    let ref_data: Vec<f32> = a_data
+        .iter()
+        .zip(b_data.iter())
+        .map(|(a, b)| a / b)
+        .collect();
     let mut a = Tensor::<f32>::from_data(a_data, vec![n], DeviceType::Cpu)
         .expect("failed to create tensor a");
     let b = Tensor::<f32>::from_data(b_data, vec![n], DeviceType::Cpu)
@@ -497,9 +513,12 @@ fn test_f32_div_inplace_simd() {
 fn test_f32_relu_inplace_simd() {
     let n = 4096;
     let data: Vec<f32> = (0..n).map(|i| (i as f32) - (n as f32 / 2.0)).collect();
-    let expected: Vec<f32> = data.iter().map(|&x| if x < 0.0 { 0.0 } else { x }).collect();
-    let mut t = Tensor::<f32>::from_data(data, vec![n], DeviceType::Cpu)
-        .expect("failed to create tensor");
+    let expected: Vec<f32> = data
+        .iter()
+        .map(|&x| if x < 0.0 { 0.0 } else { x })
+        .collect();
+    let mut t =
+        Tensor::<f32>::from_data(data, vec![n], DeviceType::Cpu).expect("failed to create tensor");
     t.relu_().expect("relu_ should succeed");
     let result = t.data().expect("failed to get relu_ result data");
     for (i, (&got, &exp)) in result.iter().zip(expected.iter()).enumerate() {
@@ -522,8 +541,8 @@ fn test_f32_leaky_relu_inplace_simd() {
         .iter()
         .map(|&x| if x >= 0.0 { x } else { slope * x })
         .collect();
-    let mut t = Tensor::<f32>::from_data(data, vec![n], DeviceType::Cpu)
-        .expect("failed to create tensor");
+    let mut t =
+        Tensor::<f32>::from_data(data, vec![n], DeviceType::Cpu).expect("failed to create tensor");
     t.leaky_relu_(slope).expect("leaky_relu_ should succeed");
     let result = t.data().expect("failed to get leaky_relu_ result data");
     for (i, (&got, &exp)) in result.iter().zip(expected.iter()).enumerate() {
@@ -545,10 +564,18 @@ fn test_f32_clamp_inplace_simd() {
     let max_val = 100.0f32;
     let expected: Vec<f32> = data
         .iter()
-        .map(|&x| if x < min_val { min_val } else if x > max_val { max_val } else { x })
+        .map(|&x| {
+            if x < min_val {
+                min_val
+            } else if x > max_val {
+                max_val
+            } else {
+                x
+            }
+        })
         .collect();
-    let mut t = Tensor::<f32>::from_data(data, vec![n], DeviceType::Cpu)
-        .expect("failed to create tensor");
+    let mut t =
+        Tensor::<f32>::from_data(data, vec![n], DeviceType::Cpu).expect("failed to create tensor");
     t.clamp_(min_val, max_val).expect("clamp_ should succeed");
     let result = t.data().expect("failed to get clamp_ result data");
     for (i, (&got, &exp)) in result.iter().zip(expected.iter()).enumerate() {

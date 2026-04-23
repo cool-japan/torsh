@@ -23,11 +23,7 @@ fn bench_add_into_f32(c: &mut Criterion) {
         group.throughput(Throughput::Bytes((n * 4) as u64));
         group.bench_with_input(BenchmarkId::from_parameter(n), &n, |bench, _| {
             bench.iter(|| {
-                simd_ops_f32::add_into_f32(
-                    black_box(&a),
-                    black_box(&b),
-                    black_box(&mut out),
-                );
+                simd_ops_f32::add_into_f32(black_box(&a), black_box(&b), black_box(&mut out));
             });
         });
     }

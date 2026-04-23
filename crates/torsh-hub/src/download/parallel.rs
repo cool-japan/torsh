@@ -634,9 +634,8 @@ fn extract_tarball(archive_path: &Path, dest_dir: &Path) -> Result<()> {
         let dest = base_dir.join(&entry.header.name);
         match entry.header.entry_type() {
             EntryType::Directory => {
-                fs::create_dir_all(&dest).map_err(|e| {
-                    TorshError::IoError(format!("Failed to create dir: {}", e))
-                })?;
+                fs::create_dir_all(&dest)
+                    .map_err(|e| TorshError::IoError(format!("Failed to create dir: {}", e)))?;
             }
             EntryType::File => {
                 if let Some(parent) = dest.parent() {
@@ -644,12 +643,10 @@ fn extract_tarball(archive_path: &Path, dest_dir: &Path) -> Result<()> {
                         TorshError::IoError(format!("Failed to create parent dir: {}", e))
                     })?;
                 }
-                let mut out = std::fs::File::create(&dest).map_err(|e| {
-                    TorshError::IoError(format!("Failed to create file: {}", e))
-                })?;
-                io::copy(&mut entry, &mut out).map_err(|e| {
-                    TorshError::IoError(format!("Failed to write file: {}", e))
-                })?;
+                let mut out = std::fs::File::create(&dest)
+                    .map_err(|e| TorshError::IoError(format!("Failed to create file: {}", e)))?;
+                io::copy(&mut entry, &mut out)
+                    .map_err(|e| TorshError::IoError(format!("Failed to write file: {}", e)))?;
             }
             _ => {}
         }

@@ -24,7 +24,7 @@ torsh-data = { workspace = true }
 
 # Vision processing
 image = { workspace = true }
-imageproc = "0.26"
+imageproc = "0.25"
 
 # Scientific computing - comprehensive SciRS2 vision integration
 scirs2-core = { workspace = true }

@@ -24,7 +24,7 @@ torsh-linalg = { workspace = true }
 
 # Text processing
 tokenizers = { version = "0.22", features = ["unstable_wasm"] }
-unicode-segmentation = "1.13"
+unicode-segmentation = "1.12"
 regex = "1.12"
 
 # Scientific computing - comprehensive NLP integration

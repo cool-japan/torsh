@@ -74,8 +74,8 @@ pub struct WebGpuDeviceCapabilities {
     pub max_uniform_buffers_per_shader_stage: u32,
 
     // Buffer limits
-    pub max_uniform_buffer_binding_size: u32,
-    pub max_storage_buffer_binding_size: u32,
+    pub max_uniform_buffer_binding_size: u64,
+    pub max_storage_buffer_binding_size: u64,
     pub min_uniform_buffer_offset_alignment: u32,
     pub min_storage_buffer_offset_alignment: u32,
     pub max_vertex_buffers: u32,
@@ -84,7 +84,7 @@ pub struct WebGpuDeviceCapabilities {
     pub max_vertex_buffer_array_stride: u32,
 
     // Render limits
-    pub max_inter_stage_shader_components: u32,
+    pub max_inter_stage_shader_variables: u32,
     pub max_color_attachments: u32,
     pub max_color_attachment_bytes_per_sample: u32,
 
@@ -442,7 +442,7 @@ impl WebGpuDevice {
             max_buffer_size: self.limits.max_buffer_size,
             max_vertex_attributes: self.limits.max_vertex_attributes,
             max_vertex_buffer_array_stride: self.limits.max_vertex_buffer_array_stride,
-            max_inter_stage_shader_components: self.limits.max_inter_stage_shader_components,
+            max_inter_stage_shader_variables: self.limits.max_inter_stage_shader_variables,
             max_color_attachments: self.limits.max_color_attachments,
             max_color_attachment_bytes_per_sample: self
                 .limits
@@ -534,8 +534,7 @@ impl WebGpuDevice {
         // Write test data
         {
             let mut buffer_slice = src_buffer.slice(..).get_mapped_range_mut();
-            let bytes = bytemuck::cast_slice_mut::<u8, f32>(&mut buffer_slice);
-            bytes.copy_from_slice(&data);
+            buffer_slice.copy_from_slice(bytemuck::cast_slice::<f32, u8>(&data));
         }
         src_buffer.unmap();
 
@@ -672,7 +671,7 @@ impl WebGpuDevice {
             .device
             .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Benchmark Pipeline Layout"),
-                bind_group_layouts: &[&bind_group_layout],
+                bind_group_layouts: &[Some(&bind_group_layout)],
                 immediate_size: 0,
             });
 
@@ -967,9 +966,9 @@ impl WebGpuDevice {
             wgpu::DeviceType::DiscreteGpu => 8 * 1024 * 1024 * 1024, // 8GB estimate
             wgpu::DeviceType::IntegratedGpu => 4 * 1024 * 1024 * 1024, // 4GB estimate
             wgpu::DeviceType::VirtualGpu => 2 * 1024 * 1024 * 1024,  // 2GB estimate
-            wgpu::DeviceType::Cpu => {
-                (limits.max_storage_buffer_binding_size as u64).min(1024 * 1024 * 1024)
-            }
+            wgpu::DeviceType::Cpu => limits
+                .max_storage_buffer_binding_size
+                .min(1024 * 1024 * 1024),
             wgpu::DeviceType::Other => 1024 * 1024 * 1024, // 1GB default
         }
     }
@@ -1014,7 +1013,7 @@ impl WebGpuDevice {
         if features.contains(wgpu::Features::SHADER_I16) {
             device_features.push(DeviceFeature::ShaderI16);
         }
-        if features.contains(wgpu::Features::SHADER_PRIMITIVE_INDEX) {
+        if features.contains(wgpu::Features::PRIMITIVE_INDEX) {
             device_features.push(DeviceFeature::ShaderPrimitiveIndex);
         }
         if features.contains(wgpu::Features::SHADER_EARLY_DEPTH_TEST) {

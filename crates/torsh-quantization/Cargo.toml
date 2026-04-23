@@ -35,7 +35,7 @@ experimental = []
 approx = { workspace = true }
 tempfile = { workspace = true }
 proptest = { workspace = true }  # Property-based testing framework
-quickcheck = "1.1"  # Alternative property-based testing
+quickcheck = "1.0"  # Alternative property-based testing
 
 # Examples demonstrating quantization techniques
 [[example]]

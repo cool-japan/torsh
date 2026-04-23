@@ -175,7 +175,7 @@ anyhow = "1.0"
 cust = "0.3"
 cuda-sys = "0.2"
 cudnn-sys = "0.0.3"
-wgpu = "28.0.0"
+wgpu = "29.0.1"
 metal = "0.33"
 bytemuck = "1.25"
 
@@ -214,8 +214,8 @@ hostname = "0.4"
 rustc-version = "0.4"
 which = "8.0"
 sysinfo = "0.38"
-oxiarc-archive = { path = "../oxiarc/oxiarc-archive", version = "0.2.6", default-features = false }
-oxiarc-core = { path = "../oxiarc/oxiarc-core", version = "0.2.6" }
+oxiarc-archive = { version = "0.2.7", default-features = false }
+oxiarc-core = { version = "0.2.7" }
 reqwest = { version = "0.13", features = ["json", "stream", "blocking"] }
 clap = { version = "4.6.1", features = ["derive"] }
 hdf5 = { version = "0.8" }
@@ -265,7 +265,7 @@ rand = "0.10.1"  # Used only for security module (ed25519-dalek requirement)
 half = "2.7"
 lazy_static = "1.5"
 md5 = "0.8"
-sha2 = "0.10"
+sha2 = "0.11"
 hex = "0.4"
 semver = "1.0"
 
@@ -279,15 +279,15 @@ ring = "0.17"
 ed25519-dalek = "2.2"
 
 # JIT compilation
-cranelift = "0.130"
-cranelift-module = "0.130"
-cranelift-codegen = "0.130"
-cranelift-frontend = "0.130"
+cranelift = "0.131"
+cranelift-module = "0.131"
+cranelift-codegen = "0.131"
+cranelift-frontend = "0.131"
 
 # FFT operations
 oxifft = "0.2.0"
-cranelift-native = "0.130"
-cranelift-object = "0.130"
+cranelift-native = "0.131"
+cranelift-object = "0.131"
 
 [profile.release]
 lto = true

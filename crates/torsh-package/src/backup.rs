@@ -41,6 +41,7 @@
 //! ```
 
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
+use hex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -573,7 +574,7 @@ impl BackupManager {
     fn calculate_checksum(&self, data: &[u8]) -> String {
         let mut hasher = Sha256::new();
         hasher.update(data);
-        format!("{:x}", hasher.finalize())
+        hex::encode(hasher.finalize().as_slice())
     }
 
     fn compress_data(&self, data: &[u8]) -> Result<Vec<u8>, TorshError> {

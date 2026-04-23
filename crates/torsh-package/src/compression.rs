@@ -377,9 +377,8 @@ impl AdvancedCompressor {
     fn compress_gzip(&self, data: &[u8], level: u32) -> Result<Vec<u8>> {
         use oxiarc_deflate::gzip::gzip_compress;
 
-        gzip_compress(data, level as u8).map_err(|e| {
-            TorshError::SerializationError(format!("Gzip compression failed: {}", e))
-        })
+        gzip_compress(data, level as u8)
+            .map_err(|e| TorshError::SerializationError(format!("Gzip compression failed: {}", e)))
     }
 
     /// Decompress Gzip

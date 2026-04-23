@@ -32,7 +32,7 @@ scirs2-datasets = { workspace = true }  # Direct access to dataset utilities
 
 # Image processing
 image = { workspace = true, optional = true }
-imageproc = { version = "0.26", optional = true }
+imageproc = { version = "0.25", optional = true }
 
 # Parallel processing
 rayon = { workspace = true }

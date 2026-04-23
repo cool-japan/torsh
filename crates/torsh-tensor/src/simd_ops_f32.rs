@@ -350,7 +350,15 @@ mod tests {
 
     #[test]
     fn test_relu_assign_edge_cases() {
-        let mut data = vec![-1.0f32, -0.0, 0.0, 0.5, f32::NAN, f32::INFINITY, f32::NEG_INFINITY];
+        let mut data = vec![
+            -1.0f32,
+            -0.0,
+            0.0,
+            0.5,
+            f32::NAN,
+            f32::INFINITY,
+            f32::NEG_INFINITY,
+        ];
         relu_assign_f32(&mut data);
         // -1.0 → 0.0
         assert_eq!(data[0], 0.0);
@@ -362,7 +370,11 @@ mod tests {
         // 0.5 unchanged
         assert_eq!(data[3], 0.5);
         // NaN must pass through (PyTorch contract)
-        assert!(data[4].is_nan(), "NaN should pass through relu, got {}", data[4]);
+        assert!(
+            data[4].is_nan(),
+            "NaN should pass through relu, got {}",
+            data[4]
+        );
         // +INF unchanged
         assert_eq!(data[5], f32::INFINITY);
         // -INF → 0.0
@@ -373,7 +385,10 @@ mod tests {
     fn test_relu_assign_large() {
         for &n in TEST_SIZES {
             let mut data: Vec<f32> = (0..n).map(|i| (i as f32) - (n as f32 / 2.0)).collect();
-            let expected: Vec<f32> = data.iter().map(|&x| if x >= 0.0 { x } else { 0.0 }).collect();
+            let expected: Vec<f32> = data
+                .iter()
+                .map(|&x| if x >= 0.0 { x } else { 0.0 })
+                .collect();
             relu_assign_f32(&mut data);
             for (got, exp) in data.iter().zip(expected.iter()) {
                 assert_relative_eq!(got, exp, epsilon = 1e-7);
@@ -399,7 +414,11 @@ mod tests {
     fn test_clamp_nan_passthrough() {
         let mut data = vec![f32::NAN, -2.0, 0.5, 2.0];
         clamp_assign_f32(&mut data, -1.0, 1.0);
-        assert!(data[0].is_nan(), "NaN should pass through clamp, got {}", data[0]);
+        assert!(
+            data[0].is_nan(),
+            "NaN should pass through clamp, got {}",
+            data[0]
+        );
         assert_eq!(data[1], -1.0, "clamped to min");
         assert_eq!(data[2], 0.5, "unchanged");
         assert_eq!(data[3], 1.0, "clamped to max");

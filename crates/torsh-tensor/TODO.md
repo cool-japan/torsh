@@ -1,7 +1,7 @@
 # torsh-tensor TODO
 
 ## Version Information
-- **Version**: v0.1.1
+- **Version**: v0.1.2
 - **Last Updated**: 2026-03-17
 - **Major Changes**: Added shape inference debugging system with detailed traces, comprehensive tensor value tracking, updated TODO with accurate completion status
 

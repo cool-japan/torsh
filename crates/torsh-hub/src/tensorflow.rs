@@ -468,9 +468,8 @@ impl TfLoader {
             let dest = dest_path.join(&entry.header.name);
             match entry.header.entry_type() {
                 EntryType::Directory => {
-                    std::fs::create_dir_all(&dest).map_err(|e| {
-                        TorshError::IoError(format!("Failed to create dir: {}", e))
-                    })?;
+                    std::fs::create_dir_all(&dest)
+                        .map_err(|e| TorshError::IoError(format!("Failed to create dir: {}", e)))?;
                 }
                 EntryType::File => {
                     if let Some(parent) = dest.parent() {
@@ -481,9 +480,8 @@ impl TfLoader {
                     let mut out = File::create(&dest).map_err(|e| {
                         TorshError::IoError(format!("Failed to create file: {}", e))
                     })?;
-                    io::copy(&mut entry, &mut out).map_err(|e| {
-                        TorshError::IoError(format!("Failed to write file: {}", e))
-                    })?;
+                    io::copy(&mut entry, &mut out)
+                        .map_err(|e| TorshError::IoError(format!("Failed to write file: {}", e)))?;
                 }
                 _ => {}
             }

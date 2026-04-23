@@ -686,7 +686,12 @@ impl PretrainedWeights {
             }
 
             // Get the hash result as hex string
-            let actual_checksum = format!("{:x}", hasher.finalize());
+            let hash_bytes = hasher.finalize();
+            let actual_checksum = hash_bytes.iter().fold(String::new(), |mut s, b| {
+                use std::fmt::Write;
+                let _ = write!(s, "{:02x}", b);
+                s
+            });
 
             // Compare checksums (case-insensitive)
             if actual_checksum.to_lowercase() != expected_checksum.to_lowercase() {

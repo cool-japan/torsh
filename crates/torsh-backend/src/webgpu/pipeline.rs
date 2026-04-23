@@ -91,7 +91,7 @@ impl ComputePipeline {
                 .device()
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some(&format!("{} Pipeline Layout", descriptor.label)),
-                    bind_group_layouts: &bind_group_layouts.iter().collect::<Vec<_>>(),
+                    bind_group_layouts: &bind_group_layouts.iter().map(Some).collect::<Vec<_>>(),
                     immediate_size: 0,
                 });
 

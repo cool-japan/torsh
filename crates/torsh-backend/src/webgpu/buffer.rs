@@ -93,7 +93,11 @@ impl WebGpuBuffer {
             )));
         }
 
-        buffer.slice(..).get_mapped_range_mut()[..data_bytes.len()].copy_from_slice(data_bytes);
+        buffer
+            .slice(..)
+            .get_mapped_range_mut()
+            .slice(..data_bytes.len())
+            .copy_from_slice(data_bytes);
         buffer.unmap();
         let size = descriptor.size as u64;
 
