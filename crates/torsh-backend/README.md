@@ -239,6 +239,12 @@ torsh-backend-cuda = "0.1.2"
 torsh-backends = { version = "0.1.2", features = ["cuda"] }
 ```
 
+## Dependencies
+
+Key dependency versions used by this crate:
+
+- `wgpu 29.x` — WebGPU compute backend (cross-platform GPU support)
+
 ## License
 
 Licensed under the Apache License, Version 2.0. See [LICENSE](../../LICENSE) for details.

@@ -21,6 +21,7 @@ This crate provides the core `Tensor` type with a familiar PyTorch-like API, wra
 - **In-place activation SIMD** (v0.1.2): `relu_`/`leaky_relu_`/`clamp_` route to SIMD helpers for maximum throughput
 - **True buffer pool reuse** (v0.1.2): `GlobalMemoryPool::acquire_uninit::<T>()` returns `ReusedBuffer<T>` with zero copy on pool hit
 - **`simd` and `parallel` features enabled by default** — no `--features` flag required
+- **Allocation tracking benchmark** (v0.1.2): `benches/alloc_tracking.rs` (harness=false, dhat) proves `GlobalMemoryPool` achieves 100% alloc reduction — 10,000 blocks in naive path vs 0 in pooled path
 
 ## Usage
 

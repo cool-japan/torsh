@@ -214,6 +214,10 @@ let model = hub::load_secure(
 )?;
 ```
 
+## Implementation Notes
+
+- **Streaming archive extraction**: `.tar.gz` model archives are extracted using `TarStreamReader<GzipStreamDecoder<File>>` (v0.1.2), requiring only O(512 B) memory per entry instead of O(archive size). No temporary buffering of the full archive.
+
 ## Environment Variables
 
 - `TORSH_HUB_DIR`: Override default cache directory

@@ -1,6 +1,6 @@
 # ToRSh Development Roadmap
 
-**Status**: v0.1.2 (Released - April 20, 2026)
+**Status**: v0.1.2 (Released - April 24, 2026)
 
 ---
 
