@@ -47,11 +47,13 @@
 //! ```rust,no_run
 //! use torsh_distributed::three_d_parallelism::*;
 //! use torsh_distributed::{init_process_group, BackendType};
+//! use torsh_tensor::creation::tensor_1d;
+//! use tracing::info;
 //! use std::sync::Arc;
 //!
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! // Initialize distributed environment
-//! let pg = init_process_group(BackendType::Gloo, 0, 8, "127.0.0.1", 29500)?;
+//! let pg = init_process_group(BackendType::Gloo, 0, 8, "127.0.0.1", 29500).await?;
 //!
 //! // Configure 3D parallelism (2x2x2 = 8 devices)
 //! let config = ThreeDParallelismConfig {
@@ -70,12 +72,13 @@
 //! let mut coordinator = ThreeDParallelismCoordinator::new(config, Arc::new(pg))?;
 //!
 //! // Run training step
-//! let input = torsh_tensor::tensor_1d(&[0.1, 0.2, 0.3, 0.4])?;
+//! let input = tensor_1d(&[0.1f32, 0.2, 0.3, 0.4])?;
 //! let output = coordinator.forward_pass(&input, 0).await?;
 //! coordinator.backward_pass(&output, 0).await?;
 //!
 //! // Get performance report
-//! info!("{}", coordinator.get_performance_monitor().generate_report());
+//! let perf = coordinator.get_performance_stats();
+//! info!("tokens/s: {:.1}", perf.tokens_per_second);
 //! # Ok(())
 //! # }
 //! ```

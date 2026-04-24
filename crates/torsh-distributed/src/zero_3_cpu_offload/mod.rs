@@ -30,6 +30,8 @@
 //!
 //! ```rust,no_run
 //! use torsh_distributed::zero_3_cpu_offload::{Zero3CpuOffloadManager, Zero3CpuOffloadConfig};
+//! use torsh_distributed::ModelParameters;
+//! use tracing::info;
 //! use std::sync::Arc;
 //!
 //! # async fn example() -> torsh_distributed::TorshResult<()> {
@@ -51,7 +53,7 @@
 //! // Create ZeRO-3 manager
 //! # let process_group = torsh_distributed::init_process_group(
 //! #     torsh_distributed::BackendType::Gloo, 0, 4, "127.0.0.1", 29500
-//! # )?;
+//! # ).await?;
 //! let mut manager = Zero3CpuOffloadManager::new(
 //!     config,
 //!     Arc::new(process_group),
@@ -59,10 +61,10 @@
 //! )?;
 //!
 //! // Execute training steps with automatic memory management
-//! # let input = torsh_tensor::Tensor::zeros(&[32, 512])?;
+//! # let input = torsh_tensor::Tensor::zeros(&[32, 512], torsh_tensor::prelude::DeviceType::Cpu)?;
 //! # let layer_names = vec!["layer1".to_string()];
 //! let output = manager.forward_pass(&input, &layer_names).await?;
-//! # let grad_output = torsh_tensor::Tensor::zeros(&[32, 1024])?;
+//! # let grad_output = torsh_tensor::Tensor::zeros(&[32, 1024], torsh_tensor::prelude::DeviceType::Cpu)?;
 //! manager.backward_pass(&grad_output, &layer_names).await?;
 //! manager.optimizer_step(0.001).await?;
 //!

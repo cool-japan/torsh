@@ -28,10 +28,10 @@
 //! use torsh_tensor::Tensor;
 //!
 //! async fn example() -> Result<(), Box<dyn std::error::Error>> {
-//!     let pg = init_process_group(BackendType::Nccl, 0, 4, "127.0.0.1", 29500)?;
-//!     
+//!     let pg = init_process_group(BackendType::Nccl, 0, 4, "127.0.0.1", 29500).await?;
+//!
 //!     // Single operation
-//!     let mut tensor: Tensor<f32> = Tensor::from_vec(vec![1.0; 1000], &[1000]);
+//!     let mut tensor: Tensor<f32> = Tensor::from_vec(vec![1.0; 1000], &[1000])?;
 //!     nccl_all_reduce(&mut tensor, ReduceOp::Sum, &pg).await?;
 //!     
 //!     // Batch operations
