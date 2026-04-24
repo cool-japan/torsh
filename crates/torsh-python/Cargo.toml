@@ -24,7 +24,7 @@ test = false
 
 [dependencies]
 # PyO3 for Python bindings
-pyo3 = { workspace = true, features = ["extension-module", "abi3-py38"] }
+pyo3 = { workspace = true, features = ["abi3-py38"] }
 numpy = { workspace = true }
 
 # ToRSh crates
@@ -49,6 +49,9 @@ parking_lot = { workspace = true }
 [features]
 default = []
 extension-module = ["pyo3/extension-module"]
+
+[build-dependencies]
+pyo3-build-config = { version = "0.28", features = ["resolve-config"] }
 
 [package.metadata.maturin]
 python-source = "python"

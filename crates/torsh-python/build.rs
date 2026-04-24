@@ -1,28 +1,20 @@
-// Build script to ensure macOS dynamic lookup for Python symbols when
-// building the PyO3 extension module inside a larger Cargo workspace.
-// In theory, enabling the `extension-module` feature on PyO3 should add
-// these flags automatically. However, in some workspace configurations
-// (or with certain Cargo invocations like `cargo build -p torsh-python`),
-// the linker flags may be missing, leading to undefined _Py* symbols.
+// Build script for torsh-python (Python extension module).
 //
-// This script defensively re-adds the required flags on macOS so that
-// unresolved Python symbols are resolved at runtime via the Python process
-// loading the module.
-//
-// If PyO3 already injected these flags, re-specifying them is harmless.
-
+// Uses pyo3-build-config to emit the correct Python library link arguments
+// for both .so extension modules (loaded by Python) and test binaries.
+// This replaces the previous macOS-only dynamic_lookup approach, which
+// broke on Linux.
 fn main() {
-    #[cfg(target_os = "macos")]
-    {
-        // Allow undefined Python C-API symbols which will be resolved
-        // when the dynamic library is loaded into the Python interpreter.
-        println!("cargo:rustc-link-arg=-undefined");
-        println!("cargo:rustc-link-arg=dynamic_lookup");
+    println!("cargo:rerun-if-changed=src/lib.rs");
+    println!("cargo:rerun-if-env-changed=PYTHON_SYS_EXECUTABLE");
+    println!("cargo:rerun-if-env-changed=PYO3_PYTHON");
 
-        // Optionally set a minimum macOS deployment target if not provided.
-        if std::env::var_os("MACOSX_DEPLOYMENT_TARGET").is_none() {
-            // Match the minimum specified in the linker invocation seen earlier (11.0.0)
-            println!("cargo:rustc-env=MACOSX_DEPLOYMENT_TARGET=11.0");
-        }
+    pyo3_build_config::use_pyo3_cfgs();
+    let config = pyo3_build_config::get();
+    if let Some(lib_dir) = &config.lib_dir {
+        println!("cargo:rustc-link-search=native={lib_dir}");
+    }
+    if let Some(lib_name) = &config.lib_name {
+        println!("cargo:rustc-link-lib={lib_name}");
     }
 }
