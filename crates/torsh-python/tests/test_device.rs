@@ -11,11 +11,19 @@
 use pyo3::prelude::*;
 use std::ffi::CString;
 
+/// Initialise the Python interpreter for standalone test binaries.
+/// `prepare_freethreaded_python` is idempotent so calling it multiple times
+/// from different tests is safe.
+fn init_py() {
+    pyo3::prepare_freethreaded_python();
+}
+
 /// Helper to run Python code and return the result
 fn run_python_code<F, T>(code: &str, extract_fn: F) -> PyResult<T>
 where
     F: FnOnce(&Bound<'_, PyAny>) -> PyResult<T>,
 {
+    init_py();
     Python::attach(|py| {
         let code_str = format!(
             "import sys\nsys.path.insert(0, '{}')\nimport rstorch_python as rstorch\n\n{}",
@@ -141,6 +149,7 @@ result = device.type
 
 #[test]
 fn test_device_index_property_cpu() {
+    init_py();
     Python::attach(|py| {
         let code = format!(
             r#"
@@ -253,6 +262,7 @@ result = device1 == device2
 
 #[test]
 fn test_device_hash_consistency() {
+    init_py();
     Python::attach(|py| {
         let code = format!(
             r#"
@@ -295,6 +305,7 @@ result = device2 in device_set
 
 #[test]
 fn test_device_invalid_string() {
+    init_py();
     Python::attach(|py| {
         let code = format!(
             r#"
@@ -323,6 +334,7 @@ except ValueError:
 
 #[test]
 fn test_device_invalid_cuda_id() {
+    init_py();
     Python::attach(|py| {
         let code = format!(
             r#"
@@ -351,6 +363,7 @@ except ValueError:
 
 #[test]
 fn test_device_negative_integer() {
+    init_py();
     Python::attach(|py| {
         let code = format!(
             r#"
@@ -379,6 +392,7 @@ except ValueError:
 
 #[test]
 fn test_device_invalid_type() {
+    init_py();
     Python::attach(|py| {
         let code = format!(
             r#"

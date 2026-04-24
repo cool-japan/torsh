@@ -28,7 +28,7 @@ doc = false  # Exclude from rustdoc to avoid collision with main torsh crate
 # Python extension module - following QuantRS2-py architecture
 # This crate is dedicated to Python bindings only (no Pure Rust mode)
 default = ["nn", "optim", "data"]
-extension-module = ["pyo3/extension-module"]
+extension-module = ["pyo3/extension-module", "pyo3/abi3-py38"]
 nn = ["torsh-nn"]
 optim = ["torsh-optim"]
 data = ["torsh-data"]
@@ -55,7 +55,7 @@ anyhow.workspace = true
 
 # Python bindings - REQUIRED (this is a Python extension module)
 # Following QuantRS2-py approach: extension-module + abi3 for compatibility
-pyo3 = { workspace = true, features = ["abi3-py38"] }
+pyo3 = { workspace = true }
 numpy = { workspace = true }  # NumPy integration for tensor interop
 scirs2-numpy = { workspace = true, default-features = false }  # SciRS2-compatible numpy bindings (no auto-initialize)
 

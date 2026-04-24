@@ -8,11 +8,19 @@
 use pyo3::prelude::*;
 use std::ffi::CString;
 
+/// Initialise the Python interpreter for standalone test binaries.
+/// `prepare_freethreaded_python` is idempotent so calling it multiple times
+/// from different tests is safe.
+fn init_py() {
+    pyo3::prepare_freethreaded_python();
+}
+
 /// Helper to run Python code and return the result
 fn run_python_code<F, T>(code: &str, extract_fn: F) -> PyResult<T>
 where
     F: FnOnce(&Bound<'_, PyAny>) -> PyResult<T>,
 {
+    init_py();
     Python::attach(|py| {
         let code_str = format!(
             "import sys\nsys.path.insert(0, '{}')\nimport rstorch_python as rstorch\n\n{}",
@@ -60,6 +68,7 @@ result = repr(error)
 
 #[test]
 fn test_torsh_error_type_registered() {
+    init_py();
     Python::attach(|py| {
         let code = format!(
             r#"
@@ -84,6 +93,7 @@ result = hasattr(rstorch, 'TorshError')
 
 #[test]
 fn test_torsh_error_is_type() {
+    init_py();
     Python::attach(|py| {
         let code = format!(
             r#"
