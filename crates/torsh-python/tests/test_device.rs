@@ -12,10 +12,9 @@ use pyo3::prelude::*;
 use std::ffi::CString;
 
 /// Initialise the Python interpreter for standalone test binaries.
-/// `prepare_freethreaded_python` is idempotent so calling it multiple times
-/// from different tests is safe.
+/// `Python::initialize()` is idempotent — safe to call from multiple tests.
 fn init_py() {
-    pyo3::prepare_freethreaded_python();
+    Python::initialize();
 }
 
 /// Helper to run Python code and return the result
