@@ -66,6 +66,7 @@ proptest = { workspace = true }
 criterion = { workspace = true }
 tempfile = { workspace = true }
 serde_json = { workspace = true }
+dhat = "0.3.3"
 
 [features]
 default = ["std", "simd", "parallel"]
@@ -106,4 +107,8 @@ required-features = ["simd"]
 
 [[bench]]
 name = "regression_baselines"
+harness = false
+
+[[bench]]
+name = "alloc_tracking"
 harness = false

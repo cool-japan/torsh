@@ -898,7 +898,7 @@ For production use, rely on the standard feature set which has been thoroughly t
   - **Files:** crates/torsh-tensor/src/simd_ops_f32.rs, crates/torsh-tensor/src/math_ops.rs
   - **Tests:** -0.0 and subnormals; clamp min>max matches PyTorch; bitwise equality with scalar; bench ≥4x
 
-- [~] dhat_alloc_tracking_bench: dhat-based allocation tracking benchmark (planned 2026-04-19)
+- [x] dhat_alloc_tracking_bench: dhat-based allocation tracking benchmark (planned 2026-04-19)
   - **Goal:** Proves pool fix reduces total_blocks ≥50% on hot loop (add + add_ + relu_ × 10000 iter).
   - **Design:** alloc_tracking.rs with global_allocator=dhat::Alloc; dhat::HeapStats::get() before/after; harness=false.
   - **Files:** new crates/torsh-tensor/benches/alloc_tracking.rs, crates/torsh-tensor/Cargo.toml
