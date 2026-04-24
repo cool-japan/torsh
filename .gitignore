@@ -23,6 +23,9 @@ Cargo.lock
 *~
 .DS_Store
 
+# dhat profiler runtime artifacts
+dhat-heap.json
+
 # Python artifacts (for potential Python bindings)
 __pycache__/
 *.py[cod]
