@@ -512,8 +512,13 @@ mod tests {
     use scirs2_core::Complex;
     use torsh_core::shape::Shape;
 
-    // Helper to build an OwnedTensor<Complex<f64>> for tests.
-    fn make_complex_tensor(data: Vec<Complex<f64>>, requires_grad: bool) -> OwnedTensor<Complex<f64>> {
+    // All OwnedTensor-based tests use f32 because the public API functions carry a
+    // `f32: From<T>` bound (inherited from the original stubs). f64 does not satisfy
+    // this bound (f32 cannot losslessly represent f64), so f32 is the correct choice
+    // for these tests.
+
+    /// Build an OwnedTensor<Complex<f32>> for tests.
+    fn make_complex_tensor(data: Vec<Complex<f32>>, requires_grad: bool) -> OwnedTensor<Complex<f32>> {
         let n = data.len();
         OwnedTensor {
             data,
@@ -522,8 +527,8 @@ mod tests {
         }
     }
 
-    // Helper to build an OwnedTensor<f64> for tests.
-    fn make_real_tensor(data: Vec<f64>, requires_grad: bool) -> OwnedTensor<f64> {
+    /// Build an OwnedTensor<f32> for tests.
+    fn make_real_tensor(data: Vec<f32>, requires_grad: bool) -> OwnedTensor<f32> {
         let n = data.len();
         OwnedTensor {
             data,
@@ -534,6 +539,7 @@ mod tests {
 
     #[test]
     fn test_wirtinger_derivatives() {
+        // Pure arithmetic test — no tensor types involved.
         let re_parts = vec![1.0f64, 2.0, 3.0];
         let im_parts = vec![0.5f64, 1.5, 2.5];
 
@@ -562,6 +568,7 @@ mod tests {
 
     #[test]
     fn test_holomorphic_vs_non_holomorphic() {
+        // Pure arithmetic test — no tensor types involved.
         let z = Complex64::new(1.0, 1.0);
         let grad = Complex64::new(2.0, 0.0);
 
@@ -576,37 +583,37 @@ mod tests {
 
     #[test]
     fn test_real_to_complex_with_imag() {
-        let real_t = make_real_tensor(vec![1.0, 2.0, 3.0], true);
-        let imag_t = make_real_tensor(vec![4.0, 5.0, 6.0], false);
+        let real_t = make_real_tensor(vec![1.0_f32, 2.0, 3.0], true);
+        let imag_t = make_real_tensor(vec![4.0_f32, 5.0, 6.0], false);
 
         let result = real_to_complex(&real_t, Some(&imag_t))
             .expect("real_to_complex should succeed");
 
         let out = result.to_vec();
         assert_eq!(out.len(), 3);
-        assert_eq!(out[0], Complex::<f64>::new(1.0, 4.0));
-        assert_eq!(out[1], Complex::<f64>::new(2.0, 5.0));
-        assert_eq!(out[2], Complex::<f64>::new(3.0, 6.0));
+        assert_eq!(out[0], Complex::<f32>::new(1.0, 4.0));
+        assert_eq!(out[1], Complex::<f32>::new(2.0, 5.0));
+        assert_eq!(out[2], Complex::<f32>::new(3.0, 6.0));
         assert!(result.requires_grad());
     }
 
     #[test]
     fn test_real_to_complex_no_imag() {
-        let real_t = make_real_tensor(vec![7.0, 8.0], false);
+        let real_t = make_real_tensor(vec![7.0_f32, 8.0], false);
 
         let result = real_to_complex(&real_t, None)
             .expect("real_to_complex (no imag) should succeed");
 
         let out = result.to_vec();
-        assert_eq!(out[0], Complex::<f64>::new(7.0, 0.0));
-        assert_eq!(out[1], Complex::<f64>::new(8.0, 0.0));
+        assert_eq!(out[0], Complex::<f32>::new(7.0, 0.0));
+        assert_eq!(out[1], Complex::<f32>::new(8.0, 0.0));
         assert!(!result.requires_grad());
     }
 
     #[test]
     fn test_real_to_complex_length_mismatch() {
-        let real_t = make_real_tensor(vec![1.0, 2.0], false);
-        let imag_t = make_real_tensor(vec![3.0], false);
+        let real_t = make_real_tensor(vec![1.0_f32, 2.0], false);
+        let imag_t = make_real_tensor(vec![3.0_f32], false);
 
         let result = real_to_complex(&real_t, Some(&imag_t));
         assert!(result.is_err());
@@ -616,15 +623,16 @@ mod tests {
     fn test_complex_to_real() {
         let t = make_complex_tensor(
             vec![
-                Complex::<f64>::new(1.5, 9.9),
-                Complex::<f64>::new(2.5, -3.0),
+                Complex::<f32>::new(1.5, 9.9),
+                Complex::<f32>::new(2.5, -3.0),
             ],
             true,
         );
 
         let result = complex_to_real(&t).expect("complex_to_real should succeed");
         let out = result.to_vec();
-        assert_eq!(out, vec![1.5, 2.5]);
+        assert!((out[0] - 1.5_f32).abs() < 1e-6);
+        assert!((out[1] - 2.5_f32).abs() < 1e-6);
         assert!(result.requires_grad());
     }
 
@@ -632,15 +640,16 @@ mod tests {
     fn test_complex_to_imag() {
         let t = make_complex_tensor(
             vec![
-                Complex::<f64>::new(1.5, 9.9),
-                Complex::<f64>::new(2.5, -3.0),
+                Complex::<f32>::new(1.5, 9.9),
+                Complex::<f32>::new(2.5, -3.0),
             ],
             false,
         );
 
         let result = complex_to_imag(&t).expect("complex_to_imag should succeed");
         let out = result.to_vec();
-        assert_eq!(out, vec![9.9, -3.0]);
+        assert!((out[0] - 9.9_f32).abs() < 1e-5);
+        assert!((out[1] - (-3.0_f32)).abs() < 1e-6);
         assert!(!result.requires_grad());
     }
 
@@ -648,16 +657,16 @@ mod tests {
     fn test_complex_conj() {
         let t = make_complex_tensor(
             vec![
-                Complex::<f64>::new(3.0, 4.0),
-                Complex::<f64>::new(-1.0, 2.0),
+                Complex::<f32>::new(3.0, 4.0),
+                Complex::<f32>::new(-1.0, 2.0),
             ],
             true,
         );
 
         let result = complex_conj(&t).expect("complex_conj should succeed");
         let out = result.to_vec();
-        assert_eq!(out[0], Complex::<f64>::new(3.0, -4.0));
-        assert_eq!(out[1], Complex::<f64>::new(-1.0, -2.0));
+        assert_eq!(out[0], Complex::<f32>::new(3.0, -4.0));
+        assert_eq!(out[1], Complex::<f32>::new(-1.0, -2.0));
         assert!(result.requires_grad());
     }
 
@@ -665,51 +674,52 @@ mod tests {
     fn test_complex_abs() {
         // 3 + 4i → |z| = 5
         let t = make_complex_tensor(
-            vec![Complex::<f64>::new(3.0, 4.0), Complex::<f64>::new(0.0, 0.0)],
+            vec![Complex::<f32>::new(3.0, 4.0), Complex::<f32>::new(0.0, 0.0)],
             true,
         );
 
         let result = complex_abs(&t).expect("complex_abs should succeed");
         let out = result.to_vec();
-        assert!((out[0] - 5.0f64).abs() < 1e-12);
-        assert!((out[1] - 0.0f64).abs() < 1e-12);
+        assert!((out[0] - 5.0_f32).abs() < 1e-5);
+        assert!((out[1] - 0.0_f32).abs() < 1e-5);
         assert!(result.requires_grad());
     }
 
     #[test]
     fn test_complex_arg() {
-        // i = 0 + 1i → arg = π/2
+        // i = 0 + 1i → arg = π/2; 1 + 0i → arg = 0
         let t = make_complex_tensor(
-            vec![Complex::<f64>::new(0.0, 1.0), Complex::<f64>::new(1.0, 0.0)],
+            vec![Complex::<f32>::new(0.0, 1.0), Complex::<f32>::new(1.0, 0.0)],
             false,
         );
 
         let result = complex_arg(&t).expect("complex_arg should succeed");
         let out = result.to_vec();
-        assert!((out[0] - std::f64::consts::FRAC_PI_2).abs() < 1e-12);
-        assert!((out[1] - 0.0f64).abs() < 1e-12);
+        assert!((out[0] - std::f32::consts::FRAC_PI_2).abs() < 1e-6);
+        assert!((out[1] - 0.0_f32).abs() < 1e-6);
     }
 
     #[test]
     fn test_holomorphic_backward_z_squared() {
         // f(z) = z^2, df/dz = 2z
-        // grad_output = 1 + 0i, input z = 1 + 1i
-        // expected: (1+0i) * 2*(1+1i) = 2 + 2i
-        let input_t = make_complex_tensor(vec![Complex::<f64>::new(1.0, 1.0)], true);
-        let grad_t = make_complex_tensor(vec![Complex::<f64>::new(1.0, 0.0)], false);
+        // grad_output = 1+0i, input z = 1+1i
+        // result: (1+0i) * 2*(1+1i) = 2+2i
+        let input_t = make_complex_tensor(vec![Complex::<f32>::new(1.0, 1.0)], true);
+        let grad_t = make_complex_tensor(vec![Complex::<f32>::new(1.0, 0.0)], false);
 
-        let result = holomorphic_backward(&input_t, &grad_t, &|z| 2.0 * *z)
+        let result = holomorphic_backward(&input_t, &grad_t, &|z| 2.0_f32 * *z)
             .expect("holomorphic_backward should succeed");
 
         let out = result.to_vec();
-        assert_eq!(out[0], Complex::<f64>::new(2.0, 2.0));
+        assert!((out[0].re - 2.0_f32).abs() < 1e-6);
+        assert!((out[0].im - 2.0_f32).abs() < 1e-6);
     }
 
     #[test]
     fn test_holomorphic_backward_length_mismatch() {
-        let input_t = make_complex_tensor(vec![Complex::<f64>::new(1.0, 0.0)], true);
+        let input_t = make_complex_tensor(vec![Complex::<f32>::new(1.0, 0.0)], true);
         let grad_t = make_complex_tensor(
-            vec![Complex::<f64>::new(1.0, 0.0), Complex::<f64>::new(0.0, 1.0)],
+            vec![Complex::<f32>::new(1.0, 0.0), Complex::<f32>::new(0.0, 1.0)],
             false,
         );
 
@@ -721,9 +731,9 @@ mod tests {
     fn test_non_holomorphic_backward_abs_squared() {
         // f(z) = |z|^2, df/dz = z*, df/dz* = z
         // grad_output = 1+0i, input z = 1+1i
-        // expected: (1+0i)*(1-1i) + (1-0i)*(1+1i) = (1-1i) + (1+1i) = 2+0i
-        let input_t = make_complex_tensor(vec![Complex::<f64>::new(1.0, 1.0)], true);
-        let grad_t = make_complex_tensor(vec![Complex::<f64>::new(1.0, 0.0)], false);
+        // result: (1+0i)*(1-1i) + (1-0i)*(1+1i) = (1-1i) + (1+1i) = 2+0i
+        let input_t = make_complex_tensor(vec![Complex::<f32>::new(1.0, 1.0)], true);
+        let grad_t = make_complex_tensor(vec![Complex::<f32>::new(1.0, 0.0)], false);
 
         let result = non_holomorphic_backward(
             &input_t,
@@ -734,15 +744,15 @@ mod tests {
         .expect("non_holomorphic_backward should succeed");
 
         let out = result.to_vec();
-        assert!((out[0].re - 2.0).abs() < 1e-12);
-        assert!(out[0].im.abs() < 1e-12);
+        assert!((out[0].re - 2.0_f32).abs() < 1e-6);
+        assert!(out[0].im.abs() < 1e-6);
     }
 
     #[test]
     fn test_non_holomorphic_backward_length_mismatch() {
-        let input_t = make_complex_tensor(vec![Complex::<f64>::new(1.0, 0.0)], true);
+        let input_t = make_complex_tensor(vec![Complex::<f32>::new(1.0, 0.0)], true);
         let grad_t = make_complex_tensor(
-            vec![Complex::<f64>::new(1.0, 0.0), Complex::<f64>::new(0.0, 1.0)],
+            vec![Complex::<f32>::new(1.0, 0.0), Complex::<f32>::new(0.0, 1.0)],
             false,
         );
 

@@ -63,11 +63,7 @@ use torsh_tensor::{creation::*, Tensor};
 ///
 /// - ESPCN Paper: "Real-Time Single Image and Video Super-Resolution Using an Efficient
 ///   Sub-Pixel Convolutional Neural Network" (Shi et al., 2016)
-<<<<<<< Updated upstream
 /// - PyTorch Documentation: <https://pytorch.org/docs/stable/generated/torch.nn.PixelShuffle.html>
-=======
-/// - PyTorch Documentation: https://pytorch.org/docs/stable/generated/torch.nn.PixelShuffle.html
->>>>>>> Stashed changes
 pub struct PixelShuffle {
     base: ModuleBase,
     upscale_factor: usize,
@@ -249,11 +245,7 @@ impl Module for PixelShuffle {
 ///
 /// # References
 ///
-<<<<<<< Updated upstream
 /// - PyTorch Documentation: <https://pytorch.org/docs/stable/generated/torch.nn.PixelUnshuffle.html>
-=======
-/// - PyTorch Documentation: https://pytorch.org/docs/stable/generated/torch.nn.PixelUnshuffle.html
->>>>>>> Stashed changes
 pub struct PixelUnshuffle {
     base: ModuleBase,
     downscale_factor: usize,
