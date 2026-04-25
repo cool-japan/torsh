@@ -18,8 +18,9 @@ workspace = true
 
 [lib]
 name = "rstorch_python"
-crate-type = ["cdylib"]
-# Disable Rust test harness for cdylib - use pytest instead
+# cdylib: Python extension module (.so loaded by Python)
+# rlib: Rust library linked by integration tests (propagates build script link flags)
+crate-type = ["cdylib", "rlib"]
 test = false
 
 [dependencies]

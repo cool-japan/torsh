@@ -1,9 +1,9 @@
 # Nextest configuration for ToRSh
 
 [profile.default]
-# Skip PyO3-based crate tests due to symbol resolution issues with test executables
-# Note: Libraries build and function correctly - this only affects test binaries
-# See CHANGELOG.md "Known Limitations" section for details
+# Skip PyO3-based integration tests at runtime: they require the Python extension
+# module (.so) to be built via maturin and placed in the import path before the
+# tests can `import rstorch_python as rstorch`. Build-only (`--no-run`) works fine.
 default-filter = 'not (package(torsh-python) | package(torsh-ffi))'
 
 [profile.ci]
