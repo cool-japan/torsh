@@ -285,7 +285,7 @@ cranelift-codegen = "0.131"
 cranelift-frontend = "0.131"
 
 # FFT operations
-oxifft = "0.2.0"
+oxifft = "0.3"
 cranelift-native = "0.131"
 cranelift-object = "0.131"
 

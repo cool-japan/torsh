@@ -30,7 +30,7 @@ sha2 = { workspace = true }
 hex = { workspace = true }
 chrono = { workspace = true }
 tempfile = { workspace = true }
-toml = "1.0.7"
+toml = "1.1.2"
 oxiarc-deflate = { workspace = true }
 oxiarc-archive = { workspace = true }
 oxiarc-core = { workspace = true }

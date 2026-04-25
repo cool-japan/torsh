@@ -770,7 +770,7 @@ impl VECM {
     /// Impulse response functions
     ///
     /// Computes MA(∞) coefficient matrices Φ_h for h = 0..n_periods where
-    /// Φ_h[i,j] is the response of variable i at horizon h to a unit shock in
+    /// `Φ_h[i,j]` is the response of variable i at horizon h to a unit shock in
     /// variable j at h=0. Uses the VECM companion-form recursion.
     ///
     /// Returns one k×k Array2 per horizon (n_periods+1 matrices total).

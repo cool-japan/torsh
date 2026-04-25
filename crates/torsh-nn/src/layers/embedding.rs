@@ -926,10 +926,10 @@ impl SinusoidalPositionEmbedding {
     /// Get embeddings for specific positions
     ///
     /// # Arguments
-    /// - `positions`: Tensor of position indices [seq_len] or [batch, seq_len]
+    /// - `positions`: Tensor of position indices `[seq_len]` or `[batch, seq_len]`
     ///
     /// # Returns
-    /// Position embeddings with shape [seq_len, d_model] or [batch, seq_len, d_model]
+    /// Position embeddings with shape `[seq_len, d_model]` or `[batch, seq_len, d_model]`
     pub fn get_embeddings(&self, positions: &Tensor) -> Result<Tensor> {
         let embeddings = self.base.parameters["embeddings"].tensor().read().clone();
         let positions_data = positions.to_vec()?;
@@ -1011,7 +1011,7 @@ impl SinusoidalPositionEmbedding {
     /// - `seq_len`: Sequence length
     ///
     /// # Returns
-    /// Position embeddings with shape [seq_len, d_model]
+    /// Position embeddings with shape `[seq_len, d_model]`
     pub fn get_embeddings_for_length(&self, seq_len: usize) -> Result<Tensor> {
         if seq_len > self.max_len {
             return Err(TorshError::InvalidArgument(format!(
