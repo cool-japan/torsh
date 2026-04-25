@@ -1045,7 +1045,11 @@ mod tests {
 
     #[test]
     fn test_version() {
+<<<<<<< Updated upstream
         assert_eq!(VERSION, "0.1.2");
+=======
+        assert_eq!(VERSION, "0.1.0");
+>>>>>>> Stashed changes
         check_version(0, 1).unwrap();
     }
 }

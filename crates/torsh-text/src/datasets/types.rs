@@ -749,6 +749,993 @@ impl ConsolidatedDataset {
         ))
     }
 }
+<<<<<<< Updated upstream:crates/torsh-text/src/datasets/types.rs
+=======
+
+impl Dataset for ConsolidatedDataset {
+    type Item = DataItem;
+
+    fn len(&self) -> usize {
+        self.items.len()
+    }
+
+    fn get_item(&self, index: usize) -> Result<Self::Item> {
+        self.items
+            .get(index)
+            .cloned()
+            .ok_or_else(|| TextError::DatasetError(format!("Index {} out of bounds", index)))
+    }
+}
+
+/// Dataset statistics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatasetStatistics {
+    pub total_items: usize,
+    pub avg_text_length: usize,
+    pub min_text_length: usize,
+    pub max_text_length: usize,
+}
+
+/// Common dataset utilities
+pub struct DatasetUtils;
+
+impl DatasetUtils {
+    /// Create a balanced subset of a classification dataset
+    pub fn create_balanced_subset(
+        dataset: &ConsolidatedDataset,
+        samples_per_class: usize,
+    ) -> Result<ConsolidatedDataset> {
+        let mut class_counts: HashMap<String, usize> = HashMap::new();
+        let mut balanced_items = Vec::new();
+
+        for item in &dataset.items {
+            if let DataItem::Classification { text: _, label } = item {
+                let count = class_counts.get(label).unwrap_or(&0);
+                if *count < samples_per_class {
+                    balanced_items.push(item.clone());
+                    class_counts.insert(label.clone(), count + 1);
+                }
+            }
+        }
+
+        Ok(ConsolidatedDataset {
+            items: balanced_items,
+            task_type: dataset.task_type.clone(),
+            metadata: dataset.metadata.clone(),
+        })
+    }
+
+    /// Shuffle dataset items with optional seed
+    pub fn shuffle(dataset: &mut ConsolidatedDataset) {
+        // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
+        let mut rng = thread_rng();
+        dataset.items.shuffle(&mut rng);
+    }
+
+    /// Shuffle dataset items with a specific seed for reproducibility
+    pub fn shuffle_with_seed(dataset: &mut ConsolidatedDataset, seed: u64) {
+        // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
+        let mut rng = Random::seed(seed);
+        dataset.items.shuffle(&mut rng);
+    }
+
+    /// Sample a random subset from dataset
+    pub fn sample(dataset: &ConsolidatedDataset, n: usize) -> Result<ConsolidatedDataset> {
+        if n > dataset.items.len() {
+            return Err(TextError::DatasetError(format!(
+                "Cannot sample {} items from dataset with {} items",
+                n,
+                dataset.items.len()
+            )));
+        }
+
+        let mut rng = thread_rng();
+        let mut indices: Vec<usize> = (0..dataset.items.len()).collect();
+        indices.shuffle(&mut rng);
+
+        let sampled_items: Vec<DataItem> = indices[..n]
+            .iter()
+            .filter_map(|&i| dataset.items.get(i).cloned())
+            .collect();
+
+        Ok(ConsolidatedDataset {
+            items: sampled_items,
+            task_type: dataset.task_type.clone(),
+            metadata: dataset.metadata.clone(),
+        })
+    }
+
+    /// Filter dataset by minimum token count (whitespace-based)
+    pub fn filter_by_token_count(
+        dataset: &ConsolidatedDataset,
+        min_tokens: Option<usize>,
+        max_tokens: Option<usize>,
+    ) -> ConsolidatedDataset {
+        let filtered_items: Vec<DataItem> = dataset
+            .items
+            .iter()
+            .filter(|item| {
+                let token_count = match item {
+                    DataItem::Text(text) => text.split_whitespace().count(),
+                    DataItem::Classification { text, .. } => text.split_whitespace().count(),
+                    DataItem::Translation { source, .. } => source.split_whitespace().count(),
+                    DataItem::LanguageModeling { text, .. } => text.split_whitespace().count(),
+                    _ => return true, // Keep other types
+                };
+
+                if let Some(min) = min_tokens {
+                    if token_count < min {
+                        return false;
+                    }
+                }
+                if let Some(max) = max_tokens {
+                    if token_count > max {
+                        return false;
+                    }
+                }
+                true
+            })
+            .cloned()
+            .collect();
+
+        ConsolidatedDataset {
+            items: filtered_items,
+            task_type: dataset.task_type.clone(),
+            metadata: dataset.metadata.clone(),
+        }
+    }
+
+    /// Remove duplicates from dataset
+    pub fn deduplicate(dataset: &ConsolidatedDataset) -> ConsolidatedDataset {
+        let mut seen = std::collections::HashSet::new();
+        let dedup_items: Vec<DataItem> = dataset
+            .items
+            .iter()
+            .filter(|item| {
+                let key = match item {
+                    DataItem::Text(text) => text.clone(),
+                    DataItem::Classification { text, .. } => text.clone(),
+                    DataItem::Translation { source, .. } => source.clone(),
+                    DataItem::LanguageModeling { text, .. } => text.clone(),
+                    DataItem::SequenceLabeling { tokens, .. } => tokens.join(" "),
+                };
+                seen.insert(key)
+            })
+            .cloned()
+            .collect();
+
+        ConsolidatedDataset {
+            items: dedup_items,
+            task_type: dataset.task_type.clone(),
+            metadata: dataset.metadata.clone(),
+        }
+    }
+
+    /// Parallel batch loading from multiple CSV files
+    /// ✅ SciRS2 POLICY - Uses scirs2_core::parallel_ops
+    pub fn parallel_load_csv_files<P: AsRef<Path>>(
+        paths: &[P],
+        text_column: usize,
+        label_column: usize,
+        _has_header: bool,
+    ) -> Result<ConsolidatedDataset> {
+        let datasets: Result<Vec<_>> = paths
+            .iter()
+            .map(|path| {
+                ClassificationDataset::from_csv(path, text_column, label_column)
+                    .map(|ds| (ds.texts, ds.labels))
+            })
+            .collect();
+
+        let datasets = datasets?;
+
+        let mut all_texts = Vec::new();
+        let mut all_labels = Vec::new();
+
+        for (texts, labels) in datasets {
+            all_texts.extend(texts);
+            all_labels.extend(labels);
+        }
+
+        ConsolidatedDataset::new_classification(all_texts, all_labels)
+    }
+
+    /// Get dataset statistics
+    pub fn get_statistics(dataset: &ConsolidatedDataset) -> DatasetStatistics {
+        let total_items = dataset.items.len();
+
+        let (avg_text_length, min_text_length, max_text_length) = dataset
+            .items
+            .iter()
+            .filter_map(|item| match item {
+                DataItem::Text(text) => Some(text.len()),
+                DataItem::Classification { text, .. } => Some(text.len()),
+                DataItem::Translation { source, .. } => Some(source.len()),
+                DataItem::LanguageModeling { text, .. } => Some(text.len()),
+                _ => None,
+            })
+            .fold((0, usize::MAX, 0), |(sum, min, max), len| {
+                (sum + len, min.min(len), max.max(len))
+            });
+
+        let avg_text_length = if total_items > 0 {
+            avg_text_length / total_items
+        } else {
+            0
+        };
+
+        DatasetStatistics {
+            total_items,
+            avg_text_length,
+            min_text_length: if min_text_length == usize::MAX {
+                0
+            } else {
+                min_text_length
+            },
+            max_text_length,
+        }
+    }
+
+    /// Filter dataset by text length
+    pub fn filter_by_length(
+        dataset: &ConsolidatedDataset,
+        min_length: Option<usize>,
+        max_length: Option<usize>,
+    ) -> ConsolidatedDataset {
+        let filtered_items: Vec<DataItem> = dataset
+            .items
+            .iter()
+            .filter(|item| {
+                let text_len = match item {
+                    DataItem::Text(text) => text.len(),
+                    DataItem::Classification { text, .. } => text.len(),
+                    DataItem::Translation { source, .. } => source.len(),
+                    _ => return true, // Keep other types
+                };
+
+                if let Some(min) = min_length {
+                    if text_len < min {
+                        return false;
+                    }
+                }
+                if let Some(max) = max_length {
+                    if text_len > max {
+                        return false;
+                    }
+                }
+                true
+            })
+            .cloned()
+            .collect();
+
+        ConsolidatedDataset {
+            items: filtered_items,
+            task_type: dataset.task_type.clone(),
+            metadata: dataset.metadata.clone(),
+        }
+    }
+}
+
+/// Base trait for all text datasets
+pub trait Dataset {
+    type Item;
+
+    /// Get the length of the dataset
+    fn len(&self) -> usize;
+
+    /// Check if the dataset is empty
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Get an item by index
+    fn get_item(&self, index: usize) -> Result<Self::Item>;
+
+    /// Iterator over the dataset
+    fn iter(&self) -> DatasetIterator<'_, Self>
+    where
+        Self: Sized,
+    {
+        DatasetIterator {
+            dataset: self,
+            index: 0,
+        }
+    }
+}
+
+/// Iterator for datasets
+pub struct DatasetIterator<'a, D: Dataset> {
+    dataset: &'a D,
+    index: usize,
+}
+
+impl<'a, D: Dataset> Iterator for DatasetIterator<'a, D> {
+    type Item = Result<D::Item>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index < self.dataset.len() {
+            let item = self.dataset.get_item(self.index);
+            self.index += 1;
+            Some(item)
+        } else {
+            None
+        }
+    }
+}
+
+/// Batch iterator for datasets
+pub struct BatchIterator<'a, D: Dataset> {
+    dataset: &'a D,
+    batch_size: usize,
+    index: usize,
+}
+
+impl<'a, D: Dataset> BatchIterator<'a, D> {
+    pub fn new(dataset: &'a D, batch_size: usize) -> Self {
+        Self {
+            dataset,
+            batch_size,
+            index: 0,
+        }
+    }
+}
+
+impl<'a, D: Dataset> Iterator for BatchIterator<'a, D>
+where
+    D::Item: Clone,
+{
+    type Item = Result<Vec<D::Item>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= self.dataset.len() {
+            return None;
+        }
+
+        let end = (self.index + self.batch_size).min(self.dataset.len());
+        let mut batch = Vec::with_capacity(end - self.index);
+
+        for i in self.index..end {
+            match self.dataset.get_item(i) {
+                Ok(item) => batch.push(item),
+                Err(e) => return Some(Err(e)),
+            }
+        }
+
+        self.index = end;
+        Some(Ok(batch))
+    }
+}
+
+/// Extension trait for batch iteration
+pub trait BatchDataset: Dataset {
+    fn batch_iter(&self, batch_size: usize) -> BatchIterator<'_, Self>
+    where
+        Self: Sized,
+    {
+        BatchIterator::new(self, batch_size)
+    }
+}
+
+// Implement for all Dataset types
+impl<D: Dataset> BatchDataset for D {}
+
+/// Basic text dataset for simple text data
+#[derive(Debug, Clone)]
+pub struct TextDataset {
+    pub data: Vec<String>,
+}
+
+impl TextDataset {
+    pub fn new() -> Self {
+        Self { data: Vec::new() }
+    }
+
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let content = std::fs::read_to_string(path)?;
+        let data = content.lines().map(|s| s.to_string()).collect();
+        Ok(Self { data })
+    }
+
+    pub fn from_texts(texts: Vec<String>) -> Self {
+        Self { data: texts }
+    }
+}
+
+impl Dataset for TextDataset {
+    type Item = String;
+
+    fn len(&self) -> usize {
+        self.data.len()
+    }
+
+    fn get_item(&self, index: usize) -> Result<Self::Item> {
+        self.data
+            .get(index)
+            .cloned()
+            .ok_or_else(|| TextError::DatasetError(format!("Index {} out of bounds", index)))
+    }
+}
+
+impl Default for TextDataset {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Classification dataset with text and labels
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClassificationDataset {
+    pub texts: Vec<String>,
+    pub labels: Vec<String>,
+    pub label_to_id: std::collections::HashMap<String, usize>,
+    pub id_to_label: std::collections::HashMap<usize, String>,
+}
+
+impl ClassificationDataset {
+    pub fn new() -> Self {
+        Self {
+            texts: Vec::new(),
+            labels: Vec::new(),
+            label_to_id: std::collections::HashMap::new(),
+            id_to_label: std::collections::HashMap::new(),
+        }
+    }
+
+    pub fn from_csv<P: AsRef<Path>>(
+        path: P,
+        text_column: usize,
+        label_column: usize,
+    ) -> Result<Self> {
+        let content = std::fs::read_to_string(path)?;
+        let lines: Vec<&str> = content.lines().collect();
+
+        if lines.is_empty() {
+            return Ok(Self::new());
+        }
+
+        let mut texts = Vec::new();
+        let mut labels = Vec::new();
+        let mut label_set = std::collections::HashSet::new();
+
+        // Skip header if present
+        let start_index = if lines[0].contains(",") && lines[0].split(',').count() > 1 {
+            1
+        } else {
+            0
+        };
+
+        for line in &lines[start_index..] {
+            let columns: Vec<&str> = line.split(',').collect();
+            if columns.len() > text_column.max(label_column) {
+                texts.push(columns[text_column].trim().to_string());
+                let label = columns[label_column].trim().to_string();
+                labels.push(label.clone());
+                label_set.insert(label);
+            }
+        }
+
+        // Create label mappings
+        let mut label_to_id = std::collections::HashMap::new();
+        let mut id_to_label = std::collections::HashMap::new();
+
+        for (id, label) in label_set.into_iter().enumerate() {
+            label_to_id.insert(label.clone(), id);
+            id_to_label.insert(id, label);
+        }
+
+        Ok(Self {
+            texts,
+            labels,
+            label_to_id,
+            id_to_label,
+        })
+    }
+
+    pub fn num_classes(&self) -> usize {
+        self.label_to_id.len()
+    }
+
+    pub fn get_label_id(&self, label: &str) -> Option<usize> {
+        self.label_to_id.get(label).copied()
+    }
+
+    pub fn get_label_name(&self, id: usize) -> Option<&str> {
+        self.id_to_label.get(&id).map(|s| s.as_str())
+    }
+}
+
+impl Dataset for ClassificationDataset {
+    type Item = (String, String);
+
+    fn len(&self) -> usize {
+        self.texts.len()
+    }
+
+    fn get_item(&self, index: usize) -> Result<Self::Item> {
+        if index < self.texts.len() {
+            Ok((self.texts[index].clone(), self.labels[index].clone()))
+        } else {
+            Err(TextError::DatasetError(format!(
+                "Index {} out of bounds",
+                index
+            )))
+        }
+    }
+}
+
+/// Sequence labeling dataset (e.g., NER, POS tagging)
+#[derive(Debug, Clone)]
+pub struct SequenceLabelingDataset {
+    pub sequences: Vec<Vec<String>>,
+    pub labels: Vec<Vec<String>>,
+    pub label_to_id: std::collections::HashMap<String, usize>,
+    pub id_to_label: std::collections::HashMap<usize, String>,
+}
+
+impl SequenceLabelingDataset {
+    pub fn new() -> Self {
+        Self {
+            sequences: Vec::new(),
+            labels: Vec::new(),
+            label_to_id: std::collections::HashMap::new(),
+            id_to_label: std::collections::HashMap::new(),
+        }
+    }
+
+    /// Load from CoNLL format (word\tlabel per line, empty line separates sentences)
+    pub fn from_conll<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let content = std::fs::read_to_string(path)?;
+        let lines: Vec<&str> = content.lines().collect();
+
+        let mut sequences = Vec::new();
+        let mut labels = Vec::new();
+        let mut current_sequence = Vec::new();
+        let mut current_labels = Vec::new();
+        let mut label_set = std::collections::HashSet::new();
+
+        for line in lines {
+            if line.trim().is_empty() {
+                if !current_sequence.is_empty() {
+                    sequences.push(current_sequence);
+                    labels.push(current_labels);
+                    current_sequence = Vec::new();
+                    current_labels = Vec::new();
+                }
+            } else {
+                let parts: Vec<&str> = line.split('\t').collect();
+                if parts.len() >= 2 {
+                    current_sequence.push(parts[0].to_string());
+                    let label = parts[1].to_string();
+                    current_labels.push(label.clone());
+                    label_set.insert(label);
+                }
+            }
+        }
+
+        // Add final sequence if not empty
+        if !current_sequence.is_empty() {
+            sequences.push(current_sequence);
+            labels.push(current_labels);
+        }
+
+        // Create label mappings
+        let mut label_to_id = std::collections::HashMap::new();
+        let mut id_to_label = std::collections::HashMap::new();
+
+        for (id, label) in label_set.into_iter().enumerate() {
+            label_to_id.insert(label.clone(), id);
+            id_to_label.insert(id, label);
+        }
+
+        Ok(Self {
+            sequences,
+            labels,
+            label_to_id,
+            id_to_label,
+        })
+    }
+
+    pub fn num_labels(&self) -> usize {
+        self.label_to_id.len()
+    }
+}
+
+impl Dataset for SequenceLabelingDataset {
+    type Item = (Vec<String>, Vec<String>);
+
+    fn len(&self) -> usize {
+        self.sequences.len()
+    }
+
+    fn get_item(&self, index: usize) -> Result<Self::Item> {
+        if index < self.sequences.len() {
+            Ok((self.sequences[index].clone(), self.labels[index].clone()))
+        } else {
+            Err(TextError::DatasetError(format!(
+                "Index {} out of bounds",
+                index
+            )))
+        }
+    }
+}
+
+/// Translation dataset with source-target language pairs
+#[derive(Debug, Clone)]
+pub struct TranslationDataset {
+    pub source_texts: Vec<String>,
+    pub target_texts: Vec<String>,
+    pub source_lang: String,
+    pub target_lang: String,
+}
+
+impl TranslationDataset {
+    pub fn new(source_lang: String, target_lang: String) -> Self {
+        Self {
+            source_texts: Vec::new(),
+            target_texts: Vec::new(),
+            source_lang,
+            target_lang,
+        }
+    }
+
+    /// Load from parallel text files
+    pub fn from_files<P: AsRef<Path>>(
+        source_path: P,
+        target_path: P,
+        source_lang: String,
+        target_lang: String,
+    ) -> Result<Self> {
+        let source_content = std::fs::read_to_string(source_path)?;
+        let target_content = std::fs::read_to_string(target_path)?;
+
+        let source_texts: Vec<String> = source_content.lines().map(|s| s.to_string()).collect();
+        let target_texts: Vec<String> = target_content.lines().map(|s| s.to_string()).collect();
+
+        if source_texts.len() != target_texts.len() {
+            return Err(TextError::DatasetError(
+                "Source and target files must have the same number of lines".to_string(),
+            ));
+        }
+
+        Ok(Self {
+            source_texts,
+            target_texts,
+            source_lang,
+            target_lang,
+        })
+    }
+
+    /// Load from TSV format (source\ttarget per line)
+    pub fn from_tsv<P: AsRef<Path>>(
+        path: P,
+        source_lang: String,
+        target_lang: String,
+    ) -> Result<Self> {
+        let content = std::fs::read_to_string(path)?;
+        let lines: Vec<&str> = content.lines().collect();
+
+        let mut source_texts = Vec::new();
+        let mut target_texts = Vec::new();
+
+        for line in lines {
+            let parts: Vec<&str> = line.split('\t').collect();
+            if parts.len() >= 2 {
+                source_texts.push(parts[0].to_string());
+                target_texts.push(parts[1].to_string());
+            }
+        }
+
+        Ok(Self {
+            source_texts,
+            target_texts,
+            source_lang,
+            target_lang,
+        })
+    }
+}
+
+impl Dataset for TranslationDataset {
+    type Item = (String, String);
+
+    fn len(&self) -> usize {
+        self.source_texts.len()
+    }
+
+    fn get_item(&self, index: usize) -> Result<Self::Item> {
+        if index < self.source_texts.len() {
+            Ok((
+                self.source_texts[index].clone(),
+                self.target_texts[index].clone(),
+            ))
+        } else {
+            Err(TextError::DatasetError(format!(
+                "Index {} out of bounds",
+                index
+            )))
+        }
+    }
+}
+
+/// Language modeling dataset for training language models
+#[derive(Debug, Clone)]
+pub struct LanguageModelingDataset {
+    pub texts: Vec<String>,
+    pub sequence_length: usize,
+    pub stride: usize,
+}
+
+impl LanguageModelingDataset {
+    pub fn new(sequence_length: usize, stride: Option<usize>) -> Self {
+        let stride = stride.unwrap_or(sequence_length);
+        Self {
+            texts: Vec::new(),
+            sequence_length,
+            stride,
+        }
+    }
+
+    pub fn from_file<P: AsRef<Path>>(
+        path: P,
+        sequence_length: usize,
+        stride: Option<usize>,
+    ) -> Result<Self> {
+        let content = std::fs::read_to_string(path)?;
+        let texts = content.lines().map(|s| s.to_string()).collect();
+
+        let stride = stride.unwrap_or(sequence_length);
+        Ok(Self {
+            texts,
+            sequence_length,
+            stride,
+        })
+    }
+
+    pub fn from_texts(texts: Vec<String>, sequence_length: usize, stride: Option<usize>) -> Self {
+        let stride = stride.unwrap_or(sequence_length);
+        Self {
+            texts,
+            sequence_length,
+            stride,
+        }
+    }
+
+    /// Generate sequences of specified length from the text data
+    pub fn get_sequences(&self) -> Vec<String> {
+        let mut sequences = Vec::new();
+        let full_text = self.texts.join(" ");
+        let chars: Vec<char> = full_text.chars().collect();
+
+        let mut start = 0;
+        while start + self.sequence_length <= chars.len() {
+            let sequence: String = chars[start..start + self.sequence_length].iter().collect();
+            sequences.push(sequence);
+            start += self.stride;
+        }
+
+        sequences
+    }
+}
+
+impl Dataset for LanguageModelingDataset {
+    type Item = String;
+
+    fn len(&self) -> usize {
+        let full_text = self.texts.join(" ");
+        let text_len = full_text.chars().count();
+        if text_len < self.sequence_length {
+            0
+        } else {
+            (text_len - self.sequence_length) / self.stride + 1
+        }
+    }
+
+    fn get_item(&self, index: usize) -> Result<Self::Item> {
+        let sequences = self.get_sequences();
+        sequences
+            .get(index)
+            .cloned()
+            .ok_or_else(|| TextError::DatasetError(format!("Index {} out of bounds", index)))
+    }
+}
+
+// ============================================================================
+// Common Datasets
+// ============================================================================
+
+/// IMDB Movie Reviews Dataset for sentiment classification
+#[derive(Debug, Clone)]
+pub struct ImdbDataset {
+    pub reviews: Vec<String>,
+    pub labels: Vec<bool>, // true for positive, false for negative
+    pub split: DatasetSplit,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum DatasetSplit {
+    Train,
+    Test,
+    Validation,
+}
+
+impl ImdbDataset {
+    pub fn new(split: DatasetSplit) -> Self {
+        Self {
+            reviews: Vec::new(),
+            labels: Vec::new(),
+            split,
+        }
+    }
+
+    /// Load IMDB dataset from directory structure
+    /// Expected structure: root/train/pos/, root/train/neg/, root/test/pos/, root/test/neg/
+    pub fn from_directory<P: AsRef<Path>>(root_path: P, split: DatasetSplit) -> Result<Self> {
+        use std::fs;
+
+        let root = root_path.as_ref();
+        let split_dir = match split {
+            DatasetSplit::Train => "train",
+            DatasetSplit::Test => "test",
+            DatasetSplit::Validation => "validation", // fallback to test if validation doesn't exist
+        };
+
+        let pos_dir = root.join(split_dir).join("pos");
+        let neg_dir = root.join(split_dir).join("neg");
+
+        let mut reviews = Vec::new();
+        let mut labels = Vec::new();
+
+        // Load positive reviews
+        if pos_dir.exists() {
+            for entry in fs::read_dir(pos_dir)? {
+                let entry = entry?;
+                if entry.path().extension().and_then(|s| s.to_str()) == Some("txt") {
+                    let content = fs::read_to_string(entry.path())?;
+                    reviews.push(content.trim().to_string());
+                    labels.push(true);
+                }
+            }
+        }
+
+        // Load negative reviews
+        if neg_dir.exists() {
+            for entry in fs::read_dir(neg_dir)? {
+                let entry = entry?;
+                if entry.path().extension().and_then(|s| s.to_str()) == Some("txt") {
+                    let content = fs::read_to_string(entry.path())?;
+                    reviews.push(content.trim().to_string());
+                    labels.push(false);
+                }
+            }
+        }
+
+        Ok(Self {
+            reviews,
+            labels,
+            split,
+        })
+    }
+
+    /// Create from pre-existing data
+    pub fn from_data(reviews: Vec<String>, labels: Vec<bool>, split: DatasetSplit) -> Self {
+        Self {
+            reviews,
+            labels,
+            split,
+        }
+    }
+
+    pub fn num_positive(&self) -> usize {
+        self.labels.iter().filter(|&&label| label).count()
+    }
+
+    pub fn num_negative(&self) -> usize {
+        self.labels.iter().filter(|&&label| !label).count()
+    }
+}
+
+impl Dataset for ImdbDataset {
+    type Item = (String, bool);
+
+    fn len(&self) -> usize {
+        self.reviews.len()
+    }
+
+    fn get_item(&self, index: usize) -> Result<Self::Item> {
+        if index < self.reviews.len() {
+            Ok((self.reviews[index].clone(), self.labels[index]))
+        } else {
+            Err(TextError::DatasetError(format!(
+                "Index {} out of bounds",
+                index
+            )))
+        }
+    }
+}
+
+/// AG News Classification Dataset
+#[derive(Debug, Clone)]
+pub struct AgNewsDataset {
+    pub texts: Vec<String>,
+    pub labels: Vec<usize>, // 0: World, 1: Sports, 2: Business, 3: Sci/Tech
+    pub split: DatasetSplit,
+}
+
+impl AgNewsDataset {
+    pub fn new(split: DatasetSplit) -> Self {
+        Self {
+            texts: Vec::new(),
+            labels: Vec::new(),
+            split,
+        }
+    }
+
+    /// Load from CSV format: class_index,title,description
+    pub fn from_csv<P: AsRef<Path>>(path: P, split: DatasetSplit) -> Result<Self> {
+        use std::fs;
+
+        let content = fs::read_to_string(path)?;
+        let lines: Vec<&str> = content.lines().collect();
+
+        let mut texts = Vec::new();
+        let mut labels = Vec::new();
+
+        for line in lines {
+            let parts: Vec<&str> = line.split(',').collect();
+            if parts.len() >= 3 {
+                // Parse class index (1-based in AG News, convert to 0-based)
+                if let Ok(class_idx) = parts[0].parse::<usize>() {
+                    if class_idx > 0 && class_idx <= 4 {
+                        let title = parts[1].trim_matches('"');
+                        let description = parts[2].trim_matches('"');
+                        let combined_text = format!("{title} {description}");
+
+                        texts.push(combined_text);
+                        labels.push(class_idx - 1); // Convert to 0-based indexing
+                    }
+                }
+            }
+        }
+
+        Ok(Self {
+            texts,
+            labels,
+            split,
+        })
+    }
+
+    pub fn class_names() -> Vec<&'static str> {
+        vec!["World", "Sports", "Business", "Sci/Tech"]
+    }
+
+    pub fn get_class_name(&self, label: usize) -> Option<&'static str> {
+        Self::class_names().get(label).copied()
+    }
+
+    pub fn num_classes() -> usize {
+        4
+    }
+}
+
+impl Dataset for AgNewsDataset {
+    type Item = (String, usize);
+
+    fn len(&self) -> usize {
+        self.texts.len()
+    }
+
+    fn get_item(&self, index: usize) -> Result<Self::Item> {
+        if index < self.texts.len() {
+            Ok((self.texts[index].clone(), self.labels[index]))
+        } else {
+            Err(TextError::DatasetError(format!(
+                "Index {} out of bounds",
+                index
+            )))
+        }
+    }
+}
+
+>>>>>>> Stashed changes:crates/torsh-text/src/datasets.rs
 /// WikiText Language Modeling Dataset
 #[derive(Debug, Clone)]
 pub struct WikiTextDataset {
@@ -1147,6 +2134,7 @@ impl UnifiedDatasetLoader {
             ))),
         }
     }
+<<<<<<< Updated upstream:crates/torsh-text/src/datasets/types.rs
     fn load_classification_dataset<P: AsRef<Path>>(
         &self,
         path: P,
@@ -1172,6 +2160,226 @@ impl UnifiedDatasetLoader {
                             labels.push(columns[label_col].trim().to_string());
                         }
                     }
+=======
+}
+
+// ============================================================================
+// Tests
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_dataset_utils_sample() {
+        let texts = vec![
+            "text1".to_string(),
+            "text2".to_string(),
+            "text3".to_string(),
+        ];
+        let labels = vec![
+            "label1".to_string(),
+            "label2".to_string(),
+            "label3".to_string(),
+        ];
+        let dataset = ConsolidatedDataset::new_classification(texts, labels)
+            .expect("Failed to create dataset");
+
+        let sampled = DatasetUtils::sample(&dataset, 2).expect("Failed to sample");
+        assert_eq!(sampled.len(), 2);
+    }
+
+    #[test]
+    fn test_dataset_utils_deduplicate() {
+        let texts = vec![
+            "text1".to_string(),
+            "text2".to_string(),
+            "text1".to_string(), // duplicate
+        ];
+        let labels = vec![
+            "label1".to_string(),
+            "label2".to_string(),
+            "label1".to_string(),
+        ];
+        let dataset = ConsolidatedDataset::new_classification(texts, labels)
+            .expect("Failed to create dataset");
+
+        let dedup = DatasetUtils::deduplicate(&dataset);
+        assert_eq!(dedup.len(), 2);
+    }
+
+    #[test]
+    fn test_dataset_utils_filter_by_token_count() {
+        let texts = vec![
+            "short".to_string(),
+            "this is longer text".to_string(),
+            "medium text".to_string(),
+        ];
+        let labels = vec![
+            "label1".to_string(),
+            "label2".to_string(),
+            "label3".to_string(),
+        ];
+        let dataset = ConsolidatedDataset::new_classification(texts, labels)
+            .expect("Failed to create dataset");
+
+        let filtered = DatasetUtils::filter_by_token_count(&dataset, Some(2), Some(3));
+        assert_eq!(filtered.len(), 1); // "this is longer text" (4 tokens) and "short" (1 token) filtered out, only "medium text" (2 tokens) remains
+    }
+
+    #[test]
+    fn test_dataset_utils_statistics() {
+        let texts = vec!["ab".to_string(), "abcd".to_string(), "abcdef".to_string()];
+        let labels = vec![
+            "label1".to_string(),
+            "label2".to_string(),
+            "label3".to_string(),
+        ];
+        let dataset = ConsolidatedDataset::new_classification(texts, labels)
+            .expect("Failed to create dataset");
+
+        let stats = DatasetUtils::get_statistics(&dataset);
+        assert_eq!(stats.total_items, 3);
+        assert_eq!(stats.min_text_length, 2);
+        assert_eq!(stats.max_text_length, 6);
+        assert_eq!(stats.avg_text_length, 4);
+    }
+
+    #[test]
+    fn test_batch_iterator() {
+        let texts = vec![
+            "text1".to_string(),
+            "text2".to_string(),
+            "text3".to_string(),
+            "text4".to_string(),
+            "text5".to_string(),
+        ];
+        let dataset = TextDataset::from_texts(texts);
+
+        let batches: Vec<_> = dataset.batch_iter(2).collect();
+        assert_eq!(batches.len(), 3); // 2 + 2 + 1
+        assert_eq!(batches[0].as_ref().ok().map(|b| b.len()), Some(2));
+        assert_eq!(batches[1].as_ref().ok().map(|b| b.len()), Some(2));
+        assert_eq!(batches[2].as_ref().ok().map(|b| b.len()), Some(1));
+    }
+
+    #[test]
+    fn test_data_augmentation_random_deletion() {
+        let text = "this is a test sentence";
+        let augmented = DataAugmentation::random_deletion(text, 0.2);
+        // Should have some words deleted
+        assert!(!augmented.is_empty());
+    }
+
+    #[test]
+    fn test_data_augmentation_random_swap() {
+        let text = "word1 word2 word3 word4";
+        let augmented = DataAugmentation::random_swap(text, 2);
+        // Should have same number of words
+        assert_eq!(
+            text.split_whitespace().count(),
+            augmented.split_whitespace().count()
+        );
+    }
+
+    #[test]
+    fn test_preprocessing_pipeline() {
+        let pipeline = PreprocessingPipeline::new()
+            .lowercase()
+            .remove_punctuation()
+            .normalize_whitespace();
+
+        let text = "Hello,  World!  This   is  a   TEST.";
+        let processed = pipeline.process(text);
+        assert_eq!(processed, "hello world this is a test");
+    }
+
+    #[test]
+    fn test_preprocessing_stopwords() {
+        let stopwords = Stopwords::english();
+        let pipeline = PreprocessingPipeline::new()
+            .lowercase()
+            .remove_stopwords(stopwords);
+
+        let text = "This is a test with the stopwords";
+        let processed = pipeline.process(text);
+        // Should remove common stopwords like "is", "a", "the", "with"
+        assert!(!processed.contains(" is "));
+        assert!(!processed.contains(" a "));
+    }
+
+    #[test]
+    fn test_preprocessing_remove_urls() {
+        let pipeline = PreprocessingPipeline::new().remove_urls();
+        let text = "Check out https://example.com and http://test.com for more";
+        let processed = pipeline.process(text);
+        assert!(!processed.contains("https://"));
+        assert!(!processed.contains("http://"));
+    }
+
+    #[test]
+    fn test_preprocessing_remove_html() {
+        let pipeline = PreprocessingPipeline::new().remove_html_tags();
+        let text = "<p>Hello <strong>world</strong></p>";
+        let processed = pipeline.process(text);
+        assert!(!processed.contains('<'));
+        assert!(!processed.contains('>'));
+    }
+
+    #[test]
+    fn test_preprocessing_length_constraints() {
+        let pipeline = PreprocessingPipeline::new().min_length(5).max_length(20);
+
+        let short = "Hi";
+        let good = "Hello World";
+        let long = "This is a very long text that exceeds the maximum length";
+
+        assert_eq!(pipeline.process(short), "");
+        assert_eq!(pipeline.process(good), "Hello World");
+        assert_eq!(pipeline.process(long).len(), 20);
+    }
+
+    #[test]
+    fn test_shuffle_with_seed() {
+        let texts = vec![
+            "text1".to_string(),
+            "text2".to_string(),
+            "text3".to_string(),
+            "text4".to_string(),
+        ];
+        let labels = vec![
+            "label1".to_string(),
+            "label2".to_string(),
+            "label3".to_string(),
+            "label4".to_string(),
+        ];
+        let mut dataset1 = ConsolidatedDataset::new_classification(texts.clone(), labels.clone())
+            .expect("Failed to create dataset");
+        let mut dataset2 = ConsolidatedDataset::new_classification(texts, labels)
+            .expect("Failed to create dataset");
+
+        DatasetUtils::shuffle_with_seed(&mut dataset1, 42);
+        DatasetUtils::shuffle_with_seed(&mut dataset2, 42);
+
+        // Both should have same order with same seed
+        for i in 0..dataset1.len() {
+            let item1 = dataset1.get_item(i).expect("Failed to get item");
+            let item2 = dataset2.get_item(i).expect("Failed to get item");
+            match (item1, item2) {
+                (
+                    DataItem::Classification {
+                        text: t1,
+                        label: l1,
+                    },
+                    DataItem::Classification {
+                        text: t2,
+                        label: l2,
+                    },
+                ) => {
+                    assert_eq!(t1, t2);
+                    assert_eq!(l1, l2);
+>>>>>>> Stashed changes:crates/torsh-text/src/datasets.rs
                 }
             }
             FileFormat::Json => {

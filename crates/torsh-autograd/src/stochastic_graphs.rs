@@ -396,24 +396,62 @@ impl CategoricalDistribution {
     }
 
     fn categorical_sample(&self, probs: &Tensor) -> Result<Tensor> {
-        // Sample from categorical distribution using inverse CDF
-        let uniform = creation::rand::<f32>(probs.shape().dims())?;
+        // Sample from categorical distribution using inverse CDF method.
+        //
+        // For each sample in the batch we draw a single Uniform(0,1) variate and
+        // find the first category index where the CDF (cumsum of probabilities)
+        // exceeds that variate.  This is the standard quantile / inverse-CDF
+        // algorithm for discrete distributions.
+        let shape_binding = probs.shape();
+        let shape = shape_binding.dims();
+
+        if shape.is_empty() {
+            return Err(TorshError::InvalidOperation(
+                "categorical_sample: probs tensor must have at least one dimension".to_string(),
+            ));
+        }
+
+        let num_categories = *shape.last().ok_or_else(|| {
+            TorshError::InvalidOperation(
+                "categorical_sample: probs tensor has zero dimensions".to_string(),
+            )
+        })?;
+
+        // Number of independent samples = product of all dims except the last.
+        let batch_size: usize = shape.iter().take(shape.len() - 1).product();
+        // Handle the 1-D case where batch_size would be the empty product (= 1).
+        let effective_batch = if shape.len() == 1 { 1 } else { batch_size };
+
+        // Build the CDF for every row along the last dimension.
         let cumsum = probs.cumsum(-1)?;
+        let cdf_data = cumsum.data()?;
 
-        // Find the first index where cumsum >= uniform
-        let _expanded_uniform = uniform.unsqueeze(-1)?;
+        // Draw one Uniform(0,1) sample per batch element.
+        let uniform_shape: Vec<usize> = if shape.len() == 1 {
+            vec![1]
+        } else {
+            shape[..shape.len() - 1].to_vec()
+        };
+        let uniforms = creation::rand::<f32>(&uniform_shape)?;
+        let uniform_data = uniforms.data()?;
 
-        // Find the first index where cumsum >= uniform
-        // Create boolean comparison where cumsum >= expanded_uniform
-        // TODO: Replace with proper tensor comparison when available
-        let comparison = cumsum.clone(); // Placeholder implementation
+        // For each batch element, perform the inverse-CDF lookup.
+        let mut indices_data = Vec::with_capacity(effective_batch);
+        for batch_idx in 0..effective_batch {
+            let u = uniform_data[batch_idx];
+            let row_start = batch_idx * num_categories;
+            // Find the first category index where the CDF >= u.
+            let sampled_idx = (0..num_categories)
+                .find(|&k| cdf_data[row_start + k] >= u)
+                .unwrap_or(num_categories - 1); // fall back to last category
+            indices_data.push(sampled_idx as f32);
+        }
 
-        // Create indices tensor - simplified implementation
-        // This is a placeholder that returns zeros for now
-        // TODO: Implement proper argmax for finding first True value
-        let indices_shape = comparison.shape();
-        let indices: Tensor<f32> = creation::zeros(indices_shape.dims())?;
-        Ok(indices)
+        Tensor::<f32>::from_data(
+            indices_data,
+            uniform_shape,
+            torsh_core::device::DeviceType::Cpu,
+        )
     }
 
     fn sample_gumbel(&self, shape: &torsh_core::shape::Shape) -> Result<Tensor> {

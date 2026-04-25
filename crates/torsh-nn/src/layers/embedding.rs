@@ -926,10 +926,17 @@ impl SinusoidalPositionEmbedding {
     /// Get embeddings for specific positions
     ///
     /// # Arguments
+<<<<<<< Updated upstream
     /// - `positions`: Tensor of position indices \[seq_len\] or \[batch, seq_len\]
     ///
     /// # Returns
     /// Position embeddings with shape \[seq_len, d_model\] or \[batch, seq_len, d_model\]
+=======
+    /// - `positions`: Tensor of position indices [seq_len] or [batch, seq_len]
+    ///
+    /// # Returns
+    /// Position embeddings with shape [seq_len, d_model] or [batch, seq_len, d_model]
+>>>>>>> Stashed changes
     pub fn get_embeddings(&self, positions: &Tensor) -> Result<Tensor> {
         let embeddings = self.base.parameters["embeddings"].tensor().read().clone();
         let positions_data = positions.to_vec()?;

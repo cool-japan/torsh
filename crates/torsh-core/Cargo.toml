@@ -39,6 +39,7 @@ memmap2 = { workspace = true }
 # Serialization (optional)
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
+oxicode = { workspace = true, optional = true }
 
 # Logging
 tracing = { workspace = true }
@@ -65,7 +66,7 @@ std = []
 no_std = []
 
 # Serialization features
-serialize = ["serde", "serde_json"]
+serialize = ["serde", "serde_json", "oxicode"]
 
 # Hardware acceleration features
 cudnn = ["dep:cudnn-sys"]

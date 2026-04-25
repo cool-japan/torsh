@@ -612,7 +612,12 @@ mod tests {
 
         let batch_size = 1;
         let num_views = 2;
+<<<<<<< Updated upstream
         let latents = ones(&[batch_size * num_views, 4, 8, 8]).expect("Failed to create latents");
+=======
+        let latents =
+            ones(&[batch_size * num_views, 4, 8, 8]).expect("Failed to create latents");
+>>>>>>> Stashed changes
         let timestep = zeros(&[batch_size]).expect("Failed to create timestep");
         let camera_embeddings =
             ones(&[batch_size, num_views, 64]).expect("Failed to create camera embeddings");
@@ -650,7 +655,12 @@ mod tests {
 
         let batch_size = 1;
         let num_views = 1;
+<<<<<<< Updated upstream
         let latents = ones(&[batch_size * num_views, 4, 8, 8]).expect("Failed to create latents");
+=======
+        let latents =
+            ones(&[batch_size * num_views, 4, 8, 8]).expect("Failed to create latents");
+>>>>>>> Stashed changes
         let timestep = Tensor::from_vec(vec![500.0], &[1]).expect("Failed to create timestep");
         let camera_embeddings =
             ones(&[batch_size, num_views, 64]).expect("Failed to create camera embeddings");
@@ -665,7 +675,12 @@ mod tests {
 
         let batch_size = 1;
         let num_views = 2;
+<<<<<<< Updated upstream
         let latents = ones(&[batch_size * num_views, 4, 8, 8]).expect("Failed to create latents");
+=======
+        let latents =
+            ones(&[batch_size * num_views, 4, 8, 8]).expect("Failed to create latents");
+>>>>>>> Stashed changes
         let timestep = zeros(&[batch_size]).expect("Failed to create timestep");
         let camera_embeddings =
             ones(&[batch_size, num_views, 64]).expect("Failed to create camera embeddings");
@@ -680,7 +695,12 @@ mod tests {
 
         let batch_size = 1;
         let num_views = 1;
+<<<<<<< Updated upstream
         let latents = ones(&[batch_size * num_views, 4, 8, 8]).expect("Failed to create latents");
+=======
+        let latents =
+            ones(&[batch_size * num_views, 4, 8, 8]).expect("Failed to create latents");
+>>>>>>> Stashed changes
         let camera_embeddings =
             ones(&[batch_size, num_views, 64]).expect("Failed to create camera embeddings");
 
@@ -700,7 +720,12 @@ mod tests {
 
         let batch_size = 1;
         let num_views = 1;
+<<<<<<< Updated upstream
         let latents = ones(&[batch_size * num_views, 4, 8, 8]).expect("Failed to create latents");
+=======
+        let latents =
+            ones(&[batch_size * num_views, 4, 8, 8]).expect("Failed to create latents");
+>>>>>>> Stashed changes
         let timestep = zeros(&[batch_size]).expect("Failed to create timestep");
         let camera_embeddings =
             ones(&[batch_size, num_views, 64]).expect("Failed to create camera embeddings");
@@ -734,7 +759,12 @@ mod tests {
 
         let batch_size = 2;
         let num_views = 4;
+<<<<<<< Updated upstream
         let latents = ones(&[batch_size * num_views, 4, 8, 8]).expect("Failed to create latents");
+=======
+        let latents =
+            ones(&[batch_size * num_views, 4, 8, 8]).expect("Failed to create latents");
+>>>>>>> Stashed changes
         let timestep = zeros(&[batch_size]).expect("Failed to create timestep");
 
         // Wrong shape camera embeddings (2D instead of 3D)

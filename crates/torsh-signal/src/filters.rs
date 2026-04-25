@@ -6,8 +6,8 @@
 use torsh_core::error::{Result, TorshError};
 use torsh_tensor::{creation::zeros, Tensor};
 
-// Use available scirs2 functionality
-use scirs2_core as _; // Available but with simplified usage
+// Use Complex32 from scirs2-core per SCIRS2 POLICY (not num-complex directly)
+use scirs2_core::Complex32;
 
 /// 1D convolution using direct method
 pub fn convolve1d(input: &Tensor, kernel: &Tensor, mode: &str, _method: &str) -> Result<Tensor> {
@@ -425,20 +425,115 @@ pub struct FilterResponse {
     pub phase: Tensor,
 }
 
-/// Compute frequency response of a filter
+/// Compute frequency response of a digital filter H(z) = B(z)/A(z).
+///
+/// Evaluates H(e^{jω}) at `n_points` evenly-spaced angular frequencies
+/// ω in [0, π] (half the Nyquist range, matching scipy's `freqz` default).
+///
+/// # Arguments
+/// * `numerator`   – Tensor of FIR/numerator coefficients b[0..p]
+/// * `denominator` – Tensor of denominator coefficients a[0..q]
+/// * `n_points`    – Number of frequency points to evaluate (≥ 1)
+/// * `sample_rate` – Sample rate in Hz used to convert ω → physical frequency
+///
+/// # Returns
+/// [`FilterResponse`] with:
+/// * `frequencies` – Physical frequencies in Hz, shape `[n_points]`
+/// * `magnitude`   – |H(e^{jω})|, shape `[n_points]`
+/// * `phase`       – ∠H(e^{jω}) in radians, shape `[n_points]`
 pub fn freqz(
-    _numerator: &Tensor,
-    _denominator: &Tensor,
+    numerator: &Tensor,
+    denominator: &Tensor,
     n_points: usize,
-    _sample_rate: f32,
+    sample_rate: f32,
 ) -> Result<FilterResponse> {
-    // Create frequency points
-    let frequencies = zeros(&[n_points])?;
-    let magnitude = zeros(&[n_points])?;
-    let phase = zeros(&[n_points])?;
+    if n_points == 0 {
+        return Err(TorshError::InvalidArgument(
+            "n_points must be at least 1".to_string(),
+        ));
+    }
 
-    // TODO: Implement actual frequency response calculation
-    // when scirs2-signal APIs are available
+    let b: Vec<f32> = numerator.to_vec()?;
+    let a: Vec<f32> = denominator.to_vec()?;
+
+    if b.is_empty() {
+        return Err(TorshError::InvalidArgument(
+            "numerator coefficients must not be empty".to_string(),
+        ));
+    }
+    if a.is_empty() {
+        return Err(TorshError::InvalidArgument(
+            "denominator coefficients must not be empty".to_string(),
+        ));
+    }
+
+    // ω_i = π * i / (n_points - 1) for i in 0..n_points
+    // For n_points == 1, the single frequency is ω = 0 (DC).
+    let omega_step = if n_points > 1 {
+        std::f32::consts::PI / (n_points - 1) as f32
+    } else {
+        0.0_f32
+    };
+
+    let mut freq_vec = Vec::with_capacity(n_points);
+    let mut mag_vec = Vec::with_capacity(n_points);
+    let mut phase_vec = Vec::with_capacity(n_points);
+
+    for i in 0..n_points {
+        let omega = omega_step * i as f32;
+
+        // B(e^{jω}) = Σ_k b[k] * e^{-jkω}
+        let b_eval: Complex32 = b
+            .iter()
+            .enumerate()
+            .map(|(k, &bk)| {
+                // e^{-jkω} = cos(kω) - j*sin(kω)
+                let angle = -(k as f32) * omega;
+                Complex32::new(bk * angle.cos(), bk * angle.sin())
+            })
+            .fold(Complex32::new(0.0, 0.0), |acc, v| acc + v);
+
+        // A(e^{jω}) = Σ_k a[k] * e^{-jkω}
+        let a_eval: Complex32 = a
+            .iter()
+            .enumerate()
+            .map(|(k, &ak)| {
+                let angle = -(k as f32) * omega;
+                Complex32::new(ak * angle.cos(), ak * angle.sin())
+            })
+            .fold(Complex32::new(0.0, 0.0), |acc, v| acc + v);
+
+        // H(e^{jω}) = B / A — guard against near-zero denominator (unstable filter)
+        let (magnitude, phase) = if a_eval.norm() < f32::EPSILON {
+            (f32::MAX, 0.0_f32)
+        } else {
+            let h = b_eval / a_eval;
+            (h.norm(), h.arg())
+        };
+
+        // Physical frequency: f = ω * sample_rate / (2π)
+        let freq_hz = omega * sample_rate / (2.0 * std::f32::consts::PI);
+
+        freq_vec.push(freq_hz);
+        mag_vec.push(magnitude);
+        phase_vec.push(phase);
+    }
+
+    let frequencies = Tensor::from_data(
+        freq_vec,
+        vec![n_points],
+        torsh_core::device::DeviceType::Cpu,
+    )?;
+    let magnitude = Tensor::from_data(
+        mag_vec,
+        vec![n_points],
+        torsh_core::device::DeviceType::Cpu,
+    )?;
+    let phase = Tensor::from_data(
+        phase_vec,
+        vec![n_points],
+        torsh_core::device::DeviceType::Cpu,
+    )?;
 
     Ok(FilterResponse {
         frequencies,
@@ -707,6 +802,128 @@ mod tests {
         assert_eq!(response.frequencies.shape().dims(), &[512]);
         assert_eq!(response.magnitude.shape().dims(), &[512]);
         assert_eq!(response.phase.shape().dims(), &[512]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_freqz_identity_filter() -> Result<()> {
+        // b = [1.0], a = [1.0] → H(z) = 1 for all frequencies
+        let b = Tensor::from_data(vec![1.0f32], vec![1], torsh_core::device::DeviceType::Cpu)?;
+        let a = Tensor::from_data(vec![1.0f32], vec![1], torsh_core::device::DeviceType::Cpu)?;
+
+        let response = freqz(&b, &a, 64, 8000.0)?;
+
+        // All magnitudes must be 1.0 for the identity filter
+        for i in 0..64 {
+            let mag: f32 = response.magnitude.get_1d(i)?;
+            assert!(
+                (mag - 1.0_f32).abs() < 1e-5,
+                "identity filter magnitude at index {i} = {mag}, expected 1.0"
+            );
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_freqz_dc_gain() -> Result<()> {
+        // b = [1.0, 1.0], a = [1.0]
+        // DC (ω=0): B = 1+1 = 2, A = 1  → |H| = 2
+        let b = Tensor::from_data(
+            vec![1.0f32, 1.0],
+            vec![2],
+            torsh_core::device::DeviceType::Cpu,
+        )?;
+        let a = Tensor::from_data(vec![1.0f32], vec![1], torsh_core::device::DeviceType::Cpu)?;
+
+        let response = freqz(&b, &a, 128, 8000.0)?;
+
+        // DC is at index 0 (ω=0)
+        let dc_mag: f32 = response.magnitude.get_1d(0)?;
+        assert!(
+            (dc_mag - 2.0_f32).abs() < 1e-5,
+            "DC gain should be 2.0, got {dc_mag}"
+        );
+
+        // DC frequency must be 0 Hz
+        let dc_freq: f32 = response.frequencies.get_1d(0)?;
+        assert!(
+            dc_freq.abs() < 1e-6,
+            "DC frequency should be 0 Hz, got {dc_freq}"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_freqz_nyquist_frequency() -> Result<()> {
+        // Last frequency point must be sample_rate / 2 (Nyquist)
+        let b = Tensor::from_data(vec![1.0f32], vec![1], torsh_core::device::DeviceType::Cpu)?;
+        let a = Tensor::from_data(vec![1.0f32], vec![1], torsh_core::device::DeviceType::Cpu)?;
+
+        let sample_rate = 8000.0_f32;
+        let n_points = 512_usize;
+        let response = freqz(&b, &a, n_points, sample_rate)?;
+
+        let nyquist_freq: f32 = response.frequencies.get_1d(n_points - 1)?;
+        let expected_nyquist = sample_rate / 2.0;
+        assert!(
+            (nyquist_freq - expected_nyquist).abs() < 1.0,
+            "last frequency should be ~{expected_nyquist} Hz, got {nyquist_freq}"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_freqz_single_point() -> Result<()> {
+        // n_points=1 should return DC only (ω=0, freq=0 Hz)
+        let b = Tensor::from_data(
+            vec![1.0f32, 1.0],
+            vec![2],
+            torsh_core::device::DeviceType::Cpu,
+        )?;
+        let a = Tensor::from_data(vec![1.0f32], vec![1], torsh_core::device::DeviceType::Cpu)?;
+
+        let response = freqz(&b, &a, 1, 8000.0)?;
+        assert_eq!(response.frequencies.shape().dims(), &[1]);
+
+        let freq: f32 = response.frequencies.get_1d(0)?;
+        assert!(freq.abs() < 1e-6, "single-point should be DC (0 Hz)");
+
+        let mag: f32 = response.magnitude.get_1d(0)?;
+        assert!((mag - 2.0_f32).abs() < 1e-5, "DC gain should be 2.0");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_freqz_zero_n_points_error() {
+        let b =
+            Tensor::from_data(vec![1.0f32], vec![1], torsh_core::device::DeviceType::Cpu).unwrap();
+        let a =
+            Tensor::from_data(vec![1.0f32], vec![1], torsh_core::device::DeviceType::Cpu).unwrap();
+        let result = freqz(&b, &a, 0, 8000.0);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_freqz_phase_is_finite() -> Result<()> {
+        // All phase values must be finite for a stable FIR filter
+        let b = Tensor::from_data(
+            vec![0.25f32, 0.5, 0.25],
+            vec![3],
+            torsh_core::device::DeviceType::Cpu,
+        )?;
+        let a = Tensor::from_data(vec![1.0f32], vec![1], torsh_core::device::DeviceType::Cpu)?;
+
+        let response = freqz(&b, &a, 256, 44100.0)?;
+
+        for i in 0..256 {
+            let ph: f32 = response.phase.get_1d(i)?;
+            assert!(ph.is_finite(), "phase at index {i} is not finite: {ph}");
+        }
 
         Ok(())
     }

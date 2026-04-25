@@ -7,7 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+<<<<<<< Updated upstream
 ## [0.1.2] - 2026-04-24
+=======
+## [0.1.0] - 2026-01-31
+
+### Changed
+- **Version bump to Release Candidate 1** - Preparing for stable 0.1.0 release
+- Upgraded dependencies to latest versions (clap 4.5.54 → 4.5.55)
+- Code quality improvements and cleanup
+
+### Fixed
+- Fixed deprecated `criterion::black_box` usage in benchmarks - migrated to `std::hint::black_box`
+- Added missing crate-level documentation to torsh-vision and torsh-text
+- Code formatting applied across all workspace crates
+
+### Removed
+- Cleaned up 15 backup/original/old files from codebase
+- Removed alpha/beta release announcements from README.md
+- **Polars dependency removed** - Migrated torsh-data tabular loading from Polars (~83K SLOC external dependency) to csv crate for COOLJAPAN policy compliance. Functionality maintained while reducing external dependencies.
+
+### Fixed
+- **✅ SIMD Performance Investigation** (December 31, 2025)
+  - Investigated real hardware SIMD using `scirs2_core::simd_ops::SimdUnifiedOps`
+  - Identified architectural limitation: `Arc<RwLock<Vec<T>>>` requires 4 memory copies
+  - **Result**: Real SIMD 21-570% SLOWER due to memory overhead (10-100μs) >> SIMD benefit (0.1μs)
+  - **Decision**: Removed 200+ lines of broken complex SIMD logic
+  - **Outcome**: 300x faster with simple scalar operations
+  - Simplified `add_op()` and `mul_op()` to direct delegation
+  - CRITICAL #2 status: ⏸️ **ON HOLD** until TensorView (CRITICAL #1) implemented
+  - Created comprehensive investigation report: `/tmp/simd_investigation_summary_20251231.md`
+
+- **✅ Code Quality Improvements** (December 31, 2025)
+  - Fixed all 14 clippy warnings in torsh-tensor
+  - Removed 5 unused constants (SMALL/MEDIUM/LARGE/HUGE_ARRAY_THRESHOLD)
+  - Removed 4 unused adaptive SIMD functions
+  - Removed 2 unused f32-specific SIMD methods
+  - Simplified TensorOpType enum from 9 variants to 2
+  - Added `#[allow(dead_code)]` for intentionally unused helper methods
+  - Zero compilation warnings across workspace
+  - All 419 torsh-tensor tests passing (100% pass rate)
+
+### Changed
+- **✅ Performance Benchmarks** (December 31, 2025)
+  - Add (1K): 91.4ns (305x faster than broken hybrid)
+  - Add (50K): 4.45μs (46x faster than broken hybrid)
+  - Add (1M): 277.2μs (7-11x faster than broken hybrid)
+  - Mul (50K): 90.8μs (334-490% faster than broken hybrid)
+>>>>>>> Stashed changes
 
 ### Added
 - `simd_ops_f32` module: zero-allocation SIMD f32 arithmetic helpers (`add_into_f32`, `sub_into_f32`, `mul_into_f32`, `div_into_f32`, `add_assign_f32`, `sub_assign_f32`, `mul_assign_f32`, `div_assign_f32`) backed by `scirs2_core::simd_ops::SimdUnifiedOps` (AVX2/NEON with scalar fallback)

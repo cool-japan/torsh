@@ -643,7 +643,7 @@ pub mod subgradient_functions {
             // For x = 0, subgradient is any value in [-1, 1]
             // We provide common alternatives: -1, 0, 1
             let zero_grad = grad_output.zeros_like();
-            let neg_grad = grad_output.clone_tensor(); // TODO: negate
+            let neg_grad = grad_output.mul_scalar(-1.0_f64)?;
 
             let subgrad_set = SubgradientSet {
                 primary,
@@ -774,8 +774,8 @@ pub mod subgradient_functions {
             let grad_y = grad_output.zeros_like();
 
             // Alternative: when inputs are equal, gradient can be split
-            let half_grad_x = grad_output.clone_tensor(); // TODO: multiply by 0.5
-            let half_grad_y = grad_output.clone_tensor(); // TODO: multiply by 0.5
+            let half_grad_x = grad_output.mul_scalar(0.5_f64)?;
+            let half_grad_y = grad_output.mul_scalar(0.5_f64)?;
 
             let subgrad_set_x = SubgradientSet {
                 primary: grad_x,
@@ -843,11 +843,26 @@ pub mod subgradient_functions {
             let grad_output = grad_outputs[0];
 
             // Primary subgradient: sign function
-            let primary = grad_output.clone_tensor(); // TODO: apply sign function
+            let sign_data: Vec<T> = grad_output
+                .to_vec()
+                .into_iter()
+                .map(|x| {
+                    let zero = <T as num_traits::Zero>::zero();
+                    let one = <T as num_traits::One>::one();
+                    if x > zero {
+                        one
+                    } else if x < zero {
+                        -one
+                    } else {
+                        zero
+                    }
+                })
+                .collect();
+            let primary = grad_output.with_data(sign_data)?;
 
             // Alternative subgradients for zero elements: any value in [-1, 1]
             let zero_grad = grad_output.zeros_like();
-            let neg_grad = grad_output.clone_tensor(); // TODO: negate
+            let neg_grad = grad_output.mul_scalar(-1.0_f64)?;
 
             let subgrad_set = SubgradientSet {
                 primary,

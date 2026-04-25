@@ -43,6 +43,8 @@ anyhow = { workspace = true }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 oxicode = { workspace = true, optional = true }
+oxiarc-deflate = { workspace = true, optional = true }
+oxiarc-zstd = { workspace = true, optional = true }
 hdf5 = { workspace = true, optional = true }
 arrow = { workspace = true, optional = true }
 parquet = { workspace = true, optional = true }
@@ -78,7 +80,7 @@ gpu = ["torsh-backend"]
 profiling = []
 memory_efficient = []
 # ndarray-interop = ["ndarray"]  # REMOVED: Use scirs2_core::ndarray instead (SciRS2 POLICY)
-serialize = ["serde", "serde_json", "oxicode", "torsh-core/serialize"]
+serialize = ["serde", "serde_json", "oxicode", "oxiarc-deflate", "oxiarc-zstd", "torsh-core/serialize"]
 serialize-hdf5 = ["serialize", "hdf5"]
 serialize-arrow = ["serialize", "arrow", "parquet"]
 serialize-onnx = ["serialize"]  # DEPRECATED: Stub feature for backwards compatibility. ONNX serialization disabled due to security vulnerabilities (RUSTSEC-2024-0437, RUSTSEC-2023-0018)
