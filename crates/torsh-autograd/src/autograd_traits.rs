@@ -38,6 +38,30 @@ pub trait AutogradTensor<T: torsh_core::dtype::TensorElement>: Send + Sync {
 
     /// Create a zeros-like tensor for gradient initialization
     fn zeros_like(&self) -> Box<dyn AutogradTensor<T>>;
+
+    /// Create a new tensor with the same shape, device, and requires_grad, but with new data.
+    fn with_data(&self, data: Vec<T>) -> torsh_core::error::Result<Box<dyn AutogradTensor<T>>>;
+
+    /// Create a new tensor where each element is multiplied by `scale`.
+    fn mul_scalar(&self, scale: f64) -> torsh_core::error::Result<Box<dyn AutogradTensor<T>>> {
+        let scaled: torsh_core::error::Result<Vec<T>> = self
+            .to_vec()
+            .into_iter()
+            .map(|x| {
+                let v = x.to_f64().ok_or_else(|| {
+                    torsh_core::error::TorshError::AutogradError(
+                        "to_f64 conversion failed".to_string(),
+                    )
+                })?;
+                T::from_f64(v * scale).ok_or_else(|| {
+                    torsh_core::error::TorshError::AutogradError(
+                        "from_f64 conversion failed".to_string(),
+                    )
+                })
+            })
+            .collect();
+        self.with_data(scaled?)
+    }
 }
 
 /// Additional trait for tensors that support gradient accumulation
@@ -163,6 +187,14 @@ mod tests {
                 shape: self.shape.clone(),
                 requires_grad: false,
             })
+        }
+
+        fn with_data(&self, data: Vec<T>) -> torsh_core::error::Result<Box<dyn AutogradTensor<T>>> {
+            Ok(Box::new(MockTensor {
+                data,
+                shape: self.shape.clone(),
+                requires_grad: self.requires_grad,
+            }))
         }
     }
 

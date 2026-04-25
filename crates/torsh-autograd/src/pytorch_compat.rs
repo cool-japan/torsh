@@ -543,6 +543,14 @@ mod tests {
                 requires_grad: self.requires_grad,
             })
         }
+
+        fn with_data(&self, data: Vec<T>) -> torsh_core::error::Result<Box<dyn AutogradTensor<T>>> {
+            Ok(Box::new(MockTensor {
+                data,
+                shape: self.shape.clone(),
+                requires_grad: self.requires_grad,
+            }))
+        }
     }
 
     #[test]
