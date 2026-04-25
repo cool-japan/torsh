@@ -557,7 +557,10 @@ mod tests {
             })
         }
 
-        fn with_data(&self, data: Vec<Complex<f32>>) -> torsh_core::error::Result<Box<dyn AutogradTensor<Complex<f32>>>> {
+        fn with_data(
+            &self,
+            data: Vec<Complex<f32>>,
+        ) -> torsh_core::error::Result<Box<dyn AutogradTensor<Complex<f32>>>> {
             Ok(Box::new(MockComplexTensor {
                 data,
                 shape: self.shape.clone(),

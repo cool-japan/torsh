@@ -3,13 +3,8 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [project]
-<<<<<<< Updated upstream
-name = "RsTorch"
-version = "0.1.2"
-=======
 name = "torsh"
-version = "0.1.0"
->>>>>>> Stashed changes
+version = "0.1.2"
 description = "PyTorch-compatible deep learning framework built in Rust"
 readme = "README.md"
 requires-python = ">=3.8"

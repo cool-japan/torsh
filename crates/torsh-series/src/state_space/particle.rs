@@ -319,9 +319,8 @@ impl ParticleFilter {
             new_particles.extend_from_slice(&row);
         }
 
-        self.particles =
-            Tensor::from_vec(new_particles, &[self.num_particles, self.state_dim])
-                .expect("particle tensor reconstruction should succeed");
+        self.particles = Tensor::from_vec(new_particles, &[self.num_particles, self.state_dim])
+            .expect("particle tensor reconstruction should succeed");
     }
 
     /// Update weights based on observation likelihood
@@ -345,9 +344,8 @@ impl ParticleFilter {
             weights_vec[i] *= likelihood as f32;
         }
 
-        self.weights =
-            Tensor::from_vec(weights_vec, &[self.num_particles])
-                .expect("weight tensor reconstruction should succeed");
+        self.weights = Tensor::from_vec(weights_vec, &[self.num_particles])
+            .expect("weight tensor reconstruction should succeed");
 
         self.normalize_weights();
     }

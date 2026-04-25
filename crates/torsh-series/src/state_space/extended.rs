@@ -1,11 +1,11 @@
 //! Extended Kalman filter implementation for nonlinear systems
 
 use crate::TimeSeries;
+use torsh_core::error::{Result, TorshError};
 use torsh_tensor::{
     creation::{eye, zeros},
     Tensor,
 };
-use torsh_core::error::{Result, TorshError};
 
 /// Compute the inverse of a square matrix represented as a flat row-major `Vec<f32>`.
 ///
@@ -13,9 +13,13 @@ use torsh_core::error::{Result, TorshError};
 /// Returns an error if the matrix is singular or the input is not square.
 fn mat_inv_f32(data: &[f32], n: usize) -> Result<Vec<f32>> {
     if data.len() != n * n {
-        return Err(TorshError::InvalidArgument(
-            format!("mat_inv_f32: expected {} elements for {}×{} matrix, got {}", n * n, n, n, data.len()),
-        ));
+        return Err(TorshError::InvalidArgument(format!(
+            "mat_inv_f32: expected {} elements for {}×{} matrix, got {}",
+            n * n,
+            n,
+            n,
+            data.len()
+        )));
     }
 
     // Augment [A | I]
@@ -228,12 +232,12 @@ impl ExtendedKalmanFilter {
             let f_minus = f(&t_minus).to_vec()?;
 
             for i in 0..output_dim {
-                let fi_plus = *f_plus.get(i).ok_or_else(|| TorshError::InvalidArgument(
-                    format!("f_plus index {} out of range", i),
-                ))?;
-                let fi_minus = *f_minus.get(i).ok_or_else(|| TorshError::InvalidArgument(
-                    format!("f_minus index {} out of range", i),
-                ))?;
+                let fi_plus = *f_plus.get(i).ok_or_else(|| {
+                    TorshError::InvalidArgument(format!("f_plus index {} out of range", i))
+                })?;
+                let fi_minus = *f_minus.get(i).ok_or_else(|| {
+                    TorshError::InvalidArgument(format!("f_minus index {} out of range", i))
+                })?;
                 jac_data[i * n + j] = (fi_plus - fi_minus) / two_eps;
             }
         }
@@ -357,9 +361,7 @@ impl ExtendedKalmanFilter {
 
         for t in 0..series.len() {
             self.predict_impl()?;
-            let obs = series
-                .values
-                .slice_tensor(0, t, t + 1)?;
+            let obs = series.values.slice_tensor(0, t, t + 1)?;
             self.update_impl(&obs)?;
             filtered_states.push(self.state.clone());
         }
@@ -445,7 +447,8 @@ mod tests {
     #[test]
     fn test_ekf_with_jacobians() {
         let transition_jac = Box::new(|_x: &Tensor| eye(2).expect("eye creation should succeed"));
-        let observation_jac = Box::new(|_x: &Tensor| ones(&[1, 2]).expect("ones creation should succeed"));
+        let observation_jac =
+            Box::new(|_x: &Tensor| ones(&[1, 2]).expect("ones creation should succeed"));
 
         let ekf = ExtendedKalmanFilter::new(
             2,
@@ -585,8 +588,14 @@ mod tests {
         let jac_data = jac.to_vec().expect("to_vec should succeed");
         let diag_0 = jac_data[0]; // J[0,0]
         let diag_1 = jac_data[3]; // J[1,1]
-        assert!((diag_0 - 1.0_f32).abs() < 1e-3, "J[0,0]={diag_0} expected ~1");
-        assert!((diag_1 - 1.0_f32).abs() < 1e-3, "J[1,1]={diag_1} expected ~1");
+        assert!(
+            (diag_0 - 1.0_f32).abs() < 1e-3,
+            "J[0,0]={diag_0} expected ~1"
+        );
+        assert!(
+            (diag_1 - 1.0_f32).abs() < 1e-3,
+            "J[1,1]={diag_1} expected ~1"
+        );
     }
 
     #[test]
@@ -604,7 +613,8 @@ mod tests {
             Box::new(|_x: &Tensor| eye(2).expect("eye creation should succeed")),
             Box::new(|_x: &Tensor| {
                 let mut h = zeros(&[1, 2]).expect("zeros creation should succeed");
-                h.set_item(&[0, 0], 1.0_f32).expect("set_item should succeed");
+                h.set_item(&[0, 0], 1.0_f32)
+                    .expect("set_item should succeed");
                 h
             }),
         );
@@ -612,8 +622,16 @@ mod tests {
         ekf.predict();
         let cov_data = ekf.covariance().to_vec().expect("to_vec should succeed");
         // P = I + I = 2*I → diagonals = 2.0, off-diagonals = 0.0
-        assert!((cov_data[0] - 2.0_f32).abs() < 1e-5, "cov[0,0]={}", cov_data[0]);
-        assert!((cov_data[3] - 2.0_f32).abs() < 1e-5, "cov[1,1]={}", cov_data[3]);
+        assert!(
+            (cov_data[0] - 2.0_f32).abs() < 1e-5,
+            "cov[0,0]={}",
+            cov_data[0]
+        );
+        assert!(
+            (cov_data[3] - 2.0_f32).abs() < 1e-5,
+            "cov[1,1]={}",
+            cov_data[3]
+        );
         assert!(cov_data[1].abs() < 1e-5, "cov[0,1]={}", cov_data[1]);
         assert!(cov_data[2].abs() < 1e-5, "cov[1,0]={}", cov_data[2]);
     }

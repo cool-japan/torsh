@@ -524,11 +524,8 @@ pub fn freqz(
         vec![n_points],
         torsh_core::device::DeviceType::Cpu,
     )?;
-    let magnitude = Tensor::from_data(
-        mag_vec,
-        vec![n_points],
-        torsh_core::device::DeviceType::Cpu,
-    )?;
+    let magnitude =
+        Tensor::from_data(mag_vec, vec![n_points], torsh_core::device::DeviceType::Cpu)?;
     let phase = Tensor::from_data(
         phase_vec,
         vec![n_points],

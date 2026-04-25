@@ -296,10 +296,12 @@ impl UnscentedKalmanFilter {
                 // Sigma point slices are [1, N]; use get(&[0, j]) when 2D, get(&[j]) when 1D
                 let val = if sp.shape().ndim() == 2 {
                     sp.get(&[0, j])
-                        .expect("transformed sigma point read should succeed") as f64
+                        .expect("transformed sigma point read should succeed")
+                        as f64
                 } else {
                     sp.get(&[j])
-                        .expect("transformed sigma point read should succeed") as f64
+                        .expect("transformed sigma point read should succeed")
+                        as f64
                 };
                 mean_j += self.weights_mean[i] * val;
             }
@@ -331,14 +333,17 @@ impl UnscentedKalmanFilter {
             for j in 0..n {
                 let val = if sp.shape().ndim() == 2 {
                     sp.get(&[0, j])
-                        .expect("transformed sigma point read should succeed") as f64
+                        .expect("transformed sigma point read should succeed")
+                        as f64
                 } else {
                     sp.get(&[j])
-                        .expect("transformed sigma point read should succeed") as f64
+                        .expect("transformed sigma point read should succeed")
+                        as f64
                 };
                 let mean_j = predicted_mean
                     .get(&[j])
-                    .expect("predicted mean read should succeed") as f64;
+                    .expect("predicted mean read should succeed")
+                    as f64;
                 d[j] = val - mean_j;
             }
             // Accumulate W_c[i] * d * d^T
@@ -347,7 +352,8 @@ impl UnscentedKalmanFilter {
                 for k in 0..n {
                     let old = predicted_cov
                         .get(&[j, k])
-                        .expect("predicted cov read should succeed") as f64;
+                        .expect("predicted cov read should succeed")
+                        as f64;
                     predicted_cov
                         .set(&[j, k], (old + wc * d[j] * d[k]) as f32)
                         .expect("predicted cov set should succeed");
@@ -389,8 +395,7 @@ impl UnscentedKalmanFilter {
                     sp.get(&[0, j])
                         .expect("obs sigma point read should succeed") as f64
                 } else {
-                    sp.get(&[j])
-                        .expect("obs sigma point read should succeed") as f64
+                    sp.get(&[j]).expect("obs sigma point read should succeed") as f64
                 };
                 mean_j += self.weights_mean[i] * val;
             }
@@ -433,10 +438,7 @@ impl UnscentedKalmanFilter {
                     sp_x.get(&[j])
                         .expect("sigma point state read should succeed") as f64
                 };
-                let mean_j = self
-                    .state
-                    .get(&[j])
-                    .expect("state read should succeed") as f64;
+                let mean_j = self.state.get(&[j]).expect("state read should succeed") as f64;
                 dx[j] = val - mean_j;
             }
 
@@ -447,21 +449,16 @@ impl UnscentedKalmanFilter {
                     sp_z.get(&[0, j])
                         .expect("obs sigma point read should succeed") as f64
                 } else {
-                    sp_z.get(&[j])
-                        .expect("obs sigma point read should succeed") as f64
+                    sp_z.get(&[j]).expect("obs sigma point read should succeed") as f64
                 };
-                let mean_j = obs_mean
-                    .get(&[j])
-                    .expect("obs mean read should succeed") as f64;
+                let mean_j = obs_mean.get(&[j]).expect("obs mean read should succeed") as f64;
                 dz[j] = val - mean_j;
             }
 
             // Accumulate W_c[i] * dz * dz^T into obs_cov
             for j in 0..obs_dim {
                 for k in 0..obs_dim {
-                    let old = obs_cov
-                        .get(&[j, k])
-                        .expect("obs cov read should succeed") as f64;
+                    let old = obs_cov.get(&[j, k]).expect("obs cov read should succeed") as f64;
                     obs_cov
                         .set(&[j, k], (old + wc * dz[j] * dz[k]) as f32)
                         .expect("obs cov set should succeed");
@@ -473,7 +470,8 @@ impl UnscentedKalmanFilter {
                 for k in 0..obs_dim {
                     let old = cross_cov
                         .get(&[j, k])
-                        .expect("cross cov read should succeed") as f64;
+                        .expect("cross cov read should succeed")
+                        as f64;
                     cross_cov
                         .set(&[j, k], (old + wc * dx[j] * dz[k]) as f32)
                         .expect("cross cov set should succeed");
@@ -726,14 +724,13 @@ mod tests {
         let sp = ukf.sigma_points();
         for col in 0..n {
             for j in 0..n {
-                let pos = sp
-                    .get(&[col + 1, j])
-                    .expect("get should succeed") as f64;
-                let neg = sp
-                    .get(&[n + col + 1, j])
-                    .expect("get should succeed") as f64;
+                let pos = sp.get(&[col + 1, j]).expect("get should succeed") as f64;
+                let neg = sp.get(&[n + col + 1, j]).expect("get should succeed") as f64;
                 // pos and neg must be mirror images about the mean (0.0 here)
-                assert!((pos + neg).abs() < 1e-5, "symmetry violated at col={col} j={j}: pos={pos} neg={neg}");
+                assert!(
+                    (pos + neg).abs() < 1e-5,
+                    "symmetry violated at col={col} j={j}: pos={pos} neg={neg}"
+                );
             }
         }
     }

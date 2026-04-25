@@ -126,29 +126,14 @@ fn test_compression_levels() {
         .resources_mut()
         .insert(resource.name.clone(), resource);
 
-<<<<<<< Updated upstream
-    // Test different compression levels
-    let compression_levels = vec![
-        ("fastest", ZipCompressionLevel::Fast),
-=======
     // Test different compression levels (Fast=1, Normal=6, Best=9)
     let compression_levels = vec![
         ("fast", ZipCompressionLevel::Fast),
->>>>>>> Stashed changes
         ("normal", ZipCompressionLevel::Normal),
         ("best", ZipCompressionLevel::Best),
     ];
     let mut file_sizes = Vec::new();
 
-<<<<<<< Updated upstream
-    for (name, level) in compression_levels {
-        let path = temp_dir
-            .path()
-            .join(format!("compression_{}.torshpkg", name));
-
-        let config = ExportConfig {
-            compression: level,
-=======
     for (label, level) in &compression_levels {
         let path = temp_dir
             .path()
@@ -156,7 +141,6 @@ fn test_compression_levels() {
 
         let config = ExportConfig {
             compression: *level,
->>>>>>> Stashed changes
             ..Default::default()
         };
 

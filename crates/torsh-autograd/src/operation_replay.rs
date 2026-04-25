@@ -601,16 +601,29 @@ impl OperationReplayer {
             // "replayed" (metadata pass) and capture timing deltas for profiling.
             let replay_op_start = std::time::Instant::now();
 
-            // Metadata-only pass: validate recorded shapes are internally consistent.
-            for (input_shape, output_shape) in op
-                .input_shapes
-                .iter()
-                .zip(op.output_shapes.iter())
-            {
-                let _input_volume: usize = input_shape.iter().product();
-                let _output_volume: usize = output_shape.iter().product();
-                // Shape plausibility check — extended validation can be added once
-                // the tensor registry is available.
+            // Metadata-only pass — the execution engine (tensor registry + op
+            // dispatch) is not yet wired.  Until it is, we validate what we can
+            // from the recorded metadata alone: the number of shape entries must
+            // match the number of tensor IDs recorded for each side.
+            if op.input_shapes.len() != op.inputs.len() {
+                stats.shape_mismatches += 1;
+                stats.errors.push(format!(
+                    "op #{} '{}': input_shapes.len()={} != inputs.len()={}",
+                    op.id,
+                    op.operation,
+                    op.input_shapes.len(),
+                    op.inputs.len()
+                ));
+            }
+            if op.output_shapes.len() != op.outputs.len() {
+                stats.shape_mismatches += 1;
+                stats.errors.push(format!(
+                    "op #{} '{}': output_shapes.len()={} != outputs.len()={}",
+                    op.id,
+                    op.operation,
+                    op.output_shapes.len(),
+                    op.outputs.len()
+                ));
             }
 
             let replay_op_duration = replay_op_start.elapsed();
@@ -636,33 +649,34 @@ impl OperationReplayer {
         let total_duration = start_time.elapsed();
 
         // Build overall performance comparison from per-operation data.
-        let performance_comparison = if self.config.profile_replay && !operation_comparisons.is_empty() {
-            let original_total: Duration = operation_comparisons
-                .iter()
-                .map(|c| c.original_duration)
-                .sum();
-            let replay_total: Duration = operation_comparisons
-                .iter()
-                .map(|c| c.replay_duration)
-                .sum();
-            let original_ms = original_total.as_secs_f64() * 1_000.0;
-            let replay_ms = replay_total.as_secs_f64() * 1_000.0;
-            let difference_ms = replay_ms - original_ms;
-            let difference_percent = if original_ms > 0.0 {
-                (difference_ms / original_ms) * 100.0
+        let performance_comparison =
+            if self.config.profile_replay && !operation_comparisons.is_empty() {
+                let original_total: Duration = operation_comparisons
+                    .iter()
+                    .map(|c| c.original_duration)
+                    .sum();
+                let replay_total: Duration = operation_comparisons
+                    .iter()
+                    .map(|c| c.replay_duration)
+                    .sum();
+                let original_ms = original_total.as_secs_f64() * 1_000.0;
+                let replay_ms = replay_total.as_secs_f64() * 1_000.0;
+                let difference_ms = replay_ms - original_ms;
+                let difference_percent = if original_ms > 0.0 {
+                    (difference_ms / original_ms) * 100.0
+                } else {
+                    0.0
+                };
+                Some(PerformanceComparison {
+                    original_duration: original_total,
+                    replay_duration: replay_total,
+                    difference_ms,
+                    difference_percent,
+                    operation_comparisons,
+                })
             } else {
-                0.0
+                None
             };
-            Some(PerformanceComparison {
-                original_duration: original_total,
-                replay_duration: replay_total,
-                difference_ms,
-                difference_percent,
-                operation_comparisons,
-            })
-        } else {
-            None
-        };
 
         Ok(ReplayResult {
             operations_replayed: stats.total_replayed,

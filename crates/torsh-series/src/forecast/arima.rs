@@ -27,8 +27,8 @@ fn series_to_f64(series: &TimeSeries) -> Vec<f64> {
 fn f64_to_series(values: &[f64]) -> TimeSeries {
     let f32_vals: Vec<f32> = values.iter().map(|&v| v as f32).collect();
     let n = f32_vals.len();
-    let tensor =
-        Tensor::from_vec(f32_vals, &[n]).unwrap_or_else(|_| Tensor::from_vec(vec![], &[0]).expect("empty tensor should succeed"));
+    let tensor = Tensor::from_vec(f32_vals, &[n])
+        .unwrap_or_else(|_| Tensor::from_vec(vec![], &[0]).expect("empty tensor should succeed"));
     TimeSeries::new(tensor)
 }
 
@@ -496,9 +496,7 @@ impl ARIMA {
 
     /// Residuals from the fitted model, or `None` if not fitted.
     pub fn residuals(&self) -> Option<TimeSeries> {
-        self.residuals_data
-            .as_ref()
-            .map(|r| f64_to_series(r))
+        self.residuals_data.as_ref().map(|r| f64_to_series(r))
     }
 
     /// Forecast `steps` steps ahead.
@@ -509,8 +507,9 @@ impl ARIMA {
         if steps == 0 || !self.is_fitted() {
             // Return zeros of length `steps`
             let vals: Vec<f32> = vec![0.0_f32; steps];
-            let tensor = Tensor::from_vec(vals, &[steps])
-                .unwrap_or_else(|_| Tensor::from_vec(vec![], &[0]).expect("empty tensor should succeed"));
+            let tensor = Tensor::from_vec(vals, &[steps]).unwrap_or_else(|_| {
+                Tensor::from_vec(vec![], &[0]).expect("empty tensor should succeed")
+            });
             return TimeSeries::new(tensor);
         }
 
@@ -759,8 +758,8 @@ mod tests {
     /// A simple AR(1) process: y[t] = 0.7 * y[t-1] + noise
     fn create_ar1_series() -> TimeSeries {
         let data: Vec<f32> = vec![
-            1.0, 1.7, 1.19, 1.433, 1.603, 1.722, 1.805, 1.864, 1.905, 1.933, 1.953, 1.967,
-            1.977, 1.984, 1.989, 1.992, 1.994, 1.996, 1.997, 1.998,
+            1.0, 1.7, 1.19, 1.433, 1.603, 1.722, 1.805, 1.864, 1.905, 1.933, 1.953, 1.967, 1.977,
+            1.984, 1.989, 1.992, 1.994, 1.996, 1.997, 1.998,
         ];
         let n = data.len();
         let tensor = Tensor::from_vec(data, &[n]).expect("test tensor creation should succeed");
@@ -875,7 +874,10 @@ mod tests {
         // Integrated forecast should continue the linear trend
         let vals = fc.values.to_vec().expect("to_vec should succeed");
         // Values should be positive and increasing (trend series)
-        assert!(vals.iter().all(|&v| v > 0.0_f32), "forecast values should be positive: {vals:?}");
+        assert!(
+            vals.iter().all(|&v| v > 0.0_f32),
+            "forecast values should be positive: {vals:?}"
+        );
     }
 
     #[test]

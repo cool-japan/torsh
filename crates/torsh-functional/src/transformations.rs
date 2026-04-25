@@ -371,23 +371,24 @@ fn optimize_contraction_path(
     for (l, r) in raw_pairs {
         // Resolve the representative original index for l and r.
         // Each subset currently resolves to a live position.
-        let live_l = *subset_live
-            .get(&l)
-            .ok_or_else(|| TorshError::invalid_argument_with_context(
+        let live_l = *subset_live.get(&l).ok_or_else(|| {
+            TorshError::invalid_argument_with_context(
                 "DP backtrack: missing live mapping for left subset",
                 "optimize_contraction_path",
-            ))?;
-        let live_r = *subset_live
-            .get(&r)
-            .ok_or_else(|| TorshError::invalid_argument_with_context(
+            )
+        })?;
+        let live_r = *subset_live.get(&r).ok_or_else(|| {
+            TorshError::invalid_argument_with_context(
                 "DP backtrack: missing live mapping for right subset",
                 "optimize_contraction_path",
-            ))?;
+            )
+        })?;
 
         // Compute result index string (chars that survive this pairwise contraction).
         let idx_l = live_indices[live_pos[live_l]].clone();
         let idx_r = live_indices[live_pos[live_r]].clone();
-        let result_indices = compute_pairwise_result(&idx_l, &idx_r, output, &live_indices, live_l, live_r);
+        let result_indices =
+            compute_pairwise_result(&idx_l, &idx_r, output, &live_indices, live_l, live_r);
 
         let pos_l = live_pos[live_l];
         let pos_r = live_pos[live_r];
@@ -517,12 +518,9 @@ fn execute_contraction_path(
 
     if path.is_empty() {
         // Single-operand einsum — return it directly.
-        return pool
-            .into_iter()
-            .find_map(|slot| slot)
-            .ok_or_else(|| TorshError::InvalidOperation(
-                "execute_contraction_path: empty operand pool".to_string(),
-            ));
+        return pool.into_iter().find_map(|slot| slot).ok_or_else(|| {
+            TorshError::InvalidOperation("execute_contraction_path: empty operand pool".to_string())
+        });
     }
 
     for step in path {
@@ -532,22 +530,25 @@ fn execute_contraction_path(
             return Err(TorshError::InvalidOperation(format!(
                 "execute_contraction_path: invalid step indices ({}, {}) for pool size {} \
                  (result_indices='{}')",
-                i, j, pool.len(), step.result_indices
+                i,
+                j,
+                pool.len(),
+                step.result_indices
             )));
         }
 
-        let a = pool[i]
-            .take()
-            .ok_or_else(|| TorshError::InvalidOperation(format!(
+        let a = pool[i].take().ok_or_else(|| {
+            TorshError::InvalidOperation(format!(
                 "execute_contraction_path: slot {} already consumed (result_indices='{}')",
                 i, step.result_indices
-            )))?;
-        let b = pool[j]
-            .take()
-            .ok_or_else(|| TorshError::InvalidOperation(format!(
+            ))
+        })?;
+        let b = pool[j].take().ok_or_else(|| {
+            TorshError::InvalidOperation(format!(
                 "execute_contraction_path: slot {} already consumed (result_indices='{}')",
                 j, step.result_indices
-            )))?;
+            ))
+        })?;
 
         // Use the simplified matrix-multiplication equation that the underlying
         // math::einsum supports.  A complete implementation would build the equation
@@ -561,11 +562,11 @@ fn execute_contraction_path(
 
     // The output index string constrains the final result shape; propagated as metadata.
     let _ = output;
-    pool.into_iter()
-        .find_map(|slot| slot)
-        .ok_or_else(|| TorshError::InvalidOperation(
+    pool.into_iter().find_map(|slot| slot).ok_or_else(|| {
+        TorshError::InvalidOperation(
             "execute_contraction_path: no result tensor after all steps".to_string(),
-        ))
+        )
+    })
 }
 
 /// Tensor contraction with specified axes
@@ -1224,11 +1225,8 @@ mod tests {
     /// Two-tensor matrix multiplication: path should have exactly one step.
     #[test]
     fn test_dp_path_two_tensors() {
-        let index_sizes = std::collections::HashMap::from([
-            ('i', 10usize),
-            ('j', 20usize),
-            ('k', 30usize),
-        ]);
+        let index_sizes =
+            std::collections::HashMap::from([('i', 10usize), ('j', 20usize), ('k', 30usize)]);
         let inputs = vec!["ij".to_string(), "jk".to_string()];
         let path = optimize_contraction_path(&inputs, "ik", &index_sizes)
             .expect("optimize should succeed");
@@ -1258,7 +1256,11 @@ mod tests {
         let inputs = vec!["ij".to_string(), "jk".to_string(), "kl".to_string()];
         let path = optimize_contraction_path(&inputs, "il", &index_sizes)
             .expect("optimize should succeed");
-        assert_eq!(path.len(), 2, "three-tensor path must have exactly two steps");
+        assert_eq!(
+            path.len(),
+            2,
+            "three-tensor path must have exactly two steps"
+        );
     }
 
     /// The DP optimizer should produce a cheaper path than contracting in left-to-right order
@@ -1284,7 +1286,11 @@ mod tests {
         // Just verify the path has the right shape (3 steps for 4 tensors).
         let path = optimize_contraction_path(&inputs, "im", &index_sizes)
             .expect("optimize should succeed");
-        assert_eq!(path.len(), 3, "four-tensor path must have exactly three steps");
+        assert_eq!(
+            path.len(),
+            3,
+            "four-tensor path must have exactly three steps"
+        );
     }
 
     /// Verify that the bitmask DP and the greedy fallback agree on a 2-tensor case.
@@ -1323,7 +1329,10 @@ mod tests {
         let all_live = vec!["ij".to_string(), "jk".to_string(), "km".to_string()];
         let result = compute_pairwise_result("ij", "jk", "im", &all_live, 0, 1);
         // 'i' → in output, 'k' → in tensor 2 (outside), 'j' → contracted (not in output or outside)
-        assert!(result.contains('k'), "k must survive because tensor 2 uses it");
+        assert!(
+            result.contains('k'),
+            "k must survive because tensor 2 uses it"
+        );
         assert!(!result.contains('j'), "j must be contracted away");
     }
 }

@@ -532,12 +532,12 @@ impl VECM {
         //             delta_{t-(p-1)}_k, y_{t-1}_1, ..., y_{t-1}_k]
         // Number of regressors: 1 + k*(p-1) + k = 1 + k*p
         let n_reg = 1 + k * p; // intercept + k*(p-1) diff lags + k level lags
-        // Build regressor matrix row by row; row index s corresponds to time t = p + s
+                               // Build regressor matrix row by row; row index s corresponds to time t = p + s
         let mut reg_matrix: Vec<Vec<f64>> = Vec::with_capacity(t_eff);
         for s in 0..t_eff {
             let t = p + s; // time index in delta array (0-based)
             let mut row = vec![1.0_f64]; // intercept
-            // Lagged differences: lags 1..p-1
+                                         // Lagged differences: lags 1..p-1
             for lag in 1..p {
                 for j in 0..k {
                     let idx = t.checked_sub(lag).unwrap_or(0);
@@ -658,7 +658,13 @@ impl VECM {
                 // delta[j][t_diff-1-lag] where t_diff = n-1
                 let idx = t_diff.saturating_sub(1 + lag);
                 (0..k)
-                    .map(|j| if idx < delta[j].len() { delta[j][idx] } else { 0.0 })
+                    .map(|j| {
+                        if idx < delta[j].len() {
+                            delta[j][idx]
+                        } else {
+                            0.0
+                        }
+                    })
                     .collect()
             })
             .collect();
@@ -675,10 +681,9 @@ impl VECM {
     /// forward for `steps` periods. Returns one TimeSeries per variable.
     pub fn forecast(&self, steps: usize) -> Result<Vec<TimeSeries>> {
         use torsh_tensor::Tensor;
-        let pi = self
-            .pi_matrix
-            .as_ref()
-            .ok_or_else(|| torsh_core::error::TorshError::NotImplemented("VECM not fitted".to_string()))?;
+        let pi = self.pi_matrix.as_ref().ok_or_else(|| {
+            torsh_core::error::TorshError::NotImplemented("VECM not fitted".to_string())
+        })?;
         let k = pi.shape()[0];
 
         // Initialise from the last observed values stored during fit().
@@ -731,7 +736,11 @@ impl VECM {
             }
 
             // y_t = y_{t-1} + Δy
-            let y_new: Vec<f64> = y_level.iter().zip(delta_new.iter()).map(|(y, d)| y + d).collect();
+            let y_new: Vec<f64> = y_level
+                .iter()
+                .zip(delta_new.iter())
+                .map(|(y, d)| y + d)
+                .collect();
 
             for j in 0..k {
                 paths[j].push(y_new[j]);
@@ -766,10 +775,9 @@ impl VECM {
     ///
     /// Returns one k×k Array2 per horizon (n_periods+1 matrices total).
     pub fn impulse_response(&self, periods: usize) -> Result<Vec<Array2<f64>>> {
-        let pi = self
-            .pi_matrix
-            .as_ref()
-            .ok_or_else(|| torsh_core::error::TorshError::NotImplemented("VECM not fitted".to_string()))?;
+        let pi = self.pi_matrix.as_ref().ok_or_else(|| {
+            torsh_core::error::TorshError::NotImplemented("VECM not fitted".to_string())
+        })?;
         let k = pi.shape()[0];
         let p = self.lags;
 
@@ -886,7 +894,12 @@ fn solve_3x3(a: &[[f64; 3]; 3], b: &[f64; 3]) -> Option<[f64; 3]> {
     for col in 0..3 {
         // Partial pivot
         let max_row = (col..3)
-            .max_by(|&r1, &r2| aug[r1][col].abs().partial_cmp(&aug[r2][col].abs()).unwrap_or(std::cmp::Ordering::Equal))
+            .max_by(|&r1, &r2| {
+                aug[r1][col]
+                    .abs()
+                    .partial_cmp(&aug[r2][col].abs())
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
             .unwrap_or(col);
         aug.swap(col, max_row);
         let pivot = aug[col][col];
@@ -1051,7 +1064,11 @@ fn jacobi_eig_symmetric(mat: &[Vec<f64>], max_iter: usize) -> (Vec<f64>, Vec<Vec
 
     // Collect and sort eigenvalues descending by magnitude
     let mut pairs: Vec<(f64, usize)> = (0..n).map(|i| (a[i][i], i)).collect();
-    pairs.sort_by(|(a, _), (b, _)| b.abs().partial_cmp(&a.abs()).unwrap_or(std::cmp::Ordering::Equal));
+    pairs.sort_by(|(a, _), (b, _)| {
+        b.abs()
+            .partial_cmp(&a.abs())
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     let eigenvalues: Vec<f64> = pairs.iter().map(|&(ev, _)| ev).collect();
     let eigenvectors: Vec<Vec<f64>> = pairs
@@ -1085,10 +1102,15 @@ fn svd_small(a: &[Vec<f64>], rank: usize) -> (Vec<Vec<f64>>, Vec<f64>, Vec<Vec<f
     let (eigenvalues, v_cols) = jacobi_eig_symmetric(&ata, max_jacobi);
 
     // sigma_i = sqrt(max(0, eigenvalue_i))
-    let sigma: Vec<f64> = eigenvalues[..r].iter().map(|&ev| ev.max(0.0).sqrt()).collect();
+    let sigma: Vec<f64> = eigenvalues[..r]
+        .iter()
+        .map(|&ev| ev.max(0.0).sqrt())
+        .collect();
 
     // V matrix (k×r): columns are right singular vectors
-    let v_mat: Vec<Vec<f64>> = (0..k).map(|row| (0..r).map(|col| v_cols[col][row]).collect()).collect();
+    let v_mat: Vec<Vec<f64>> = (0..k)
+        .map(|row| (0..r).map(|col| v_cols[col][row]).collect())
+        .collect();
 
     // U_i = A V_i / sigma_i  (with fallback for zero singular values)
     let mut u_mat: Vec<Vec<f64>> = vec![vec![0.0_f64; r]; k];
@@ -1274,9 +1296,7 @@ mod tests {
         // x must NOT be a linear function of i to avoid perfect collinearity.
         // Use x_i = sin(i) + 3 so that x and t=i are not collinear.
         let n = 30usize;
-        let x: Vec<f32> = (0..n)
-            .map(|i| ((i as f32).sin() + 3.0))
-            .collect();
+        let x: Vec<f32> = (0..n).map(|i| (i as f32).sin() + 3.0).collect();
         let y: Vec<f32> = (0..n)
             .map(|i| 1.0 + 2.0 * x[i] + 0.5 * (i as f32))
             .collect();
@@ -1287,10 +1307,7 @@ mod tests {
             (alpha - 1.0).abs() < 1.0,
             "alpha should be ~1.0, got {alpha}"
         );
-        assert!(
-            (beta - 2.0).abs() < 0.5,
-            "beta should be ~2.0, got {beta}"
-        );
+        assert!((beta - 2.0).abs() < 0.5, "beta should be ~2.0, got {beta}");
         let max_res = residuals.iter().map(|&r| r.abs()).fold(0.0_f64, f64::max);
         assert!(max_res < 1.0, "max residual should be small, got {max_res}");
     }
@@ -1368,7 +1385,10 @@ mod tests {
         let series = create_vecm_test_series();
         let mut vecm = VECM::new(2, 1);
         vecm.fit(&series).expect("fit should succeed");
-        assert!(vecm.pi_matrix.is_some(), "pi_matrix should be set after fit");
+        assert!(
+            vecm.pi_matrix.is_some(),
+            "pi_matrix should be set after fit"
+        );
         assert!(vecm.alpha.is_some(), "alpha should be set after fit");
         assert!(vecm.beta.is_some(), "beta should be set after fit");
         let pi = vecm.pi_matrix.as_ref().expect("pi");

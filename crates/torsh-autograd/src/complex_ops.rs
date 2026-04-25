@@ -518,7 +518,10 @@ mod tests {
     // for these tests.
 
     /// Build an OwnedTensor<Complex<f32>> for tests.
-    fn make_complex_tensor(data: Vec<Complex<f32>>, requires_grad: bool) -> OwnedTensor<Complex<f32>> {
+    fn make_complex_tensor(
+        data: Vec<Complex<f32>>,
+        requires_grad: bool,
+    ) -> OwnedTensor<Complex<f32>> {
         let n = data.len();
         OwnedTensor {
             data,
@@ -586,8 +589,8 @@ mod tests {
         let real_t = make_real_tensor(vec![1.0_f32, 2.0, 3.0], true);
         let imag_t = make_real_tensor(vec![4.0_f32, 5.0, 6.0], false);
 
-        let result = real_to_complex(&real_t, Some(&imag_t))
-            .expect("real_to_complex should succeed");
+        let result =
+            real_to_complex(&real_t, Some(&imag_t)).expect("real_to_complex should succeed");
 
         let out = result.to_vec();
         assert_eq!(out.len(), 3);
@@ -601,8 +604,8 @@ mod tests {
     fn test_real_to_complex_no_imag() {
         let real_t = make_real_tensor(vec![7.0_f32, 8.0], false);
 
-        let result = real_to_complex(&real_t, None)
-            .expect("real_to_complex (no imag) should succeed");
+        let result =
+            real_to_complex(&real_t, None).expect("real_to_complex (no imag) should succeed");
 
         let out = result.to_vec();
         assert_eq!(out[0], Complex::<f32>::new(7.0, 0.0));
@@ -735,13 +738,8 @@ mod tests {
         let input_t = make_complex_tensor(vec![Complex::<f32>::new(1.0, 1.0)], true);
         let grad_t = make_complex_tensor(vec![Complex::<f32>::new(1.0, 0.0)], false);
 
-        let result = non_holomorphic_backward(
-            &input_t,
-            &grad_t,
-            &|z| z.conj(),
-            &|z| *z,
-        )
-        .expect("non_holomorphic_backward should succeed");
+        let result = non_holomorphic_backward(&input_t, &grad_t, &|z| z.conj(), &|z| *z)
+            .expect("non_holomorphic_backward should succeed");
 
         let out = result.to_vec();
         assert!((out[0].re - 2.0_f32).abs() < 1e-6);

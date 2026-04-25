@@ -862,7 +862,10 @@ mod tests {
             ))
         }
 
-        fn with_data(&self, data: Vec<f32>) -> torsh_core::error::Result<Box<dyn AutogradTensor<f32>>> {
+        fn with_data(
+            &self,
+            data: Vec<f32>,
+        ) -> torsh_core::error::Result<Box<dyn AutogradTensor<f32>>> {
             Ok(Box::new(MockTensor::new(
                 data,
                 self.shape.clone(),

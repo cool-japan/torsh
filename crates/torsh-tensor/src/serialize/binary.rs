@@ -285,12 +285,9 @@ pub fn serialize_binary<T: TensorElement, W: Write>(
         {
             // Map compression_level (1-9) to zstd level (1-22); scale linearly.
             let zstd_level = (options.compression_level as i32).clamp(1, 22);
-            let compressed_bytes =
-                oxiarc_zstd::compress_with_level(data_bytes, zstd_level).map_err(|e| {
-                    TorshError::SerializationError(format!(
-                        "Failed to compress tensor data: {}",
-                        e
-                    ))
+            let compressed_bytes = oxiarc_zstd::compress_with_level(data_bytes, zstd_level)
+                .map_err(|e| {
+                    TorshError::SerializationError(format!("Failed to compress tensor data: {}", e))
                 })?;
             (compressed_bytes, true)
         }
@@ -421,10 +418,7 @@ pub fn deserialize_binary<T: TensorElement, R: Read>(reader: &mut R) -> Result<T
         #[cfg(feature = "serialize")]
         {
             oxiarc_zstd::decompress(&data_bytes).map_err(|e| {
-                TorshError::SerializationError(format!(
-                    "Failed to decompress tensor data: {}",
-                    e
-                ))
+                TorshError::SerializationError(format!("Failed to decompress tensor data: {}", e))
             })?
         }
         #[cfg(not(feature = "serialize"))]

@@ -237,9 +237,12 @@ pub struct StreamingTensorReader<R: Read> {
     start_time: Instant,
     progress_callback: Option<ProgressCallback>,
     /// Decompressed data buffered from the most recent compressed frame.
-    /// Only populated when `config.compress_chunks` is true.
+    /// Only populated when `config.compress_chunks` is true and the
+    /// `serialize` feature is enabled.
+    #[cfg(feature = "serialize")]
     decomp_buf: Vec<u8>,
     /// Read cursor into `decomp_buf`.
+    #[cfg(feature = "serialize")]
     decomp_cursor: usize,
 }
 
@@ -263,7 +266,9 @@ impl<R: Read> StreamingTensorReader<R> {
             last_progress_report: 0,
             start_time: Instant::now(),
             progress_callback: None,
+            #[cfg(feature = "serialize")]
             decomp_buf: Vec::new(),
+            #[cfg(feature = "serialize")]
             decomp_cursor: 0,
         }
     }
