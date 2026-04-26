@@ -437,8 +437,13 @@ mod tests {
         let data = vec![1, 2, 3, 4, 5];
         let prefetch_iter = PrefetchIterator::new(data.into_iter(), 3);
 
-        // Give the prefetch thread a moment to work
-        std::thread::sleep(Duration::from_millis(10));
+        // Poll until the prefetch thread has had a chance to fill the buffer.
+        // A fixed sleep is unreliable under heavy test-suite load; retry with
+        // a generous timeout so the test is not flaky on slow CI runners.
+        let deadline = std::time::Instant::now() + Duration::from_millis(500);
+        while prefetch_iter.buffer_is_empty() && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(5));
+        }
 
         // Buffer should not be empty after prefetching starts
         assert!(!prefetch_iter.buffer_is_empty());
