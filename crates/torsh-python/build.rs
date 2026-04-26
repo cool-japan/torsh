@@ -45,7 +45,7 @@ fn emit_via_sysconfig(python: &str) -> bool {
         .args([
             "-c",
             "import sysconfig; cfg = sysconfig.get_config_vars(); \
-             print(cfg.get('LDLIBRARY',''), cfg.get('LIBDIR',''), cfg.get('LIBPL',''), sep='|')",
+             print(cfg.get('LDLIBRARY',''), cfg.get('LIBDIR',''), cfg.get('LIBPL',''), cfg.get('PYTHONFRAMEWORKPREFIX',''), sep='|')",
         ])
         .output();
 
@@ -57,10 +57,11 @@ fn emit_via_sysconfig(python: &str) -> bool {
     }
 
     let stdout = String::from_utf8_lossy(&out.stdout);
-    let parts: Vec<&str> = stdout.trim().splitn(3, '|').collect();
+    let parts: Vec<&str> = stdout.trim().splitn(4, '|').collect();
     let ldlibrary = parts.first().copied().unwrap_or("").trim();
     let libdir = parts.get(1).copied().unwrap_or("").trim();
     let libpl = parts.get(2).copied().unwrap_or("").trim();
+    let fwprefix = parts.get(3).copied().unwrap_or("").trim();
 
     if !libdir.is_empty() {
         println!("cargo:rustc-link-search=native={libdir}");
@@ -73,6 +74,17 @@ fn emit_via_sysconfig(python: &str) -> bool {
         println!("cargo:rustc-link-arg=-L{libpl}");
     }
 
+    if let Some(name) = extract_framework_name(ldlibrary) {
+        if !fwprefix.is_empty() {
+            println!("cargo:rustc-link-search=framework={fwprefix}");
+            println!("cargo:rustc-link-arg=-F{fwprefix}");
+        }
+        println!("cargo:rustc-link-lib=framework={name}");
+        println!("cargo:rustc-link-arg=-framework");
+        println!("cargo:rustc-link-arg={name}");
+        return true;
+    }
+
     if let Some(bare) = extract_lib_name(ldlibrary) {
         // Emit both forms: rustc-link-lib for the standard path, and
         // rustc-link-arg for the direct linker path (bypasses pyo3 suppression).
@@ -82,6 +94,17 @@ fn emit_via_sysconfig(python: &str) -> bool {
     }
 
     false
+}
+
+fn extract_framework_name(filename: &str) -> Option<String> {
+    let pos = filename.find(".framework")?;
+    let name = &filename[..pos];
+    let bare = name.rsplit('/').next().unwrap_or(name);
+    if bare.is_empty() {
+        None
+    } else {
+        Some(bare.to_owned())
+    }
 }
 
 fn extract_lib_name(filename: &str) -> Option<String> {
