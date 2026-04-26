@@ -498,7 +498,7 @@ mod tests {
             .enumerate()
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).expect("numeric comparison should succeed"))
             .map(|(i, _)| i)
-            .unwrap();
+            .expect("operation should succeed");
         assert_eq!(
             max_idx, 2,
             "Largest input should have largest log probability"

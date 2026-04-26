@@ -1218,7 +1218,7 @@ mod tests {
     #[test]
     fn test_word_sense_disambiguation() {
         let config = SemanticAnalysisConfig::default();
-        let mut analyzer = SemanticAnalyzer::new(config).unwrap();
+        let mut analyzer = SemanticAnalyzer::new(config).expect("Semantic Analyzer should succeed");
 
         let lexical_item = LexicalItem {
             word: "bank".to_string(),
@@ -1265,7 +1265,7 @@ mod tests {
     #[test]
     fn test_similarity_calculation() {
         let config = SemanticAnalysisConfig::default();
-        let mut calculator = SimilarityCalculator::new(&config).unwrap();
+        let mut calculator = SimilarityCalculator::new(&config).expect("Similarity Calculator should succeed");
 
         let item1 = LexicalItem {
             word: "good".to_string(),
@@ -1285,7 +1285,7 @@ mod tests {
             semantic_features: vec!["positive".to_string(), "quality".to_string()],
         };
 
-        let similarity = calculator.calculate_similarity(&item1, &item2).unwrap();
+        let similarity = calculator.calculate_similarity(&item1, &item2).expect("similarity calculation should succeed");
         assert!(similarity > 0.0);
         assert!(similarity <= 1.0);
     }
@@ -1293,7 +1293,7 @@ mod tests {
     #[test]
     fn test_relationship_classification() {
         let config = SemanticAnalysisConfig::default();
-        let mut classifier = RelationshipClassifier::new(&config).unwrap();
+        let mut classifier = RelationshipClassifier::new(&config).expect("Relationship Classifier should succeed");
 
         let item1 = LexicalItem {
             word: "big".to_string(),
@@ -1339,7 +1339,7 @@ mod tests {
 
         let relationship = classifier
             .classify_relationship(&item1, &item2, 0.3)
-            .unwrap();
+            .expect("operation should succeed");
         assert_eq!(relationship.source_word, "big");
         assert_eq!(relationship.target_word, "small");
     }
@@ -1347,7 +1347,7 @@ mod tests {
     #[test]
     fn test_semantic_network_building() {
         let config = SemanticAnalysisConfig::default();
-        let mut analyzer = SemanticAnalyzer::new(config).unwrap();
+        let mut analyzer = SemanticAnalyzer::new(config).expect("Semantic Analyzer should succeed");
 
         let lexical_items = vec![
             LexicalItem {
@@ -1381,7 +1381,7 @@ mod tests {
 
         let network = analyzer
             .build_semantic_network(&lexical_items, &relationships)
-            .unwrap();
+            .expect("operation should succeed");
         assert_eq!(network.nodes.len(), 2);
         assert_eq!(network.edges.len(), 1);
     }

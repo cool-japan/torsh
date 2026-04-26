@@ -989,7 +989,7 @@ mod tests {
 
         // Test just the TransformerEncoder directly to isolate the issue
         let transformer = TransformerEncoder::new(768, 12, 12, 768 * 4);
-        let input = torsh_tensor::creation::randn(&[2, 50, 768]).unwrap();
+        let input = torsh_tensor::creation::randn(&[2, 50, 768]).expect("creation should succeed");
 
         println!("Testing TransformerEncoder directly...");
         let output = transformer
@@ -1004,8 +1004,9 @@ mod tests {
     #[test]
     fn test_clip_forward() {
         let model = clip_vit_b32();
-        let image = torsh_tensor::creation::randn(&[2, 3, 224, 224]).unwrap();
-        let text = torsh_tensor::creation::zeros(&[2, 77]).unwrap();
+        let image =
+            torsh_tensor::creation::randn(&[2, 3, 224, 224]).expect("creation should succeed");
+        let text = torsh_tensor::creation::zeros(&[2, 77]).expect("creation should succeed");
 
         // Test each step individually to isolate the matrix multiplication error
         println!("Testing VisionEncoder forward...");
@@ -1021,9 +1022,13 @@ mod tests {
         // Test normalization separately
         println!("Testing normalization...");
         // Manual L2 normalization to avoid .norm() issues
-        let squared = visual_features.pow(2.0).unwrap();
-        let sum_squared = squared.sum_dim(&[-1], true).unwrap(); // Keep dimensions for broadcasting
-        let norm = sum_squared.sqrt().unwrap();
+        let squared = visual_features
+            .pow(2.0)
+            .expect("power operation should succeed");
+        let sum_squared = squared
+            .sum_dim(&[-1], true)
+            .expect("sum along dimension should succeed"); // Keep dimensions for broadcasting
+        let norm = sum_squared.sqrt().expect("sqrt operation should succeed");
         println!("Norm shape: {:?}", norm.shape().dims());
 
         // Manual element-wise division for proper broadcasting
@@ -1044,16 +1049,19 @@ mod tests {
         }
 
         let image_features =
-            Tensor::from_data(normalized_data, shape.to_vec(), visual_features.device()).unwrap();
+            Tensor::from_data(normalized_data, shape.to_vec(), visual_features.device())
+                .expect("operation should succeed");
 
-        let text_features = model.encode_text(&text).unwrap();
+        let text_features = model
+            .encode_text(&text)
+            .expect("text encoding should succeed");
 
         assert_eq!(image_features.shape().dims(), &[2, 512]);
         assert_eq!(text_features.shape().dims(), &[2, 512]);
 
         let similarity = model
             .get_similarity(&image_features, &text_features)
-            .unwrap();
+            .expect("operation should succeed");
         assert_eq!(similarity.shape().dims(), &[2, 2]);
     }
 
@@ -1061,9 +1069,12 @@ mod tests {
     #[ignore = "Model implementation needs tensor shape handling fixes"]
     fn test_vision_language_model() {
         let model = vision_language_base();
-        let image = torsh_tensor::creation::randn(&[1, 3, 224, 224]).unwrap();
+        let image =
+            torsh_tensor::creation::randn(&[1, 3, 224, 224]).expect("creation should succeed");
 
-        let generated = model.generate(&image, 10).unwrap();
+        let generated = model
+            .generate(&image, 10)
+            .expect("generation should succeed");
         assert_eq!(generated.shape().dims()[0], 1);
         assert_eq!(generated.shape().dims()[1], 11); // 1 start token + 10 generated
     }
@@ -1071,8 +1082,10 @@ mod tests {
     #[test]
     fn test_patch_embedding() {
         let patch_embed = PatchEmbedding::new(3, 768, 16, 16);
-        let x = torsh_tensor::creation::randn(&[2, 3, 224, 224]).unwrap();
-        let output = patch_embed.forward(&x).unwrap();
+        let x = torsh_tensor::creation::randn(&[2, 3, 224, 224]).expect("creation should succeed");
+        let output = patch_embed
+            .forward(&x)
+            .expect("forward pass should succeed");
 
         // 224/16 = 14, so 14*14 = 196 patches
         assert_eq!(output.shape().dims(), &[2, 196, 768]);

@@ -313,7 +313,7 @@ mod tests {
         start_profiling();
         add_global_event("global_test", "test", 2000, 1);
 
-        let stats = get_global_stats().unwrap();
+        let stats = get_global_stats().expect("get global stats should succeed");
         assert!(stats.0 > 0); // Event count > 0
         assert!(stats.1 > 0); // Total duration > 0
 

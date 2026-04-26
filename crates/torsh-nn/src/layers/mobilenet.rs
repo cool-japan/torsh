@@ -980,14 +980,14 @@ mod tests {
 
     #[test]
     fn test_mobilenet_v1_creation() {
-        let model = MobileNetV1::mobilenet_v1_1_0(1000).unwrap();
+        let model = MobileNetV1::mobilenet_v1_1_0(1000).expect("Mobile Net V1 should succeed");
         assert_eq!(model.config.num_classes, 1000);
         assert_eq!(model.config.width_multiplier, 1.0);
     }
 
     #[test]
     fn test_mobilenet_v2_creation() {
-        let model = MobileNetV2::mobilenet_v2_1_0(1000).unwrap();
+        let model = MobileNetV2::mobilenet_v2_1_0(1000).expect("Mobile Net V2 should succeed");
         assert_eq!(model.config.num_classes, 1000);
         assert_eq!(model.config.width_multiplier, 1.0);
     }

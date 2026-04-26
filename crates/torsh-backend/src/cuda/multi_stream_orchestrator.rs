@@ -798,7 +798,8 @@ mod tests {
     #[ignore = "Requires CUDA hardware - run with --ignored flag"]
     fn test_orchestrator_creation() {
         if crate::cuda::is_available() {
-            let _device = Arc::new(crate::cuda::device::CudaDevice::new(0).unwrap());
+            let _device =
+                Arc::new(crate::cuda::device::CudaDevice::new(0).expect("Arc should succeed"));
             let config = OrchestratorConfig::default();
             let orchestrator = MultiStreamOrchestrator::new(config);
             assert!(orchestrator.is_ok());

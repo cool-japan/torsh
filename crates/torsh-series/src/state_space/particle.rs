@@ -456,7 +456,7 @@ mod tests {
 
     fn create_test_series() -> TimeSeries {
         let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0];
-        let tensor = Tensor::from_vec(data, &[5]).unwrap();
+        let tensor = Tensor::from_vec(data, &[5]).expect("Tensor should succeed");
         TimeSeries::new(tensor)
     }
 
@@ -481,8 +481,8 @@ mod tests {
 
     #[test]
     fn test_particle_filter_with_initial() {
-        let particles: Tensor<f32> = randn(&[50, 3]).unwrap();
-        let weights = ones(&[50]).unwrap();
+        let particles: Tensor<f32> = randn(&[50, 3]).expect("randn should succeed");
+        let weights = ones(&[50]).expect("ones should succeed");
 
         let pf = ParticleFilter::with_initial_particles(particles, Some(weights));
         let (num_particles, state_dim, _) = pf.config();
@@ -510,7 +510,7 @@ mod tests {
     #[test]
     fn test_particle_filter_set_particles() {
         let mut pf = ParticleFilter::new(50, 2);
-        let new_particles = zeros(&[50, 2]).unwrap();
+        let new_particles = zeros(&[50, 2]).expect("zeros should succeed");
 
         pf.set_particles(new_particles);
         assert_eq!(pf.particles().shape().dims(), [50, 2]);
@@ -519,7 +519,7 @@ mod tests {
     #[test]
     fn test_particle_filter_set_weights() {
         let mut pf = ParticleFilter::new(50, 2);
-        let new_weights = ones(&[50]).unwrap();
+        let new_weights = ones(&[50]).expect("ones should succeed");
 
         pf.set_weights(new_weights);
         assert_eq!(pf.weights().shape().dims(), [50]);
@@ -546,7 +546,7 @@ mod tests {
     #[test]
     fn test_particle_filter_update() {
         let mut pf = ParticleFilter::new(10, 2);
-        let obs = zeros(&[1]).unwrap();
+        let obs = zeros(&[1]).expect("zeros should succeed");
 
         pf.update(&obs, &gaussian_likelihood);
 

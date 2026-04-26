@@ -495,9 +495,11 @@ mod tests {
     fn test_complex_bessel_j0_c64() {
         // Test J_0(0) = 1
         let input_data = vec![Complex64::new(0.0, 0.0)];
-        let input = Tensor::from_data(input_data, vec![1], DeviceType::Cpu).unwrap();
-        let result = complex_bessel_j_c64(0.0, &input).unwrap();
-        let data = result.data().unwrap();
+        let input =
+            Tensor::from_data(input_data, vec![1], DeviceType::Cpu).expect("Tensor should succeed");
+        let result =
+            complex_bessel_j_c64(0.0, &input).expect("complex bessel j c64 should succeed");
+        let data = result.data().expect("tensor data should be accessible");
 
         assert_relative_eq!(data[0].re, 1.0, max_relative = 1e-6);
         assert_relative_eq!(data[0].im, 0.0, max_relative = 1e-6);
@@ -507,9 +509,11 @@ mod tests {
     fn test_complex_bessel_j1_c64() {
         // Test J_1(0) = 0
         let input_data = vec![Complex64::new(0.0, 0.0)];
-        let input = Tensor::from_data(input_data, vec![1], DeviceType::Cpu).unwrap();
-        let result = complex_bessel_j_c64(1.0, &input).unwrap();
-        let data = result.data().unwrap();
+        let input =
+            Tensor::from_data(input_data, vec![1], DeviceType::Cpu).expect("Tensor should succeed");
+        let result =
+            complex_bessel_j_c64(1.0, &input).expect("complex bessel j c64 should succeed");
+        let data = result.data().expect("tensor data should be accessible");
 
         assert_relative_eq!(data[0].re, 0.0, max_relative = 1e-6);
         assert_relative_eq!(data[0].im, 0.0, max_relative = 1e-6);
@@ -518,9 +522,11 @@ mod tests {
     #[test]
     fn test_complex_bessel_j_c32() {
         let input_data = vec![Complex32::new(1.0, 0.0)];
-        let input = Tensor::from_data(input_data, vec![1], DeviceType::Cpu).unwrap();
-        let result = complex_bessel_j_c32(0.0, &input).unwrap();
-        let data = result.data().unwrap();
+        let input =
+            Tensor::from_data(input_data, vec![1], DeviceType::Cpu).expect("Tensor should succeed");
+        let result =
+            complex_bessel_j_c32(0.0, &input).expect("complex bessel j c32 should succeed");
+        let data = result.data().expect("tensor data should be accessible");
 
         // J_0(1) ≈ 0.7652
         assert_relative_eq!(data[0].re, 0.7652, max_relative = 1e-2);
@@ -530,9 +536,11 @@ mod tests {
     fn test_complex_bessel_y_c64() {
         // Test that Y functions don't crash on basic input
         let input_data = vec![Complex64::new(1.0, 0.0)];
-        let input = Tensor::from_data(input_data, vec![1], DeviceType::Cpu).unwrap();
-        let result = complex_bessel_y_c64(0.0, &input).unwrap();
-        let data = result.data().unwrap();
+        let input =
+            Tensor::from_data(input_data, vec![1], DeviceType::Cpu).expect("Tensor should succeed");
+        let result =
+            complex_bessel_y_c64(0.0, &input).expect("complex bessel y c64 should succeed");
+        let data = result.data().expect("tensor data should be accessible");
 
         // Y_0(1) ≈ 0.0883 (just check it's finite and reasonable)
         assert!(data[0].re.is_finite());

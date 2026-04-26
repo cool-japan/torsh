@@ -1428,7 +1428,7 @@ mod tests {
             let backend = CudaBackend::new(config);
             assert!(backend.is_ok());
 
-            let backend = backend.unwrap();
+            let backend = backend.expect("operation should succeed");
             assert_eq!(BackendCore::name(&backend), "CUDA Backend");
             assert!(BackendCore::is_available(&backend).unwrap_or(false));
         }
@@ -1438,13 +1438,13 @@ mod tests {
     fn test_cuda_buffer_creation() {
         if crate::cuda::is_available() {
             let config = CudaBackendConfig::default();
-            let backend = CudaBackend::new(config).unwrap();
+            let backend = CudaBackend::new(config).expect("Cuda Backend should succeed");
 
             // Use the CudaBackend's own create_buffer method
             let buffer = CudaBackend::create_buffer::<f32>(&backend, 1024, DType::F32);
             assert!(buffer.is_ok());
 
-            let buffer = buffer.unwrap();
+            let buffer = buffer.expect("operation should succeed");
             assert_eq!(buffer.len(), 1024);
             assert_eq!(buffer.dtype(), DType::F32);
         }
@@ -1454,27 +1454,34 @@ mod tests {
     fn test_elementwise_addition() {
         if crate::cuda::is_available() {
             let config = CudaBackendConfig::default();
-            let backend = CudaBackend::new(config).unwrap();
+            let backend = CudaBackend::new(config).expect("Cuda Backend should succeed");
 
-            let mut a = CudaBackend::create_buffer::<f32>(&backend, 4, DType::F32).unwrap();
-            let mut b = CudaBackend::create_buffer::<f32>(&backend, 4, DType::F32).unwrap();
-            let mut output = CudaBackend::create_buffer::<f32>(&backend, 4, DType::F32).unwrap();
+            let mut a = CudaBackend::create_buffer::<f32>(&backend, 4, DType::F32)
+                .expect("operation should succeed");
+            let mut b = CudaBackend::create_buffer::<f32>(&backend, 4, DType::F32)
+                .expect("operation should succeed");
+            let mut output = CudaBackend::create_buffer::<f32>(&backend, 4, DType::F32)
+                .expect("operation should succeed");
 
             // Copy test data
             let data_a = vec![1.0, 2.0, 3.0, 4.0];
             let data_b = vec![5.0, 6.0, 7.0, 8.0];
 
-            a.copy_from_host(&data_a).unwrap();
-            b.copy_from_host(&data_b).unwrap();
+            a.copy_from_host(&data_a)
+                .expect("copy from host memory should succeed");
+            b.copy_from_host(&data_b)
+                .expect("copy from host memory should succeed");
 
             // Perform addition
             backend
                 .elementwise_add_f32(&a, &b, &mut output, None)
-                .unwrap();
+                .expect("operation should succeed");
 
             // Copy result back
             let mut result = vec![0.0; 4];
-            output.copy_to_host(&mut result).unwrap();
+            output
+                .copy_to_host(&mut result)
+                .expect("copy to host memory should succeed");
 
             assert_eq!(result, vec![6.0, 8.0, 10.0, 12.0]);
         }
@@ -1485,7 +1492,7 @@ mod tests {
     fn test_cuda_graph_capture() {
         if crate::cuda::is_available() {
             let config = CudaBackendConfig::default();
-            let backend = CudaBackend::new(config).unwrap();
+            let backend = CudaBackend::new(config).expect("Cuda Backend should succeed");
 
             // Test graph capture
             assert!(!backend.is_capturing_graph());
@@ -1510,27 +1517,34 @@ mod tests {
     fn test_cuda_graph_operations() {
         if crate::cuda::is_available() {
             let config = CudaBackendConfig::default();
-            let backend = CudaBackend::new(config).unwrap();
+            let backend = CudaBackend::new(config).expect("Cuda Backend should succeed");
 
-            let mut a = CudaBackend::create_buffer::<f32>(&backend, 1024, DType::F32).unwrap();
-            let mut b = CudaBackend::create_buffer::<f32>(&backend, 1024, DType::F32).unwrap();
-            let mut output = CudaBackend::create_buffer::<f32>(&backend, 1024, DType::F32).unwrap();
+            let mut a = CudaBackend::create_buffer::<f32>(&backend, 1024, DType::F32)
+                .expect("operation should succeed");
+            let mut b = CudaBackend::create_buffer::<f32>(&backend, 1024, DType::F32)
+                .expect("operation should succeed");
+            let mut output = CudaBackend::create_buffer::<f32>(&backend, 1024, DType::F32)
+                .expect("operation should succeed");
 
             // Copy test data
             let data_a: Vec<f32> = (0..1024).map(|i| i as f32).collect();
             let data_b: Vec<f32> = (0..1024).map(|i| (i * 2) as f32).collect();
 
-            a.copy_from_host(&data_a).unwrap();
-            b.copy_from_host(&data_b).unwrap();
+            a.copy_from_host(&data_a)
+                .expect("copy from host memory should succeed");
+            b.copy_from_host(&data_b)
+                .expect("copy from host memory should succeed");
 
             // First execution (creates and caches graph)
             backend
                 .elementwise_add_f32_graph(&a, &b, &mut output, true, None)
-                .unwrap();
+                .expect("operation should succeed");
 
             // Copy result back
             let mut result = vec![0.0; 1024];
-            output.copy_to_host(&mut result).unwrap();
+            output
+                .copy_to_host(&mut result)
+                .expect("copy to host memory should succeed");
 
             // Verify results
             for i in 0..1024 {
@@ -1540,7 +1554,7 @@ mod tests {
             // Second execution (uses cached graph)
             backend
                 .elementwise_add_f32_graph(&a, &b, &mut output, true, None)
-                .unwrap();
+                .expect("operation should succeed");
         }
     }
 
@@ -1549,32 +1563,38 @@ mod tests {
     fn test_cuda_graph_matmul() {
         if crate::cuda::is_available() {
             let config = CudaBackendConfig::default();
-            let backend = CudaBackend::new(config).unwrap();
+            let backend = CudaBackend::new(config).expect("Cuda Backend should succeed");
 
             let m = 32;
             let n = 32;
             let k = 32;
 
-            let mut a = CudaBackend::create_buffer::<f32>(&backend, m * k, DType::F32).unwrap();
-            let mut b = CudaBackend::create_buffer::<f32>(&backend, k * n, DType::F32).unwrap();
-            let mut output =
-                CudaBackend::create_buffer::<f32>(&backend, m * n, DType::F32).unwrap();
+            let mut a = CudaBackend::create_buffer::<f32>(&backend, m * k, DType::F32)
+                .expect("operation should succeed");
+            let mut b = CudaBackend::create_buffer::<f32>(&backend, k * n, DType::F32)
+                .expect("operation should succeed");
+            let mut output = CudaBackend::create_buffer::<f32>(&backend, m * n, DType::F32)
+                .expect("operation should succeed");
 
             // Initialize with simple data
             let data_a: Vec<f32> = vec![1.0; m * k];
             let data_b: Vec<f32> = vec![2.0; k * n];
 
-            a.copy_from_host(&data_a).unwrap();
-            b.copy_from_host(&data_b).unwrap();
+            a.copy_from_host(&data_a)
+                .expect("copy from host memory should succeed");
+            b.copy_from_host(&data_b)
+                .expect("copy from host memory should succeed");
 
             // Execute with graph capture
             backend
                 .matmul_f32_graph(&a, &b, &mut output, m, n, k, true, None)
-                .unwrap();
+                .expect("operation should succeed");
 
             // Copy result back
             let mut result = vec![0.0; m * n];
-            output.copy_to_host(&mut result).unwrap();
+            output
+                .copy_to_host(&mut result)
+                .expect("copy to host memory should succeed");
 
             // Each element should be k * 1.0 * 2.0 = 2k
             let expected = (k * 2) as f32;
@@ -1588,18 +1608,18 @@ mod tests {
     fn test_unified_memory_support() {
         if crate::cuda::is_available() {
             let config = CudaBackendConfig::default();
-            let backend = CudaBackend::new(config).unwrap();
+            let backend = CudaBackend::new(config).expect("Cuda Backend should succeed");
 
             // Test unified memory support detection
             let supports = backend.supports_unified_memory();
             assert!(supports.is_ok());
 
-            if supports.unwrap() {
+            if supports.expect("operation should succeed") {
                 // Test unified memory allocation
                 let allocation = backend.allocate_unified(1024);
                 assert!(allocation.is_ok());
 
-                let allocation = allocation.unwrap();
+                let allocation = allocation.expect("operation should succeed");
                 assert_eq!(allocation.size(), 1024);
 
                 // Test deallocation
@@ -1613,22 +1633,26 @@ mod tests {
     fn test_unified_memory_operations() {
         if crate::cuda::is_available() {
             let config = CudaBackendConfig::default();
-            let backend = CudaBackend::new(config).unwrap();
+            let backend = CudaBackend::new(config).expect("Cuda Backend should succeed");
 
             if backend.supports_unified_memory().unwrap_or(false) {
-                let mut allocation = backend.allocate_unified(16).unwrap();
+                let mut allocation = backend
+                    .allocate_unified(16)
+                    .expect("unified memory allocation should succeed");
 
                 // Test data operations
                 let test_data = vec![1.0f32, 2.0, 3.0, 4.0];
-                allocation.copy_from_host(&test_data).unwrap();
+                allocation
+                    .copy_from_host(&test_data)
+                    .expect("copy from host memory should succeed");
 
                 // Test prefetching
                 backend
                     .prefetch_to_device(allocation.ptr(), allocation.size(), None)
-                    .unwrap();
+                    .expect("operation should succeed");
                 backend
                     .prefetch_to_host(allocation.ptr(), allocation.size())
-                    .unwrap();
+                    .expect("operation should succeed");
 
                 // Test memory advice
                 backend
@@ -1638,14 +1662,18 @@ mod tests {
                         MemoryAdvice::SetReadMostly,
                         None,
                     )
-                    .unwrap();
+                    .expect("operation should succeed");
 
                 // Verify data integrity
                 let mut result_data = vec![0.0f32; 4];
-                allocation.copy_to_host(&mut result_data).unwrap();
+                allocation
+                    .copy_to_host(&mut result_data)
+                    .expect("copy to host memory should succeed");
                 assert_eq!(result_data, test_data);
 
-                backend.deallocate_unified(allocation).unwrap();
+                backend
+                    .deallocate_unified(allocation)
+                    .expect("unified memory deallocation should succeed");
             }
         }
     }
@@ -1654,10 +1682,12 @@ mod tests {
     fn test_unified_memory_performance_hints() {
         if crate::cuda::is_available() {
             let config = CudaBackendConfig::default();
-            let backend = CudaBackend::new(config).unwrap();
+            let backend = CudaBackend::new(config).expect("Cuda Backend should succeed");
 
             if backend.supports_unified_memory().unwrap_or(false) {
-                let allocation = backend.allocate_unified(4096).unwrap();
+                let allocation = backend
+                    .allocate_unified(4096)
+                    .expect("unified memory allocation should succeed");
 
                 // Test different memory advice types for performance optimization
                 backend
@@ -1667,7 +1697,7 @@ mod tests {
                         MemoryAdvice::SetPreferredLocation,
                         Some(0),
                     )
-                    .unwrap();
+                    .expect("operation should succeed");
 
                 backend
                     .set_memory_advice(
@@ -1676,7 +1706,7 @@ mod tests {
                         MemoryAdvice::SetAccessedBy,
                         Some(0),
                     )
-                    .unwrap();
+                    .expect("operation should succeed");
 
                 backend
                     .set_memory_advice(
@@ -1685,7 +1715,7 @@ mod tests {
                         MemoryAdvice::SetReadMostly,
                         None,
                     )
-                    .unwrap();
+                    .expect("operation should succeed");
 
                 // Test unsetting advice
                 backend
@@ -1695,9 +1725,11 @@ mod tests {
                         MemoryAdvice::UnsetReadMostly,
                         None,
                     )
-                    .unwrap();
+                    .expect("operation should succeed");
 
-                backend.deallocate_unified(allocation).unwrap();
+                backend
+                    .deallocate_unified(allocation)
+                    .expect("unified memory deallocation should succeed");
             }
         }
     }

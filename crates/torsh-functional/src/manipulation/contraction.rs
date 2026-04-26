@@ -328,8 +328,8 @@ mod tests {
 
     #[test]
     fn test_tensordot_error_mismatched_axes_lengths() {
-        let a = randn(&[3, 4], None, None, None).unwrap();
-        let b = randn(&[4, 5], None, None, None).unwrap();
+        let a = randn(&[3, 4], None, None, None).expect("randn should succeed");
+        let b = randn(&[4, 5], None, None, None).expect("randn should succeed");
 
         // Should error when axes vectors have different lengths
         let result = tensordot(&a, &b, TensorDotAxes::Explicit(vec![1], vec![0, 1]));
@@ -338,8 +338,8 @@ mod tests {
 
     #[test]
     fn test_tensordot_error_axis_out_of_bounds() {
-        let a = randn(&[3, 4], None, None, None).unwrap();
-        let b = randn(&[4, 5], None, None, None).unwrap();
+        let a = randn(&[3, 4], None, None, None).expect("randn should succeed");
+        let b = randn(&[4, 5], None, None, None).expect("randn should succeed");
 
         // Should error when axis index is out of bounds
         let result = tensordot(&a, &b, TensorDotAxes::Explicit(vec![2], vec![0]));
@@ -348,8 +348,8 @@ mod tests {
 
     #[test]
     fn test_tensordot_error_incompatible_sizes() {
-        let a = randn(&[3, 4], None, None, None).unwrap();
-        let b = randn(&[5, 6], None, None, None).unwrap();
+        let a = randn(&[3, 4], None, None, None).expect("randn should succeed");
+        let b = randn(&[5, 6], None, None, None).expect("randn should succeed");
 
         // Should error when contracted axes have incompatible sizes
         let result = tensordot(&a, &b, TensorDotAxes::Explicit(vec![1], vec![0]));
@@ -358,8 +358,8 @@ mod tests {
 
     #[test]
     fn test_tensordot_error_too_many_axes() {
-        let a = randn(&[3, 4], None, None, None).unwrap();
-        let b = randn(&[4, 5], None, None, None).unwrap();
+        let a = randn(&[3, 4], None, None, None).expect("randn should succeed");
+        let b = randn(&[4, 5], None, None, None).expect("randn should succeed");
 
         // Should error when trying to contract more axes than available
         let result = tensordot(&a, &b, TensorDotAxes::Int(3));

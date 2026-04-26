@@ -606,7 +606,9 @@ mod tests {
         assert!(!pinner_trait.supports_pinning());
 
         let data = vec![1, 2, 3, 4, 5];
-        let result = pinner.pin_memory(data.clone()).unwrap();
+        let result = pinner
+            .pin_memory(data.clone())
+            .expect("operation should succeed");
         assert_eq!(result, data);
     }
 
@@ -622,7 +624,7 @@ mod tests {
         let data = vec![1, 2, 3, 4, 5];
         let result = manager
             .pin_vector_memory(data.clone(), Some(DeviceType::Cpu))
-            .unwrap();
+            .expect("operation should succeed");
         assert_eq!(result, data);
     }
 
@@ -719,7 +721,7 @@ mod tests {
     #[cfg(feature = "cuda")]
     #[test]
     fn test_cuda_memory_pinner() {
-        let pinner = CudaMemoryPinner::new(0).unwrap();
+        let pinner = CudaMemoryPinner::new(0).expect("Cuda Memory Pinner should succeed");
         let pinner_trait: &dyn MemoryPinning<torsh_tensor::Tensor<f32>> = &pinner;
         assert!(pinner_trait.supports_pinning());
         assert_eq!(pinner.device_id(), 0);
@@ -732,7 +734,9 @@ mod tests {
         assert!(manager.supports_pinning(Some(DeviceType::Cuda(0))));
 
         // Test initialization
-        manager.initialize_cuda_pinner(0).unwrap();
+        manager
+            .initialize_cuda_pinner(0)
+            .expect("CUDA pinner initialization should succeed");
         assert_eq!(manager.cuda_pinner_count(), 1);
 
         // Test clearing

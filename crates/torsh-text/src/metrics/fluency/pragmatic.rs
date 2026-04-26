@@ -1467,7 +1467,7 @@ mod tests {
         let result = analyzer.analyze_pragmatic_fluency(text);
         assert!(result.is_ok());
 
-        let score = result.unwrap();
+        let score = result.expect("operation should succeed");
         assert!(score.overall_score > 0.0);
         assert!(score.politeness_level > 0.5);
     }
@@ -1480,7 +1480,7 @@ mod tests {
         let result = analyzer.analyze_context_appropriateness(formal_text);
         assert!(result.is_ok());
 
-        let context_analysis = result.unwrap();
+        let context_analysis = result.expect("operation should succeed");
         assert!(context_analysis.situational_appropriateness > 0.0);
     }
 
@@ -1492,7 +1492,7 @@ mod tests {
         let result = analyzer.analyze_register_appropriateness(academic_text);
         assert!(result.is_ok());
 
-        let register_analysis = result.unwrap();
+        let register_analysis = result.expect("operation should succeed");
         assert!(register_analysis.domain_appropriateness > 0.0);
     }
 
@@ -1504,7 +1504,7 @@ mod tests {
         let result = analyzer.analyze_politeness_strategies(polite_text);
         assert!(result.is_ok());
 
-        let politeness_analysis = result.unwrap();
+        let politeness_analysis = result.expect("operation should succeed");
         assert!(politeness_analysis.negative_politeness > 0.0);
     }
 
@@ -1516,7 +1516,7 @@ mod tests {
         let result = analyzer.analyze_speech_acts(directive_text);
         assert!(result.is_ok());
 
-        let speech_act_analysis = result.unwrap();
+        let speech_act_analysis = result.expect("operation should succeed");
         assert!(!speech_act_analysis.primary_speech_acts.is_empty());
     }
 
@@ -1537,7 +1537,7 @@ mod tests {
         let result = analyzer.analyze_pragmatic_fluency(complex_text);
         assert!(result.is_ok());
 
-        let score = result.unwrap();
+        let score = result.expect("operation should succeed");
         let advanced = &score.detailed_metrics.advanced_metrics;
 
         assert!(advanced.pragmatic_competence_index > 0.0);
@@ -1555,7 +1555,7 @@ mod tests {
         let result = analyzer.analyze_pragmatic_fluency(text);
         assert!(result.is_ok());
 
-        let score = result.unwrap();
+        let score = result.expect("operation should succeed");
         let cultural = &score.detailed_metrics.cultural_sensitivity;
 
         assert!(cultural.inclusive_language_usage > 0.7);
@@ -1570,7 +1570,7 @@ mod tests {
         let result = analyzer.analyze_pragmatic_fluency(text);
         assert!(result.is_ok());
 
-        let score = result.unwrap();
+        let score = result.expect("operation should succeed");
         let discourse = &score.detailed_metrics.discourse_analysis;
 
         assert!(discourse.coherence_maintenance > 0.0);
@@ -1585,7 +1585,7 @@ mod tests {
         let result = analyzer.analyze_pragmatic_fluency(text);
         assert!(result.is_ok());
 
-        let score = result.unwrap();
+        let score = result.expect("operation should succeed");
         let errors = &score
             .detailed_metrics
             .advanced_metrics

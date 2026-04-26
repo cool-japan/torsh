@@ -666,10 +666,10 @@ mod tests {
             vec![32, 64],
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("operation should succeed");
         calibrator
             .collect_activation_stats("test_layer", &activation)
-            .unwrap();
+            .expect("operation should succeed");
 
         let params = calibrator.quantization_params();
         assert!(!params.is_empty());
@@ -682,11 +682,13 @@ mod tests {
     fn test_optimal_scale_calculation() {
         let data = vec![-2.0, -1.0, 0.0, 1.0, 2.0];
 
-        let scale = calculate_optimal_scale(&data, &CalibrationMethod::MinMax, DType::I8).unwrap();
+        let scale = calculate_optimal_scale(&data, &CalibrationMethod::MinMax, DType::I8)
+            .expect("calculate optimal scale should succeed");
         assert!(scale > 0.0);
         assert!(scale <= 2.0 / 127.0);
 
-        let mse_scale = calculate_optimal_scale(&data, &CalibrationMethod::MSE, DType::I8).unwrap();
+        let mse_scale = calculate_optimal_scale(&data, &CalibrationMethod::MSE, DType::I8)
+            .expect("calculate optimal scale should succeed");
         assert!(mse_scale > 0.0);
     }
 }

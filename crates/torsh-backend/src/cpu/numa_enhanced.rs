@@ -602,10 +602,10 @@ mod tests {
         let topology = create_test_topology();
         let allocator = EnhancedNumaAllocator::new(topology);
         
-        let ptr = allocator.allocate_fallback(1024, 16).unwrap();
+        let ptr = allocator.allocate_fallback(1024, 16).expect("fallback allocation should succeed");
         assert!(!ptr.is_null());
         
-        allocator.deallocate(ptr, 1024).unwrap();
+        allocator.deallocate(ptr, 1024).expect("deallocation should succeed");
     }
     
     #[test]
@@ -623,7 +623,7 @@ mod tests {
         let topology = create_test_topology();
         let allocator = EnhancedNumaAllocator::new(topology);
         
-        let layout = std::alloc::Layout::from_size_align(4096, 16).unwrap();
+        let layout = std::alloc::Layout::from_size_align(4096, 16).expect("Layout should succeed");
         let ptr = unsafe { std::alloc::alloc(layout) };
         assert!(!ptr.is_null());
         
@@ -641,12 +641,12 @@ mod tests {
         let topology = create_test_topology();
         let allocator = EnhancedNumaAllocator::new(topology);
         
-        let ptr = allocator.allocate_fallback(1024, 16).unwrap();
+        let ptr = allocator.allocate_fallback(1024, 16).expect("fallback allocation should succeed");
         
-        allocator.track_allocation(ptr, 1024, 0, AccessPatternType::Sequential).unwrap();
-        allocator.record_access(ptr).unwrap();
+        allocator.track_allocation(ptr, 1024, 0, AccessPatternType::Sequential).expect("allocation tracking should succeed");
+        allocator.record_access(ptr).expect("access recording should succeed");
         
-        allocator.deallocate(ptr, 1024).unwrap();
+        allocator.deallocate(ptr, 1024).expect("deallocation should succeed");
     }
     
     #[test]
@@ -654,8 +654,8 @@ mod tests {
         let topology = create_test_topology();
         let allocator = EnhancedNumaAllocator::new(topology);
         
-        allocator.update_node_stats(0, 1024).unwrap();
-        let stats = allocator.get_numa_stats().unwrap();
+        allocator.update_node_stats(0, 1024).expect("node statistics update should succeed");
+        let stats = allocator.get_numa_stats().expect("NUMA statistics retrieval should succeed");
         
         assert!(stats.contains_key(&0));
         assert_eq!(stats[&0].allocations, 1);

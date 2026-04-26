@@ -430,7 +430,7 @@ mod tests {
 
     fn create_test_series(data: Vec<f32>) -> TimeSeries {
         let len = data.len();
-        let tensor = Tensor::from_vec(data, &[len]).unwrap();
+        let tensor = Tensor::from_vec(data, &[len]).expect("Tensor should succeed");
         TimeSeries::new(tensor)
     }
 

@@ -496,7 +496,7 @@ mod tests {
             },
         );
 
-        let kernel = CpuKernel::new(&descriptor).unwrap();
+        let kernel = CpuKernel::new(&descriptor).expect("Cpu Kernel should succeed");
         assert_eq!(kernel.name(), "add");
     }
 }

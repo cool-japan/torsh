@@ -427,7 +427,7 @@ mod tests {
         let result = glu(&input_even, 0);
         assert!(result.is_ok());
 
-        let output = result.unwrap();
+        let output = result.expect("operation should succeed");
         assert_eq!(output.shape().dims(), &[2]); // Half the input size
 
         // Test with odd dimension (should fail)

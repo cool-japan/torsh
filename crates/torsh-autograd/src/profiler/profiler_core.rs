@@ -823,16 +823,22 @@ mod tests {
         let mut profiler = AutogradProfiler::new(config);
 
         // Start session
-        profiler.start_session("test_session".to_string()).unwrap();
+        profiler
+            .start_session("test_session".to_string())
+            .expect("operation should succeed");
         assert!(profiler.current_profile.is_some());
 
         // Simulate some operations
-        profiler.start_operation("test_op".to_string()).unwrap();
+        profiler
+            .start_operation("test_op".to_string())
+            .expect("operation should succeed");
         std::thread::sleep(std::time::Duration::from_millis(1));
-        profiler.end_operation("test_op").unwrap();
+        profiler
+            .end_operation("test_op")
+            .expect("operation end should succeed");
 
         // End session
-        let profile = profiler.end_session().unwrap();
+        let profile = profiler.end_session().expect("session end should succeed");
         assert_eq!(profile.session_id, "test_session");
         assert!(profile.total_operations > 0);
     }
@@ -842,16 +848,22 @@ mod tests {
         let config = ProfilerConfig::default();
         let mut profiler = AutogradProfiler::new(config);
 
-        profiler.start_session("timing_test".to_string()).unwrap();
+        profiler
+            .start_session("timing_test".to_string())
+            .expect("operation should succeed");
 
         // Time an operation
         let start = Instant::now();
-        profiler.start_operation("test_timing".to_string()).unwrap();
+        profiler
+            .start_operation("test_timing".to_string())
+            .expect("operation should succeed");
         std::thread::sleep(std::time::Duration::from_millis(5));
-        profiler.end_operation("test_timing").unwrap();
+        profiler
+            .end_operation("test_timing")
+            .expect("operation end should succeed");
         let _duration = start.elapsed();
 
-        let profile = profiler.end_session().unwrap();
+        let profile = profiler.end_session().expect("session end should succeed");
         assert!(profile.operation_profiles.contains_key("test_timing"));
 
         let op_profile = &profile.operation_profiles["test_timing"];
@@ -876,16 +888,24 @@ mod tests {
         let config = ProfilerConfig::default();
         let mut profiler = AutogradProfiler::new(config);
 
-        profiler.start_session("stack_test".to_string()).unwrap();
+        profiler
+            .start_session("stack_test".to_string())
+            .expect("operation should succeed");
 
         // Start nested operations
-        profiler.start_operation("outer_op".to_string()).unwrap();
-        profiler.start_operation("inner_op".to_string()).unwrap();
+        profiler
+            .start_operation("outer_op".to_string())
+            .expect("operation should succeed");
+        profiler
+            .start_operation("inner_op".to_string())
+            .expect("operation should succeed");
 
         // End in wrong order - should handle gracefully
-        profiler.end_operation("outer_op").unwrap(); // Should warn but continue
+        profiler
+            .end_operation("outer_op")
+            .expect("operation end should succeed"); // Should warn but continue
 
-        let profile = profiler.end_session().unwrap();
+        let profile = profiler.end_session().expect("session end should succeed");
         // Should still have recorded some timing data
         assert_eq!(profile.session_id, "stack_test");
     }
@@ -895,19 +915,25 @@ mod tests {
         let config = ProfilerConfig::default();
         let mut profiler = AutogradProfiler::new(config);
 
-        profiler.start_session("gradient_test".to_string()).unwrap();
+        profiler
+            .start_session("gradient_test".to_string())
+            .expect("operation should succeed");
 
         // Record operation first
-        profiler.start_operation("conv2d".to_string()).unwrap();
-        profiler.end_operation("conv2d").unwrap();
+        profiler
+            .start_operation("conv2d".to_string())
+            .expect("operation should succeed");
+        profiler
+            .end_operation("conv2d")
+            .expect("operation end should succeed");
 
         // Record gradient timing
         let grad_time = Duration::from_millis(15);
         profiler
             .record_gradient_timing("conv2d", grad_time)
-            .unwrap();
+            .expect("operation should succeed");
 
-        let profile = profiler.end_session().unwrap();
+        let profile = profiler.end_session().expect("session end should succeed");
         let op_profile = &profile.operation_profiles["conv2d"];
         assert_eq!(op_profile.gradient_time, Some(grad_time));
     }
@@ -917,23 +943,31 @@ mod tests {
         let config = ProfilerConfig::default();
         let mut profiler = AutogradProfiler::new(config);
 
-        profiler.start_session("report_test".to_string()).unwrap();
+        profiler
+            .start_session("report_test".to_string())
+            .expect("operation should succeed");
 
         // Add some operations
         profiler
             .start_operation("forward_pass".to_string())
-            .unwrap();
+            .expect("operation should succeed");
         std::thread::sleep(Duration::from_millis(2));
-        profiler.end_operation("forward_pass").unwrap();
+        profiler
+            .end_operation("forward_pass")
+            .expect("operation end should succeed");
 
         profiler
             .start_operation("backward_pass".to_string())
-            .unwrap();
+            .expect("operation should succeed");
         std::thread::sleep(Duration::from_millis(3));
-        profiler.end_operation("backward_pass").unwrap();
+        profiler
+            .end_operation("backward_pass")
+            .expect("operation end should succeed");
 
-        let profile = profiler.end_session().unwrap();
-        let report = profiler.generate_report(&profile).unwrap();
+        let profile = profiler.end_session().expect("session end should succeed");
+        let report = profiler
+            .generate_report(&profile)
+            .expect("report generation should succeed");
 
         // Check that report contains expected sections
         assert!(report.contains("=== Autograd Performance Report ==="));
@@ -949,12 +983,20 @@ mod tests {
         let config = ProfilerConfig::default();
         let mut profiler = AutogradProfiler::new(config);
 
-        profiler.start_session("json_test".to_string()).unwrap();
-        profiler.start_operation("test_op".to_string()).unwrap();
-        profiler.end_operation("test_op").unwrap();
+        profiler
+            .start_session("json_test".to_string())
+            .expect("operation should succeed");
+        profiler
+            .start_operation("test_op".to_string())
+            .expect("operation should succeed");
+        profiler
+            .end_operation("test_op")
+            .expect("operation end should succeed");
 
-        let profile = profiler.end_session().unwrap();
-        let json = profiler.export_json(&profile).unwrap();
+        let profile = profiler.end_session().expect("session end should succeed");
+        let json = profiler
+            .export_json(&profile)
+            .expect("JSON export should succeed");
 
         // Check that JSON contains expected fields
         assert!(json.contains("\"session_id\": \"json_test\""));

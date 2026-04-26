@@ -192,7 +192,8 @@ mod tests {
     #[test]
     fn test_window_size() {
         let config = LongformerConfig::longformer_base();
-        let attention = LongformerSlidingWindowAttention::new(config, 0).unwrap();
+        let attention = LongformerSlidingWindowAttention::new(config, 0)
+            .expect("Longformer Sliding Window Attention should succeed");
         assert_eq!(attention.window_size(), 512);
     }
 }

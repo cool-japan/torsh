@@ -846,7 +846,9 @@ mod tests {
     fn test_bandwidth_deallocation() {
         let mut manager = BandwidthManager::new(1_000_000);
 
-        manager.allocate_bandwidth(1, 250_000).unwrap();
+        manager
+            .allocate_bandwidth(1, 250_000)
+            .expect("bandwidth allocation should succeed");
         assert!(manager.deallocate_bandwidth(1).is_ok());
         assert_eq!(manager.get_allocated_bandwidth(1), None);
         assert_eq!(manager.get_available_bandwidth(), 1_000_000);
@@ -932,7 +934,9 @@ mod tests {
         manager.add_connection(1, 2);
         manager.add_connection(1, 3);
 
-        let connections = manager.get_connections(1).unwrap();
+        let connections = manager
+            .get_connections(1)
+            .expect("connection retrieval should succeed");
         assert_eq!(connections.len(), 2);
         assert!(connections.contains(&2));
         assert!(connections.contains(&3));
@@ -957,8 +961,12 @@ mod tests {
     fn test_dynamic_reallocation() {
         let mut manager = BandwidthManager::new(1_000_000);
 
-        manager.allocate_bandwidth(1, 400_000).unwrap();
-        manager.allocate_bandwidth(2, 300_000).unwrap();
+        manager
+            .allocate_bandwidth(1, 400_000)
+            .expect("bandwidth allocation should succeed");
+        manager
+            .allocate_bandwidth(2, 300_000)
+            .expect("bandwidth allocation should succeed");
 
         assert!(manager.dynamic_reallocation().is_ok());
         // Allocations should be updated based on efficiency scores

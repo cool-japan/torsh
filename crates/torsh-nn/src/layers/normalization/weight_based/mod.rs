@@ -464,7 +464,7 @@ mod tests {
     #[test]
     fn test_spectral_norm_creation() {
         let linear = Linear::new(10, 5, true);
-        let sn = SpectralNorm::new(linear).unwrap();
+        let sn = SpectralNorm::new(linear).expect("Spectral Norm should succeed");
         assert_eq!(sn.power_iterations(), 1);
         assert_eq!(sn.eps(), 1e-12);
     }
@@ -472,7 +472,7 @@ mod tests {
     #[test]
     fn test_weight_norm_creation() {
         let linear = Linear::new(10, 5, true);
-        let wn = WeightNorm::new(linear, 0).unwrap();
+        let wn = WeightNorm::new(linear, 0).expect("Weight Norm should succeed");
         assert_eq!(wn.dim(), 0);
         assert_eq!(wn.eps(), 1e-5);
     }
@@ -488,8 +488,10 @@ mod tests {
             vec![2, 4],
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap();
-        let standardized = ws.standardize_weight(&weight).unwrap();
+        .expect("operation should succeed");
+        let standardized = ws
+            .standardize_weight(&weight)
+            .expect("weight standardization should succeed");
 
         // Verify the shape is preserved
         assert_eq!(standardized.shape().dims(), &[2, 4]);

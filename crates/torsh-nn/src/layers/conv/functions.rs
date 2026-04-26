@@ -129,7 +129,7 @@ mod tests {
     #[test]
     fn test_conv2d_forward_invalid_input() {
         let conv = Conv2d::with_defaults(3, 16, 3);
-        let input = zeros(&[2, 3, 32]).unwrap();
+        let input = zeros(&[2, 3, 32]).expect("zeros should succeed");
         let result = conv.forward(&input);
         assert!(result.is_err());
     }

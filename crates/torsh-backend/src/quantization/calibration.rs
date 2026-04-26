@@ -892,7 +892,7 @@ mod tests {
 
     #[test]
     fn test_calibrator_creation() {
-        let device = Device::cpu().unwrap();
+        let device = Device::cpu().expect("Device should succeed");
         let calibrator = QuantizationCalibrator::new(CalibrationMethod::MinMax, device);
 
         assert_eq!(calibrator.num_samples(), 0);
@@ -901,7 +901,7 @@ mod tests {
 
     #[test]
     fn test_sample_management() {
-        let device = Device::cpu().unwrap();
+        let device = Device::cpu().expect("Device should succeed");
         let mut calibrator = QuantizationCalibrator::new(CalibrationMethod::MinMax, device);
 
         calibrator.add_sample(vec![1.0, 2.0, 3.0]);
@@ -916,7 +916,7 @@ mod tests {
 
     #[test]
     fn test_minmax_calibration() {
-        let device = Device::cpu().unwrap();
+        let device = Device::cpu().expect("Device should succeed");
         let mut calibrator = QuantizationCalibrator::new(CalibrationMethod::MinMax, device);
 
         let samples = create_test_samples();
@@ -925,7 +925,7 @@ mod tests {
         let result = calibrator.calibrate(QuantizedDType::Int8);
         assert!(result.is_ok());
 
-        let params = result.unwrap();
+        let params = result.expect("operation should succeed");
         assert_eq!(params.dtype, QuantizedDType::Int8);
         assert!(params.scale[0] > 0.0);
         assert!(params.min_val.is_some());
@@ -934,7 +934,7 @@ mod tests {
 
     #[test]
     fn test_percentile_calibration() {
-        let device = Device::cpu().unwrap();
+        let device = Device::cpu().expect("Device should succeed");
         let mut calibrator =
             QuantizationCalibrator::new(CalibrationMethod::Percentile(95.0), device);
 
@@ -944,13 +944,13 @@ mod tests {
         let result = calibrator.calibrate(QuantizedDType::UInt8);
         assert!(result.is_ok());
 
-        let params = result.unwrap();
+        let params = result.expect("operation should succeed");
         assert_eq!(params.dtype, QuantizedDType::UInt8);
     }
 
     #[test]
     fn test_mse_calibration() {
-        let device = Device::cpu().unwrap();
+        let device = Device::cpu().expect("Device should succeed");
         let mut calibrator = QuantizationCalibrator::new(CalibrationMethod::MSE, device);
 
         let samples = create_test_samples();
@@ -962,7 +962,7 @@ mod tests {
 
     #[test]
     fn test_adaptive_calibration() {
-        let device = Device::cpu().unwrap();
+        let device = Device::cpu().expect("Device should succeed");
         let mut calibrator = QuantizationCalibrator::new(CalibrationMethod::Adaptive, device);
 
         let samples = create_test_samples();
@@ -974,7 +974,7 @@ mod tests {
 
     #[test]
     fn test_calibration_with_outliers() {
-        let device = Device::cpu().unwrap();
+        let device = Device::cpu().expect("Device should succeed");
         let mut calibrator =
             QuantizationCalibrator::new(CalibrationMethod::Percentile(90.0), device);
 
@@ -993,40 +993,41 @@ mod tests {
         let result = calibrator.calibrate(QuantizedDType::Int8);
         assert!(result.is_ok());
 
-        let params = result.unwrap();
+        let params = result.expect("operation should succeed");
 
         // Percentile method should handle outliers better than min-max
-        assert!(params.min_val.unwrap() > -100.0); // More reasonable bound with more data
-        assert!(params.max_val.unwrap() < 100.0);
+        assert!(params.min_val.expect("operation should succeed") > -100.0); // More reasonable bound with more data
+        assert!(params.max_val.expect("operation should succeed") < 100.0);
     }
 
     #[test]
     fn test_percentile_calibrator() {
-        let device = Device::cpu().unwrap();
+        let device = Device::cpu().expect("Device should succeed");
         let calibrator = PercentileCalibrator::new(95.0, false, device);
         assert!(calibrator.is_ok());
 
-        let calibrator = calibrator.unwrap();
+        let calibrator = calibrator.expect("operation should succeed");
         let samples = create_test_samples();
 
         let result = calibrator.calibrate_percentile(&samples, QuantizedDType::Int8);
         assert!(result.is_ok());
 
-        let params = result.unwrap();
+        let params = result.expect("operation should succeed");
         assert_eq!(params.dtype, QuantizedDType::Int8);
         assert_eq!(params.scheme, QuantizationScheme::Asymmetric);
     }
 
     #[test]
     fn test_symmetric_percentile_calibrator() {
-        let device = Device::cpu().unwrap();
-        let calibrator = PercentileCalibrator::new(95.0, true, device).unwrap();
+        let device = Device::cpu().expect("Device should succeed");
+        let calibrator = PercentileCalibrator::new(95.0, true, device)
+            .expect("Percentile Calibrator should succeed");
         let samples = create_test_samples();
 
         let result = calibrator.calibrate_percentile(&samples, QuantizedDType::Int8);
         assert!(result.is_ok());
 
-        let params = result.unwrap();
+        let params = result.expect("operation should succeed");
         assert_eq!(params.scheme, QuantizationScheme::Symmetric);
     }
 
@@ -1036,7 +1037,7 @@ mod tests {
         let stats = CalibrationStatistics::from_samples(&samples);
         assert!(stats.is_ok());
 
-        let stats = stats.unwrap();
+        let stats = stats.expect("operation should succeed");
         assert_eq!(stats.num_samples, 3);
         assert_eq!(stats.num_values, 15);
         assert!(stats.min_value <= stats.max_value);
@@ -1046,7 +1047,7 @@ mod tests {
 
     #[test]
     fn test_invalid_percentile() {
-        let device = Device::cpu().unwrap();
+        let device = Device::cpu().expect("Device should succeed");
 
         // Test invalid percentile values
         let result = PercentileCalibrator::new(101.0, false, device.clone());
@@ -1058,7 +1059,7 @@ mod tests {
 
     #[test]
     fn test_empty_samples_error() {
-        let device = Device::cpu().unwrap();
+        let device = Device::cpu().expect("Device should succeed");
         let calibrator = QuantizationCalibrator::new(CalibrationMethod::MinMax, device);
 
         let result = calibrator.calibrate(QuantizedDType::Int8);
@@ -1067,7 +1068,7 @@ mod tests {
 
     #[test]
     fn test_method_switching() {
-        let device = Device::cpu().unwrap();
+        let device = Device::cpu().expect("Device should succeed");
         let mut calibrator = QuantizationCalibrator::new(CalibrationMethod::MinMax, device);
 
         calibrator.add_samples(create_test_samples());
@@ -1082,8 +1083,8 @@ mod tests {
         assert!(result2.is_ok());
 
         // Results might be different due to different methods
-        let params1 = result1.unwrap();
-        let params2 = result2.unwrap();
+        let params1 = result1.expect("operation should succeed");
+        let params2 = result2.expect("operation should succeed");
         // Both should be valid but may have different parameters
         assert!(params1.scale[0] > 0.0);
         assert!(params2.scale[0] > 0.0);
@@ -1091,7 +1092,7 @@ mod tests {
 
     #[test]
     fn test_calibration_with_infinite_values() {
-        let device = Device::cpu().unwrap();
+        let device = Device::cpu().expect("Device should succeed");
         let mut calibrator = QuantizationCalibrator::new(CalibrationMethod::MinMax, device);
 
         // Add samples with infinite values (should be filtered out)
@@ -1105,8 +1106,14 @@ mod tests {
         let result = calibrator.calibrate(QuantizedDType::Int8);
         assert!(result.is_ok());
 
-        let params = result.unwrap();
-        assert!(params.min_val.unwrap().is_finite());
-        assert!(params.max_val.unwrap().is_finite());
+        let params = result.expect("operation should succeed");
+        assert!(params
+            .min_val
+            .expect("operation should succeed")
+            .is_finite());
+        assert!(params
+            .max_val
+            .expect("operation should succeed")
+            .is_finite());
     }
 }

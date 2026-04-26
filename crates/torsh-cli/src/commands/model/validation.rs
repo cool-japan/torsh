@@ -751,8 +751,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_model_validation() {
-        let model = create_real_model("test", 3, DeviceType::Cpu).unwrap();
-        let result = validate_model(&model, 10, false).await.unwrap();
+        let model = create_real_model("test", 3, DeviceType::Cpu)
+            .expect("create real model should succeed");
+        let result = validate_model(&model, 10, false)
+            .await
+            .expect("operation should succeed");
 
         assert!(result.num_samples == 10);
         assert!(result.successful_inferences > 0);
@@ -760,14 +763,18 @@ mod tests {
 
     #[test]
     fn test_structure_validation() {
-        let model = create_real_model("test", 2, DeviceType::Cpu).unwrap();
+        let model = create_real_model("test", 2, DeviceType::Cpu)
+            .expect("create real model should succeed");
         assert!(validate_model_structure(&model).is_ok());
     }
 
     #[tokio::test]
     async fn test_gradient_check() {
-        let model = create_real_model("test", 2, DeviceType::Cpu).unwrap();
-        let result = perform_gradient_check(&model).await.unwrap();
+        let model = create_real_model("test", 2, DeviceType::Cpu)
+            .expect("create real model should succeed");
+        let result = perform_gradient_check(&model)
+            .await
+            .expect("operation should succeed");
 
         assert!(result.num_gradients_checked > 0);
         assert!(result.max_relative_error >= 0.0);
@@ -775,8 +782,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_stability_analysis() {
-        let model = create_real_model("test", 2, DeviceType::Cpu).unwrap();
-        let analysis = analyze_numerical_stability(&model).await.unwrap();
+        let model = create_real_model("test", 2, DeviceType::Cpu)
+            .expect("create real model should succeed");
+        let analysis = analyze_numerical_stability(&model)
+            .await
+            .expect("operation should succeed");
 
         assert!(!analysis.has_nan);
         assert!(!analysis.has_inf);

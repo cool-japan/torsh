@@ -482,34 +482,38 @@ mod tests {
     #[test]
     #[ignore = "Slow test (>60s) - VGG model initialization is heavy"]
     fn test_vgg_perceptual_loss() {
-        let vgg = VGGPerceptualLoss::new().unwrap();
-        let input = rand(&[1, 3, 224, 224]).unwrap();
-        let features = vgg.extract_features(&input).unwrap();
+        let vgg = VGGPerceptualLoss::new().expect("VGGPerceptual Loss should succeed");
+        let input = rand(&[1, 3, 224, 224]).expect("rand should succeed");
+        let features = vgg
+            .extract_features(&input)
+            .expect("feature extraction should succeed");
         assert_eq!(features.len(), 5);
     }
 
     #[test]
     #[ignore = "Slow test (>60s) - Style transfer network initialization is heavy"]
     fn test_fast_style_transfer_net() {
-        let net = FastStyleTransferNet::new().unwrap();
-        let input = rand(&[1, 3, 256, 256]).unwrap();
-        let output = net.forward(&input).unwrap();
+        let net = FastStyleTransferNet::new().expect("Fast Style Transfer Net should succeed");
+        let input = rand(&[1, 3, 256, 256]).expect("rand should succeed");
+        let output = net.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[1, 3, 256, 256]);
     }
 
     #[test]
     fn test_instance_norm() {
-        let norm = InstanceNorm2d::new(64).unwrap();
-        let input = rand(&[2, 64, 32, 32]).unwrap();
-        let output = norm.forward(&input).unwrap();
+        let norm = InstanceNorm2d::new(64).expect("Instance Norm2d should succeed");
+        let input = rand(&[2, 64, 32, 32]).expect("rand should succeed");
+        let output = norm.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), input.shape().dims());
     }
 
     #[test]
     fn test_gram_matrix() {
-        let vgg = VGGPerceptualLoss::new().unwrap();
-        let features = rand(&[1, 64, 32, 32]).unwrap();
-        let gram = vgg.gram_matrix(&features).unwrap();
+        let vgg = VGGPerceptualLoss::new().expect("VGGPerceptual Loss should succeed");
+        let features = rand(&[1, 64, 32, 32]).expect("rand should succeed");
+        let gram = vgg
+            .gram_matrix(&features)
+            .expect("gram matrix computation should succeed");
         assert_eq!(gram.shape().dims(), &[1, 64, 64]);
     }
 }

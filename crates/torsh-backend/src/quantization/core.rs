@@ -613,10 +613,14 @@ mod tests {
     #[test]
     fn test_quantized_tensor_creation() {
         let params = QuantizationParams::uint8_asymmetric();
-        let tensor = QuantizedTensor::new(vec![2, 3, 4], params, Device::cpu().unwrap());
+        let tensor = QuantizedTensor::new(
+            vec![2, 3, 4],
+            params,
+            Device::cpu().expect("Quantized Tensor should succeed"),
+        );
         assert!(tensor.is_ok());
 
-        let tensor = tensor.unwrap();
+        let tensor = tensor.expect("operation should succeed");
         assert_eq!(tensor.num_elements(), 24);
         assert_eq!(tensor.shape(), &[2, 3, 4]);
         assert!(tensor.is_cpu());
@@ -625,7 +629,12 @@ mod tests {
     #[test]
     fn test_compression_ratio() {
         let params = QuantizationParams::uint8_asymmetric();
-        let tensor = QuantizedTensor::new(vec![10, 10], params, Device::cpu().unwrap()).unwrap();
+        let tensor = QuantizedTensor::new(
+            vec![10, 10],
+            params,
+            Device::cpu().expect("Quantized Tensor should succeed"),
+        )
+        .expect("operation should succeed");
 
         // 100 elements: FP32 = 400 bytes, UInt8 = 100 bytes
         assert_eq!(tensor.compression_ratio(), 4.0);

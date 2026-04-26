@@ -1559,7 +1559,7 @@ mod tests {
         let config = ResourceManagementConfig::default();
         let resource_manager = OptimizationResourceManager::new(config);
 
-        let utilization = resource_manager.get_resource_utilization().unwrap();
+        let utilization = resource_manager.get_resource_utilization().expect("resource utilization retrieval should succeed");
         assert!(utilization.overall_utilization >= 0.0);
         assert!(utilization.overall_utilization <= 1.0);
     }

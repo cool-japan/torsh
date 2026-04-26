@@ -374,18 +374,24 @@ mod tests {
 
     #[tokio::test]
     async fn test_save_load_enhanced_model() {
-        let model = create_real_model("test", 2, DeviceType::Cpu).unwrap();
-        let enhanced = EnhancedTorshModel::from_model(&model, DeviceType::Cpu).unwrap();
+        let model = create_real_model("test", 2, DeviceType::Cpu)
+            .expect("create real model should succeed");
+        let enhanced = EnhancedTorshModel::from_model(&model, DeviceType::Cpu)
+            .expect("Enhanced Torsh Model should succeed");
 
         let temp_dir = std::env::temp_dir();
         let unique_id = std::process::id();
         let model_path = temp_dir.join(format!("test_enhanced_model_{}.torsh", unique_id));
 
         // Save
-        save_enhanced_model(&enhanced, &model_path).await.unwrap();
+        save_enhanced_model(&enhanced, &model_path)
+            .await
+            .expect("operation should succeed");
 
         // Load
-        let loaded = load_enhanced_model(&model_path).await.unwrap();
+        let loaded = load_enhanced_model(&model_path)
+            .await
+            .expect("operation should succeed");
 
         // Verify
         assert_eq!(loaded.layers.len(), enhanced.layers.len());
@@ -399,8 +405,10 @@ mod tests {
 
     #[test]
     fn test_enhanced_model_conversion() {
-        let model = create_real_model("test", 2, DeviceType::Cpu).unwrap();
-        let enhanced = EnhancedTorshModel::from_model(&model, DeviceType::Cpu).unwrap();
+        let model = create_real_model("test", 2, DeviceType::Cpu)
+            .expect("create real model should succeed");
+        let enhanced = EnhancedTorshModel::from_model(&model, DeviceType::Cpu)
+            .expect("Enhanced Torsh Model should succeed");
         let converted = enhanced.to_model();
 
         assert_eq!(converted.layers.len(), model.layers.len());
@@ -409,8 +417,10 @@ mod tests {
 
     #[test]
     fn test_model_statistics() {
-        let model = create_real_model("test", 3, DeviceType::Cpu).unwrap();
-        let enhanced = EnhancedTorshModel::from_model(&model, DeviceType::Cpu).unwrap();
+        let model = create_real_model("test", 3, DeviceType::Cpu)
+            .expect("create real model should succeed");
+        let enhanced = EnhancedTorshModel::from_model(&model, DeviceType::Cpu)
+            .expect("Enhanced Torsh Model should succeed");
         let stats = get_enhanced_model_stats(&enhanced);
 
         assert!(stats.contains_key("total_parameters"));
@@ -420,8 +430,10 @@ mod tests {
 
     #[test]
     fn test_model_verification() {
-        let model = create_real_model("test", 2, DeviceType::Cpu).unwrap();
-        let enhanced = EnhancedTorshModel::from_model(&model, DeviceType::Cpu).unwrap();
+        let model = create_real_model("test", 2, DeviceType::Cpu)
+            .expect("create real model should succeed");
+        let enhanced = EnhancedTorshModel::from_model(&model, DeviceType::Cpu)
+            .expect("Enhanced Torsh Model should succeed");
 
         assert!(verify_enhanced_model(&enhanced).is_ok());
     }

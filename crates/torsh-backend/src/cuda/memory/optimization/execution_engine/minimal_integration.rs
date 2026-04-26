@@ -552,16 +552,16 @@ mod tests {
         let config = MinimalEngineConfig::default();
         let engine = MinimalExecutionEngine::new(config);
 
-        engine.start().unwrap();
+        engine.start().expect("start operation should succeed");
 
         let task = MinimalTask::optimization("test_task_001".to_string())
             .with_parameter("learning_rate".to_string(), "0.01".to_string())
             .with_priority(1);
 
-        let task_id = engine.submit_task(task).unwrap();
+        let task_id = engine.submit_task(task).expect("task submission should succeed");
         assert_eq!(task_id, "test_task_001");
 
-        let retrieved_task = engine.get_task(&task_id).unwrap();
+        let retrieved_task = engine.get_task(&task_id).expect("task retrieval should succeed");
         assert_eq!(retrieved_task.task_type, "optimization");
         assert_eq!(retrieved_task.status, TaskStatus::Pending);
     }
@@ -571,12 +571,12 @@ mod tests {
         let config = MinimalEngineConfig::default();
         let engine = MinimalExecutionEngine::new(config);
 
-        engine.start().unwrap();
+        engine.start().expect("start operation should succeed");
 
         let task = MinimalTask::optimization("test_execution_001".to_string());
-        let task_id = engine.submit_task(task).unwrap();
+        let task_id = engine.submit_task(task).expect("task submission should succeed");
 
-        let result = engine.execute_task(&task_id).unwrap();
+        let result = engine.execute_task(&task_id).expect("task execution should succeed");
         assert!(result.success);
         assert_eq!(result.task_id, "test_execution_001");
         assert!(result.data.contains_key("loss"));
@@ -588,14 +588,14 @@ mod tests {
         let config = MinimalEngineConfig::default();
         let engine = MinimalExecutionEngine::new(config);
 
-        engine.start().unwrap();
+        engine.start().expect("start operation should succeed");
 
         let task = MinimalTask::training("test_cancel_001".to_string());
-        let task_id = engine.submit_task(task).unwrap();
+        let task_id = engine.submit_task(task).expect("task submission should succeed");
 
         assert!(engine.cancel_task(&task_id).is_ok());
 
-        let cancelled_task = engine.get_task(&task_id).unwrap();
+        let cancelled_task = engine.get_task(&task_id).expect("task retrieval should succeed");
         assert_eq!(cancelled_task.status, TaskStatus::Cancelled);
     }
 
@@ -604,14 +604,14 @@ mod tests {
         let config = MinimalEngineConfig::default();
         let engine = MinimalExecutionEngine::new(config);
 
-        engine.start().unwrap();
+        engine.start().expect("start operation should succeed");
 
         let initial_stats = engine.get_statistics();
         assert_eq!(initial_stats.tasks_processed, 0);
 
         let task = MinimalTask::inference("test_stats_001".to_string());
-        let task_id = engine.submit_task(task).unwrap();
-        engine.execute_task(&task_id).unwrap();
+        let task_id = engine.submit_task(task).expect("task submission should succeed");
+        engine.execute_task(&task_id).expect("task execution should succeed");
 
         let updated_stats = engine.get_statistics();
         assert_eq!(updated_stats.tasks_processed, 1);
@@ -627,7 +627,7 @@ mod tests {
         };
         let engine = MinimalExecutionEngine::new(config);
 
-        engine.start().unwrap();
+        engine.start().expect("start operation should succeed");
 
         // Submit tasks up to the limit
         let task1 = MinimalTask::optimization("task_001".to_string());
@@ -646,24 +646,24 @@ mod tests {
         let config = MinimalEngineConfig::default();
         let engine = MinimalExecutionEngine::new(config);
 
-        engine.start().unwrap();
+        engine.start().expect("start operation should succeed");
 
         // Test optimization task
         let opt_task = MinimalTask::optimization("opt_001".to_string());
-        let opt_id = engine.submit_task(opt_task).unwrap();
-        let opt_result = engine.execute_task(&opt_id).unwrap();
+        let opt_id = engine.submit_task(opt_task).expect("task submission should succeed");
+        let opt_result = engine.execute_task(&opt_id).expect("task execution should succeed");
         assert!(opt_result.data.contains_key("loss"));
 
         // Test training task
         let train_task = MinimalTask::training("train_001".to_string());
-        let train_id = engine.submit_task(train_task).unwrap();
-        let train_result = engine.execute_task(&train_id).unwrap();
+        let train_id = engine.submit_task(train_task).expect("task submission should succeed");
+        let train_result = engine.execute_task(&train_id).expect("task execution should succeed");
         assert!(train_result.data.contains_key("epochs"));
 
         // Test inference task
         let infer_task = MinimalTask::inference("infer_001".to_string());
-        let infer_id = engine.submit_task(infer_task).unwrap();
-        let infer_result = engine.execute_task(&infer_id).unwrap();
+        let infer_id = engine.submit_task(infer_task).expect("task submission should succeed");
+        let infer_result = engine.execute_task(&infer_id).expect("task execution should succeed");
         assert!(infer_result.data.contains_key("predictions"));
     }
 }

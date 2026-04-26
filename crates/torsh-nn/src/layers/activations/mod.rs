@@ -671,13 +671,13 @@ mod tests {
             vec![4],
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("operation should succeed");
         let relu = ReLU::new();
 
         let result = benchmarks::benchmark_activation(&relu, &input, 5);
         assert!(result.is_ok());
 
-        let (mean_time, std_dev) = result.unwrap();
+        let (mean_time, std_dev) = result.expect("operation should succeed");
         assert!(mean_time >= 0.0);
         assert!(std_dev >= 0.0);
     }

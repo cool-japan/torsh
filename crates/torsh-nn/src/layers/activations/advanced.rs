@@ -940,8 +940,8 @@ mod tests {
     #[test]
     fn test_gelu_forward() {
         let gelu = GELU::new();
-        let input = Tensor::from_data(vec![0.0], vec![1], DeviceType::Cpu).unwrap();
-        let output = gelu.forward(&input).unwrap();
+        let input = Tensor::from_data(vec![0.0], vec![1], DeviceType::Cpu).expect("Tensor should succeed");
+        let output = gelu.forward(&input).expect("forward pass should succeed");
 
         // GELU(0) should be 0
         assert_relative_eq!(output.to_vec().expect("tensor to vec conversion should succeed")[0], 0.0, epsilon = 1e-5);
@@ -949,13 +949,13 @@ mod tests {
 
     #[test]
     fn test_gelu_approximate_vs_exact() {
-        let input = Tensor::from_data(vec![1.0], vec![1], DeviceType::Cpu).unwrap();
+        let input = Tensor::from_data(vec![1.0], vec![1], DeviceType::Cpu).expect("Tensor should succeed");
 
         let gelu_exact = GELU::exact();
         let gelu_approx = GELU::approximate();
 
-        let output_exact = gelu_exact.forward(&input).unwrap();
-        let output_approx = gelu_approx.forward(&input).unwrap();
+        let output_exact = gelu_exact.forward(&input).expect("forward pass should succeed");
+        let output_approx = gelu_approx.forward(&input).expect("forward pass should succeed");
 
         // They should be close but not identical
         let diff = (output_exact.to_vec().expect("tensor to vec conversion should succeed")[0] - output_approx.to_vec().expect("tensor to vec conversion should succeed")[0]).abs();
@@ -965,8 +965,8 @@ mod tests {
     #[test]
     fn test_silu_forward() {
         let silu = SiLU::new();
-        let input = Tensor::from_data(vec![0.0, 1.0], vec![2], DeviceType::Cpu).unwrap();
-        let output = silu.forward(&input).unwrap();
+        let input = Tensor::from_data(vec![0.0, 1.0], vec![2], DeviceType::Cpu).expect("Tensor should succeed");
+        let output = silu.forward(&input).expect("forward pass should succeed");
         let output_vec = output.to_vec().expect("tensor to vec conversion should succeed");
 
         // SiLU(0) = 0 * sigmoid(0) = 0 * 0.5 = 0
@@ -979,8 +979,8 @@ mod tests {
     #[test]
     fn test_mish_forward() {
         let mish = Mish::new();
-        let input = Tensor::from_data(vec![0.0, 1.0], vec![2], DeviceType::Cpu).unwrap();
-        let output = mish.forward(&input).unwrap();
+        let input = Tensor::from_data(vec![0.0, 1.0], vec![2], DeviceType::Cpu).expect("Tensor should succeed");
+        let output = mish.forward(&input).expect("forward pass should succeed");
         let output_vec = output.to_vec().expect("tensor to vec conversion should succeed");
 
         // Mish(0) should be approximately 0
@@ -993,8 +993,8 @@ mod tests {
     #[test]
     fn test_hardswish_forward() {
         let hardswish = Hardswish::new();
-        let input = Tensor::from_data(vec![-3.0, 0.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
-        let output = hardswish.forward(&input).unwrap();
+        let input = Tensor::from_data(vec![-3.0, 0.0, 3.0], vec![3], DeviceType::Cpu).expect("Tensor should succeed");
+        let output = hardswish.forward(&input).expect("forward pass should succeed");
         let output_vec = output.to_vec().expect("tensor to vec conversion should succeed");
 
         // Hardswish(-3) should be 0 (since hardsigmoid(-3) = 0)
@@ -1018,10 +1018,10 @@ mod tests {
             vec![2, 4],
             DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("operation should succeed");
 
         let glu = GLU::new(-1); // Split along last dimension
-        let output = glu.forward(&input).unwrap();
+        let output = glu.forward(&input).expect("forward pass should succeed");
 
         assert_eq!(output.shape().dims(), &[2, 2]);
 
@@ -1033,7 +1033,7 @@ mod tests {
 
     #[test]
     fn test_glu_invalid_dimension() {
-        let input = Tensor::from_data(vec![1.0, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
+        let input = Tensor::from_data(vec![1.0, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("Tensor should succeed");
         let glu = GLU::new(-1);
 
         // Should fail because dimension size is odd (3)
@@ -1042,20 +1042,20 @@ mod tests {
 
     #[test]
     fn test_geglu_forward() {
-        let input = Tensor::from_data(vec![1.0, 2.0, 0.0, 1.0], vec![4], DeviceType::Cpu).unwrap();
+        let input = Tensor::from_data(vec![1.0, 2.0, 0.0, 1.0], vec![4], DeviceType::Cpu).expect("Tensor should succeed");
 
         let geglu = GEGLU::exact();
-        let output = geglu.forward(&input).unwrap();
+        let output = geglu.forward(&input).expect("forward pass should succeed");
 
         assert_eq!(output.shape().dims(), &[2]);
     }
 
     #[test]
     fn test_reglu_forward() {
-        let input = Tensor::from_data(vec![1.0, 2.0, -1.0, 1.0], vec![4], DeviceType::Cpu).unwrap();
+        let input = Tensor::from_data(vec![1.0, 2.0, -1.0, 1.0], vec![4], DeviceType::Cpu).expect("Tensor should succeed");
 
         let reglu = ReGLU::new(-1);
-        let output = reglu.forward(&input).unwrap();
+        let output = reglu.forward(&input).expect("forward pass should succeed");
 
         assert_eq!(output.shape().dims(), &[2]);
 
@@ -1067,10 +1067,10 @@ mod tests {
 
     #[test]
     fn test_swiglu_forward() {
-        let input = Tensor::from_data(vec![1.0, 2.0, 0.0, 1.0], vec![4], DeviceType::Cpu).unwrap();
+        let input = Tensor::from_data(vec![1.0, 2.0, 0.0, 1.0], vec![4], DeviceType::Cpu).expect("Tensor should succeed");
 
         let swiglu = SwiGLU::new(-1);
-        let output = swiglu.forward(&input).unwrap();
+        let output = swiglu.forward(&input).expect("forward pass should succeed");
 
         assert_eq!(output.shape().dims(), &[2]);
     }
@@ -1096,10 +1096,10 @@ mod tests {
         let silu = SiLU::new();
         let swish = Swish::new();
 
-        let input = Tensor::from_data(vec![1.0], vec![1], DeviceType::Cpu).unwrap();
+        let input = Tensor::from_data(vec![1.0], vec![1], DeviceType::Cpu).expect("Tensor should succeed");
 
-        let silu_output = silu.forward(&input).unwrap();
-        let swish_output = swish.forward(&input).unwrap();
+        let silu_output = silu.forward(&input).expect("forward pass should succeed");
+        let swish_output = swish.forward(&input).expect("forward pass should succeed");
 
         // They should be identical
         assert_eq!(

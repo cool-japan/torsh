@@ -896,7 +896,7 @@ mod tests {
         snapshot.host_usage.available_memory = 2 * 1024 * 1024 * 1024;
 
         // Add device usage
-        let device = Device::cpu().unwrap(); // Assuming Device::cpu exists
+        let device = Device::cpu().expect("Device should succeed"); // Assuming Device::cpu exists
         let mut device_usage = DeviceMemoryUsage::new(4 * 1024 * 1024 * 1024);
         device_usage.update_usage(3 * 1024 * 1024 * 1024, 0);
         snapshot.device_usage.insert(device, device_usage);
@@ -913,7 +913,7 @@ mod tests {
         let monitor = MemoryPressureMonitor::new(thresholds, true);
 
         let mut snapshot = MemorySnapshot::new();
-        let device = Device::cpu().unwrap();
+        let device = Device::cpu().expect("Device should succeed");
 
         // Create high pressure scenario
         let mut device_usage = DeviceMemoryUsage::new(1024 * 1024 * 1024);

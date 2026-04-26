@@ -1282,7 +1282,7 @@ mod tests {
         let result = engine.compress(&gradient, &config);
         assert!(result.is_ok());
 
-        let compressed = result.unwrap();
+        let compressed = result.expect("operation should succeed");
         assert_eq!(
             compressed.compression_method,
             CompressionStrategy::Quantization
@@ -1301,7 +1301,7 @@ mod tests {
         let result = engine.compress(&gradient, &config);
         assert!(result.is_ok());
 
-        let compressed = result.unwrap();
+        let compressed = result.expect("operation should succeed");
         assert_eq!(
             compressed.compression_method,
             CompressionStrategy::Sparsification
@@ -1316,8 +1316,12 @@ mod tests {
         gradient.insert("param_1".to_string(), vec![1.0, 2.0, 3.0]);
 
         let config = CommunicationConfig::default();
-        let compressed = engine.compress(&gradient, &config).unwrap();
-        let decompressed = engine.decompress(&compressed).unwrap();
+        let compressed = engine
+            .compress(&gradient, &config)
+            .expect("compression should succeed");
+        let decompressed = engine
+            .decompress(&compressed)
+            .expect("decompression should succeed");
 
         assert_eq!(gradient["param_1"].len(), decompressed["param_1"].len());
         // For no compression, values should be exactly preserved
@@ -1342,12 +1346,12 @@ mod tests {
         let mut compressed_gradient = gradient.clone();
         compressed_gradient.compressed_gradient = engine
             .compress(&gradient.original_gradient, &config)
-            .unwrap();
+            .expect("operation should succeed");
 
         let error_feedback = engine.compute_error_feedback(&compressed_gradient);
         assert!(error_feedback.is_ok());
 
-        let feedback = error_feedback.unwrap();
+        let feedback = error_feedback.expect("operation should succeed");
         assert!(feedback.contains_key("param_1"));
         assert_eq!(feedback["param_1"].len(), 3);
     }
@@ -1382,7 +1386,7 @@ mod tests {
         let result = engine.compress(&gradient, &config);
         assert!(result.is_ok());
 
-        let compressed = result.unwrap();
+        let compressed = result.expect("operation should succeed");
         assert_eq!(compressed.compression_method, CompressionStrategy::LowRank);
         assert!(compressed.compression_info.low_rank_factors.is_some());
     }
@@ -1397,7 +1401,7 @@ mod tests {
         let result = engine.compress(&gradient, &config);
         assert!(result.is_ok());
 
-        let compressed = result.unwrap();
+        let compressed = result.expect("operation should succeed");
         assert_eq!(
             compressed.compression_method,
             CompressionStrategy::Sketching
@@ -1412,7 +1416,9 @@ mod tests {
         gradient.insert("param_1".to_string(), vec![1.0, 2.0, 3.0]);
 
         let config = CommunicationConfig::default();
-        let _compressed = engine.compress(&gradient, &config).unwrap();
+        let _compressed = engine
+            .compress(&gradient, &config)
+            .expect("compression should succeed");
 
         let stats = engine.get_statistics();
         assert_eq!(stats.total_compressions, 1);

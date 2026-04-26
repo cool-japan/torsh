@@ -1125,7 +1125,7 @@ mod tests {
         let result = aggregator.median_aggregation(&client_updates);
         assert!(result.is_ok());
 
-        let aggregated = result.unwrap();
+        let aggregated = result.expect("operation should succeed");
         assert!(aggregated.contains_key("param1"));
         assert_eq!(aggregated["param1"], vec![1.5, 2.5, 3.5]);
     }
@@ -1143,6 +1143,7 @@ mod tests {
 
         let distance = aggregator.compute_gradient_distance(&grad1, &grad2);
         assert!(distance.is_ok());
-        assert!((distance.unwrap() - 1.732).abs() < 0.01); // sqrt(3) ≈ 1.732
+        assert!((distance.expect("operation should succeed") - 1.732).abs() < 0.01);
+        // sqrt(3) ≈ 1.732
     }
 }

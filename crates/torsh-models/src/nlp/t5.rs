@@ -1201,7 +1201,7 @@ mod tests {
 
     #[test]
     fn test_t5_model_creation() {
-        let model = T5Model::t5_small().unwrap();
+        let model = T5Model::t5_small().expect("T5Model should succeed");
         assert_eq!(model.encoder().num_layers(), 6);
         assert!(model.encoder().layer(0).is_some());
         assert!(model.encoder().layer(6).is_none());
@@ -1209,41 +1209,45 @@ mod tests {
 
     #[test]
     fn test_t5_conditional_generation_creation() {
-        let generator = T5ForConditionalGeneration::t5_small_conditional().unwrap();
+        let generator = T5ForConditionalGeneration::t5_small_conditional()
+            .expect("T5For Conditional Generation should succeed");
         assert_eq!(generator.transformer().config().d_model, 512);
     }
 
     #[test]
     fn test_t5_forward_pass() {
-        let model = T5Model::t5_small().unwrap();
-        let input_ids = Tensor::zeros(&[1, 10], torsh_core::DeviceType::Cpu).unwrap();
+        let model = T5Model::t5_small().expect("T5Model should succeed");
+        let input_ids =
+            Tensor::zeros(&[1, 10], torsh_core::DeviceType::Cpu).expect("Tensor should succeed");
 
         let result = model.forward(&input_ids);
         assert!(result.is_ok());
 
-        let output = result.unwrap();
+        let output = result.expect("operation should succeed");
         assert_eq!(output.shape().dims().len(), 3); // [batch, seq_len, hidden_size]
-        assert_eq!(output.size(2).unwrap(), 512); // d_model
+        assert_eq!(output.size(2).expect("tensor size should be valid"), 512); // d_model
     }
 
     #[test]
     fn test_t5_conditional_generation_forward() {
-        let generator = T5ForConditionalGeneration::t5_small_conditional().unwrap();
-        let input_ids = Tensor::zeros(&[1, 10], torsh_core::DeviceType::Cpu).unwrap();
+        let generator = T5ForConditionalGeneration::t5_small_conditional()
+            .expect("T5For Conditional Generation should succeed");
+        let input_ids =
+            Tensor::zeros(&[1, 10], torsh_core::DeviceType::Cpu).expect("Tensor should succeed");
 
         let result = generator.forward(&input_ids);
         let logits = result.expect("Forward pass should succeed");
         assert_eq!(
             logits
                 .size((logits.shape().dims().len() - 1) as i32)
-                .unwrap(),
+                .expect("operation should succeed"),
             32128
         ); // vocab_size
     }
 
     #[test]
     fn test_t5_training_mode() {
-        let mut model = T5Model::t5_small().unwrap();
+        let mut model = T5Model::t5_small().expect("T5Model should succeed");
 
         model.train();
         assert!(model.training());
@@ -1254,7 +1258,7 @@ mod tests {
 
     #[test]
     fn test_t5_parameter_count() {
-        let model = T5Model::t5_small().unwrap();
+        let model = T5Model::t5_small().expect("T5Model should succeed");
         let params = model.named_parameters(); // Use named_parameters instead
         assert!(!params.is_empty());
 
@@ -1268,7 +1272,7 @@ mod tests {
     #[test]
     fn test_t5_layer_components() {
         let config = T5Config::t5_small();
-        let layer = T5Layer::new(config.clone(), false, true).unwrap();
+        let layer = T5Layer::new(config.clone(), false, true).expect("operation should succeed");
 
         // Verify components exist
         assert!(!layer.is_decoder());
@@ -1277,20 +1281,22 @@ mod tests {
 
     #[test]
     fn test_factory_functions() {
-        let model = factory::t5_small().unwrap();
+        let model = factory::t5_small().expect("factory should succeed");
         assert_eq!(model.config().d_model, 512);
 
-        let base_model = factory::t5_base().unwrap();
+        let base_model = factory::t5_base().expect("factory should succeed");
         assert_eq!(base_model.config().d_model, 768);
 
-        let generator = factory::t5_small_conditional().unwrap();
+        let generator = factory::t5_small_conditional().expect("factory should succeed");
         assert_eq!(generator.transformer().config().d_model, 512);
     }
 
     #[test]
     fn test_generate_logits() {
-        let generator = T5ForConditionalGeneration::t5_small_conditional().unwrap();
-        let input_ids = Tensor::zeros(&[1, 5], torsh_core::DeviceType::Cpu).unwrap();
+        let generator = T5ForConditionalGeneration::t5_small_conditional()
+            .expect("T5For Conditional Generation should succeed");
+        let input_ids =
+            Tensor::zeros(&[1, 5], torsh_core::DeviceType::Cpu).expect("Tensor should succeed");
 
         let result = generator.generate_logits(&input_ids);
         let logits = result.expect("Generate logits should succeed");
@@ -1310,7 +1316,7 @@ mod tests {
         // First layer should have relative attention bias
         assert!(encoder
             .layer(0)
-            .unwrap()
+            .expect("operation should succeed")
             .self_attention()
             .has_relative_attention_bias());
         Ok(())

@@ -240,7 +240,7 @@ mod tests {
 
     #[test]
     fn test_xlnet_parameters() {
-        let model = XLNetModel::xlnet_base().unwrap();
+        let model = XLNetModel::xlnet_base().expect("XLNet Model should succeed");
         let params = model.parameters();
         assert!(!params.is_empty());
         assert!(params.contains_key("embeddings.word_embeddings.weight"));

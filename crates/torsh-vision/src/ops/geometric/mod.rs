@@ -600,36 +600,37 @@ mod tests {
 
     #[test]
     fn test_resize() {
-        let image = ones(&[3, 4, 4]).unwrap();
-        let resized = resize(&image, (8, 8)).unwrap();
+        let image = ones(&[3, 4, 4]).expect("ones should succeed");
+        let resized = resize(&image, (8, 8)).expect("operation should succeed");
         assert_eq!(resized.shape().dims(), &[3, 8, 8]);
     }
 
     #[test]
     fn test_center_crop() {
-        let image = ones(&[3, 10, 10]).unwrap();
-        let cropped = center_crop(&image, (6, 6)).unwrap();
+        let image = ones(&[3, 10, 10]).expect("ones should succeed");
+        let cropped = center_crop(&image, (6, 6)).expect("operation should succeed");
         assert_eq!(cropped.shape().dims(), &[3, 6, 6]);
     }
 
     #[test]
     fn test_horizontal_flip() {
-        let image = ones(&[3, 4, 4]).unwrap();
-        let flipped = horizontal_flip(&image).unwrap();
+        let image = ones(&[3, 4, 4]).expect("ones should succeed");
+        let flipped = horizontal_flip(&image).expect("horizontal flip should succeed");
         assert_eq!(flipped.shape().dims(), &[3, 4, 4]);
     }
 
     #[test]
     fn test_padding() {
-        let image = ones(&[3, 4, 4]).unwrap();
-        let padded = pad(&image, (1, 1, 1, 1), PaddingMode::Zero, 0.0).unwrap();
+        let image = ones(&[3, 4, 4]).expect("ones should succeed");
+        let padded =
+            pad(&image, (1, 1, 1, 1), PaddingMode::Zero, 0.0).expect("operation should succeed");
         assert_eq!(padded.shape().dims(), &[3, 6, 6]);
     }
 
     #[test]
     fn test_rotation() {
-        let image = ones(&[3, 4, 4]).unwrap();
-        let rotated = rotate(&image, std::f32::consts::PI / 4.0).unwrap();
+        let image = ones(&[3, 4, 4]).expect("ones should succeed");
+        let rotated = rotate(&image, std::f32::consts::PI / 4.0).expect("rotate should succeed");
         assert_eq!(rotated.shape().dims(), &[3, 4, 4]);
     }
 }

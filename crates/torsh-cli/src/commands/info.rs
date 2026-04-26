@@ -675,7 +675,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_installation_info() {
-        let info = get_installation_info().await.unwrap();
+        let info = get_installation_info()
+            .await
+            .expect("operation should succeed");
         assert!(!info.install_path.is_empty());
     }
 }

@@ -426,19 +426,19 @@ mod tests {
     #[test]
     fn test_auto_augment_apply_policy() {
         let auto_aug = AutoAugment::new();
-        let input = creation::ones(&[3, 32, 32]).unwrap();
+        let input = creation::ones(&[3, 32, 32]).expect("creation should succeed");
 
         let result = auto_aug.apply_policy(&input, 0);
         assert!(result.is_ok());
 
-        let output = result.unwrap();
+        let output = result.expect("operation should succeed");
         assert_eq!(output.shape().dims(), &[3, 32, 32]);
     }
 
     #[test]
     fn test_auto_augment_apply_policy_invalid_index() {
         let auto_aug = AutoAugment::new();
-        let input = creation::ones(&[3, 32, 32]).unwrap();
+        let input = creation::ones(&[3, 32, 32]).expect("creation should succeed");
 
         let result = auto_aug.apply_policy(&input, 10);
         assert!(result.is_err());
@@ -451,12 +451,12 @@ mod tests {
     #[test]
     fn test_auto_augment_forward() {
         let auto_aug = AutoAugment::new();
-        let input = creation::ones(&[3, 32, 32]).unwrap();
+        let input = creation::ones(&[3, 32, 32]).expect("creation should succeed");
 
         let result = auto_aug.forward(&input);
         assert!(result.is_ok());
 
-        let output = result.unwrap();
+        let output = result.expect("operation should succeed");
         assert_eq!(output.shape().dims(), &[3, 32, 32]);
     }
 
@@ -514,20 +514,20 @@ mod tests {
     #[test]
     fn test_rand_augment_apply_transforms() {
         let rand_aug = RandAugment::new(2, 5.0);
-        let input = creation::ones(&[3, 32, 32]).unwrap();
+        let input = creation::ones(&[3, 32, 32]).expect("creation should succeed");
 
         let transforms = vec!["rotate".to_string(), "flip_horizontal".to_string()];
         let result = rand_aug.apply_transforms(&input, &transforms);
         assert!(result.is_ok());
 
-        let output = result.unwrap();
+        let output = result.expect("operation should succeed");
         assert_eq!(output.shape().dims(), &[3, 32, 32]);
     }
 
     #[test]
     fn test_rand_augment_apply_transforms_unknown() {
         let rand_aug = RandAugment::new(1, 5.0);
-        let input = creation::ones(&[3, 32, 32]).unwrap();
+        let input = creation::ones(&[3, 32, 32]).expect("creation should succeed");
 
         let transforms = vec!["unknown_transform".to_string()];
         let result = rand_aug.apply_transforms(&input, &transforms);
@@ -541,7 +541,7 @@ mod tests {
     #[test]
     fn test_rand_augment_apply_transforms_too_many() {
         let rand_aug = RandAugment::with_transforms(1, 5.0, vec!["rotate".to_string()]);
-        let input = creation::ones(&[3, 32, 32]).unwrap();
+        let input = creation::ones(&[3, 32, 32]).expect("creation should succeed");
 
         let transforms = vec!["rotate".to_string(), "flip_horizontal".to_string()];
         let result = rand_aug.apply_transforms(&input, &transforms);
@@ -556,12 +556,12 @@ mod tests {
     #[ignore] // Fails in parallel execution due to shared RNG state
     fn test_rand_augment_forward() {
         let rand_aug = RandAugment::new(2, 3.0);
-        let input = creation::ones(&[3, 32, 32]).unwrap();
+        let input = creation::ones(&[3, 32, 32]).expect("creation should succeed");
 
         let result = rand_aug.forward(&input);
         assert!(result.is_ok());
 
-        let output = result.unwrap();
+        let output = result.expect("operation should succeed");
         assert_eq!(output.shape().dims(), &[3, 32, 32]);
     }
 
@@ -583,7 +583,7 @@ mod tests {
         assert_eq!(rand_aug.n(), 1);
         assert_eq!(rand_aug.magnitude(), 0.0);
 
-        let input = creation::ones(&[3, 8, 8]).unwrap();
+        let input = creation::ones(&[3, 8, 8]).expect("creation should succeed");
         let result = rand_aug.forward(&input);
         assert!(result.is_ok());
 
@@ -596,7 +596,7 @@ mod tests {
     #[test]
     fn test_deterministic_application() {
         let rand_aug = RandAugment::new(1, 5.0);
-        let input = creation::ones(&[3, 16, 16]).unwrap();
+        let input = creation::ones(&[3, 16, 16]).expect("creation should succeed");
 
         // Apply specific transforms
         let transforms = vec!["rotate".to_string()];
@@ -608,8 +608,8 @@ mod tests {
 
         // Both results should have the same shape
         assert_eq!(
-            result1.unwrap().shape().dims(),
-            result2.unwrap().shape().dims()
+            result1.expect("operation should succeed").shape().dims(),
+            result2.expect("operation should succeed").shape().dims()
         );
     }
 }

@@ -1528,11 +1528,11 @@ mod tests {
             estimated_duration: Some(Duration::from_secs(60)),
         };
 
-        let task_id = task_manager.submit_task(task).unwrap();
+        let task_id = task_manager.submit_task(task).expect("task submission should succeed");
         let stats = task_manager.get_statistics();
         assert_eq!(stats.tasks_submitted, 1);
 
-        let retrieved_task = task_manager.get_task(task_id).unwrap();
+        let retrieved_task = task_manager.get_task(task_id).expect("task retrieval should succeed");
         assert_eq!(retrieved_task.name, "Test Task");
     }
 

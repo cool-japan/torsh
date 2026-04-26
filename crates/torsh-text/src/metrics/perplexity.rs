@@ -632,7 +632,7 @@ mod tests {
         let probabilities = &[0.25, 0.25, 0.25, 0.25]; // Uniform distribution
         let perplexity = calculator
             .calculate_from_probabilities(probabilities)
-            .unwrap();
+            .expect("operation should succeed");
 
         // For uniform distribution over 4 items, perplexity should be 4
         assert!((perplexity - 4.0).abs() < 1e-10);
@@ -642,7 +642,7 @@ mod tests {
     fn test_perplexity_from_logits() {
         let calculator = PerplexityCalculator::new();
         let logits = &[1.0, 1.0, 1.0, 1.0]; // Uniform logits
-        let perplexity = calculator.calculate_from_logits(logits).unwrap();
+        let perplexity = calculator.calculate_from_logits(logits).expect("calculation from logits should succeed");
 
         // Should also result in perplexity of 4
         assert!((perplexity - 4.0).abs() < 1e-10);
@@ -654,7 +654,7 @@ mod tests {
         let probabilities = &[1.0]; // Perfect prediction
         let perplexity = calculator
             .calculate_from_probabilities(probabilities)
-            .unwrap();
+            .expect("operation should succeed");
 
         // Perfect prediction should have perplexity of 1
         assert!((perplexity - 1.0).abs() < 1e-10);
@@ -685,7 +685,7 @@ mod tests {
         let cross_entropy = 2.0;
         let perplexity = calculator
             .calculate_from_cross_entropy(cross_entropy)
-            .unwrap();
+            .expect("operation should succeed");
 
         assert!((perplexity - cross_entropy.exp()).abs() < 1e-10);
     }
@@ -695,7 +695,7 @@ mod tests {
         let calculator = PerplexityCalculator::new();
         let sequences = vec![vec![0.5, 0.5], vec![0.25, 0.25, 0.25, 0.25], vec![0.1, 0.9]];
 
-        let metrics = calculator.calculate_sequence_level(&sequences).unwrap();
+        let metrics = calculator.calculate_sequence_level(&sequences).expect("sequence-level calculation should succeed");
 
         assert_eq!(metrics.total_sequences, 3);
         assert_eq!(metrics.sequence_perplexities.len(), 3);
@@ -722,7 +722,7 @@ mod tests {
 
         let comparison = calculator
             .compare_models(&model1_probs, &model2_probs, "Model1", "Model2")
-            .unwrap();
+            .expect("operation should succeed");
 
         assert_eq!(comparison.better_model, "Model2");
         assert!(comparison.relative_improvement > 0.0);
@@ -741,10 +741,10 @@ mod tests {
 
         let perp_none = calculator_none
             .calculate_from_probabilities(probabilities)
-            .unwrap();
+            .expect("operation should succeed");
         let perp_add_one = calculator_add_one
             .calculate_from_probabilities(probabilities)
-            .unwrap();
+            .expect("operation should succeed");
 
         // Both should work, but give different results
         assert!(perp_none > 0.0);
@@ -759,7 +759,7 @@ mod tests {
 
         let ci = calculator
             .calculate_confidence_interval(&probabilities, 0.95, 100)
-            .unwrap();
+            .expect("operation should succeed");
 
         assert!(ci.confidence_level == 0.95);
         assert!(ci.lower_bound <= ci.base_perplexity);
@@ -771,11 +771,11 @@ mod tests {
     #[test]
     fn test_legacy_functions() {
         let probabilities = &[0.25, 0.25, 0.25, 0.25];
-        let perplexity = calculate(probabilities).unwrap();
+        let perplexity = calculate(probabilities).expect("calculation should succeed");
         assert!((perplexity - 4.0).abs() < 1e-10);
 
         let logits = &[1.0, 1.0, 1.0, 1.0];
-        let perplexity = calculate_from_logits(logits).unwrap();
+        let perplexity = calculate_from_logits(logits).expect("calculation from logits should succeed");
         assert!((perplexity - 4.0).abs() < 1e-10);
     }
 
@@ -787,13 +787,13 @@ mod tests {
         let small_probs = &[1e-10, 1e-10, 1.0 - 2e-10];
         let perplexity = calculator
             .calculate_from_probabilities(small_probs)
-            .unwrap();
+            .expect("operation should succeed");
         assert!(perplexity.is_finite());
         assert!(perplexity > 0.0);
 
         // Test with large logits
         let large_logits = &[100.0, 101.0, 99.0];
-        let perplexity = calculator.calculate_from_logits(large_logits).unwrap();
+        let perplexity = calculator.calculate_from_logits(large_logits).expect("calculation from logits should succeed");
         assert!(perplexity.is_finite());
         assert!(perplexity > 0.0);
     }

@@ -802,10 +802,14 @@ mod tests {
     async fn test_optimizer_state_manager() {
         let config = Zero3CpuOffloadConfig::default();
         let rank_mapping = Zero3RankMapping::new(0, 4);
-        let manager = OptimizerStateManager::new(&config, &rank_mapping).unwrap();
+        let manager = OptimizerStateManager::new(&config, &rank_mapping)
+            .expect("Optimizer State Manager should succeed");
 
         // Test fetching non-existent state (should create new)
-        let state = manager.fetch_state("test_param").await.unwrap();
+        let state = manager
+            .fetch_state("test_param")
+            .await
+            .expect("operation should succeed");
         assert_eq!(state.step_count, 0);
 
         // Test storing and retrieving state
@@ -814,9 +818,12 @@ mod tests {
         manager
             .store_state("test_param", &test_state)
             .await
-            .unwrap();
+            .expect("operation should succeed");
 
-        let retrieved_state = manager.fetch_state("test_param").await.unwrap();
+        let retrieved_state = manager
+            .fetch_state("test_param")
+            .await
+            .expect("operation should succeed");
         assert_eq!(retrieved_state.step_count, 5);
     }
 
@@ -825,11 +832,15 @@ mod tests {
         let mut state = OptimizerState::new();
 
         // Test momentum initialization
-        state.init_momentum(&[10, 10]).unwrap();
+        state
+            .init_momentum(&[10, 10])
+            .expect("momentum initialization should succeed");
         assert!(state.has_momentum());
 
         // Test variance initialization
-        state.init_variance(&[10, 10]).unwrap();
+        state
+            .init_variance(&[10, 10])
+            .expect("variance initialization should succeed");
         assert!(state.has_variance());
 
         // Test reset
@@ -843,7 +854,8 @@ mod tests {
     async fn test_memory_stats() {
         let config = Zero3CpuOffloadConfig::default();
         let rank_mapping = Zero3RankMapping::new(0, 4);
-        let manager = OptimizerStateManager::new(&config, &rank_mapping).unwrap();
+        let manager = OptimizerStateManager::new(&config, &rank_mapping)
+            .expect("Optimizer State Manager should succeed");
 
         let stats = manager.get_memory_stats();
         assert_eq!(stats.cpu_memory_used, 0);

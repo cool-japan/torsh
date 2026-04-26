@@ -627,14 +627,20 @@ mod tests {
                     // Test elementwise addition
                     let result = executor.elementwise_add(&a, &b, &output).await;
                     if result.is_ok() {
-                        executor.synchronize().await.unwrap();
+                        executor
+                            .synchronize()
+                            .await
+                            .expect("operation should succeed");
                         // Operation completed successfully
                     }
 
                     // Test elementwise multiplication
                     let result = executor.elementwise_mul(&a, &b, &output).await;
                     if result.is_ok() {
-                        executor.synchronize().await.unwrap();
+                        executor
+                            .synchronize()
+                            .await
+                            .expect("operation should succeed");
                         // Operation completed successfully
                     }
                 }
@@ -694,7 +700,10 @@ mod tests {
                 ) {
                     let result = executor.relu(&input, &output).await;
                     if result.is_ok() {
-                        executor.synchronize().await.unwrap();
+                        executor
+                            .synchronize()
+                            .await
+                            .expect("operation should succeed");
                         // ReLU operation completed successfully
                     }
                 }

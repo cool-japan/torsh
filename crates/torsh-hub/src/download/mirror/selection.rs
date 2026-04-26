@@ -854,7 +854,9 @@ mod tests {
         let perf_analyzer = PerformanceAnalyzer::new();
 
         let selector = MirrorSelector::new(&config, &mut state, &geo_calc, &perf_analyzer);
-        let mirrors = selector.get_qualified_mirrors().unwrap();
+        let mirrors = selector
+            .get_qualified_mirrors()
+            .expect("qualified mirror retrieval should succeed");
         let sorted = selector.select_by_lowest_latency(mirrors);
 
         // Should be sorted by latency (fast=50, reliable=100, slow=200)
@@ -871,7 +873,9 @@ mod tests {
         let perf_analyzer = PerformanceAnalyzer::new();
 
         let selector = MirrorSelector::new(&config, &mut state, &geo_calc, &perf_analyzer);
-        let mirrors = selector.get_qualified_mirrors().unwrap();
+        let mirrors = selector
+            .get_qualified_mirrors()
+            .expect("qualified mirror retrieval should succeed");
         let sorted = selector.select_by_highest_reliability(mirrors);
 
         // Should be sorted by reliability (reliable=0.99, fast=0.9, slow=0.8)
@@ -888,7 +892,9 @@ mod tests {
         let perf_analyzer = PerformanceAnalyzer::new();
 
         let mut selector = MirrorSelector::new(&config, &mut state, &geo_calc, &perf_analyzer);
-        let mirrors = selector.get_qualified_mirrors().unwrap();
+        let mirrors = selector
+            .get_qualified_mirrors()
+            .expect("qualified mirror retrieval should succeed");
 
         let selected1 = selector.select_by_round_robin(mirrors.clone());
         let selected2 = selector.select_by_round_robin(mirrors.clone());
@@ -970,7 +976,10 @@ mod tests {
         state.initialize_ml_model(6);
         assert!(state.ml_model_state.is_some());
 
-        let ml_state = state.ml_model_state.as_ref().unwrap();
+        let ml_state = state
+            .ml_model_state
+            .as_ref()
+            .expect("value should be available");
         assert_eq!(ml_state.feature_importance.len(), 6);
         assert_eq!(ml_state.training_samples, 0);
     }

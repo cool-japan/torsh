@@ -933,13 +933,17 @@ mod tests {
     fn test_test_data_creation() {
         let tuner = AutoTuner::default();
 
-        let vector_data = tuner.create_test_data("element_wise", 1000).unwrap();
+        let vector_data = tuner
+            .create_test_data("element_wise", 1000)
+            .expect("test data creation should succeed");
         match vector_data {
             TestData::Vector(vec) => assert_eq!(vec.len(), 1000),
             _ => panic!("Expected vector data"),
         }
 
-        let matrix_data = tuner.create_test_data("matrix", 100).unwrap();
+        let matrix_data = tuner
+            .create_test_data("matrix", 100)
+            .expect("test data creation should succeed");
         match matrix_data {
             TestData::Matrix(mat, rows, cols) => {
                 assert_eq!(rows, 10);

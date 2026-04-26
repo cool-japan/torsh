@@ -1206,8 +1206,8 @@ mod tests {
     #[test]
     fn test_relu_forward() {
         let relu = ReLU::new();
-        let input = Tensor::from_data(vec![-1.0, 0.0, 1.0, 2.0], vec![4], DeviceType::Cpu).unwrap();
-        let output = relu.forward(&input).unwrap();
+        let input = Tensor::from_data(vec![-1.0, 0.0, 1.0, 2.0], vec![4], DeviceType::Cpu).expect("Tensor should succeed");
+        let output = relu.forward(&input).expect("forward pass should succeed");
         let expected = vec![0.0, 0.0, 1.0, 2.0];
 
         assert_eq!(output.to_vec().expect("tensor to vec conversion should succeed"), expected);
@@ -1216,8 +1216,8 @@ mod tests {
     #[test]
     fn test_leaky_relu_forward() {
         let leaky_relu = LeakyReLU::new(0.1);
-        let input = Tensor::from_data(vec![-1.0, 0.0, 1.0, 2.0], vec![4], DeviceType::Cpu).unwrap();
-        let output = leaky_relu.forward(&input).unwrap();
+        let input = Tensor::from_data(vec![-1.0, 0.0, 1.0, 2.0], vec![4], DeviceType::Cpu).expect("Tensor should succeed");
+        let output = leaky_relu.forward(&input).expect("forward pass should succeed");
         let expected = vec![-0.1, 0.0, 1.0, 2.0];
 
         for (actual, expected) in output.to_vec().expect("tensor to vec conversion should succeed").iter().zip(expected.iter()) {
@@ -1228,8 +1228,8 @@ mod tests {
     #[test]
     fn test_relu6_forward() {
         let relu6 = ReLU6::new();
-        let input = Tensor::from_data(vec![-1.0, 0.0, 3.0, 7.0], vec![4], DeviceType::Cpu).unwrap();
-        let output = relu6.forward(&input).unwrap();
+        let input = Tensor::from_data(vec![-1.0, 0.0, 3.0, 7.0], vec![4], DeviceType::Cpu).expect("Tensor should succeed");
+        let output = relu6.forward(&input).expect("forward pass should succeed");
         let expected = vec![0.0, 0.0, 3.0, 6.0];
 
         assert_eq!(output.to_vec().expect("tensor to vec conversion should succeed"), expected);
@@ -1238,8 +1238,8 @@ mod tests {
     #[test]
     fn test_sigmoid_forward() {
         let sigmoid = Sigmoid::new();
-        let input = Tensor::from_data(vec![0.0], vec![1], DeviceType::Cpu).unwrap();
-        let output = sigmoid.forward(&input).unwrap();
+        let input = Tensor::from_data(vec![0.0], vec![1], DeviceType::Cpu).expect("Tensor should succeed");
+        let output = sigmoid.forward(&input).expect("forward pass should succeed");
 
         // sigmoid(0) should be 0.5
         assert_relative_eq!(output.to_vec().expect("tensor to vec conversion should succeed")[0], 0.5, epsilon = 1e-5);
@@ -1248,8 +1248,8 @@ mod tests {
     #[test]
     fn test_tanh_forward() {
         let tanh = Tanh::new();
-        let input = Tensor::from_data(vec![0.0], vec![1], DeviceType::Cpu).unwrap();
-        let output = tanh.forward(&input).unwrap();
+        let input = Tensor::from_data(vec![0.0], vec![1], DeviceType::Cpu).expect("Tensor should succeed");
+        let output = tanh.forward(&input).expect("forward pass should succeed");
 
         // tanh(0) should be 0.0
         assert_relative_eq!(output.to_vec().expect("tensor to vec conversion should succeed")[0], 0.0, epsilon = 1e-5);
@@ -1258,8 +1258,8 @@ mod tests {
     #[test]
     fn test_hardtanh_forward() {
         let hardtanh = Hardtanh::new(-1.0, 1.0);
-        let input = Tensor::from_data(vec![-2.0, 0.0, 2.0], vec![3], DeviceType::Cpu).unwrap();
-        let output = hardtanh.forward(&input).unwrap();
+        let input = Tensor::from_data(vec![-2.0, 0.0, 2.0], vec![3], DeviceType::Cpu).expect("Tensor should succeed");
+        let output = hardtanh.forward(&input).expect("forward pass should succeed");
         let expected = vec![-1.0, 0.0, 1.0];
 
         assert_eq!(output.to_vec().expect("tensor to vec conversion should succeed"), expected);
@@ -1268,8 +1268,8 @@ mod tests {
     #[test]
     fn test_threshold_forward() {
         let threshold = Threshold::new(1.0, 10.0);
-        let input = Tensor::from_data(vec![0.5, 1.0, 1.5], vec![3], DeviceType::Cpu).unwrap();
-        let output = threshold.forward(&input).unwrap();
+        let input = Tensor::from_data(vec![0.5, 1.0, 1.5], vec![3], DeviceType::Cpu).expect("Tensor should succeed");
+        let output = threshold.forward(&input).expect("forward pass should succeed");
         let expected = vec![0.0, 0.0, 10.0];
 
         assert_eq!(output.to_vec().expect("tensor to vec conversion should succeed"), expected);
@@ -1279,8 +1279,8 @@ mod tests {
     fn test_hardshrink_forward() {
         let hardshrink = Hardshrink::new(1.0);
         let input =
-            Tensor::from_data(vec![-2.0, -0.5, 0.5, 2.0], vec![4], DeviceType::Cpu).unwrap();
-        let output = hardshrink.forward(&input).unwrap();
+            Tensor::from_data(vec![-2.0, -0.5, 0.5, 2.0], vec![4], DeviceType::Cpu).expect("Tensor should succeed");
+        let output = hardshrink.forward(&input).expect("forward pass should succeed");
         let expected = vec![-2.0, 0.0, 0.0, 2.0];
 
         assert_eq!(output.to_vec().expect("tensor to vec conversion should succeed"), expected);
@@ -1304,7 +1304,7 @@ mod tests {
 
     #[test]
     fn test_prelu_parameters() {
-        let prelu = PReLU::new(1, 0.25).unwrap();
+        let prelu = PReLU::new(1, 0.25).expect("PRe LU should succeed");
         let params = prelu.parameters();
 
         assert_eq!(params.len(), 1);

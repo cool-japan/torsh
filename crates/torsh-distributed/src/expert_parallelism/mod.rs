@@ -181,13 +181,13 @@ mod tests {
     async fn test_expert_parallelism_system_creation() {
         let pg = init_process_group(BackendType::Gloo, 0, 1, "127.0.0.1", 29500)
             .await
-            .unwrap();
+            .expect("operation should succeed");
         let expert_params = ManagerExpertParameters::default();
 
         let result = create_expert_parallelism_system(8, Arc::new(pg), &expert_params);
         assert!(result.is_ok());
 
-        let (router, _manager) = result.unwrap();
+        let (router, _manager) = result.expect("operation should succeed");
         assert_eq!(router.get_num_experts(), 8);
         // Note: manager methods are tested in other test cases
     }
@@ -196,7 +196,7 @@ mod tests {
     async fn test_optimized_expert_system_creation() {
         let pg = init_process_group(BackendType::Gloo, 0, 1, "127.0.0.1", 29500)
             .await
-            .unwrap();
+            .expect("operation should succeed");
         let expert_params = ManagerExpertParameters::default();
 
         let result = create_optimized_expert_system(
@@ -208,7 +208,7 @@ mod tests {
         );
         assert!(result.is_ok());
 
-        let (router, _manager) = result.unwrap();
+        let (router, _manager) = result.expect("operation should succeed");
         assert_eq!(router.get_num_experts(), 64);
         // Note: manager configuration is tested in other test cases
         // assert!(manager.get_config().enable_expert_migration);
@@ -219,7 +219,7 @@ mod tests {
         let params = create_expert_parameters(512, 2048, 512, "relu");
         assert!(params.is_ok());
 
-        let params = params.unwrap();
+        let params = params.expect("operation should succeed");
         assert_eq!(params.input_dim, 512);
         assert_eq!(params.hidden_dim, 2048);
         assert_eq!(params.output_dim, 512);
@@ -241,10 +241,11 @@ mod tests {
     async fn test_expert_parallelism_pipeline() {
         let pg = init_process_group(BackendType::Gloo, 0, 1, "127.0.0.1", 29500)
             .await
-            .unwrap();
+            .expect("operation should succeed");
         let expert_params = ManagerExpertParameters::default();
         let (mut router, mut manager) =
-            create_expert_parallelism_system(4, Arc::new(pg), &expert_params).unwrap();
+            create_expert_parallelism_system(4, Arc::new(pg), &expert_params)
+                .expect("operation should succeed");
 
         // Create test input
         let mut rng = thread_rng();
@@ -255,7 +256,7 @@ mod tests {
             input_data,
             &[2, 128, 512], // batch=2, seq_len=128, dim=512
         )
-        .unwrap();
+        .expect("operation should succeed");
 
         // Execute the expert parallelism pipeline
         let result =

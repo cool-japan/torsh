@@ -1087,16 +1087,16 @@ mod tests {
         let channels = 3;
         let height = 224;
         let width = 224;
-        let pixel_values = torsh_tensor::creation::randn(&[batch_size, channels, height, width]).unwrap();
+        let pixel_values = torsh_tensor::creation::randn(&[batch_size, channels, height, width]).expect("creation should succeed");
 
         let output = encoder.forward(&pixel_values);
         assert!(output.is_ok());
 
-        let output = output.unwrap();
-        assert_eq!(output.size(0).unwrap(), batch_size);
+        let output = output.expect("operation should succeed");
+        assert_eq!(output.size(0).expect("tensor size should be valid"), batch_size);
         // Should have 197 tokens (196 patches + 1 CLS token)
-        assert_eq!(output.size(1).unwrap(), 197);
-        assert_eq!(output.size(2).unwrap(), 768); // hidden_size
+        assert_eq!(output.size(1).expect("tensor size should be valid"), 197);
+        assert_eq!(output.size(2).expect("tensor size should be valid"), 768); // hidden_size
     }
 }
 

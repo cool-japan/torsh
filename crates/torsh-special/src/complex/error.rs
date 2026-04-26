@@ -185,9 +185,10 @@ mod tests {
             Complex64::new(0.0, 0.0), // erf(0) = 0
             Complex64::new(1.0, 0.0), // erf(1) ≈ 0.8427
         ];
-        let input = Tensor::from_data(input_data, vec![2], DeviceType::Cpu).unwrap();
-        let result = complex_erf_c64(&input).unwrap();
-        let data = result.data().unwrap();
+        let input =
+            Tensor::from_data(input_data, vec![2], DeviceType::Cpu).expect("Tensor should succeed");
+        let result = complex_erf_c64(&input).expect("complex erf c64 should succeed");
+        let data = result.data().expect("tensor data should be accessible");
 
         assert_relative_eq!(data[0].re, 0.0, max_relative = 1e-10);
         assert_relative_eq!(data[0].im, 0.0, max_relative = 1e-10);
@@ -197,9 +198,10 @@ mod tests {
     #[test]
     fn test_complex_erfc_c64() {
         let input_data = vec![Complex64::new(0.0, 0.0)]; // erfc(0) = 1
-        let input = Tensor::from_data(input_data, vec![1], DeviceType::Cpu).unwrap();
-        let result = complex_erfc_c64(&input).unwrap();
-        let data = result.data().unwrap();
+        let input =
+            Tensor::from_data(input_data, vec![1], DeviceType::Cpu).expect("Tensor should succeed");
+        let result = complex_erfc_c64(&input).expect("complex erfc c64 should succeed");
+        let data = result.data().expect("tensor data should be accessible");
 
         assert_relative_eq!(data[0].re, 1.0, max_relative = 1e-6);
     }
@@ -209,13 +211,16 @@ mod tests {
         // Test that erf(z) + erfc(z) = 1
         let z_val = Complex64::new(0.5, 0.3);
         let input_data = vec![z_val];
-        let input = Tensor::from_data(input_data, vec![1], DeviceType::Cpu).unwrap();
+        let input =
+            Tensor::from_data(input_data, vec![1], DeviceType::Cpu).expect("Tensor should succeed");
 
-        let erf_result = complex_erf_c64(&input).unwrap();
-        let erfc_result = complex_erfc_c64(&input).unwrap();
+        let erf_result = complex_erf_c64(&input).expect("complex erf c64 should succeed");
+        let erfc_result = complex_erfc_c64(&input).expect("complex erfc c64 should succeed");
 
-        let erf_data = erf_result.data().unwrap();
-        let erfc_data = erfc_result.data().unwrap();
+        let erf_data = erf_result.data().expect("tensor data should be accessible");
+        let erfc_data = erfc_result
+            .data()
+            .expect("tensor data should be accessible");
 
         let sum = erf_data[0] + erfc_data[0];
         assert_relative_eq!(sum.re, 1.0, max_relative = 1e-6);

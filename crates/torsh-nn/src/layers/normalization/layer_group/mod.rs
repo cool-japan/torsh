@@ -655,17 +655,17 @@ mod tests {
 
     #[test]
     fn test_layer_norm_creation() {
-        let layer_norm = LayerNorm::new(vec![128]).unwrap();
+        let layer_norm = LayerNorm::new(vec![128]).expect("Layer Norm should succeed");
         assert_eq!(layer_norm.normalized_shape(), &[128]);
         assert_eq!(layer_norm.eps(), 1e-5);
 
-        let layer_norm_2d = LayerNorm::new(vec![64, 64]).unwrap();
+        let layer_norm_2d = LayerNorm::new(vec![64, 64]).expect("Layer Norm should succeed");
         assert_eq!(layer_norm_2d.normalized_shape(), &[64, 64]);
     }
 
     #[test]
     fn test_group_norm_creation() {
-        let group_norm = GroupNorm::new(8, 32).unwrap();
+        let group_norm = GroupNorm::new(8, 32).expect("Group Norm should succeed");
         assert_eq!(group_norm.num_groups(), 8);
         assert_eq!(group_norm.num_channels(), 32);
         assert_eq!(group_norm.eps(), 1e-5);
@@ -676,26 +676,27 @@ mod tests {
 
     #[test]
     fn test_group_norm_shape_validation() {
-        let group_norm = GroupNorm::new(4, 8).unwrap();
+        let group_norm = GroupNorm::new(4, 8).expect("Group Norm should succeed");
 
         // Valid input
-        let input = zeros(&[2, 8, 16, 16]).unwrap();
+        let input = zeros(&[2, 8, 16, 16]).expect("zeros should succeed");
         assert!(group_norm.forward(&input).is_ok());
 
         // Wrong number of channels
-        let input_wrong_channels = zeros(&[2, 16, 16, 16]).unwrap();
+        let input_wrong_channels = zeros(&[2, 16, 16, 16]).expect("zeros should succeed");
         assert!(group_norm.forward(&input_wrong_channels).is_err());
     }
 
     #[test]
     fn test_rms_norm_creation() {
-        let rms_norm = RMSNorm::new(vec![768]).unwrap();
+        let rms_norm = RMSNorm::new(vec![768]).expect("RMSNorm should succeed");
         assert_eq!(rms_norm.normalized_shape(), &[768]);
         assert_eq!(rms_norm.eps(), 1e-6);
         assert!(rms_norm.affine());
 
         // Non-affine variant
-        let rms_norm_no_affine = RMSNorm::with_config(vec![512], 1e-8, false).unwrap();
+        let rms_norm_no_affine =
+            RMSNorm::with_config(vec![512], 1e-8, false).expect("RMSNorm should succeed");
         assert!(!rms_norm_no_affine.affine());
         assert_eq!(rms_norm_no_affine.eps(), 1e-8);
     }
@@ -704,10 +705,10 @@ mod tests {
     fn test_rms_norm_forward() {
         use torsh_tensor::creation::ones;
 
-        let rms_norm = RMSNorm::new(vec![4]).unwrap();
+        let rms_norm = RMSNorm::new(vec![4]).expect("RMSNorm should succeed");
 
         // Test with ones - RMS of ones is 1.0
-        let input = ones(&[2, 4]).unwrap();
+        let input = ones(&[2, 4]).expect("ones should succeed");
         let output = rms_norm.forward(&input);
         assert!(output.is_ok(), "RMSNorm forward failed: {:?}", output.err());
 
@@ -722,8 +723,8 @@ mod tests {
         use torsh_tensor::creation::randn;
 
         // Typical transformer use case: [batch, seq_len, hidden_dim]
-        let rms_norm = RMSNorm::new(vec![768]).unwrap();
-        let input = randn(&[2, 128, 768]).unwrap();
+        let rms_norm = RMSNorm::new(vec![768]).expect("RMSNorm should succeed");
+        let input = randn(&[2, 128, 768]).expect("randn should succeed");
 
         let output = rms_norm.forward(&input);
         assert!(output.is_ok(), "3D RMSNorm forward failed");
@@ -737,13 +738,13 @@ mod tests {
     fn test_rms_norm_no_affine() {
         use torsh_tensor::creation::ones;
 
-        let rms_norm = RMSNorm::with_config(vec![4], 1e-6, false).unwrap();
+        let rms_norm = RMSNorm::with_config(vec![4], 1e-6, false).expect("RMSNorm should succeed");
 
         // Should have no parameters
         assert!(rms_norm.parameters().is_empty());
 
         // Should still normalize
-        let input = ones(&[2, 4]).unwrap();
+        let input = ones(&[2, 4]).expect("ones should succeed");
         let output = rms_norm.forward(&input);
         assert!(output.is_ok());
     }
@@ -753,8 +754,8 @@ mod tests {
         use torsh_tensor::creation::randn;
 
         // Test normalization over last 2 dimensions
-        let rms_norm = RMSNorm::new(vec![8, 8]).unwrap();
-        let input = randn(&[4, 8, 8]).unwrap();
+        let rms_norm = RMSNorm::new(vec![8, 8]).expect("RMSNorm should succeed");
+        let input = randn(&[4, 8, 8]).expect("randn should succeed");
 
         let output = rms_norm.forward(&input);
         assert!(output.is_ok());
@@ -766,17 +767,17 @@ mod tests {
 
     #[test]
     fn test_rms_norm_shape_mismatch() {
-        let rms_norm = RMSNorm::new(vec![768]).unwrap();
+        let rms_norm = RMSNorm::new(vec![768]).expect("RMSNorm should succeed");
 
         // Input with wrong feature dimension
-        let input = zeros(&[2, 128, 512]).unwrap();
+        let input = zeros(&[2, 128, 512]).expect("zeros should succeed");
         let result = rms_norm.forward(&input);
         assert!(result.is_err(), "Should error on shape mismatch");
     }
 
     #[test]
     fn test_rms_norm_training_modes() {
-        let mut rms_norm = RMSNorm::new(vec![64]).unwrap();
+        let mut rms_norm = RMSNorm::new(vec![64]).expect("RMSNorm should succeed");
 
         // Test training mode switching (default is training mode)
         assert!(rms_norm.training());

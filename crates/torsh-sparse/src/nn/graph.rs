@@ -435,7 +435,8 @@ mod tests {
 
     #[test]
     fn test_graph_convolution_creation() {
-        let gcn = GraphConvolution::new(16, 32, true, true, true).unwrap();
+        let gcn = GraphConvolution::new(16, 32, true, true, true)
+            .expect("Graph Convolution should succeed");
         assert_eq!(gcn.in_features(), 16);
         assert_eq!(gcn.out_features(), 32);
         assert!(gcn.adds_self_loops());
@@ -445,24 +446,28 @@ mod tests {
 
     #[test]
     fn test_graph_convolution_forward() {
-        let gcn = GraphConvolution::new(4, 2, false, false, false).unwrap();
-        let features = ones::<f32>(&[3, 4]).unwrap();
+        let gcn = GraphConvolution::new(4, 2, false, false, false)
+            .expect("Graph Convolution should succeed");
+        let features = ones::<f32>(&[3, 4]).expect("operation should succeed");
 
         // Create simple adjacency matrix (3x3)
         let row_indices = vec![0, 1, 2, 0, 1, 2];
         let col_indices = vec![1, 2, 0, 0, 1, 2];
         let values = vec![1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
         let shape = Shape::new(vec![3, 3]);
-        let coo = CooTensor::new(row_indices, col_indices, values, shape).unwrap();
-        let adjacency = CsrTensor::from_coo(&coo).unwrap();
+        let coo = CooTensor::new(row_indices, col_indices, values, shape)
+            .expect("Coo Tensor should succeed");
+        let adjacency = CsrTensor::from_coo(&coo).expect("Csr Tensor should succeed");
 
-        let output = gcn.forward(&features, &adjacency).unwrap();
+        let output = gcn
+            .forward(&features, &adjacency)
+            .expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[3, 2]);
     }
 
     #[test]
     fn test_graph_attention_creation() {
-        let gat = GraphAttention::new(8, 16, 4, 0.1, true).unwrap();
+        let gat = GraphAttention::new(8, 16, 4, 0.1, true).expect("Graph Attention should succeed");
         assert!(gat.num_parameters() > 0);
     }
 
@@ -474,47 +479,57 @@ mod tests {
 
     #[test]
     fn test_self_loop_addition() {
-        let gcn = GraphConvolution::new(2, 2, false, true, false).unwrap();
+        let gcn = GraphConvolution::new(2, 2, false, true, false)
+            .expect("Graph Convolution should succeed");
 
         // Create adjacency without self-loops
         let row_indices = vec![0, 1];
         let col_indices = vec![1, 0];
         let values = vec![1.0, 1.0];
         let shape = Shape::new(vec![2, 2]);
-        let coo = CooTensor::new(row_indices, col_indices, values, shape).unwrap();
-        let adjacency = CsrTensor::from_coo(&coo).unwrap();
+        let coo = CooTensor::new(row_indices, col_indices, values, shape)
+            .expect("Coo Tensor should succeed");
+        let adjacency = CsrTensor::from_coo(&coo).expect("Csr Tensor should succeed");
 
-        let features = ones::<f32>(&[2, 2]).unwrap();
-        let _output = gcn.forward(&features, &adjacency).unwrap();
+        let features = ones::<f32>(&[2, 2]).expect("operation should succeed");
+        let _output = gcn
+            .forward(&features, &adjacency)
+            .expect("forward pass should succeed");
     }
 
     #[test]
     fn test_normalization() {
-        let gcn = GraphConvolution::new(3, 3, false, false, true).unwrap();
+        let gcn = GraphConvolution::new(3, 3, false, false, true)
+            .expect("Graph Convolution should succeed");
 
         // Create simple adjacency matrix
         let row_indices = vec![0, 0, 1, 1, 2, 2];
         let col_indices = vec![0, 1, 0, 1, 1, 2];
         let values = vec![1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
         let shape = Shape::new(vec![3, 3]);
-        let coo = CooTensor::new(row_indices, col_indices, values, shape).unwrap();
-        let adjacency = CsrTensor::from_coo(&coo).unwrap();
+        let coo = CooTensor::new(row_indices, col_indices, values, shape)
+            .expect("Coo Tensor should succeed");
+        let adjacency = CsrTensor::from_coo(&coo).expect("Csr Tensor should succeed");
 
-        let features = ones::<f32>(&[3, 3]).unwrap();
-        let _output = gcn.forward(&features, &adjacency).unwrap();
+        let features = ones::<f32>(&[3, 3]).expect("operation should succeed");
+        let _output = gcn
+            .forward(&features, &adjacency)
+            .expect("forward pass should succeed");
     }
 
     #[test]
     fn test_dimension_validation() {
-        let gcn = GraphConvolution::new(4, 2, false, false, false).unwrap();
-        let wrong_features = ones::<f32>(&[3, 5]).unwrap(); // Wrong feature dim
+        let gcn = GraphConvolution::new(4, 2, false, false, false)
+            .expect("Graph Convolution should succeed");
+        let wrong_features = ones::<f32>(&[3, 5]).expect("operation should succeed"); // Wrong feature dim
 
         let row_indices = vec![0, 1, 2];
         let col_indices = vec![1, 2, 0];
         let values = vec![1.0, 1.0, 1.0];
         let shape = Shape::new(vec![3, 3]);
-        let coo = CooTensor::new(row_indices, col_indices, values, shape).unwrap();
-        let adjacency = CsrTensor::from_coo(&coo).unwrap();
+        let coo = CooTensor::new(row_indices, col_indices, values, shape)
+            .expect("Coo Tensor should succeed");
+        let adjacency = CsrTensor::from_coo(&coo).expect("Csr Tensor should succeed");
 
         assert!(gcn.forward(&wrong_features, &adjacency).is_err());
     }

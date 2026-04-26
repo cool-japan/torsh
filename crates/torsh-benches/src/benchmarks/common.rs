@@ -405,7 +405,8 @@ mod tests {
 
     #[test]
     fn test_memory_calculation() {
-        let tensor = create_ones_tensor::<f32>(&[10, 10], DeviceType::Cpu).unwrap();
+        let tensor = create_ones_tensor::<f32>(&[10, 10], DeviceType::Cpu)
+            .expect("operation should succeed");
         let memory_usage = calculate_tensor_memory(&tensor);
         assert_eq!(memory_usage, 100 * std::mem::size_of::<f32>());
     }
@@ -457,11 +458,15 @@ mod tests {
 
     #[test]
     fn test_tensor_extensions() {
-        let tensor = create_ones_tensor::<f32>(&[5, 5], DeviceType::Cpu).unwrap();
+        let tensor =
+            create_ones_tensor::<f32>(&[5, 5], DeviceType::Cpu).expect("operation should succeed");
 
         // Test mock implementations don't panic
         let tensor = tensor.requires_grad_(true);
-        let scalar_tensor = tensor.sum().unwrap().requires_grad_(true);
+        let scalar_tensor = tensor
+            .sum()
+            .expect("sum operation should succeed")
+            .requires_grad_(true);
         assert!(scalar_tensor.backward().is_ok());
         assert!(tensor.norm().is_ok());
         assert!(tensor.relu().is_ok());
@@ -469,7 +474,8 @@ mod tests {
         assert!(tensor.contiguous().is_ok());
         assert!(tensor.pow_scalar(2.0).is_ok());
 
-        let other_tensor = create_ones_tensor::<f32>(&[5, 5], DeviceType::Cpu).unwrap();
+        let other_tensor =
+            create_ones_tensor::<f32>(&[5, 5], DeviceType::Cpu).expect("operation should succeed");
         assert!(tensor.matmul(&other_tensor).is_ok());
         assert!(tensor.mul(&other_tensor).is_ok());
         assert!(tensor.transpose(0, 1).is_ok());
@@ -481,7 +487,7 @@ mod tests {
         let ok_result: torsh_core::error::Result<i32> = Ok(42);
         let handled = handle_benchmark_error(ok_result, "test context");
         assert!(handled.is_ok());
-        assert_eq!(handled.unwrap(), 42);
+        assert_eq!(handled.expect("operation should succeed"), 42);
 
         let err_result: torsh_core::error::Result<i32> = Err(
             torsh_core::error::TorshError::InvalidArgument("test error".to_string()),

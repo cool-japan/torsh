@@ -383,7 +383,8 @@ mod tests {
     #[test]
     fn test_latency_statistics() {
         let timings = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0];
-        let stats = calculate_latency_statistics(&timings).unwrap();
+        let stats = calculate_latency_statistics(&timings)
+            .expect("calculate latency statistics should succeed");
 
         assert!((stats.mean - 5.5).abs() < 0.1);
         assert!((stats.median - 5.5).abs() < 0.1);
@@ -401,14 +402,16 @@ mod tests {
 
     #[test]
     fn test_create_input_tensor() {
-        let tensor = create_input_tensor(&[3, 224, 224], 2, DeviceType::Cpu).unwrap();
+        let tensor = create_input_tensor(&[3, 224, 224], 2, DeviceType::Cpu)
+            .expect("create input tensor should succeed");
         assert_eq!(tensor.shape().dims(), &[2, 3, 224, 224]);
     }
 
     #[test]
     #[ignore = "Flaky test - passes individually but may fail in full suite"]
     fn test_benchmark_model_real() {
-        let model = create_real_model("test", 2, DeviceType::Cpu).unwrap();
+        let model = create_real_model("test", 2, DeviceType::Cpu)
+            .expect("create real model should succeed");
         let config = BenchmarkConfig {
             warmup_iterations: 2,
             measurement_iterations: 5,
@@ -418,7 +421,8 @@ mod tests {
             collect_detailed_stats: true,
         };
 
-        let results = benchmark_model_real(&model, &config).unwrap();
+        let results =
+            benchmark_model_real(&model, &config).expect("benchmark model real should succeed");
         assert_eq!(results.iteration_timings.len(), 5);
         assert!(results.throughput > 0.0);
         assert!(results.peak_memory > 0.0);

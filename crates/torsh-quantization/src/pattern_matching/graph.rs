@@ -557,8 +557,8 @@ mod tests {
 
         assert!(graph.connect_nodes("node1", "node2").is_ok());
 
-        let node1 = graph.get_node("node1").unwrap();
-        let node2 = graph.get_node("node2").unwrap();
+        let node1 = graph.get_node("node1").expect("node retrieval should succeed");
+        let node2 = graph.get_node("node2").expect("node retrieval should succeed");
 
         assert!(node1.connects_to("node2"));
         assert!(node2.receives_from("node1"));
@@ -576,15 +576,15 @@ mod tests {
         graph.add_node(node2);
         graph.add_node(node3);
 
-        graph.connect_nodes("1", "2").unwrap();
-        graph.connect_nodes("2", "3").unwrap();
+        graph.connect_nodes("1", "2").expect("node connection should succeed");
+        graph.connect_nodes("2", "3").expect("node connection should succeed");
 
         let order = graph.get_execution_order();
         assert_eq!(order.len(), 3);
 
-        let pos1 = order.iter().position(|x| x == "1").unwrap();
-        let pos2 = order.iter().position(|x| x == "2").unwrap();
-        let pos3 = order.iter().position(|x| x == "3").unwrap();
+        let pos1 = order.iter().position(|x| x == "1").expect("element should be found in collection");
+        let pos2 = order.iter().position(|x| x == "2").expect("element should be found in collection");
+        let pos3 = order.iter().position(|x| x == "3").expect("element should be found in collection");
 
         assert!(pos1 < pos2 && pos2 < pos3);
     }
@@ -605,7 +605,7 @@ mod tests {
         let graph = create_linear_graph(&["input", "conv2d", "relu", "output"]);
         let subgraph = graph
             .create_subgraph(&["node_1".to_string(), "node_2".to_string()])
-            .unwrap();
+            .expect("operation should succeed");
 
         assert_eq!(subgraph.nodes.len(), 2);
         assert!(subgraph.get_node("node_1").is_some());

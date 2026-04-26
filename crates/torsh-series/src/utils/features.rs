@@ -880,7 +880,7 @@ mod tests {
 
     fn create_test_series() -> TimeSeries {
         let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0];
-        let tensor = Tensor::from_vec(data, &[5]).unwrap();
+        let tensor = Tensor::from_vec(data, &[5]).expect("Tensor should succeed");
         TimeSeries::new(tensor)
     }
 
@@ -941,7 +941,7 @@ mod tests {
 
         // Test with a series that has turning points
         let data_with_peaks = vec![1.0f32, 3.0, 2.0, 4.0, 3.0];
-        let tensor_peaks = Tensor::from_vec(data_with_peaks, &[5]).unwrap();
+        let tensor_peaks = Tensor::from_vec(data_with_peaks, &[5]).expect("Tensor should succeed");
         let series_peaks = TimeSeries::new(tensor_peaks);
         let features_peaks = trend_features(&series_peaks);
 
@@ -969,7 +969,8 @@ mod tests {
             1.0, 2.0, 3.0, 4.0, // Second cycle
             1.0, 2.0, 3.0, 4.0, // Third cycle
         ];
-        let tensor_seasonal = Tensor::from_vec(seasonal_data, &[12]).unwrap();
+        let tensor_seasonal =
+            Tensor::from_vec(seasonal_data, &[12]).expect("Tensor should succeed");
         let series_seasonal = TimeSeries::new(tensor_seasonal);
         let features_seasonal = seasonality_features(&series_seasonal, 4);
 

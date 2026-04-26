@@ -1174,14 +1174,14 @@ mod tests {
         let channels = 3;
         let height = 224;
         let width = 224;
-        let pixel_values = torsh_tensor::creation::randn(&[batch_size, channels, height, width]).unwrap();
+        let pixel_values = torsh_tensor::creation::randn(&[batch_size, channels, height, width]).expect("creation should succeed");
 
         let output = encoder.forward(&pixel_values);
         assert!(output.is_ok());
 
-        let output = output.unwrap();
-        assert_eq!(output.size(0).unwrap(), batch_size);
-        assert_eq!(output.size(1).unwrap(), 768); // hidden_size
+        let output = output.expect("operation should succeed");
+        assert_eq!(output.size(0).expect("tensor size should be valid"), batch_size);
+        assert_eq!(output.size(1).expect("tensor size should be valid"), 768); // hidden_size
     }
 
     #[test]
@@ -1189,22 +1189,22 @@ mod tests {
         let model = CLIPModel::clip_base();
 
         // Test image encoding
-        let pixel_values = torsh_tensor::creation::randn(&[2, 3, 224, 224]).unwrap();
+        let pixel_values = torsh_tensor::creation::randn(&[2, 3, 224, 224]).expect("creation should succeed");
         let image_features = model.encode_image(&pixel_values);
         assert!(image_features.is_ok());
 
-        let image_features = image_features.unwrap();
-        assert_eq!(image_features.size(0).unwrap(), 2);
-        assert_eq!(image_features.size(1).unwrap(), 512); // projection_dim
+        let image_features = image_features.expect("operation should succeed");
+        assert_eq!(image_features.size(0).expect("tensor size should be valid"), 2);
+        assert_eq!(image_features.size(1).expect("tensor size should be valid"), 512); // projection_dim
 
         // Test text encoding
-        let input_ids = Tensor::randint(0, 49408, &[2, 77]).unwrap();
+        let input_ids = Tensor::randint(0, 49408, &[2, 77]).expect("Tensor should succeed");
         let text_features = model.encode_text(&input_ids);
         assert!(text_features.is_ok());
 
-        let text_features = text_features.unwrap();
-        assert_eq!(text_features.size(0).unwrap(), 2);
-        assert_eq!(text_features.size(1).unwrap(), 512); // projection_dim
+        let text_features = text_features.expect("operation should succeed");
+        assert_eq!(text_features.size(0).expect("tensor size should be valid"), 2);
+        assert_eq!(text_features.size(1).expect("tensor size should be valid"), 512); // projection_dim
 
         // Test similarity computation
         let similarity = model.compute_similarity(&image_features, &text_features);

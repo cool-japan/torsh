@@ -1401,7 +1401,7 @@ mod tests {
         let classification = analyzer.analyze_pattern(0x1000, &pattern);
         assert!(classification.is_some());
 
-        let classification = classification.unwrap();
+        let classification = classification.expect("operation should succeed");
         assert!(matches!(
             classification.primary_type,
             PatternType::Sequential { .. }

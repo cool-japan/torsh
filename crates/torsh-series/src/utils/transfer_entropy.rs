@@ -383,8 +383,12 @@ mod tests {
         let y_array = Array1::from_vec(y);
 
         let estimator = TransferEntropyEstimator::new(1, 1, 5);
-        let te_x_to_y = estimator.compute(&x_array, &y_array).unwrap();
-        let te_y_to_x = estimator.compute(&y_array, &x_array).unwrap();
+        let te_x_to_y = estimator
+            .compute(&x_array, &y_array)
+            .expect("computation should succeed");
+        let te_y_to_x = estimator
+            .compute(&y_array, &x_array)
+            .expect("computation should succeed");
 
         // TE(X→Y) should be greater than TE(Y→X) since Y depends on X
         assert!(te_x_to_y >= 0.0);
@@ -397,7 +401,9 @@ mod tests {
         let y = Array1::from_vec((0..50).map(|i| ((i as f64 * 0.1) + 0.5).cos()).collect());
 
         let estimator = TransferEntropyEstimator::new(1, 1, 5);
-        let result = estimator.compute_bidirectional(&x, &y).unwrap();
+        let result = estimator
+            .compute_bidirectional(&x, &y)
+            .expect("bidirectional computation should succeed");
 
         assert!(result.te_x_to_y >= 0.0);
         assert!(result.te_y_to_x >= 0.0);
@@ -419,7 +425,8 @@ mod tests {
         let x = Array1::from_vec((0..50).map(|i| i as f64).collect());
         let y = Array1::from_vec((0..50).map(|i| (i + 1) as f64).collect());
 
-        let results = compute_lagged_transfer_entropy(&x, &y, 5, 1, 1, 5).unwrap();
+        let results = compute_lagged_transfer_entropy(&x, &y, 5, 1, 1, 5)
+            .expect("compute lagged transfer entropy should succeed");
 
         assert_eq!(results.len(), 6); // 0 to 5 lags
         assert!(results.iter().all(|(_, te)| *te >= 0.0));
@@ -432,7 +439,7 @@ mod tests {
         let z = Array1::from_vec((0..50).map(|i| (i as f64 * 0.15).sin()).collect());
 
         let cte = ConditionalTransferEntropy::new(1, 1, 1, 5);
-        let result = cte.compute(&x, &y, &z).unwrap();
+        let result = cte.compute(&x, &y, &z).expect("computation should succeed");
 
         assert!(result >= 0.0);
     }
@@ -446,9 +453,11 @@ mod tests {
         let est_kde = TransferEntropyEstimator::new(1, 1, 5).with_method(TEMethod::KDE);
         let est_knn = TransferEntropyEstimator::new(1, 1, 5).with_method(TEMethod::KNN);
 
-        let te_hist = est_hist.compute(&x, &y).unwrap();
-        let te_kde = est_kde.compute(&x, &y).unwrap();
-        let te_knn = est_knn.compute(&x, &y).unwrap();
+        let te_hist = est_hist
+            .compute(&x, &y)
+            .expect("computation should succeed");
+        let te_kde = est_kde.compute(&x, &y).expect("computation should succeed");
+        let te_knn = est_knn.compute(&x, &y).expect("computation should succeed");
 
         assert!(te_hist >= 0.0);
         assert!(te_kde >= 0.0);
@@ -462,7 +471,9 @@ mod tests {
         let y = Array1::from_vec((0..50).map(|i| ((i * 3) % 11) as f64).collect());
 
         let estimator = TransferEntropyEstimator::new(1, 1, 5);
-        let te = estimator.compute(&x, &y).unwrap();
+        let te = estimator
+            .compute(&x, &y)
+            .expect("computation should succeed");
 
         // TE should be close to zero for independent series
         assert!(te >= 0.0);

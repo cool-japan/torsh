@@ -692,7 +692,7 @@ mod tests {
             .compression(CompressionStrategy::Quantization)
             .gradient_clipping(0.5)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         assert_eq!(config.backend, DistributedBackend::Nccl);
         assert_eq!(config.world_size, 4);

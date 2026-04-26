@@ -71,7 +71,7 @@ mod tests {
         let result = transform.transform(audio);
         assert!(result.is_ok());
 
-        let tensor = result.unwrap();
+        let tensor = result.expect("operation should succeed");
         let shape = tensor.shape();
         assert_eq!(shape.dims(), &[1, 4]); // [channels, samples]
     }
@@ -86,7 +86,7 @@ mod tests {
         let result = transform.transform(audio);
         assert!(result.is_ok());
 
-        let tensor = result.unwrap();
+        let tensor = result.expect("operation should succeed");
         let shape = tensor.shape();
         assert_eq!(shape.dims(), &[2, 2]); // [channels, samples_per_channel]
     }
@@ -97,13 +97,14 @@ mod tests {
         use torsh_tensor::Tensor;
 
         let data = vec![0.1, -0.2, 0.3, -0.4];
-        let tensor = Tensor::from_data(data.clone(), vec![1, 4], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data.clone(), vec![1, 4], DeviceType::Cpu)
+            .expect("operation should succeed");
 
         let transform = TensorToAudio::new(44100);
         let result = transform.transform(tensor);
         assert!(result.is_ok());
 
-        let audio = result.unwrap();
+        let audio = result.expect("operation should succeed");
         assert_eq!(audio.samples, data);
         assert_eq!(audio.sample_rate, 44100);
         assert_eq!(audio.channels, 1);
@@ -116,13 +117,14 @@ mod tests {
 
         // Channel-first format: [ch0_s0, ch0_s1, ch1_s0, ch1_s1]
         let data = vec![0.1, -0.2, 0.3, -0.4];
-        let tensor = Tensor::from_data(data, vec![2, 2], DeviceType::Cpu).unwrap();
+        let tensor =
+            Tensor::from_data(data, vec![2, 2], DeviceType::Cpu).expect("Tensor should succeed");
 
         let transform = TensorToAudio::new(44100);
         let result = transform.transform(tensor);
         assert!(result.is_ok());
 
-        let audio = result.unwrap();
+        let audio = result.expect("operation should succeed");
         // Should be interleaved: [ch0_s0, ch1_s0, ch0_s1, ch1_s1]
         assert_eq!(audio.samples, vec![0.1, 0.3, -0.2, -0.4]);
         assert_eq!(audio.sample_rate, 44100);

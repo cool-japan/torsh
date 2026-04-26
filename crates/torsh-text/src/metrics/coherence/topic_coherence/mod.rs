@@ -588,7 +588,7 @@ mod tests {
         let result = analyzer.analyze_topic_coherence(text);
         assert!(result.is_ok());
 
-        let analysis = result.unwrap();
+        let analysis = result.expect("operation should succeed");
         assert!(analysis.topic_consistency >= 0.0);
         assert!(analysis.thematic_unity >= 0.0);
         assert!(!analysis.topics.is_empty());
@@ -630,7 +630,7 @@ mod tests {
         let results = analyzer.analyze_batch(&texts);
         assert!(results.is_ok());
 
-        let analysis_results = results.unwrap();
+        let analysis_results = results.expect("operation should succeed");
         assert_eq!(analysis_results.len(), 2);
     }
 
@@ -644,7 +644,7 @@ mod tests {
         let comparison = analyzer.compare_texts(text1, text2);
         assert!(comparison.is_ok());
 
-        let comp_result = comparison.unwrap();
+        let comp_result = comparison.expect("operation should succeed");
         assert!(!comp_result.shared_topics.is_empty());
     }
 

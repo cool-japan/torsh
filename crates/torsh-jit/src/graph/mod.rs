@@ -106,11 +106,15 @@ mod tests {
 
         let relu = builder
             .add_unary_op("relu".to_string(), Operation::Relu, input)
-            .unwrap();
+            .expect("operation should succeed");
 
-        builder.mark_output(relu).unwrap();
+        builder
+            .mark_output(relu)
+            .expect("output marking should succeed");
 
-        let graph = builder.build().unwrap();
+        let graph = builder
+            .build()
+            .expect("build should succeed with valid configuration");
         assert_eq!(graph.node_count(), 2);
         assert_eq!(graph.edge_count(), 1);
         assert_eq!(graph.inputs.len(), 1);
@@ -139,9 +143,13 @@ mod tests {
 
         let input = builder.add_input("input".to_string(), Shape::new(vec![1, 784]), DType::F32);
 
-        builder.mark_output(input).unwrap();
+        builder
+            .mark_output(input)
+            .expect("output marking should succeed");
 
-        let graph = builder.build().unwrap();
+        let graph = builder
+            .build()
+            .expect("build should succeed with valid configuration");
         assert!(graph.validate().is_ok());
     }
 
@@ -366,13 +374,15 @@ mod tests {
 
         let relu1 = builder
             .add_unary_op("relu1".to_string(), Operation::Relu, input)
-            .unwrap();
+            .expect("operation should succeed");
 
         let relu2 = builder
             .add_unary_op("relu2".to_string(), Operation::Relu, relu1)
-            .unwrap();
+            .expect("operation should succeed");
 
-        builder.mark_output(relu2).unwrap();
+        builder
+            .mark_output(relu2)
+            .expect("output marking should succeed");
 
         let stats = builder.statistics();
         assert_eq!(stats.node_count, 3);
@@ -388,7 +398,8 @@ mod tests {
     #[test]
     fn test_control_flow_analysis() {
         let graph = ComputationGraph::new();
-        let analysis = ControlFlowAnalysis::analyze(&graph).unwrap();
+        let analysis =
+            ControlFlowAnalysis::analyze(&graph).expect("Control Flow Analysis should succeed");
 
         assert_eq!(analysis.stats.total_nodes, 0);
         assert_eq!(analysis.stats.loop_count, 0);

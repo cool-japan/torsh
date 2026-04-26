@@ -493,7 +493,7 @@ mod tests {
 
     fn create_test_series() -> TimeSeries {
         let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0];
-        let tensor = Tensor::from_vec(data, &[10]).unwrap();
+        let tensor = Tensor::from_vec(data, &[10]).expect("Tensor should succeed");
         TimeSeries::new(tensor)
     }
 
@@ -501,7 +501,7 @@ mod tests {
     fn test_timeseries_cv() {
         let series = create_test_series();
         let cv = TimeSeriesCV::new(3);
-        let splits = cv.split(&series).unwrap();
+        let splits = cv.split(&series).expect("split operation should succeed");
 
         assert!(!splits.is_empty());
         // Each split should have train and test sets
@@ -515,7 +515,7 @@ mod tests {
     fn test_timeseries_cv_with_gap() {
         let series = create_test_series();
         let cv = TimeSeriesCV::new(2).with_gap(1);
-        let splits = cv.split(&series).unwrap();
+        let splits = cv.split(&series).expect("split operation should succeed");
 
         assert!(!splits.is_empty());
     }
@@ -523,7 +523,8 @@ mod tests {
     #[test]
     fn test_walk_forward_validation() {
         let series = create_test_series();
-        let errors = walk_forward_validation(&series, 3, 1, |_| 5.0).unwrap();
+        let errors = walk_forward_validation(&series, 3, 1, |_| 5.0)
+            .expect("walk forward validation should succeed");
 
         assert!(!errors.is_empty());
     }
@@ -532,7 +533,7 @@ mod tests {
     fn test_blocked_timeseries_cv() {
         let series = create_test_series();
         let cv = BlockedTimeSeriesCV::new(2, 3);
-        let splits = cv.split(&series).unwrap();
+        let splits = cv.split(&series).expect("split operation should succeed");
 
         assert!(!splits.is_empty());
     }
@@ -540,7 +541,8 @@ mod tests {
     #[test]
     fn test_expanding_window_validation() {
         let series = create_test_series();
-        let errors = expanding_window_validation(&series, 3, 2, |_| 5.0).unwrap();
+        let errors = expanding_window_validation(&series, 3, 2, |_| 5.0)
+            .expect("expanding window validation should succeed");
 
         assert!(!errors.is_empty());
     }
@@ -549,7 +551,7 @@ mod tests {
     fn test_purged_cv() {
         let series = create_test_series();
         let cv = PurgedTimeSeriesCV::new(2, 2, 1, 1);
-        let splits = cv.split(&series).unwrap();
+        let splits = cv.split(&series).expect("split operation should succeed");
 
         // Should have at least one split
         assert!(!splits.is_empty());
@@ -564,7 +566,7 @@ mod tests {
     fn test_combinatorial_purged_cv() {
         let series = create_test_series();
         let cv = CombinatorialPurgedCV::new(2, 2, 1, 1);
-        let all_paths = cv.split(&series).unwrap();
+        let all_paths = cv.split(&series).expect("split operation should succeed");
 
         // Should generate at least one path
         assert!(!all_paths.is_empty());
@@ -578,7 +580,7 @@ mod tests {
     fn test_nested_cv() {
         let series = create_test_series();
         let cv = NestedTimeSeriesCV::new(2, 2);
-        let nested_splits = cv.split(&series).unwrap();
+        let nested_splits = cv.split(&series).expect("split operation should succeed");
 
         assert!(!nested_splits.is_empty());
 
@@ -613,12 +615,18 @@ mod tests {
             let predictions = vec![5.0; test.len()];
             let mut actuals = Vec::new();
             for i in 0..test.len() {
-                actuals.push(test.values.get_item_flat(i).unwrap() as f64);
+                actuals.push(
+                    test.values
+                        .get_item_flat(i)
+                        .expect("push operation should succeed") as f64,
+                );
             }
             Ok((predictions, actuals))
         };
 
-        let scores = cv.evaluate(&series, model).unwrap();
+        let scores = cv
+            .evaluate(&series, model)
+            .expect("evaluation should succeed");
         assert_eq!(scores.len(), 2);
         assert!(scores.iter().all(|&s| s >= 0.0));
     }

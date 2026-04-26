@@ -1056,7 +1056,7 @@ mod tests {
     fn test_gpt2_attention_causal_mask() {
         let config = Gpt2Config::gpt2_small();
         let attention = Gpt2Attention::new(config);
-        let mask = attention.create_causal_mask(3).unwrap();
+        let mask = attention.create_causal_mask(3).expect("causal mask creation should succeed");
 
         // Check mask shape
         assert_eq!(mask.dims(), &[3, 3]);
@@ -1079,26 +1079,26 @@ mod tests {
     #[test]
     fn test_gpt2_forward_pass() {
         let mut model = Gpt2Model::gpt2_small();
-        let input_ids = Tensor::zeros(&[1, 10]).unwrap();
+        let input_ids = Tensor::zeros(&[1, 10]).expect("Tensor should succeed");
 
         let result = model.forward(&input_ids);
         assert!(result.is_ok());
 
-        let output = result.unwrap();
+        let output = result.expect("operation should succeed");
         assert_eq!(output.dims().len(), 3); // [batch, seq_len, hidden_size]
-        assert_eq!(output.size(2).unwrap(), 768); // hidden_size
+        assert_eq!(output.size(2).expect("tensor size should be valid"), 768); // hidden_size
     }
 
     #[test]
     fn test_gpt2_lm_head_forward() {
         let mut lm_model = Gpt2LMHeadModel::gpt2_small_lm();
-        let input_ids = Tensor::zeros(&[1, 10]).unwrap();
+        let input_ids = Tensor::zeros(&[1, 10]).expect("Tensor should succeed");
 
         let result = lm_model.forward(&input_ids);
         assert!(result.is_ok());
 
-        let logits = result.unwrap();
-        assert_eq!(logits.size(logits.dims().len() - 1).unwrap(), 50257); // vocab_size
+        let logits = result.expect("operation should succeed");
+        assert_eq!(logits.size(logits.dims().len() - 1).expect("operation should succeed"), 50257); // vocab_size
     }
 
     #[test]
@@ -1150,12 +1150,12 @@ mod tests {
     #[test]
     fn test_generate_logits() {
         let lm_model = Gpt2LMHeadModel::gpt2_small_lm();
-        let input_ids = Tensor::zeros(&[1, 5]).unwrap();
+        let input_ids = Tensor::zeros(&[1, 5]).expect("Tensor should succeed");
 
         let result = lm_model.generate_logits(&input_ids);
         assert!(result.is_ok());
 
-        let logits = result.unwrap();
+        let logits = result.expect("operation should succeed");
         assert_eq!(logits.dims(), &[1, 5, 50257]); // [batch, seq, vocab]
     }
 }

@@ -520,7 +520,7 @@ mod tests {
 
         let fastest = report.find_fastest_operation("conversion");
         assert!(fastest.is_some());
-        assert_eq!(fastest.unwrap().operation, "conversion_coo_to_csr");
+        assert_eq!(fastest.expect("operation should succeed").operation, "conversion_coo_to_csr");
     }
 
     #[test]

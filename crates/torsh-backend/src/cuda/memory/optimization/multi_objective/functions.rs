@@ -20,7 +20,7 @@ mod tests {
     #[test]
     fn test_algorithm_configuration() {
         let optimizer = MultiObjectiveOptimizer::new();
-        let nsga2 = optimizer.algorithms.get("NSGA2").unwrap();
+        let nsga2 = optimizer.algorithms.get("NSGA2").expect("element retrieval should succeed for valid index");
         assert_eq!(nsga2.algorithm_type, MOAlgorithmType::NSGA2);
         assert_eq!(nsga2.population_size, 100);
         assert_eq!(nsga2.max_generations, 500);
@@ -99,7 +99,7 @@ mod tests {
             individual.objectives[1] = (10 - i) as f64;
             individual.rank = if i < 5 { 0 } else { 1 };
         }
-        let pareto_solutions = optimizer.extract_pareto_front().unwrap();
+        let pareto_solutions = optimizer.extract_pareto_front().expect("Pareto front extraction should succeed");
         assert_eq!(pareto_solutions.len(), 5);
         for solution in pareto_solutions {
             assert_eq!(solution.rank, 0);
@@ -110,7 +110,7 @@ mod tests {
     #[test]
     fn test_convergence_detection() {
         let mut optimizer = MultiObjectiveOptimizer::new();
-        let algorithm = optimizer.algorithms.get("NSGA2").unwrap().clone();
+        let algorithm = optimizer.algorithms.get("NSGA2").expect("element retrieval should succeed for valid index").clone();
         let mut algorithm_short = algorithm.clone();
         algorithm_short.convergence_criteria.max_generations = 5;
         assert!(optimizer.check_convergence(5, & algorithm_short));

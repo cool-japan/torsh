@@ -13,7 +13,6 @@
 use std::fs;
 use tempfile::TempDir;
 
-use oxiarc_archive::zip::ZipWriter;
 use torsh_package::*;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

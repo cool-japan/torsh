@@ -982,7 +982,7 @@ mod tests {
         let result = profiler.track_allocation(1000, 4096, context);
         assert!(result.is_ok());
 
-        let stats = profiler.get_statistics().unwrap();
+        let stats = profiler.get_statistics().expect("statistics retrieval should succeed");
         assert_eq!(stats.total_allocations, 1);
         assert_eq!(stats.current_memory_usage, 4096);
     }
@@ -1004,13 +1004,13 @@ mod tests {
             call_stack: vec![],
         };
 
-        profiler.track_allocation(2000, 2048, context).unwrap();
+        profiler.track_allocation(2000, 2048, context).expect("allocation tracking should succeed");
 
         // Then deallocate
         let result = profiler.track_deallocation(2000);
         assert!(result.is_ok());
 
-        let stats = profiler.get_statistics().unwrap();
+        let stats = profiler.get_statistics().expect("statistics retrieval should succeed");
         assert_eq!(stats.total_deallocations, 1);
     }
 
@@ -1024,7 +1024,7 @@ mod tests {
 
         let report = generate_quick_report();
         assert!(report.is_ok());
-        assert!(!report.unwrap().is_empty());
+        assert!(!report.expect("operation should succeed").is_empty());
     }
 
     #[test]
@@ -1044,12 +1044,12 @@ mod tests {
             call_stack: vec![],
         };
 
-        profiler.track_allocation(4000, 8192, context).unwrap();
+        profiler.track_allocation(4000, 8192, context).expect("allocation tracking should succeed");
 
         let report = profiler.generate_comprehensive_report();
         assert!(report.is_ok());
 
-        let report = report.unwrap();
+        let report = report.expect("operation should succeed");
         assert!(report.executive_summary.overall_health_score >= 0.0);
         assert!(report.executive_summary.overall_health_score <= 1.0);
     }
@@ -1061,7 +1061,7 @@ mod tests {
         let result = profiler.auto_optimize();
         assert!(result.is_ok());
 
-        let optimization_result = result.unwrap();
+        let optimization_result = result.expect("operation should succeed");
         assert!(optimization_result.duration.as_millis() > 0);
     }
 }

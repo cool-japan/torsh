@@ -793,7 +793,7 @@ mod tests {
 
     #[test]
     fn test_checkpoint_manager_creation() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("Temp Dir should succeed");
         let config = DistributedConfig::default();
         let manager = DistributedCheckpointManager::new(config, temp_dir.path());
         assert!(manager.is_ok());

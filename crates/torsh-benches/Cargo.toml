@@ -102,6 +102,7 @@ walkdir = "2.5"
 
 [dev-dependencies]
 approx = { workspace = true }
+tempfile = { workspace = true }
 
 [build-dependencies]
 # COOLJAPAN Pure Rust Policy: Build dependencies for optional Python features

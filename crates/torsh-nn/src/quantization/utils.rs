@@ -465,9 +465,11 @@ mod tests {
     #[test]
     fn test_tensor_distribution_analysis() {
         let data = vec![1.0, -1.0, 0.5, -0.5, 2.0, -2.0, 0.0, 0.1, -0.1];
-        let tensor = Tensor::from_data(data, vec![9], torsh_core::device::DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![9], torsh_core::device::DeviceType::Cpu)
+            .expect("Tensor should succeed");
 
-        let stats = analyze_tensor_distribution(&tensor).unwrap();
+        let stats = analyze_tensor_distribution(&tensor)
+            .expect("analyze tensor distribution should succeed");
 
         assert!(stats.min_val <= -2.0);
         assert!(stats.max_val >= 2.0);
@@ -480,12 +482,16 @@ mod tests {
     fn test_quantization_error_calculation() {
         let original_data = vec![1.0, 2.0, 3.0, 4.0];
         let original =
-            Tensor::from_data(original_data, vec![4], torsh_core::device::DeviceType::Cpu).unwrap();
+            Tensor::from_data(original_data, vec![4], torsh_core::device::DeviceType::Cpu)
+                .expect("Tensor should succeed");
 
         let params = QuantizationParams::symmetric(4.0 / 127.0, DType::F32, DType::I8);
-        let quantized = params.quantize(&original).unwrap();
+        let quantized = params
+            .quantize(&original)
+            .expect("quantization should succeed");
 
-        let error = calculate_quantization_error(&original, &quantized, &params).unwrap();
+        let error = calculate_quantization_error(&original, &quantized, &params)
+            .expect("calculate quantization error should succeed");
 
         assert!(error.mse >= 0.0);
         assert!(error.mae >= 0.0);
@@ -520,10 +526,12 @@ mod tests {
     #[test]
     fn test_optimal_bitwidth_finding() {
         let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-        let tensor = Tensor::from_data(data, vec![5], torsh_core::device::DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![5], torsh_core::device::DeviceType::Cpu)
+            .expect("Tensor should succeed");
 
         let bitwidths = vec![8, 16];
-        let result = find_optimal_bitwidth(&tensor, 0.1, &bitwidths).unwrap();
+        let result = find_optimal_bitwidth(&tensor, 0.1, &bitwidths)
+            .expect("find optimal bitwidth should succeed");
 
         // Should find some acceptable bit-width
         assert!(result.is_some());

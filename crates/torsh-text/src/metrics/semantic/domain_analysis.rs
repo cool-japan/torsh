@@ -1002,47 +1002,47 @@ mod tests {
 
     #[test]
     fn test_technical_domain_classification() {
-        let mut analyzer = DomainAnalyzer::default().unwrap();
+        let mut analyzer = DomainAnalyzer::default().expect("Domain Analyzer should succeed");
         let text = "This algorithm implements a hash table with linear probing collision resolution. The function takes a key-value pair and stores it in the data structure.";
 
-        let result = analyzer.classify_domain(text).unwrap();
+        let result = analyzer.classify_domain(text).expect("domain classification should succeed");
         assert_eq!(result.primary_domain, SemanticDomain::Technical);
         assert!(result.confidence > 0.3);
     }
 
     #[test]
     fn test_academic_domain_classification() {
-        let mut analyzer = DomainAnalyzer::default().unwrap();
+        let mut analyzer = DomainAnalyzer::default().expect("Domain Analyzer should succeed");
         let text = "This research study investigates the hypothesis that cognitive load affects learning outcomes. The methodology involves controlled experiments with participants.";
 
-        let result = analyzer.classify_domain(text).unwrap();
+        let result = analyzer.classify_domain(text).expect("domain classification should succeed");
         assert_eq!(result.primary_domain, SemanticDomain::Academic);
         assert!(result.confidence > 0.3);
     }
 
     #[test]
     fn test_business_domain_classification() {
-        let mut analyzer = DomainAnalyzer::default().unwrap();
+        let mut analyzer = DomainAnalyzer::default().expect("Domain Analyzer should succeed");
         let text = "The company's revenue grew by 15% this quarter due to improved customer acquisition strategies and market expansion initiatives.";
 
-        let result = analyzer.classify_domain(text).unwrap();
+        let result = analyzer.classify_domain(text).expect("domain classification should succeed");
         assert_eq!(result.primary_domain, SemanticDomain::Business);
         assert!(result.confidence > 0.3);
     }
 
     #[test]
     fn test_medical_domain_classification() {
-        let mut analyzer = DomainAnalyzer::default().unwrap();
+        let mut analyzer = DomainAnalyzer::default().expect("Domain Analyzer should succeed");
         let text = "The patient presented with symptoms of acute myocardial infarction. Treatment included immediate administration of thrombolytic therapy and cardiac monitoring.";
 
-        let result = analyzer.classify_domain(text).unwrap();
+        let result = analyzer.classify_domain(text).expect("domain classification should succeed");
         assert_eq!(result.primary_domain, SemanticDomain::Medical);
         assert!(result.confidence > 0.3);
     }
 
     #[test]
     fn test_empty_text_error() {
-        let mut analyzer = DomainAnalyzer::default().unwrap();
+        let mut analyzer = DomainAnalyzer::default().expect("Domain Analyzer should succeed");
         let result = analyzer.classify_domain("");
         assert!(result.is_err());
         match result.unwrap_err() {
@@ -1064,7 +1064,7 @@ mod tests {
             .build();
 
         assert!(config.is_ok());
-        let config = config.unwrap();
+        let config = config.expect("operation should succeed");
         assert_eq!(config.approach, DomainApproach::Statistical);
         assert_eq!(config.confidence_threshold, 0.5);
         assert_eq!(config.max_secondary_domains, 2);
@@ -1088,7 +1088,7 @@ mod tests {
         let hierarchy = DomainHierarchy::default();
         let children = hierarchy.get_children(&SemanticDomain::Academic);
         assert!(children.is_some());
-        assert!(children.unwrap().contains(&SemanticDomain::Scientific));
+        assert!(children.expect("operation should succeed").contains(&SemanticDomain::Scientific));
 
         let relationship =
             hierarchy.get_relationship(&SemanticDomain::Academic, &SemanticDomain::Educational);
@@ -1102,12 +1102,12 @@ mod tests {
             .add_secondary_approach(DomainApproach::Statistical)
             .add_secondary_approach(DomainApproach::KeywordBased)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
-        let mut analyzer = DomainAnalyzer::new(config).unwrap();
+        let mut analyzer = DomainAnalyzer::new(config).expect("Domain Analyzer should succeed");
         let text = "The software engineering process involves systematic design and implementation of complex algorithms.";
 
-        let result = analyzer.classify_domain(text).unwrap();
+        let result = analyzer.classify_domain(text).expect("domain classification should succeed");
         assert!(result.quality_score > 0.0);
         assert!(!result.secondary_domains.is_empty());
     }
@@ -1119,12 +1119,12 @@ mod tests {
 
         let result = classify_text_domain(text);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().primary_domain, SemanticDomain::Legal);
+        assert_eq!(result.expect("operation should succeed").primary_domain, SemanticDomain::Legal);
 
         let config = DomainAnalysisConfig::builder()
             .approach(DomainApproach::KeywordBased)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         let result = classify_text_domain_with_config(text, config);
         assert!(result.is_ok());
@@ -1135,24 +1135,24 @@ mod tests {
         let config = DomainAnalysisConfig::builder()
             .enable_adaptation(true)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
-        let mut analyzer = DomainAnalyzer::new(config).unwrap();
+        let mut analyzer = DomainAnalyzer::new(config).expect("Domain Analyzer should succeed");
         let text = "Scientific method involves hypothesis formation and experimental validation.";
 
-        let _result = analyzer.classify_domain(text).unwrap();
+        let _result = analyzer.classify_domain(text).expect("domain classification should succeed");
         let stats = analyzer.get_adaptation_stats();
         assert!(!stats.is_empty());
     }
 
     #[test]
     fn test_quality_score_calculation() {
-        let mut analyzer = DomainAnalyzer::default().unwrap();
+        let mut analyzer = DomainAnalyzer::default().expect("Domain Analyzer should succeed");
         let high_quality_text = "Advanced machine learning algorithms utilize sophisticated mathematical optimization techniques for training neural networks with backpropagation.";
         let low_quality_text = "The thing is good.";
 
-        let high_quality_result = analyzer.classify_domain(high_quality_text).unwrap();
-        let low_quality_result = analyzer.classify_domain(low_quality_text).unwrap();
+        let high_quality_result = analyzer.classify_domain(high_quality_text).expect("domain classification should succeed");
+        let low_quality_result = analyzer.classify_domain(low_quality_text).expect("domain classification should succeed");
 
         assert!(
             high_quality_result.metadata.quality_score > low_quality_result.metadata.quality_score
@@ -1161,10 +1161,10 @@ mod tests {
 
     #[test]
     fn test_context_features_extraction() {
-        let mut analyzer = DomainAnalyzer::default().unwrap();
+        let mut analyzer = DomainAnalyzer::default().expect("Domain Analyzer should succeed");
         let formal_text = "Therefore, we can consequently conclude that the hypothesis is supported by empirical evidence.";
 
-        let result = analyzer.classify_domain(formal_text).unwrap();
+        let result = analyzer.classify_domain(formal_text).expect("domain classification should succeed");
         assert!(result
             .context_features
             .contains(&"formal_language".to_string()));

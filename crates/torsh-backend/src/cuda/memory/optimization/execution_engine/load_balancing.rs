@@ -1520,7 +1520,7 @@ mod tests {
         let config = LoadBalancingConfig::default();
         let manager = LoadBalancingManager::new(config);
 
-        let session_id = manager.start_load_balancing().unwrap();
+        let session_id = manager.start_load_balancing().expect("load balancing start should succeed");
         assert!(!session_id.is_empty());
     }
 
@@ -1530,7 +1530,7 @@ mod tests {
         let manager = LoadBalancingManager::new(config);
 
         let tasks = vec![TaskId::new(), TaskId::new(), TaskId::new()];
-        let distribution = manager.distribute_workload(tasks).unwrap();
+        let distribution = manager.distribute_workload(tasks).expect("workload distribution should succeed");
         assert!(!distribution.distribution_id.is_empty());
     }
 
@@ -1548,7 +1548,7 @@ mod tests {
         let config = LoadBalancingConfig::default();
         let manager = LoadBalancingManager::new(config);
 
-        let optimization_result = manager.optimize_performance().unwrap();
+        let optimization_result = manager.optimize_performance().expect("performance optimization should succeed");
         assert!(!optimization_result.optimization_id.is_empty());
     }
 
@@ -1557,7 +1557,7 @@ mod tests {
         let config = LoadBalancingConfig::default();
         let manager = LoadBalancingManager::new(config);
 
-        let new_strategy = manager.adapt_strategy().unwrap();
+        let new_strategy = manager.adapt_strategy().expect("strategy adaptation should succeed");
         assert_eq!(new_strategy, StrategyType::RoundRobin);
     }
 }

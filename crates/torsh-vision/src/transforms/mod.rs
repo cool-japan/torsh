@@ -324,7 +324,7 @@ mod tests {
     #[test]
     fn test_full_pipeline() {
         // Test a complete pipeline using the public API
-        let input = creation::ones(&[3, 256, 256]).unwrap();
+        let input = creation::ones(&[3, 256, 256]).expect("creation should succeed");
 
         let pipeline = builder()
             .resize((224, 224))
@@ -336,13 +336,13 @@ mod tests {
         let result = pipeline.forward(&input);
         assert!(result.is_ok());
 
-        let output = result.unwrap();
+        let output = result.expect("operation should succeed");
         assert_eq!(output.shape().dims(), &[3, 224, 224]);
     }
 
     #[test]
     fn test_preset_pipelines() {
-        let input = creation::ones(&[3, 256, 256]).unwrap();
+        let input = creation::ones(&[3, 256, 256]).expect("creation should succeed");
 
         // Test all preset pipelines
         let presets = vec![imagenet_train(224), imagenet_val(224), strong_augment(224)];
@@ -356,7 +356,7 @@ mod tests {
     #[test]
     #[ignore] // Fails in parallel execution due to shared RNG state
     fn test_advanced_transforms() {
-        let input = creation::ones(&[3, 224, 224]).unwrap();
+        let input = creation::ones(&[3, 224, 224]).expect("creation should succeed");
 
         // Test advanced transforms work
         let rand_aug = RandAugment::new(2, 5.0);
@@ -375,8 +375,8 @@ mod tests {
     #[test]
     #[ignore] // Fails in parallel execution due to shared RNG state
     fn test_mixing_transforms() {
-        let input1 = creation::ones(&[3, 32, 32]).unwrap();
-        let input2 = creation::zeros(&[3, 32, 32]).unwrap();
+        let input1 = creation::ones(&[3, 32, 32]).expect("creation should succeed");
+        let input2 = creation::zeros(&[3, 32, 32]).expect("creation should succeed");
 
         let mixup = MixUp::new(1.0);
         let result = mixup.apply_pair(&input1, &input2, 0, 1, 10);

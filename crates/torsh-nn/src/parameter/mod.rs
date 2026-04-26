@@ -1495,10 +1495,16 @@ mod tests {
         collection.add("weight".to_string(), param);
 
         collection.freeze_all();
-        assert!(!collection.get("weight").unwrap().requires_grad());
+        assert!(!collection
+            .get("weight")
+            .expect("element retrieval should succeed for valid index")
+            .requires_grad());
 
         collection.unfreeze_all();
-        assert!(collection.get("weight").unwrap().requires_grad());
+        assert!(collection
+            .get("weight")
+            .expect("element retrieval should succeed for valid index")
+            .requires_grad());
         Ok(())
     }
 
@@ -1511,7 +1517,9 @@ mod tests {
 
         collection.scale_all(2.0)?;
 
-        let weight = collection.get("weight").unwrap();
+        let weight = collection
+            .get("weight")
+            .expect("element retrieval should succeed for valid index");
         let data = weight.clone_data().to_vec()?;
         assert!(data.iter().all(|&x| (x - 2.0).abs() < 1e-5));
         Ok(())
@@ -1527,7 +1535,9 @@ mod tests {
 
         collection.clamp_all(-1.0, 1.0)?;
 
-        let weight = collection.get("weight").unwrap();
+        let weight = collection
+            .get("weight")
+            .expect("element retrieval should succeed for valid index");
         let clamped = weight.clone_data().to_vec()?;
         assert!(clamped.iter().all(|&x| x >= -1.0 && x <= 1.0));
         Ok(())
@@ -1590,7 +1600,9 @@ mod tests {
         let stats = collection.stats()?;
         assert_eq!(stats.len(), 1);
 
-        let weight_stats = stats.get("weight").unwrap();
+        let weight_stats = stats
+            .get("weight")
+            .expect("element retrieval should succeed for valid index");
         assert_relative_eq!(weight_stats.mean, 1.0, epsilon = 1e-5);
         Ok(())
     }
@@ -1607,7 +1619,9 @@ mod tests {
         let diagnostics = collection.diagnose()?;
         assert_eq!(diagnostics.len(), 1);
 
-        let weight_diag = diagnostics.get("weight").unwrap();
+        let weight_diag = diagnostics
+            .get("weight")
+            .expect("element retrieval should succeed for valid index");
         assert!(weight_diag.is_finite);
         Ok(())
     }

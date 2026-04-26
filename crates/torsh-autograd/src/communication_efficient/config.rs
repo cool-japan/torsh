@@ -758,7 +758,9 @@ mod tests {
         gradient.apply_local_accumulation(&previous);
 
         assert!(gradient.accumulation_buffer.is_some());
-        let buffer = gradient.accumulation_buffer.unwrap();
+        let buffer = gradient
+            .accumulation_buffer
+            .expect("operation should succeed");
         let accumulated = &buffer["param"];
         assert_eq!(accumulated, &vec![1.5, 3.0, 4.5]);
     }

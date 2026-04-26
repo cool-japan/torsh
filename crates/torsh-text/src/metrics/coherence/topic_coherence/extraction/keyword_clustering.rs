@@ -402,7 +402,7 @@ mod tests {
         let result = extractor.extract_topics(&sentences);
         assert!(result.is_ok());
 
-        let topics = result.unwrap();
+        let topics = result.expect("operation should succeed");
         assert!(!topics.is_empty());
 
         // Should have found at least one topic
@@ -449,7 +449,7 @@ mod tests {
         let result = extractor.cluster_related_words(&words);
         assert!(result.is_ok());
 
-        let clusters = result.unwrap();
+        let clusters = result.expect("operation should succeed");
         assert!(!clusters.is_empty());
     }
 

@@ -819,8 +819,12 @@ mod tests {
             resolved: false,
         };
 
-        manager.add_alert(alert.clone()).unwrap();
-        let active_alerts = manager.get_active_alerts().unwrap();
+        manager
+            .add_alert(alert.clone())
+            .expect("operation should succeed");
+        let active_alerts = manager
+            .get_active_alerts()
+            .expect("alert retrieval should succeed");
         assert_eq!(active_alerts.len(), 1);
         assert_eq!(active_alerts[0].id, "test_alert");
     }
@@ -838,12 +842,28 @@ mod tests {
             resolved: false,
         };
 
-        manager.add_alert(alert.clone()).unwrap();
-        assert_eq!(manager.get_active_alerts().unwrap().len(), 1);
+        manager
+            .add_alert(alert.clone())
+            .expect("operation should succeed");
+        assert_eq!(
+            manager
+                .get_active_alerts()
+                .expect("alert retrieval should succeed")
+                .len(),
+            1
+        );
 
-        let resolved = manager.resolve_alert("test_alert").unwrap();
+        let resolved = manager
+            .resolve_alert("test_alert")
+            .expect("alert resolution should succeed");
         assert!(resolved);
-        assert_eq!(manager.get_active_alerts().unwrap().len(), 0);
+        assert_eq!(
+            manager
+                .get_active_alerts()
+                .expect("alert retrieval should succeed")
+                .len(),
+            0
+        );
     }
 
     #[test]
@@ -880,7 +900,9 @@ mod tests {
             },
         };
 
-        let alerts = manager.generate_alerts(context).unwrap();
+        let alerts = manager
+            .generate_alerts(context)
+            .expect("alert generation should succeed");
         assert!(!alerts.is_empty());
 
         // Should generate alerts for high CPU, high duration, and low ops/sec
@@ -929,7 +951,9 @@ mod tests {
                 },
             };
 
-            manager.generate_alerts(context).unwrap();
+            manager
+                .generate_alerts(context)
+                .expect("alert generation should succeed");
         }
 
         // Should have escalated severity due to repeated violations
@@ -942,12 +966,14 @@ mod tests {
 
         let test_alert = manager
             .generate_test_alert(DashboardAlertSeverity::Critical)
-            .unwrap();
+            .expect("operation should succeed");
         assert_eq!(test_alert.severity, DashboardAlertSeverity::Critical);
         assert_eq!(test_alert.title, "Test Alert");
         assert!(!test_alert.resolved);
 
-        let active_alerts = manager.get_active_alerts().unwrap();
+        let active_alerts = manager
+            .get_active_alerts()
+            .expect("alert retrieval should succeed");
         assert_eq!(active_alerts.len(), 1);
     }
 
@@ -976,10 +1002,12 @@ mod tests {
         ];
 
         for alert in alerts {
-            manager.add_alert(alert).unwrap();
+            manager.add_alert(alert).expect("add alert should succeed");
         }
 
-        let stats = manager.get_alert_stats().unwrap();
+        let stats = manager
+            .get_alert_stats()
+            .expect("alert statistics retrieval should succeed");
         assert_eq!(stats.total_alerts, 2);
         assert_eq!(stats.active_alerts, 1);
         assert_eq!(stats.resolved_alerts, 1);

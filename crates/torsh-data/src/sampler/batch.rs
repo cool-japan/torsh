@@ -369,13 +369,13 @@ mod tests {
         assert!(!iter.drop_last());
 
         // Test collecting batches one by one
-        let batch1 = iter.next().unwrap();
+        let batch1 = iter.next().expect("iterator should have a next element");
         assert_eq!(batch1, vec![0, 1, 2]);
 
-        let batch2 = iter.next().unwrap();
+        let batch2 = iter.next().expect("iterator should have a next element");
         assert_eq!(batch2, vec![3, 4, 5]);
 
-        let batch3 = iter.next().unwrap();
+        let batch3 = iter.next().expect("iterator should have a next element");
         assert_eq!(batch3, vec![6]);
 
         assert!(iter.next().is_none());

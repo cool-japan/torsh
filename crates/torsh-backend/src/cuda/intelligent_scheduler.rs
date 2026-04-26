@@ -731,7 +731,8 @@ mod tests {
     #[ignore = "Requires CUDA hardware - run with --ignored flag"]
     fn test_scheduler_creation() {
         if crate::cuda::is_available() {
-            let _device = Arc::new(crate::cuda::device::CudaDevice::new(0).unwrap());
+            let _device =
+                Arc::new(crate::cuda::device::CudaDevice::new(0).expect("Arc should succeed"));
             let scheduler = IntelligentStreamScheduler::new(4, SchedulingStrategy::Balanced);
             assert!(scheduler.is_ok());
         }
@@ -784,7 +785,8 @@ mod tests {
     #[ignore = "Requires CUDA hardware - run with --ignored flag"]
     fn test_coordinator_creation() {
         if crate::cuda::is_available() {
-            let _device = Arc::new(crate::cuda::device::CudaDevice::new(0).unwrap());
+            let _device =
+                Arc::new(crate::cuda::device::CudaDevice::new(0).expect("Arc should succeed"));
             let coordinator = MultiOperationCoordinator::new(SchedulingStrategy::Balanced);
             assert!(coordinator.is_ok());
         }

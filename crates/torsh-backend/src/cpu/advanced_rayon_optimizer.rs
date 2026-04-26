@@ -1592,8 +1592,11 @@ mod tests {
             strategy_switch_cost: 0.01,
         };
 
-        let selector = ParallelStrategySelector::new(&config).unwrap();
-        let strategy = selector.select_strategy(&signature).unwrap();
+        let selector = ParallelStrategySelector::new(&config)
+            .expect("Parallel Strategy Selector should succeed");
+        let strategy = selector
+            .select_strategy(&signature)
+            .expect("strategy selection should succeed");
 
         // Large complex operations should use recursive strategy
         assert!(matches!(strategy, ParallelStrategy::Recursive));

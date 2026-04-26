@@ -402,7 +402,7 @@ mod tests {
 
     fn create_test_series() -> TimeSeries {
         let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0];
-        let tensor = Tensor::from_vec(data, &[5]).unwrap();
+        let tensor = Tensor::from_vec(data, &[5]).expect("Tensor should succeed");
         TimeSeries::new(tensor)
     }
 
@@ -414,7 +414,10 @@ mod tests {
         let diffed = diff(&series, 1);
         assert_eq!(diffed.len(), series.len() - 1); // Length reduced by 1
 
-        let result = diffed.values.to_vec().unwrap();
+        let result = diffed
+            .values
+            .to_vec()
+            .expect("tensor to_vec conversion should succeed");
         // First differences: [2-1, 3-2, 4-3, 5-4] = [1, 1, 1, 1]
         assert_eq!(result.len(), 4);
         for &val in &result {
@@ -425,7 +428,10 @@ mod tests {
         let diffed2 = diff(&series, 2);
         assert_eq!(diffed2.len(), series.len() - 2); // Length reduced by 2
 
-        let result2 = diffed2.values.to_vec().unwrap();
+        let result2 = diffed2
+            .values
+            .to_vec()
+            .expect("tensor to_vec conversion should succeed");
         // Second differences: diff of [1, 1, 1, 1] = [0, 0, 0]
         assert_eq!(result2.len(), 3);
         for &val in &result2 {
@@ -445,7 +451,10 @@ mod tests {
         let detrended = detrend(&series, "linear");
         assert_eq!(detrended.len(), series.len());
 
-        let result = detrended.values.to_vec().unwrap();
+        let result = detrended
+            .values
+            .to_vec()
+            .expect("tensor to_vec conversion should succeed");
 
         // Original series has perfect linear trend: y = 1.0*t + 1.0
         // After removing this trend, residuals should be ~0
@@ -456,7 +465,10 @@ mod tests {
 
         // Test mean detrending
         let mean_detrended = detrend(&series, "mean");
-        let mean_result = mean_detrended.values.to_vec().unwrap();
+        let mean_result = mean_detrended
+            .values
+            .to_vec()
+            .expect("tensor to_vec conversion should succeed");
 
         // After mean detrending, the mean should be ~0
         let mean_after: f32 = mean_result.iter().sum::<f32>() / mean_result.len() as f32;
@@ -472,7 +484,10 @@ mod tests {
         let normalized = normalize(&series);
         assert_eq!(normalized.len(), series.len());
 
-        let result = normalized.values.to_vec().unwrap();
+        let result = normalized
+            .values
+            .to_vec()
+            .expect("tensor to_vec conversion should succeed");
 
         // After normalization, mean should be ~0
         let mean = result.iter().sum::<f32>() / result.len() as f32;
@@ -501,7 +516,10 @@ mod tests {
         let smoothed = moving_average(&series, 3);
         assert_eq!(smoothed.len(), series.len());
 
-        let result = smoothed.values.to_vec().unwrap();
+        let result = smoothed
+            .values
+            .to_vec()
+            .expect("tensor to_vec conversion should succeed");
         // Position 0: mean([1]) = 1.0
         assert!((result[0] - 1.0).abs() < 1e-6);
         // Position 1: mean([1, 2]) = 1.5

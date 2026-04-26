@@ -547,7 +547,9 @@ mod tests {
     #[test]
     fn test_from_statistics_symmetric() {
         let mut params = QuantizationParams::int8_symmetric();
-        params.from_statistics(-2.0, 2.0).unwrap();
+        params
+            .from_statistics(-2.0, 2.0)
+            .expect("construction from statistics should succeed");
 
         assert_eq!(params.zero_point[0], 0);
         assert!(params.scale[0] > 0.0);
@@ -558,7 +560,9 @@ mod tests {
     #[test]
     fn test_from_statistics_asymmetric() {
         let mut params = QuantizationParams::uint8_asymmetric();
-        params.from_statistics(0.0, 255.0).unwrap();
+        params
+            .from_statistics(0.0, 255.0)
+            .expect("construction from statistics should succeed");
 
         assert!(params.scale[0] > 0.0);
         assert!(params.zero_point[0] >= 0 && params.zero_point[0] <= 255);

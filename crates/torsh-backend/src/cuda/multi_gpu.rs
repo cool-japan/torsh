@@ -434,7 +434,7 @@ mod tests {
             let context = MultiGpuContext::new(vec![0, 1]);
             assert!(context.is_ok());
 
-            let context = context.unwrap();
+            let context = context.expect("operation should succeed");
             assert_eq!(context.num_devices(), 2);
         }
     }
@@ -442,31 +442,38 @@ mod tests {
     #[tokio::test]
     async fn test_peer_to_peer_copy() {
         if crate::is_available() && crate::cuda::device_count().unwrap_or(0) > 1 {
-            let context = MultiGpuContext::new(vec![0, 1]).unwrap();
+            let context =
+                MultiGpuContext::new(vec![0, 1]).expect("Multi Gpu Context should succeed");
 
             // Create buffers on different devices
-            let backend0 = context.backend(0).unwrap();
-            let backend1 = context.backend(1).unwrap();
+            let backend0 = context.backend(0).expect("backend should be initialized");
+            let backend1 = context.backend(1).expect("backend should be initialized");
 
-            crate::cuda::set_device(0).unwrap();
-            let mut src = backend0.create_buffer::<f32>(1024, DType::F32).unwrap();
+            crate::cuda::set_device(0).expect("cuda should succeed");
+            let mut src = backend0
+                .create_buffer::<f32>(1024, DType::F32)
+                .expect("operation should succeed");
 
-            crate::cuda::set_device(1).unwrap();
-            let mut dst = backend1.create_buffer::<f32>(1024, DType::F32).unwrap();
+            crate::cuda::set_device(1).expect("cuda should succeed");
+            let mut dst = backend1
+                .create_buffer::<f32>(1024, DType::F32)
+                .expect("operation should succeed");
 
             // Initialize source buffer
             let data: Vec<f32> = (0..1024).map(|i| i as f32).collect();
-            src.copy_from_host(&data).unwrap();
+            src.copy_from_host(&data)
+                .expect("copy from host memory should succeed");
 
             // Copy between devices
             context
                 .copy_between_devices(&src, &mut dst, 0, 1)
                 .await
-                .unwrap();
+                .expect("operation should succeed");
 
             // Verify
             let mut result = vec![0.0; 1024];
-            dst.copy_to_host(&mut result).unwrap();
+            dst.copy_to_host(&mut result)
+                .expect("copy to host memory should succeed");
             assert_eq!(result, data);
         }
     }
@@ -474,17 +481,22 @@ mod tests {
     #[tokio::test]
     async fn test_all_reduce() {
         if crate::is_available() && crate::cuda::device_count().unwrap_or(0) > 1 {
-            let context = MultiGpuContext::new(vec![0, 1]).unwrap();
+            let context =
+                MultiGpuContext::new(vec![0, 1]).expect("Multi Gpu Context should succeed");
 
             // Create buffers on each device
             let mut buffers = Vec::new();
             for (i, backend) in context.backends.iter().enumerate() {
-                crate::cuda::set_device(context.devices[i].id()).unwrap();
-                let mut buffer = backend.create_buffer::<f32>(4, DType::F32).unwrap();
+                crate::cuda::set_device(context.devices[i].id()).expect("operation should succeed");
+                let mut buffer = backend
+                    .create_buffer::<f32>(4, DType::F32)
+                    .expect("operation should succeed");
 
                 // Initialize with device-specific values
                 let data = vec![1.0 + i as f32; 4];
-                buffer.copy_from_host(&data).unwrap();
+                buffer
+                    .copy_from_host(&data)
+                    .expect("copy from host memory should succeed");
                 buffers.push(buffer);
             }
 
@@ -492,12 +504,14 @@ mod tests {
             context
                 .all_reduce(&mut buffers, ReduceOp::Sum)
                 .await
-                .unwrap();
+                .expect("operation should succeed");
 
             // Verify - each element should be sum of all device values
             for buffer in &buffers {
                 let mut result = vec![0.0; 4];
-                buffer.copy_to_host(&mut result).unwrap();
+                buffer
+                    .copy_to_host(&mut result)
+                    .expect("copy to host memory should succeed");
                 assert_eq!(result, vec![3.0; 4]); // 1.0 + 2.0 = 3.0
             }
         }

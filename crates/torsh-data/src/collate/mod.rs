@@ -91,9 +91,9 @@ mod tests {
     #[test]
     fn test_default_collate() {
         let batch = vec![
-            ones::<f32>(&[3, 4]).unwrap(),
-            ones::<f32>(&[3, 4]).unwrap(),
-            ones::<f32>(&[3, 4]).unwrap(),
+            ones::<f32>(&[3, 4]).expect("operation should succeed"),
+            ones::<f32>(&[3, 4]).expect("operation should succeed"),
+            ones::<f32>(&[3, 4]).expect("operation should succeed"),
         ];
 
         let collate = DefaultCollate;
@@ -105,13 +105,18 @@ mod tests {
     fn test_custom_collate_fn() {
         let collate = CollateFn::new(|batch: Vec<i32>| Ok(batch.iter().sum::<i32>()));
 
-        let result = collate.collate(vec![1, 2, 3, 4, 5]).unwrap();
+        let result = collate
+            .collate(vec![1, 2, 3, 4, 5])
+            .expect("collation should succeed");
         assert_eq!(result, 15);
     }
 
     #[test]
     fn test_pad_collate() {
-        let batch = vec![ones::<f32>(&[2, 3]).unwrap(), ones::<f32>(&[2, 3]).unwrap()];
+        let batch = vec![
+            ones::<f32>(&[2, 3]).expect("operation should succeed"),
+            ones::<f32>(&[2, 3]).expect("operation should succeed"),
+        ];
 
         let collate = PadCollate::new(0.0f32);
         let result = collate.collate(batch);
@@ -125,13 +130,15 @@ mod tests {
         use torsh_tensor::creation::zeros;
 
         // Create some sparse tensors for testing
-        let dense1 = zeros::<f32>(&[2, 3]).unwrap();
-        let dense2 = zeros::<f32>(&[2, 3]).unwrap();
+        let dense1 = zeros::<f32>(&[2, 3]).expect("operation should succeed");
+        let dense2 = zeros::<f32>(&[2, 3]).expect("operation should succeed");
 
         // Convert to sparse (this is a placeholder - actual implementation may vary)
         // In a real scenario, you'd create actual sparse tensors with non-zero values
-        let _sparse1 = torsh_sparse::sparse_from_dense(&dense1, SparseFormat::Coo, None).unwrap();
-        let _sparse2 = torsh_sparse::sparse_from_dense(&dense2, SparseFormat::Coo, None).unwrap();
+        let _sparse1 = torsh_sparse::sparse_from_dense(&dense1, SparseFormat::Coo, None)
+            .expect("torsh sparse should succeed");
+        let _sparse2 = torsh_sparse::sparse_from_dense(&dense2, SparseFormat::Coo, None)
+            .expect("torsh sparse should succeed");
 
         // Test collation would go here - commented out due to potential API differences
         // let collate = SparseCollate;

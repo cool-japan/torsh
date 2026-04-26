@@ -309,7 +309,7 @@ mod tests {
     fn test_get_model_variant() {
         let variant = VisionModelUtils::get_model_variant("resnet18");
         assert!(variant.is_some());
-        let variant = variant.unwrap();
+        let variant = variant.expect("operation should succeed");
         assert_eq!(variant.architecture, VisionArchitecture::ResNet);
         assert_eq!(variant.variant, "resnet18");
     }
@@ -367,7 +367,7 @@ mod tests {
 
         let score = VisionModelUtils::calculate_efficiency_score(&variant);
         assert!(score.is_some());
-        assert!((score.unwrap() - 8.0).abs() < 1e-6); // 80.0 / 10 = 8.0
+        assert!((score.expect("operation should succeed") - 8.0).abs() < 1e-6); // 80.0 / 10 = 8.0
     }
 
     #[test]
@@ -379,8 +379,13 @@ mod tests {
         );
 
         assert!(recommendation.is_some());
-        let model = recommendation.unwrap();
-        assert!(model.imagenet_top1_accuracy.unwrap() >= 75.0);
+        let model = recommendation.expect("operation should succeed");
+        assert!(
+            model
+                .imagenet_top1_accuracy
+                .expect("operation should succeed")
+                >= 75.0
+        );
         assert!(model.parameters <= 30_000_000);
         assert_eq!(model.architecture, VisionArchitecture::ResNet);
     }

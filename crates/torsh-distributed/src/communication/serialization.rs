@@ -168,20 +168,22 @@ mod tests {
             content: "test message".to_string(),
         };
 
-        let serialized = serialize_message(&msg).unwrap();
-        let deserialized: TestMessage = deserialize_message(&serialized).unwrap();
+        let serialized = serialize_message(&msg).expect("serialize message should succeed");
+        let deserialized: TestMessage =
+            deserialize_message(&serialized).expect("deserialize message should succeed");
 
         assert_eq!(msg, deserialized);
     }
 
     #[test]
     fn test_tensor_serialization() {
-        let tensor = zeros::<f32>(&[2, 3]).unwrap();
+        let tensor = zeros::<f32>(&[2, 3]).expect("operation should succeed");
         let binding = tensor.shape();
         let shape = binding.dims();
 
-        let serialized = serialize_tensor(&tensor).unwrap();
-        let deserialized: Tensor<f32> = deserialize_tensor(&serialized, shape).unwrap();
+        let serialized = serialize_tensor(&tensor).expect("serialize tensor should succeed");
+        let deserialized: Tensor<f32> =
+            deserialize_tensor(&serialized, shape).expect("deserialize tensor should succeed");
 
         assert_eq!(tensor.shape().dims(), deserialized.shape().dims());
         assert_eq!(tensor.device(), deserialized.device());
@@ -189,8 +191,8 @@ mod tests {
 
     #[test]
     fn test_tensor_shape_mismatch() {
-        let tensor = zeros::<f32>(&[2, 3]).unwrap();
-        let serialized = serialize_tensor(&tensor).unwrap();
+        let tensor = zeros::<f32>(&[2, 3]).expect("operation should succeed");
+        let serialized = serialize_tensor(&tensor).expect("serialize tensor should succeed");
 
         // Try to deserialize with wrong shape
         let result: Result<Tensor<f32>, _> = deserialize_tensor(&serialized, &[3, 2]);
@@ -199,7 +201,7 @@ mod tests {
 
     #[test]
     fn test_estimate_tensor_size() {
-        let tensor = zeros::<f32>(&[10, 10]).unwrap();
+        let tensor = zeros::<f32>(&[10, 10]).expect("operation should succeed");
         let estimated_size = estimate_tensor_serialized_size(&tensor);
 
         // Should be at least the data size plus some overhead

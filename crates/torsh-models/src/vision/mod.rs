@@ -115,7 +115,10 @@ mod tests {
     fn test_model_variant_access() {
         let variant = VisionModelUtils::get_model_variant("resnet50");
         assert!(variant.is_some());
-        assert_eq!(variant.unwrap().architecture, VisionArchitecture::ResNet);
+        assert_eq!(
+            variant.expect("operation should succeed").architecture,
+            VisionArchitecture::ResNet
+        );
     }
 
     #[test]

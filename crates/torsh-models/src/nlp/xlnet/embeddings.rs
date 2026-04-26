@@ -122,7 +122,7 @@ mod tests {
     #[test]
     fn test_embeddings_parameters() {
         let config = XLNetConfig::xlnet_base();
-        let embeddings = XLNetEmbeddings::new(config).unwrap();
+        let embeddings = XLNetEmbeddings::new(config).expect("XLNet Embeddings should succeed");
         let params = embeddings.parameters();
         assert!(params.contains_key("word_embeddings.weight"));
         assert!(params.contains_key("layer_norm.weight"));

@@ -744,7 +744,7 @@ mod tests {
     #[tokio::test]
     async fn test_engine_initialization() {
         let config = IntegratedExecutionConfig::default();
-        let engine = IntegratedOptimizationExecutionEngine::new(config).unwrap();
+        let engine = IntegratedOptimizationExecutionEngine::new(config).expect("Integrated Optimization Execution Engine should succeed");
 
         // Note: This test would require proper initialization of all components
         // For now, we test the interface exists

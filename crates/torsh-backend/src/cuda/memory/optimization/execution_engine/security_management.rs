@@ -1640,7 +1640,7 @@ mod tests {
         let manager = SecurityManager::new(config);
 
         let credentials = Credentials::default();
-        let result = manager.authenticate(credentials).unwrap();
+        let result = manager.authenticate(credentials).expect("authentication should succeed");
         assert!(result.is_success());
     }
 
@@ -1651,7 +1651,7 @@ mod tests {
 
         let authorized = manager
             .check_authorization("test_user", "test_resource", "read")
-            .unwrap();
+            .expect("operation should succeed");
         assert!(authorized);
     }
 
@@ -1660,7 +1660,7 @@ mod tests {
         let config = SecurityConfig::default();
         let manager = SecurityManager::new(config);
 
-        let session_id = manager.create_session("test_user", HashSet::new()).unwrap();
+        let session_id = manager.create_session("test_user", HashSet::new()).expect("operation should succeed");
         assert!(!session_id.is_empty());
     }
 
@@ -1669,7 +1669,7 @@ mod tests {
         let config = SecurityConfig::default();
         let manager = SecurityManager::new(config);
 
-        let threats = manager.detect_threats().unwrap();
+        let threats = manager.detect_threats().expect("threat detection should succeed");
         assert!(threats.is_empty()); // No threats initially
     }
 
@@ -1681,7 +1681,7 @@ mod tests {
         let data = b"sensitive data";
         let encrypted = manager
             .encrypt_data(data, DataClassification::Confidential)
-            .unwrap();
+            .expect("operation should succeed");
         assert_ne!(data.to_vec(), encrypted);
     }
 
@@ -1690,7 +1690,7 @@ mod tests {
         let config = SecurityConfig::default();
         let manager = SecurityManager::new(config);
 
-        let status = manager.check_compliance().unwrap();
+        let status = manager.check_compliance().expect("compliance check should succeed");
         // ComplianceStatus should have default implementation
     }
 }

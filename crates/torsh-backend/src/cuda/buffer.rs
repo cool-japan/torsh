@@ -382,11 +382,11 @@ mod tests {
     #[test]
     fn test_cuda_buffer_creation() {
         if crate::is_available() {
-            let device = Arc::new(CudaDevice::new(0).unwrap());
+            let device = Arc::new(CudaDevice::new(0).expect("Arc should succeed"));
             let buffer = CudaBuffer::<f32>::new(device, 1024, DType::F32);
 
             assert!(buffer.is_ok());
-            let buffer = buffer.unwrap();
+            let buffer = buffer.expect("operation should succeed");
             assert_eq!(buffer.len(), 1024);
             assert_eq!(buffer.dtype(), DType::F32);
         }
@@ -395,14 +395,19 @@ mod tests {
     #[test]
     fn test_host_device_copy() {
         if crate::is_available() {
-            let device = Arc::new(CudaDevice::new(0).unwrap());
-            let mut buffer = CudaBuffer::<f32>::new(device, 4, DType::F32).unwrap();
+            let device = Arc::new(CudaDevice::new(0).expect("Arc should succeed"));
+            let mut buffer = CudaBuffer::<f32>::new(device, 4, DType::F32)
+                .expect("construction with valid parameters should succeed");
 
             let host_data = vec![1.0, 2.0, 3.0, 4.0];
-            buffer.copy_from_host(&host_data).unwrap();
+            buffer
+                .copy_from_host(&host_data)
+                .expect("copy from host memory should succeed");
 
             let mut result = vec![0.0; 4];
-            buffer.copy_to_host(&mut result).unwrap();
+            buffer
+                .copy_to_host(&mut result)
+                .expect("copy to host memory should succeed");
 
             assert_eq!(host_data, result);
         }
@@ -411,16 +416,21 @@ mod tests {
     #[test]
     fn test_buffer_copy() {
         if crate::is_available() {
-            let device = Arc::new(CudaDevice::new(0).unwrap());
-            let mut src = CudaBuffer::<f32>::new(Arc::clone(&device), 4, DType::F32).unwrap();
-            let mut dst = CudaBuffer::<f32>::new(Arc::clone(&device), 4, DType::F32).unwrap();
+            let device = Arc::new(CudaDevice::new(0).expect("Arc should succeed"));
+            let mut src = CudaBuffer::<f32>::new(Arc::clone(&device), 4, DType::F32)
+                .expect("operation should succeed");
+            let mut dst = CudaBuffer::<f32>::new(Arc::clone(&device), 4, DType::F32)
+                .expect("operation should succeed");
 
             let host_data = vec![1.0, 2.0, 3.0, 4.0];
-            src.copy_from_host(&host_data).unwrap();
-            dst.copy_from_buffer(&src).unwrap();
+            src.copy_from_host(&host_data)
+                .expect("copy from host memory should succeed");
+            dst.copy_from_buffer(&src)
+                .expect("buffer copy should succeed");
 
             let mut result = vec![0.0; 4];
-            dst.copy_to_host(&mut result).unwrap();
+            dst.copy_to_host(&mut result)
+                .expect("copy to host memory should succeed");
 
             assert_eq!(host_data, result);
         }

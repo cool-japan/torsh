@@ -543,15 +543,21 @@ mod tests {
             resolved: false,
         };
 
-        dashboard.add_alert(alert).unwrap();
-        let active_alerts = dashboard.get_active_alerts().unwrap();
+        dashboard
+            .add_alert(alert)
+            .expect("add alert should succeed");
+        let active_alerts = dashboard
+            .get_active_alerts()
+            .expect("alert retrieval should succeed");
         assert_eq!(active_alerts.len(), 1);
     }
 
     #[test]
     fn test_dashboard_html_generation() {
         let dashboard = create_dashboard();
-        let html = dashboard.generate_dashboard_html().unwrap();
+        let html = dashboard
+            .generate_dashboard_html()
+            .expect("dashboard HTML generation should succeed");
 
         assert!(html.contains("ToRSh Performance Dashboard"));
         assert!(html.contains("Performance Metrics"));
@@ -572,7 +578,9 @@ mod tests {
     #[test]
     fn test_websocket_stats() {
         let dashboard = create_dashboard();
-        let stats = dashboard.get_websocket_stats().unwrap();
+        let stats = dashboard
+            .get_websocket_stats()
+            .expect("WebSocket statistics retrieval should succeed");
         assert_eq!(stats.connected_clients, 0);
         assert_eq!(stats.total_connections, 0);
     }
@@ -590,7 +598,9 @@ mod tests {
             timestamp: 12345,
             resolved: false,
         };
-        dashboard.add_alert(alert).unwrap();
+        dashboard
+            .add_alert(alert)
+            .expect("add alert should succeed");
 
         // Test export
         let temp_file = std::env::temp_dir().join("dashboard_export_test.json");

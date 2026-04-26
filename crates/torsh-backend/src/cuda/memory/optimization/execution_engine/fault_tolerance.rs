@@ -1517,7 +1517,7 @@ mod tests {
         let task_id = TaskId::new();
         let state_data = vec![1, 2, 3, 4, 5];
 
-        let checkpoint_id = manager.create_checkpoint(task_id, state_data).unwrap();
+        let checkpoint_id = manager.create_checkpoint(task_id, state_data).expect("checkpoint creation should succeed");
         assert!(!checkpoint_id.is_empty());
     }
 }

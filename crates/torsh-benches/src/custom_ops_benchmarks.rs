@@ -91,10 +91,10 @@ impl<T: CustomOperation> Benchmarkable for CustomOpBench<T> {
     fn run(&mut self, input: &Self::Input) -> Self::Output {
         let start_time = Instant::now();
         let result = self.operation.execute(input);
-        let execution_time = start_time.elapsed();
+        let execution_time = start_time.elapsed().max(Duration::from_nanos(1));
 
         let metrics = CustomOpMetrics {
-            execution_time_ms: execution_time.as_millis() as f64,
+            execution_time_ms: execution_time.as_secs_f64() * 1000.0,
             operation_name: self.operation.name().to_string(),
             complexity: self.complexity.clone(),
             domain: self.domain.clone(),
@@ -783,7 +783,7 @@ impl Benchmarkable for UserDefinedBench {
     fn run(&mut self, input: &Self::Input) -> Self::Output {
         let start_time = Instant::now();
         let result = (self.execute_fn)(input);
-        let execution_time = start_time.elapsed();
+        let execution_time = start_time.elapsed().max(Duration::from_nanos(1));
         (black_box(result), execution_time)
     }
 

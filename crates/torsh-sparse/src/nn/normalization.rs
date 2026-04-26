@@ -500,7 +500,7 @@ mod tests {
 
     #[test]
     fn test_sparse_batch_norm_creation() {
-        let bn = SparseBatchNorm::new(64, 1e-5, 0.1, true).unwrap();
+        let bn = SparseBatchNorm::new(64, 1e-5, 0.1, true).expect("Sparse Batch Norm should succeed");
         assert_eq!(bn.num_features(), 64);
         assert_eq!(bn.eps(), 1e-5);
         assert_eq!(bn.momentum(), 0.1);
@@ -510,7 +510,7 @@ mod tests {
 
     #[test]
     fn test_sparse_layer_norm_creation() {
-        let ln = SparseLayerNorm::new(vec![128], 1e-5, true).unwrap();
+        let ln = SparseLayerNorm::new(vec![128], 1e-5, true).expect("Sparse Layer Norm should succeed");
         assert_eq!(ln.normalized_shape(), &[128]);
         assert_eq!(ln.eps(), 1e-5);
         assert!(ln.elementwise_affine());
@@ -518,7 +518,7 @@ mod tests {
 
     #[test]
     fn test_batch_norm_training_mode() {
-        let mut bn = SparseBatchNorm::new(32, 1e-5, 0.1, false).unwrap();
+        let mut bn = SparseBatchNorm::new(32, 1e-5, 0.1, false).expect("Sparse Batch Norm should succeed");
         assert!(bn.training());
         bn.train(false);
         assert!(!bn.training());
@@ -547,35 +547,35 @@ mod tests {
 
     #[test]
     fn test_batch_norm_statistics() {
-        let mut bn = SparseBatchNorm::new(3, 1e-5, 0.1, false).unwrap();
+        let mut bn = SparseBatchNorm::new(3, 1e-5, 0.1, false).expect("Sparse Batch Norm should succeed");
 
         // Test statistics update
         let triplets = vec![(0, 0, 1.0), (1, 0, 2.0), (0, 1, 3.0), (1, 1, 4.0)];
-        bn.update_statistics(&triplets).unwrap();
+        bn.update_statistics(&triplets).expect("statistics update should succeed");
 
         // Check that running statistics were updated
-        let mean0 = bn.running_mean().get(&[0]).unwrap();
-        let mean1 = bn.running_mean().get(&[1]).unwrap();
+        let mean0 = bn.running_mean().get(&[0]).expect("element retrieval should succeed for valid index");
+        let mean1 = bn.running_mean().get(&[1]).expect("element retrieval should succeed for valid index");
         assert!(mean0 > 0.0); // Should be updated from 0
         assert!(mean1 > 0.0); // Should be updated from 0
     }
 
     #[test]
     fn test_layer_norm_groups() {
-        let ln = SparseLayerNorm::new(vec![4], 1e-5, false).unwrap();
+        let ln = SparseLayerNorm::new(vec![4], 1e-5, false).expect("Sparse Layer Norm should succeed");
         let triplets = vec![(0, 0, 1.0), (0, 1, 2.0), (1, 0, 3.0), (1, 1, 4.0)];
         let shape = Shape::new(vec![2, 4]);
 
-        let normalized = ln.normalize_by_groups(&triplets, &shape).unwrap();
+        let normalized = ln.normalize_by_groups(&triplets, &shape).expect("group normalization should succeed");
         assert_eq!(normalized.len(), 4); // All non-zero values should be preserved
     }
 
     #[test]
     fn test_sparsity_preservation() {
-        let bn = SparseBatchNorm::new(4, 1e-5, 0.1, false).unwrap();
+        let bn = SparseBatchNorm::new(4, 1e-5, 0.1, false).expect("Sparse Batch Norm should succeed");
         let triplets = vec![(0, 0, 1.0), (0, 2, 2.0)]; // Sparse: only columns 0 and 2 have values
 
-        let normalized = bn.normalize_triplets(&triplets).unwrap();
+        let normalized = bn.normalize_triplets(&triplets).expect("triplet normalization should succeed");
         // Should maintain sparsity (only non-zero elements)
         assert!(normalized.len() <= triplets.len());
     }

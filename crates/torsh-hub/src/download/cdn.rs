@@ -1137,7 +1137,8 @@ mod tests {
     #[tokio::test]
     async fn test_comprehensive_health_check() {
         let config = CdnConfig::default();
-        let mut manager = AdvancedCdnManager::new(config).unwrap();
+        let mut manager =
+            AdvancedCdnManager::new(config).expect("Advanced Cdn Manager should succeed");
 
         // This would typically fail in a test environment, but that's expected
         let result = manager.comprehensive_health_check().await;
@@ -1147,7 +1148,7 @@ mod tests {
     #[test]
     fn test_performance_metrics_initialization() {
         let config = CdnConfig::default();
-        let manager = AdvancedCdnManager::new(config).unwrap();
+        let manager = AdvancedCdnManager::new(config).expect("Advanced Cdn Manager should succeed");
 
         assert!(!manager.performance_metrics.response_times.is_empty());
         assert!(!manager.performance_metrics.success_rates.is_empty());
@@ -1156,7 +1157,7 @@ mod tests {
     #[test]
     fn test_health_monitoring_initialization() {
         let config = CdnConfig::default();
-        let manager = AdvancedCdnManager::new(config).unwrap();
+        let manager = AdvancedCdnManager::new(config).expect("Advanced Cdn Manager should succeed");
 
         assert!(!manager.health_monitoring.check_intervals.is_empty());
     }
@@ -1164,7 +1165,7 @@ mod tests {
     #[test]
     fn test_load_balancer_initialization() {
         let config = CdnConfig::default();
-        let manager = AdvancedCdnManager::new(config).unwrap();
+        let manager = AdvancedCdnManager::new(config).expect("Advanced Cdn Manager should succeed");
 
         assert_eq!(
             manager.load_balancer.algorithm,
@@ -1176,7 +1177,7 @@ mod tests {
     #[test]
     fn test_endpoint_score_calculation() {
         let config = CdnConfig::default();
-        let manager = AdvancedCdnManager::new(config).unwrap();
+        let manager = AdvancedCdnManager::new(config).expect("Advanced Cdn Manager should succeed");
 
         let endpoint = &manager.config.endpoints[0];
         let score = manager.calculate_endpoint_score(endpoint);
@@ -1187,7 +1188,7 @@ mod tests {
     #[test]
     fn test_health_status_analysis() {
         let config = CdnConfig::default();
-        let manager = AdvancedCdnManager::new(config).unwrap();
+        let manager = AdvancedCdnManager::new(config).expect("Advanced Cdn Manager should succeed");
 
         let endpoint_results = vec![
             EndpointHealthDetail {
@@ -1221,7 +1222,7 @@ mod tests {
     #[test]
     fn test_performance_summary() {
         let config = CdnConfig::default();
-        let manager = AdvancedCdnManager::new(config).unwrap();
+        let manager = AdvancedCdnManager::new(config).expect("Advanced Cdn Manager should succeed");
 
         let summary = manager.get_performance_summary();
         assert_eq!(summary.total_endpoints, 2);
@@ -1231,7 +1232,8 @@ mod tests {
     #[test]
     fn test_failure_pattern_detection() {
         let config = CdnConfig::default();
-        let mut manager = AdvancedCdnManager::new(config).unwrap();
+        let mut manager =
+            AdvancedCdnManager::new(config).expect("Advanced Cdn Manager should succeed");
 
         let health_detail = EndpointHealthDetail {
             healthy: false,

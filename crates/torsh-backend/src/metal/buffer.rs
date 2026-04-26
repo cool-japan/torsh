@@ -365,7 +365,7 @@ mod tests {
             let buffer = MetalBuffer::from_slice(&data, &shape, &device);
             assert!(buffer.is_ok());
 
-            let buffer = buffer.unwrap();
+            let buffer = buffer.expect("operation should succeed");
             assert_eq!(buffer.shape(), &shape);
             assert_eq!(buffer.dtype(), DType::F32);
         }
@@ -378,8 +378,8 @@ mod tests {
             let buffer = MetalBuffer::zeros(&shape, &DType::F32, &device);
             assert!(buffer.is_ok());
 
-            let buffer = buffer.unwrap();
-            let data = buffer.to_vec::<f32>().unwrap();
+            let buffer = buffer.expect("operation should succeed");
+            let data = buffer.to_vec::<f32>().expect("operation should succeed");
             assert_eq!(data, vec![0.0f32; 12]);
         }
     }

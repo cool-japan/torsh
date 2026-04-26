@@ -452,7 +452,7 @@ mod tests {
         for _i in 50..100 {
             data.push(5.0f32);
         }
-        let tensor = Tensor::from_vec(data, &[100]).unwrap();
+        let tensor = Tensor::from_vec(data, &[100]).expect("Tensor should succeed");
         TimeSeries::new(tensor)
     }
 
@@ -466,7 +466,9 @@ mod tests {
     fn test_pelt_detection() {
         let series = create_change_point_series();
         let pelt = PELT::new(10.0, 5);
-        let result = pelt.detect(&series).unwrap();
+        let result = pelt
+            .detect(&series)
+            .expect("detection operation should succeed");
 
         assert_eq!(result.algorithm, "PELT");
         // Should detect at least one change point
@@ -484,7 +486,9 @@ mod tests {
             CostFunction::KolmogorovSmirnov,
         ] {
             let pelt = PELT::new(10.0, 5).with_cost_function(cost_fn);
-            let result = pelt.detect(&series).unwrap();
+            let result = pelt
+                .detect(&series)
+                .expect("detection operation should succeed");
             assert_eq!(result.algorithm, "PELT");
         }
     }
@@ -499,7 +503,9 @@ mod tests {
     fn test_binary_segmentation_detection() {
         let series = create_change_point_series();
         let bs = BinarySegmentation::new(1.0);
-        let result = bs.detect(&series).unwrap();
+        let result = bs
+            .detect(&series)
+            .expect("detection operation should succeed");
 
         assert_eq!(result.algorithm, "Binary Segmentation");
         assert!(!result.change_points.is_empty());
@@ -509,7 +515,9 @@ mod tests {
     fn test_binary_segmentation_max_change_points() {
         let series = create_change_point_series();
         let bs = BinarySegmentation::new(0.1).with_max_change_points(2);
-        let result = bs.detect(&series).unwrap();
+        let result = bs
+            .detect(&series)
+            .expect("detection operation should succeed");
 
         assert!(result.change_points.len() <= 2);
     }
@@ -525,7 +533,9 @@ mod tests {
     fn test_window_detector_mean() {
         let series = create_change_point_series();
         let detector = WindowDetector::new(10, 1.0).with_statistic(WindowStatistic::Mean);
-        let result = detector.detect(&series).unwrap();
+        let result = detector
+            .detect(&series)
+            .expect("detection operation should succeed");
 
         assert_eq!(result.algorithm, "Window");
         // Should detect change around index 50
@@ -536,7 +546,9 @@ mod tests {
     fn test_window_detector_variance() {
         let series = create_change_point_series();
         let detector = WindowDetector::new(10, 0.1).with_statistic(WindowStatistic::Variance);
-        let result = detector.detect(&series).unwrap();
+        let result = detector
+            .detect(&series)
+            .expect("detection operation should succeed");
 
         assert_eq!(result.algorithm, "Window");
     }
@@ -545,7 +557,9 @@ mod tests {
     fn test_window_detector_cusum() {
         let series = create_change_point_series();
         let detector = WindowDetector::new(10, 5.0).with_statistic(WindowStatistic::CUSUM);
-        let result = detector.detect(&series).unwrap();
+        let result = detector
+            .detect(&series)
+            .expect("detection operation should succeed");
 
         assert_eq!(result.algorithm, "Window");
     }
@@ -554,7 +568,9 @@ mod tests {
     fn test_change_point_result() {
         let series = create_change_point_series();
         let pelt = PELT::new(10.0, 5);
-        let result = pelt.detect(&series).unwrap();
+        let result = pelt
+            .detect(&series)
+            .expect("detection operation should succeed");
 
         assert_eq!(result.change_points.len(), result.scores.len());
         assert!(!result.algorithm.is_empty());

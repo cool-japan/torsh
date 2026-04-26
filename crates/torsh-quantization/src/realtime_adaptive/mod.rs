@@ -139,7 +139,8 @@ mod tests {
     #[test]
     fn test_feature_extraction() -> TorshResult<()> {
         let extractor = FeatureExtractor::new();
-        let tensor = tensor_1d(&[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]).unwrap();
+        let tensor =
+            tensor_1d(&[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]).expect("tensor 1d should succeed");
 
         let features = extractor.extract_features(&tensor)?;
         assert_eq!(features.len(), 16); // Fixed feature dimension
@@ -155,8 +156,8 @@ mod tests {
     #[test]
     fn test_quality_assessment() -> TorshResult<()> {
         let mut assessor = QualityAssessor::new();
-        let original = tensor_1d(&[0.1, 0.2, 0.3, 0.4, 0.5]).unwrap();
-        let quantized = tensor_1d(&[0.1, 0.2, 0.3, 0.4, 0.5]).unwrap();
+        let original = tensor_1d(&[0.1, 0.2, 0.3, 0.4, 0.5]).expect("tensor 1d should succeed");
+        let quantized = tensor_1d(&[0.1, 0.2, 0.3, 0.4, 0.5]).expect("tensor 1d should succeed");
         let params = QuantizationParameters::default();
 
         let quality = assessor.assess_quality(&original, &quantized, &params)?;
@@ -203,7 +204,7 @@ mod tests {
     #[test]
     fn test_adaptive_quantization_engine() -> TorshResult<()> {
         let mut engine = AdaptiveQuantizationEngine::new(AdaptiveQuantConfig::default());
-        let tensor = tensor_1d(&[0.1, 0.2, 0.3, 0.4, 0.5]).unwrap();
+        let tensor = tensor_1d(&[0.1, 0.2, 0.3, 0.4, 0.5]).expect("tensor 1d should succeed");
 
         let result = engine.adaptive_quantize(&tensor)?;
         assert!(result.parameters.scale > 0.0);
@@ -295,8 +296,8 @@ mod tests {
     #[test]
     fn test_quality_statistics() -> TorshResult<()> {
         let mut assessor = QualityAssessor::new();
-        let original = tensor_1d(&[0.1, 0.2, 0.3, 0.4, 0.5]).unwrap();
-        let quantized = tensor_1d(&[0.1, 0.2, 0.3, 0.4, 0.5]).unwrap();
+        let original = tensor_1d(&[0.1, 0.2, 0.3, 0.4, 0.5]).expect("tensor 1d should succeed");
+        let quantized = tensor_1d(&[0.1, 0.2, 0.3, 0.4, 0.5]).expect("tensor 1d should succeed");
         let params = QuantizationParameters::default();
 
         // Add some measurements
@@ -327,7 +328,10 @@ mod tests {
 
         let pattern = analyzer.get_pattern("custom_pattern");
         assert!(pattern.is_some());
-        assert_eq!(pattern.unwrap().name, "custom_pattern");
+        assert_eq!(
+            pattern.expect("operation should succeed").name,
+            "custom_pattern"
+        );
     }
 
     #[test]
@@ -353,7 +357,7 @@ mod tests {
     #[test]
     fn test_report_generation() -> TorshResult<()> {
         let mut engine = AdaptiveQuantizationEngine::new(AdaptiveQuantConfig::default());
-        let tensor = tensor_1d(&[0.1, 0.2, 0.3, 0.4, 0.5]).unwrap();
+        let tensor = tensor_1d(&[0.1, 0.2, 0.3, 0.4, 0.5]).expect("tensor 1d should succeed");
         let result = engine.adaptive_quantize(&tensor)?;
 
         // Test text report
@@ -417,9 +421,9 @@ mod tests {
 
         // Test different tensor patterns
         let test_cases = vec![
-            tensor_1d(&[0.1, 0.2, 0.3, 0.4, 0.5]).unwrap(),
-            tensor_1d(&[1.0, 2.0, 3.0, 4.0, 5.0]).unwrap(),
-            tensor_1d(&[0.01, 0.02, 0.03, 0.04, 0.05]).unwrap(),
+            tensor_1d(&[0.1, 0.2, 0.3, 0.4, 0.5]).expect("tensor 1d should succeed"),
+            tensor_1d(&[1.0, 2.0, 3.0, 4.0, 5.0]).expect("tensor 1d should succeed"),
+            tensor_1d(&[0.01, 0.02, 0.03, 0.04, 0.05]).expect("tensor 1d should succeed"),
         ];
 
         for (i, tensor) in test_cases.iter().enumerate() {
@@ -474,20 +478,22 @@ mod tests {
     #[test]
     fn test_edge_cases_and_error_handling() -> TorshResult<()> {
         // Test with empty tensor
-        let empty_tensor = tensor_1d(&[]).unwrap_or_else(|_| tensor_1d(&[0.0]).unwrap());
+        let empty_tensor = tensor_1d(&[]).unwrap_or_else(|_| {
+            tensor_1d(&[0.0]).expect("unwrap_or_else should provide a fallback")
+        });
 
         let mut engine = AdaptiveQuantizationEngine::new(AdaptiveQuantConfig::default());
         let _result = engine.adaptive_quantize(&empty_tensor)?;
 
         // Test feature extraction with different sizes
         let extractor = FeatureExtractor::new();
-        let small_tensor = tensor_1d(&[0.1]).unwrap();
+        let small_tensor = tensor_1d(&[0.1]).expect("tensor 1d should succeed");
         let features = extractor.extract_features(&small_tensor)?;
         assert_eq!(features.len(), 16);
 
         // Test quality assessment with identical tensors
         let mut assessor = QualityAssessor::new();
-        let tensor = tensor_1d(&[0.5; 10]).unwrap();
+        let tensor = tensor_1d(&[0.5; 10]).expect("tensor 1d should succeed");
         let quality =
             assessor.assess_quality(&tensor, &tensor, &QuantizationParameters::default())?;
         assert!(quality.perceptual_score > 0.99); // Should be nearly perfect

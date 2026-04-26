@@ -112,7 +112,8 @@ pub use core::{ComparisonResult, ComparisonRunner, PerformanceAnalyzer};
 
 // Reporting utilities
 pub use reporting::{
-    benchmark_and_analyze, benchmark_and_compare, generate_master_comparison_report,
+    benchmark_and_analyze, benchmark_and_analyze_to, benchmark_and_compare,
+    generate_master_comparison_report, generate_master_comparison_report_to,
     run_all_comparison_suites, run_comparison_benchmarks, run_extended_benchmarks,
 };
 

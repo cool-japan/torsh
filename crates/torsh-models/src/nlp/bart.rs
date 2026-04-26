@@ -563,14 +563,14 @@ mod tests {
     #[test]
     fn test_bart_forward_pass() {
         let mut model = BartForConditionalGeneration::bart_base();
-        let input_ids = Tensor::zeros(&[1, 10]).unwrap();
+        let input_ids = Tensor::zeros(&[1, 10]).expect("Tensor should succeed");
 
         let result = model.forward(&input_ids);
         assert!(result.is_ok());
 
-        let output = result.unwrap();
+        let output = result.expect("operation should succeed");
         assert_eq!(output.dims().len(), 3); // [batch, seq_len, vocab_size]
-        assert_eq!(output.size(2).unwrap(), 50265); // vocab_size
+        assert_eq!(output.size(2).expect("tensor size should be valid"), 50265); // vocab_size
     }
 
     #[test]
@@ -602,12 +602,12 @@ mod tests {
     fn test_bart_encoder_layer_forward() {
         let config = BartConfig::bart_base();
         let mut layer = BartEncoderLayer::new(&config);
-        let input = Tensor::zeros(&[1, 10, 768]).unwrap();
+        let input = Tensor::zeros(&[1, 10, 768]).expect("Tensor should succeed");
 
         let result = layer.forward(&input);
         assert!(result.is_ok());
 
-        let output = result.unwrap();
+        let output = result.expect("operation should succeed");
         assert_eq!(output.dims(), &[1, 10, 768]); // Same shape as input
     }
 
@@ -623,12 +623,12 @@ mod tests {
     #[test]
     fn test_generate_logits() {
         let model = BartForConditionalGeneration::bart_base();
-        let input_ids = Tensor::zeros(&[1, 5]).unwrap();
+        let input_ids = Tensor::zeros(&[1, 5]).expect("Tensor should succeed");
 
         let result = model.generate_logits(&input_ids);
         assert!(result.is_ok());
 
-        let logits = result.unwrap();
+        let logits = result.expect("operation should succeed");
         assert_eq!(logits.dims(), &[1, 5, 50265]); // [batch, seq, vocab]
     }
 
@@ -638,7 +638,7 @@ mod tests {
         config.scale_embedding = true;
 
         let model = BartForConditionalGeneration::new(config);
-        let input_ids = Tensor::zeros(&[1, 5]).unwrap();
+        let input_ids = Tensor::zeros(&[1, 5]).expect("Tensor should succeed");
 
         let result = model.forward(&input_ids);
         assert!(result.is_ok());

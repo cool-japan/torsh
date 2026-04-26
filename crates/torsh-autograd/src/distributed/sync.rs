@@ -395,11 +395,11 @@ mod tests {
         scheduler.schedule_sync(vec!["high".to_string()], 10);
         scheduler.schedule_sync(vec!["medium".to_string()], 5);
 
-        let op1 = scheduler.next_sync().unwrap();
+        let op1 = scheduler.next_sync().expect("synchronous next should return a value");
         assert_eq!(op1.priority, 10);
 
         scheduler.complete_sync();
-        let op2 = scheduler.next_sync().unwrap();
+        let op2 = scheduler.next_sync().expect("synchronous next should return a value");
         assert_eq!(op2.priority, 5);
     }
 
@@ -416,7 +416,7 @@ mod tests {
         coordinator.schedule_on("grad", vec!["layer1".to_string()], 5);
         coordinator.schedule_on("param", vec!["layer2".to_string()], 10);
 
-        let (scheduler_name, op) = coordinator.next_operation().unwrap();
+        let (scheduler_name, op) = coordinator.next_operation().expect("next operation should be available");
         assert_eq!(scheduler_name, "param");
         assert_eq!(op.priority, 10);
     }

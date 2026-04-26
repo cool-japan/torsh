@@ -863,8 +863,8 @@ mod tests {
         use torsh_core::device::DeviceType;
         use torsh_tensor::Tensor;
 
-        let tensor =
-            Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu)
+            .expect("Tensor should succeed");
         let dataset = Arc::new(TensorDataset::from_tensor(tensor));
         let collate_fn = Arc::new(DefaultCollate);
         let worker_pool = WorkerPool::new(dataset, collate_fn, 2);
@@ -877,8 +877,8 @@ mod tests {
         use torsh_core::device::DeviceType;
         use torsh_tensor::Tensor;
 
-        let tensor =
-            Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu)
+            .expect("Tensor should succeed");
         let dataset = Arc::new(TensorDataset::from_tensor(tensor));
         let collate_fn = Arc::new(DefaultCollate);
         let worker_pool = WorkerPool::new(dataset, collate_fn, 2);
@@ -891,8 +891,8 @@ mod tests {
         use torsh_core::device::DeviceType;
         use torsh_tensor::Tensor;
 
-        let tensor =
-            Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu)
+            .expect("Tensor should succeed");
         let dataset = Arc::new(TensorDataset::from_tensor(tensor));
         let collate_fn = Arc::new(DefaultCollate);
         let worker_pool = PersistentWorkerPool::new(dataset, collate_fn, 2);
@@ -906,8 +906,8 @@ mod tests {
         use torsh_core::device::DeviceType;
         use torsh_tensor::Tensor;
 
-        let tensor =
-            Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu)
+            .expect("Tensor should succeed");
         let dataset = Arc::new(TensorDataset::from_tensor(tensor));
         let collate_fn = Arc::new(DefaultCollate);
         let worker_pool = PersistentWorkerPool::new(dataset, collate_fn, 2);

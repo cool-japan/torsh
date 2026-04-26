@@ -593,20 +593,22 @@ mod tests {
     #[test]
     fn test_stream_creation() {
         if crate::is_available() {
-            let _device = Arc::new(crate::cuda::device::CudaDevice::new(0).unwrap());
+            let _device =
+                Arc::new(crate::cuda::device::CudaDevice::new(0).expect("Arc should succeed"));
             let stream = CudaStream::new();
             assert!(stream.is_ok());
 
             let default_stream = CudaStream::default_stream();
             assert!(default_stream.is_ok());
-            assert_eq!(default_stream.unwrap().id(), 0);
+            assert_eq!(default_stream.expect("operation should succeed").id(), 0);
         }
     }
 
     #[test]
     fn test_event_creation() {
         if crate::is_available() {
-            let _device = Arc::new(crate::cuda::device::CudaDevice::new(0).unwrap());
+            let _device =
+                Arc::new(crate::cuda::device::CudaDevice::new(0).expect("Arc should succeed"));
             let event = CudaEvent::new();
             assert!(event.is_ok());
 
@@ -618,11 +620,12 @@ mod tests {
     #[test]
     fn test_stream_pool() {
         if crate::is_available() {
-            let _device = Arc::new(crate::cuda::device::CudaDevice::new(0).unwrap());
+            let _device =
+                Arc::new(crate::cuda::device::CudaDevice::new(0).expect("Arc should succeed"));
             let pool = StreamPool::new(4);
             assert!(pool.is_ok());
 
-            let pool = pool.unwrap();
+            let pool = pool.expect("operation should succeed");
             let stream1 = pool.get_stream();
             let stream2 = pool.get_stream();
 

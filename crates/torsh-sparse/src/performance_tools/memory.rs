@@ -896,7 +896,7 @@ mod tests {
         let col_indices = vec![0, 1, 2, 10, 20, 30, 40, 50, 60, 70];
         let values = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0];
         let shape = Shape::new(vec![100, 100]);
-        CooTensor::new(row_indices, col_indices, values, shape).unwrap()
+        CooTensor::new(row_indices, col_indices, values, shape).expect("Coo Tensor should succeed")
     }
 
     #[test]
@@ -951,7 +951,7 @@ mod tests {
         });
 
         assert!(result.is_ok());
-        let (value, usage_result) = result.unwrap();
+        let (value, usage_result) = result.expect("operation should succeed");
         assert_eq!(value, 42);
         assert!(usage_result.samples.len() >= 2);
     }
@@ -980,7 +980,7 @@ mod tests {
         let analysis = analyze_sparse_memory(&sparse_tensor);
 
         assert!(analysis.is_ok());
-        let analysis = analysis.unwrap();
+        let analysis = analysis.expect("operation should succeed");
 
         assert_eq!(analysis.format, SparseFormat::Coo);
         assert_eq!(analysis.nnz, 10);
@@ -994,7 +994,7 @@ mod tests {
         let breakdown = calculate_memory_breakdown(&sparse_tensor);
 
         assert!(breakdown.is_ok());
-        let breakdown = breakdown.unwrap();
+        let breakdown = breakdown.expect("operation should succeed");
 
         // COO format: 10 values * 4 bytes + 10*2 indices * 4 bytes + metadata
         assert_eq!(breakdown.values_memory, 40); // 10 * 4
@@ -1009,7 +1009,7 @@ mod tests {
         let result = benchmark_cache_performance(&sparse_tensor, "test_operation".to_string());
 
         assert!(result.is_ok());
-        let result = result.unwrap();
+        let result = result.expect("operation should succeed");
 
         assert_eq!(result.operation, "test_operation");
         assert_eq!(result.measurements.len(), 5);

@@ -435,11 +435,11 @@ mod tests {
         let graph = utils::create_test_graph();
         let stats = utils::compute_graph_statistics(&graph);
 
-        assert_eq!(stats.get("total_nodes").unwrap(), &4);
-        assert_eq!(stats.get("input_nodes").unwrap(), &1);
-        assert_eq!(stats.get("conv2d_nodes").unwrap(), &1);
-        assert_eq!(stats.get("relu_nodes").unwrap(), &1);
-        assert_eq!(stats.get("output_nodes").unwrap(), &1);
+        assert_eq!(stats.get("total_nodes").expect("element retrieval should succeed for valid index"), &4);
+        assert_eq!(stats.get("input_nodes").expect("element retrieval should succeed for valid index"), &1);
+        assert_eq!(stats.get("conv2d_nodes").expect("element retrieval should succeed for valid index"), &1);
+        assert_eq!(stats.get("relu_nodes").expect("element retrieval should succeed for valid index"), &1);
+        assert_eq!(stats.get("output_nodes").expect("element retrieval should succeed for valid index"), &1);
     }
 
     #[test]
@@ -468,8 +468,8 @@ mod tests {
             },
         };
 
-        let serialized = serde_json::to_string(&result).unwrap();
-        let deserialized: OptimizationResult = serde_json::from_str(&serialized).unwrap();
+        let serialized = serde_json::to_string(&result).expect("serde json should succeed");
+        let deserialized: OptimizationResult = serde_json::from_str(&serialized).expect("serde json should succeed");
 
         assert_eq!(result.nodes_before, deserialized.nodes_before);
         assert_eq!(result.nodes_after, deserialized.nodes_after);

@@ -686,13 +686,13 @@ mod tests {
         let config = ParallelDownloadConfig::default();
         let results = download_files_parallel(downloads, config, false)
             .await
-            .unwrap();
+            .expect("operation should succeed");
         assert!(results.is_empty());
     }
 
     #[tokio::test]
     async fn test_streaming_download_url_validation() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("Temp Dir should succeed");
         let dest_path = temp_dir.path().join("test.txt");
         let config = ParallelDownloadConfig::default();
 
@@ -711,7 +711,7 @@ mod tests {
     #[test]
     fn test_cdn_endpoint_sorting() {
         let config = CdnConfig::default();
-        let manager = CdnManager::new(config).unwrap();
+        let manager = CdnManager::new(config).expect("Cdn Manager should succeed");
 
         let endpoints = manager.get_available_endpoints();
         assert_eq!(endpoints.len(), 2);
@@ -723,7 +723,7 @@ mod tests {
     #[test]
     fn test_cdn_statistics() {
         let config = CdnConfig::default();
-        let manager = CdnManager::new(config).unwrap();
+        let manager = CdnManager::new(config).expect("Cdn Manager should succeed");
 
         let stats = manager.get_statistics();
         assert_eq!(stats.total_endpoints, 2);

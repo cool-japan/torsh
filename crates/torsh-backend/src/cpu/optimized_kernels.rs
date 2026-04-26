@@ -416,7 +416,8 @@ mod tests {
         let b = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]; // [[1,2], [3,4], [5,6]]
         let mut result = vec![0.0; 4];
 
-        optimized_matmul(&a, &b, &mut result, 2, 2, 3, false, false).unwrap();
+        optimized_matmul(&a, &b, &mut result, 2, 2, 3, false, false)
+            .expect("optimized matmul should succeed");
 
         // Expected: [[22, 28], [49, 64]] in row-major order
         assert_abs_diff_eq!(result[0], 22.0, epsilon = 1e-6);
@@ -430,7 +431,7 @@ mod tests {
         let a = vec![1.0, 2.0, 3.0];
         let b = vec![4.0, 5.0, 6.0];
 
-        let result = optimized_dot(&a, &b).unwrap();
+        let result = optimized_dot(&a, &b).expect("optimized dot should succeed");
         assert_abs_diff_eq!(result, 32.0, epsilon = 1e-6); // 1*4 + 2*5 + 3*6 = 32
     }
 
@@ -441,7 +442,8 @@ mod tests {
         let vector = vec![1.0, 2.0, 3.0];
         let mut result = vec![0.0; 2];
 
-        optimized_matvec(&matrix, &vector, &mut result, 2, 3, false).unwrap();
+        optimized_matvec(&matrix, &vector, &mut result, 2, 3, false)
+            .expect("optimized matvec should succeed");
 
         // Expected: [14, 32] (1*1+2*2+3*3=14, 4*1+5*2+6*3=32)
         assert_abs_diff_eq!(result[0], 14.0, epsilon = 1e-6);

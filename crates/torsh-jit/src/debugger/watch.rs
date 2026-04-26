@@ -329,7 +329,9 @@ mod tests {
     fn test_add_and_remove_watch() {
         let mut manager = WatchManager::new();
 
-        let id = manager.add_watch("test_expression".to_string()).unwrap();
+        let id = manager
+            .add_watch("test_expression".to_string())
+            .expect("operation should succeed");
         assert_eq!(manager.count(), 1);
         assert_eq!(manager.enabled_count(), 1);
 
@@ -341,13 +343,19 @@ mod tests {
     fn test_enable_disable_watch() {
         let mut manager = WatchManager::new();
 
-        let id = manager.add_watch("test_expression".to_string()).unwrap();
+        let id = manager
+            .add_watch("test_expression".to_string())
+            .expect("operation should succeed");
         assert_eq!(manager.enabled_count(), 1);
 
-        manager.disable_watch(id).unwrap();
+        manager
+            .disable_watch(id)
+            .expect("watch disable should succeed");
         assert_eq!(manager.enabled_count(), 0);
 
-        manager.enable_watch(id).unwrap();
+        manager
+            .enable_watch(id)
+            .expect("watch enable should succeed");
         assert_eq!(manager.enabled_count(), 1);
     }
 
@@ -356,14 +364,22 @@ mod tests {
         let mut manager = WatchManager::new();
         let evaluator = MockEvaluator::new();
 
-        let id1 = manager.add_watch("x".to_string()).unwrap();
-        let id2 = manager.add_watch("y".to_string()).unwrap();
+        let id1 = manager
+            .add_watch("x".to_string())
+            .expect("operation should succeed");
+        let id2 = manager
+            .add_watch("y".to_string())
+            .expect("operation should succeed");
 
-        let updates = manager.update_watches(&evaluator).unwrap();
+        let updates = manager
+            .update_watches(&evaluator)
+            .expect("watch update should succeed");
         assert_eq!(updates.len(), 2); // Both watches should have initial values
 
         // Update again - should not produce changes since values are the same
-        let updates = manager.update_watches(&evaluator).unwrap();
+        let updates = manager
+            .update_watches(&evaluator)
+            .expect("watch update should succeed");
         assert_eq!(updates.len(), 0);
     }
 
@@ -385,9 +401,15 @@ mod tests {
     fn test_find_watches_by_pattern() {
         let mut manager = WatchManager::new();
 
-        manager.add_watch("variable_x".to_string()).unwrap();
-        manager.add_watch("variable_y".to_string()).unwrap();
-        manager.add_watch("other_var".to_string()).unwrap();
+        manager
+            .add_watch("variable_x".to_string())
+            .expect("operation should succeed");
+        manager
+            .add_watch("variable_y".to_string())
+            .expect("operation should succeed");
+        manager
+            .add_watch("other_var".to_string())
+            .expect("operation should succeed");
 
         let matches = manager.find_watches_by_pattern("variable");
         assert_eq!(matches.len(), 2);
@@ -401,18 +423,28 @@ mod tests {
         let mut manager = WatchManager::new();
         let evaluator = MockEvaluator::new();
 
-        manager.add_watch("x".to_string()).unwrap();
-        let id2 = manager.add_watch("y".to_string()).unwrap();
-        manager.add_watch("z".to_string()).unwrap(); // This will fail evaluation
+        manager
+            .add_watch("x".to_string())
+            .expect("operation should succeed");
+        let id2 = manager
+            .add_watch("y".to_string())
+            .expect("operation should succeed");
+        manager
+            .add_watch("z".to_string())
+            .expect("operation should succeed"); // This will fail evaluation
 
-        manager.disable_watch(id2).unwrap();
+        manager
+            .disable_watch(id2)
+            .expect("watch disable should succeed");
 
         let (total, enabled, _) = manager.get_statistics();
         assert_eq!(total, 3);
         assert_eq!(enabled, 2); // One is disabled
 
         // Update watches to get values
-        manager.update_watches(&evaluator).unwrap();
+        manager
+            .update_watches(&evaluator)
+            .expect("watch update should succeed");
 
         let (_, _, with_values) = manager.get_statistics();
         assert_eq!(with_values, 1); // Only 'x' will have a value (y is disabled, z fails)
@@ -422,8 +454,12 @@ mod tests {
     fn test_clear_all_watches() {
         let mut manager = WatchManager::new();
 
-        manager.add_watch("watch1".to_string()).unwrap();
-        manager.add_watch("watch2".to_string()).unwrap();
+        manager
+            .add_watch("watch1".to_string())
+            .expect("operation should succeed");
+        manager
+            .add_watch("watch2".to_string())
+            .expect("operation should succeed");
 
         assert_eq!(manager.count(), 2);
         manager.clear_all_watches();
@@ -435,10 +471,14 @@ mod tests {
         let mut manager = WatchManager::new();
         let evaluator = MockEvaluator::new();
 
-        manager.add_watch("x".to_string()).unwrap();
+        manager
+            .add_watch("x".to_string())
+            .expect("operation should succeed");
 
         // Update to get initial value
-        manager.update_watches(&evaluator).unwrap();
+        manager
+            .update_watches(&evaluator)
+            .expect("watch update should succeed");
         let (_, _, with_values) = manager.get_statistics();
         assert_eq!(with_values, 1);
 

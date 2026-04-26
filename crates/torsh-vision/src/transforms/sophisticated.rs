@@ -504,7 +504,7 @@ mod tests {
     #[test]
     #[ignore] // Fails in parallel execution due to shared RNG state
     fn test_transforms_forward() {
-        let input = creation::ones(&[3, 32, 32]).unwrap();
+        let input = creation::ones(&[3, 32, 32]).expect("creation should succeed");
 
         let augmix = AugMix::new();
         let result = augmix.forward(&input);
@@ -522,21 +522,24 @@ mod tests {
     #[test]
     fn test_mosaic_apply_batch() {
         let images = vec![
-            creation::ones(&[3, 16, 16]).unwrap(),
-            creation::zeros(&[3, 16, 16]).unwrap(),
-            creation::full(&[3, 16, 16], 0.5).unwrap(),
-            creation::full(&[3, 16, 16], 0.25).unwrap(),
+            creation::ones(&[3, 16, 16]).expect("creation should succeed"),
+            creation::zeros(&[3, 16, 16]).expect("creation should succeed"),
+            creation::full(&[3, 16, 16], 0.5).expect("creation should succeed"),
+            creation::full(&[3, 16, 16], 0.25).expect("creation should succeed"),
         ];
 
         let mosaic = Mosaic::new((32, 32));
         let result = mosaic.apply_batch(&images);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().shape().dims(), &[3, 32, 32]);
+        assert_eq!(
+            result.expect("operation should succeed").shape().dims(),
+            &[3, 32, 32]
+        );
     }
 
     #[test]
     fn test_mosaic_invalid_batch_size() {
-        let images = vec![creation::ones(&[3, 16, 16]).unwrap()];
+        let images = vec![creation::ones(&[3, 16, 16]).expect("creation should succeed")];
         let mosaic = Mosaic::new((32, 32));
         let result = mosaic.apply_batch(&images);
         assert!(result.is_err());

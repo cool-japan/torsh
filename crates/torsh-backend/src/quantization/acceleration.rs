@@ -809,10 +809,10 @@ mod tests {
 
     #[test]
     fn test_advanced_accelerator_creation() {
-        let accelerator = AdvancedQuantizationAccelerator::new(Device::cpu().unwrap());
+        let accelerator = AdvancedQuantizationAccelerator::new(Device::cpu().expect("Advanced Quantization Accelerator should succeed"));
 
         // Check that base operations are available
-        assert!(accelerator.base_ops().device() == &Device::cpu().unwrap());
+        assert!(accelerator.base_ops().device() == &Device::cpu().expect("Device should succeed"));
 
         // Hardware-specific features depend on the actual hardware
         // Just verify the methods work

@@ -514,7 +514,7 @@ mod tests {
         let candidate = "the quick brown fox";
         let references = &["the quick brown fox"];
 
-        let score = bleu.calculate(candidate, references).unwrap();
+        let score = bleu.calculate(candidate, references).expect("calculation should succeed");
         assert!(
             (score - 1.0).abs() < 1e-10,
             "Perfect match should give score of 1.0, got {}",
@@ -528,7 +528,7 @@ mod tests {
         let candidate = "";
         let references = &["the quick brown fox"];
 
-        let score = bleu.calculate(candidate, references).unwrap();
+        let score = bleu.calculate(candidate, references).expect("calculation should succeed");
         assert_eq!(score, 0.0, "Empty candidate should give score of 0.0");
     }
 
@@ -548,7 +548,7 @@ mod tests {
         let candidate = "the quick brown fox";
         let references = &["the fast brown fox"];
 
-        let score = bleu.calculate(candidate, references).unwrap();
+        let score = bleu.calculate(candidate, references).expect("calculation should succeed");
         assert!(
             score > 0.0 && score < 1.0,
             "Partial match should give score between 0 and 1, got {}",
@@ -562,7 +562,7 @@ mod tests {
         let candidate = "the quick brown fox";
         let references = &["the fast brown fox", "a quick brown fox"];
 
-        let score = bleu.calculate(candidate, references).unwrap();
+        let score = bleu.calculate(candidate, references).expect("calculation should succeed");
         assert!(
             score > 0.0,
             "Multiple references should give positive score, got {}",
@@ -579,7 +579,7 @@ mod tests {
             vec!["hello world", "hi world"],
         ];
 
-        let score = bleu.calculate_corpus(candidates, references).unwrap();
+        let score = bleu.calculate_corpus(candidates, references).expect("corpus calculation should succeed");
         assert!(
             score > 0.0,
             "Corpus BLEU should give positive score, got {}",
@@ -593,7 +593,7 @@ mod tests {
         let candidate = "the quick brown fox";
         let references = &["the fast brown fox"];
 
-        let metrics = bleu.calculate_detailed(candidate, references).unwrap();
+        let metrics = bleu.calculate_detailed(candidate, references).expect("detailed calculation should succeed");
 
         assert!(metrics.bleu_score > 0.0);
         assert_eq!(metrics.precision_scores.len(), 4); // Default max_n = 4
@@ -611,10 +611,10 @@ mod tests {
 
         let score_with = bleu_with_smoothing
             .calculate(candidate, references)
-            .unwrap();
+            .expect("operation should succeed");
         let score_without = bleu_without_smoothing
             .calculate(candidate, references)
-            .unwrap();
+            .expect("operation should succeed");
 
         // With no matches, smoothing should give a small positive score
         // while without smoothing should give 0
@@ -684,7 +684,7 @@ mod tests {
         let candidate = "quick fox";
         let references = &["the quick brown fox"];
 
-        let metrics = bleu.calculate_detailed(candidate, references).unwrap();
+        let metrics = bleu.calculate_detailed(candidate, references).expect("detailed calculation should succeed");
         assert_eq!(metrics.precision_scores.len(), 2); // max_n = 2
     }
 }

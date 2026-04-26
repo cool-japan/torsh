@@ -283,7 +283,7 @@ mod tests {
     #[test]
     fn test_unified_buffer_creation() {
         if crate::is_available() {
-            let device = Arc::new(CudaDevice::new(0).unwrap());
+            let device = Arc::new(CudaDevice::new(0).expect("Arc should succeed"));
 
             // Check if device supports unified memory
             if device
@@ -293,7 +293,7 @@ mod tests {
                 let buffer = UnifiedBuffer::<f32>::new(device, 1024, DType::F32);
                 assert!(buffer.is_ok());
 
-                let buffer = buffer.unwrap();
+                let buffer = buffer.expect("operation should succeed");
                 assert_eq!(buffer.len(), 1024);
                 assert_eq!(buffer.dtype(), DType::F32);
             }
@@ -303,30 +303,45 @@ mod tests {
     #[test]
     fn test_unified_buffer_operations() {
         if crate::is_available() {
-            let device = Arc::new(CudaDevice::new(0).unwrap());
+            let device = Arc::new(CudaDevice::new(0).expect("Arc should succeed"));
 
             if device
                 .supports_feature(crate::cuda::device::CudaFeature::ManagedMemory)
                 .unwrap_or(false)
             {
-                let mut buffer = UnifiedBuffer::<f32>::new(device, 4, DType::F32).unwrap();
+                let mut buffer = UnifiedBuffer::<f32>::new(device, 4, DType::F32)
+                    .expect("construction with valid parameters should succeed");
 
                 // Test copy operations
                 let test_data = vec![1.0, 2.0, 3.0, 4.0];
-                buffer.copy_from_host(&test_data).unwrap();
+                buffer
+                    .copy_from_host(&test_data)
+                    .expect("copy from host memory should succeed");
 
                 let mut result_data = vec![0.0; 4];
-                buffer.copy_to_host(&mut result_data).unwrap();
+                buffer
+                    .copy_to_host(&mut result_data)
+                    .expect("copy to host memory should succeed");
                 assert_eq!(result_data, test_data);
 
                 // Test prefetching
-                buffer.prefetch_to_device(None).unwrap();
-                buffer.prefetch_to_host().unwrap();
+                buffer
+                    .prefetch_to_device(None)
+                    .expect("prefetch to device should succeed");
+                buffer
+                    .prefetch_to_host()
+                    .expect("prefetch to host should succeed");
 
                 // Test memory advice
-                buffer.set_read_mostly().unwrap();
-                buffer.set_preferred_location(0).unwrap();
-                buffer.set_accessed_by(0).unwrap();
+                buffer
+                    .set_read_mostly()
+                    .expect("read-mostly hint should be applied successfully");
+                buffer
+                    .set_preferred_location(0)
+                    .expect("preferred location should be set successfully");
+                buffer
+                    .set_accessed_by(0)
+                    .expect("accessed-by hint should be set successfully");
             }
         }
     }
@@ -334,20 +349,25 @@ mod tests {
     #[test]
     fn test_unified_buffer_slice_access() {
         if crate::is_available() {
-            let device = Arc::new(CudaDevice::new(0).unwrap());
+            let device = Arc::new(CudaDevice::new(0).expect("Arc should succeed"));
 
             if device
                 .supports_feature(crate::cuda::device::CudaFeature::ManagedMemory)
                 .unwrap_or(false)
             {
-                let mut buffer = UnifiedBuffer::<i32>::new(device, 8, DType::I32).unwrap();
+                let mut buffer = UnifiedBuffer::<i32>::new(device, 8, DType::I32)
+                    .expect("construction with valid parameters should succeed");
 
                 // Fill buffer with test data
                 let test_data = vec![1, 2, 3, 4, 5, 6, 7, 8];
-                buffer.copy_from_host(&test_data).unwrap();
+                buffer
+                    .copy_from_host(&test_data)
+                    .expect("copy from host memory should succeed");
 
                 // Test slice access (after prefetching to host)
-                buffer.prefetch_to_host().unwrap();
+                buffer
+                    .prefetch_to_host()
+                    .expect("prefetch to host should succeed");
                 unsafe {
                     let slice = buffer.as_slice();
                     assert_eq!(slice.len(), 8);
@@ -361,26 +381,31 @@ mod tests {
     #[test]
     fn test_unified_buffer_fill_and_zero() {
         if crate::is_available() {
-            let device = Arc::new(CudaDevice::new(0).unwrap());
+            let device = Arc::new(CudaDevice::new(0).expect("Arc should succeed"));
 
             if device
                 .supports_feature(crate::cuda::device::CudaFeature::ManagedMemory)
                 .unwrap_or(false)
             {
-                let mut buffer = UnifiedBuffer::<f32>::new(device, 10, DType::F32).unwrap();
+                let mut buffer = UnifiedBuffer::<f32>::new(device, 10, DType::F32)
+                    .expect("construction with valid parameters should succeed");
 
                 // Test fill
-                buffer.fill(3.14).unwrap();
+                buffer.fill(3.14).expect("fill operation should succeed");
 
                 let mut result = vec![0.0; 10];
-                buffer.copy_to_host(&mut result).unwrap();
+                buffer
+                    .copy_to_host(&mut result)
+                    .expect("copy to host memory should succeed");
                 for &val in &result {
                     assert_eq!(val, 3.14);
                 }
 
                 // Test zero
-                buffer.set_zero().unwrap();
-                buffer.copy_to_host(&mut result).unwrap();
+                buffer.set_zero().expect("zero-fill should succeed");
+                buffer
+                    .copy_to_host(&mut result)
+                    .expect("copy to host memory should succeed");
                 for &val in &result {
                     assert_eq!(val, 0.0);
                 }

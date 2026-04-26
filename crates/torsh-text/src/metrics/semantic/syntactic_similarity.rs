@@ -1443,10 +1443,10 @@ mod tests {
 
     #[test]
     fn test_pos_tagging() {
-        let analyzer = SyntacticSimilarityAnalyzer::default().unwrap();
+        let analyzer = SyntacticSimilarityAnalyzer::default().expect("Syntactic Similarity Analyzer should succeed");
         let tokens = analyzer
             .tokenize_and_tag("The quick brown fox jumps")
-            .unwrap();
+            .expect("operation should succeed");
 
         assert_eq!(tokens.len(), 5);
         assert_eq!(tokens[0].1, PosTag::Determiner); // "The"
@@ -1456,29 +1456,29 @@ mod tests {
 
     #[test]
     fn test_similar_sentences() {
-        let mut analyzer = SyntacticSimilarityAnalyzer::default().unwrap();
+        let mut analyzer = SyntacticSimilarityAnalyzer::default().expect("Syntactic Similarity Analyzer should succeed");
         let text1 = "The quick brown fox jumps over the lazy dog.";
         let text2 = "The fast brown fox leaps over the sleepy dog.";
 
-        let result = analyzer.analyze_similarity(text1, text2).unwrap();
+        let result = analyzer.analyze_similarity(text1, text2).expect("similarity analysis should succeed");
         assert!(result.similarity_score > 0.5);
         assert!(result.pos_similarity > 0.7); // Same POS structure
     }
 
     #[test]
     fn test_different_structures() {
-        let mut analyzer = SyntacticSimilarityAnalyzer::default().unwrap();
+        let mut analyzer = SyntacticSimilarityAnalyzer::default().expect("Syntactic Similarity Analyzer should succeed");
         let text1 = "The cat sits on the mat.";
         let text2 = "Running quickly through the forest, the deer escaped.";
 
-        let result = analyzer.analyze_similarity(text1, text2).unwrap();
+        let result = analyzer.analyze_similarity(text1, text2).expect("similarity analysis should succeed");
         assert!(result.similarity_score < 0.5);
         assert!(!result.structural_differences.is_empty());
     }
 
     #[test]
     fn test_empty_text_error() {
-        let mut analyzer = SyntacticSimilarityAnalyzer::default().unwrap();
+        let mut analyzer = SyntacticSimilarityAnalyzer::default().expect("Syntactic Similarity Analyzer should succeed");
         let result = analyzer.analyze_similarity("", "Some text");
         assert!(result.is_err());
         match result.unwrap_err() {
@@ -1505,7 +1505,7 @@ mod tests {
             .build();
 
         assert!(config.is_ok());
-        let config = config.unwrap();
+        let config = config.expect("operation should succeed");
         assert_eq!(config.approach, SyntacticApproach::PosSequence);
         assert_eq!(config.pos_weight, 0.4);
         assert_eq!(config.min_pattern_length, 3);
@@ -1532,9 +1532,9 @@ mod tests {
 
     #[test]
     fn test_pattern_extraction() {
-        let mut analyzer = SyntacticSimilarityAnalyzer::default().unwrap();
-        let tokens = analyzer.tokenize_and_tag("The quick brown fox").unwrap();
-        let patterns = analyzer.extract_syntactic_patterns(&tokens).unwrap();
+        let mut analyzer = SyntacticSimilarityAnalyzer::default().expect("Syntactic Similarity Analyzer should succeed");
+        let tokens = analyzer.tokenize_and_tag("The quick brown fox").expect("tokenization and tagging should succeed");
+        let patterns = analyzer.extract_syntactic_patterns(&tokens).expect("syntactic pattern extraction should succeed");
 
         assert!(!patterns.is_empty());
         // Should find various n-gram patterns
@@ -1545,13 +1545,13 @@ mod tests {
 
     #[test]
     fn test_structural_complexity() {
-        let analyzer = SyntacticSimilarityAnalyzer::default().unwrap();
-        let simple_tokens = analyzer.tokenize_and_tag("The cat sat.").unwrap();
+        let analyzer = SyntacticSimilarityAnalyzer::default().expect("Syntactic Similarity Analyzer should succeed");
+        let simple_tokens = analyzer.tokenize_and_tag("The cat sat.").expect("tokenization and tagging should succeed");
         let complex_tokens = analyzer
             .tokenize_and_tag(
                 "The extremely intelligent cat sat very comfortably on the soft, warm cushion.",
             )
-            .unwrap();
+            .expect("operation should succeed");
 
         let simple_complexity = analyzer.calculate_structural_complexity(&simple_tokens);
         let complex_complexity = analyzer.calculate_structural_complexity(&complex_tokens);
@@ -1561,11 +1561,11 @@ mod tests {
 
     #[test]
     fn test_question_patterns() {
-        let mut analyzer = SyntacticSimilarityAnalyzer::default().unwrap();
-        let question_tokens = analyzer.tokenize_and_tag("What is the answer?").unwrap();
+        let mut analyzer = SyntacticSimilarityAnalyzer::default().expect("Syntactic Similarity Analyzer should succeed");
+        let question_tokens = analyzer.tokenize_and_tag("What is the answer?").expect("tokenization and tagging should succeed");
         let patterns = analyzer
             .extract_syntactic_patterns(&question_tokens)
-            .unwrap();
+            .expect("operation should succeed");
 
         // Should detect question patterns
         assert!(patterns.iter().any(|p| p.pattern_type.contains("question")));
@@ -1573,8 +1573,8 @@ mod tests {
 
     #[test]
     fn test_phrase_extraction() {
-        let analyzer = SyntacticSimilarityAnalyzer::default().unwrap();
-        let tokens = analyzer.tokenize_and_tag("The big red car").unwrap();
+        let analyzer = SyntacticSimilarityAnalyzer::default().expect("Syntactic Similarity Analyzer should succeed");
+        let tokens = analyzer.tokenize_and_tag("The big red car").expect("tokenization and tagging should succeed");
         let phrases = analyzer.extract_phrase_structures(&tokens);
 
         // Should extract noun phrase
@@ -1599,7 +1599,7 @@ mod tests {
             .dependency_weight(0.0)
             .tree_weight(0.0)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         let result = analyze_syntactic_similarity_with_config(text1, text2, config);
         assert!(result.is_ok());
@@ -1607,9 +1607,9 @@ mod tests {
 
     #[test]
     fn test_dependency_extraction() {
-        let analyzer = SyntacticSimilarityAnalyzer::default().unwrap();
-        let tokens = analyzer.tokenize_and_tag("The big cat").unwrap();
-        let deps = analyzer.extract_dependency_relations(&tokens).unwrap();
+        let analyzer = SyntacticSimilarityAnalyzer::default().expect("Syntactic Similarity Analyzer should succeed");
+        let tokens = analyzer.tokenize_and_tag("The big cat").expect("tokenization and tagging should succeed");
+        let deps = analyzer.extract_dependency_relations(&tokens).expect("dependency relation extraction should succeed");
 
         // Should find dependency relations
         assert!(!deps.is_empty());
@@ -1620,9 +1620,9 @@ mod tests {
 
     #[test]
     fn test_tree_building() {
-        let analyzer = SyntacticSimilarityAnalyzer::default().unwrap();
-        let tokens = analyzer.tokenize_and_tag("The quick fox").unwrap();
-        let tree = analyzer.build_syntactic_tree(&tokens).unwrap();
+        let analyzer = SyntacticSimilarityAnalyzer::default().expect("Syntactic Similarity Analyzer should succeed");
+        let tokens = analyzer.tokenize_and_tag("The quick fox").expect("tokenization and tagging should succeed");
+        let tree = analyzer.build_syntactic_tree(&tokens).expect("syntactic tree construction should succeed");
 
         assert_eq!(tree.len(), 3);
         // Check that some nodes have children (dependencies)
@@ -1631,11 +1631,11 @@ mod tests {
 
     #[test]
     fn test_cache_functionality() {
-        let mut analyzer = SyntacticSimilarityAnalyzer::default().unwrap();
-        let tokens = analyzer.tokenize_and_tag("Test sentence").unwrap();
+        let mut analyzer = SyntacticSimilarityAnalyzer::default().expect("Syntactic Similarity Analyzer should succeed");
+        let tokens = analyzer.tokenize_and_tag("Test sentence").expect("tokenization and tagging should succeed");
 
         // First extraction should populate cache
-        let _patterns1 = analyzer.extract_syntactic_patterns(&tokens).unwrap();
+        let _patterns1 = analyzer.extract_syntactic_patterns(&tokens).expect("syntactic pattern extraction should succeed");
         assert!(!analyzer.pattern_cache.is_empty());
 
         // Clear cache
@@ -1645,16 +1645,16 @@ mod tests {
 
     #[test]
     fn test_quality_score_calculation() {
-        let mut analyzer = SyntacticSimilarityAnalyzer::default().unwrap();
+        let mut analyzer = SyntacticSimilarityAnalyzer::default().expect("Syntactic Similarity Analyzer should succeed");
         let complex_text = "The sophisticated algorithm efficiently processes complex data structures with remarkable precision and accuracy.";
         let simple_text = "Cat runs.";
 
         let complex_result = analyzer
             .analyze_similarity(complex_text, complex_text)
-            .unwrap();
+            .expect("operation should succeed");
         let simple_result = analyzer
             .analyze_similarity(simple_text, simple_text)
-            .unwrap();
+            .expect("operation should succeed");
 
         // Complex text should have higher quality score due to more patterns
         assert!(complex_result.metadata.quality_score >= simple_result.metadata.quality_score);

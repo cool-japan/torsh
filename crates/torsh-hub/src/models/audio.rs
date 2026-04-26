@@ -549,8 +549,10 @@ mod tests {
         let extractor = ConvFeatureExtractor::new(1, &conv_layers, 0.1);
 
         // Test with dummy audio input (batch_size=2, channels=1, seq_len=1000)
-        let input = torsh_tensor::creation::randn(&[2, 1, 1000]).unwrap();
-        let output = extractor.forward(&input).unwrap();
+        let input = torsh_tensor::creation::randn(&[2, 1, 1000]).expect("creation should succeed");
+        let output = extractor
+            .forward(&input)
+            .expect("forward pass should succeed");
 
         // Output should have reduced sequence length due to strided convolutions
         assert_eq!(output.shape().dims()[0], 2); // batch size preserved
@@ -563,8 +565,8 @@ mod tests {
         let model = wav2vec2_base();
 
         // Test with dummy raw audio (batch_size=1, channels=1, seq_len=16000)
-        let input = torsh_tensor::creation::randn(&[1, 1, 16000]).unwrap();
-        let output = model.forward(&input).unwrap();
+        let input = torsh_tensor::creation::randn(&[1, 1, 16000]).expect("creation should succeed");
+        let output = model.forward(&input).expect("forward pass should succeed");
 
         assert_eq!(output.shape().dims()[0], 1); // batch size preserved
         assert_eq!(output.shape().dims()[2], 768); // embed_dim
@@ -576,8 +578,10 @@ mod tests {
         let classifier = audio_classifier_small(10); // 10 classes
 
         // Test with dummy audio input
-        let input = torsh_tensor::creation::randn(&[2, 1, 8000]).unwrap();
-        let output = classifier.forward(&input).unwrap();
+        let input = torsh_tensor::creation::randn(&[2, 1, 8000]).expect("creation should succeed");
+        let output = classifier
+            .forward(&input)
+            .expect("forward pass should succeed");
 
         assert_eq!(output.shape().dims()[0], 2); // batch size
         assert_eq!(output.shape().dims()[1], 10); // num_classes
@@ -589,8 +593,10 @@ mod tests {
         let encoder = whisper_tiny_encoder();
 
         // Test with mel-spectrogram input (batch_size=1, n_mels=80, time_steps=100)
-        let input = torsh_tensor::creation::randn(&[1, 80, 100]).unwrap();
-        let output = encoder.forward(&input).unwrap();
+        let input = torsh_tensor::creation::randn(&[1, 80, 100]).expect("creation should succeed");
+        let output = encoder
+            .forward(&input)
+            .expect("forward pass should succeed");
 
         assert_eq!(output.shape().dims()[0], 1); // batch size preserved
         assert_eq!(output.shape().dims()[2], 384); // n_state

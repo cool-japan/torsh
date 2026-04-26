@@ -246,9 +246,10 @@ mod tests {
     #[test]
     fn test_simple_dataloader() {
         // Create a tensor with 5 samples (first dimension is number of samples)
-        let tensor = torsh_tensor::creation::ones::<f32>(&[5]).unwrap();
+        let tensor = torsh_tensor::creation::ones::<f32>(&[5]).expect("operation should succeed");
         let dataset = TensorDataset::from_tensor(tensor);
-        let dataloader = simple_dataloader(dataset, 2, false).unwrap();
+        let dataloader =
+            simple_dataloader(dataset, 2, false).expect("simple dataloader should succeed");
 
         assert_eq!(dataloader.len(), 3); // 5 items, batch size 2 = 3 batches
         assert!(!dataloader.is_empty());
@@ -257,9 +258,10 @@ mod tests {
     #[test]
     fn test_simple_random_dataloader() {
         // Create a tensor with 5 samples (first dimension is number of samples)
-        let tensor = torsh_tensor::creation::ones::<f32>(&[5]).unwrap();
+        let tensor = torsh_tensor::creation::ones::<f32>(&[5]).expect("operation should succeed");
         let dataset = TensorDataset::from_tensor(tensor);
-        let dataloader = simple_random_dataloader(dataset, 2, Some(42)).unwrap();
+        let dataloader =
+            simple_random_dataloader(dataset, 2, Some(42)).expect("operation should succeed");
 
         assert_eq!(dataloader.len(), 3);
         assert!(!dataloader.is_empty());
@@ -268,9 +270,10 @@ mod tests {
     #[test]
     fn test_simple_random_dataloader_no_seed() {
         // Create a tensor with 5 samples (first dimension is number of samples)
-        let tensor = torsh_tensor::creation::ones::<f32>(&[5]).unwrap();
+        let tensor = torsh_tensor::creation::ones::<f32>(&[5]).expect("operation should succeed");
         let dataset = TensorDataset::from_tensor(tensor);
-        let dataloader = simple_random_dataloader(dataset, 2, None).unwrap();
+        let dataloader = simple_random_dataloader(dataset, 2, None)
+            .expect("simple random dataloader should succeed");
 
         assert_eq!(dataloader.len(), 3);
         assert!(!dataloader.is_empty());
@@ -310,15 +313,16 @@ mod tests {
         use torsh_core::device::DeviceType;
         use torsh_tensor::Tensor;
 
-        let tensor =
-            Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu)
+            .expect("Tensor should succeed");
         let dataset = TensorDataset::from_tensor(tensor);
         let _config = SimpleConfig::new()
             .batch_size(2)
             .shuffle(false)
             .drop_last(false);
 
-        let dataloader = simple_dataloader(dataset, 2, false).unwrap();
+        let dataloader =
+            simple_dataloader(dataset, 2, false).expect("simple dataloader should succeed");
         assert_eq!(dataloader.len(), 3);
     }
 
@@ -327,8 +331,8 @@ mod tests {
         use torsh_core::device::DeviceType;
         use torsh_tensor::Tensor;
 
-        let tensor =
-            Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu)
+            .expect("Tensor should succeed");
         let _dataset = TensorDataset::from_tensor(tensor);
         let config = SimpleConfig::new()
             .batch_size(2)
@@ -343,7 +347,8 @@ mod tests {
     #[test]
     fn test_empty_dataset_simple() {
         let dataset: TensorDataset<f32> = TensorDataset::new(vec![]);
-        let dataloader = simple_dataloader(dataset, 2, false).unwrap();
+        let dataloader =
+            simple_dataloader(dataset, 2, false).expect("simple dataloader should succeed");
 
         assert_eq!(dataloader.len(), 0);
         assert!(dataloader.is_empty());

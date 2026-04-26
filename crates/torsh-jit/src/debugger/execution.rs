@@ -786,7 +786,14 @@ mod tests {
         let duration = Duration::from_millis(10);
         engine.record_operation_timing("add", duration);
 
-        assert_eq!(engine.instruction_timings.get("add").unwrap().len(), 1);
+        assert_eq!(
+            engine
+                .instruction_timings
+                .get("add")
+                .expect("element retrieval should succeed for valid index")
+                .len(),
+            1
+        );
         assert!(engine.operation_stats.contains_key("add"));
 
         let stats = &engine.operation_stats["add"];
@@ -813,7 +820,9 @@ mod tests {
             dtype: DType::F32,
         };
 
-        let result = engine.execute_add_operation(&[input1, input2]).unwrap();
+        let result = engine
+            .execute_add_operation(&[input1, input2])
+            .expect("add operation should succeed");
         assert_eq!(result.data, vec![5.0, 7.0, 9.0]);
         assert_eq!(result.shape.dims(), &[3]);
     }
@@ -829,7 +838,9 @@ mod tests {
             dtype: DType::F32,
         };
 
-        let result = engine.execute_relu_operation(&[input]).unwrap();
+        let result = engine
+            .execute_relu_operation(&[input])
+            .expect("ReLU operation should succeed");
         assert_eq!(result.data, vec![0.0, 0.0, 1.0, 0.0, 3.0]);
     }
 

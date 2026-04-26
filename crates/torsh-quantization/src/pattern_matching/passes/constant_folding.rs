@@ -1160,14 +1160,14 @@ mod tests {
     #[test]
     fn test_constant_value_conversions() {
         let val = ConstantValue::Float32(3.14);
-        assert!((val.to_f32().unwrap() - 3.14).abs() < 1e-6);
-        assert!((val.to_f64().unwrap() - 3.14).abs() < 1e-6);
+        assert!((val.to_f32().expect("f32 conversion should succeed") - 3.14).abs() < 1e-6);
+        assert!((val.to_f64().expect("f64 conversion should succeed") - 3.14).abs() < 1e-6);
 
         let bool_val = ConstantValue::Bool(true);
-        assert_eq!(bool_val.to_f32().unwrap(), 1.0);
+        assert_eq!(bool_val.to_f32().expect("f32 conversion should succeed"), 1.0);
 
         let int_val = ConstantValue::Int32(42);
-        assert_eq!(int_val.to_f32().unwrap(), 42.0);
+        assert_eq!(int_val.to_f32().expect("f32 conversion should succeed"), 42.0);
     }
 
     #[test]
@@ -1220,16 +1220,16 @@ mod tests {
 
         // Test addition
         let inputs = vec![ConstantValue::Float32(2.0), ConstantValue::Float32(3.0)];
-        let result = pass.compute_add(&inputs).unwrap();
-        assert_eq!(result.to_f64().unwrap(), 5.0);
+        let result = pass.compute_add(&inputs).expect("add computation should succeed");
+        assert_eq!(result.to_f64().expect("f64 conversion should succeed"), 5.0);
 
         // Test multiplication
-        let result = pass.compute_mul(&inputs).unwrap();
-        assert_eq!(result.to_f64().unwrap(), 6.0);
+        let result = pass.compute_mul(&inputs).expect("multiply computation should succeed");
+        assert_eq!(result.to_f64().expect("f64 conversion should succeed"), 6.0);
 
         // Test division
-        let result = pass.compute_div(&inputs).unwrap();
-        assert!((result.to_f64().unwrap() - (2.0 / 3.0)).abs() < 1e-10);
+        let result = pass.compute_div(&inputs).expect("divide computation should succeed");
+        assert!((result.to_f64().expect("f64 conversion should succeed") - (2.0 / 3.0)).abs() < 1e-10);
     }
 
     #[test]
@@ -1237,16 +1237,16 @@ mod tests {
         let pass = ConstantFoldingPass::new();
 
         let inputs = vec![ConstantValue::Float32(4.0)];
-        let result = pass.compute_sqrt(&inputs).unwrap();
-        assert_eq!(result.to_f64().unwrap(), 2.0);
+        let result = pass.compute_sqrt(&inputs).expect("sqrt computation should succeed");
+        assert_eq!(result.to_f64().expect("f64 conversion should succeed"), 2.0);
 
         let inputs = vec![ConstantValue::Float32(0.0)];
-        let result = pass.compute_exp(&inputs).unwrap();
-        assert_eq!(result.to_f64().unwrap(), 1.0);
+        let result = pass.compute_exp(&inputs).expect("exp computation should succeed");
+        assert_eq!(result.to_f64().expect("f64 conversion should succeed"), 1.0);
 
         let inputs = vec![ConstantValue::Float32(std::f32::consts::PI / 2.0)];
-        let result = pass.compute_sin(&inputs).unwrap();
-        assert!((result.to_f64().unwrap() - 1.0).abs() < 1e-10);
+        let result = pass.compute_sin(&inputs).expect("sin computation should succeed");
+        assert!((result.to_f64().expect("f64 conversion should succeed") - 1.0).abs() < 1e-10);
     }
 
     #[test]
@@ -1254,14 +1254,14 @@ mod tests {
         let pass = ConstantFoldingPass::new();
 
         let inputs = vec![ConstantValue::Float32(2.0), ConstantValue::Float32(3.0)];
-        let result = pass.compute_lt(&inputs).unwrap();
+        let result = pass.compute_lt(&inputs).expect("less-than computation should succeed");
         if let ConstantValue::Bool(val) = result {
             assert!(val);
         } else {
             panic!("Expected bool result");
         }
 
-        let result = pass.compute_gt(&inputs).unwrap();
+        let result = pass.compute_gt(&inputs).expect("greater-than computation should succeed");
         if let ConstantValue::Bool(val) = result {
             assert!(!val);
         } else {
@@ -1307,11 +1307,11 @@ mod tests {
         graph.add_node(const2);
         graph.add_node(add_node);
 
-        graph.connect_nodes("const1", "add1").unwrap();
-        graph.connect_nodes("const2", "add1").unwrap();
+        graph.connect_nodes("const1", "add1").expect("node connection should succeed");
+        graph.connect_nodes("const2", "add1").expect("node connection should succeed");
 
         let mut pass = ConstantFoldingPass::new();
-        let result = pass.fold(&mut graph).unwrap();
+        let result = pass.fold(&mut graph).expect("fold operation should succeed");
 
         assert!(result.success);
         assert!(result.nodes_folded > 0);

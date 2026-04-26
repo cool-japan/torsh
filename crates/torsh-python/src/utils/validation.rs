@@ -354,16 +354,34 @@ mod tests {
 
     #[test]
     fn test_validate_index_positive() {
-        assert_eq!(validate_index(0, 10).unwrap(), 0);
-        assert_eq!(validate_index(5, 10).unwrap(), 5);
-        assert_eq!(validate_index(9, 10).unwrap(), 9);
+        assert_eq!(
+            validate_index(0, 10).expect("validate index should succeed"),
+            0
+        );
+        assert_eq!(
+            validate_index(5, 10).expect("validate index should succeed"),
+            5
+        );
+        assert_eq!(
+            validate_index(9, 10).expect("validate index should succeed"),
+            9
+        );
     }
 
     #[test]
     fn test_validate_index_negative() {
-        assert_eq!(validate_index(-1, 10).unwrap(), 9);
-        assert_eq!(validate_index(-5, 10).unwrap(), 5);
-        assert_eq!(validate_index(-10, 10).unwrap(), 0);
+        assert_eq!(
+            validate_index(-1, 10).expect("validate index should succeed"),
+            9
+        );
+        assert_eq!(
+            validate_index(-5, 10).expect("validate index should succeed"),
+            5
+        );
+        assert_eq!(
+            validate_index(-10, 10).expect("validate index should succeed"),
+            0
+        );
     }
 
     #[test]
@@ -385,19 +403,23 @@ mod tests {
     #[test]
     fn test_validate_broadcast_shapes_compatible() {
         assert_eq!(
-            validate_broadcast_shapes(&[3, 4], &[3, 4]).unwrap(),
+            validate_broadcast_shapes(&[3, 4], &[3, 4])
+                .expect("validate broadcast shapes should succeed"),
             vec![3, 4]
         );
         assert_eq!(
-            validate_broadcast_shapes(&[3, 1], &[3, 4]).unwrap(),
+            validate_broadcast_shapes(&[3, 1], &[3, 4])
+                .expect("validate broadcast shapes should succeed"),
             vec![3, 4]
         );
         assert_eq!(
-            validate_broadcast_shapes(&[1, 4], &[3, 4]).unwrap(),
+            validate_broadcast_shapes(&[1, 4], &[3, 4])
+                .expect("validate broadcast shapes should succeed"),
             vec![3, 4]
         );
         assert_eq!(
-            validate_broadcast_shapes(&[3, 4], &[4]).unwrap(),
+            validate_broadcast_shapes(&[3, 4], &[4])
+                .expect("validate broadcast shapes should succeed"),
             vec![3, 4]
         );
     }
@@ -518,16 +540,34 @@ mod tests {
 
     #[test]
     fn test_validate_dimension_positive() {
-        assert_eq!(validate_dimension(0, 4).unwrap(), 0);
-        assert_eq!(validate_dimension(2, 4).unwrap(), 2);
-        assert_eq!(validate_dimension(3, 4).unwrap(), 3);
+        assert_eq!(
+            validate_dimension(0, 4).expect("validate dimension should succeed"),
+            0
+        );
+        assert_eq!(
+            validate_dimension(2, 4).expect("validate dimension should succeed"),
+            2
+        );
+        assert_eq!(
+            validate_dimension(3, 4).expect("validate dimension should succeed"),
+            3
+        );
     }
 
     #[test]
     fn test_validate_dimension_negative() {
-        assert_eq!(validate_dimension(-1, 4).unwrap(), 3);
-        assert_eq!(validate_dimension(-2, 4).unwrap(), 2);
-        assert_eq!(validate_dimension(-4, 4).unwrap(), 0);
+        assert_eq!(
+            validate_dimension(-1, 4).expect("validate dimension should succeed"),
+            3
+        );
+        assert_eq!(
+            validate_dimension(-2, 4).expect("validate dimension should succeed"),
+            2
+        );
+        assert_eq!(
+            validate_dimension(-4, 4).expect("validate dimension should succeed"),
+            0
+        );
     }
 
     #[test]
@@ -686,11 +726,19 @@ mod tests {
     fn test_validate_pooling_output_size_valid() {
         // Input: 28, Kernel: 2, Stride: 2, Padding: 0, Dilation: 1
         // Output: (28 + 0 - 2) / 2 + 1 = 14
-        assert_eq!(validate_pooling_output_size(28, 2, 2, 0, 1).unwrap(), 14);
+        assert_eq!(
+            validate_pooling_output_size(28, 2, 2, 0, 1)
+                .expect("validate pooling output size should succeed"),
+            14
+        );
 
         // Input: 32, Kernel: 3, Stride: 1, Padding: 1, Dilation: 1
         // Output: (32 + 2 - 3) / 1 + 1 = 32
-        assert_eq!(validate_pooling_output_size(32, 3, 1, 1, 1).unwrap(), 32);
+        assert_eq!(
+            validate_pooling_output_size(32, 3, 1, 1, 1)
+                .expect("validate pooling output size should succeed"),
+            32
+        );
     }
 
     #[test]

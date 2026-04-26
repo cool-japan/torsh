@@ -1390,7 +1390,7 @@ mod tests {
             .build();
 
         assert!(config.is_ok());
-        let config = config.unwrap();
+        let config = config.expect("operation should succeed");
         assert!(config.enable_similarity_analysis);
         assert!(!config.enable_sentiment_analysis);
         assert_eq!(config.cache_size_limit, 500);
@@ -1409,14 +1409,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_comprehensive_analysis() {
-        let mut analyzer = SemanticAnalyzer::default().unwrap();
+        let mut analyzer = SemanticAnalyzer::default().expect("Semantic Analyzer should succeed");
         let text1 = "The quick brown fox jumps over the lazy dog.";
         let text2 = "A fast brown fox leaps across the sleeping dog.";
 
         let result = analyzer.analyze_comprehensive(text1, text2).await;
         assert!(result.is_ok());
 
-        let result = result.unwrap();
+        let result = result.expect("operation should succeed");
         assert!(result.overall_similarity >= 0.0 && result.overall_similarity <= 1.0);
         assert!(result.quality_score >= 0.0 && result.quality_score <= 1.0);
         assert!(result.confidence_score >= 0.0 && result.confidence_score <= 1.0);
@@ -1424,19 +1424,19 @@ mod tests {
 
     #[tokio::test]
     async fn test_single_text_analysis() {
-        let mut analyzer = SemanticAnalyzer::default().unwrap();
+        let mut analyzer = SemanticAnalyzer::default().expect("Semantic Analyzer should succeed");
         let text = "This is a sample text for analysis.";
 
         let result = analyzer.analyze_single(text).await;
         assert!(result.is_ok());
 
-        let result = result.unwrap();
+        let result = result.expect("operation should succeed");
         assert_eq!(result.metadata.text1_characteristics.word_count, 7);
     }
 
     #[tokio::test]
     async fn test_batch_analysis() {
-        let mut analyzer = SemanticAnalyzer::default().unwrap();
+        let mut analyzer = SemanticAnalyzer::default().expect("Semantic Analyzer should succeed");
         let text_pairs = vec![
             ("Hello world", "Hi there"),
             ("Technical document", "Academic paper"),
@@ -1446,7 +1446,7 @@ mod tests {
         let result = analyzer.analyze_batch(&text_pairs).await;
         assert!(result.is_ok());
 
-        let result = result.unwrap();
+        let result = result.expect("operation should succeed");
         assert_eq!(result.batch_statistics.total_items, 3);
         assert!(result.batch_statistics.successful_analyses > 0);
     }
@@ -1457,18 +1457,18 @@ mod tests {
             .enable_caching(true)
             .cache_size_limit(10)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
-        let mut analyzer = SemanticAnalyzer::new(config).unwrap();
+        let mut analyzer = SemanticAnalyzer::new(config).expect("Semantic Analyzer should succeed");
         let text1 = "Sample text";
         let text2 = "Another text";
 
         // First analysis should be a cache miss
-        let _result1 = analyzer.analyze_comprehensive(text1, text2).await.unwrap();
+        let _result1 = analyzer.analyze_comprehensive(text1, text2).await.expect("operation should succeed");
         let stats1 = analyzer.get_cache_stats();
 
         // Second analysis should be a cache hit
-        let _result2 = analyzer.analyze_comprehensive(text1, text2).await.unwrap();
+        let _result2 = analyzer.analyze_comprehensive(text1, text2).await.expect("operation should succeed");
         let stats2 = analyzer.get_cache_stats();
 
         assert!(stats2.cache_hits > stats1.cache_hits);
@@ -1484,7 +1484,7 @@ mod tests {
 
         let similarity = quick_similarity(text1, text2).await;
         assert!(similarity.is_ok());
-        assert!(similarity.unwrap() >= 0.0);
+        assert!(similarity.expect("operation should succeed") >= 0.0);
     }
 
     #[tokio::test]
@@ -1492,9 +1492,9 @@ mod tests {
         let config = SemanticAnalysisConfig::builder()
             .timeout_seconds(1) // Very short timeout
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
-        let mut analyzer = SemanticAnalyzer::new(config).unwrap();
+        let mut analyzer = SemanticAnalyzer::new(config).expect("Semantic Analyzer should succeed");
 
         // Use very long texts that might cause timeout
         let long_text = "word ".repeat(10000);
@@ -1510,7 +1510,7 @@ mod tests {
 
     #[test]
     fn test_text_characteristics() {
-        let analyzer = SemanticAnalyzer::default().unwrap();
+        let analyzer = SemanticAnalyzer::default().expect("Semantic Analyzer should succeed");
         let text = "This is a sample sentence. It has multiple words and punctuation!";
         let characteristics = analyzer.analyze_text_characteristics(text);
 
@@ -1596,9 +1596,9 @@ mod tests {
         let config = SemanticAnalysisConfig::builder()
             .enable_caching(true)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
-        let mut analyzer = SemanticAnalyzer::new(config).unwrap();
+        let mut analyzer = SemanticAnalyzer::new(config).expect("Semantic Analyzer should succeed");
 
         // Add something to cache
         let _ = analyzer.analyze_comprehensive("test1", "test2").await;

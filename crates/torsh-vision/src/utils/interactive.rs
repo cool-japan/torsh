@@ -742,8 +742,9 @@ mod tests {
             step: 0.01,
         };
 
-        let json = serde_json::to_string(&param).unwrap();
-        let deserialized: Parameter = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&param).expect("serde json should succeed");
+        let deserialized: Parameter =
+            serde_json::from_str(&json).expect("serde json should succeed");
 
         assert_eq!(param.name, deserialized.name);
         assert_eq!(param.value, deserialized.value);
@@ -770,8 +771,9 @@ mod tests {
             };
 
             // Test serialization
-            let json = serde_json::to_string(&annotation).unwrap();
-            let _deserialized: Annotation = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&annotation).expect("serde json should succeed");
+            let _deserialized: Annotation =
+                serde_json::from_str(&json).expect("serde json should succeed");
         }
     }
 }

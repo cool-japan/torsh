@@ -287,7 +287,9 @@ mod tests {
         let mut manager = BreakpointManager::new();
 
         let location = BreakpointLocation::GraphNode(NodeId::new(0));
-        let id = manager.set_breakpoint(location).unwrap();
+        let id = manager
+            .set_breakpoint(location)
+            .expect("breakpoint setting should succeed");
 
         assert_eq!(manager.count(), 1);
         assert_eq!(manager.enabled_count(), 1);
@@ -303,9 +305,11 @@ mod tests {
         let condition = "x > 10".to_string();
         let id = manager
             .set_conditional_breakpoint(location, condition.clone())
-            .unwrap();
+            .expect("operation should succeed");
 
-        let breakpoint = manager.get_breakpoint(id).unwrap();
+        let breakpoint = manager
+            .get_breakpoint(id)
+            .expect("breakpoint retrieval should succeed");
         assert_eq!(breakpoint.condition, Some(condition));
     }
 
@@ -314,14 +318,20 @@ mod tests {
         let mut manager = BreakpointManager::new();
 
         let location = BreakpointLocation::GraphNode(NodeId::new(0));
-        let id = manager.set_breakpoint(location).unwrap();
+        let id = manager
+            .set_breakpoint(location)
+            .expect("breakpoint setting should succeed");
 
         assert_eq!(manager.enabled_count(), 1);
 
-        manager.disable_breakpoint(id).unwrap();
+        manager
+            .disable_breakpoint(id)
+            .expect("breakpoint disable should succeed");
         assert_eq!(manager.enabled_count(), 0);
 
-        manager.enable_breakpoint(id).unwrap();
+        manager
+            .enable_breakpoint(id)
+            .expect("breakpoint enable should succeed");
         assert_eq!(manager.enabled_count(), 1);
     }
 
@@ -331,7 +341,9 @@ mod tests {
 
         let node_id = NodeId::new(0);
         let location = BreakpointLocation::GraphNode(node_id);
-        manager.set_breakpoint(location).unwrap();
+        manager
+            .set_breakpoint(location)
+            .expect("breakpoint setting should succeed");
 
         let exec_location = ExecutionLocation::GraphNode(node_id);
         assert!(manager.is_breakpoint_at(&exec_location));
@@ -346,13 +358,17 @@ mod tests {
 
         let node_id = NodeId::new(0);
         let location = BreakpointLocation::GraphNode(node_id);
-        let id = manager.set_breakpoint(location).unwrap();
+        let id = manager
+            .set_breakpoint(location)
+            .expect("breakpoint setting should succeed");
 
         let exec_location = ExecutionLocation::GraphNode(node_id);
         let hit_count = manager.hit_breakpoints_at(&exec_location);
         assert_eq!(hit_count, 1);
 
-        let breakpoint = manager.get_breakpoint(id).unwrap();
+        let breakpoint = manager
+            .get_breakpoint(id)
+            .expect("breakpoint retrieval should succeed");
         assert_eq!(breakpoint.hit_count, 1);
     }
 
@@ -362,10 +378,10 @@ mod tests {
 
         manager
             .set_breakpoint(BreakpointLocation::GraphNode(NodeId::new(0)))
-            .unwrap();
+            .expect("operation should succeed");
         manager
             .set_breakpoint(BreakpointLocation::GraphNode(NodeId::new(1)))
-            .unwrap();
+            .expect("operation should succeed");
 
         assert_eq!(manager.count(), 2);
         manager.clear_all_breakpoints();

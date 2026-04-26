@@ -571,62 +571,62 @@ mod tests {
 
     #[test]
     fn test_sparse_linear_creation() {
-        let layer = SparseLinear::new(10, 5, 0.5, true).unwrap();
+        let layer = SparseLinear::new(10, 5, 0.5, true).expect("Sparse Linear should succeed");
         assert_eq!(layer.sparsity(), 0.5);
         assert!(layer.num_parameters() > 0);
     }
 
     #[test]
     fn test_sparse_linear_forward() {
-        let layer = SparseLinear::new(4, 2, 0.3, false).unwrap();
-        let input = ones::<f32>(&[4]).unwrap();
-        let output = layer.forward(&input).unwrap();
+        let layer = SparseLinear::new(4, 2, 0.3, false).expect("Sparse Linear should succeed");
+        let input = ones::<f32>(&[4]).expect("operation should succeed");
+        let output = layer.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[2]);
     }
 
     #[test]
     fn test_sparse_linear_batch_forward() {
-        let layer = SparseLinear::new(3, 2, 0.4, true).unwrap();
-        let input = ones::<f32>(&[2, 3]).unwrap();
-        let output = layer.forward(&input).unwrap();
+        let layer = SparseLinear::new(3, 2, 0.4, true).expect("Sparse Linear should succeed");
+        let input = ones::<f32>(&[2, 3]).expect("operation should succeed");
+        let output = layer.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[2, 2]);
     }
 
     #[test]
     fn test_sparse_embedding_creation() {
-        let embedding = SparseEmbedding::new(100, 50, 0.7).unwrap();
+        let embedding = SparseEmbedding::new(100, 50, 0.7).expect("Sparse Embedding should succeed");
         assert_eq!(embedding.sparsity(), 0.7);
         assert!(embedding.num_parameters() > 0);
     }
 
     #[test]
     fn test_sparse_embedding_forward() {
-        let embedding = SparseEmbedding::new(10, 4, 0.6).unwrap();
+        let embedding = SparseEmbedding::new(10, 4, 0.6).expect("Sparse Embedding should succeed");
         let indices = vec![0, 1, 2];
-        let output = embedding.forward(&indices).unwrap();
+        let output = embedding.forward(&indices).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[3, 4]);
     }
 
     #[test]
     fn test_sparse_embedding_single_lookup() {
-        let embedding = SparseEmbedding::new(5, 3, 0.5).unwrap();
-        let output = embedding.get_embedding(2).unwrap();
+        let embedding = SparseEmbedding::new(5, 3, 0.5).expect("Sparse Embedding should succeed");
+        let output = embedding.get_embedding(2).expect("embedding retrieval should succeed");
         assert_eq!(output.shape().dims(), &[3]);
     }
 
     #[test]
     fn test_magnitude_pruning() {
-        let mut layer = SparseLinear::new(4, 3, 0.2, false).unwrap();
+        let mut layer = SparseLinear::new(4, 3, 0.2, false).expect("Sparse Linear should succeed");
         let original_sparsity = layer.sparsity();
-        layer.magnitude_prune(0.3).unwrap();
+        layer.magnitude_prune(0.3).expect("magnitude pruning should succeed");
         assert!(layer.sparsity() > original_sparsity);
     }
 
     #[test]
     fn test_structured_pruning() {
-        let mut layer = SparseLinear::new(6, 4, 0.3, false).unwrap();
+        let mut layer = SparseLinear::new(6, 4, 0.3, false).expect("Sparse Linear should succeed");
         let original_sparsity = layer.sparsity();
-        layer.structured_prune(0.25, 0).unwrap(); // Prune 25% of rows
+        layer.structured_prune(0.25, 0).expect("structured pruning should succeed"); // Prune 25% of rows
         assert!(layer.sparsity() >= original_sparsity);
     }
 
@@ -638,7 +638,7 @@ mod tests {
 
     #[test]
     fn test_invalid_indices() {
-        let embedding = SparseEmbedding::new(5, 3, 0.5).unwrap();
+        let embedding = SparseEmbedding::new(5, 3, 0.5).expect("Sparse Embedding should succeed");
         assert!(embedding.forward(&[0, 1, 10]).is_err()); // Index 10 out of range
         assert!(embedding.get_embedding(5).is_err()); // Index 5 out of range
     }

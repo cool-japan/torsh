@@ -151,7 +151,8 @@ mod tests {
     #[test]
     fn test_embeddings_parameters() {
         let config = LongformerConfig::longformer_base();
-        let embeddings = LongformerEmbeddings::new(config).unwrap();
+        let embeddings =
+            LongformerEmbeddings::new(config).expect("Longformer Embeddings should succeed");
         let params = embeddings.parameters();
         assert!(params.contains_key("word_embeddings.weight"));
         assert!(params.contains_key("position_embeddings.weight"));

@@ -678,7 +678,7 @@ mod tests {
             result.err()
         );
 
-        let info = result.unwrap();
+        let info = result.expect("operation should succeed");
         assert_eq!(info.initialized_devices, vec![0]);
         assert!(info.capabilities.total_device_memory > 0);
 

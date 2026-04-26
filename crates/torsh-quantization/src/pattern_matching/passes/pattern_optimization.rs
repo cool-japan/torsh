@@ -684,7 +684,7 @@ mod tests {
         let mut graph = create_linear_graph(&["conv2d", "relu"]);
 
         let initial_count = graph.nodes.len();
-        let result = pass.optimize(&mut graph).unwrap();
+        let result = pass.optimize(&mut graph).expect("optimization should succeed");
 
         assert!(result.success);
         // Should have fewer nodes due to fusion
@@ -743,7 +743,7 @@ mod tests {
 
         // Statistics should be updated after optimization
         let mut graph = create_linear_graph(&["conv2d", "relu"]);
-        let _result = pass.optimize(&mut graph).unwrap();
+        let _result = pass.optimize(&mut graph).expect("optimization should succeed");
 
         let updated_stats = pass.get_statistics();
         assert!(updated_stats.optimization_runs > 0);

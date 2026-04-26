@@ -549,11 +549,11 @@ mod tests {
         graph.add_node(node3);
         graph.add_node(dead_node);
 
-        graph.connect_nodes("input", "compute").unwrap();
-        graph.connect_nodes("compute", "output").unwrap();
+        graph.connect_nodes("input", "compute").expect("node connection should succeed");
+        graph.connect_nodes("compute", "output").expect("node connection should succeed");
 
         let mut pass = DeadCodeEliminationPass::new();
-        let result = pass.eliminate(&mut graph).unwrap();
+        let result = pass.eliminate(&mut graph).expect("elimination should succeed");
 
         assert!(result.success);
         assert!(result.nodes_eliminated > 0);
@@ -613,10 +613,10 @@ mod tests {
         graph.add_node(output_node);
         graph.add_node(dead_node);
 
-        graph.connect_nodes("input", "compute").unwrap();
-        graph.connect_nodes("compute", "output").unwrap();
+        graph.connect_nodes("input", "compute").expect("node connection should succeed");
+        graph.connect_nodes("compute", "output").expect("node connection should succeed");
 
-        let analysis = analyze_dead_code(&graph).unwrap();
+        let analysis = analyze_dead_code(&graph).expect("analyze dead code should succeed");
         assert_eq!(analysis.total_nodes, 4);
         assert!(analysis.dead_nodes > 0);
         assert!(analysis.dead_node_ids.contains(&"dead".to_string()));
@@ -642,7 +642,7 @@ mod tests {
 
         // Statistics should be updated after elimination
         let mut graph = create_linear_graph(&["input", "relu", "output"]);
-        let _result = pass.eliminate(&mut graph).unwrap();
+        let _result = pass.eliminate(&mut graph).expect("elimination should succeed");
 
         let updated_stats = pass.get_statistics();
         assert!(updated_stats.elimination_runs > 0);

@@ -731,7 +731,7 @@ mod tests {
             .build();
 
         assert!(config.is_ok());
-        let config = config.unwrap();
+        let config = config.expect("operation should succeed");
         assert_eq!(config.coherence.coherence_weight, 0.4);
         assert_eq!(config.coherence.similarity_threshold, 0.7);
         assert!(config.advanced.enable_advanced_relations);
@@ -767,7 +767,7 @@ mod tests {
         let serialized = serde_json::to_string(&config);
         assert!(serialized.is_ok());
 
-        let deserialized: Result<SemanticConfig, _> = serde_json::from_str(&serialized.unwrap());
+        let deserialized: Result<SemanticConfig, _> = serde_json::from_str(&serialized.expect("operation should succeed"));
         assert!(deserialized.is_ok());
     }
 }

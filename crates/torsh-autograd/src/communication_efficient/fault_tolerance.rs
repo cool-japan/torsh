@@ -890,7 +890,10 @@ mod tests {
         // High error rate should trigger detection
         let fault = detector.detect_corruption_faults(1, 10, 100); // 10% error rate
         assert!(fault.is_some());
-        assert_eq!(fault.unwrap().fault_type, FaultType::Corruption);
+        assert_eq!(
+            fault.expect("operation should succeed").fault_type,
+            FaultType::Corruption
+        );
 
         // Low error rate should not trigger detection
         let no_fault = detector.detect_corruption_faults(1, 2, 100); // 2% error rate
@@ -923,7 +926,7 @@ mod tests {
         let result = coordinator.initiate_fault_consensus(fault);
         assert!(result.is_ok());
 
-        let request_id = result.unwrap();
+        let request_id = result.expect("operation should succeed");
         assert!(coordinator
             .coordination_protocol
             .pending_consensus

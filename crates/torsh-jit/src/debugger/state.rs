@@ -461,11 +461,13 @@ mod tests {
             local_variables: HashMap::new(),
         };
 
-        stack.push(frame.clone()).unwrap();
+        stack.push(frame.clone()).expect("operation should succeed");
         assert_eq!(stack.depth(), 1);
         assert!(!stack.is_empty());
 
-        let current = stack.current_frame().unwrap();
+        let current = stack
+            .current_frame()
+            .expect("current frame should be available");
         assert_eq!(current.function_name, "test_function");
 
         let return_location = stack.pop();
@@ -508,12 +510,18 @@ mod tests {
         let mut memory = MemoryState::new();
 
         let data = vec![1, 2, 3, 4, 5];
-        memory.write_memory(0x1000, &data).unwrap();
+        memory
+            .write_memory(0x1000, &data)
+            .expect("memory write should succeed");
 
-        let read_data = memory.read_memory(0x1000, 5).unwrap();
+        let read_data = memory
+            .read_memory(0x1000, 5)
+            .expect("memory read should succeed");
         assert_eq!(read_data, data);
 
-        let partial_data = memory.read_memory(0x1002, 2).unwrap();
+        let partial_data = memory
+            .read_memory(0x1002, 2)
+            .expect("memory read should succeed");
         assert_eq!(partial_data, vec![3, 4]);
     }
 
@@ -523,14 +531,18 @@ mod tests {
 
         let id1 = memory
             .allocate_region(0x1000, 100, Some("test_region".to_string()))
-            .unwrap();
+            .expect("operation should succeed");
         assert_eq!(memory.get_allocated_regions().len(), 1);
 
-        let region = memory.find_region_containing(0x1050).unwrap();
+        let region = memory
+            .find_region_containing(0x1050)
+            .expect("region containing address should be found");
         assert_eq!(region.id, id1);
         assert_eq!(region.size, 100);
 
-        memory.deallocate_region(id1).unwrap();
+        memory
+            .deallocate_region(id1)
+            .expect("region deallocation should succeed");
         assert_eq!(memory.get_allocated_regions().len(), 0);
     }
 
@@ -538,7 +550,9 @@ mod tests {
     fn test_memory_overlap_detection() {
         let mut memory = MemoryState::new();
 
-        memory.allocate_region(0x1000, 100, None).unwrap();
+        memory
+            .allocate_region(0x1000, 100, None)
+            .expect("region allocation should succeed");
 
         // This should fail due to overlap
         let result = memory.allocate_region(0x1050, 100, None);
@@ -549,13 +563,17 @@ mod tests {
     fn test_memory_typed_access() {
         let mut memory = MemoryState::new();
 
-        memory.write_u32(0x1000, 0x12345678).unwrap();
-        memory.write_f64(0x1004, 3.14159).unwrap();
+        memory
+            .write_u32(0x1000, 0x12345678)
+            .expect("u32 write should succeed");
+        memory
+            .write_f64(0x1004, 3.14159)
+            .expect("f64 write should succeed");
 
-        let u32_val = memory.read_u32(0x1000).unwrap();
+        let u32_val = memory.read_u32(0x1000).expect("u32 read should succeed");
         assert_eq!(u32_val, 0x12345678);
 
-        let f64_val = memory.read_f64(0x1004).unwrap();
+        let f64_val = memory.read_f64(0x1004).expect("f64 read should succeed");
         assert!((f64_val - 3.14159).abs() < 1e-10);
     }
 
@@ -564,7 +582,9 @@ mod tests {
         let mut memory = MemoryState::with_limit(50);
 
         // This should succeed
-        memory.allocate_region(0x1000, 40, None).unwrap();
+        memory
+            .allocate_region(0x1000, 40, None)
+            .expect("region allocation should succeed");
 
         // This should fail due to exceeding limit
         let result = memory.allocate_region(0x2000, 20, None);
@@ -596,9 +616,9 @@ mod tests {
             local_variables: HashMap::new(),
         };
 
-        stack.push(frame1).unwrap();
-        stack.push(frame2).unwrap();
-        stack.push(frame3).unwrap();
+        stack.push(frame1).expect("push operation should succeed");
+        stack.push(frame2).expect("push operation should succeed");
+        stack.push(frame3).expect("push operation should succeed");
 
         let main_indices = stack.find_frames_by_function("main");
         assert_eq!(main_indices.len(), 2);
@@ -613,8 +633,12 @@ mod tests {
     fn test_memory_stats() {
         let mut memory = MemoryState::with_limit(1000);
 
-        memory.allocate_region(0x1000, 100, None).unwrap();
-        memory.allocate_region(0x2000, 200, None).unwrap();
+        memory
+            .allocate_region(0x1000, 100, None)
+            .expect("region allocation should succeed");
+        memory
+            .allocate_region(0x2000, 200, None)
+            .expect("region allocation should succeed");
 
         let stats = memory.get_memory_stats();
         assert_eq!(stats.total_allocated, 300);

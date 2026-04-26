@@ -445,7 +445,9 @@ mod tests {
             "client_3".to_string(),
         ];
 
-        let selected = selector.select_clients(&clients, 2).unwrap();
+        let selected = selector
+            .select_clients(&clients, 2)
+            .expect("client selection should succeed");
         assert_eq!(selected.len(), 2);
         assert!(clients.contains(&selected[0]));
         assert!(clients.contains(&selected[1]));
@@ -460,8 +462,12 @@ mod tests {
             "client_3".to_string(),
         ];
 
-        let selected1 = selector.select_clients(&clients, 2).unwrap();
-        let selected2 = selector.select_clients(&clients, 2).unwrap();
+        let selected1 = selector
+            .select_clients(&clients, 2)
+            .expect("client selection should succeed");
+        let selected2 = selector
+            .select_clients(&clients, 2)
+            .expect("client selection should succeed");
 
         assert_eq!(selected1.len(), 2);
         assert_eq!(selected2.len(), 2);
@@ -478,11 +484,15 @@ mod tests {
         ];
 
         // First selection - all clients should have equal fairness
-        let selected1 = selector.select_clients(&clients, 2).unwrap();
+        let selected1 = selector
+            .select_clients(&clients, 2)
+            .expect("client selection should succeed");
         assert_eq!(selected1.len(), 2);
 
         // Second selection - should prefer clients not selected in first round
-        let selected2 = selector.select_clients(&clients, 1).unwrap();
+        let selected2 = selector
+            .select_clients(&clients, 1)
+            .expect("client selection should succeed");
         assert_eq!(selected2.len(), 1);
     }
 
@@ -500,7 +510,9 @@ mod tests {
         selector.update_client_score("client_2", 0.5);
         selector.update_client_score("client_3", 0.8);
 
-        let selected = selector.select_clients(&clients, 2).unwrap();
+        let selected = selector
+            .select_clients(&clients, 2)
+            .expect("client selection should succeed");
         assert_eq!(selected.len(), 2);
         // Should select client_1 (0.9) and client_3 (0.8) - the top performers
         assert!(selected.contains(&"client_1".to_string()));
@@ -568,7 +580,9 @@ mod tests {
         let mut selector = ClientSelector::new(ClientSelectionStrategy::Random);
         let clients = vec![];
 
-        let selected = selector.select_clients(&clients, 2).unwrap();
+        let selected = selector
+            .select_clients(&clients, 2)
+            .expect("client selection should succeed");
         assert!(selected.is_empty());
     }
 

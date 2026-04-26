@@ -682,8 +682,18 @@ mod tests {
     fn test_memory_address_parsing() {
         let interface = create_test_interface();
 
-        assert_eq!(interface.parse_memory_address("0x1000").unwrap(), 4096);
-        assert_eq!(interface.parse_memory_address("1000").unwrap(), 1000);
+        assert_eq!(
+            interface
+                .parse_memory_address("0x1000")
+                .expect("memory address parsing should succeed for valid hex"),
+            4096
+        );
+        assert_eq!(
+            interface
+                .parse_memory_address("1000")
+                .expect("memory address parsing should succeed for valid hex"),
+            1000
+        );
         assert!(interface.parse_memory_address("invalid").is_err());
     }
 

@@ -763,7 +763,9 @@ mod tests {
         assert!(monitor.last_utilization.is_some());
         assert_eq!(monitor.utilization_history.len(), 1);
 
-        let utilization = monitor.get_current_utilization().unwrap();
+        let utilization = monitor
+            .get_current_utilization()
+            .expect("utilization retrieval should succeed");
         assert!(utilization.cpu_utilization >= 0.0 && utilization.cpu_utilization <= 1.0);
         assert!(utilization.memory_utilization >= 0.0 && utilization.memory_utilization <= 1.0);
     }

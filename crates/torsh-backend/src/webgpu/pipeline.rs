@@ -487,7 +487,7 @@ mod tests {
 
                 let pipeline = ComputePipeline::new(device, descriptor);
                 if pipeline.is_ok() {
-                    let pipeline = pipeline.unwrap();
+                    let pipeline = pipeline.expect("operation should succeed");
                     assert_eq!(pipeline.descriptor().label, "test_pipeline");
                     assert_eq!(pipeline.descriptor().workgroup_size, (64, 1, 1));
                 }

@@ -1225,7 +1225,7 @@ mod tests {
             .base
             .parameters
             .get_mut("weight")
-            .unwrap()
+            .expect("operation should succeed")
             .tensor()
             .write() = weight;
 
@@ -1258,7 +1258,7 @@ mod tests {
             .base
             .parameters
             .get_mut("weight")
-            .unwrap()
+            .expect("operation should succeed")
             .tensor()
             .write() = weight;
 
@@ -1299,7 +1299,7 @@ mod tests {
             .base
             .parameters
             .get_mut("weight")
-            .unwrap()
+            .expect("operation should succeed")
             .tensor()
             .write() = weight;
 
@@ -1348,7 +1348,7 @@ mod tests {
             .base
             .parameters
             .get_mut("weight")
-            .unwrap()
+            .expect("operation should succeed")
             .tensor()
             .write() = weight;
 
@@ -1382,17 +1382,17 @@ mod tests {
         let mut embedding = Embedding::new(3, 2);
 
         let weight_data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
-        let weight = Tensor::from_vec(weight_data, &[3, 2]).unwrap();
+        let weight = Tensor::from_vec(weight_data, &[3, 2]).expect("Tensor should succeed");
         *embedding
             .base
             .parameters
             .get_mut("weight")
-            .unwrap()
+            .expect("operation should succeed")
             .tensor()
             .write() = weight;
 
         // Try to lookup index 5 (out of bounds for num_embeddings=3)
-        let input = Tensor::from_vec(vec![5.0], &[1]).unwrap();
+        let input = Tensor::from_vec(vec![5.0], &[1]).expect("Tensor should succeed");
         let result = embedding.forward(&input);
 
         assert!(result.is_err());
@@ -1427,7 +1427,7 @@ mod tests {
             .base
             .parameters
             .get_mut("weight")
-            .unwrap()
+            .expect("operation should succeed")
             .tensor()
             .write() = weight;
 

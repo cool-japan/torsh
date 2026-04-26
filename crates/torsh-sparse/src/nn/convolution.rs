@@ -692,8 +692,8 @@ mod tests {
 
     #[test]
     fn test_sparse_conv2d_creation() {
-        let conv =
-            SparseConv2d::new(3, 16, (3, 3), Some((1, 1)), Some((1, 1)), None, 0.5, true).unwrap();
+        let conv = SparseConv2d::new(3, 16, (3, 3), Some((1, 1)), Some((1, 1)), None, 0.5, true)
+            .expect("operation should succeed");
         assert_eq!(conv.in_channels(), 3);
         assert_eq!(conv.out_channels(), 16);
         assert_eq!(conv.kernel_size(), (3, 3));
@@ -702,15 +702,17 @@ mod tests {
 
     #[test]
     fn test_sparse_conv2d_forward() {
-        let conv = SparseConv2d::new(2, 4, (3, 3), None, Some((1, 1)), None, 0.3, false).unwrap();
-        let input = ones::<f32>(&[1, 2, 5, 5]).unwrap();
-        let output = conv.forward(&input).unwrap();
+        let conv = SparseConv2d::new(2, 4, (3, 3), None, Some((1, 1)), None, 0.3, false)
+            .expect("operation should succeed");
+        let input = ones::<f32>(&[1, 2, 5, 5]).expect("operation should succeed");
+        let output = conv.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[1, 4, 5, 5]); // Same size due to padding
     }
 
     #[test]
     fn test_sparse_conv1d_creation() {
-        let conv = SparseConv1d::new(8, 16, 5, None, None, None, 0.7, true).unwrap();
+        let conv = SparseConv1d::new(8, 16, 5, None, None, None, 0.7, true)
+            .expect("Sparse Conv1d should succeed");
         assert_eq!(conv.in_channels(), 8);
         assert_eq!(conv.out_channels(), 16);
         assert_eq!(conv.kernel_size(), 5);
@@ -719,24 +721,29 @@ mod tests {
 
     #[test]
     fn test_sparse_conv1d_forward() {
-        let conv = SparseConv1d::new(4, 8, 3, None, Some(1), None, 0.4, false).unwrap();
-        let input = ones::<f32>(&[2, 4, 10]).unwrap();
-        let output = conv.forward(&input).unwrap();
+        let conv = SparseConv1d::new(4, 8, 3, None, Some(1), None, 0.4, false)
+            .expect("operation should succeed");
+        let input = ones::<f32>(&[2, 4, 10]).expect("operation should succeed");
+        let output = conv.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[2, 8, 10]); // Same size due to padding
     }
 
     #[test]
     fn test_output_size_calculation() {
         // Test 2D convolution output size
-        let conv = SparseConv2d::new(1, 1, (3, 3), Some((2, 2)), None, None, 0.0, false).unwrap();
-        let input = ones::<f32>(&[1, 1, 8, 8]).unwrap();
-        let output = conv.forward(&input).unwrap();
+        let conv = SparseConv2d::new(1, 1, (3, 3), Some((2, 2)), None, None, 0.0, false)
+            .expect("operation should succeed");
+        let input = ones::<f32>(&[1, 1, 8, 8]).expect("operation should succeed");
+        let output = conv.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[1, 1, 3, 3]); // (8 - 3 + 1) / 2 = 3
 
         // Test 1D convolution output size
-        let conv1d = SparseConv1d::new(1, 1, 3, Some(2), None, None, 0.0, false).unwrap();
-        let input1d = ones::<f32>(&[1, 1, 10]).unwrap();
-        let output1d = conv1d.forward(&input1d).unwrap();
+        let conv1d = SparseConv1d::new(1, 1, 3, Some(2), None, None, 0.0, false)
+            .expect("operation should succeed");
+        let input1d = ones::<f32>(&[1, 1, 10]).expect("operation should succeed");
+        let output1d = conv1d
+            .forward(&input1d)
+            .expect("forward pass should succeed");
         assert_eq!(output1d.shape().dims(), &[1, 1, 4]); // (10 - 3 + 1) / 2 = 4
     }
 
@@ -753,36 +760,44 @@ mod tests {
 
     #[test]
     fn test_dimension_validation() {
-        let conv = SparseConv2d::new(3, 16, (3, 3), None, None, None, 0.5, false).unwrap();
-        let wrong_input = ones::<f32>(&[1, 2, 5, 5]).unwrap(); // Wrong channels
+        let conv = SparseConv2d::new(3, 16, (3, 3), None, None, None, 0.5, false)
+            .expect("operation should succeed");
+        let wrong_input = ones::<f32>(&[1, 2, 5, 5]).expect("operation should succeed"); // Wrong channels
         assert!(conv.forward(&wrong_input).is_err());
 
-        let conv1d = SparseConv1d::new(4, 8, 3, None, None, None, 0.5, false).unwrap();
-        let wrong_input1d = ones::<f32>(&[1, 3, 10]).unwrap(); // Wrong channels
+        let conv1d = SparseConv1d::new(4, 8, 3, None, None, None, 0.5, false)
+            .expect("Sparse Conv1d should succeed");
+        let wrong_input1d = ones::<f32>(&[1, 3, 10]).expect("operation should succeed"); // Wrong channels
         assert!(conv1d.forward(&wrong_input1d).is_err());
     }
 
     #[test]
     fn test_sparsity_measurement() {
-        let conv = SparseConv2d::new(2, 4, (3, 3), None, None, None, 0.8, false).unwrap();
+        let conv = SparseConv2d::new(2, 4, (3, 3), None, None, None, 0.8, false)
+            .expect("operation should succeed");
         let sparsity = conv.kernel_sparsity();
         assert!(sparsity >= 0.7 && sparsity <= 0.9); // Should be around 0.8
 
-        let conv1d = SparseConv1d::new(2, 4, 5, None, None, None, 0.6, false).unwrap();
+        let conv1d = SparseConv1d::new(2, 4, 5, None, None, None, 0.6, false)
+            .expect("Sparse Conv1d should succeed");
         let sparsity1d = conv1d.kernel_sparsity();
         assert!(sparsity1d >= 0.5 && sparsity1d <= 0.7); // Should be around 0.6
     }
 
     #[test]
     fn test_bias_addition() {
-        let conv = SparseConv2d::new(1, 2, (1, 1), None, None, None, 0.0, true).unwrap();
-        let input = ones::<f32>(&[1, 1, 3, 3]).unwrap();
-        let output = conv.forward(&input).unwrap();
+        let conv = SparseConv2d::new(1, 2, (1, 1), None, None, None, 0.0, true)
+            .expect("operation should succeed");
+        let input = ones::<f32>(&[1, 1, 3, 3]).expect("operation should succeed");
+        let output = conv.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[1, 2, 3, 3]);
 
-        let conv1d = SparseConv1d::new(1, 2, 1, None, None, None, 0.0, true).unwrap();
-        let input1d = ones::<f32>(&[1, 1, 5]).unwrap();
-        let output1d = conv1d.forward(&input1d).unwrap();
+        let conv1d = SparseConv1d::new(1, 2, 1, None, None, None, 0.0, true)
+            .expect("Sparse Conv1d should succeed");
+        let input1d = ones::<f32>(&[1, 1, 5]).expect("operation should succeed");
+        let output1d = conv1d
+            .forward(&input1d)
+            .expect("forward pass should succeed");
         assert_eq!(output1d.shape().dims(), &[1, 2, 5]);
     }
 }

@@ -1213,7 +1213,7 @@ mod tests {
 
     #[test]
     fn test_scirs2_matmul() {
-        let backend = SciRS2CpuBackend::new().unwrap();
+        let backend = SciRS2CpuBackend::new().expect("Sci RS2Cpu Backend should succeed");
 
         let a = vec![1.0, 2.0, 3.0, 4.0]; // 2x2 matrix
         let b = vec![5.0, 6.0, 7.0, 8.0]; // 2x2 matrix
@@ -1231,7 +1231,7 @@ mod tests {
 
     #[test]
     fn test_scirs2_elementwise_add() {
-        let backend = SciRS2CpuBackend::new().unwrap();
+        let backend = SciRS2CpuBackend::new().expect("Sci RS2Cpu Backend should succeed");
 
         let a = vec![1.0, 2.0, 3.0, 4.0];
         let b = vec![5.0, 6.0, 7.0, 8.0];
@@ -1248,7 +1248,7 @@ mod tests {
 
     #[test]
     fn test_scirs2_elementwise_mul() {
-        let backend = SciRS2CpuBackend::new().unwrap();
+        let backend = SciRS2CpuBackend::new().expect("Sci RS2Cpu Backend should succeed");
 
         let a = vec![1.0, 2.0, 3.0, 4.0];
         let b = vec![5.0, 6.0, 7.0, 8.0];
@@ -1262,10 +1262,12 @@ mod tests {
 
     #[test]
     fn test_scirs2_autotuning_cache() {
-        let backend = SciRS2CpuBackend::new().unwrap();
+        let backend = SciRS2CpuBackend::new().expect("Sci RS2Cpu Backend should succeed");
 
         // Test cache stats
-        let (hits, misses) = backend.get_autotuning_stats().unwrap();
+        let (hits, misses) = backend
+            .get_autotuning_stats()
+            .expect("autotuning statistics retrieval should succeed");
         // hits and misses are usize, so they're always >= 0
         assert!(hits < usize::MAX);
         assert!(misses < usize::MAX);
@@ -1277,7 +1279,7 @@ mod tests {
 
     #[test]
     fn test_scirs2_scalar_operations() {
-        let backend = SciRS2CpuBackend::new().unwrap();
+        let backend = SciRS2CpuBackend::new().expect("Sci RS2Cpu Backend should succeed");
 
         let a = vec![1.0, 2.0, 3.0, 4.0];
         let mut result = vec![0.0; 4];
@@ -1295,17 +1297,17 @@ mod tests {
 
     #[test]
     fn test_scirs2_reduction() {
-        let backend = SciRS2CpuBackend::new().unwrap();
+        let backend = SciRS2CpuBackend::new().expect("Sci RS2Cpu Backend should succeed");
 
         let a = vec![1.0, 2.0, 3.0, 4.0];
-        let sum = backend.sum(&a).unwrap();
+        let sum = backend.sum(&a).expect("sum operation should succeed");
 
         assert!((sum - 10.0).abs() < 1e-6);
     }
 
     #[test]
     fn test_scirs2_large_operations() {
-        let backend = SciRS2CpuBackend::new().unwrap();
+        let backend = SciRS2CpuBackend::new().expect("Sci RS2Cpu Backend should succeed");
 
         // Test with larger arrays to trigger SIMD and auto-tuning
         let size = 10000;
@@ -1333,7 +1335,7 @@ mod tests {
         assert!(result.iter().all(|&x| (x - 3.0).abs() < 1e-6));
 
         // Test reduction
-        let sum = backend.sum(&a).unwrap();
+        let sum = backend.sum(&a).expect("sum operation should succeed");
         assert!((sum - size as f32).abs() < 1e-3);
     }
 
@@ -1372,7 +1374,7 @@ mod tests {
         let manager = SciRS2AutoTuningManager::new();
         assert!(manager.is_ok());
 
-        let manager = manager.unwrap();
+        let manager = manager.expect("operation should succeed");
         assert!(manager.adaptive_mode);
     }
 
@@ -1381,14 +1383,15 @@ mod tests {
         let manager = SciRS2AutoTuningManager::with_config(8, false);
         assert!(manager.is_ok());
 
-        let manager = manager.unwrap();
+        let manager = manager.expect("operation should succeed");
         assert!(!manager.adaptive_mode);
         assert_eq!(manager.backend().num_threads(), 8);
     }
 
     #[test]
     fn test_autotuning_execution() {
-        let manager = SciRS2AutoTuningManager::new().unwrap();
+        let manager =
+            SciRS2AutoTuningManager::new().expect("Sci RS2Auto Tuning Manager should succeed");
 
         let a = vec![1.0, 2.0, 3.0, 4.0];
         let b = vec![5.0, 6.0, 7.0, 8.0];
@@ -1407,7 +1410,8 @@ mod tests {
 
     #[test]
     fn test_performance_tracking() {
-        let manager = SciRS2AutoTuningManager::new().unwrap();
+        let manager =
+            SciRS2AutoTuningManager::new().expect("Sci RS2Auto Tuning Manager should succeed");
 
         // Execute some operations to generate performance data
         let a = vec![1.0; 1000];
@@ -1425,7 +1429,7 @@ mod tests {
         let stats = manager.get_performance_stats("add_elementwise");
         assert!(stats.is_some());
 
-        let (throughput, efficiency, _avg_time) = stats.unwrap();
+        let (throughput, efficiency, _avg_time) = stats.expect("operation should succeed");
         assert!(throughput > 0.0);
         assert!(efficiency > 0.0);
     }
@@ -1438,16 +1442,19 @@ mod tests {
         let manager_with_config = create_autotuning_manager_with_config(4, false);
         assert!(manager_with_config.is_ok());
 
-        let manager = manager_with_config.unwrap();
+        let manager = manager_with_config.expect("operation should succeed");
         assert!(!manager.adaptive_mode);
     }
 
     #[test]
     fn test_system_stats() {
-        let mut manager = SciRS2AutoTuningManager::new().unwrap();
+        let mut manager =
+            SciRS2AutoTuningManager::new().expect("Sci RS2Auto Tuning Manager should succeed");
         let _ = manager.initialize();
 
-        let stats = manager.get_system_stats().unwrap();
+        let stats = manager
+            .get_system_stats()
+            .expect("system statistics retrieval should succeed");
         assert!(stats.tracked_operations < usize::MAX);
         assert!(stats.cache_hit_ratio >= 0.0 && stats.cache_hit_ratio <= 1.0);
         assert!(stats.adaptive_mode);

@@ -1023,16 +1023,16 @@ mod tests {
         // Create dummy input
         let batch_size = 2;
         let seq_length = 10;
-        let input_ids = Tensor::zeros(&[batch_size, seq_length]).unwrap();
+        let input_ids = Tensor::zeros(&[batch_size, seq_length]).expect("Tensor should succeed");
 
         // Test forward pass shape
         let output = model.forward(&input_ids);
         assert!(output.is_ok());
 
-        let output = output.unwrap();
-        assert_eq!(output.size(0).unwrap(), batch_size);
-        assert_eq!(output.size(1).unwrap(), seq_length);
-        assert_eq!(output.size(2).unwrap(), 768); // n_embd
+        let output = output.expect("operation should succeed");
+        assert_eq!(output.size(0).expect("tensor size should be valid"), batch_size);
+        assert_eq!(output.size(1).expect("tensor size should be valid"), seq_length);
+        assert_eq!(output.size(2).expect("tensor size should be valid"), 768); // n_embd
     }
 
     #[test]
@@ -1042,16 +1042,16 @@ mod tests {
         // Create dummy input
         let batch_size = 2;
         let seq_length = 10;
-        let input_ids = Tensor::zeros(&[batch_size, seq_length]).unwrap();
+        let input_ids = Tensor::zeros(&[batch_size, seq_length]).expect("Tensor should succeed");
 
         // Test forward pass shape
         let output = model.forward(&input_ids);
         assert!(output.is_ok());
 
-        let output = output.unwrap();
-        assert_eq!(output.size(0).unwrap(), batch_size);
-        assert_eq!(output.size(1).unwrap(), seq_length);
-        assert_eq!(output.size(2).unwrap(), 50257); // vocab_size
+        let output = output.expect("operation should succeed");
+        assert_eq!(output.size(0).expect("tensor size should be valid"), batch_size);
+        assert_eq!(output.size(1).expect("tensor size should be valid"), seq_length);
+        assert_eq!(output.size(2).expect("tensor size should be valid"), 50257); // vocab_size
     }
 
     #[test]

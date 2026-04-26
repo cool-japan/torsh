@@ -340,7 +340,7 @@ mod tests {
         .await;
 
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "success");
+        assert_eq!(result.expect("operation should succeed"), "success");
         assert_eq!(attempt_count.load(Ordering::SeqCst), 3);
     }
 
@@ -376,7 +376,7 @@ mod tests {
         .await;
 
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "success");
+        assert_eq!(result.expect("operation should succeed"), "success");
     }
 
     #[tokio::test]
@@ -416,6 +416,6 @@ mod tests {
 
         let result: TorshResult<String> = collector.into_result("success".to_string());
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "success");
+        assert_eq!(result.expect("operation should succeed"), "success");
     }
 }

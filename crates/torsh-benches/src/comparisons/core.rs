@@ -29,8 +29,8 @@ impl ComparisonRunner {
         &self.results
     }
 
-    /// Generate comparison report
-    pub fn generate_report(&self, output_path: &str) -> std::io::Result<()> {
+    /// Generate comparison report to an explicit file path
+    pub fn generate_report_to(&self, output_path: &std::path::Path) -> std::io::Result<()> {
         use std::io::Write;
         let mut file = std::fs::File::create(output_path)?;
 
@@ -79,6 +79,11 @@ impl ComparisonRunner {
         }
 
         Ok(())
+    }
+
+    /// Generate comparison report to a string path (backward-compat wrapper)
+    pub fn generate_report(&self, output_path: &str) -> std::io::Result<()> {
+        self.generate_report_to(std::path::Path::new(output_path))
     }
 }
 

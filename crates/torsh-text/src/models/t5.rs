@@ -1033,14 +1033,14 @@ mod tests {
     fn test_t5_layer_norm() {
         let mut layer_norm = T5LayerNorm::new(768, 1e-6);
         let input: Tensor<f32> = randn(&[2, 10, 768]);
-        let output = layer_norm.forward(&input).unwrap();
+        let output = layer_norm.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[2, 10, 768]);
     }
 
     #[test]
     fn test_t5_model_creation() {
         let config = TextModelConfig::t5_small();
-        let model = T5Model::new(config, DeviceType::Cpu).unwrap();
+        let model = T5Model::new(config, DeviceType::Cpu).expect("T5Model should succeed");
         assert_eq!(model.name(), "T5");
         assert_eq!(model.vocab_size(), 32128);
         assert_eq!(model.hidden_dim(), 512);
@@ -1049,28 +1049,28 @@ mod tests {
     #[test]
     fn test_t5_encoder_forward() {
         let config = TextModelConfig::t5_small();
-        let mut encoder = T5Encoder::new(&config, DeviceType::Cpu).unwrap();
+        let mut encoder = T5Encoder::new(&config, DeviceType::Cpu).expect("T5Encoder should succeed");
         let input: Tensor<f32> = randn(&[2, 10, 512]);
-        let output = encoder.forward(&input).unwrap();
+        let output = encoder.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[2, 10, 512]);
     }
 
     #[test]
     fn test_t5_decoder_forward() {
         let config = TextModelConfig::t5_small();
-        let mut decoder = T5Decoder::new(&config, DeviceType::Cpu).unwrap();
+        let mut decoder = T5Decoder::new(&config, DeviceType::Cpu).expect("T5Decoder should succeed");
         let input: Tensor<f32> = randn(&[2, 8, 512]);
         let encoder_hidden: Tensor<f32> = randn(&[2, 10, 512]);
         let output = decoder
             .forward_with_encoder_hidden(&input, Some(&encoder_hidden), None, None)
-            .unwrap();
+            .expect("operation should succeed");
         assert_eq!(output.shape().dims(), &[2, 8, 512]);
     }
 
     #[test]
     fn test_t5_conditional_generation_creation() {
         let config = TextModelConfig::t5_small();
-        let model = T5ForConditionalGeneration::new(config, DeviceType::Cpu).unwrap();
+        let model = T5ForConditionalGeneration::new(config, DeviceType::Cpu).expect("T5For Conditional Generation should succeed");
         // Test that model can be created without panicking
         assert!(model.training());
     }

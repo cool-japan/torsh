@@ -59,7 +59,7 @@ mod tests {
                 &prag_score,
             );
         assert!(result.is_ok());
-        let dimensional_scores = result.unwrap();
+        let dimensional_scores = result.expect("operation should succeed");
         assert!(dimensional_scores.integration_score >= 0.0);
         assert!(dimensional_scores.integration_score <= 1.0);
     }
@@ -69,12 +69,12 @@ mod tests {
         let consistent_scores = vec![0.8, 0.82, 0.78, 0.81, 0.79, 0.83];
         let result = analyzer.calculate_statistical_quality_score(&consistent_scores);
         assert!(result.is_ok());
-        let score = result.unwrap();
+        let score = result.expect("operation should succeed");
         assert!(score > 0.7);
         let inconsistent_scores = vec![0.9, 0.3, 0.7, 0.2, 0.8, 0.1];
         let result2 = analyzer.calculate_statistical_quality_score(&inconsistent_scores);
         assert!(result2.is_ok());
-        let score2 = result2.unwrap();
+        let score2 = result2.expect("operation should succeed");
         assert!(score2 < score);
     }
     #[test]
@@ -83,12 +83,12 @@ mod tests {
         let well_integrated_scores = vec![0.8, 0.82, 0.78, 0.81];
         let result = analyzer.calculate_integration_score(&well_integrated_scores);
         assert!(result.is_ok());
-        let score = result.unwrap();
+        let score = result.expect("operation should succeed");
         assert!(score > 0.5);
         let poorly_integrated_scores = vec![0.9, 0.2, 0.8, 0.1];
         let result2 = analyzer.calculate_integration_score(&poorly_integrated_scores);
         assert!(result2.is_ok());
-        let score2 = result2.unwrap();
+        let score2 = result2.expect("operation should succeed");
         assert!(score2 < score);
     }
     #[test]
@@ -97,13 +97,13 @@ mod tests {
         let simple_text = "This is easy to read. Short sentences work well.";
         let result = analyzer.calculate_reading_ease(simple_text);
         assert!(result.is_ok());
-        let ease_score = result.unwrap();
+        let ease_score = result.expect("operation should succeed");
         assert!(ease_score > 0.0);
         assert!(ease_score <= 1.0);
         let complex_text = "Extraordinarily complicated sentences with multisyllabic terminology and convoluted syntactic structures significantly decrease comprehensibility and readability.";
         let result2 = analyzer.calculate_reading_ease(complex_text);
         assert!(result2.is_ok());
-        let ease_score2 = result2.unwrap();
+        let ease_score2 = result2.expect("operation should succeed");
         assert!(ease_score2 < ease_score);
     }
     #[test]
@@ -135,11 +135,11 @@ mod tests {
         let simple_text = "The cat sat on the mat. It was warm and cozy.";
         let result = analyzer.calculate_cognitive_load(simple_text);
         assert!(result.is_ok());
-        let simple_load = result.unwrap();
+        let simple_load = result.expect("operation should succeed");
         let complex_text = "The extraordinary feline positioned itself methodically upon the intricate textile surface, experiencing optimal thermal comfort.";
         let result2 = analyzer.calculate_cognitive_load(complex_text);
         assert!(result2.is_ok());
-        let complex_load = result2.unwrap();
+        let complex_load = result2.expect("operation should succeed");
         assert!(complex_load > simple_load);
     }
     #[test]
@@ -148,7 +148,7 @@ mod tests {
         let varied_text = "Short sentence. This is a medium-length sentence with some complexity. Here we have a much longer sentence that provides detailed information and maintains reader interest through variation.";
         let result = analyzer.calculate_interest_maintenance(varied_text);
         assert!(result.is_ok());
-        let interest_score = result.unwrap();
+        let interest_score = result.expect("operation should succeed");
         assert!(interest_score > 0.0);
         assert!(interest_score <= 1.0);
     }
@@ -167,7 +167,7 @@ mod tests {
                 None,
             );
         assert!(result.is_ok());
-        let assessment = result.unwrap();
+        let assessment = result.expect("operation should succeed");
         assert!(assessment.overall_quality_score >= 0.0);
         assert!(assessment.overall_quality_score <= 1.0);
         assert!(! matches!(assessment.quality_grade, QualityGrade::Critical));
@@ -205,7 +205,7 @@ mod tests {
         let analyzer = QualityAnalyzer::new();
         let result = analyzer.calculate_reading_ease("");
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), 0.0);
+        assert_eq!(result.expect("operation should succeed"), 0.0);
         let result2 = analyzer.calculate_cognitive_load("");
         assert!(result2.is_ok());
         let result3 = analyzer.calculate_interest_maintenance("");

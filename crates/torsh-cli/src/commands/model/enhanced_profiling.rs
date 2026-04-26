@@ -397,8 +397,9 @@ mod tests {
 
     #[test]
     fn test_model_profiling() {
-        let model = create_real_model("test", 3, DeviceType::Cpu).unwrap();
-        let profile = profile_model(&model).unwrap();
+        let model = create_real_model("test", 3, DeviceType::Cpu)
+            .expect("create real model should succeed");
+        let profile = profile_model(&model).expect("profile model should succeed");
 
         assert_eq!(profile.layers.len(), 3);
         assert!(profile.total_parameters > 0);
@@ -409,8 +410,9 @@ mod tests {
 
     #[test]
     fn test_profile_formatting() {
-        let model = create_real_model("test", 2, DeviceType::Cpu).unwrap();
-        let profile = profile_model(&model).unwrap();
+        let model = create_real_model("test", 2, DeviceType::Cpu)
+            .expect("create real model should succeed");
+        let profile = profile_model(&model).expect("profile model should succeed");
         let formatted = format_model_profile(&profile);
 
         assert!(formatted.contains("MODEL PROFILE REPORT"));
@@ -420,9 +422,10 @@ mod tests {
 
     #[test]
     fn test_profile_export_json() {
-        let model = create_real_model("test", 2, DeviceType::Cpu).unwrap();
-        let profile = profile_model(&model).unwrap();
-        let json = export_profile_json(&profile).unwrap();
+        let model = create_real_model("test", 2, DeviceType::Cpu)
+            .expect("create real model should succeed");
+        let profile = profile_model(&model).expect("profile model should succeed");
+        let json = export_profile_json(&profile).expect("export profile json should succeed");
 
         assert!(json.contains("total_parameters"));
         assert!(json.contains("layers"));
@@ -431,8 +434,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_runtime_profiling() {
-        let model = create_real_model("test", 2, DeviceType::Cpu).unwrap();
-        let profile = profile_model_runtime(&model, 1, 5).await.unwrap();
+        let model = create_real_model("test", 2, DeviceType::Cpu)
+            .expect("create real model should succeed");
+        let profile = profile_model_runtime(&model, 1, 5)
+            .await
+            .expect("operation should succeed");
 
         // Check that execution times were measured
         assert!(profile.layers.iter().any(|l| l.execution_time_ms.is_some()));

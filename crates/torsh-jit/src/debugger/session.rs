@@ -813,26 +813,36 @@ mod tests {
         let mut session = create_test_session();
 
         // Test literal values
-        let result = session.evaluate_expression("42.5").unwrap();
+        let result = session
+            .evaluate_expression("42.5")
+            .expect("expression evaluation should succeed");
         assert!(result.success);
         assert!(matches!(result.result, DebugValue::Scalar(42.5)));
 
-        let result = session.evaluate_expression("123").unwrap();
+        let result = session
+            .evaluate_expression("123")
+            .expect("expression evaluation should succeed");
         assert!(result.success);
         assert!(matches!(result.result, DebugValue::Integer(123)));
 
-        let result = session.evaluate_expression("true").unwrap();
+        let result = session
+            .evaluate_expression("true")
+            .expect("expression evaluation should succeed");
         assert!(result.success);
         assert!(matches!(result.result, DebugValue::Boolean(true)));
 
         // Test variable lookup
         session.set_variable("x".to_string(), DebugValue::Scalar(3.14));
-        let result = session.evaluate_expression("x").unwrap();
+        let result = session
+            .evaluate_expression("x")
+            .expect("expression evaluation should succeed");
         assert!(result.success);
         assert!(matches!(result.result, DebugValue::Scalar(3.14)));
 
         // Test unknown variable
-        let result = session.evaluate_expression("unknown_var").unwrap();
+        let result = session
+            .evaluate_expression("unknown_var")
+            .expect("expression evaluation should succeed");
         assert!(!result.success);
         assert!(result.error_message.is_some());
     }
@@ -853,9 +863,13 @@ mod tests {
         let mut session = create_test_session();
 
         let memory = session.memory_state_mut();
-        memory.write_memory(0x1000, &[1, 2, 3, 4]).unwrap();
+        memory
+            .write_memory(0x1000, &[1, 2, 3, 4])
+            .expect("memory write should succeed");
 
-        let memory_view = session.get_memory_view(0x1000).unwrap();
+        let memory_view = session
+            .get_memory_view(0x1000)
+            .expect("memory view should be accessible");
         assert_eq!(memory_view.start_address, 0x1000);
         assert_eq!(&memory_view.content[0..4], &[1, 2, 3, 4]);
     }
@@ -901,7 +915,7 @@ mod tests {
         session
             .memory_state_mut()
             .write_memory(0x1000, &[1, 2, 3, 4])
-            .unwrap();
+            .expect("operation should succeed");
         let result = session.inspect_target(&InspectionTarget::Memory(0x1000));
         assert!(result.is_ok());
 

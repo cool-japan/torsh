@@ -485,7 +485,7 @@ mod tests {
 
     fn create_test_series() -> TimeSeries {
         let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
-        let tensor = Tensor::from_vec(data, &[8]).unwrap();
+        let tensor = Tensor::from_vec(data, &[8]).expect("Tensor should succeed");
         TimeSeries::new(tensor)
     }
 
@@ -592,9 +592,9 @@ mod tests {
         assert!(seasonal.is_none()); // No seasonality specified
 
         // Level should be positive (series is trending upwards)
-        assert!(level.unwrap() > 0.0);
+        assert!(level.expect("operation should succeed") > 0.0);
         // Trend should be positive (series is increasing)
-        assert!(trend.unwrap() > 0.0);
+        assert!(trend.expect("operation should succeed") > 0.0);
     }
 
     #[test]
@@ -605,7 +605,7 @@ mod tests {
             2.0, 3.0, 4.0, 5.0, // Second cycle (with trend)
             3.0, 4.0, 5.0, 6.0, // Third cycle (with trend)
         ];
-        let tensor = Tensor::from_vec(data, &[12]).unwrap();
+        let tensor = Tensor::from_vec(data, &[12]).expect("Tensor should succeed");
         let series = TimeSeries::new(tensor);
 
         let mut hw = HoltWinters::new()
@@ -619,7 +619,7 @@ mod tests {
         assert!(seasonal.is_some());
 
         // Seasonal component should have length = period
-        let seasonal_comp = seasonal.unwrap();
+        let seasonal_comp = seasonal.expect("operation should succeed");
         assert_eq!(seasonal_comp.len(), 4);
 
         // Forecast should use seasonal pattern
@@ -635,7 +635,7 @@ mod tests {
             2.0, 4.0, 3.0, 1.0, // Second cycle (scaled up)
             3.0, 6.0, 4.5, 1.5, // Third cycle (scaled up more)
         ];
-        let tensor = Tensor::from_vec(data, &[12]).unwrap();
+        let tensor = Tensor::from_vec(data, &[12]).expect("Tensor should succeed");
         let series = TimeSeries::new(tensor);
 
         let mut hw = HoltWinters::new()
@@ -649,7 +649,7 @@ mod tests {
         assert!(seasonal.is_some());
 
         // Seasonal component should have length = period
-        let seasonal_comp = seasonal.unwrap();
+        let seasonal_comp = seasonal.expect("operation should succeed");
         assert_eq!(seasonal_comp.len(), 4);
 
         // For multiplicative model, seasonal components should average to ~1.0
@@ -678,7 +678,10 @@ mod tests {
         assert_eq!(forecast.len(), 3);
 
         // Forecasts should be increasing (positive trend)
-        let f_data = forecast.values.to_vec().unwrap();
+        let f_data = forecast
+            .values
+            .to_vec()
+            .expect("tensor to_vec conversion should succeed");
         assert!(f_data[0] > 0.0);
         assert!(f_data[1] > f_data[0]);
         assert!(f_data[2] > f_data[1]);

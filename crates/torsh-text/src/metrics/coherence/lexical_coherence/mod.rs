@@ -1266,10 +1266,10 @@ mod tests {
     #[test]
     fn test_text_preprocessing() {
         let config = GeneralLexicalConfig::default();
-        let preprocessor = TextPreprocessor::new(&config).unwrap();
+        let preprocessor = TextPreprocessor::new(&config).expect("Text Preprocessor should succeed");
 
         let input = "This   is  a    test...  Text!!";
-        let result = preprocessor.preprocess(input).unwrap();
+        let result = preprocessor.preprocess(input).expect("preprocessing should succeed");
 
         assert_eq!(result, "this is a test. text!");
     }
@@ -1277,10 +1277,10 @@ mod tests {
     #[test]
     fn test_sentence_segmentation() {
         let config = GeneralLexicalConfig::default();
-        let segmenter = SentenceSegmenter::new(&config).unwrap();
+        let segmenter = SentenceSegmenter::new(&config).expect("Sentence Segmenter should succeed");
 
         let input = "First sentence. Second sentence! Third sentence?";
-        let sentences = segmenter.segment(input).unwrap();
+        let sentences = segmenter.segment(input).expect("segmentation should succeed");
 
         assert_eq!(sentences.len(), 3);
         assert_eq!(sentences[0], "First sentence");
@@ -1291,14 +1291,14 @@ mod tests {
     #[test]
     fn test_lexical_item_extraction() {
         let config = GeneralLexicalConfig::default();
-        let extractor = LexicalItemExtractor::new(&config).unwrap();
+        let extractor = LexicalItemExtractor::new(&config).expect("Lexical Item Extractor should succeed");
 
         let sentences = vec![
             "The cat sat on the mat".to_string(),
             "The cat was happy".to_string(),
         ];
 
-        let items = extractor.extract(&sentences).unwrap();
+        let items = extractor.extract(&sentences).expect("extraction should succeed");
         assert!(!items.is_empty());
 
         // Should extract words like "cat", "sat", etc.
@@ -1308,7 +1308,7 @@ mod tests {
 
     #[test]
     fn test_cache_functionality() {
-        let mut analyzer = LexicalCoherenceAnalyzer::new().unwrap();
+        let mut analyzer = LexicalCoherenceAnalyzer::new().expect("Lexical Coherence Analyzer should succeed");
 
         let text = "This is a test text for caching.";
 
@@ -1321,12 +1321,12 @@ mod tests {
         assert!(result2.is_ok());
 
         let stats = analyzer.get_cache_stats();
-        assert_eq!(stats.get("cache_size").unwrap(), &1);
+        assert_eq!(stats.get("cache_size").expect("element retrieval should succeed for valid index"), &1);
     }
 
     #[test]
     fn test_config_updates() {
-        let mut analyzer = LexicalCoherenceAnalyzer::new().unwrap();
+        let mut analyzer = LexicalCoherenceAnalyzer::new().expect("Lexical Coherence Analyzer should succeed");
 
         let new_config = LexicalCoherenceConfig::minimal();
         let result = analyzer.update_config(new_config);
@@ -1334,30 +1334,30 @@ mod tests {
 
         // Cache should be cleared after config update
         let stats = analyzer.get_cache_stats();
-        assert_eq!(stats.get("cache_size").unwrap(), &0);
+        assert_eq!(stats.get("cache_size").expect("element retrieval should succeed for valid index"), &0);
     }
 
     #[test]
     fn test_incremental_processing() {
-        let mut analyzer = LexicalCoherenceAnalyzer::new().unwrap();
+        let mut analyzer = LexicalCoherenceAnalyzer::new().expect("Lexical Coherence Analyzer should succeed");
 
         let long_text = "This is a very long text. ".repeat(100);
 
         let result = analyzer.analyze_incrementally(&long_text);
         assert!(result.is_ok());
 
-        let final_result = result.unwrap();
+        let final_result = result.expect("operation should succeed");
         assert!(final_result.analysis_metadata.contains_key("merged_chunks"));
     }
 
     #[test]
     fn test_comprehensive_analysis() {
-        let mut analyzer = LexicalCoherenceAnalyzer::new().unwrap();
+        let mut analyzer = LexicalCoherenceAnalyzer::new().expect("Lexical Coherence Analyzer should succeed");
 
         let text = "The cat sat on the mat. The cat was comfortable. \
                    The comfortable cat slept peacefully on the soft mat.";
 
-        let result = analyzer.analyze_lexical_coherence(text).unwrap();
+        let result = analyzer.analyze_lexical_coherence(text).expect("lexical coherence analysis should succeed");
 
         assert!(result.overall_coherence_score >= 0.0);
         assert!(result.overall_coherence_score <= 1.0);

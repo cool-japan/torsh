@@ -694,7 +694,7 @@ mod tests {
         let gate_network = GateNetwork::new(128, 64, 0);
         assert!(gate_network.is_ok());
 
-        let network = gate_network.unwrap();
+        let network = gate_network.expect("operation should succeed");
         assert_eq!(network.num_groups(), 8); // sqrt(64) = 8
         assert_eq!(network.experts_per_group(), 8); // 64/8 = 8
     }

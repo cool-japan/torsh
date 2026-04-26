@@ -890,14 +890,14 @@ mod tests {
         let profiles = SciRS2AutoTuner::initialize_optimization_profiles();
         assert!(profiles.is_ok());
         
-        let profiles = profiles.unwrap();
+        let profiles = profiles.expect("operation should succeed");
         assert!(profiles.contains_key("intel_haswell"));
         assert!(profiles.contains_key("apple_m1"));
     }
     
     #[test]
     fn test_kernel_registration() {
-        let tuner = SciRS2AutoTuner::new().unwrap();
+        let tuner = SciRS2AutoTuner::new().expect("Sci RS2Auto Tuner should succeed");
         
         let kernel_desc = KernelDescriptor {
             name: "test_kernel".to_string(),
@@ -920,7 +920,7 @@ mod tests {
     
     #[test]
     fn test_cache_key_generation() {
-        let tuner = SciRS2AutoTuner::new().unwrap();
+        let tuner = SciRS2AutoTuner::new().expect("Sci RS2Auto Tuner should succeed");
         
         let input_chars = InputCharacteristics {
             size: 1000,
@@ -945,8 +945,8 @@ mod tests {
     
     #[test]
     fn test_configuration_generation() {
-        let tuner = SciRS2AutoTuner::new().unwrap();
-        let profile = tuner.get_optimization_profile().unwrap();
+        let tuner = SciRS2AutoTuner::new().expect("Sci RS2Auto Tuner should succeed");
+        let profile = tuner.get_optimization_profile().expect("optimization profile retrieval should succeed");
         
         let input_chars = InputCharacteristics {
             size: 1024,

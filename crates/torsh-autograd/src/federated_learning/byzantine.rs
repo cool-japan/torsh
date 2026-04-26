@@ -593,7 +593,7 @@ mod tests {
         let result = detector.detect_byzantine_behavior_detailed("client_1", &gradients);
         assert!(result.is_ok());
 
-        let detection_result = result.unwrap();
+        let detection_result = result.expect("operation should succeed");
         assert!(detection_result.anomaly_score >= 0.0);
         assert!(detection_result.confidence >= 0.0 && detection_result.confidence <= 1.0);
         assert!(!detection_result.detection_reason.is_empty());

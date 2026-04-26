@@ -280,7 +280,7 @@ mod tests {
     async fn create_test_store() -> RedisStore {
         let mut store =
             RedisStore::new("redis://127.0.0.1:6379".to_string(), Duration::from_secs(5)).unwrap();
-        store.connect().await.unwrap();
+        store.connect().await.expect("operation should succeed");
         store
     }
 
@@ -290,17 +290,35 @@ mod tests {
         let store = create_test_store().await;
 
         // Test set and get
-        store.set("test_key1", b"test_value1").await.unwrap();
-        let value = store.get("test_key1").await.unwrap();
+        store
+            .set("test_key1", b"test_value1")
+            .await
+            .expect("operation should succeed");
+        let value = store
+            .get("test_key1")
+            .await
+            .expect("operation should succeed");
         assert_eq!(value, Some(b"test_value1".to_vec()));
 
         // Test contains
-        assert!(store.contains("test_key1").await.unwrap());
-        assert!(!store.contains("nonexistent").await.unwrap());
+        assert!(store
+            .contains("test_key1")
+            .await
+            .expect("operation should succeed"));
+        assert!(!store
+            .contains("nonexistent")
+            .await
+            .expect("operation should succeed"));
 
         // Test delete
-        store.delete("test_key1").await.unwrap();
-        assert!(!store.contains("test_key1").await.unwrap());
+        store
+            .delete("test_key1")
+            .await
+            .expect("operation should succeed");
+        assert!(!store
+            .contains("test_key1")
+            .await
+            .expect("operation should succeed"));
     }
 
     #[tokio::test]
@@ -316,31 +334,43 @@ mod tests {
         let success = store
             .compare_and_swap("test_counter", None, b"0")
             .await
-            .unwrap();
+            .expect("operation should succeed");
         assert!(success);
 
         let success = store
             .compare_and_swap("test_counter", Some(b"0"), b"1")
             .await
-            .unwrap();
+            .expect("operation should succeed");
         assert!(success);
 
         let success = store
             .compare_and_swap("test_counter", Some(b"0"), b"2")
             .await
-            .unwrap();
+            .expect("operation should succeed");
         assert!(!success);
 
         // Test atomic add
-        let result = store.add("test_num", 5).await.unwrap();
+        let result = store
+            .add("test_num", 5)
+            .await
+            .expect("operation should succeed");
         assert_eq!(result, 5);
 
-        let result = store.add("test_num", 3).await.unwrap();
+        let result = store
+            .add("test_num", 3)
+            .await
+            .expect("operation should succeed");
         assert_eq!(result, 8);
 
         // Cleanup
-        store.delete("test_counter").await.unwrap();
-        store.delete("test_num").await.unwrap();
+        store
+            .delete("test_counter")
+            .await
+            .expect("operation should succeed");
+        store
+            .delete("test_num")
+            .await
+            .expect("operation should succeed");
     }
 
     #[tokio::test]
@@ -352,16 +382,22 @@ mod tests {
         store
             .set_with_expiry("temp_key", b"temp_value", Duration::from_secs(2))
             .await
-            .unwrap();
+            .expect("operation should succeed");
 
         // Should exist immediately
-        assert!(store.contains("temp_key").await.unwrap());
+        assert!(store
+            .contains("temp_key")
+            .await
+            .expect("operation should succeed"));
 
         // Wait for expiry
         tokio::time::sleep(Duration::from_secs(3)).await;
 
         // Should be gone
-        assert!(!store.contains("temp_key").await.unwrap());
+        assert!(!store
+            .contains("temp_key")
+            .await
+            .expect("operation should succeed"));
     }
 
     #[tokio::test]
@@ -377,22 +413,40 @@ mod tests {
         let store_clone = create_test_store().await;
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(100)).await;
-            store_clone.set("wait_key1", b"value1").await.unwrap();
+            store_clone
+                .set("wait_key1", b"value1")
+                .await
+                .expect("operation should succeed");
             tokio::time::sleep(Duration::from_millis(100)).await;
-            store_clone.set("wait_key2", b"value2").await.unwrap();
+            store_clone
+                .set("wait_key2", b"value2")
+                .await
+                .expect("operation should succeed");
         });
 
         // Wait for keys
         store
             .wait(&["wait_key1".to_string(), "wait_key2".to_string()])
             .await
-            .unwrap();
+            .expect("operation should succeed");
 
-        assert!(store.contains("wait_key1").await.unwrap());
-        assert!(store.contains("wait_key2").await.unwrap());
+        assert!(store
+            .contains("wait_key1")
+            .await
+            .expect("operation should succeed"));
+        assert!(store
+            .contains("wait_key2")
+            .await
+            .expect("operation should succeed"));
 
         // Cleanup
-        store.delete("wait_key1").await.unwrap();
-        store.delete("wait_key2").await.unwrap();
+        store
+            .delete("wait_key1")
+            .await
+            .expect("operation should succeed");
+        store
+            .delete("wait_key2")
+            .await
+            .expect("operation should succeed");
     }
 }

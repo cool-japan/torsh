@@ -696,7 +696,7 @@ mod tests {
         assert!(serialized.is_ok());
 
         let deserialized: Result<SemanticFluencyResult, _> =
-            serde_json::from_str(&serialized.unwrap());
+            serde_json::from_str(&serialized.expect("operation should succeed"));
         assert!(deserialized.is_ok());
     }
 

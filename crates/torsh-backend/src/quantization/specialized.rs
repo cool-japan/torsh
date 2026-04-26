@@ -746,7 +746,7 @@ mod tests {
 
     #[test]
     fn test_vnni_ops_creation() {
-        let device = Device::cpu().unwrap();
+        let device = Device::cpu().expect("Device should succeed");
         let vnni_ops = VnniQuantizationOps::new(device);
 
         // VNNI availability depends on actual hardware
@@ -775,7 +775,7 @@ mod tests {
     #[test]
     fn test_dp4a_ops_creation() {
         // Test with CPU device (should not support DP4A)
-        let cpu_device = Device::cpu().unwrap();
+        let cpu_device = Device::cpu().expect("Device should succeed");
         let dp4a_ops = Dp4aQuantizationOps::new(cpu_device);
         assert!(!dp4a_ops.is_available());
 
@@ -785,7 +785,7 @@ mod tests {
 
     #[test]
     fn test_tensor_core_ops_creation() {
-        let device = Device::cpu().unwrap();
+        let device = Device::cpu().expect("Device should succeed");
         let tc_ops = TensorCoreQuantizationOps::new(device);
 
         // CPU device should not support Tensor Cores
@@ -798,7 +798,7 @@ mod tests {
 
     #[test]
     fn test_tensor_core_alignment_check() {
-        let device = Device::cpu().unwrap();
+        let device = Device::cpu().expect("Device should succeed");
         let tc_ops = TensorCoreQuantizationOps::new(device);
 
         // Test various alignments
@@ -828,7 +828,7 @@ mod tests {
 
     #[test]
     fn test_specialized_ops_trait() {
-        let device = Device::cpu().unwrap();
+        let device = Device::cpu().expect("Device should succeed");
 
         // Test VNNI implementation
         let vnni_ops = VnniQuantizationOps::new(device.clone());
@@ -850,7 +850,7 @@ mod tests {
 
     #[test]
     fn test_vnni_matrix_operations() {
-        let device = Device::cpu().unwrap();
+        let device = Device::cpu().expect("Device should succeed");
         let vnni_ops = VnniQuantizationOps::new(device.clone());
 
         if vnni_ops.is_available() {
@@ -872,7 +872,7 @@ mod tests {
 
             let result = vnni_ops.vnni_qmatmul_int8(&a_tensor, &b_tensor);
             if result.is_ok() {
-                let result_tensor = result.unwrap();
+                let result_tensor = result.expect("operation should succeed");
                 assert_eq!(result_tensor.shape, vec![2, 2]);
             }
         }
@@ -880,7 +880,7 @@ mod tests {
 
     #[test]
     fn test_dp4a_matrix_operations() {
-        let device = Device::cpu().unwrap();
+        let device = Device::cpu().expect("Device should succeed");
         let dp4a_ops = Dp4aQuantizationOps::new(device.clone());
 
         // Since CPU doesn't support DP4A, operations should fail appropriately
@@ -906,7 +906,7 @@ mod tests {
 
     #[test]
     fn test_tensor_core_matrix_operations() {
-        let device = Device::cpu().unwrap();
+        let device = Device::cpu().expect("Device should succeed");
         let tc_ops = TensorCoreQuantizationOps::new(device.clone());
 
         // CPU doesn't support Tensor Cores

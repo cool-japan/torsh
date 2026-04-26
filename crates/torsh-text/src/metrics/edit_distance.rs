@@ -786,9 +786,9 @@ mod tests {
     fn test_hamming_distance() {
         let edit_distance = EditDistance::new();
 
-        assert_eq!(edit_distance.hamming("abc", "abc").unwrap(), 0);
-        assert_eq!(edit_distance.hamming("abc", "axc").unwrap(), 1);
-        assert_eq!(edit_distance.hamming("abc", "xyz").unwrap(), 3);
+        assert_eq!(edit_distance.hamming("abc", "abc").expect("Hamming distance computation should succeed"), 0);
+        assert_eq!(edit_distance.hamming("abc", "axc").expect("Hamming distance computation should succeed"), 1);
+        assert_eq!(edit_distance.hamming("abc", "xyz").expect("Hamming distance computation should succeed"), 3);
 
         // Different lengths should return error
         assert!(edit_distance.hamming("ab", "abc").is_err());
@@ -872,10 +872,10 @@ mod tests {
 
         let result = edit_distance
             .find_most_similar("helo", candidates, DistanceAlgorithm::Levenshtein)
-            .unwrap();
+            .expect("operation should succeed");
 
         assert!(result.is_some());
-        let best_match = result.unwrap();
+        let best_match = result.expect("operation should succeed");
         assert_eq!(best_match.text, "hello"); // Should be closest
         assert!(best_match.similarity > 0.5);
     }
@@ -887,7 +887,7 @@ mod tests {
 
         let distances = edit_distance
             .pairwise_distances(strings, DistanceAlgorithm::Levenshtein)
-            .unwrap();
+            .expect("operation should succeed");
 
         assert_eq!(distances.len(), 3);
         assert_eq!(distances[0].len(), 3);
@@ -955,7 +955,7 @@ mod tests {
 
             let similarity = edit_distance.similarity("test", "best", *algorithm);
             assert!(similarity.is_ok());
-            assert!(similarity.unwrap() >= 0.0 && similarity.unwrap() <= 1.0);
+            assert!(similarity.expect("operation should succeed") >= 0.0 && similarity.expect("operation should succeed") <= 1.0);
         }
 
         // Hamming requires equal length strings

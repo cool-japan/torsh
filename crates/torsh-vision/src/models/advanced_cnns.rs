@@ -1131,7 +1131,7 @@ mod tests {
 
     #[test]
     fn test_convnext_creation() {
-        let model = ConvNeXt::convnext_tiny().unwrap();
+        let model = ConvNeXt::convnext_tiny().expect("Conv Ne Xt should succeed");
         assert_eq!(model.num_classes(), 1000);
         assert_eq!(model.input_size(), (224, 224));
     }
@@ -1139,15 +1139,15 @@ mod tests {
     #[test]
     #[ignore = "KNOWN ISSUE: LayerNorm2d fails with empty spatial dimensions (h*w=0). Edge case from aggressive pooling. Requires minimum input size validation (32x32+). Deferred to v0.2.0. See: TODO.md"]
     fn test_convnext_forward() {
-        let model = ConvNeXt::convnext_tiny().unwrap();
-        let input = randn::<f32>(&[1, 3, 224, 224]).unwrap();
-        let output = model.forward(&input).unwrap();
+        let model = ConvNeXt::convnext_tiny().expect("Conv Ne Xt should succeed");
+        let input = randn::<f32>(&[1, 3, 224, 224]).expect("operation should succeed");
+        let output = model.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[1, 1000]);
     }
 
     #[test]
     fn test_efficientnetv2_creation() {
-        let model = EfficientNetV2::efficientnetv2_s().unwrap();
+        let model = EfficientNetV2::efficientnetv2_s().expect("Efficient Net V2 should succeed");
         assert_eq!(model.num_classes(), 1000);
         assert_eq!(model.input_size(), (224, 224));
     }
@@ -1155,24 +1155,25 @@ mod tests {
     #[test]
     fn test_layer_norm_2d() {
         let norm = LayerNorm2d::new(64);
-        let input = randn::<f32>(&[2, 64, 32, 32]).unwrap();
-        let output = norm.forward(&input).unwrap();
+        let input = randn::<f32>(&[2, 64, 32, 32]).expect("operation should succeed");
+        let output = norm.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[2, 64, 32, 32]);
     }
 
     #[test]
     fn test_mbconv_block() {
-        let block = MBConvBlock::new(24, 48, 4, 3, 2, 0.1, false).unwrap();
-        let input = randn::<f32>(&[1, 24, 56, 56]).unwrap();
-        let output = block.forward(&input).unwrap();
+        let block =
+            MBConvBlock::new(24, 48, 4, 3, 2, 0.1, false).expect("MBConv Block should succeed");
+        let input = randn::<f32>(&[1, 24, 56, 56]).expect("operation should succeed");
+        let output = block.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[1, 48, 28, 28]);
     }
 
     #[test]
     fn test_squeeze_excitation() {
-        let se = SqueezeExcitation::new(64, 16).unwrap();
-        let input = randn::<f32>(&[1, 64, 32, 32]).unwrap();
-        let output = se.forward(&input).unwrap();
+        let se = SqueezeExcitation::new(64, 16).expect("Squeeze Excitation should succeed");
+        let input = randn::<f32>(&[1, 64, 32, 32]).expect("operation should succeed");
+        let output = se.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[1, 64, 32, 32]);
     }
 }

@@ -922,7 +922,7 @@ mod tests {
 
         let avg_response_time = calculate_average_response_time(&mirrors);
         assert!(avg_response_time.is_some());
-        assert_eq!(avg_response_time.unwrap(), 150.0);
+        assert_eq!(avg_response_time.expect("operation should succeed"), 150.0);
 
         let avg_reliability = calculate_average_reliability(&mirrors);
         assert!((avg_reliability - 0.8).abs() < 0.001);

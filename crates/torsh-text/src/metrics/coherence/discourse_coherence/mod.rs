@@ -322,7 +322,7 @@ mod tests {
         let result = analyzer.analyze_discourse_coherence(text);
         assert!(result.is_ok());
 
-        let analysis = result.unwrap();
+        let analysis = result.expect("operation should succeed");
         assert!(analysis.overall_coherence_score >= 0.0);
         assert!(analysis.overall_coherence_score <= 1.0);
     }

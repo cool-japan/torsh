@@ -537,7 +537,7 @@ mod tests {
         let data = vec![
             1.0f32, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0, 6.0, 6.0, 7.0, 7.0, 8.0, 8.0, 9.0,
         ];
-        let tensor = Tensor::from_vec(data, &[8, 2]).unwrap();
+        let tensor = Tensor::from_vec(data, &[8, 2]).expect("Tensor should succeed");
         TimeSeries::new(tensor)
     }
 
@@ -552,7 +552,8 @@ mod tests {
     fn test_var_fit() {
         let series = create_multivariate_series();
         let mut var = VAR::new(2);
-        var.fit(&series).unwrap();
+        var.fit(&series)
+            .expect("fit operation should succeed with valid input");
 
         assert!(var.is_fitted());
         assert_eq!(var.n_vars(), 2);
@@ -562,9 +563,12 @@ mod tests {
     fn test_var_forecast() {
         let series = create_multivariate_series();
         let mut var = VAR::new(1);
-        var.fit(&series).unwrap();
+        var.fit(&series)
+            .expect("fit operation should succeed with valid input");
 
-        let forecast = var.forecast(&series, 3).unwrap();
+        let forecast = var
+            .forecast(&series, 3)
+            .expect("forecast computation should succeed");
         assert_eq!(forecast.len(), 3);
         assert_eq!(forecast.num_features(), 2);
     }
@@ -573,11 +577,12 @@ mod tests {
     fn test_var_information_criteria() {
         let series = create_multivariate_series();
         let mut var = VAR::new(1);
-        var.fit(&series).unwrap();
+        var.fit(&series)
+            .expect("fit operation should succeed with valid input");
 
-        let aic = var.aic().unwrap();
-        let bic = var.bic().unwrap();
-        let hqic = var.hqic().unwrap();
+        let aic = var.aic().expect("AIC computation should succeed");
+        let bic = var.bic().expect("BIC computation should succeed");
+        let hqic = var.hqic().expect("HQIC computation should succeed");
 
         assert!(aic.is_finite());
         assert!(bic.is_finite());
@@ -590,14 +595,16 @@ mod tests {
         let x_data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
         let y_data = vec![2.0f32, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0];
 
-        let x_tensor = Tensor::from_vec(x_data, &[8]).unwrap();
-        let y_tensor = Tensor::from_vec(y_data, &[8]).unwrap();
+        let x_tensor = Tensor::from_vec(x_data, &[8]).expect("Tensor should succeed");
+        let y_tensor = Tensor::from_vec(y_data, &[8]).expect("Tensor should succeed");
 
         let x_series = TimeSeries::new(x_tensor);
         let y_series = TimeSeries::new(y_tensor);
 
         let gc = GrangerCausality::new(2);
-        let results = gc.test(&x_series, &y_series).unwrap();
+        let results = gc
+            .test(&x_series, &y_series)
+            .expect("statistical test should succeed");
 
         assert_eq!(results.len(), 2);
         for (lag, f_stat, p_value) in results {

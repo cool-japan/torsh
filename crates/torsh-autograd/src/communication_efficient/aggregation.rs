@@ -814,7 +814,9 @@ mod tests {
         grad2.insert("param_1".to_string(), vec![3.0, 4.0]);
 
         let gradients = vec![grad1, grad2];
-        let result = engine.aggregate(gradients).unwrap();
+        let result = engine
+            .aggregate(gradients)
+            .expect("aggregation should succeed");
 
         let expected = vec![2.0, 3.0];
         let actual = &result["param_1"];
@@ -841,7 +843,9 @@ mod tests {
         grad3.insert("param_1".to_string(), vec![5.0, 6.0]);
 
         let gradients = vec![grad1, grad2, grad3];
-        let result = engine.aggregate(gradients).unwrap();
+        let result = engine
+            .aggregate(gradients)
+            .expect("aggregation should succeed");
 
         // Use approximate comparison due to potential floating point precision issues
         let expected = vec![3.0, 4.0];

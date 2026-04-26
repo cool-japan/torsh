@@ -248,9 +248,9 @@ mod tests {
 
     #[test]
     fn test_make_grid_single_tensor() {
-        let tensor = creation::ones(&[3, 32, 32]).unwrap();
+        let tensor = creation::ones(&[3, 32, 32]).expect("creation should succeed");
         let tensors = vec![tensor];
-        let grid = make_grid(&tensors, 1, 0).unwrap();
+        let grid = make_grid(&tensors, 1, 0).expect("make grid should succeed");
 
         assert_eq!(grid.shape().dims(), &[3, 32, 32]);
     }
@@ -258,9 +258,9 @@ mod tests {
     #[test]
     fn test_make_grid_multiple_tensors() {
         let tensors: Vec<_> = (0..4)
-            .map(|_| creation::ones(&[3, 16, 16]).unwrap())
+            .map(|_| creation::ones(&[3, 16, 16]).expect("map operation should succeed"))
             .collect();
-        let grid = make_grid(&tensors, 2, 2).unwrap();
+        let grid = make_grid(&tensors, 2, 2).expect("make grid should succeed");
 
         // 2x2 grid with 2 pixel padding: (2*16 + 1*2) x (2*16 + 1*2) = 34 x 34
         assert_eq!(grid.shape().dims(), &[3, 34, 34]);
@@ -275,8 +275,8 @@ mod tests {
 
     #[test]
     fn test_make_grid_mismatched_shapes() {
-        let tensor1 = creation::ones(&[3, 32, 32]).unwrap();
-        let tensor2 = creation::ones(&[3, 16, 16]).unwrap();
+        let tensor1 = creation::ones(&[3, 32, 32]).expect("creation should succeed");
+        let tensor2 = creation::ones(&[3, 16, 16]).expect("creation should succeed");
         let tensors = vec![tensor1, tensor2];
         let result = make_grid(&tensors, 1, 0);
         assert!(result.is_err());
@@ -284,7 +284,7 @@ mod tests {
 
     #[test]
     fn test_make_grid_invalid_dimensions() {
-        let tensor = creation::ones(&[32, 32]).unwrap(); // 2D instead of 3D
+        let tensor = creation::ones(&[32, 32]).expect("creation should succeed"); // 2D instead of 3D
         let tensors = vec![tensor];
         let result = make_grid(&tensors, 1, 0);
         assert!(result.is_err());
@@ -305,7 +305,7 @@ mod tests {
     #[test]
     fn test_draw_bounding_boxes_invalid_shape() {
         let mut image = DynamicImage::ImageRgb8(RgbImage::new(100, 100));
-        let boxes = creation::ones(&[2, 3]).unwrap(); // Wrong shape, should be [N, 4]
+        let boxes = creation::ones(&[2, 3]).expect("creation should succeed"); // Wrong shape, should be [N, 4]
 
         let result = draw_bounding_boxes(&mut image, &boxes, None, None, None);
         assert!(result.is_err());

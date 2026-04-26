@@ -268,7 +268,7 @@ mod structural_coherence_backward_compatibility_tests {
 
         // Verify result structure
         for result in results {
-            let analysis = result.unwrap();
+            let analysis = result.expect("operation should succeed");
             assert!(analysis.overall_coherence_score >= 0.0);
             assert!(analysis.overall_coherence_score <= 1.0);
             assert!(!analysis.detailed_metrics.is_none());
@@ -283,19 +283,19 @@ mod structural_coherence_backward_compatibility_tests {
         // Test empty text
         let empty_result = analyzer.analyze_structural_coherence(&test_data.empty_text);
         assert!(empty_result.is_ok());
-        let empty_analysis = empty_result.unwrap();
+        let empty_analysis = empty_result.expect("operation should succeed");
         assert_relative_eq!(empty_analysis.overall_coherence_score, 0.0, epsilon = 1e-6);
 
         // Test fragmented text
         let fragmented_result = analyzer.analyze_structural_coherence(&test_data.fragmented_text);
         assert!(fragmented_result.is_ok());
-        let fragmented_analysis = fragmented_result.unwrap();
+        let fragmented_analysis = fragmented_result.expect("operation should succeed");
         assert!(fragmented_analysis.overall_coherence_score < 0.5); // Should be low coherence
 
         // Test single paragraph
         let single_result = analyzer.analyze_structural_coherence(&test_data.single_paragraph);
         assert!(single_result.is_ok());
-        let single_analysis = single_result.unwrap();
+        let single_analysis = single_result.expect("operation should succeed");
         assert!(single_analysis.overall_coherence_score > 0.0);
 
         // Test very long strings
@@ -320,7 +320,7 @@ mod structural_coherence_backward_compatibility_tests {
         let result = analyzer.analyze_hierarchical_structure(&test_data.hierarchical_structure);
         assert!(result.is_ok());
 
-        let analysis = result.unwrap();
+        let analysis = result.expect("operation should succeed");
         assert!(analysis.tree_structure.len() > 0);
         assert!(analysis
             .level_distribution
@@ -358,7 +358,7 @@ mod structural_coherence_backward_compatibility_tests {
         let result = analyzer.analyze_discourse_patterns(&test_data.discourse_heavy);
         assert!(result.is_ok());
 
-        let analysis = result.unwrap();
+        let analysis = result.expect("operation should succeed");
         assert!(analysis.identified_patterns.len() > 0);
         assert!(analysis.overall_pattern_coherence >= 0.0);
         assert!(analysis.overall_pattern_coherence <= 1.0);
@@ -393,7 +393,7 @@ mod structural_coherence_backward_compatibility_tests {
         let result = analyzer.analyze_structural_markers(&test_data.marker_rich_text);
         assert!(result.is_ok());
 
-        let analysis = result.unwrap();
+        let analysis = result.expect("operation should succeed");
         assert!(analysis.identified_markers.len() > 0);
         assert!(analysis.marker_density >= 0.0);
         assert!(analysis.effectiveness_score >= 0.0);
@@ -436,7 +436,7 @@ mod structural_coherence_backward_compatibility_tests {
         let result = analyzer.detect_structural_boundaries(&test_data.complex_academic_paper);
         assert!(result.is_ok());
 
-        let boundaries = result.unwrap();
+        let boundaries = result.expect("operation should succeed");
         assert!(boundaries.section_boundaries.len() > 0);
         assert!(boundaries.topic_boundaries.len() > 0);
         assert!(boundaries.confidence_scores.len() == boundaries.section_boundaries.len());
@@ -460,18 +460,18 @@ mod structural_coherence_backward_compatibility_tests {
         // Test coherence calculation with different components
         let hierarchical = analyzer
             .analyze_hierarchical_structure(&test_data.hierarchical_structure)
-            .unwrap();
+            .expect("operation should succeed");
         let discourse = analyzer
             .analyze_discourse_patterns(&test_data.discourse_heavy)
-            .unwrap();
+            .expect("operation should succeed");
         let markers = analyzer
             .analyze_structural_markers(&test_data.marker_rich_text)
-            .unwrap();
+            .expect("operation should succeed");
 
         let result = analyzer.calculate_overall_coherence(&hierarchical, &discourse, &markers);
         assert!(result.is_ok());
 
-        let calculation = result.unwrap();
+        let calculation = result.expect("operation should succeed");
         assert!(calculation.overall_score >= 0.0);
         assert!(calculation.overall_score <= 1.0);
         assert!(calculation.hierarchical_contribution >= 0.0);
@@ -494,7 +494,7 @@ mod structural_coherence_backward_compatibility_tests {
         let result = analyzer.perform_advanced_analysis(&test_data.complex_academic_paper);
         assert!(result.is_ok());
 
-        let analysis = result.unwrap();
+        let analysis = result.expect("operation should succeed");
         assert!(analysis.rhetorical_structure.is_some());
         assert!(analysis.reader_experience_metrics.is_some());
         assert!(analysis.complexity_analysis.is_some());
@@ -561,16 +561,16 @@ mod structural_coherence_backward_compatibility_tests {
         // Test serialization of main result
         let result = analyzer
             .analyze_structural_coherence(&test_data.complex_academic_paper)
-            .unwrap();
+            .expect("operation should succeed");
 
         let serialized = serde_json::to_string(&result);
         assert!(serialized.is_ok());
 
         let deserialized: Result<StructuralCoherenceResult, _> =
-            serde_json::from_str(&serialized.unwrap());
+            serde_json::from_str(&serialized.expect("operation should succeed"));
         assert!(deserialized.is_ok());
 
-        let recovered_result = deserialized.unwrap();
+        let recovered_result = deserialized.expect("operation should succeed");
         assert_relative_eq!(
             recovered_result.overall_coherence_score,
             result.overall_coherence_score,
@@ -580,19 +580,19 @@ mod structural_coherence_backward_compatibility_tests {
         // Test serialization of individual analysis components
         let hierarchical = analyzer
             .analyze_hierarchical_structure(&test_data.hierarchical_structure)
-            .unwrap();
+            .expect("operation should succeed");
         let hier_serialized = serde_json::to_string(&hierarchical);
         assert!(hier_serialized.is_ok());
 
         let discourse = analyzer
             .analyze_discourse_patterns(&test_data.discourse_heavy)
-            .unwrap();
+            .expect("operation should succeed");
         let disc_serialized = serde_json::to_string(&discourse);
         assert!(disc_serialized.is_ok());
 
         let markers = analyzer
             .analyze_structural_markers(&test_data.marker_rich_text)
-            .unwrap();
+            .expect("operation should succeed");
         let mark_serialized = serde_json::to_string(&markers);
         assert!(mark_serialized.is_ok());
     }
@@ -708,13 +708,13 @@ mod structural_coherence_backward_compatibility_tests {
                     "Concurrent analysis failed for thread {}",
                     i
                 );
-                result.unwrap().overall_coherence_score
+                result.expect("operation should succeed").overall_coherence_score
             });
 
             handles.push(handle);
         }
 
-        let scores: Vec<f64> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+        let scores: Vec<f64> = handles.into_iter().map(|h| h.join().expect("map operation should succeed")).collect();
         assert_eq!(scores.len(), 4);
 
         // All scores should be valid
@@ -756,7 +756,7 @@ mod structural_coherence_backward_compatibility_tests {
         // Test that results can be used in typical workflows
         let result = analyzer
             .analyze_structural_coherence(&test_data.complex_academic_paper)
-            .unwrap();
+            .expect("operation should succeed");
 
         // Should be able to extract useful metrics
         assert!(result.overall_coherence_score > 0.0);
@@ -778,18 +778,18 @@ mod structural_coherence_backward_compatibility_tests {
         // Test that individual analysis components can be used independently
         let hierarchical = analyzer
             .analyze_hierarchical_structure(&test_data.hierarchical_structure)
-            .unwrap();
+            .expect("operation should succeed");
         let discourse = analyzer
             .analyze_discourse_patterns(&test_data.discourse_heavy)
-            .unwrap();
+            .expect("operation should succeed");
         let markers = analyzer
             .analyze_structural_markers(&test_data.marker_rich_text)
-            .unwrap();
+            .expect("operation should succeed");
 
         // Should be able to combine results manually
         let coherence_calc = analyzer
             .calculate_overall_coherence(&hierarchical, &discourse, &markers)
-            .unwrap();
+            .expect("operation should succeed");
         assert!(coherence_calc.overall_score >= 0.0);
         assert!(coherence_calc.overall_score <= 1.0);
     }
@@ -855,7 +855,7 @@ mod integration_compatibility_tests {
 
     #[test]
     fn test_file_based_analysis_compatibility() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("Temp Dir should succeed");
         let test_file_path = temp_dir.path().join("test_document.txt");
 
         let test_content = vec![
@@ -872,19 +872,19 @@ mod integration_compatibility_tests {
         ];
 
         // Write test content to file
-        std::fs::write(&test_file_path, test_content.join("\n")).unwrap();
+        std::fs::write(&test_file_path, test_content.join("\n")).expect("operation should succeed");
 
         // Test file-based analysis if supported
         let analyzer = StructuralCoherenceAnalyzer::default();
 
         // Read file and analyze (simulating file-based workflow)
-        let file_content = std::fs::read_to_string(&test_file_path).unwrap();
+        let file_content = std::fs::read_to_string(&test_file_path).expect("fs should succeed");
         let paragraphs: Vec<String> = file_content.lines().map(|s| s.to_string()).collect();
 
         let result = analyzer.analyze_structural_coherence(&paragraphs);
         assert!(result.is_ok());
 
-        let analysis = result.unwrap();
+        let analysis = result.expect("operation should succeed");
         assert!(analysis.overall_coherence_score > 0.0);
     }
 
@@ -915,7 +915,7 @@ mod integration_compatibility_tests {
         assert!(result.is_ok());
         assert!(elapsed.as_secs() < 60); // Should complete within reasonable time
 
-        let analysis = result.unwrap();
+        let analysis = result.expect("operation should succeed");
         assert!(analysis.overall_coherence_score >= 0.0);
         assert!(analysis.overall_coherence_score <= 1.0);
     }

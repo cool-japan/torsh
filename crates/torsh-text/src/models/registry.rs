@@ -180,7 +180,9 @@ mod tests {
         let config = TextModelConfig::bert_base();
         registry.register_config("test-bert", config.clone());
 
-        let retrieved = registry.get_config("test-bert").unwrap();
+        let retrieved = registry
+            .get_config("test-bert")
+            .expect("configuration retrieval should succeed");
         assert_eq!(retrieved.vocab_size, config.vocab_size);
         assert_eq!(retrieved.hidden_dim, config.hidden_dim);
 

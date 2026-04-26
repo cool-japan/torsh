@@ -421,13 +421,13 @@ mod tests {
     #[test]
     fn test_mixup_apply_pair() {
         let mixup = MixUp::new(0.0); // Disable randomness for testing
-        let input1 = creation::ones(&[3, 4, 4]).unwrap();
-        let input2 = creation::zeros(&[3, 4, 4]).unwrap();
+        let input1 = creation::ones(&[3, 4, 4]).expect("creation should succeed");
+        let input2 = creation::zeros(&[3, 4, 4]).expect("creation should succeed");
 
         let result = mixup.apply_pair(&input1, &input2, 0, 1, 5);
         assert!(result.is_ok());
 
-        let (mixed_image, mixed_labels) = result.unwrap();
+        let (mixed_image, mixed_labels) = result.expect("operation should succeed");
 
         // Check image dimensions
         assert_eq!(mixed_image.shape().dims(), &[3, 4, 4]);
@@ -436,43 +436,71 @@ mod tests {
         assert_eq!(mixed_labels.shape().dims(), &[5]);
 
         // With alpha=0, lambda should be 0.5
-        assert!((mixed_labels.get(&[0]).unwrap() - 0.5).abs() < 1e-6);
-        assert!((mixed_labels.get(&[1]).unwrap() - 0.5).abs() < 1e-6);
+        assert!(
+            (mixed_labels
+                .get(&[0])
+                .expect("element retrieval should succeed for valid index")
+                - 0.5)
+                .abs()
+                < 1e-6
+        );
+        assert!(
+            (mixed_labels
+                .get(&[1])
+                .expect("element retrieval should succeed for valid index")
+                - 0.5)
+                .abs()
+                < 1e-6
+        );
     }
 
     #[test]
     fn test_mixup_apply_pair_with_lambda() {
         let mixup = MixUp::new(1.0);
-        let input1 = creation::ones(&[3, 4, 4]).unwrap();
-        let input2 = creation::zeros(&[3, 4, 4]).unwrap();
+        let input1 = creation::ones(&[3, 4, 4]).expect("creation should succeed");
+        let input2 = creation::zeros(&[3, 4, 4]).expect("creation should succeed");
 
         let result = mixup.apply_pair_with_lambda(&input1, &input2, 0, 2, 5, 0.3);
         assert!(result.is_ok());
 
-        let (_mixed_image, mixed_labels) = result.unwrap();
+        let (_mixed_image, mixed_labels) = result.expect("operation should succeed");
 
         // Check exact lambda values
-        assert!((mixed_labels.get(&[0]).unwrap() - 0.3).abs() < 1e-6);
-        assert!((mixed_labels.get(&[2]).unwrap() - 0.7).abs() < 1e-6);
+        assert!(
+            (mixed_labels
+                .get(&[0])
+                .expect("element retrieval should succeed for valid index")
+                - 0.3)
+                .abs()
+                < 1e-6
+        );
+        assert!(
+            (mixed_labels
+                .get(&[2])
+                .expect("element retrieval should succeed for valid index")
+                - 0.7)
+                .abs()
+                < 1e-6
+        );
     }
 
     #[test]
     #[should_panic(expected = "Lambda must be between 0.0 and 1.0")]
     fn test_mixup_invalid_lambda() {
         let mixup = MixUp::new(1.0);
-        let input1 = creation::ones(&[3, 4, 4]).unwrap();
-        let input2 = creation::zeros(&[3, 4, 4]).unwrap();
+        let input1 = creation::ones(&[3, 4, 4]).expect("creation should succeed");
+        let input2 = creation::zeros(&[3, 4, 4]).expect("creation should succeed");
 
         mixup
             .apply_pair_with_lambda(&input1, &input2, 0, 1, 5, 1.5)
-            .unwrap();
+            .expect("operation should succeed");
     }
 
     #[test]
     fn test_mixup_invalid_labels() {
         let mixup = MixUp::new(1.0);
-        let input1 = creation::ones(&[3, 4, 4]).unwrap();
-        let input2 = creation::zeros(&[3, 4, 4]).unwrap();
+        let input1 = creation::ones(&[3, 4, 4]).expect("creation should succeed");
+        let input2 = creation::zeros(&[3, 4, 4]).expect("creation should succeed");
 
         let result = mixup.apply_pair(&input1, &input2, 5, 1, 5); // label1 >= num_classes
         assert!(result.is_err());
@@ -503,13 +531,13 @@ mod tests {
     #[test]
     fn test_cutmix_apply_pair() {
         let cutmix = CutMix::new(1.0);
-        let input1 = creation::ones(&[3, 8, 8]).unwrap();
-        let input2 = creation::zeros(&[3, 8, 8]).unwrap();
+        let input1 = creation::ones(&[3, 8, 8]).expect("creation should succeed");
+        let input2 = creation::zeros(&[3, 8, 8]).expect("creation should succeed");
 
         let result = cutmix.apply_pair(&input1, &input2, 0, 1, 5);
         assert!(result.is_ok());
 
-        let (mixed_image, mixed_labels) = result.unwrap();
+        let (mixed_image, mixed_labels) = result.expect("operation should succeed");
 
         // Check image dimensions
         assert_eq!(mixed_image.shape().dims(), &[3, 8, 8]);
@@ -518,37 +546,66 @@ mod tests {
         assert_eq!(mixed_labels.shape().dims(), &[5]);
 
         // Labels should sum to 1
-        let label_sum = mixed_labels.get(&[0]).unwrap() + mixed_labels.get(&[1]).unwrap();
+        let label_sum = mixed_labels
+            .get(&[0])
+            .expect("element retrieval should succeed for valid index")
+            + mixed_labels
+                .get(&[1])
+                .expect("element retrieval should succeed for valid index");
         assert!((label_sum - 1.0).abs() < 1e-6);
     }
 
     #[test]
     fn test_cutmix_apply_pair_with_bbox() {
         let cutmix = CutMix::new(1.0);
-        let input1 = creation::ones(&[3, 8, 8]).unwrap();
-        let input2 = creation::zeros(&[3, 8, 8]).unwrap();
+        let input1 = creation::ones(&[3, 8, 8]).expect("creation should succeed");
+        let input2 = creation::zeros(&[3, 8, 8]).expect("creation should succeed");
 
         // Cut a 2x2 region (4 pixels out of 64 total)
         let result = cutmix.apply_pair_with_bbox(&input1, &input2, 0, 1, 5, 2, 2, 4, 4);
         assert!(result.is_ok());
 
-        let (mixed_image, mixed_labels) = result.unwrap();
+        let (mixed_image, mixed_labels) = result.expect("operation should succeed");
 
         // Check that cut region has been applied
-        assert_eq!(mixed_image.get(&[0, 2, 2]).unwrap(), 0.0); // Should be from input2
-        assert_eq!(mixed_image.get(&[0, 0, 0]).unwrap(), 1.0); // Should be from input1
+        assert_eq!(
+            mixed_image
+                .get(&[0, 2, 2])
+                .expect("element retrieval should succeed for valid index"),
+            0.0
+        ); // Should be from input2
+        assert_eq!(
+            mixed_image
+                .get(&[0, 0, 0])
+                .expect("element retrieval should succeed for valid index"),
+            1.0
+        ); // Should be from input1
 
         // Lambda should be 1 - (4/64) = 60/64 = 0.9375
         let expected_lambda = 1.0 - (4.0 / 64.0);
-        assert!((mixed_labels.get(&[0]).unwrap() - expected_lambda).abs() < 1e-6);
-        assert!((mixed_labels.get(&[1]).unwrap() - (1.0 - expected_lambda)).abs() < 1e-6);
+        assert!(
+            (mixed_labels
+                .get(&[0])
+                .expect("element retrieval should succeed for valid index")
+                - expected_lambda)
+                .abs()
+                < 1e-6
+        );
+        assert!(
+            (mixed_labels
+                .get(&[1])
+                .expect("element retrieval should succeed for valid index")
+                - (1.0 - expected_lambda))
+                .abs()
+                < 1e-6
+        );
     }
 
     #[test]
     fn test_cutmix_invalid_bbox() {
         let cutmix = CutMix::new(1.0);
-        let input1 = creation::ones(&[3, 8, 8]).unwrap();
-        let input2 = creation::zeros(&[3, 8, 8]).unwrap();
+        let input1 = creation::ones(&[3, 8, 8]).expect("creation should succeed");
+        let input2 = creation::zeros(&[3, 8, 8]).expect("creation should succeed");
 
         // Invalid bbox: x2 <= x1
         let result = cutmix.apply_pair_with_bbox(&input1, &input2, 0, 1, 5, 4, 2, 4, 4);
@@ -570,8 +627,8 @@ mod tests {
     #[test]
     fn test_cutmix_invalid_shape() {
         let cutmix = CutMix::new(1.0);
-        let input1 = creation::ones(&[8, 8]).unwrap(); // 2D tensor (invalid)
-        let input2 = creation::zeros(&[8, 8]).unwrap();
+        let input1 = creation::ones(&[8, 8]).expect("creation should succeed"); // 2D tensor (invalid)
+        let input2 = creation::zeros(&[8, 8]).expect("creation should succeed");
 
         let result = cutmix.apply_pair(&input1, &input2, 0, 1, 5);
         assert!(result.is_err());
@@ -581,8 +638,8 @@ mod tests {
     #[test]
     fn test_cutmix_invalid_labels() {
         let cutmix = CutMix::new(1.0);
-        let input1 = creation::ones(&[3, 4, 4]).unwrap();
-        let input2 = creation::zeros(&[3, 4, 4]).unwrap();
+        let input1 = creation::ones(&[3, 4, 4]).expect("creation should succeed");
+        let input2 = creation::zeros(&[3, 4, 4]).expect("creation should succeed");
 
         let result = cutmix.apply_pair(&input1, &input2, 0, 5, 5); // label2 >= num_classes
         assert!(result.is_err());
@@ -596,14 +653,24 @@ mod tests {
     fn test_transforms_forward() {
         let mixup = MixUp::new(1.0);
         let cutmix = CutMix::new(1.0);
-        let input = creation::ones(&[3, 8, 8]).unwrap();
+        let input = creation::ones(&[3, 8, 8]).expect("creation should succeed");
 
         // Both transforms should return input unchanged in forward mode
-        let mixup_result = mixup.forward(&input).unwrap();
-        let cutmix_result = cutmix.forward(&input).unwrap();
+        let mixup_result = mixup.forward(&input).expect("forward pass should succeed");
+        let cutmix_result = cutmix.forward(&input).expect("forward pass should succeed");
 
-        assert_eq!(mixup_result.get(&[0, 0, 0]).unwrap(), 1.0);
-        assert_eq!(cutmix_result.get(&[0, 0, 0]).unwrap(), 1.0);
+        assert_eq!(
+            mixup_result
+                .get(&[0, 0, 0])
+                .expect("element retrieval should succeed for valid index"),
+            1.0
+        );
+        assert_eq!(
+            cutmix_result
+                .get(&[0, 0, 0])
+                .expect("element retrieval should succeed for valid index"),
+            1.0
+        );
     }
 
     #[test]
@@ -626,8 +693,8 @@ mod tests {
         assert_eq!(cutmix.alpha(), 0.0);
 
         // Test minimal valid image
-        let input1 = creation::ones(&[1, 1, 1]).unwrap();
-        let input2 = creation::zeros(&[1, 1, 1]).unwrap();
+        let input1 = creation::ones(&[1, 1, 1]).expect("creation should succeed");
+        let input2 = creation::zeros(&[1, 1, 1]).expect("creation should succeed");
 
         let mixup_result = mixup.apply_pair(&input1, &input2, 0, 1, 2);
         assert!(mixup_result.is_ok());
@@ -639,20 +706,33 @@ mod tests {
     #[test]
     fn test_same_labels() {
         let mixup = MixUp::new(1.0);
-        let input1 = creation::ones(&[3, 4, 4]).unwrap();
-        let input2 = creation::zeros(&[3, 4, 4]).unwrap();
+        let input1 = creation::ones(&[3, 4, 4]).expect("creation should succeed");
+        let input2 = creation::zeros(&[3, 4, 4]).expect("creation should succeed");
 
         // Test with same labels
         let result = mixup.apply_pair(&input1, &input2, 2, 2, 5);
         assert!(result.is_ok());
 
-        let (_, mixed_labels) = result.unwrap();
-        assert!((mixed_labels.get(&[2]).unwrap() - 1.0).abs() < 1e-6);
+        let (_, mixed_labels) = result.expect("operation should succeed");
+        assert!(
+            (mixed_labels
+                .get(&[2])
+                .expect("element retrieval should succeed for valid index")
+                - 1.0)
+                .abs()
+                < 1e-6
+        );
 
         // All other labels should be 0
         for i in 0..5 {
             if i != 2 {
-                assert!((mixed_labels.get(&[i]).unwrap()).abs() < 1e-6);
+                assert!(
+                    (mixed_labels
+                        .get(&[i])
+                        .expect("element retrieval should succeed for valid index"))
+                    .abs()
+                        < 1e-6
+                );
             }
         }
     }

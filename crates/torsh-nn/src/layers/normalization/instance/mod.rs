@@ -496,25 +496,25 @@ mod tests {
 
     #[test]
     fn test_instance_norm_2d_creation() {
-        let instance_norm = InstanceNorm2d::new(64).unwrap();
+        let instance_norm = InstanceNorm2d::new(64).expect("Instance Norm2d should succeed");
         assert_eq!(instance_norm.num_features(), 64);
         assert_eq!(instance_norm.eps(), 1e-5);
     }
 
     #[test]
     fn test_instance_norm_2d_shape_validation() {
-        let instance_norm = InstanceNorm2d::new(3).unwrap();
+        let instance_norm = InstanceNorm2d::new(3).expect("Instance Norm2d should succeed");
 
         // Valid input
-        let input = zeros(&[2, 3, 32, 32]).unwrap();
+        let input = zeros(&[2, 3, 32, 32]).expect("zeros should succeed");
         assert!(instance_norm.forward(&input).is_ok());
 
         // Invalid dimensions
-        let input_3d = zeros(&[2, 3, 32]).unwrap();
+        let input_3d = zeros(&[2, 3, 32]).expect("zeros should succeed");
         assert!(instance_norm.forward(&input_3d).is_err());
 
         // Wrong number of channels
-        let input_wrong_channels = zeros(&[2, 4, 32, 32]).unwrap();
+        let input_wrong_channels = zeros(&[2, 4, 32, 32]).expect("zeros should succeed");
         assert!(instance_norm.forward(&input_wrong_channels).is_err());
     }
 }

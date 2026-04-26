@@ -425,7 +425,9 @@ mod tests {
         let model = create_sample_model("test_model", 3);
         let config = ProfilingConfig::default();
 
-        let profile = profile_model(&model, &config).await.unwrap();
+        let profile = profile_model(&model, &config)
+            .await
+            .expect("operation should succeed");
 
         assert!(profile.total_inference_time_ms > 0.0);
         assert!(profile.throughput_samples_per_sec > 0.0);
@@ -464,7 +466,7 @@ mod tests {
     #[test]
     fn test_report_generation() {
         let model = create_sample_model("test", 2);
-        let layer_profiles = profile_layers(&model).unwrap();
+        let layer_profiles = profile_layers(&model).expect("profile layers should succeed");
 
         let profile = ModelProfile {
             model_name: "test_model".to_string(),

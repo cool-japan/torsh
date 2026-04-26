@@ -713,7 +713,7 @@ mod tests {
     #[test]
     fn test_dropout_invalid_p_negative() {
         // Test that negative p values are rejected
-        let input = Tensor::from_vec(vec![1.0, 2.0, 3.0], &[3]).unwrap();
+        let input = Tensor::from_vec(vec![1.0, 2.0, 3.0], &[3]).expect("Tensor should succeed");
         let result = dropout(&input, -0.1, true);
 
         assert!(result.is_err());
@@ -727,7 +727,7 @@ mod tests {
     #[test]
     fn test_dropout_invalid_p_too_large() {
         // Test that p > 1.0 values are rejected
-        let input = Tensor::from_vec(vec![1.0, 2.0, 3.0], &[3]).unwrap();
+        let input = Tensor::from_vec(vec![1.0, 2.0, 3.0], &[3]).expect("Tensor should succeed");
         let result = dropout(&input, 1.5, true);
 
         assert!(result.is_err());

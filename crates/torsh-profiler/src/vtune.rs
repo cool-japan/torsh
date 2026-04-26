@@ -526,6 +526,11 @@ mod tests {
         profiler.enable().unwrap();
         let task = profiler.start_itt_task("test_task").unwrap();
         assert_eq!(task.name(), "test_task");
+        // Sleep briefly so that at least one nanosecond elapses before sampling
+        // the task duration; without this the elapsed time can be 0 ns on fast
+        // hardware because the measurement happens in the same CPU clock cycle
+        // as task creation.
+        std::thread::sleep(std::time::Duration::from_micros(100));
         assert!(task.duration().as_nanos() > 0);
     }
 

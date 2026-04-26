@@ -763,7 +763,7 @@ mod tests {
         // At minimum, SSE2 should be available on x86_64
         #[cfg(target_arch = "x86_64")]
         {
-            let features = features.unwrap();
+            let features = features.expect("operation should succeed");
             assert!(features.sse2);
         }
     }

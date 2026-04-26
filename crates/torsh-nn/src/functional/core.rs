@@ -460,7 +460,7 @@ mod tests {
 
     #[test]
     fn test_validate_not_empty_invalid() {
-        let tensor: Tensor = Tensor::from_vec(vec![], &[0]).unwrap();
+        let tensor: Tensor = Tensor::from_vec(vec![], &[0]).expect("Tensor should succeed");
         let result = validation::validate_not_empty(&tensor, "test");
         assert!(result.is_err());
     }
@@ -474,7 +474,7 @@ mod tests {
 
     #[test]
     fn test_validate_ndim_invalid() {
-        let tensor = Tensor::from_vec(vec![1.0; 12], &[3, 4]).unwrap();
+        let tensor = Tensor::from_vec(vec![1.0; 12], &[3, 4]).expect("Tensor should succeed");
         let result = validation::validate_ndim(&tensor, 3, "test");
         assert!(result.is_err());
     }
@@ -489,7 +489,7 @@ mod tests {
 
     #[test]
     fn test_validate_min_ndim_invalid() {
-        let tensor = Tensor::from_vec(vec![1.0; 12], &[3, 4]).unwrap();
+        let tensor = Tensor::from_vec(vec![1.0; 12], &[3, 4]).expect("Tensor should succeed");
         let result = validation::validate_min_ndim(&tensor, 3, "test");
         assert!(result.is_err());
     }

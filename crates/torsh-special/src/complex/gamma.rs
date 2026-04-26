@@ -371,9 +371,10 @@ mod tests {
             Complex64::new(2.0, 0.0), // Γ(2) = 1
             Complex64::new(0.5, 0.0), // Γ(0.5) = √π
         ];
-        let input = Tensor::from_data(input_data, vec![3], DeviceType::Cpu).unwrap();
-        let result = complex_gamma_c64(&input).unwrap();
-        let data = result.data().unwrap();
+        let input =
+            Tensor::from_data(input_data, vec![3], DeviceType::Cpu).expect("Tensor should succeed");
+        let result = complex_gamma_c64(&input).expect("complex gamma c64 should succeed");
+        let data = result.data().expect("tensor data should be accessible");
 
         assert_relative_eq!(data[0].re, 1.0, max_relative = 1e-10);
         assert_relative_eq!(data[1].re, 1.0, max_relative = 1e-10);
@@ -384,11 +385,11 @@ mod tests {
     fn test_complex_beta_c64() {
         let a_data = vec![Complex64::new(1.0, 0.0)];
         let b_data = vec![Complex64::new(1.0, 0.0)];
-        let a = Tensor::from_data(a_data, vec![1], DeviceType::Cpu).unwrap();
-        let b = Tensor::from_data(b_data, vec![1], DeviceType::Cpu).unwrap();
+        let a = Tensor::from_data(a_data, vec![1], DeviceType::Cpu).expect("Tensor should succeed");
+        let b = Tensor::from_data(b_data, vec![1], DeviceType::Cpu).expect("Tensor should succeed");
 
-        let result = complex_beta_c64(&a, &b).unwrap();
-        let data = result.data().unwrap();
+        let result = complex_beta_c64(&a, &b).expect("complex beta c64 should succeed");
+        let data = result.data().expect("tensor data should be accessible");
 
         // B(1,1) = 1
         assert_relative_eq!(data[0].re, 1.0, max_relative = 1e-6);

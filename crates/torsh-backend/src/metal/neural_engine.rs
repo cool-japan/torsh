@@ -823,7 +823,7 @@ mod tests {
             let capabilities = NeuralEngineContext::detect_capabilities();
             assert!(capabilities.is_ok());
 
-            let caps = capabilities.unwrap();
+            let caps = capabilities.expect("operation should succeed");
             if caps.available {
                 assert!(!caps.supported_formats.is_empty());
                 assert!(caps.processing_units > 0);
@@ -835,7 +835,7 @@ mod tests {
             let capabilities = NeuralEngineContext::detect_capabilities();
             assert!(capabilities.is_ok());
 
-            let caps = capabilities.unwrap();
+            let caps = capabilities.expect("operation should succeed");
             assert!(!caps.available);
         }
     }
@@ -848,7 +848,7 @@ mod tests {
         {
             // Test may succeed on Apple Silicon
             if builder.is_ok() {
-                let ops_builder = builder.unwrap();
+                let ops_builder = builder.expect("operation should succeed");
                 assert!(ops_builder.is_available() || !ops_builder.is_available());
             }
         }

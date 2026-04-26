@@ -402,7 +402,7 @@ mod tests {
     fn test_cuda_availability() {
         // This test will pass if CUDA is available, skip if not
         if is_available() {
-            assert!(device_count().unwrap() > 0);
+            assert!(device_count().expect("device count should succeed") > 0);
         }
     }
 

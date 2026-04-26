@@ -283,7 +283,7 @@ mod tests {
     #[test]
     fn test_register_parameter() {
         let mut base = ModuleBase::new();
-        let tensor = zeros(&[3, 4]).unwrap();
+        let tensor = zeros(&[3, 4]).expect("zeros should succeed");
         let param = Parameter::new(tensor);
 
         base.register_parameter("weight".to_string(), param);
@@ -295,8 +295,8 @@ mod tests {
     fn test_register_multiple_parameters() {
         let mut base = ModuleBase::new();
 
-        let weight = Parameter::new(zeros(&[10, 5]).unwrap());
-        let bias = Parameter::new(zeros(&[5]).unwrap());
+        let weight = Parameter::new(zeros(&[10, 5]).expect("Parameter should succeed"));
+        let bias = Parameter::new(zeros(&[5]).expect("Parameter should succeed"));
 
         base.register_parameter("weight".to_string(), weight);
         base.register_parameter("bias".to_string(), bias);
@@ -309,7 +309,7 @@ mod tests {
     #[test]
     fn test_register_buffer() {
         let mut base = ModuleBase::new();
-        let tensor = zeros(&[10]).unwrap();
+        let tensor = zeros(&[10]).expect("zeros should succeed");
 
         base.register_buffer("running_mean".to_string(), tensor);
         assert_eq!(base.buffers.len(), 1);
@@ -319,7 +319,7 @@ mod tests {
     #[test]
     fn test_named_parameters() {
         let mut base = ModuleBase::new();
-        let param = Parameter::new(zeros(&[3, 4]).unwrap());
+        let param = Parameter::new(zeros(&[3, 4]).expect("Parameter should succeed"));
         base.register_parameter("weight".to_string(), param);
 
         let named_params = base.named_parameters();
@@ -352,8 +352,8 @@ mod tests {
     #[test]
     fn test_all_parameter_tensors() {
         let mut base = ModuleBase::new();
-        let param1 = Parameter::new(zeros(&[2, 3]).unwrap());
-        let param2 = Parameter::new(zeros(&[4]).unwrap());
+        let param1 = Parameter::new(zeros(&[2, 3]).expect("Parameter should succeed"));
+        let param2 = Parameter::new(zeros(&[4]).expect("Parameter should succeed"));
 
         base.register_parameter("weight".to_string(), param1);
         base.register_parameter("bias".to_string(), param2);
@@ -365,7 +365,7 @@ mod tests {
     #[test]
     fn test_all_named_parameters() {
         let mut base = ModuleBase::new();
-        let param = Parameter::new(zeros(&[3, 4]).unwrap());
+        let param = Parameter::new(zeros(&[3, 4]).expect("Parameter should succeed"));
         base.register_parameter("weight".to_string(), param);
 
         let all_named = base.all_named_parameters();
@@ -454,7 +454,7 @@ mod tests {
         let mut base = ModuleBase::new();
         base.register_parameter(
             "weight".to_string(),
-            Parameter::new(zeros(&[2, 3]).unwrap()),
+            Parameter::new(zeros(&[2, 3]).expect("Parameter should succeed")),
         );
 
         let debug_str = format!("{:?}", base);
@@ -468,12 +468,12 @@ mod tests {
         let mut base = ModuleBase::new();
 
         // Register initial parameter
-        let param1 = Parameter::new(zeros(&[2, 3]).unwrap());
+        let param1 = Parameter::new(zeros(&[2, 3]).expect("Parameter should succeed"));
         base.register_parameter("weight".to_string(), param1);
         assert_eq!(base.parameters.len(), 1);
 
         // Replace with new parameter (same name)
-        let param2 = Parameter::new(zeros(&[4, 5]).unwrap());
+        let param2 = Parameter::new(zeros(&[4, 5]).expect("Parameter should succeed"));
         base.register_parameter("weight".to_string(), param2);
         assert_eq!(base.parameters.len(), 1); // Still just one parameter
 
@@ -488,11 +488,17 @@ mod tests {
         let mut base = ModuleBase::new();
 
         // Register initial buffer
-        base.register_buffer("running_mean".to_string(), zeros(&[10]).unwrap());
+        base.register_buffer(
+            "running_mean".to_string(),
+            zeros(&[10]).expect("zeros should succeed"),
+        );
         assert_eq!(base.buffers.len(), 1);
 
         // Replace with new buffer
-        base.register_buffer("running_mean".to_string(), zeros(&[20]).unwrap());
+        base.register_buffer(
+            "running_mean".to_string(),
+            zeros(&[20]).expect("zeros should succeed"),
+        );
         assert_eq!(base.buffers.len(), 1); // Still just one buffer
 
         // Verify new shape

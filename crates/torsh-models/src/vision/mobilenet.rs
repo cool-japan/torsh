@@ -677,8 +677,8 @@ mod tests {
         assert_eq!(block.stride(), 2);
         assert!(!block.has_residual()); // Different channels and stride != 1
 
-        let input = torsh_tensor::creation::randn(&[1, 32, 56, 56]).unwrap();
-        let output = block.forward(&input).unwrap();
+        let input = torsh_tensor::creation::randn(&[1, 32, 56, 56]).expect("creation should succeed");
+        let output = block.forward(&input).expect("forward pass should succeed");
 
         // Output should have stride applied
         assert_eq!(output.shape(), &[1, 64, 28, 28]);
@@ -706,8 +706,8 @@ mod tests {
         ];
 
         for (name, model) in variants {
-            let input = torsh_tensor::creation::randn(&[1, 3, 224, 224]).unwrap();
-            let output = model.forward(&input).unwrap();
+            let input = torsh_tensor::creation::randn(&[1, 3, 224, 224]).expect("creation should succeed");
+            let output = model.forward(&input).expect("forward pass should succeed");
 
             // All should output 1000 classes
             assert_eq!(output.shape(), &[1, 1000], "Failed for {}", name);
@@ -721,19 +721,19 @@ mod tests {
     #[test]
     fn test_mobilenet_factory() {
         // Test factory creation
-        let model = MobileNetFactory::create("v2", 1000).unwrap();
+        let model = MobileNetFactory::create("v2", 1000).expect("Mobile Net Factory should succeed");
         assert_eq!(model.config().num_classes, 1000);
         assert_eq!(model.config().width_mult, 1.0);
 
         // Test width multiplier variants
-        let small_model = MobileNetFactory::create("v2-0.5", 100).unwrap();
+        let small_model = MobileNetFactory::create("v2-0.5", 100).expect("Mobile Net Factory should succeed");
         assert_eq!(small_model.config().width_mult, 0.5);
 
         // Test invalid variant
         assert!(MobileNetFactory::create("invalid", 1000).is_err());
 
         // Test model info
-        let info = MobileNetFactory::model_info("v2").unwrap();
+        let info = MobileNetFactory::model_info("v2").expect("Mobile Net Factory should succeed");
         assert!(info.contains("MobileNet V2"));
         assert!(info.contains("3.4M"));
 
@@ -811,15 +811,15 @@ mod tests {
 
         // Test different batch sizes
         for batch_size in [1, 4, 8] {
-            let input = torsh_tensor::creation::randn(&[batch_size, 3, 224, 224]).unwrap();
-            let output = model.forward(&input).unwrap();
+            let input = torsh_tensor::creation::randn(&[batch_size, 3, 224, 224]).expect("creation should succeed");
+            let output = model.forward(&input).expect("forward pass should succeed");
             assert_eq!(output.shape(), &[batch_size, 10]);
         }
 
         // Test different input sizes (should work with global average pooling)
         for size in [192, 224, 256] {
-            let input = torsh_tensor::creation::randn(&[1, 3, size, size]).unwrap();
-            let output = model.forward(&input).unwrap();
+            let input = torsh_tensor::creation::randn(&[1, 3, size, size]).expect("creation should succeed");
+            let output = model.forward(&input).expect("forward pass should succeed");
             assert_eq!(output.shape(), &[1, 10]);
         }
     }

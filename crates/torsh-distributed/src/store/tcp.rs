@@ -692,32 +692,61 @@ mod tests {
         let timeout = Duration::from_secs(5);
 
         // Create and start server
-        let mut server_store = TcpStore::new(addr, port, timeout, true).unwrap();
-        server_store.start().await.unwrap();
+        let mut server_store =
+            TcpStore::new(addr, port, timeout, true).expect("Tcp Store should succeed");
+        server_store
+            .start()
+            .await
+            .expect("operation should succeed");
 
         // Give server time to start
         tokio::time::sleep(Duration::from_millis(200)).await;
 
         // Create client
-        let client_store = TcpStore::new(addr, port, timeout, false).unwrap();
+        let client_store =
+            TcpStore::new(addr, port, timeout, false).expect("Tcp Store should succeed");
 
         // Test set and get
-        client_store.set("key1", b"value1").await.unwrap();
-        let value = client_store.get("key1").await.unwrap();
+        client_store
+            .set("key1", b"value1")
+            .await
+            .expect("operation should succeed");
+        let value = client_store
+            .get("key1")
+            .await
+            .expect("operation should succeed");
         assert_eq!(value, Some(b"value1".to_vec()));
 
         // Test contains
-        assert!(client_store.contains("key1").await.unwrap());
-        assert!(!client_store.contains("nonexistent").await.unwrap());
+        assert!(client_store
+            .contains("key1")
+            .await
+            .expect("operation should succeed"));
+        assert!(!client_store
+            .contains("nonexistent")
+            .await
+            .expect("operation should succeed"));
 
         // Test num_keys
-        client_store.set("key2", b"value2").await.unwrap();
-        let num_keys = client_store.num_keys().await.unwrap();
+        client_store
+            .set("key2", b"value2")
+            .await
+            .expect("operation should succeed");
+        let num_keys = client_store
+            .num_keys()
+            .await
+            .expect("operation should succeed");
         assert_eq!(num_keys, 2);
 
         // Test delete
-        client_store.delete("key1").await.unwrap();
-        assert!(!client_store.contains("key1").await.unwrap());
+        client_store
+            .delete("key1")
+            .await
+            .expect("operation should succeed");
+        assert!(!client_store
+            .contains("key1")
+            .await
+            .expect("operation should succeed"));
     }
 
     #[tokio::test]
@@ -727,37 +756,48 @@ mod tests {
         let timeout = Duration::from_secs(5);
 
         // Create and start server
-        let mut server_store = TcpStore::new(addr, port, timeout, true).unwrap();
-        server_store.start().await.unwrap();
+        let mut server_store =
+            TcpStore::new(addr, port, timeout, true).expect("Tcp Store should succeed");
+        server_store
+            .start()
+            .await
+            .expect("operation should succeed");
         tokio::time::sleep(Duration::from_millis(200)).await;
 
         // Create client
-        let client_store = TcpStore::new(addr, port, timeout, false).unwrap();
+        let client_store =
+            TcpStore::new(addr, port, timeout, false).expect("Tcp Store should succeed");
 
         // Test compare and swap
         let success = client_store
             .compare_and_swap("counter", None, b"0")
             .await
-            .unwrap();
+            .expect("operation should succeed");
         assert!(success);
 
         let success = client_store
             .compare_and_swap("counter", Some(b"0"), b"1")
             .await
-            .unwrap();
+            .expect("operation should succeed");
         assert!(success);
 
         let success = client_store
             .compare_and_swap("counter", Some(b"0"), b"2")
             .await
-            .unwrap();
+            .expect("operation should succeed");
         assert!(!success);
 
         // Test atomic add
-        let result = client_store.add("num", 5).await.unwrap();
+        let result = client_store
+            .add("num", 5)
+            .await
+            .expect("operation should succeed");
         assert_eq!(result, 5);
 
-        let result = client_store.add("num", 3).await.unwrap();
+        let result = client_store
+            .add("num", 3)
+            .await
+            .expect("operation should succeed");
         assert_eq!(result, 8);
     }
 
@@ -768,26 +808,37 @@ mod tests {
         let timeout = Duration::from_secs(5);
 
         // Create and start server
-        let mut server_store = TcpStore::new(addr, port, timeout, true).unwrap();
-        server_store.start().await.unwrap();
+        let mut server_store =
+            TcpStore::new(addr, port, timeout, true).expect("Tcp Store should succeed");
+        server_store
+            .start()
+            .await
+            .expect("operation should succeed");
         tokio::time::sleep(Duration::from_millis(200)).await;
 
         // Create client
-        let client_store = TcpStore::new(addr, port, timeout, false).unwrap();
+        let client_store =
+            TcpStore::new(addr, port, timeout, false).expect("Tcp Store should succeed");
 
         // Set with expiry
         client_store
             .set_with_expiry("temp", b"value", Duration::from_secs(1))
             .await
-            .unwrap();
+            .expect("operation should succeed");
 
         // Should exist immediately
-        assert!(client_store.contains("temp").await.unwrap());
+        assert!(client_store
+            .contains("temp")
+            .await
+            .expect("operation should succeed"));
 
         // Wait for expiry
         tokio::time::sleep(Duration::from_secs(2)).await;
 
         // Should be gone
-        assert!(!client_store.contains("temp").await.unwrap());
+        assert!(!client_store
+            .contains("temp")
+            .await
+            .expect("operation should succeed"));
     }
 }

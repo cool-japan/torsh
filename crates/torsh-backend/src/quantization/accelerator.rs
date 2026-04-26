@@ -775,7 +775,7 @@ mod tests {
     use crate::quantization::ops::CpuQuantizationOps;
 
     fn create_test_accelerator() -> AdvancedQuantizationAccelerator {
-        let device = Device::cpu().unwrap();
+        let device = Device::cpu().expect("Device should succeed");
         let cpu_ops = CpuQuantizationOps::new();
         AdvancedQuantizationAccelerator::new(device, Arc::new(cpu_ops))
     }
@@ -819,7 +819,7 @@ mod tests {
         }
         assert!(results.is_ok());
 
-        let benchmark_results = results.unwrap();
+        let benchmark_results = results.expect("operation should succeed");
         assert!(!benchmark_results.results.is_empty());
 
         // Should have quantization benchmarks
@@ -853,7 +853,7 @@ mod tests {
         let result = accelerator.auto_tune(&workload);
         assert!(result.is_ok());
 
-        let config = result.unwrap();
+        let config = result.expect("operation should succeed");
         assert!(config.estimated_speedup >= 0.0);
         assert!(config.memory_savings >= 0.0);
         assert!(config.accuracy_impact >= 0.0 && config.accuracy_impact <= 1.0);
@@ -920,13 +920,13 @@ mod tests {
         let best = results.get_best_result("test_op");
         assert!(best.is_some());
 
-        let best_result = best.unwrap();
+        let best_result = best.expect("operation should succeed");
         assert_eq!(best_result.size, 2000); // Higher throughput
 
         // Test average throughput
         let avg_throughput = results.get_average_throughput("test_op");
         assert!(avg_throughput.is_some());
-        assert!(avg_throughput.unwrap() > 0.0);
+        assert!(avg_throughput.expect("operation should succeed") > 0.0);
     }
 
     #[test]
@@ -944,7 +944,7 @@ mod tests {
         // Should be able to retrieve results
         let results = benchmarks.get_results("test_operation");
         assert!(results.is_some());
-        assert_eq!(results.unwrap().len(), 1);
+        assert_eq!(results.expect("operation should succeed").len(), 1);
 
         // Should be able to get best result
         let best = benchmarks.get_best_result("test_operation");

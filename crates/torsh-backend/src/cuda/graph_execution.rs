@@ -1009,11 +1009,12 @@ mod tests {
     #[ignore] // CUDA Graph API not available in cuda-sys 0.2.0
     fn test_graph_creation() {
         if crate::cuda::is_available() {
-            let _device = Arc::new(crate::cuda::device::CudaDevice::new(0).unwrap());
+            let _device =
+                Arc::new(crate::cuda::device::CudaDevice::new(0).expect("Arc should succeed"));
             let graph = CudaGraph::new();
             assert!(graph.is_ok());
 
-            let graph = graph.unwrap();
+            let graph = graph.expect("operation should succeed");
             assert_eq!(graph.node_count(), 0);
         }
     }
@@ -1025,7 +1026,8 @@ mod tests {
 
         // Test allocation
         if crate::cuda::is_available() {
-            let _device = Arc::new(crate::cuda::device::CudaDevice::new(0).unwrap());
+            let _device =
+                Arc::new(crate::cuda::device::CudaDevice::new(0).expect("Arc should succeed"));
             let ptr_result = pool.allocate(1024);
             assert!(ptr_result.is_ok());
 
@@ -1045,8 +1047,9 @@ mod tests {
     #[ignore] // CUDA Graph API not available in cuda-sys 0.2.0
     fn test_graph_validation() {
         if crate::cuda::is_available() {
-            let _device = Arc::new(crate::cuda::device::CudaDevice::new(0).unwrap());
-            let graph = CudaGraph::new().unwrap();
+            let _device =
+                Arc::new(crate::cuda::device::CudaDevice::new(0).expect("Arc should succeed"));
+            let graph = CudaGraph::new().expect("Cuda Graph should succeed");
             assert!(graph.validate().is_ok());
         }
     }

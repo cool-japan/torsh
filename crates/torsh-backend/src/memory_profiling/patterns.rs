@@ -985,10 +985,10 @@ mod tests {
         // Create sequential access pattern
         for i in 0..10 {
             let access = create_test_access(i * 64, 64, 100 - i as u64);
-            analyzer.record_access(access).unwrap();
+            analyzer.record_access(access).expect("access recording should succeed");
         }
 
-        let patterns = analyzer.analyze_patterns().unwrap();
+        let patterns = analyzer.analyze_patterns().expect("pattern analysis should succeed");
         assert!(!patterns.is_empty());
 
         match &patterns[0] {
@@ -1007,10 +1007,10 @@ mod tests {
         let addresses = vec![1000, 5000, 2000, 8000, 1500, 9000, 3000, 7000, 4000, 6000];
         for (i, &addr) in addresses.iter().enumerate() {
             let access = create_test_access(addr, 64, 100 - i as u64);
-            analyzer.record_access(access).unwrap();
+            analyzer.record_access(access).expect("access recording should succeed");
         }
 
-        let patterns = analyzer.analyze_patterns().unwrap();
+        let patterns = analyzer.analyze_patterns().expect("pattern analysis should succeed");
 
         // Should detect high entropy pattern
         let has_random = patterns.iter().any(|p| matches!(p, AccessPattern::Random { .. }));
@@ -1024,10 +1024,10 @@ mod tests {
         // Create some test accesses
         for i in 0..5 {
             let access = create_test_access(i * 64, 64, 50 - i as u64 * 10);
-            analyzer.record_access(access).unwrap();
+            analyzer.record_access(access).expect("access recording should succeed");
         }
 
-        let metrics = analyzer.calculate_metrics().unwrap();
+        let metrics = analyzer.calculate_metrics().expect("metric calculation should succeed");
 
         assert!(metrics.cache_hit_rate >= 0.0 && metrics.cache_hit_rate <= 1.0);
         assert!(metrics.bandwidth_utilization >= 0.0);
@@ -1042,7 +1042,7 @@ mod tests {
         // Access same region multiple times
         for _ in 0..5 {
             let access = create_test_access(1000, 64, 10);
-            analyzer.record_access(access).unwrap();
+            analyzer.record_access(access).expect("access recording should succeed");
         }
 
         assert_eq!(analyzer.memory_regions.len(), 1);
@@ -1057,10 +1057,10 @@ mod tests {
         let addresses = vec![1000, 5000, 2000, 8000, 1500];
         for (i, &addr) in addresses.iter().enumerate() {
             let access = create_test_access(addr, 64, 50 - i as u64 * 10);
-            analyzer.record_access(access).unwrap();
+            analyzer.record_access(access).expect("access recording should succeed");
         }
 
-        let recommendations = analyzer.generate_recommendations().unwrap();
+        let recommendations = analyzer.generate_recommendations().expect("recommendation generation should succeed");
         assert!(!recommendations.is_empty());
 
         // Should have recommendations for random access pattern
@@ -1078,11 +1078,11 @@ mod tests {
         for _ in 0..10 {
             for &addr in &hot_addresses {
                 let access = create_test_access(addr, 64, 5);
-                analyzer.record_access(access).unwrap();
+                analyzer.record_access(access).expect("access recording should succeed");
             }
         }
 
-        let patterns = analyzer.analyze_patterns().unwrap();
+        let patterns = analyzer.analyze_patterns().expect("pattern analysis should succeed");
         let has_temporal = patterns.iter()
             .any(|p| matches!(p, AccessPattern::TemporalCluster { .. }));
         assert!(has_temporal);
@@ -1096,10 +1096,10 @@ mod tests {
         let base_addr = 10000;
         for i in 0..20 {
             let access = create_test_access(base_addr + i * 8, 8, 20 - i as u64);
-            analyzer.record_access(access).unwrap();
+            analyzer.record_access(access).expect("access recording should succeed");
         }
 
-        let patterns = analyzer.analyze_patterns().unwrap();
+        let patterns = analyzer.analyze_patterns().expect("pattern analysis should succeed");
         let has_spatial = patterns.iter()
             .any(|p| matches!(p, AccessPattern::SpatialCluster { .. }));
         assert!(has_spatial);

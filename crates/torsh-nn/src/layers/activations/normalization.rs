@@ -555,8 +555,8 @@ mod tests {
     #[test]
     fn test_softmax_forward() {
         let softmax = Softmax::new(None);
-        let input = Tensor::from_data(vec![1.0, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
-        let output = softmax.forward(&input).unwrap();
+        let input = Tensor::from_data(vec![1.0, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("Tensor should succeed");
+        let output = softmax.forward(&input).expect("forward pass should succeed");
         let output_vec = output.to_vec().expect("tensor to vec conversion should succeed");
 
         // Check that outputs sum to 1
@@ -570,8 +570,8 @@ mod tests {
     #[test]
     fn test_log_softmax_forward() {
         let log_softmax = LogSoftmax::new(None);
-        let input = Tensor::from_data(vec![1.0, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
-        let output = log_softmax.forward(&input).unwrap();
+        let input = Tensor::from_data(vec![1.0, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("Tensor should succeed");
+        let output = log_softmax.forward(&input).expect("forward pass should succeed");
         let output_vec = output.to_vec().expect("tensor to vec conversion should succeed");
 
         // Check that all outputs are negative (since they're log probabilities)
@@ -579,7 +579,7 @@ mod tests {
 
         // Check consistency with softmax
         let softmax = Softmax::new(None);
-        let softmax_output = softmax.forward(&input).unwrap();
+        let softmax_output = softmax.forward(&input).expect("forward pass should succeed");
         let log_softmax_exp: Vec<f32> = output_vec.iter().map(|&x| x.exp()).collect();
         let softmax_vec = softmax_output.to_vec().expect("tensor to vec conversion should succeed");
 
@@ -591,8 +591,8 @@ mod tests {
     #[test]
     fn test_softplus_forward() {
         let softplus = Softplus::new(1.0, 20.0);
-        let input = Tensor::from_data(vec![-2.0, 0.0, 2.0], vec![3], DeviceType::Cpu).unwrap();
-        let output = softplus.forward(&input).unwrap();
+        let input = Tensor::from_data(vec![-2.0, 0.0, 2.0], vec![3], DeviceType::Cpu).expect("Tensor should succeed");
+        let output = softplus.forward(&input).expect("forward pass should succeed");
         let output_vec = output.to_vec().expect("tensor to vec conversion should succeed");
 
         // Check that all outputs are positive
@@ -602,16 +602,16 @@ mod tests {
         assert_relative_eq!(output_vec[1], 2.0_f32.ln(), epsilon = 1e-3);
 
         // Check that for large positive inputs, softplus(x) ≈ x
-        let large_input = Tensor::from_data(vec![10.0], vec![1], DeviceType::Cpu).unwrap();
-        let large_output = softplus.forward(&large_input).unwrap();
+        let large_input = Tensor::from_data(vec![10.0], vec![1], DeviceType::Cpu).expect("Tensor should succeed");
+        let large_output = softplus.forward(&large_input).expect("forward pass should succeed");
         assert_relative_eq!(large_output.to_vec().expect("tensor to vec conversion should succeed")[0], 10.0, epsilon = 1e-3);
     }
 
     #[test]
     fn test_softsign_forward() {
         let softsign = Softsign::new();
-        let input = Tensor::from_data(vec![-2.0, 0.0, 2.0], vec![3], DeviceType::Cpu).unwrap();
-        let output = softsign.forward(&input).unwrap();
+        let input = Tensor::from_data(vec![-2.0, 0.0, 2.0], vec![3], DeviceType::Cpu).expect("Tensor should succeed");
+        let output = softsign.forward(&input).expect("forward pass should succeed");
         let output_vec = output.to_vec().expect("tensor to vec conversion should succeed");
 
         // Check that softsign(0) = 0
@@ -629,8 +629,8 @@ mod tests {
 
     #[test]
     fn test_log_sum_exp_utility() {
-        let input = Tensor::from_data(vec![1.0, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
-        let result = log_sum_exp(&input, None, false).unwrap();
+        let input = Tensor::from_data(vec![1.0, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("Tensor should succeed");
+        let result = log_sum_exp(&input, None, false).expect("log sum exp should succeed");
         let result_val = result.to_vec().expect("tensor to vec conversion should succeed")[0];
 
         // Manual calculation: log(e^1 + e^2 + e^3)
@@ -640,8 +640,8 @@ mod tests {
 
     #[test]
     fn test_stable_softmax_utility() {
-        let input = Tensor::from_data(vec![1.0, 2.0, 3.0], vec![3], DeviceType::Cpu).unwrap();
-        let result = stable_softmax(&input, None).unwrap();
+        let input = Tensor::from_data(vec![1.0, 2.0, 3.0], vec![3], DeviceType::Cpu).expect("Tensor should succeed");
+        let result = stable_softmax(&input, None).expect("stable softmax should succeed");
         let result_vec = result.to_vec().expect("tensor to vec conversion should succeed");
 
         // Check that outputs sum to 1
@@ -650,8 +650,8 @@ mod tests {
 
         // Test with large values (potential overflow)
         let large_input =
-            Tensor::from_data(vec![100.0, 101.0, 102.0], vec![3], DeviceType::Cpu).unwrap();
-        let large_result = stable_softmax(&large_input, None).unwrap();
+            Tensor::from_data(vec![100.0, 101.0, 102.0], vec![3], DeviceType::Cpu).expect("Tensor should succeed");
+        let large_result = stable_softmax(&large_input, None).expect("stable softmax should succeed");
         let large_sum: f32 = large_result.to_vec().expect("tensor to vec conversion should succeed").iter().sum();
         assert_relative_eq!(large_sum, 1.0, epsilon = 1e-5);
     }
@@ -679,16 +679,16 @@ mod tests {
             vec![2, 3],
             DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("operation should succeed");
 
         let softmax_all = Softmax::new(None);
-        let output_all = softmax_all.forward(&input).unwrap();
+        let output_all = softmax_all.forward(&input).expect("forward pass should succeed");
         let sum_all: f32 = output_all.to_vec().expect("tensor to vec conversion should succeed").iter().sum();
         assert_relative_eq!(sum_all, 1.0, epsilon = 1e-5);
 
         // Test dimension-specific softmax
         let softmax_dim1 = Softmax::new(Some(1));
-        let output_dim1 = softmax_dim1.forward(&input).unwrap();
+        let output_dim1 = softmax_dim1.forward(&input).expect("forward pass should succeed");
 
         // Each row should sum to 1
         let output_2d = output_dim1.to_vec().expect("tensor to vec conversion should succeed");

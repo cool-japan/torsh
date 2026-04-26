@@ -565,7 +565,7 @@ mod tests {
 
     #[test]
     fn test_device_feature_detection() {
-        let cpu_device = Device::cpu().unwrap();
+        let cpu_device = Device::cpu().expect("Device should succeed");
         let cpu_features = QuantizationHardwareFeatures::detect_for_device(&cpu_device);
 
         // Should detect CPU-appropriate features

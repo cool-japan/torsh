@@ -565,42 +565,46 @@ mod tests {
 
     #[test]
     fn test_srcnn() {
-        let model = SRCNN::new(2).unwrap();
-        let lr_input = rand(&[1, 1, 64, 64]).unwrap();
-        let hr_input = model.preprocess(&lr_input).unwrap();
-        let output = model.forward(&hr_input).unwrap();
+        let model = SRCNN::new(2).expect("SRCNN should succeed");
+        let lr_input = rand(&[1, 1, 64, 64]).expect("rand should succeed");
+        let hr_input = model
+            .preprocess(&lr_input)
+            .expect("preprocessing should succeed");
+        let output = model
+            .forward(&hr_input)
+            .expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[1, 1, 128, 128]);
     }
 
     #[test]
     fn test_espcn() {
-        let model = ESPCN::new(3).unwrap();
-        let input = rand(&[1, 1, 64, 64]).unwrap();
-        let output = model.forward(&input).unwrap();
+        let model = ESPCN::new(3).expect("ESPCN should succeed");
+        let input = rand(&[1, 1, 64, 64]).expect("rand should succeed");
+        let output = model.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[1, 1, 192, 192]);
     }
 
     #[test]
     fn test_subpixel_conv() {
-        let layer = SubPixelConv2d::new(32, 1, 3, 2).unwrap();
-        let input = rand(&[1, 32, 64, 64]).unwrap();
-        let output = layer.forward(&input).unwrap();
+        let layer = SubPixelConv2d::new(32, 1, 3, 2).expect("Sub Pixel Conv2d should succeed");
+        let input = rand(&[1, 32, 64, 64]).expect("rand should succeed");
+        let output = layer.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[1, 1, 128, 128]);
     }
 
     #[test]
     fn test_edsr() {
-        let model = EDSR::new(2, 32, 4).unwrap();
-        let input = rand(&[1, 3, 64, 64]).unwrap();
-        let output = model.forward(&input).unwrap();
+        let model = EDSR::new(2, 32, 4).expect("EDSR should succeed");
+        let input = rand(&[1, 3, 64, 64]).expect("rand should succeed");
+        let output = model.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[1, 3, 128, 128]);
     }
 
     #[test]
     fn test_pixel_shuffle() {
-        let layer = SubPixelConv2d::new(16, 4, 3, 2).unwrap();
-        let input = rand(&[1, 16, 32, 32]).unwrap();
-        let output = layer.forward(&input).unwrap();
+        let layer = SubPixelConv2d::new(16, 4, 3, 2).expect("Sub Pixel Conv2d should succeed");
+        let input = rand(&[1, 16, 32, 32]).expect("rand should succeed");
+        let output = layer.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[1, 4, 64, 64]);
     }
 }

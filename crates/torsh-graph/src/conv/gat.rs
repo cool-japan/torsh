@@ -295,9 +295,9 @@ mod tests {
             &[3, 3],
             DeviceType::Cpu,
         )
-        .unwrap();
-        let edge_index =
-            from_vec(vec![0.0, 1.0, 2.0, 1.0, 2.0, 0.0], &[2, 3], DeviceType::Cpu).unwrap();
+        .expect("operation should succeed");
+        let edge_index = from_vec(vec![0.0, 1.0, 2.0, 1.0, 2.0, 0.0], &[2, 3], DeviceType::Cpu)
+            .expect("from vec should succeed");
         let graph = GraphData::new(x, edge_index);
 
         let output = gat.forward(&graph);

@@ -655,7 +655,7 @@ mod tests {
     #[ignore = "Requires CUDA hardware - run with --ignored flag"]
     fn test_occupancy_analyzer_creation() {
         if crate::cuda::is_available() {
-            let device = CudaDevice::new(0).unwrap();
+            let device = CudaDevice::new(0).expect("Cuda Device should succeed");
             let analyzer = CudaOccupancyAnalyzer::new(device);
             assert_eq!(analyzer.cached_results.len(), 0);
         }
@@ -701,13 +701,13 @@ mod tests {
     #[test]
     fn test_occupancy_calculation() {
         if crate::cuda::is_available() {
-            let device = CudaDevice::new(0).unwrap();
+            let device = CudaDevice::new(0).expect("Cuda Device should succeed");
             let mut analyzer = CudaOccupancyAnalyzer::new(device);
 
             let result = analyzer.analyze_kernel_occupancy("test_kernel", (256, 1, 1), 0, Some(32));
 
             assert!(result.is_ok());
-            let occupancy = result.unwrap();
+            let occupancy = result.expect("operation should succeed");
             assert!(occupancy.theoretical_occupancy >= 0.0);
             assert!(occupancy.theoretical_occupancy <= 1.0);
             assert!(occupancy.max_active_blocks > 0);
@@ -717,13 +717,13 @@ mod tests {
     #[test]
     fn test_launch_config_optimization() {
         if crate::cuda::is_available() {
-            let device = CudaDevice::new(0).unwrap();
+            let device = CudaDevice::new(0).expect("Cuda Device should succeed");
             let mut analyzer = CudaOccupancyAnalyzer::new(device);
 
             let config = analyzer.optimize_launch_config("test_kernel", 1000000, 0, Some(24));
 
             assert!(config.is_ok());
-            let optimized = config.unwrap();
+            let optimized = config.expect("operation should succeed");
             assert!(optimized.block_size.0 >= 32);
             assert!(optimized.block_size.0 <= 1024);
             assert!(optimized.expected_occupancy > 0.0);
@@ -733,19 +733,19 @@ mod tests {
     #[test]
     fn test_cache_functionality() {
         if crate::cuda::is_available() {
-            let device = CudaDevice::new(0).unwrap();
+            let device = CudaDevice::new(0).expect("Cuda Device should succeed");
             let mut analyzer = CudaOccupancyAnalyzer::new(device);
 
             // First call should compute
             let _result1 = analyzer
                 .analyze_kernel_occupancy("test", (128, 1, 1), 0, Some(16))
-                .unwrap();
+                .expect("operation should succeed");
             assert_eq!(analyzer.cache_stats().0, 1);
 
             // Second call should use cache
             let _result2 = analyzer
                 .analyze_kernel_occupancy("test", (128, 1, 1), 0, Some(16))
-                .unwrap();
+                .expect("operation should succeed");
             assert_eq!(analyzer.cache_stats().0, 1);
 
             analyzer.clear_cache();

@@ -113,8 +113,10 @@ mod tests {
         let gcn = GCNConv::new(3, 8, false);
 
         // Create simple test graph
-        let x = from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], &[2, 3], DeviceType::Cpu).unwrap();
-        let edge_index = from_vec(vec![0.0, 1.0, 1.0, 0.0], &[2, 2], DeviceType::Cpu).unwrap();
+        let x = from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], &[2, 3], DeviceType::Cpu)
+            .expect("from vec should succeed");
+        let edge_index = from_vec(vec![0.0, 1.0, 1.0, 0.0], &[2, 2], DeviceType::Cpu)
+            .expect("from vec should succeed");
         let graph = GraphData::new(x, edge_index);
 
         let output = gcn.forward(&graph);

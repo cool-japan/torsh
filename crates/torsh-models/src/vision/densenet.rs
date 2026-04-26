@@ -908,8 +908,8 @@ mod tests {
 
         assert_eq!(layer.growth_rate(), 32);
 
-        let input = torsh_tensor::creation::randn(&[2, 64, 56, 56]).unwrap();
-        let output = layer.forward(&input).unwrap();
+        let input = torsh_tensor::creation::randn(&[2, 64, 56, 56]).expect("creation should succeed");
+        let output = layer.forward(&input).expect("forward pass should succeed");
 
         // Output should have input channels + growth_rate channels
         assert_eq!(output.shape(), &[2, 96, 56, 56]); // 64 + 32 = 96
@@ -930,8 +930,8 @@ mod tests {
         assert_eq!(block.growth_rate(), 32);
         assert_eq!(block.out_channels(64), 256); // 64 + 6*32 = 256
 
-        let input = torsh_tensor::creation::randn(&[1, 64, 56, 56]).unwrap();
-        let output = block.forward(&input).unwrap();
+        let input = torsh_tensor::creation::randn(&[1, 64, 56, 56]).expect("creation should succeed");
+        let output = block.forward(&input).expect("forward pass should succeed");
 
         assert_eq!(output.shape(), &[1, 256, 56, 56]);
     }
@@ -942,8 +942,8 @@ mod tests {
 
         assert_eq!(transition.compression_ratio(256, 128), 0.5);
 
-        let input = torsh_tensor::creation::randn(&[1, 256, 56, 56]).unwrap();
-        let output = transition.forward(&input).unwrap();
+        let input = torsh_tensor::creation::randn(&[1, 256, 56, 56]).expect("creation should succeed");
+        let output = transition.forward(&input).expect("forward pass should succeed");
 
         // Should reduce both channels and spatial dimensions
         assert_eq!(output.shape(), &[1, 128, 28, 28]); // /2 spatial, /2 channels
@@ -959,8 +959,8 @@ mod tests {
         ];
 
         for (name, model) in variants {
-            let input = torsh_tensor::creation::randn(&[1, 3, 224, 224]).unwrap();
-            let output = model.forward(&input).unwrap();
+            let input = torsh_tensor::creation::randn(&[1, 3, 224, 224]).expect("creation should succeed");
+            let output = model.forward(&input).expect("forward pass should succeed");
 
             // All should output 1000 classes
             assert_eq!(output.shape(), &[1, 1000], "Failed for DenseNet-{}", name);
@@ -977,19 +977,19 @@ mod tests {
     #[test]
     fn test_densenet_factory() {
         // Test factory creation
-        let model = DenseNetFactory::create("121", 1000).unwrap();
+        let model = DenseNetFactory::create("121", 1000).expect("Dense Net Factory should succeed");
         assert_eq!(model.config().num_classes, 1000);
         assert_eq!(model.config().growth_rate, 32);
 
         // Test larger variant
-        let large_model = DenseNetFactory::create("201", 100).unwrap();
+        let large_model = DenseNetFactory::create("201", 100).expect("Dense Net Factory should succeed");
         assert_eq!(large_model.config().block_config, vec![6, 12, 48, 32]);
 
         // Test invalid variant
         assert!(DenseNetFactory::create("invalid", 1000).is_err());
 
         // Test model info
-        let info = DenseNetFactory::model_info("169").unwrap();
+        let info = DenseNetFactory::model_info("169").expect("Dense Net Factory should succeed");
         assert!(info.contains("DenseNet-169"));
         assert!(info.contains("14M"));
 
@@ -1061,8 +1061,8 @@ mod tests {
 
         // Test different batch sizes
         for batch_size in [1, 4, 8] {
-            let input = torsh_tensor::creation::randn(&[batch_size, 3, 224, 224]).unwrap();
-            let output = model.forward(&input).unwrap();
+            let input = torsh_tensor::creation::randn(&[batch_size, 3, 224, 224]).expect("creation should succeed");
+            let output = model.forward(&input).expect("forward pass should succeed");
             assert_eq!(output.shape(), &[batch_size, 10]);
         }
     }

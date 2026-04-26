@@ -714,7 +714,7 @@ mod backward_compatibility_tests {
         let result = analyzer.analyze_lexical_coherence(text);
         assert!(result.is_ok());
 
-        let coherence_result = result.unwrap();
+        let coherence_result = result.expect("operation should succeed");
         assert!(coherence_result.lexical_chain_coherence >= 0.0);
         assert!(coherence_result.lexical_chain_coherence <= 1.0);
     }

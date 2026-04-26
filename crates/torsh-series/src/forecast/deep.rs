@@ -511,13 +511,13 @@ mod tests {
 
     fn create_test_series() -> TimeSeries {
         let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
-        let tensor = Tensor::from_vec(data, &[8]).unwrap();
+        let tensor = Tensor::from_vec(data, &[8]).expect("Tensor should succeed");
         TimeSeries::new(tensor)
     }
 
     #[test]
     fn test_lstm_forecaster_creation() {
-        let lstm = LSTMForecaster::new(1, 64, 2).unwrap();
+        let lstm = LSTMForecaster::new(1, 64, 2).expect("LSTMForecaster should succeed");
         let (input_size, hidden_size, num_layers, seq_len, dropout) = lstm.params();
         assert_eq!(input_size, 1);
         assert_eq!(hidden_size, 64);
@@ -529,7 +529,7 @@ mod tests {
     #[test]
     fn test_lstm_forecaster_config() {
         let lstm = LSTMForecaster::new(1, 64, 2)
-            .unwrap()
+            .expect("operation should succeed")
             .with_sequence_length(20)
             .with_dropout(0.2);
         let (_, _, _, seq_len, dropout) = lstm.params();
@@ -539,9 +539,9 @@ mod tests {
 
     #[test]
     fn test_lstm_forecaster_forward() {
-        let lstm = LSTMForecaster::new(1, 64, 2).unwrap();
-        let input = zeros(&[1, 8, 1]).unwrap(); // batch_size=1, seq_len=8, features=1
-        let output = lstm.forward(&input).unwrap();
+        let lstm = LSTMForecaster::new(1, 64, 2).expect("LSTMForecaster should succeed");
+        let input = zeros(&[1, 8, 1]).expect("zeros should succeed"); // batch_size=1, seq_len=8, features=1
+        let output = lstm.forward(&input).expect("forward pass should succeed");
 
         // Output should have shape [batch_size, 1] (single prediction)
         assert_eq!(output.shape().dims(), [1, 1]);
@@ -551,9 +551,11 @@ mod tests {
     fn test_lstm_forecaster_forecast() {
         let series = create_test_series();
         let lstm = LSTMForecaster::new(1, 64, 2)
-            .unwrap()
+            .expect("operation should succeed")
             .with_sequence_length(5); // Use shorter sequence
-        let forecast = lstm.forecast(&series, 4).unwrap();
+        let forecast = lstm
+            .forecast(&series, 4)
+            .expect("forecast computation should succeed");
 
         assert_eq!(forecast.len(), 4);
     }
@@ -609,7 +611,9 @@ mod tests {
     fn test_transformer_forecast() {
         let series = create_test_series();
         let transformer = TransformerForecaster::new(64, 8, 6).with_sequence_length(5); // Use shorter sequence
-        let forecast = transformer.forecast(&series, 3).unwrap();
+        let forecast = transformer
+            .forecast(&series, 3)
+            .expect("forecast computation should succeed");
 
         assert_eq!(forecast.len(), 3);
     }
@@ -644,7 +648,9 @@ mod tests {
         let channels = vec![1, 16];
         let kernel_sizes = vec![3];
         let cnn = CNNForecaster::new(channels, kernel_sizes).with_sequence_length(5); // Use shorter sequence
-        let forecast = cnn.forecast(&series, 2).unwrap();
+        let forecast = cnn
+            .forecast(&series, 2)
+            .expect("forecast computation should succeed");
 
         assert_eq!(forecast.len(), 2);
     }

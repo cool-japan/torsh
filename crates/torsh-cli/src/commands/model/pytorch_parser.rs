@@ -556,8 +556,20 @@ mod tests {
 
         let groups = group_parameters_by_layer(&params);
         assert_eq!(groups.len(), 2);
-        assert_eq!(groups.get("layer1").unwrap().len(), 2);
-        assert_eq!(groups.get("layer2").unwrap().len(), 2);
+        assert_eq!(
+            groups
+                .get("layer1")
+                .expect("element retrieval should succeed for valid index")
+                .len(),
+            2
+        );
+        assert_eq!(
+            groups
+                .get("layer2")
+                .expect("element retrieval should succeed for valid index")
+                .len(),
+            2
+        );
     }
 
     #[test]

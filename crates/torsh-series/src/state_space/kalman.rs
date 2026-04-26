@@ -348,7 +348,7 @@ mod tests {
 
     fn create_test_series() -> TimeSeries {
         let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0];
-        let tensor = Tensor::from_vec(data, &[5]).unwrap();
+        let tensor = Tensor::from_vec(data, &[5]).expect("Tensor should succeed");
         TimeSeries::new(tensor)
     }
 
@@ -362,10 +362,10 @@ mod tests {
 
     #[test]
     fn test_kalman_filter_with_matrices() {
-        let transition = eye(2).unwrap();
-        let observation = ones(&[1, 2]).unwrap();
-        let process_noise = eye(2).unwrap();
-        let measurement_noise = eye(1).unwrap();
+        let transition = eye(2).expect("eye should succeed");
+        let observation = ones(&[1, 2]).expect("ones should succeed");
+        let process_noise = eye(2).expect("eye should succeed");
+        let measurement_noise = eye(1).expect("eye should succeed");
 
         let kf = KalmanFilter::with_matrices(
             2,
@@ -384,7 +384,7 @@ mod tests {
     #[test]
     fn test_kalman_filter_matrices() {
         let mut kf = KalmanFilter::new(2, 1);
-        let new_transition = eye(2).unwrap();
+        let new_transition = eye(2).expect("eye should succeed");
         kf.set_transition(new_transition);
 
         assert_eq!(kf.transition_matrix().shape().dims(), [2, 2]);
@@ -393,8 +393,8 @@ mod tests {
     #[test]
     fn test_kalman_filter_state() {
         let mut kf = KalmanFilter::new(2, 1);
-        let initial_state = zeros(&[2, 1]).unwrap(); // Column vector
-        let initial_cov = eye(2).unwrap();
+        let initial_state = zeros(&[2, 1]).expect("zeros should succeed"); // Column vector
+        let initial_cov = eye(2).expect("eye should succeed");
 
         kf.set_initial_state(initial_state, initial_cov);
         assert_eq!(kf.state().shape().dims(), [2, 1]);
@@ -404,15 +404,15 @@ mod tests {
     #[test]
     fn test_kalman_filter_predict() {
         let mut kf = KalmanFilter::new(2, 1);
-        let prediction = kf.predict().unwrap();
+        let prediction = kf.predict().expect("prediction should succeed");
         assert_eq!(prediction.shape().dims(), [2, 1]); // Column vector
     }
 
     #[test]
     fn test_kalman_filter_update() {
         let mut kf = KalmanFilter::new(2, 1);
-        let obs = zeros(&[1]).unwrap();
-        kf.update(&obs).unwrap();
+        let obs = zeros(&[1]).expect("zeros should succeed");
+        kf.update(&obs).expect("update operation should succeed");
         // Test that update completes without error
     }
 
@@ -420,7 +420,7 @@ mod tests {
     fn test_kalman_filter_filter() {
         let series = create_test_series();
         let mut kf = KalmanFilter::new(1, 1);
-        let filtered = kf.filter(&series).unwrap();
+        let filtered = kf.filter(&series).expect("filter operation should succeed");
 
         assert_eq!(filtered.len(), series.len());
     }
@@ -429,7 +429,7 @@ mod tests {
     fn test_kalman_filter_smooth() {
         let series = create_test_series();
         let mut kf = KalmanFilter::new(1, 1);
-        let smoothed = kf.smooth(&series).unwrap();
+        let smoothed = kf.smooth(&series).expect("smoothing should succeed");
 
         assert_eq!(smoothed.len(), series.len());
     }
@@ -437,8 +437,10 @@ mod tests {
     #[test]
     fn test_kalman_filter_innovation() {
         let kf = KalmanFilter::new(1, 1);
-        let obs = ones(&[1]).unwrap();
-        let innovation = kf.innovation(&obs).unwrap();
+        let obs = ones(&[1]).expect("ones should succeed");
+        let innovation = kf
+            .innovation(&obs)
+            .expect("innovation computation should succeed");
 
         assert_eq!(innovation.shape().dims(), [1, 1]); // Column vector
     }
@@ -447,7 +449,9 @@ mod tests {
     fn test_kalman_filter_log_likelihood() {
         let series = create_test_series();
         let mut kf = KalmanFilter::new(1, 1);
-        let ll = kf.log_likelihood(&series).unwrap();
+        let ll = kf
+            .log_likelihood(&series)
+            .expect("log-likelihood computation should succeed");
 
         // Now returns actual computed log-likelihood (negative value expected for likelihood)
         assert!(ll < 0.0); // Log-likelihood should be negative

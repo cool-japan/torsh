@@ -305,7 +305,7 @@ mod tests {
         let tensor = create_tensor_validated(data, shape, DType::F32, false);
         assert!(tensor.is_ok());
 
-        let tensor = tensor.unwrap();
+        let tensor = tensor.expect("operation should succeed");
         assert_eq!(tensor.shape, vec![2, 2]);
         assert_eq!(tensor.dtype, DType::F32);
         assert!(!tensor.requires_grad);
@@ -316,7 +316,7 @@ mod tests {
         let tensor = zeros(vec![3, 3], Some(DType::F32));
         assert!(tensor.is_ok());
 
-        let tensor = tensor.unwrap();
+        let tensor = tensor.expect("operation should succeed");
         assert_eq!(tensor.shape, vec![3, 3]);
         assert!(tensor.data.iter().all(|&x| x == 0.0));
     }
@@ -326,7 +326,7 @@ mod tests {
         let tensor = ones(vec![2, 3], Some(DType::F32));
         assert!(tensor.is_ok());
 
-        let tensor = tensor.unwrap();
+        let tensor = tensor.expect("operation should succeed");
         assert_eq!(tensor.shape, vec![2, 3]);
         assert!(tensor.data.iter().all(|&x| x == 1.0));
     }
@@ -336,7 +336,7 @@ mod tests {
         let tensor = eye(3, Some(DType::F32));
         assert!(tensor.is_ok());
 
-        let tensor = tensor.unwrap();
+        let tensor = tensor.expect("operation should succeed");
         assert_eq!(tensor.shape, vec![3, 3]);
 
         // Check diagonal elements are 1.0
@@ -362,27 +362,29 @@ mod tests {
 
         let result = broadcast_shape(&[3, 4], &[4]);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), vec![3, 4]);
+        assert_eq!(result.expect("operation should succeed"), vec![3, 4]);
     }
 
     #[test]
     fn test_dtype_conversion() {
         let result = convert_dtype_name("float32", "numpy", "pytorch");
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "torch.float32");
+        assert_eq!(result.expect("operation should succeed"), "torch.float32");
 
         let result = convert_dtype_name("torch.int64", "pytorch", "numpy");
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "int64");
+        assert_eq!(result.expect("operation should succeed"), "int64");
     }
 
     #[test]
     fn test_device_operations() {
-        assert!(check_device_availability("cpu").unwrap());
+        assert!(check_device_availability("cpu").expect("check device availability should succeed"));
 
         let info = get_device_info("cpu");
         assert!(info.is_ok());
-        assert!(info.unwrap().contains("Device: CPU"));
+        assert!(info
+            .expect("operation should succeed")
+            .contains("Device: CPU"));
     }
 
     #[test]

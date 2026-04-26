@@ -147,10 +147,17 @@ mod tests {
     #[test]
     fn test_transform_trait() {
         let transform = MockTransform::new("TestTransform", 2.0);
-        let input = creation::ones(&[3, 32, 32]).unwrap();
+        let input = creation::ones(&[3, 32, 32]).expect("creation should succeed");
 
-        let result = transform.forward(&input).unwrap();
-        assert_eq!(result.get(&[0, 0, 0]).unwrap(), 2.0);
+        let result = transform
+            .forward(&input)
+            .expect("forward pass should succeed");
+        assert_eq!(
+            result
+                .get(&[0, 0, 0])
+                .expect("element retrieval should succeed for valid index"),
+            2.0
+        );
 
         assert_eq!(transform.name(), "TestTransform");
         assert_eq!(transform.is_inplace(), false);
@@ -167,11 +174,18 @@ mod tests {
         assert!(compose.is_empty());
         assert_eq!(compose.len(), 0);
 
-        let input = creation::ones(&[3, 32, 32]).unwrap();
-        let result = compose.forward(&input).unwrap();
+        let input = creation::ones(&[3, 32, 32]).expect("creation should succeed");
+        let result = compose
+            .forward(&input)
+            .expect("forward pass should succeed");
 
         // Empty compose should return input unchanged
-        assert_eq!(result.get(&[0, 0, 0]).unwrap(), 1.0);
+        assert_eq!(
+            result
+                .get(&[0, 0, 0])
+                .expect("element retrieval should succeed for valid index"),
+            1.0
+        );
     }
 
     #[test]
@@ -182,10 +196,17 @@ mod tests {
         assert_eq!(compose.len(), 1);
         assert!(!compose.is_empty());
 
-        let input = creation::ones(&[3, 32, 32]).unwrap();
-        let result = compose.forward(&input).unwrap();
+        let input = creation::ones(&[3, 32, 32]).expect("creation should succeed");
+        let result = compose
+            .forward(&input)
+            .expect("forward pass should succeed");
 
-        assert_eq!(result.get(&[0, 0, 0]).unwrap(), 2.0);
+        assert_eq!(
+            result
+                .get(&[0, 0, 0])
+                .expect("element retrieval should succeed for valid index"),
+            2.0
+        );
     }
 
     #[test]
@@ -198,11 +219,18 @@ mod tests {
 
         assert_eq!(compose.len(), 2);
 
-        let input = creation::ones(&[3, 32, 32]).unwrap();
-        let result = compose.forward(&input).unwrap();
+        let input = creation::ones(&[3, 32, 32]).expect("creation should succeed");
+        let result = compose
+            .forward(&input)
+            .expect("forward pass should succeed");
 
         // Should apply 2.0 * 3.0 = 6.0
-        assert_eq!(result.get(&[0, 0, 0]).unwrap(), 6.0);
+        assert_eq!(
+            result
+                .get(&[0, 0, 0])
+                .expect("element retrieval should succeed for valid index"),
+            6.0
+        );
     }
 
     #[test]
@@ -227,13 +255,19 @@ mod tests {
 
         let cloned = compose.clone_transform();
 
-        let input = creation::ones(&[3, 32, 32]).unwrap();
-        let original_result = compose.forward(&input).unwrap();
-        let cloned_result = cloned.forward(&input).unwrap();
+        let input = creation::ones(&[3, 32, 32]).expect("creation should succeed");
+        let original_result = compose
+            .forward(&input)
+            .expect("forward pass should succeed");
+        let cloned_result = cloned.forward(&input).expect("forward pass should succeed");
 
         assert_eq!(
-            original_result.get(&[0, 0, 0]).unwrap(),
-            cloned_result.get(&[0, 0, 0]).unwrap()
+            original_result
+                .get(&[0, 0, 0])
+                .expect("element retrieval should succeed for valid index"),
+            cloned_result
+                .get(&[0, 0, 0])
+                .expect("element retrieval should succeed for valid index")
         );
     }
 

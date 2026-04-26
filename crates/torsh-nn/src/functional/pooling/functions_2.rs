@@ -84,10 +84,11 @@ mod tests {
     }
     #[test]
     fn test_reflection_pad_validation() {
-        let input = Tensor::from_vec(vec![1.0, 2.0], &[1, 1, 2]).unwrap();
+        let input = Tensor::from_vec(vec![1.0, 2.0], &[1, 1, 2]).expect("Tensor should succeed");
         let result = reflection_pad1d(&input, (2, 1));
         assert!(result.is_err());
-        let input2d = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], &[1, 1, 2, 2]).unwrap();
+        let input2d = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], &[1, 1, 2, 2])
+            .expect("Tensor should succeed");
         let result2d = reflection_pad2d(&input2d, (2, 1, 1, 1));
         assert!(result2d.is_err());
     }
@@ -127,13 +128,15 @@ mod tests {
     }
     #[test]
     fn test_general_pad_invalid_mode() {
-        let input = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], &[1, 1, 2, 2]).unwrap();
+        let input = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], &[1, 1, 2, 2])
+            .expect("Tensor should succeed");
         let result = pad(&input, &[(1, 1), (1, 1)], "invalid", None);
         assert!(result.is_err());
     }
     #[test]
     fn test_pad_shape_mismatch() {
-        let input = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], &[1, 1, 2, 2]).unwrap();
+        let input = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], &[1, 1, 2, 2])
+            .expect("Tensor should succeed");
         let result = pad(&input, &[(1, 1)], "zero", None);
         assert!(result.is_err());
     }
@@ -236,13 +239,14 @@ mod tests {
     }
     #[test]
     fn test_global_pool_shape_validation() {
-        let input_2d = Tensor::from_vec(vec![1.0, 2.0], &[1, 2]).unwrap();
+        let input_2d = Tensor::from_vec(vec![1.0, 2.0], &[1, 2]).expect("Tensor should succeed");
         assert!(global_avg_pool1d(&input_2d).is_err());
         assert!(global_max_pool1d(&input_2d).is_err());
-        let input_3d = Tensor::from_vec(vec![1.0, 2.0], &[1, 1, 2]).unwrap();
+        let input_3d = Tensor::from_vec(vec![1.0, 2.0], &[1, 1, 2]).expect("Tensor should succeed");
         assert!(global_avg_pool2d(&input_3d).is_err());
         assert!(global_max_pool2d(&input_3d).is_err());
-        let input_4d = Tensor::from_vec(vec![1.0, 2.0], &[1, 1, 1, 2]).unwrap();
+        let input_4d =
+            Tensor::from_vec(vec![1.0, 2.0], &[1, 1, 1, 2]).expect("Tensor should succeed");
         assert!(global_avg_pool3d(&input_4d).is_err());
         assert!(global_max_pool3d(&input_4d).is_err());
     }
@@ -508,11 +512,12 @@ mod tests {
     }
     #[test]
     fn test_max_pool_shape_validation() {
-        let input_2d = Tensor::from_vec(vec![1.0, 2.0], &[1, 2]).unwrap();
+        let input_2d = Tensor::from_vec(vec![1.0, 2.0], &[1, 2]).expect("Tensor should succeed");
         assert!(max_pool1d(&input_2d, 2, None, None, None).is_err());
-        let input_3d = Tensor::from_vec(vec![1.0, 2.0], &[1, 1, 2]).unwrap();
+        let input_3d = Tensor::from_vec(vec![1.0, 2.0], &[1, 1, 2]).expect("Tensor should succeed");
         assert!(max_pool2d(&input_3d, (2, 2), None, None, None).is_err());
-        let input_4d = Tensor::from_vec(vec![1.0, 2.0], &[1, 1, 1, 2]).unwrap();
+        let input_4d =
+            Tensor::from_vec(vec![1.0, 2.0], &[1, 1, 1, 2]).expect("Tensor should succeed");
         assert!(max_pool3d(&input_4d, (2, 2, 2), None, None, None).is_err());
     }
 }
