@@ -93,7 +93,7 @@ fn custom_config_example() -> Result<()> {
     // Create optimized configuration
     let config = OnnxConfig {
         execution_providers: vec!["CUDAExecutionProvider".to_string()],
-        graph_optimization_level: ort::session::builder::GraphOptimizationLevel::Level3,
+        graph_optimization_level: oxionnx::GraphOptimizationLevel::All,
         enable_profiling: true,
         inter_op_num_threads: Some(4),
         intra_op_num_threads: Some(8),
@@ -755,7 +755,7 @@ mod tests {
     fn test_onnx_config_creation() {
         let config = OnnxConfig {
             execution_providers: vec!["CPUExecutionProvider".to_string()],
-            graph_optimization_level: ort::session::builder::GraphOptimizationLevel::Level1,
+            graph_optimization_level: oxionnx::GraphOptimizationLevel::Basic,
             enable_profiling: false,
             inter_op_num_threads: Some(2),
             intra_op_num_threads: Some(4),

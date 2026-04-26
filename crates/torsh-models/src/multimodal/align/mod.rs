@@ -130,11 +130,15 @@ mod tests {
     fn test_model_info() {
         let info = ALIGNFactory::model_info("align-large");
         assert!(info.is_ok());
-        assert!(info.unwrap().contains("EfficientNet-B7"));
+        assert!(info
+            .expect("operation should succeed")
+            .contains("EfficientNet-B7"));
 
         let small_info = ALIGNFactory::model_info("align-small");
         assert!(small_info.is_ok());
-        assert!(small_info.unwrap().contains("EfficientNet-B3"));
+        assert!(small_info
+            .expect("operation should succeed")
+            .contains("EfficientNet-B3"));
     }
 
     #[test]

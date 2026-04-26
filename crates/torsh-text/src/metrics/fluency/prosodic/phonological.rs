@@ -1760,7 +1760,7 @@ mod tests {
         let config = PhonologicalAnalysisConfig::default();
         let mut analyzer = PhonologicalAnalyzer::new(config);
 
-        let result = analyzer.analyze("test", "t ɛ s t").unwrap();
+        let result = analyzer.analyze("test", "t ɛ s t").expect("analysis should succeed");
         assert!(result.syllable_structure.total_syllables > 0);
         assert!(result.syllable_structure.average_complexity > 0.0);
     }
@@ -1770,7 +1770,7 @@ mod tests {
         let config = PhonologicalAnalysisConfig::default();
         let mut analyzer = PhonologicalAnalyzer::new(config);
 
-        let result = analyzer.analyze("stop", "s t ɒ p").unwrap();
+        let result = analyzer.analyze("stop", "s t ɒ p").expect("analysis should succeed");
         assert!(result.phoneme_sequence.total_phonemes == 4);
         assert!(result.phoneme_sequence.sequence_complexity > 0.0);
     }
@@ -1780,7 +1780,7 @@ mod tests {
         let config = PhonologicalAnalysisConfig::default();
         let mut analyzer = PhonologicalAnalyzer::new(config);
 
-        let result = analyzer.analyze("strength", "s t r ɛ ŋ θ").unwrap();
+        let result = analyzer.analyze("strength", "s t r ɛ ŋ θ").expect("analysis should succeed");
         // Should detect some complexity due to consonant clusters
         assert!(result.phonotactic_constraints.violations.len() >= 0);
     }
@@ -1790,7 +1790,7 @@ mod tests {
         let config = PhonologicalAnalysisConfig::default();
         let mut analyzer = PhonologicalAnalyzer::new(config);
 
-        let result = analyzer.analyze("cat", "k æ t").unwrap();
+        let result = analyzer.analyze("cat", "k æ t").expect("analysis should succeed");
         assert!(!result.detected_patterns.is_empty());
 
         // Should detect CV pattern
@@ -1806,8 +1806,8 @@ mod tests {
         let config = PhonologicalAnalysisConfig::default();
         let mut analyzer = PhonologicalAnalyzer::new(config);
 
-        let simple_result = analyzer.analyze("go", "g oʊ").unwrap();
-        let complex_result = analyzer.analyze("strengths", "s t r ɛ ŋ θ s").unwrap();
+        let simple_result = analyzer.analyze("go", "g oʊ").expect("analysis should succeed");
+        let complex_result = analyzer.analyze("strengths", "s t r ɛ ŋ θ s").expect("analysis should succeed");
 
         assert!(complex_result.complexity_score > simple_result.complexity_score);
     }
@@ -1819,11 +1819,11 @@ mod tests {
         let mut analyzer = PhonologicalAnalyzer::new(config);
 
         // First analysis
-        let _result1 = analyzer.analyze("test", "t ɛ s t").unwrap();
+        let _result1 = analyzer.analyze("test", "t ɛ s t").expect("analysis should succeed");
         assert_eq!(analyzer.get_cache_stats().0, 1);
 
         // Second analysis (should use cache)
-        let _result2 = analyzer.analyze("test", "t ɛ s t").unwrap();
+        let _result2 = analyzer.analyze("test", "t ɛ s t").expect("analysis should succeed");
         assert_eq!(analyzer.get_cache_stats().0, 1); // Cache size shouldn't change
     }
 
@@ -1832,7 +1832,7 @@ mod tests {
         let config = PhonologicalAnalysisConfig::default();
         let analyzer = SyllableStructureAnalyzer::new(&config);
 
-        let syllables = analyzer.segment_syllables("k æ t").unwrap();
+        let syllables = analyzer.segment_syllables("k æ t").expect("syllable segmentation should succeed");
         assert_eq!(syllables.len(), 1);
         assert_eq!(syllables[0], "k æ t");
     }

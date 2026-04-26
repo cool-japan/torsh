@@ -13,7 +13,6 @@
 use std::fs;
 use tempfile::TempDir;
 
-use oxiarc_archive::zip::ZipWriter;
 use torsh_package::*;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -281,7 +280,7 @@ fn demonstrate_format_compatibility(
 /// Create a mock PyTorch package for demonstration
 fn create_mock_pytorch_package(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
     let file = fs::File::create(path)?;
-    let mut zip = ZipWriter::new(file);
+    let mut zip = oxiarc_archive::zip::ZipWriter::new(file);
 
     // Add version file
     zip.add_file(".data/version", b"1.0.0")?;
@@ -578,12 +577,13 @@ fn demonstrate_lazy_loading(base_path: &std::path::Path) -> Result<(), Box<dyn s
 /// Create a test ZIP archive for lazy loading demo
 fn create_test_archive(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
     let file = fs::File::create(path)?;
-    let mut zip = ZipWriter::new(file);
+    let mut zip = oxiarc_archive::zip::ZipWriter::new(file);
 
     zip.add_file(
         "test_entry.txt",
         b"This is test data stored in a ZIP archive for lazy loading demonstration.",
     )?;
+
     zip.add_file(
         "another_entry.json",
         br#"{"message": "Hello from archive!", "size": 1024}"#,

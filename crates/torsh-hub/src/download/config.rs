@@ -837,7 +837,7 @@ mod tests {
             .max_retries(5)
             .enable_resume(false)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         assert_eq!(config.max_concurrent_downloads, 8);
         assert_eq!(config.chunk_size, 2 * 1024 * 1024);

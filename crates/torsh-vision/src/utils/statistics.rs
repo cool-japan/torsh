@@ -439,36 +439,36 @@ mod tests {
 
     #[test]
     fn test_mse_identical_images() {
-        let tensor = creation::ones(&[3, 32, 32]).unwrap();
-        let result = mse(&tensor, &tensor).unwrap();
+        let tensor = creation::ones(&[3, 32, 32]).expect("creation should succeed");
+        let result = mse(&tensor, &tensor).expect("mse should succeed");
         assert!((result - 0.0).abs() < 1e-7);
     }
 
     #[test]
     fn test_mae_identical_images() {
-        let tensor = creation::ones(&[3, 32, 32]).unwrap();
-        let result = mae(&tensor, &tensor).unwrap();
+        let tensor = creation::ones(&[3, 32, 32]).expect("creation should succeed");
+        let result = mae(&tensor, &tensor).expect("mae should succeed");
         assert!((result - 0.0).abs() < 1e-7);
     }
 
     #[test]
     fn test_psnr_identical_images() {
-        let tensor = creation::ones(&[3, 32, 32]).unwrap();
-        let result = psnr(&tensor, &tensor, Some(1.0)).unwrap();
+        let tensor = creation::ones(&[3, 32, 32]).expect("creation should succeed");
+        let result = psnr(&tensor, &tensor, Some(1.0)).expect("operation should succeed");
         assert!(result.is_infinite());
     }
 
     #[test]
     fn test_ssim_identical_images() {
-        let tensor = creation::ones(&[3, 32, 32]).unwrap();
-        let result = ssim(&tensor, &tensor, None, None, None).unwrap();
+        let tensor = creation::ones(&[3, 32, 32]).expect("creation should succeed");
+        let result = ssim(&tensor, &tensor, None, None, None).expect("ssim should succeed");
         assert!((result - 1.0).abs() < 1e-7);
     }
 
     #[test]
     fn test_invalid_tensor_shapes() {
-        let tensor_2d = creation::ones(&[32, 32]).unwrap();
-        let tensor_3d = creation::ones(&[3, 32, 32]).unwrap();
+        let tensor_2d = creation::ones(&[32, 32]).expect("creation should succeed");
+        let tensor_3d = creation::ones(&[3, 32, 32]).expect("creation should succeed");
 
         assert!(mse(&tensor_2d, &tensor_3d).is_err());
         assert!(mae(&tensor_2d, &tensor_3d).is_err());

@@ -341,11 +341,11 @@ mod tests {
 
     #[test]
     fn test_validate_image_tensor_3d() {
-        let tensor = zeros(&[3, 224, 224]).unwrap();
-        let (c, h, w) = utils::validate_image_tensor_3d(&tensor).unwrap();
+        let tensor = zeros(&[3, 224, 224]).expect("zeros should succeed");
+        let (c, h, w) = utils::validate_image_tensor_3d(&tensor).expect("utils should succeed");
         assert_eq!((c, h, w), (3, 224, 224));
 
-        let invalid_tensor = zeros(&[224, 224]).unwrap();
+        let invalid_tensor = zeros(&[224, 224]).expect("zeros should succeed");
         assert!(utils::validate_image_tensor_3d(&invalid_tensor).is_err());
     }
 

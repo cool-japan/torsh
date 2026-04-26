@@ -502,12 +502,13 @@ mod tests {
 
     #[test]
     fn test_normalization_stats_creation() {
-        let stats = NormalizationStats::new(10, true).unwrap();
+        let stats = NormalizationStats::new(10, true).expect("Normalization Stats should succeed");
         assert!(stats.running_mean.is_some());
         assert!(stats.running_var.is_some());
         assert!(stats.num_batches_tracked.is_some());
 
-        let stats_no_tracking = NormalizationStats::new(10, false).unwrap();
+        let stats_no_tracking =
+            NormalizationStats::new(10, false).expect("Normalization Stats should succeed");
         assert!(stats_no_tracking.running_mean.is_none());
         assert!(stats_no_tracking.running_var.is_none());
         assert!(stats_no_tracking.num_batches_tracked.is_none());
@@ -521,8 +522,8 @@ mod tests {
             vec![2, 3],
             torsh_core::device::DeviceType::Cpu,
         )
-        .unwrap();
-        let mean = utils::compute_channel_mean(&input).unwrap();
+        .expect("operation should succeed");
+        let mean = utils::compute_channel_mean(&input).expect("utils should succeed");
         let expected_mean = vec![2.5, 3.5, 4.5]; // Channel-wise means
         let mean_data = mean
             .to_vec()

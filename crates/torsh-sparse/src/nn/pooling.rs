@@ -736,62 +736,62 @@ mod tests {
 
     #[test]
     fn test_sparse_max_pool2d_creation() {
-        let pool = SparseMaxPool2d::new((2, 2), None, None, None).unwrap();
+        let pool = SparseMaxPool2d::new((2, 2), None, None, None).expect("operation should succeed");
         assert_eq!(pool.kernel_size(), (2, 2));
         assert_eq!(pool.stride(), (2, 2));
     }
 
     #[test]
     fn test_sparse_max_pool2d_forward() {
-        let pool = SparseMaxPool2d::new((2, 2), Some((2, 2)), None, None).unwrap();
-        let input = ones::<f32>(&[1, 1, 4, 4]).unwrap();
-        let output = pool.forward(&input).unwrap();
+        let pool = SparseMaxPool2d::new((2, 2), Some((2, 2)), None, None).expect("operation should succeed");
+        let input = ones::<f32>(&[1, 1, 4, 4]).expect("operation should succeed");
+        let output = pool.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[1, 1, 2, 2]);
     }
 
     #[test]
     fn test_sparse_avg_pool2d_creation() {
-        let pool = SparseAvgPool2d::new((2, 2), None, None, false).unwrap();
+        let pool = SparseAvgPool2d::new((2, 2), None, None, false).expect("operation should succeed");
         assert_eq!(pool.kernel_size, (2, 2));
     }
 
     #[test]
     fn test_sparse_avg_pool2d_forward() {
-        let pool = SparseAvgPool2d::new((2, 2), Some((2, 2)), None, false).unwrap();
-        let input = ones::<f32>(&[1, 1, 4, 4]).unwrap();
-        let output = pool.forward(&input).unwrap();
+        let pool = SparseAvgPool2d::new((2, 2), Some((2, 2)), None, false).expect("operation should succeed");
+        let input = ones::<f32>(&[1, 1, 4, 4]).expect("operation should succeed");
+        let output = pool.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[1, 1, 2, 2]);
     }
 
     #[test]
     fn test_sparse_max_pool1d() {
-        let pool = SparseMaxPool1d::new(2, None, None, None).unwrap();
-        let input = ones::<f32>(&[1, 1, 8]).unwrap();
-        let output = pool.forward(&input).unwrap();
+        let pool = SparseMaxPool1d::new(2, None, None, None).expect("Sparse Max Pool1d should succeed");
+        let input = ones::<f32>(&[1, 1, 8]).expect("operation should succeed");
+        let output = pool.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[1, 1, 4]);
     }
 
     #[test]
     fn test_sparse_avg_pool1d() {
-        let pool = SparseAvgPool1d::new(2, None, None, false).unwrap();
-        let input = ones::<f32>(&[1, 1, 8]).unwrap();
-        let output = pool.forward(&input).unwrap();
+        let pool = SparseAvgPool1d::new(2, None, None, false).expect("Sparse Avg Pool1d should succeed");
+        let input = ones::<f32>(&[1, 1, 8]).expect("operation should succeed");
+        let output = pool.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[1, 1, 4]);
     }
 
     #[test]
     fn test_adaptive_max_pool2d() {
-        let pool = SparseAdaptiveMaxPool2d::new((3, 3)).unwrap();
-        let input = ones::<f32>(&[1, 1, 8, 8]).unwrap();
-        let output = pool.forward(&input).unwrap();
+        let pool = SparseAdaptiveMaxPool2d::new((3, 3)).expect("operation should succeed");
+        let input = ones::<f32>(&[1, 1, 8, 8]).expect("operation should succeed");
+        let output = pool.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[1, 1, 3, 3]);
     }
 
     #[test]
     fn test_adaptive_avg_pool2d() {
-        let pool = SparseAdaptiveAvgPool2d::new((2, 2)).unwrap();
-        let input = ones::<f32>(&[1, 1, 6, 6]).unwrap();
-        let output = pool.forward(&input).unwrap();
+        let pool = SparseAdaptiveAvgPool2d::new((2, 2)).expect("operation should succeed");
+        let input = ones::<f32>(&[1, 1, 6, 6]).expect("operation should succeed");
+        let output = pool.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[1, 1, 2, 2]);
     }
 
@@ -806,12 +806,12 @@ mod tests {
 
     #[test]
     fn test_dimension_validation() {
-        let pool = SparseMaxPool2d::new((2, 2), None, None, None).unwrap();
-        let wrong_input = ones::<f32>(&[1, 1, 4]).unwrap(); // 3D instead of 4D
+        let pool = SparseMaxPool2d::new((2, 2), None, None, None).expect("operation should succeed");
+        let wrong_input = ones::<f32>(&[1, 1, 4]).expect("operation should succeed"); // 3D instead of 4D
         assert!(pool.forward(&wrong_input).is_err());
 
-        let pool1d = SparseMaxPool1d::new(2, None, None, None).unwrap();
-        let wrong_input1d = ones::<f32>(&[1, 1, 4, 4]).unwrap(); // 4D instead of 3D
+        let pool1d = SparseMaxPool1d::new(2, None, None, None).expect("Sparse Max Pool1d should succeed");
+        let wrong_input1d = ones::<f32>(&[1, 1, 4, 4]).expect("operation should succeed"); // 4D instead of 3D
         assert!(pool1d.forward(&wrong_input1d).is_err());
     }
 }

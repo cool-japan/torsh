@@ -118,7 +118,7 @@ impl Benchmarkable for MixedPrecisionTrainingBench {
             self.standard_forward(&input.input, &input.weights)
         };
 
-        let forward_time = start_time.elapsed();
+        let forward_time = start_time.elapsed().max(Duration::from_nanos(1));
 
         // Backward pass with gradient scaling
         let backward_start = Instant::now();
@@ -129,7 +129,7 @@ impl Benchmarkable for MixedPrecisionTrainingBench {
         };
 
         let backward_result = self.backward_pass(&forward_result, &scaled_gradients);
-        let backward_time = backward_start.elapsed();
+        let backward_time = backward_start.elapsed().max(Duration::from_nanos(1));
 
         black_box(MixedPrecisionResult {
             forward_output: forward_result,
@@ -570,15 +570,15 @@ impl PruningBench {
 
         let pruning_start = Instant::now();
         let pruned_tensor = self.apply_pruning(&original_tensor);
-        let pruning_time = pruning_start.elapsed();
+        let pruning_time = pruning_start.elapsed().max(Duration::from_nanos(1));
 
         let inference_start = Instant::now();
         let sparse_output = self.sparse_inference(&pruned_tensor);
-        let sparse_inference_time = inference_start.elapsed();
+        let sparse_inference_time = inference_start.elapsed().max(Duration::from_nanos(1));
 
         let dense_start = Instant::now();
         let dense_output = self.dense_inference(&original_tensor);
-        let dense_inference_time = dense_start.elapsed();
+        let dense_inference_time = dense_start.elapsed().max(Duration::from_nanos(1));
 
         PruningResult {
             original_tensor: original_tensor.clone(),

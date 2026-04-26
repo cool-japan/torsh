@@ -359,8 +359,11 @@ mod tests {
         assert!(!chunks.is_empty());
 
         // Verify chunks cover the entire range
-        assert_eq!(chunks.first().unwrap().0, 0);
-        assert_eq!(chunks.last().unwrap().1, 1000);
+        assert_eq!(chunks.first().expect("collection should be non-empty").0, 0);
+        assert_eq!(
+            chunks.last().expect("collection should be non-empty").1,
+            1000
+        );
 
         // Verify chunks are contiguous
         for window in chunks.windows(2) {
@@ -405,8 +408,11 @@ mod tests {
         let strategy = ChunkingStrategy::new(WorkloadType::Elementwise, 4);
         let chunks = strategy.split_range(0, 1000);
         assert!(!chunks.is_empty());
-        assert_eq!(chunks.first().unwrap().0, 0);
-        assert_eq!(chunks.last().unwrap().1, 1000);
+        assert_eq!(chunks.first().expect("collection should be non-empty").0, 0);
+        assert_eq!(
+            chunks.last().expect("collection should be non-empty").1,
+            1000
+        );
     }
 
     #[test]

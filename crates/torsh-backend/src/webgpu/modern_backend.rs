@@ -46,12 +46,25 @@ impl Default for ModernWebGpuConfig {
                 required_features: wgpu::Features::empty(),
                 required_limits: wgpu::Limits::downlevel_defaults(),
                 memory_hints: wgpu::MemoryHints::default(),
+                trace: wgpu::Trace::Off,
+                experimental_features: wgpu::ExperimentalFeatures::default(),
             },
             instance_descriptor: wgpu::InstanceDescriptor {
                 backends: wgpu::Backends::all(),
                 flags: wgpu::InstanceFlags::default(),
-                dx12_shader_compiler: wgpu::Dx12Compiler::Fxc,
-                gles_minor_version: wgpu::Gles3MinorVersion::Automatic,
+                memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
+                backend_options: wgpu::BackendOptions {
+                    dx12: wgpu::Dx12BackendOptions {
+                        shader_compiler: wgpu::Dx12Compiler::Fxc,
+                        ..Default::default()
+                    },
+                    gl: wgpu::GlBackendOptions {
+                        gles_minor_version: wgpu::Gles3MinorVersion::Automatic,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                display: None,
             },
             adapter_options: wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::HighPerformance,
@@ -126,11 +139,13 @@ impl ModernWebGpuDevice {
             required_features,
             required_limits: required_limits.clone(),
             memory_hints: config.device_descriptor.memory_hints.clone(),
+            trace: wgpu::Trace::Off,
+            experimental_features: wgpu::ExperimentalFeatures::default(),
         };
 
         // Request device and queue
         let (device, queue) = adapter
-            .request_device(&device_descriptor, None)
+            .request_device(&device_descriptor)
             .await
             .map_err(|e| {
                 WebGpuError::InitializationError(format!("Failed to request WebGPU device: {}", e))
@@ -188,10 +203,11 @@ impl ModernWebGpuDevice {
             }
         }
 
+        let bind_group_layouts_opt: Vec<_> = bind_group_layouts.iter().map(|&l| Some(l)).collect();
         let pipeline_layout = self.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some(&format!("{}_layout", label)),
-            bind_group_layouts,
-            push_constant_ranges: &[],
+            bind_group_layouts: &bind_group_layouts_opt,
+            immediate_size: 0,
         });
 
         let pipeline = Arc::new(
@@ -237,7 +253,10 @@ impl ModernWebGpuDevice {
             }
         });
 
-        let _ = self.device.poll(wgpu::Maintain::WaitForSubmissionIndex(submission_index));
+        let _ = self.device.poll(wgpu::PollType::Wait {
+            submission_index: Some(submission_index),
+            timeout: None,
+        });
         Ok(())
     }
 }
@@ -414,7 +433,10 @@ impl ModernWebGpuBuffer {
             let _ = tx.send(result);
         });
 
-        let _ = self.device.device.poll(wgpu::Maintain::Wait);
+        let _ = self.device.device.poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: None,
+        });
         rx.await.expect("buffer mapping channel should not be dropped").map_err(|e| WebGpuError::RuntimeError(format!("Buffer mapping failed: {:?}", e)))?;
 
         let data = buffer_slice.get_mapped_range();

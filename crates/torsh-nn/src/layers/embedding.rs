@@ -926,10 +926,10 @@ impl SinusoidalPositionEmbedding {
     /// Get embeddings for specific positions
     ///
     /// # Arguments
-    /// - `positions`: Tensor of position indices \[seq_len\] or \[batch, seq_len\]
+    /// - `positions`: Tensor of position indices `[seq_len]` or `[batch, seq_len]`
     ///
     /// # Returns
-    /// Position embeddings with shape \[seq_len, d_model\] or \[batch, seq_len, d_model\]
+    /// Position embeddings with shape `[seq_len, d_model]` or `[batch, seq_len, d_model]`
     pub fn get_embeddings(&self, positions: &Tensor) -> Result<Tensor> {
         let embeddings = self.base.parameters["embeddings"].tensor().read().clone();
         let positions_data = positions.to_vec()?;
@@ -1011,7 +1011,7 @@ impl SinusoidalPositionEmbedding {
     /// - `seq_len`: Sequence length
     ///
     /// # Returns
-    /// Position embeddings with shape [seq_len, d_model]
+    /// Position embeddings with shape `[seq_len, d_model]`
     pub fn get_embeddings_for_length(&self, seq_len: usize) -> Result<Tensor> {
         if seq_len > self.max_len {
             return Err(TorshError::InvalidArgument(format!(
@@ -1225,7 +1225,7 @@ mod tests {
             .base
             .parameters
             .get_mut("weight")
-            .unwrap()
+            .expect("operation should succeed")
             .tensor()
             .write() = weight;
 
@@ -1258,7 +1258,7 @@ mod tests {
             .base
             .parameters
             .get_mut("weight")
-            .unwrap()
+            .expect("operation should succeed")
             .tensor()
             .write() = weight;
 
@@ -1299,7 +1299,7 @@ mod tests {
             .base
             .parameters
             .get_mut("weight")
-            .unwrap()
+            .expect("operation should succeed")
             .tensor()
             .write() = weight;
 
@@ -1348,7 +1348,7 @@ mod tests {
             .base
             .parameters
             .get_mut("weight")
-            .unwrap()
+            .expect("operation should succeed")
             .tensor()
             .write() = weight;
 
@@ -1382,17 +1382,17 @@ mod tests {
         let mut embedding = Embedding::new(3, 2);
 
         let weight_data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
-        let weight = Tensor::from_vec(weight_data, &[3, 2]).unwrap();
+        let weight = Tensor::from_vec(weight_data, &[3, 2]).expect("Tensor should succeed");
         *embedding
             .base
             .parameters
             .get_mut("weight")
-            .unwrap()
+            .expect("operation should succeed")
             .tensor()
             .write() = weight;
 
         // Try to lookup index 5 (out of bounds for num_embeddings=3)
-        let input = Tensor::from_vec(vec![5.0], &[1]).unwrap();
+        let input = Tensor::from_vec(vec![5.0], &[1]).expect("Tensor should succeed");
         let result = embedding.forward(&input);
 
         assert!(result.is_err());
@@ -1427,7 +1427,7 @@ mod tests {
             .base
             .parameters
             .get_mut("weight")
-            .unwrap()
+            .expect("operation should succeed")
             .tensor()
             .write() = weight;
 

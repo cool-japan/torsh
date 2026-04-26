@@ -372,7 +372,7 @@ mod tests {
         let bbox = BoundingBox::from_points(&points);
         assert!(bbox.is_ok());
 
-        let bbox = bbox.unwrap();
+        let bbox = bbox.expect("operation should succeed");
         assert_eq!(bbox.min[0], 0.0);
         assert_eq!(bbox.max[0], 1.0);
         assert_eq!(bbox.volume(), 1.0);
@@ -383,7 +383,8 @@ mod tests {
         let mut tracker = SpatialObjectTracker::new(10);
 
         let detection = Detection {
-            bbox: BoundingBox::new(arr1(&[0.0, 0.0]), arr1(&[1.0, 1.0])).unwrap(),
+            bbox: BoundingBox::new(arr1(&[0.0, 0.0]), arr1(&[1.0, 1.0]))
+                .expect("operation should succeed"),
             confidence: 0.9,
             class_id: 1,
             features: None,
@@ -391,7 +392,7 @@ mod tests {
 
         let result = tracker.track_objects(&[detection], 0);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().len(), 1);
+        assert_eq!(result.expect("operation should succeed").len(), 1);
     }
 
     #[test]

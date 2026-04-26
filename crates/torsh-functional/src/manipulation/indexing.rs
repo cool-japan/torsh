@@ -408,17 +408,20 @@ mod tests {
     fn test_unravel_index_error_cases() {
         // Test non-1D indices
         let indices_2d =
-            Tensor::from_data(vec![0.0f32, 1.0, 2.0, 3.0], vec![2, 2], DeviceType::Cpu).unwrap();
+            Tensor::from_data(vec![0.0f32, 1.0, 2.0, 3.0], vec![2, 2], DeviceType::Cpu)
+                .expect("Tensor should succeed");
         let shape = vec![2, 2];
         assert!(unravel_index(&indices_2d, &shape).is_err());
 
         // Test out of bounds index
-        let indices = Tensor::from_data(vec![4.0f32], vec![1], DeviceType::Cpu).unwrap();
+        let indices = Tensor::from_data(vec![4.0f32], vec![1], DeviceType::Cpu)
+            .expect("Tensor should succeed");
         let shape = vec![2, 2]; // Max valid index is 3
         assert!(unravel_index(&indices, &shape).is_err());
 
         // Test empty shape
-        let indices = Tensor::from_data(vec![0.0f32], vec![1], DeviceType::Cpu).unwrap();
+        let indices = Tensor::from_data(vec![0.0f32], vec![1], DeviceType::Cpu)
+            .expect("Tensor should succeed");
         let empty_shape: Vec<usize> = vec![];
         assert!(unravel_index(&indices, &empty_shape).is_err());
     }
@@ -426,13 +429,15 @@ mod tests {
     #[test]
     fn test_ravel_multi_index_error_cases() {
         // Test mismatched number of coordinates and dimensions
-        let coord = Tensor::from_data(vec![0.0f32], vec![1], DeviceType::Cpu).unwrap();
+        let coord = Tensor::from_data(vec![0.0f32], vec![1], DeviceType::Cpu)
+            .expect("Tensor should succeed");
         let coords = vec![coord];
         let shape = vec![2, 2]; // 2 dimensions but only 1 coordinate tensor
         assert!(ravel_multi_index(&coords, &shape).is_err());
 
         // Test out of bounds coordinate
-        let coord = Tensor::from_data(vec![2.0f32], vec![1], DeviceType::Cpu).unwrap();
+        let coord = Tensor::from_data(vec![2.0f32], vec![1], DeviceType::Cpu)
+            .expect("Tensor should succeed");
         let coords = vec![coord];
         let shape = vec![2]; // Max valid coordinate is 1
         assert!(ravel_multi_index(&coords, &shape).is_err());

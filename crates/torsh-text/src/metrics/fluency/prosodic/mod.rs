@@ -258,6 +258,7 @@ pub trait CacheableResult: std::fmt::Debug + Send + Sync {
     fn cache_size(&self) -> usize;
     fn is_valid(&self) -> bool;
     fn clone_boxed(&self) -> Box<dyn CacheableResult>;
+    fn as_any(&self) -> &dyn std::any::Any;
 }
 
 /// Errors that can occur during prosodic fluency analysis
@@ -789,6 +790,10 @@ impl CacheableResult for CacheableRhythmMetrics {
     fn clone_boxed(&self) -> Box<dyn CacheableResult> {
         Box::new(self.clone())
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 impl CacheableResult for CacheableStressMetrics {
@@ -808,6 +813,10 @@ impl CacheableResult for CacheableStressMetrics {
 
     fn clone_boxed(&self) -> Box<dyn CacheableResult> {
         Box::new(self.clone())
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -829,6 +838,10 @@ impl CacheableResult for CacheableIntonationMetrics {
     fn clone_boxed(&self) -> Box<dyn CacheableResult> {
         Box::new(self.clone())
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 impl CacheableResult for CacheableTimingMetrics {
@@ -849,6 +862,10 @@ impl CacheableResult for CacheableTimingMetrics {
     fn clone_boxed(&self) -> Box<dyn CacheableResult> {
         Box::new(self.clone())
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 impl CacheableResult for CacheablePhonologicalMetrics {
@@ -868,6 +885,10 @@ impl CacheableResult for CacheablePhonologicalMetrics {
 
     fn clone_boxed(&self) -> Box<dyn CacheableResult> {
         Box::new(self.clone())
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -1404,55 +1425,6 @@ impl Default for ConfidenceCalculator {
     }
 }
 
-// Additional trait implementations for downcasting support
-impl std::any::Any for CacheableRhythmMetrics {
-    fn type_id(&self) -> std::any::TypeId {
-        std::any::TypeId::of::<Self>()
-    }
-}
-
-impl std::any::Any for CacheableStressMetrics {
-    fn type_id(&self) -> std::any::TypeId {
-        std::any::TypeId::of::<Self>()
-    }
-}
-
-impl std::any::Any for CacheableIntonationMetrics {
-    fn type_id(&self) -> std::any::TypeId {
-        std::any::TypeId::of::<Self>()
-    }
-}
-
-impl std::any::Any for CacheableTimingMetrics {
-    fn type_id(&self) -> std::any::TypeId {
-        std::any::TypeId::of::<Self>()
-    }
-}
-
-impl std::any::Any for CacheablePhonologicalMetrics {
-    fn type_id(&self) -> std::any::TypeId {
-        std::any::TypeId::of::<Self>()
-    }
-}
-
-// Add as_any method to CacheableResult trait
-pub trait CacheableResultExt: CacheableResult {
-    fn as_any(&self) -> &dyn std::any::Any;
-}
-
-impl<T: CacheableResult + std::any::Any> CacheableResultExt for T {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-}
-
-// Blanket implementation for all CacheableResult types
-impl CacheableResultExt for dyn CacheableResult {
-    fn as_any(&self) -> &dyn std::any::Any {
-        // This is a placeholder - in practice, each concrete type would implement this
-        unimplemented!("as_any should be implemented by concrete types")
-    }
-}
 
 #[cfg(test)]
 mod tests {

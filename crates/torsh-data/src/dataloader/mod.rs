@@ -528,7 +528,7 @@ mod tests {
     #[test]
     fn test_utils_validate_config() {
         let config = DataLoaderConfig::new().batch_size(100);
-        let warnings = utils::validate_config(&config, 50).unwrap();
+        let warnings = utils::validate_config(&config, 50).expect("utils should succeed");
         assert!(!warnings.is_empty());
         assert!(warnings[0].contains("Batch size"));
     }
@@ -546,10 +546,11 @@ mod tests {
         use torsh_core::device::DeviceType;
         use torsh_tensor::Tensor;
 
-        let tensor =
-            Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu)
+            .expect("Tensor should succeed");
         let dataset = TensorDataset::from_tensor(tensor);
-        let dataloader = simple_dataloader(dataset, 2, false).unwrap();
+        let dataloader =
+            simple_dataloader(dataset, 2, false).expect("simple dataloader should succeed");
         assert_eq!(dataloader.len(), 3);
     }
 
@@ -558,14 +559,20 @@ mod tests {
         use torsh_core::device::DeviceType;
         use torsh_tensor::Tensor;
 
-        let tensor =
-            Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0, 5.0], vec![5], DeviceType::Cpu)
+            .expect("Tensor should succeed");
         let dataset = TensorDataset::from_tensor(tensor);
-        let dataloader = DataLoader::builder(dataset).batch_size(2).build().unwrap();
+        let dataloader = DataLoader::builder(dataset)
+            .batch_size(2)
+            .build()
+            .expect("build should succeed with valid configuration");
 
         // Test regular iteration instead of prefetch to avoid lifetime issues
         let mut iter = dataloader.iter();
-        let first_batch = iter.next().unwrap().unwrap();
+        let first_batch = iter
+            .next()
+            .expect("iterator should have a next element")
+            .expect("operation should succeed");
         assert_eq!(first_batch.len(), 1); // Should have 1 stacked tensor
 
         // Verify the tensor shape: [batch_size, sample_features]

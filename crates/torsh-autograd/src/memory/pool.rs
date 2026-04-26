@@ -484,7 +484,9 @@ mod tests {
         let mut pool: MemoryPool<f32> = MemoryPool::new();
 
         // First allocation should be a cache miss
-        let memory1 = pool.allocate(100).unwrap();
+        let memory1 = pool
+            .allocate(100)
+            .expect("memory allocation should succeed");
         assert_eq!(memory1.capacity(), 100);
 
         let stats = pool.get_stats();
@@ -497,7 +499,9 @@ mod tests {
         assert_eq!(pool.len(), 1);
 
         // Second allocation of same size should be a cache hit
-        let memory2 = pool.allocate(100).unwrap();
+        let memory2 = pool
+            .allocate(100)
+            .expect("memory allocation should succeed");
         assert_eq!(memory2.capacity(), 100);
 
         let stats = pool.get_stats();
@@ -510,8 +514,12 @@ mod tests {
     fn test_different_sizes() {
         let mut pool: MemoryPool<f32> = MemoryPool::new();
 
-        let mem1 = pool.allocate(100).unwrap();
-        let mem2 = pool.allocate(200).unwrap();
+        let mem1 = pool
+            .allocate(100)
+            .expect("memory allocation should succeed");
+        let mem2 = pool
+            .allocate(200)
+            .expect("memory allocation should succeed");
 
         pool.deallocate(mem1);
         pool.deallocate(mem2);
@@ -527,12 +535,16 @@ mod tests {
         let mut pool: MemoryPool<f32> = MemoryPool::new();
 
         // Allocate and deallocate to populate pool
-        let mem = pool.allocate(100).unwrap();
+        let mem = pool
+            .allocate(100)
+            .expect("memory allocation should succeed");
         pool.deallocate(mem);
 
         // Multiple allocations of same size
         for _ in 0..5 {
-            let mem = pool.allocate(100).unwrap();
+            let mem = pool
+                .allocate(100)
+                .expect("memory allocation should succeed");
             pool.deallocate(mem);
         }
 
@@ -546,7 +558,7 @@ mod tests {
 
         // Fill pool to capacity
         for _ in 0..3 {
-            let mem = pool.allocate(10).unwrap();
+            let mem = pool.allocate(10).expect("memory allocation should succeed");
             pool.deallocate(mem);
         }
 
@@ -558,7 +570,9 @@ mod tests {
     fn test_clear_pool() {
         let mut pool: MemoryPool<f32> = MemoryPool::new();
 
-        let mem = pool.allocate(100).unwrap();
+        let mem = pool
+            .allocate(100)
+            .expect("memory allocation should succeed");
         pool.deallocate(mem);
         assert_eq!(pool.len(), 1);
 
@@ -573,7 +587,9 @@ mod tests {
 
         // Add chunks of different sizes
         for size in [100, 200, 400] {
-            let mem = pool.allocate(size).unwrap();
+            let mem = pool
+                .allocate(size)
+                .expect("memory allocation should succeed");
             pool.deallocate(mem);
         }
 

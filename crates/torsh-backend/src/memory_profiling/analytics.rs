@@ -1189,7 +1189,7 @@ mod tests {
         for i in 0..20 {
             let stats = create_test_statistics(0.8 + i as f64 * 0.01, 0.9);
             let context = create_test_context();
-            analytics.record_statistics(stats, context).unwrap();
+            analytics.record_statistics(stats, context).expect("statistics recording should succeed");
         }
 
         let result = analytics.create_baseline(
@@ -1210,17 +1210,17 @@ mod tests {
         for i in 0..50 {
             let stats = create_test_statistics(0.5 + i as f64 * 0.01, 0.9);
             let context = create_test_context();
-            analytics.record_statistics(stats, context).unwrap();
+            analytics.record_statistics(stats, context).expect("statistics recording should succeed");
         }
 
-        let trends = analytics.analyze_trends(Duration::from_secs(1000)).unwrap();
+        let trends = analytics.analyze_trends(Duration::from_secs(1000)).expect("operation should succeed");
         assert!(!trends.is_empty());
 
         // Find efficiency trend
         let efficiency_trend = trends.iter().find(|t| t.metric_name == "efficiency_score");
         assert!(efficiency_trend.is_some());
 
-        let trend = efficiency_trend.unwrap();
+        let trend = efficiency_trend.expect("operation should succeed");
         assert_eq!(trend.trend_direction, TrendDirection::Increasing);
         assert!(trend.slope > 0.0);
     }
@@ -1233,14 +1233,14 @@ mod tests {
         for _ in 0..100 {
             let stats = create_test_statistics(0.8, 0.9);
             let context = create_test_context();
-            analytics.record_statistics(stats, context).unwrap();
+            analytics.record_statistics(stats, context).expect("statistics recording should succeed");
         }
 
         // Add anomalous data point
         let anomalous_stats = create_test_statistics(0.1, 0.1); // Very low efficiency
-        analytics.record_statistics(anomalous_stats, create_test_context()).unwrap();
+        analytics.record_statistics(anomalous_stats, create_test_context()).expect("operation should succeed");
 
-        let anomalies = analytics.detect_anomalies().unwrap();
+        let anomalies = analytics.detect_anomalies().expect("anomaly detection should succeed");
         assert!(!anomalies.is_empty());
     }
 
@@ -1252,13 +1252,13 @@ mod tests {
         for i in 0..100 {
             let stats = create_test_statistics(0.8, 0.9);
             let context = create_test_context();
-            analytics.record_statistics(stats, context).unwrap();
+            analytics.record_statistics(stats, context).expect("statistics recording should succeed");
         }
 
         let report = analytics.generate_report(Duration::from_secs(300));
         assert!(report.is_ok());
 
-        let report = report.unwrap();
+        let report = report.expect("operation should succeed");
         assert!(!report.report_id.is_empty());
         assert!(report.detailed_statistics.efficiency_score > 0.0);
     }
@@ -1273,10 +1273,10 @@ mod tests {
         }
 
         // Test with anomalous value
-        let anomaly = detector.check_anomaly(200.0).unwrap();
+        let anomaly = detector.check_anomaly(200.0).expect("anomaly check should succeed");
         assert!(anomaly.is_some());
 
-        let anomaly = anomaly.unwrap();
+        let anomaly = anomaly.expect("operation should succeed");
         assert_eq!(anomaly.anomaly_type, AnomalyType::SuddenSpike);
     }
 

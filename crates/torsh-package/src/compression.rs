@@ -5,7 +5,6 @@
 //! and configuration files.
 
 use std::collections::HashMap;
-use std::io::{Read, Write};
 
 use serde::{Deserialize, Serialize};
 use torsh_core::error::{Result, TorshError};
@@ -376,41 +375,35 @@ impl AdvancedCompressor {
 
     /// Compress with Gzip
     fn compress_gzip(&self, data: &[u8], level: u32) -> Result<Vec<u8>> {
-        use flate2::{write::GzEncoder, Compression};
+        use oxiarc_deflate::gzip::gzip_compress;
 
-        let mut encoder = GzEncoder::new(Vec::new(), Compression::new(level));
-        encoder.write_all(data).map_err(|e| {
-            TorshError::SerializationError(format!("Gzip compression failed: {}", e))
-        })?;
-
-        encoder
-            .finish()
-            .map_err(|e| TorshError::SerializationError(format!("Gzip finalization failed: {}", e)))
+        gzip_compress(data, level as u8)
+            .map_err(|e| TorshError::SerializationError(format!("Gzip compression failed: {}", e)))
     }
 
     /// Decompress Gzip
     fn decompress_gzip(&self, data: &[u8]) -> Result<Vec<u8>> {
-        use flate2::read::GzDecoder;
+        use oxiarc_deflate::gzip::gzip_decompress;
 
-        let mut decoder = GzDecoder::new(data);
-        let mut result = Vec::new();
-        decoder.read_to_end(&mut result).map_err(|e| {
+        gzip_decompress(data).map_err(|e| {
             TorshError::SerializationError(format!("Gzip decompression failed: {}", e))
-        })?;
-
-        Ok(result)
+        })
     }
 
     /// Compress with Zstandard
     fn compress_zstd(&self, data: &[u8], level: u32) -> Result<Vec<u8>> {
-        zstd::encode_all(data, level as i32).map_err(|e| {
+        use oxiarc_zstd::encode_all;
+
+        encode_all(data, level as i32).map_err(|e| {
             TorshError::SerializationError(format!("Zstandard compression failed: {}", e))
         })
     }
 
     /// Decompress Zstandard
     fn decompress_zstd(&self, data: &[u8]) -> Result<Vec<u8>> {
-        zstd::decode_all(data).map_err(|e| {
+        use oxiarc_zstd::decode_all;
+
+        decode_all(data).map_err(|e| {
             TorshError::SerializationError(format!("Zstandard decompression failed: {}", e))
         })
     }

@@ -28,12 +28,12 @@ mod tests {
     #[test]
     fn test_repetition_device_detection() {
         let config = CohesionAnalysisConfig::default();
-        let detector = CohesiveDeviceDetector::new(&config).unwrap();
+        let detector = CohesiveDeviceDetector::new(&config).expect("Cohesive Device Detector should succeed");
         let sentences = vec![
             "The cat sat on the mat.".to_string(), "The cat was very comfortable."
             .to_string(),
         ];
-        let devices = detector.detect_repetition_devices(&sentences).unwrap();
+        let devices = detector.detect_repetition_devices(&sentences).expect("repetition device detection should succeed");
         assert!(! devices.is_empty());
         let cat_devices: Vec<&CohesiveDevice> = devices
             .iter()
@@ -44,12 +44,12 @@ mod tests {
     #[test]
     fn test_morphological_device_detection() {
         let config = CohesionAnalysisConfig::default();
-        let detector = CohesiveDeviceDetector::new(&config).unwrap();
+        let detector = CohesiveDeviceDetector::new(&config).expect("Cohesive Device Detector should succeed");
         let sentences = vec![
             "The runner was running quickly.".to_string(), "Running is good exercise."
             .to_string(),
         ];
-        let devices = detector.detect_morphological_devices(&sentences).unwrap();
+        let devices = detector.detect_morphological_devices(&sentences).expect("morphological device detection should succeed");
         let running_devices: Vec<&CohesiveDevice> = devices
             .iter()
             .filter(|d| d.device_type == CohesiveDeviceType::Morphological)
@@ -58,7 +58,7 @@ mod tests {
     #[test]
     fn test_referential_chain_building() {
         let config = CohesionAnalysisConfig::default();
-        let mut builder = ReferentialChainBuilder::new(&config).unwrap();
+        let mut builder = ReferentialChainBuilder::new(&config).expect("Referential Chain Builder should succeed");
         let lexical_items = vec![
             LexicalItem { word : "dog".to_string(), lemma : "dog".to_string(), positions
             : vec![(0, 3)], frequency : 1.0, word_senses : vec![], semantic_features :
@@ -72,7 +72,7 @@ mod tests {
             "The dog ran.".to_string(), "The dog was happy.".to_string(),
             "The dog barked.".to_string(),
         ];
-        let chains = builder.build_identical_repetition_chains(&lexical_items).unwrap();
+        let chains = builder.build_identical_repetition_chains(&lexical_items).expect("build identical repetition chains should succeed");
         assert!(! chains.is_empty());
         let dog_chain = &chains[0];
         assert_eq!(dog_chain.elements.len(), 3);
@@ -80,7 +80,7 @@ mod tests {
     #[test]
     fn test_connectivity_analysis() {
         let config = CohesionAnalysisConfig::default();
-        let mut analyzer = ConnectivityAnalyzer::new(&config).unwrap();
+        let mut analyzer = ConnectivityAnalyzer::new(&config).expect("Connectivity Analyzer should succeed");
         let cohesive_devices = vec![
             CohesiveDevice { device_type : CohesiveDeviceType::Repetition, source_element
             : "test".to_string(), target_element : "test".to_string(), source_position :
@@ -93,14 +93,14 @@ mod tests {
         ];
         let connectivity = analyzer
             .analyze_connectivity(&cohesive_devices, &referential_chains, &sentences)
-            .unwrap();
+            .expect("operation should succeed");
         assert!(connectivity.local_connectivity_score > 0.0);
         assert_eq!(connectivity.text_length, 34);
     }
     #[test]
     fn test_cohesion_metrics_calculation() {
         let config = CohesionAnalysisConfig::default();
-        let analyzer = CohesionAnalyzer::new(config).unwrap();
+        let analyzer = CohesionAnalyzer::new(config).expect("Cohesion Analyzer should succeed");
         let cohesive_devices = vec![
             CohesiveDevice { device_type : CohesiveDeviceType::Repetition, source_element
             : "word".to_string(), target_element : "word".to_string(), source_position :
@@ -126,7 +126,7 @@ mod tests {
                 &referential_chains,
                 &connectivity_analysis,
             )
-            .unwrap();
+            .expect("operation should succeed");
         assert!(metrics.overall_cohesion > 0.0);
         assert_eq!(metrics.device_density, 0.02);
         assert!(metrics.device_diversity > 0.0);

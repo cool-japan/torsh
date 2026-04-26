@@ -281,9 +281,20 @@ pub fn serialize_binary<T: TensorElement, W: Write>(
 
     // Apply compression if requested
     let (final_data_bytes, compressed) = if options.compression_level > 0 {
-        // TODO: Implement compression using flate2 or zstd
-        // For now, store uncompressed
-        (data_bytes.to_vec(), false)
+        #[cfg(feature = "serialize")]
+        {
+            // Map compression_level (1-9) to zstd level (1-22); scale linearly.
+            let zstd_level = (options.compression_level as i32).clamp(1, 22);
+            let compressed_bytes = oxiarc_zstd::compress_with_level(data_bytes, zstd_level)
+                .map_err(|e| {
+                    TorshError::SerializationError(format!("Failed to compress tensor data: {}", e))
+                })?;
+            (compressed_bytes, true)
+        }
+        #[cfg(not(feature = "serialize"))]
+        {
+            (data_bytes.to_vec(), false)
+        }
     } else {
         (data_bytes.to_vec(), false)
     };
@@ -404,8 +415,18 @@ pub fn deserialize_binary<T: TensorElement, R: Read>(reader: &mut R) -> Result<T
 
     // Decompress data if needed
     let final_data_bytes = if metadata.compressed {
-        // TODO: Implement decompression
-        data_bytes
+        #[cfg(feature = "serialize")]
+        {
+            oxiarc_zstd::decompress(&data_bytes).map_err(|e| {
+                TorshError::SerializationError(format!("Failed to decompress tensor data: {}", e))
+            })?
+        }
+        #[cfg(not(feature = "serialize"))]
+        {
+            return Err(TorshError::SerializationError(
+                "Cannot decompress: serialization feature not enabled".to_string(),
+            ));
+        }
     } else {
         data_bytes
     };

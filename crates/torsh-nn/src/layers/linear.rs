@@ -252,7 +252,7 @@ mod tests {
             .base
             .parameters
             .get_mut("weight")
-            .unwrap()
+            .expect("operation should succeed")
             .tensor()
             .write() = weight;
 
@@ -276,7 +276,7 @@ mod tests {
             .base
             .parameters
             .get_mut("weight")
-            .unwrap()
+            .expect("operation should succeed")
             .tensor()
             .write() = weight;
 
@@ -285,7 +285,7 @@ mod tests {
             .base
             .parameters
             .get_mut("bias")
-            .unwrap()
+            .expect("operation should succeed")
             .tensor()
             .write() = bias;
 
@@ -308,7 +308,7 @@ mod tests {
             .base
             .parameters
             .get_mut("weight")
-            .unwrap()
+            .expect("operation should succeed")
             .tensor()
             .write() = weight;
 

@@ -936,7 +936,7 @@ mod tests {
         let result = analyzer.analyze_comprehensive_fluency(text);
         assert!(result.is_ok());
 
-        let analysis = result.unwrap();
+        let analysis = result.expect("operation should succeed");
         assert!(analysis.overall_score >= 0.0);
         assert!(analysis.overall_score <= 1.0);
         assert!(analysis.dimensional_scores.language_model_score >= 0.0);
@@ -959,7 +959,7 @@ mod tests {
         let result = analyzer.analyze_selective_fluency(text, &dimensions);
         assert!(result.is_ok());
 
-        let analysis = result.unwrap();
+        let analysis = result.expect("operation should succeed");
         assert!(analysis.semantic_analysis.is_some());
         assert!(analysis.lexical_analysis.is_some());
         assert!(analysis.prosodic_analysis.is_none()); // Should be None since not requested
@@ -973,7 +973,7 @@ mod tests {
         let result = analyzer.analyze_quick_fluency(text);
         assert!(result.is_ok());
 
-        let score = result.unwrap();
+        let score = result.expect("operation should succeed");
         assert!(score >= 0.0);
         assert!(score <= 1.0);
     }
@@ -986,7 +986,7 @@ mod tests {
         let result = analyzer.analyze_readability(text);
         assert!(result.is_ok());
 
-        let readability = result.unwrap();
+        let readability = result.expect("operation should succeed");
         assert!(readability.overall_readability >= 0.0);
         assert!(readability.overall_readability <= 1.0);
         assert!(!readability.recommendations.is_empty());
@@ -1008,7 +1008,7 @@ mod tests {
         let result = analyzer.analyze_comprehensive_fluency(text);
         assert!(result.is_ok());
 
-        let analysis = result.unwrap();
+        let analysis = result.expect("operation should succeed");
         // Prosodic and pragmatic should be None in fast mode
         assert!(analysis.prosodic_analysis.is_none());
         assert!(analysis.pragmatic_analysis.is_none());
@@ -1026,7 +1026,7 @@ mod tests {
         let result = analyzer.analyze_comprehensive_fluency(text);
         assert!(result.is_ok());
 
-        let analysis = result.unwrap();
+        let analysis = result.expect("operation should succeed");
         // All analyses should be available in comprehensive mode
         assert!(analysis.language_model_analysis.is_some());
         assert!(analysis.syntactic_analysis.is_some());
@@ -1174,13 +1174,13 @@ mod tests {
 
         let result = FluentText::analyze_fluency(text);
         assert!(result.is_ok());
-        let score = result.unwrap();
+        let score = result.expect("operation should succeed");
         assert!(score >= 0.0);
         assert!(score <= 1.0);
 
         let result2 = FluentText::analyze_comprehensive(text);
         assert!(result2.is_ok());
-        let analysis = result2.unwrap();
+        let analysis = result2.expect("operation should succeed");
         assert!(analysis.overall_score >= 0.0);
     }
 
@@ -1206,7 +1206,7 @@ mod tests {
         let result = analyzer.analyze_comprehensive_fluency(text);
         assert!(result.is_ok());
 
-        let analysis = result.unwrap();
+        let analysis = result.expect("operation should succeed");
         assert!(analysis.quality_assessment.is_some());
     }
 

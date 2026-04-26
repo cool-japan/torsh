@@ -23,6 +23,12 @@ Cargo.lock
 *~
 .DS_Store
 
+# dhat profiler runtime artifacts
+dhat-heap.json
+
+# Generated test artifacts
+**/sustainability_report.json
+
 # Python artifacts (for potential Python bindings)
 __pycache__/
 *.py[cod]

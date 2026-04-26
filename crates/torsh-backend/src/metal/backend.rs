@@ -1476,13 +1476,16 @@ mod tests {
             return;
         }
 
-        let mut backend = MetalBackend::new().unwrap();
+        let mut backend = MetalBackend::new().expect("Metal Backend should succeed");
         assert!(!backend.initialized);
 
-        backend.initialize().await.unwrap();
+        backend
+            .initialize()
+            .await
+            .expect("operation should succeed");
         assert!(backend.initialized);
 
-        backend.shutdown().await.unwrap();
+        backend.shutdown().await.expect("operation should succeed");
         assert!(!backend.initialized);
     }
 
@@ -1493,12 +1496,14 @@ mod tests {
             return;
         }
 
-        let backend = MetalBackend::new().unwrap();
+        let backend = MetalBackend::new().expect("Metal Backend should succeed");
 
-        let devices = backend.devices().unwrap();
+        let devices = backend.devices().expect("device listing should succeed");
         assert_eq!(devices.len(), 1);
 
-        let default_device = backend.default_device().unwrap();
+        let default_device = backend
+            .default_device()
+            .expect("default device should be available");
         assert_eq!(default_device.device_type, DeviceType::Metal(0));
     }
 }

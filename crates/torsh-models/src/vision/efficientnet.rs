@@ -1188,11 +1188,11 @@ mod tests {
     fn test_model_info() {
         let info = EfficientNetFactory::model_info("b0");
         assert!(info.is_ok());
-        assert!(info.unwrap().contains("EfficientNet-B0"));
+        assert!(info.expect("operation should succeed").contains("EfficientNet-B0"));
 
         let info = EfficientNetFactory::model_info("b7");
         assert!(info.is_ok());
-        assert!(info.unwrap().contains("EfficientNet-B7"));
+        assert!(info.expect("operation should succeed").contains("EfficientNet-B7"));
     }
 
     #[test]

@@ -186,80 +186,89 @@ mod tests {
     #[test]
     fn test_normalization_factory() {
         // Test factory methods
-        let bn = NormalizationFactory::batch_norm(64).unwrap();
+        let bn =
+            NormalizationFactory::batch_norm(64).expect("Normalization Factory should succeed");
         assert_eq!(bn.num_features(), 64);
 
-        let ln = NormalizationFactory::layer_norm(vec![128]).unwrap();
+        let ln = NormalizationFactory::layer_norm(vec![128])
+            .expect("Normalization Factory should succeed");
         assert_eq!(ln.normalized_shape(), &[128]);
 
-        let gn = NormalizationFactory::group_norm(8, 64).unwrap();
+        let gn =
+            NormalizationFactory::group_norm(8, 64).expect("Normalization Factory should succeed");
         assert_eq!(gn.num_groups(), 8);
         assert_eq!(gn.num_channels(), 64);
 
-        let inn = NormalizationFactory::instance_norm(32).unwrap();
+        let inn =
+            NormalizationFactory::instance_norm(32).expect("Normalization Factory should succeed");
         assert_eq!(inn.num_features(), 32);
 
-        let sn = NormalizationFactory::switchable_norm(16).unwrap();
+        let sn = NormalizationFactory::switchable_norm(16)
+            .expect("Normalization Factory should succeed");
         assert_eq!(sn.num_features(), 16);
     }
 
     #[test]
     fn test_normalization_presets() {
         // Test preset configurations
-        let resnet_bn = NormalizationPresets::resnet_batch_norm(64).unwrap();
+        let resnet_bn = NormalizationPresets::resnet_batch_norm(64)
+            .expect("Normalization Presets should succeed");
         assert_eq!(resnet_bn.momentum(), 0.1);
 
-        let transformer_ln = NormalizationPresets::transformer_layer_norm(768).unwrap();
+        let transformer_ln = NormalizationPresets::transformer_layer_norm(768)
+            .expect("Normalization Presets should succeed");
         assert_eq!(transformer_ln.eps(), 1e-12);
 
-        let style_in = NormalizationPresets::style_transfer_instance_norm(64).unwrap();
+        let style_in = NormalizationPresets::style_transfer_instance_norm(64)
+            .expect("Normalization Presets should succeed");
         // Non-affine should not have weight/bias parameters
         assert!(style_in.parameters().is_empty());
 
-        let small_batch_gn = NormalizationPresets::small_batch_group_norm(64).unwrap();
+        let small_batch_gn = NormalizationPresets::small_batch_group_norm(64)
+            .expect("Normalization Presets should succeed");
         assert_eq!(small_batch_gn.num_groups(), 32);
     }
 
     #[test]
     fn test_module_integration() {
         // Test that different normalization layers work with sample inputs
-        let input_2d = zeros(&[4, 64]).unwrap();
-        let input_4d = zeros(&[4, 64, 32, 32]).unwrap();
+        let input_2d = zeros(&[4, 64]).expect("zeros should succeed");
+        let input_4d = zeros(&[4, 64, 32, 32]).expect("zeros should succeed");
 
         // Test BatchNorm2d
-        let bn2d = BatchNorm2d::new(64).unwrap();
+        let bn2d = BatchNorm2d::new(64).expect("Batch Norm2d should succeed");
         assert!(bn2d.forward(&input_4d).is_ok());
 
         // Test BatchNorm1d
-        let bn1d = BatchNorm1d::new(64).unwrap();
+        let bn1d = BatchNorm1d::new(64).expect("Batch Norm1d should succeed");
         assert!(bn1d.forward(&input_2d).is_ok());
 
         // Test LayerNorm
-        let ln = LayerNorm::new(vec![64]).unwrap();
+        let ln = LayerNorm::new(vec![64]).expect("Layer Norm should succeed");
         assert!(ln.forward(&input_2d).is_ok());
 
         // Test GroupNorm
-        let gn = GroupNorm::new(8, 64).unwrap();
+        let gn = GroupNorm::new(8, 64).expect("Group Norm should succeed");
         assert!(gn.forward(&input_4d).is_ok());
 
         // Test InstanceNorm2d
-        let in2d = InstanceNorm2d::new(64).unwrap();
+        let in2d = InstanceNorm2d::new(64).expect("Instance Norm2d should succeed");
         assert!(in2d.forward(&input_4d).is_ok());
     }
 
     #[test]
     fn test_backward_compatibility_aliases() {
         // Test that aliases work correctly
-        let bn = BatchNorm::new(32).unwrap();
+        let bn = BatchNorm::new(32).expect("Batch Norm should succeed");
         assert_eq!(bn.num_features(), 32);
 
-        let ln = LN::new(vec![128]).unwrap();
+        let ln = LN::new(vec![128]).expect("LN should succeed");
         assert_eq!(ln.normalized_shape(), &[128]);
 
-        let gn = GN::new(4, 32).unwrap();
+        let gn = GN::new(4, 32).expect("GN should succeed");
         assert_eq!(gn.num_groups(), 4);
 
-        let inn = InstanceNorm::new(16).unwrap();
+        let inn = InstanceNorm::new(16).expect("Instance Norm should succeed");
         assert_eq!(inn.num_features(), 16);
     }
 

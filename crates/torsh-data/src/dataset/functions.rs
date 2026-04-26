@@ -206,17 +206,23 @@ mod tests {
     use torsh_tensor::creation::*;
     #[test]
     fn test_tensor_dataset() {
-        let data = ones::<f32>(&[10, 3]).unwrap();
-        let labels = zeros::<f32>(&[10]).unwrap();
+        let data = ones::<f32>(&[10, 3]).expect("operation should succeed");
+        let labels = zeros::<f32>(&[10]).expect("operation should succeed");
         let dataset = TensorDataset::from_tensors(vec![data, labels]);
         assert_eq!(dataset.len(), 10);
-        let item = dataset.get(0).unwrap();
+        let item = dataset
+            .get(0)
+            .expect("element retrieval should succeed for valid index");
         assert_eq!(item.len(), 2);
     }
     #[test]
     fn test_concat_dataset() {
-        let ds1 = TensorDataset::from_tensor(ones::<f32>(&[5, 3]).unwrap());
-        let ds2 = TensorDataset::from_tensor(zeros::<f32>(&[3, 3]).unwrap());
+        let ds1 = TensorDataset::from_tensor(
+            ones::<f32>(&[5, 3]).expect("Tensor Dataset should succeed"),
+        );
+        let ds2 = TensorDataset::from_tensor(
+            zeros::<f32>(&[3, 3]).expect("Tensor Dataset should succeed"),
+        );
         let concat = ConcatDataset::new(vec![ds1, ds2]);
         assert_eq!(concat.len(), 8);
         assert_eq!(concat.dataset_idx(0), Some((0, 0)));
@@ -227,7 +233,9 @@ mod tests {
     }
     #[test]
     fn test_subset() {
-        let dataset = TensorDataset::from_tensor(ones::<f32>(&[10, 3]).unwrap());
+        let dataset = TensorDataset::from_tensor(
+            ones::<f32>(&[10, 3]).expect("Tensor Dataset should succeed"),
+        );
         let subset = Subset::new(dataset, vec![0, 2, 4, 6, 8]);
         assert_eq!(subset.len(), 5);
         assert!(subset.get(0).is_ok());
@@ -258,7 +266,7 @@ mod tests {
         let chain = ChainDataset::new(vec![ds1, ds2, ds3]);
         let collected: Result<Vec<_>> = chain.iter().collect();
         assert!(collected.is_ok());
-        let values = collected.unwrap();
+        let values = collected.expect("operation should succeed");
         assert_eq!(values, vec![1, 2, 3, 4, 5, 6, 7, 8, 9]);
     }
     #[test]
@@ -266,7 +274,7 @@ mod tests {
         let chain: ChainDataset<SimpleIterableDataset> = ChainDataset::new(vec![]);
         let collected: Result<Vec<_>> = chain.iter().collect();
         assert!(collected.is_ok());
-        let values = collected.unwrap();
+        let values = collected.expect("operation should succeed");
         assert_eq!(values, Vec::<i32>::new());
     }
     #[test]
@@ -280,7 +288,7 @@ mod tests {
         let chain = ChainDataset::new(vec![ds1, ds2, ds3, ds4]);
         let collected: Result<Vec<_>> = chain.iter().collect();
         assert!(collected.is_ok());
-        let values = collected.unwrap();
+        let values = collected.expect("operation should succeed");
         assert_eq!(values, vec![1, 2, 3, 4, 5]);
     }
     #[test]
@@ -295,9 +303,27 @@ mod tests {
         });
         assert!(dataset.has_more());
         let mut stream = dataset.stream();
-        assert_eq!(stream.next().unwrap().unwrap(), 0);
-        assert_eq!(stream.next().unwrap().unwrap(), 1);
-        assert_eq!(stream.next().unwrap().unwrap(), 2);
+        assert_eq!(
+            stream
+                .next()
+                .expect("iterator should have a next element")
+                .expect("operation should succeed"),
+            0
+        );
+        assert_eq!(
+            stream
+                .next()
+                .expect("iterator should have a next element")
+                .expect("operation should succeed"),
+            1
+        );
+        assert_eq!(
+            stream
+                .next()
+                .expect("iterator should have a next element")
+                .expect("operation should succeed"),
+            2
+        );
     }
     #[test]
     fn test_buffered_streaming_dataset() {
@@ -306,7 +332,13 @@ mod tests {
         assert!(buffered.has_more());
         let mut stream = buffered.stream();
         for _ in 0..10 {
-            assert_eq!(stream.next().unwrap().unwrap(), 42);
+            assert_eq!(
+                stream
+                    .next()
+                    .expect("iterator should have a next element")
+                    .expect("operation should succeed"),
+                42
+            );
         }
     }
     #[test]
@@ -314,7 +346,7 @@ mod tests {
         let pipeline = DataPipeline::new()
             .add_transform(|x: i32| Ok(x * 2))
             .add_transform(|x: i32| Ok(x + 1));
-        let result = pipeline.apply(5).unwrap();
+        let result = pipeline.apply(5).expect("apply operation should succeed");
         assert_eq!(result, 11);
     }
     #[test]
@@ -327,7 +359,13 @@ mod tests {
         assert!(pipeline_dataset.has_more());
         let mut stream = pipeline_dataset.stream();
         for _ in 0..5 {
-            assert_eq!(stream.next().unwrap().unwrap(), 11);
+            assert_eq!(
+                stream
+                    .next()
+                    .expect("iterator should have a next element")
+                    .expect("operation should succeed"),
+                11
+            );
         }
     }
     #[test]
@@ -336,16 +374,16 @@ mod tests {
         let sender = dataset.sender();
         {
             let sender_lock = sender.lock().expect("lock should not be poisoned");
-            sender_lock.send(1).unwrap();
-            sender_lock.send(2).unwrap();
-            sender_lock.send(3).unwrap();
+            sender_lock.send(1).expect("channel send should succeed");
+            sender_lock.send(2).expect("channel send should succeed");
+            sender_lock.send(3).expect("channel send should succeed");
         }
         assert!(dataset.has_more());
         let _stream = dataset.stream();
     }
     #[test]
     fn test_dataset_to_streaming() {
-        let tensor = ones::<f32>(&[5, 3]).unwrap();
+        let tensor = ones::<f32>(&[5, 3]).expect("operation should succeed");
         let dataset = TensorDataset::from_tensor(tensor);
         let streaming = DatasetToStreaming::new(dataset);
         assert!(streaming.has_more());
@@ -362,7 +400,7 @@ mod tests {
     }
     #[test]
     fn test_dataset_to_streaming_repeat() {
-        let tensor = ones::<f32>(&[3, 2]).unwrap();
+        let tensor = ones::<f32>(&[3, 2]).expect("operation should succeed");
         let dataset = TensorDataset::from_tensor(tensor);
         let streaming = DatasetToStreaming::new(dataset).repeat();
         assert!(streaming.has_more());
@@ -388,11 +426,13 @@ mod tests {
     fn test_dataset_profiler_sequential_access() {
         use std::thread;
         use std::time::Duration;
-        let tensor = ones::<f32>(&[10, 2]).unwrap();
+        let tensor = ones::<f32>(&[10, 2]).expect("operation should succeed");
         let dataset = TensorDataset::from_tensor(tensor);
         let profiled = ProfiledDataset::new(dataset);
         for i in 0..10 {
-            let _ = profiled.get(i).unwrap();
+            let _ = profiled
+                .get(i)
+                .expect("element retrieval should succeed for valid index");
             thread::sleep(Duration::from_micros(100));
         }
         let stats = profiled.stats();
@@ -405,12 +445,14 @@ mod tests {
     #[test]
     #[cfg(feature = "std")]
     fn test_dataset_profiler_random_access() {
-        let tensor = ones::<f32>(&[10, 2]).unwrap();
+        let tensor = ones::<f32>(&[10, 2]).expect("operation should succeed");
         let dataset = TensorDataset::from_tensor(tensor);
         let profiled = ProfiledDataset::new(dataset);
         let indices = [0, 5, 2, 8, 1];
         for &i in &indices {
-            let _ = profiled.get(i).unwrap();
+            let _ = profiled
+                .get(i)
+                .expect("element retrieval should succeed for valid index");
         }
         let stats = profiled.stats();
         assert_eq!(stats.total_accesses, 5);
@@ -420,11 +462,13 @@ mod tests {
     #[test]
     #[cfg(feature = "std")]
     fn test_dataset_profiler_hints() {
-        let tensor = ones::<f32>(&[100, 2]).unwrap();
+        let tensor = ones::<f32>(&[100, 2]).expect("operation should succeed");
         let dataset = TensorDataset::from_tensor(tensor);
         let profiled = ProfiledDataset::new(dataset);
         for i in 0..20 {
-            let _ = profiled.get(i).unwrap();
+            let _ = profiled
+                .get(i)
+                .expect("element retrieval should succeed for valid index");
         }
         let hints = profiled.hints();
         assert!(!hints.is_empty());
@@ -435,11 +479,13 @@ mod tests {
     #[test]
     #[cfg(feature = "std")]
     fn test_dataset_profiler_reset() {
-        let tensor = ones::<f32>(&[10, 2]).unwrap();
+        let tensor = ones::<f32>(&[10, 2]).expect("operation should succeed");
         let dataset = TensorDataset::from_tensor(tensor);
         let profiled = ProfiledDataset::new(dataset);
         for i in 0..5 {
-            let _ = profiled.get(i).unwrap();
+            let _ = profiled
+                .get(i)
+                .expect("element retrieval should succeed for valid index");
         }
         assert_eq!(profiled.stats().total_accesses, 5);
         profiled.profiler().reset();
@@ -448,11 +494,13 @@ mod tests {
     #[test]
     #[cfg(feature = "std")]
     fn test_dataset_profiler_display() {
-        let tensor = ones::<f32>(&[10, 2]).unwrap();
+        let tensor = ones::<f32>(&[10, 2]).expect("operation should succeed");
         let dataset = TensorDataset::from_tensor(tensor);
         let profiled = ProfiledDataset::new(dataset);
         for i in 0..5 {
-            let _ = profiled.get(i).unwrap();
+            let _ = profiled
+                .get(i)
+                .expect("element retrieval should succeed for valid index");
         }
         let stats_string = format!("{}", profiled.stats());
         assert!(stats_string.contains("Dataset Profile Statistics"));
@@ -478,9 +526,10 @@ mod tests {
     }
     #[test]
     fn test_dataset_statistics() {
-        let data = torsh_tensor::creation::randn::<f32>(&[10, 3]).unwrap();
+        let data =
+            torsh_tensor::creation::randn::<f32>(&[10, 3]).expect("operation should succeed");
         let dataset = TensorDataset::from_tensor(data);
-        let stats = dataset_statistics(&dataset).unwrap();
+        let stats = dataset_statistics(&dataset).expect("dataset statistics should succeed");
         assert_eq!(stats.len(), 3);
         for stat in &stats {
             assert_eq!(stat.count, 10);
@@ -491,9 +540,9 @@ mod tests {
     }
     #[test]
     fn test_dataset_statistics_empty() {
-        let data = torsh_tensor::creation::zeros::<f32>(&[0, 3]).unwrap();
+        let data = torsh_tensor::creation::zeros::<f32>(&[0, 3]).expect("operation should succeed");
         let dataset = TensorDataset::from_tensor(data);
-        let stats = dataset_statistics(&dataset).unwrap();
+        let stats = dataset_statistics(&dataset).expect("dataset statistics should succeed");
         assert_eq!(stats.len(), 0);
     }
     #[test]
@@ -548,28 +597,29 @@ mod tests {
     }
     #[test]
     fn test_stratified_split_binary() {
-        let data = ones::<f32>(&[100, 5]).unwrap();
+        let data = ones::<f32>(&[100, 5]).expect("operation should succeed");
         let dataset = TensorDataset::from_tensor(data);
         let labels: Vec<usize> = (0..100).map(|i| if i < 50 { 0 } else { 1 }).collect();
-        let (train, test, val) =
-            stratified_split(dataset, &labels, 0.6, Some(0.2), Some(42)).unwrap();
+        let (train, test, val) = stratified_split(dataset, &labels, 0.6, Some(0.2), Some(42))
+            .expect("operation should succeed");
         assert_eq!(train.len(), 60);
         assert!(val.is_some());
-        assert_eq!(val.as_ref().unwrap().len(), 20);
+        assert_eq!(val.as_ref().expect("value should be available").len(), 20);
         assert_eq!(test.len(), 20);
         println!(
             "Stratified split: train={}, val={}, test={}",
             train.len(),
-            val.as_ref().unwrap().len(),
+            val.as_ref().expect("value should be available").len(),
             test.len()
         );
     }
     #[test]
     fn test_stratified_split_multi_class() {
-        let data = ones::<f32>(&[90, 5]).unwrap();
+        let data = ones::<f32>(&[90, 5]).expect("operation should succeed");
         let dataset = TensorDataset::from_tensor(data);
         let labels: Vec<usize> = (0..90).map(|i| i / 30).collect();
-        let (train, test, _val) = stratified_split(dataset, &labels, 0.7, None, Some(42)).unwrap();
+        let (train, test, _val) = stratified_split(dataset, &labels, 0.7, None, Some(42))
+            .expect("operation should succeed");
         assert_eq!(train.len(), 63);
         assert_eq!(test.len(), 27);
         println!(
@@ -580,17 +630,18 @@ mod tests {
     }
     #[test]
     fn test_stratified_split_no_val() {
-        let data = ones::<f32>(&[50, 3]).unwrap();
+        let data = ones::<f32>(&[50, 3]).expect("operation should succeed");
         let dataset = TensorDataset::from_tensor(data);
         let labels: Vec<usize> = (0..50).map(|i| i % 2).collect();
-        let (train, test, val) = stratified_split(dataset, &labels, 0.8, None, Some(42)).unwrap();
+        let (train, test, val) = stratified_split(dataset, &labels, 0.8, None, Some(42))
+            .expect("operation should succeed");
         assert_eq!(train.len(), 40);
         assert_eq!(test.len(), 10);
         assert!(val.is_none());
     }
     #[test]
     fn test_stratified_split_invalid_ratio() {
-        let data = ones::<f32>(&[50, 3]).unwrap();
+        let data = ones::<f32>(&[50, 3]).expect("operation should succeed");
         let dataset = TensorDataset::from_tensor(data);
         let labels: Vec<usize> = (0..50).map(|i| i % 2).collect();
         let result = stratified_split(dataset.clone(), &labels, 1.0, None, None);
@@ -600,7 +651,7 @@ mod tests {
     }
     #[test]
     fn test_stratified_split_mismatched_labels() {
-        let data = ones::<f32>(&[50, 3]).unwrap();
+        let data = ones::<f32>(&[50, 3]).expect("operation should succeed");
         let dataset = TensorDataset::from_tensor(data);
         let labels: Vec<usize> = vec![0, 1];
         let result = stratified_split(dataset, &labels, 0.8, None, None);
@@ -619,7 +670,7 @@ mod tests {
     }
     #[test]
     fn test_stratified_split_reproducibility() {
-        let data = ones::<f32>(&[100, 5]).unwrap();
+        let data = ones::<f32>(&[100, 5]).expect("operation should succeed");
         let labels: Vec<usize> = (0..100).map(|i| i % 3).collect();
         let (train1, test1, _) = stratified_split(
             TensorDataset::from_tensor(data.clone()),
@@ -628,7 +679,7 @@ mod tests {
             None,
             Some(42),
         )
-        .unwrap();
+        .expect("operation should succeed");
         let (train2, test2, _) = stratified_split(
             TensorDataset::from_tensor(data),
             &labels,
@@ -636,7 +687,7 @@ mod tests {
             None,
             Some(42),
         )
-        .unwrap();
+        .expect("operation should succeed");
         assert_eq!(train1.len(), train2.len());
         assert_eq!(test1.len(), test2.len());
     }

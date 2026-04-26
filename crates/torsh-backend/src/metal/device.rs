@@ -200,7 +200,7 @@ mod tests {
             let device = MetalDevice::new();
             assert!(device.is_ok());
 
-            let device = device.unwrap();
+            let device = device.expect("operation should succeed");
             assert!(!device.info().name.is_empty());
         }
     }

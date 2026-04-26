@@ -1123,7 +1123,7 @@ mod tests {
         // NEON should be available on all ARM64
         #[cfg(target_arch = "aarch64")]
         {
-            let features = features.unwrap();
+            let features = features.expect("operation should succeed");
             assert!(features.neon);
             assert!(features.fp);
             assert!(features.asimd);

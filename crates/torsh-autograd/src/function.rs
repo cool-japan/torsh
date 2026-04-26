@@ -478,11 +478,41 @@ pub mod examples {
             // Save scale for backward pass
             ctx.save_value(self.scale);
 
-            // TODO: Implement actual tensor operations
-            // For now, return placeholder error
-            Err(TorshError::AutogradError(
-                "ScaledAdd forward pass not yet implemented".to_string(),
-            ))
+            // Compute output = a + scale * b element-wise via to_vec() / from_f64().
+            let a_data = inputs[0].to_vec();
+            let b_data = inputs[1].to_vec();
+
+            if a_data.len() != b_data.len() {
+                return Err(TorshError::AutogradError(
+                    "ScaledAdd: input tensors must have the same number of elements".to_string(),
+                ));
+            }
+
+            let scale_f64 = self.scale as f64;
+            let out_data = a_data
+                .iter()
+                .zip(b_data.iter())
+                .map(|(a_elem, b_elem)| {
+                    let a_f64 = a_elem.to_f64().ok_or_else(|| {
+                        TorshError::AutogradError(
+                            "ScaledAdd: failed to convert element to f64".to_string(),
+                        )
+                    })?;
+                    let b_f64 = b_elem.to_f64().ok_or_else(|| {
+                        TorshError::AutogradError(
+                            "ScaledAdd: failed to convert element to f64".to_string(),
+                        )
+                    })?;
+                    T::from_f64(a_f64 + scale_f64 * b_f64).ok_or_else(|| {
+                        TorshError::AutogradError(
+                            "ScaledAdd: failed to convert f64 result back to T".to_string(),
+                        )
+                    })
+                })
+                .collect::<Result<Vec<T>>>()?;
+
+            let output = inputs[0].with_data(out_data)?;
+            Ok(vec![output])
         }
 
         fn backward<T>(
@@ -499,15 +529,14 @@ pub mod examples {
                 ));
             }
 
-            let _scale: &f32 = ctx.get_saved_value(0)?;
+            let scale: f32 = *ctx.get_saved_value(0)?;
             let grad_output = grad_outputs[0];
 
-            // Gradients: da = grad_output, db = scale * grad_output
+            // Gradients: da = grad_output, db = scale * grad_output.
             let grad_a = Some(grad_output.clone_tensor());
 
-            // TODO: Implement actual tensor scaling
-            // For now, return cloned gradient
-            let grad_b = Some(grad_output.clone_tensor());
+            // grad_b = scale * grad_output (element-wise scalar multiplication).
+            let grad_b = Some(grad_output.mul_scalar(scale as f64)?);
 
             Ok(vec![grad_a, grad_b])
         }
@@ -614,7 +643,7 @@ pub mod subgradient_functions {
             // For x = 0, subgradient is any value in [-1, 1]
             // We provide common alternatives: -1, 0, 1
             let zero_grad = grad_output.zeros_like();
-            let neg_grad = grad_output.clone_tensor(); // TODO: negate
+            let neg_grad = grad_output.mul_scalar(-1.0_f64)?;
 
             let subgrad_set = SubgradientSet {
                 primary,
@@ -745,8 +774,8 @@ pub mod subgradient_functions {
             let grad_y = grad_output.zeros_like();
 
             // Alternative: when inputs are equal, gradient can be split
-            let half_grad_x = grad_output.clone_tensor(); // TODO: multiply by 0.5
-            let half_grad_y = grad_output.clone_tensor(); // TODO: multiply by 0.5
+            let half_grad_x = grad_output.mul_scalar(0.5_f64)?;
+            let half_grad_y = grad_output.mul_scalar(0.5_f64)?;
 
             let subgrad_set_x = SubgradientSet {
                 primary: grad_x,
@@ -814,11 +843,26 @@ pub mod subgradient_functions {
             let grad_output = grad_outputs[0];
 
             // Primary subgradient: sign function
-            let primary = grad_output.clone_tensor(); // TODO: apply sign function
+            let sign_data: Vec<T> = grad_output
+                .to_vec()
+                .into_iter()
+                .map(|x| {
+                    let zero = <T as num_traits::Zero>::zero();
+                    let one = <T as num_traits::One>::one();
+                    if x > zero {
+                        one
+                    } else if x < zero {
+                        -one
+                    } else {
+                        zero
+                    }
+                })
+                .collect();
+            let primary = grad_output.with_data(sign_data)?;
 
             // Alternative subgradients for zero elements: any value in [-1, 1]
             let zero_grad = grad_output.zeros_like();
-            let neg_grad = grad_output.clone_tensor(); // TODO: negate
+            let neg_grad = grad_output.mul_scalar(-1.0_f64)?;
 
             let subgrad_set = SubgradientSet {
                 primary,

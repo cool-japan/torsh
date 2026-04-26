@@ -138,9 +138,10 @@ mod tests {
             Complex64::new(2.0, 0.0), // ζ(2) = π²/6
             Complex64::new(0.0, 0.0), // ζ(0) = -1/2
         ];
-        let input = Tensor::from_data(input_data, vec![2], DeviceType::Cpu).unwrap();
-        let result = complex_zeta_c64(&input).unwrap();
-        let data = result.data().unwrap();
+        let input =
+            Tensor::from_data(input_data, vec![2], DeviceType::Cpu).expect("Tensor should succeed");
+        let result = complex_zeta_c64(&input).expect("complex zeta c64 should succeed");
+        let data = result.data().expect("tensor data should be accessible");
 
         assert_relative_eq!(data[0].re, PI * PI / 6.0, max_relative = 1e-6);
         assert_relative_eq!(data[1].re, -0.5, max_relative = 1e-3);
@@ -149,9 +150,10 @@ mod tests {
     #[test]
     fn test_complex_zeta_c32() {
         let input_data = vec![Complex32::new(2.0, 0.0)];
-        let input = Tensor::from_data(input_data, vec![1], DeviceType::Cpu).unwrap();
-        let result = complex_zeta_c32(&input).unwrap();
-        let data = result.data().unwrap();
+        let input =
+            Tensor::from_data(input_data, vec![1], DeviceType::Cpu).expect("Tensor should succeed");
+        let result = complex_zeta_c32(&input).expect("complex zeta c32 should succeed");
+        let data = result.data().expect("tensor data should be accessible");
 
         assert_relative_eq!(data[0].re, (PI * PI / 6.0) as f32, max_relative = 1e-4);
     }

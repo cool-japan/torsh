@@ -341,7 +341,7 @@ mod tests {
         let layer = SparseLinear::new(100, 50, 0.9, true);
         assert!(layer.is_ok());
 
-        let layer = layer.unwrap();
+        let layer = layer.expect("operation should succeed");
         assert_eq!(layer.in_features(), 100);
         assert_eq!(layer.out_features(), 50);
         assert_eq!(layer.sparsity(), 0.9);
@@ -350,7 +350,7 @@ mod tests {
 
     #[test]
     fn test_sparse_linear_dimensions() {
-        let layer = SparseLinear::new(784, 128, 0.8, false).unwrap();
+        let layer = SparseLinear::new(784, 128, 0.8, false).expect("Sparse Linear should succeed");
 
         let output_dims = layer.output_dimensions(&[784]);
         assert_eq!(output_dims, vec![128]);
@@ -361,7 +361,7 @@ mod tests {
 
     #[test]
     fn test_memory_stats() {
-        let layer = SparseLinear::new(100, 50, 0.9, true).unwrap();
+        let layer = SparseLinear::new(100, 50, 0.9, true).expect("Sparse Linear should succeed");
         let stats = layer.memory_stats();
 
         assert_eq!(stats.dense_parameters, 5000); // 100 * 50
@@ -381,7 +381,8 @@ mod tests {
 
     #[test]
     fn test_pruning() {
-        let mut layer = SparseLinear::new(10, 10, 0.5, false).unwrap();
+        let mut layer =
+            SparseLinear::new(10, 10, 0.5, false).expect("Sparse Linear should succeed");
         let initial_sparsity = layer.sparsity();
 
         let result = layer.prune_to_sparsity(0.8);

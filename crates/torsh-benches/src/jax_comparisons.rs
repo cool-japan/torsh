@@ -42,6 +42,7 @@ impl JAXBenchRunner {
     fn initialize_python(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         use pyo3::prelude::*;
 
+        Python::initialize();
         Python::attach(|py| -> PyResult<()> {
             // Try to import JAX
             match py.import("jax") {
@@ -97,6 +98,7 @@ impl JAXBenchRunner {
         {
             use pyo3::prelude::*;
 
+            Python::initialize();
             Python::attach(|py| -> PyResult<f64> {
                 let _jax = py.import("jax")?;
                 let _jnp = py.import("jax.numpy")?;

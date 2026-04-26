@@ -402,7 +402,7 @@ mod tests {
 
     fn create_test_series() -> TimeSeries {
         let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0];
-        let tensor = Tensor::from_vec(data, &[10]).unwrap();
+        let tensor = Tensor::from_vec(data, &[10]).expect("Tensor should succeed");
         TimeSeries::new(tensor)
     }
 
@@ -416,14 +416,15 @@ mod tests {
                 (t * 3.7).sin() * 0.5 + (t * 7.3).cos() * 0.3 + (t * 13.1).sin() * 0.2
             })
             .collect();
-        let tensor = Tensor::from_vec(data, &[100]).unwrap();
+        let tensor = Tensor::from_vec(data, &[100]).expect("Tensor should succeed");
         TimeSeries::new(tensor)
     }
 
     #[test]
     fn test_augmented_dickey_fuller() {
         let series = create_test_series();
-        let result = augmented_dickey_fuller_test(&series, "c", None).unwrap();
+        let result = augmented_dickey_fuller_test(&series, "c", None)
+            .expect("augmented dickey fuller test should succeed");
 
         assert!(result.test_statistic.is_finite());
         assert!(result.p_value >= 0.0 && result.p_value <= 1.0);
@@ -433,7 +434,7 @@ mod tests {
     #[test]
     fn test_ljung_box() {
         let series = create_test_series();
-        let result = ljung_box(&series, 3).unwrap();
+        let result = ljung_box(&series, 3).expect("ljung box should succeed");
 
         assert!(result.test_statistic >= 0.0);
         assert!(result.p_value >= 0.0 && result.p_value <= 1.0);
@@ -443,7 +444,7 @@ mod tests {
     #[test]
     fn test_jarque_bera() {
         let series = create_stationary_series();
-        let result = jarque_bera(&series).unwrap();
+        let result = jarque_bera(&series).expect("jarque bera should succeed");
 
         assert!(result.test_statistic >= 0.0);
         assert!(result.p_value >= 0.0 && result.p_value <= 1.0);
@@ -454,7 +455,7 @@ mod tests {
     #[test]
     fn test_kpss() {
         let series = create_test_series();
-        let result = kpss_test(&series, "c", None).unwrap();
+        let result = kpss_test(&series, "c", None).expect("kpss test should succeed");
 
         assert!(result.test_statistic >= 0.0);
         assert!(result.p_value >= 0.0 && result.p_value <= 1.0);
@@ -463,7 +464,8 @@ mod tests {
     #[test]
     fn test_phillips_perron() {
         let series = create_test_series();
-        let result = phillips_perron_test(&series, "c").unwrap();
+        let result =
+            phillips_perron_test(&series, "c").expect("phillips perron test should succeed");
 
         assert!(result.test_statistic.is_finite());
         assert!(result.p_value >= 0.0 && result.p_value <= 1.0);
@@ -472,7 +474,8 @@ mod tests {
     #[test]
     fn test_stationarity_suite() {
         let series = create_stationary_series();
-        let suite = StationarityTestSuite::run(&series).unwrap();
+        let suite =
+            StationarityTestSuite::run(&series).expect("Stationarity Test Suite should succeed");
 
         assert!(suite.adf_result.test_statistic.is_finite());
         assert!(suite.kpss_result.test_statistic >= 0.0);
@@ -482,7 +485,8 @@ mod tests {
     #[test]
     fn test_residual_diagnostics() {
         let series = create_stationary_series();
-        let diagnostics = ResidualDiagnostics::run(&series, 5).unwrap();
+        let diagnostics =
+            ResidualDiagnostics::run(&series, 5).expect("Residual Diagnostics should succeed");
 
         assert!(diagnostics.ljung_box.test_statistic >= 0.0);
         assert!(diagnostics.jarque_bera.test_statistic >= 0.0);
@@ -492,7 +496,7 @@ mod tests {
     #[test]
     fn test_durbin_watson() {
         let series = create_test_series();
-        let dw = calculate_durbin_watson(&series).unwrap();
+        let dw = calculate_durbin_watson(&series).expect("calculate durbin watson should succeed");
 
         assert!(dw >= 0.0 && dw <= 4.0);
     }

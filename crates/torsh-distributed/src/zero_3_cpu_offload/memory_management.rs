@@ -897,7 +897,10 @@ mod tests {
         let manager = Zero3MemoryManager::new(&config);
 
         // Test optimization doesn't crash
-        manager.check_and_optimize_memory().await.unwrap();
+        manager
+            .check_and_optimize_memory()
+            .await
+            .expect("operation should succeed");
 
         let metrics = manager.get_performance_metrics();
         assert_eq!(metrics.total_optimization_cycles, 1);

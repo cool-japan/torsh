@@ -1358,13 +1358,19 @@ mod tests {
     fn test_profiler_bottleneck_detection() {
         let mut profiler = Profiler::new();
 
-        // Simulate some operations
+        // Burn CPU time for MatMul with a spin loop so the measured duration is
+        // deterministic regardless of OS scheduling jitter (thread::sleep is
+        // unreliable at sub-millisecond granularity under heavy test-suite load).
         profiler.start_op("MatMul".to_string());
-        std::thread::sleep(Duration::from_millis(10));
+        let spin_until = std::time::Instant::now() + Duration::from_millis(20);
+        while std::time::Instant::now() < spin_until {
+            std::hint::spin_loop();
+        }
         profiler.end_op();
 
+        // Add is recorded without any deliberate delay so its elapsed time is
+        // negligibly small compared to MatMul regardless of system load.
         profiler.start_op("Add".to_string());
-        std::thread::sleep(Duration::from_millis(1));
         profiler.end_op();
 
         profiler.record_memory_usage("MatMul".to_string(), 1000000);

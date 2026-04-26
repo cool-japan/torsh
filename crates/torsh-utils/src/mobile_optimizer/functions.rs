@@ -1315,47 +1315,51 @@ mod tests {
     #[test]
     fn test_quantize_tensor_static() {
         use torsh_tensor::creation::randn;
-        let tensor = randn(&[10, 10]).unwrap();
-        let quantized = quantize_tensor_static(&tensor, 8).unwrap();
+        let tensor = randn(&[10, 10]).expect("randn should succeed");
+        let quantized =
+            quantize_tensor_static(&tensor, 8).expect("quantize tensor static should succeed");
         let max_val = quantized
             .abs()
-            .unwrap()
+            .expect("operation should succeed")
             .max(None, false)
-            .unwrap()
+            .expect("operation should succeed")
             .item()
-            .unwrap();
+            .expect("operation should succeed");
         assert!(max_val <= 127.0);
     }
     #[test]
     fn test_quantization_strategies() {
         use torsh_tensor::creation::randn;
-        let tensor = randn(&[5, 5]).unwrap();
-        let int4_quantized = quantize_tensor_static(&tensor, 4).unwrap();
+        let tensor = randn(&[5, 5]).expect("randn should succeed");
+        let int4_quantized =
+            quantize_tensor_static(&tensor, 4).expect("quantize tensor static should succeed");
         let int4_max = int4_quantized
             .abs()
-            .unwrap()
+            .expect("operation should succeed")
             .max(None, false)
-            .unwrap()
+            .expect("operation should succeed")
             .item()
-            .unwrap();
+            .expect("operation should succeed");
         assert!(int4_max <= 8.0);
-        let sym_quantized = quantize_tensor_symmetric(&tensor, 8).unwrap();
+        let sym_quantized = quantize_tensor_symmetric(&tensor, 8)
+            .expect("quantize tensor symmetric should succeed");
         let sym_max = sym_quantized
             .abs()
-            .unwrap()
+            .expect("operation should succeed")
             .max(None, false)
-            .unwrap()
+            .expect("operation should succeed")
             .item()
-            .unwrap();
+            .expect("operation should succeed");
         assert!(sym_max <= 127.0);
-        let asym_quantized = quantize_tensor_asymmetric(&tensor, 8).unwrap();
+        let asym_quantized = quantize_tensor_asymmetric(&tensor, 8)
+            .expect("quantize tensor asymmetric should succeed");
         let asym_max = asym_quantized
             .abs()
-            .unwrap()
+            .expect("operation should succeed")
             .max(None, false)
-            .unwrap()
+            .expect("operation should succeed")
             .item()
-            .unwrap();
+            .expect("operation should succeed");
         assert!(asym_max <= 128.0);
     }
     #[test]

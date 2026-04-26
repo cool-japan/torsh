@@ -604,31 +604,41 @@ mod tests {
 
     #[test]
     fn test_verify_file_integrity() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("Temp Dir should succeed");
         let file_path = temp_dir.path().join("test.txt");
 
         // Create test file
-        fs::write(&file_path, b"test content").unwrap();
+        fs::write(&file_path, b"test content").expect("fs should succeed");
 
         // Test size verification
-        assert!(verify_file_integrity(&file_path, None, Some(12), HashAlgorithm::Sha256).unwrap());
-        assert!(!verify_file_integrity(&file_path, None, Some(10), HashAlgorithm::Sha256).unwrap());
+        assert!(
+            verify_file_integrity(&file_path, None, Some(12), HashAlgorithm::Sha256)
+                .expect("operation should succeed")
+        );
+        assert!(
+            !verify_file_integrity(&file_path, None, Some(10), HashAlgorithm::Sha256)
+                .expect("operation should succeed")
+        );
 
         // Test with non-existent file
         let missing = temp_dir.path().join("missing.txt");
-        assert!(!verify_file_integrity(&missing, None, None, HashAlgorithm::Sha256).unwrap());
+        assert!(
+            !verify_file_integrity(&missing, None, None, HashAlgorithm::Sha256)
+                .expect("verify file integrity should succeed")
+        );
     }
 
     #[test]
     fn test_calculate_file_hash() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("Temp Dir should succeed");
         let file_path = temp_dir.path().join("test.txt");
 
         // Create test file
-        fs::write(&file_path, b"test content").unwrap();
+        fs::write(&file_path, b"test content").expect("fs should succeed");
 
         // Calculate hash
-        let hash = calculate_file_hash(&file_path, HashAlgorithm::Sha256).unwrap();
+        let hash = calculate_file_hash(&file_path, HashAlgorithm::Sha256)
+            .expect("calculate file hash should succeed");
         assert_eq!(hash.len(), 64);
         assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
     }
@@ -693,18 +703,18 @@ mod tests {
 
     #[test]
     fn test_verify_download_compatibility() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("Temp Dir should succeed");
         let file_path = temp_dir.path().join("test.txt");
 
         // Create test file
-        fs::write(&file_path, b"test content").unwrap();
+        fs::write(&file_path, b"test content").expect("fs should succeed");
 
         // Test backward compatibility
-        assert!(verify_download(&file_path, None, Some(12)).unwrap());
-        assert!(!verify_download(&file_path, None, Some(10)).unwrap());
+        assert!(verify_download(&file_path, None, Some(12)).expect("operation should succeed"));
+        assert!(!verify_download(&file_path, None, Some(10)).expect("operation should succeed"));
 
         // Non-existent file
         let missing = temp_dir.path().join("missing.txt");
-        assert!(!verify_download(&missing, None, None).unwrap());
+        assert!(!verify_download(&missing, None, None).expect("verify download should succeed"));
     }
 }

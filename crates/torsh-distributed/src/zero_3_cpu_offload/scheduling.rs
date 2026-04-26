@@ -688,7 +688,7 @@ mod tests {
     #[tokio::test]
     async fn test_prefetch_scheduler_creation() {
         let config = Zero3CpuOffloadConfig::default();
-        let process_group = Arc::new(init_process_group(BackendType::Gloo, 0, 1).await.unwrap());
+        let process_group = Arc::new(init_process_group(BackendType::Gloo, 0, 1).await.expect("operation should succeed"));
 
         let scheduler = PrefetchScheduler::new(&config, process_group);
         let stats = scheduler.get_statistics();
@@ -701,11 +701,11 @@ mod tests {
     #[tokio::test]
     async fn test_schedule_prefetch() {
         let config = Zero3CpuOffloadConfig::default();
-        let process_group = Arc::new(init_process_group(BackendType::Gloo, 0, 1).await.unwrap());
+        let process_group = Arc::new(init_process_group(BackendType::Gloo, 0, 1).await.expect("operation should succeed"));
 
         let scheduler = PrefetchScheduler::new(&config, process_group);
 
-        scheduler.schedule_prefetch("layer1", PrefetchPriority::High).await.unwrap();
+        scheduler.schedule_prefetch("layer1", PrefetchPriority::High).await.expect("operation should succeed");
 
         // Wait a bit for async processing
         tokio::time::sleep(Duration::from_millis(50)).await;
@@ -717,12 +717,12 @@ mod tests {
     #[tokio::test]
     async fn test_batch_prefetch() {
         let config = Zero3CpuOffloadConfig::default();
-        let process_group = Arc::new(init_process_group(BackendType::Gloo, 0, 1).await.unwrap());
+        let process_group = Arc::new(init_process_group(BackendType::Gloo, 0, 1).await.expect("operation should succeed"));
 
         let scheduler = PrefetchScheduler::new(&config, process_group);
 
         let layers = vec!["layer1".to_string(), "layer2".to_string(), "layer3".to_string()];
-        let result = scheduler.batch_prefetch(layers.clone(), PrefetchPriority::Medium).await.unwrap();
+        let result = scheduler.batch_prefetch(layers.clone(), PrefetchPriority::Medium).await.expect("operation should succeed");
 
         assert_eq!(result.total_layers, 3);
         assert_eq!(result.successful + result.failed, 3);
@@ -731,7 +731,7 @@ mod tests {
     #[tokio::test]
     async fn test_intelligent_prefetch() {
         let config = Zero3CpuOffloadConfig::default();
-        let process_group = Arc::new(init_process_group(BackendType::Gloo, 0, 1).await.unwrap());
+        let process_group = Arc::new(init_process_group(BackendType::Gloo, 0, 1).await.expect("operation should succeed"));
 
         let scheduler = PrefetchScheduler::new(&config, process_group);
 
@@ -743,7 +743,7 @@ mod tests {
             "layer5".to_string(),
         ];
 
-        let result = scheduler.intelligent_prefetch("layer1", &execution_graph).await.unwrap();
+        let result = scheduler.intelligent_prefetch("layer1", &execution_graph).await.expect("operation should succeed");
 
         assert!(result.prefetch_distance > 0);
         assert!(!result.layers_scheduled.is_empty() || result.prefetch_distance == 0);
@@ -753,19 +753,19 @@ mod tests {
     async fn test_cancel_prefetch() {
         let mut config = Zero3CpuOffloadConfig::default();
         config.async_prefetch = true;
-        let process_group = Arc::new(init_process_group(BackendType::Gloo, 0, 1).await.unwrap());
+        let process_group = Arc::new(init_process_group(BackendType::Gloo, 0, 1).await.expect("operation should succeed"));
 
         let scheduler = PrefetchScheduler::new(&config, process_group);
 
         // Schedule a prefetch
-        scheduler.schedule_prefetch("layer1", PrefetchPriority::Low).await.unwrap();
+        scheduler.schedule_prefetch("layer1", PrefetchPriority::Low).await.expect("operation should succeed");
 
         // Try to cancel it
-        let cancelled = scheduler.cancel_prefetch("layer1").await.unwrap();
+        let cancelled = scheduler.cancel_prefetch("layer1").await.expect("operation should succeed");
         assert!(cancelled);
 
         // Try to cancel non-existent prefetch
-        let not_cancelled = scheduler.cancel_prefetch("nonexistent").await.unwrap();
+        let not_cancelled = scheduler.cancel_prefetch("nonexistent").await.expect("operation should succeed");
         assert!(!not_cancelled);
     }
 

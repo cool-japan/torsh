@@ -192,7 +192,7 @@ mod tests {
         );
         let architecture = nas.generate_random_architecture();
         assert!(architecture.is_ok());
-        let arch = architecture.unwrap();
+        let arch = architecture.expect("operation should succeed");
         assert!(arch.graph.node_count() >= 2);
         assert!(!arch.id.is_empty());
     }
@@ -223,7 +223,7 @@ mod tests {
         );
         let encoding = nas.encode_architecture(&graph);
         assert!(encoding.is_ok());
-        let enc = encoding.unwrap();
+        let enc = encoding.expect("operation should succeed");
         assert_eq!(enc.adjacency_matrix.len(), graph.node_count());
         assert_eq!(enc.node_features.len(), graph.node_count());
         assert_eq!(enc.global_features.len(), 4);

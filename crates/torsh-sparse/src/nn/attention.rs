@@ -535,7 +535,8 @@ mod tests {
 
     #[test]
     fn test_sparse_attention_creation() {
-        let attention = SparseAttention::new(64, 8, 0.5, 0.1).unwrap();
+        let attention =
+            SparseAttention::new(64, 8, 0.5, 0.1).expect("Sparse Attention should succeed");
         assert_eq!(attention.model_dim(), 64);
         assert_eq!(attention.num_heads(), 8);
         assert_eq!(attention.head_dim(), 8);
@@ -556,27 +557,34 @@ mod tests {
 
     #[test]
     fn test_sparse_attention_forward() {
-        let attention = SparseAttention::new(32, 4, 0.3, 0.1).unwrap();
-        let query = ones::<f32>(&[2, 5, 32]).unwrap();
-        let key = ones::<f32>(&[2, 5, 32]).unwrap();
-        let value = ones::<f32>(&[2, 5, 32]).unwrap();
+        let attention =
+            SparseAttention::new(32, 4, 0.3, 0.1).expect("Sparse Attention should succeed");
+        let query = ones::<f32>(&[2, 5, 32]).expect("operation should succeed");
+        let key = ones::<f32>(&[2, 5, 32]).expect("operation should succeed");
+        let value = ones::<f32>(&[2, 5, 32]).expect("operation should succeed");
 
-        let output = attention.forward(&query, &key, &value, None).unwrap();
+        let output = attention
+            .forward(&query, &key, &value, None)
+            .expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[2, 5, 32]);
     }
 
     #[test]
     fn test_self_attention() {
-        let attention = SparseAttention::new(16, 2, 0.4, 0.0).unwrap();
-        let input = ones::<f32>(&[1, 4, 16]).unwrap();
+        let attention =
+            SparseAttention::new(16, 2, 0.4, 0.0).expect("Sparse Attention should succeed");
+        let input = ones::<f32>(&[1, 4, 16]).expect("operation should succeed");
 
-        let output = attention.self_attention(&input, None).unwrap();
+        let output = attention
+            .self_attention(&input, None)
+            .expect("self-attention should succeed");
         assert_eq!(output.shape().dims(), &[1, 4, 16]);
     }
 
     #[test]
     fn test_local_attention_mask() {
-        let mask = SparseAttention::create_local_attention_mask(5, 1).unwrap();
+        let mask = SparseAttention::create_local_attention_mask(5, 1)
+            .expect("Sparse Attention should succeed");
         assert_eq!(mask.shape().dims(), &[5, 5]);
         assert!(mask.nnz() > 0);
         assert!(mask.nnz() <= 15); // 5 positions * 3 connections each (max)
@@ -584,47 +592,55 @@ mod tests {
 
     #[test]
     fn test_strided_attention_mask() {
-        let mask = SparseAttention::create_strided_attention_mask(8, 2, 1).unwrap();
+        let mask = SparseAttention::create_strided_attention_mask(8, 2, 1)
+            .expect("Sparse Attention should succeed");
         assert_eq!(mask.shape().dims(), &[8, 8]);
         assert!(mask.nnz() > 0);
     }
 
     #[test]
     fn test_attention_with_local_mask() {
-        let attention = SparseAttention::new(16, 2, 0.2, 0.0).unwrap();
-        let input = ones::<f32>(&[1, 4, 16]).unwrap();
-        let mask = SparseAttention::create_local_attention_mask(4, 1).unwrap();
+        let attention =
+            SparseAttention::new(16, 2, 0.2, 0.0).expect("Sparse Attention should succeed");
+        let input = ones::<f32>(&[1, 4, 16]).expect("operation should succeed");
+        let mask = SparseAttention::create_local_attention_mask(4, 1)
+            .expect("Sparse Attention should succeed");
 
-        let output = attention.self_attention(&input, Some(&mask)).unwrap();
+        let output = attention
+            .self_attention(&input, Some(&mask))
+            .expect("operation should succeed");
         assert_eq!(output.shape().dims(), &[1, 4, 16]);
     }
 
     #[test]
     fn test_dimension_validation() {
-        let attention = SparseAttention::new(32, 4, 0.3, 0.1).unwrap();
-        let wrong_query = ones::<f32>(&[2, 5, 16]).unwrap(); // Wrong model dim
-        let key = ones::<f32>(&[2, 5, 32]).unwrap();
-        let value = ones::<f32>(&[2, 5, 32]).unwrap();
+        let attention =
+            SparseAttention::new(32, 4, 0.3, 0.1).expect("Sparse Attention should succeed");
+        let wrong_query = ones::<f32>(&[2, 5, 16]).expect("operation should succeed"); // Wrong model dim
+        let key = ones::<f32>(&[2, 5, 32]).expect("operation should succeed");
+        let value = ones::<f32>(&[2, 5, 32]).expect("operation should succeed");
 
         assert!(attention.forward(&wrong_query, &key, &value, None).is_err());
     }
 
     #[test]
     fn test_batch_size_validation() {
-        let attention = SparseAttention::new(16, 2, 0.3, 0.1).unwrap();
-        let query = ones::<f32>(&[2, 5, 16]).unwrap();
-        let key = ones::<f32>(&[3, 5, 16]).unwrap(); // Different batch size
-        let value = ones::<f32>(&[2, 5, 16]).unwrap();
+        let attention =
+            SparseAttention::new(16, 2, 0.3, 0.1).expect("Sparse Attention should succeed");
+        let query = ones::<f32>(&[2, 5, 16]).expect("operation should succeed");
+        let key = ones::<f32>(&[3, 5, 16]).expect("operation should succeed"); // Different batch size
+        let value = ones::<f32>(&[2, 5, 16]).expect("operation should succeed");
 
         assert!(attention.forward(&query, &key, &value, None).is_err());
     }
 
     #[test]
     fn test_sequence_length_validation() {
-        let attention = SparseAttention::new(16, 2, 0.3, 0.1).unwrap();
-        let query = ones::<f32>(&[2, 5, 16]).unwrap();
-        let key = ones::<f32>(&[2, 4, 16]).unwrap(); // Different seq len
-        let value = ones::<f32>(&[2, 4, 16]).unwrap();
+        let attention =
+            SparseAttention::new(16, 2, 0.3, 0.1).expect("Sparse Attention should succeed");
+        let query = ones::<f32>(&[2, 5, 16]).expect("operation should succeed");
+        let key = ones::<f32>(&[2, 4, 16]).expect("operation should succeed"); // Different seq len
+        let value = ones::<f32>(&[2, 4, 16]).expect("operation should succeed");
 
         assert!(attention.forward(&query, &key, &value, None).is_err());
     }

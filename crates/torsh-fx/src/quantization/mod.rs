@@ -130,7 +130,9 @@ mod tests {
         let graph = tracer.finalize();
 
         let selector = AutomaticPrecisionSelector::new(PrecisionCriteria::Balanced);
-        let recommendations = selector.analyze_graph(&graph).unwrap();
+        let recommendations = selector
+            .analyze_graph(&graph)
+            .expect("graph analysis should succeed");
 
         // Check that we got recommendations for all operations
         assert!(recommendations.len() >= 3);
@@ -181,7 +183,9 @@ mod tests {
         let graph = tracer.finalize();
 
         let selector = AutomaticPrecisionSelector::new(PrecisionCriteria::Performance);
-        let recommendations = selector.analyze_graph(&graph).unwrap();
+        let recommendations = selector
+            .analyze_graph(&graph)
+            .expect("graph analysis should succeed");
 
         // Performance-focused should prefer more aggressive quantization
         for (_, rec) in recommendations {
@@ -199,7 +203,9 @@ mod tests {
         let graph = tracer.finalize();
 
         let selector = AutomaticPrecisionSelector::new(PrecisionCriteria::Accuracy);
-        let recommendations = selector.analyze_graph(&graph).unwrap();
+        let recommendations = selector
+            .analyze_graph(&graph)
+            .expect("graph analysis should succeed");
 
         // Accuracy-focused should prefer more conservative quantization for sensitive operations
         for (_, rec) in recommendations {
@@ -221,7 +227,9 @@ mod tests {
             min_speedup: 2.0,
         };
         let selector = AutomaticPrecisionSelector::new(criteria);
-        let recommendations = selector.analyze_graph(&graph).unwrap();
+        let recommendations = selector
+            .analyze_graph(&graph)
+            .expect("graph analysis should succeed");
 
         // Custom criteria should be respected
         for (_, rec) in recommendations {
@@ -239,7 +247,8 @@ mod tests {
         tracer.add_output("node_1");
         let mut graph = tracer.finalize();
 
-        let context = apply_automatic_precision(&mut graph, PrecisionCriteria::Balanced).unwrap();
+        let context = apply_automatic_precision(&mut graph, PrecisionCriteria::Balanced)
+            .expect("apply automatic precision should succeed");
 
         // Should have annotations for the operations
         assert!(!context.annotations().is_empty());
@@ -270,7 +279,9 @@ mod tests {
 
         let selector =
             AutomaticPrecisionSelector::with_strategy(PrecisionCriteria::Balanced, strategy);
-        let recommendations = selector.analyze_graph(&graph).unwrap();
+        let recommendations = selector
+            .analyze_graph(&graph)
+            .expect("graph analysis should succeed");
 
         // Performance-weighted strategy should prefer INT8
         for (_, rec) in recommendations {

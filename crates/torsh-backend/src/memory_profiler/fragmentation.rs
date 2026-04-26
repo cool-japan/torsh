@@ -1419,7 +1419,7 @@ mod tests {
         let config = FragmentationConfig::default();
         let mut tracker = FragmentationTracker::new(config);
 
-        let device = Device::cpu().unwrap();
+        let device = Device::cpu().expect("Device should succeed");
         let mut free_blocks = BTreeMap::new();
         free_blocks.insert(1024, 100); // High fragmentation scenario
 
@@ -1468,7 +1468,10 @@ mod tests {
         let config = FragmentationConfig::default();
         let tracker = FragmentationTracker::new(config);
 
-        let impact = tracker.assess_fragmentation_impact(Device::cpu().unwrap(), 0.7);
+        let impact = tracker.assess_fragmentation_impact(
+            Device::cpu().expect("fragmentation impact assessment should succeed"),
+            0.7,
+        );
 
         assert!((impact.memory_efficiency - 0.3).abs() < 1e-10);
         assert!((impact.allocation_slowdown - 2.4).abs() < 1e-10);
@@ -1505,8 +1508,10 @@ mod tests {
         assert_eq!(model.history.len(), 1);
 
         // Test prediction (should return None with insufficient data)
-        let prediction =
-            model.predict_fragmentation(Device::cpu().unwrap(), Duration::from_secs(1 * 60 * 60));
+        let prediction = model.predict_fragmentation(
+            Device::cpu().expect("fragmentation prediction should succeed"),
+            Duration::from_secs(1 * 60 * 60),
+        );
         assert!(prediction.is_none());
     }
 

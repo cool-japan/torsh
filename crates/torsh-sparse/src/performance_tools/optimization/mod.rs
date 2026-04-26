@@ -75,7 +75,7 @@ mod tests {
         let result = tuner.find_optimal_format(&characteristics);
         assert!(result.is_ok());
 
-        let tuning_result = result.unwrap();
+        let tuning_result = result.expect("operation should succeed");
         assert!(tuning_result.performance_score > 0.0);
         assert!(tuning_result.confidence >= 0.0 && tuning_result.confidence <= 1.0);
         assert!(!tuning_result.reasoning.is_empty());
@@ -113,13 +113,13 @@ mod tests {
         let mut benchmark = HardwareBenchmark::new();
         let score = benchmark.benchmark_cpu_compute();
         assert!(score.is_ok());
-        let score_val = score.unwrap();
+        let score_val = score.expect("operation should succeed");
         assert!(score_val > 0.0);
 
         // Test caching
         let score2 = benchmark.benchmark_cpu_compute();
         assert!(score2.is_ok());
-        assert_eq!(score_val, score2.unwrap());
+        assert_eq!(score_val, score2.expect("operation should succeed"));
     }
 
     #[test]
@@ -127,7 +127,7 @@ mod tests {
         let mut benchmark = HardwareBenchmark::new();
         let score = benchmark.benchmark_memory_bandwidth();
         assert!(score.is_ok());
-        assert!(score.unwrap() > 0.0);
+        assert!(score.expect("operation should succeed") > 0.0);
     }
 
     #[test]
@@ -135,7 +135,7 @@ mod tests {
         let mut benchmark = HardwareBenchmark::new();
         let score = benchmark.benchmark_cache_efficiency();
         assert!(score.is_ok());
-        assert!(score.unwrap() > 0.0);
+        assert!(score.expect("operation should succeed") > 0.0);
     }
 
     #[test]
@@ -144,7 +144,7 @@ mod tests {
         let report = benchmark.analyze_system_capabilities();
 
         assert!(report.is_ok());
-        let report = report.unwrap();
+        let report = report.expect("operation should succeed");
 
         assert!(!report.capability_scores.is_empty());
         assert!(!report.recommendations.is_empty());

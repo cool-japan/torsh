@@ -356,7 +356,7 @@ mod tests {
         let optimizer = SparseSGD::new(0.01, 0.9, 0.0001, false);
         assert!(optimizer.is_ok());
 
-        let opt = optimizer.unwrap();
+        let opt = optimizer.expect("operation should succeed");
         assert_eq!(opt.lr(), 0.01);
         assert_eq!(opt.momentum(), 0.9);
         assert_eq!(opt.weight_decay(), 0.0001);
@@ -368,7 +368,7 @@ mod tests {
         let optimizer = SparseSGD::default(0.01);
         assert!(optimizer.is_ok());
 
-        let opt = optimizer.unwrap();
+        let opt = optimizer.expect("operation should succeed");
         assert_eq!(opt.lr(), 0.01);
         assert_eq!(opt.momentum(), 0.0);
         assert_eq!(opt.weight_decay(), 0.0);
@@ -383,7 +383,7 @@ mod tests {
             .build();
 
         assert!(optimizer.is_ok());
-        let opt = optimizer.unwrap();
+        let opt = optimizer.expect("operation should succeed");
         assert_eq!(opt.lr(), 0.01);
         assert_eq!(opt.momentum(), 0.9);
         assert_eq!(opt.weight_decay(), 0.0001);
@@ -392,7 +392,7 @@ mod tests {
 
     #[test]
     fn test_hyperparameters() {
-        let opt = SparseSGD::new(0.01, 0.9, 0.0001, true).unwrap();
+        let opt = SparseSGD::new(0.01, 0.9, 0.0001, true).expect("Sparse SGD should succeed");
         let params = opt.hyperparameters();
 
         assert_eq!(params["lr"], 0.01);
@@ -421,19 +421,19 @@ mod tests {
 
     #[test]
     fn test_optimizer_name() {
-        let sgd = SparseSGD::default(0.01).unwrap();
+        let sgd = SparseSGD::default(0.01).expect("Sparse SGD should succeed");
         assert_eq!(sgd.name(), "SparseSGD");
 
-        let sgd_momentum = SparseSGD::with_momentum(0.01, 0.9).unwrap();
+        let sgd_momentum = SparseSGD::with_momentum(0.01, 0.9).expect("Sparse SGD should succeed");
         assert_eq!(sgd_momentum.name(), "SparseSGD_Momentum");
 
-        let sgd_nesterov = SparseSGD::nesterov(0.01, 0.9).unwrap();
+        let sgd_nesterov = SparseSGD::nesterov(0.01, 0.9).expect("Sparse SGD should succeed");
         assert_eq!(sgd_nesterov.name(), "SparseSGD_Nesterov");
     }
 
     #[test]
     fn test_learning_rate_update() {
-        let mut opt = SparseSGD::default(0.01).unwrap();
+        let mut opt = SparseSGD::default(0.01).expect("Sparse SGD should succeed");
         assert_eq!(opt.lr(), 0.01);
 
         opt.set_lr(0.001);

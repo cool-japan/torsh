@@ -1216,7 +1216,7 @@ mod tests {
     #[test]
     fn test_bert_forward() {
         let bert = BertModel::bert_base(true);
-        let input_ids = Tensor::zeros(&[2, 10]).unwrap(); // batch_size=2, seq_len=10
+        let input_ids = Tensor::zeros(&[2, 10]).expect("Tensor should succeed"); // batch_size=2, seq_len=10
 
         let result = bert.forward(&input_ids);
         assert!(result.is_ok());
@@ -1225,14 +1225,14 @@ mod tests {
     #[test]
     fn test_bert_classification_forward() {
         let classifier = BertForSequenceClassification::bert_base_for_classification(3);
-        let input_ids = Tensor::zeros(&[1, 8]).unwrap(); // batch_size=1, seq_len=8
+        let input_ids = Tensor::zeros(&[1, 8]).expect("Tensor should succeed"); // batch_size=1, seq_len=8
 
         let result = classifier.forward(&input_ids);
         assert!(result.is_ok());
 
         if let Ok(logits) = result {
-            assert_eq!(logits.size(0).unwrap(), 1); // batch_size
-            assert_eq!(logits.size(1).unwrap(), 3); // num_labels
+            assert_eq!(logits.size(0).expect("tensor size should be valid"), 1); // batch_size
+            assert_eq!(logits.size(1).expect("tensor size should be valid"), 3); // num_labels
         }
     }
 

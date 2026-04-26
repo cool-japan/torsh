@@ -1440,7 +1440,7 @@ mod tests {
         let config = HardwareConfig::default();
         let manager = HardwareManager::new(config);
 
-        let devices = manager.discover_devices().unwrap();
+        let devices = manager.discover_devices().expect("device discovery should succeed");
         assert!(!devices.is_empty());
     }
 
@@ -1450,7 +1450,7 @@ mod tests {
         let manager = HardwareManager::new(config);
 
         let requirements = ResourceRequirements::default();
-        let allocation_id = manager.allocate_resources(requirements).unwrap();
+        let allocation_id = manager.allocate_resources(requirements).expect("resource allocation should succeed");
         assert!(!allocation_id.is_empty());
 
         let result = manager.release_resources(&allocation_id);
@@ -1463,7 +1463,7 @@ mod tests {
         let manager = HardwareManager::new(config);
 
         let device_id = "test_device".to_string();
-        let health_status = manager.get_device_health(&device_id).unwrap();
+        let health_status = manager.get_device_health(&device_id).expect("device health retrieval should succeed");
         assert_eq!(health_status, HealthStatus::Good);
     }
 
@@ -1472,7 +1472,7 @@ mod tests {
         let config = HardwareConfig::default();
         let manager = HardwareManager::new(config);
 
-        let thermal_status = manager.get_thermal_status().unwrap();
+        let thermal_status = manager.get_thermal_status().expect("thermal status retrieval should succeed");
         // ThermalStatusReport should have default implementation
     }
 
@@ -1481,7 +1481,7 @@ mod tests {
         let config = HardwareConfig::default();
         let manager = HardwareManager::new(config);
 
-        let power_status = manager.get_power_status().unwrap();
+        let power_status = manager.get_power_status().expect("power status retrieval should succeed");
         // PowerStatusReport should have default implementation
     }
 
@@ -1491,7 +1491,7 @@ mod tests {
         let manager = HardwareManager::new(config);
 
         let command = HardwareCommand::default();
-        let result = manager.execute_hardware_command(command).unwrap();
+        let result = manager.execute_hardware_command(command).expect("hardware command execution should succeed");
         // CommandResult should have default implementation
     }
 }

@@ -232,20 +232,12 @@ impl DeltaPatchBuilder {
     fn create_binary_diff(&self, _old_data: &[u8], new_data: &[u8]) -> Result<Vec<u8>> {
         // Simple implementation using basic compression
         // In a production system, you might want to use more sophisticated algorithms like bsdiff
-
-        use flate2::{write::GzEncoder, Compression};
-        use std::io::Write;
+        use oxiarc_deflate::gzip::gzip_compress;
 
         // For simplicity, we'll create a compressed representation of the new data
         // A more sophisticated implementation would create actual binary diffs
-        let mut encoder = GzEncoder::new(Vec::new(), Compression::new(self.compression_level));
-        encoder
-            .write_all(new_data)
-            .map_err(|e| TorshError::SerializationError(format!("Compression failed: {}", e)))?;
-
-        encoder.finish().map_err(|e| {
-            TorshError::SerializationError(format!("Compression finalization failed: {}", e))
-        })
+        gzip_compress(new_data, self.compression_level as u8)
+            .map_err(|e| TorshError::SerializationError(format!("Compression failed: {}", e)))
     }
 
     /// Add manifest change operations
@@ -421,16 +413,10 @@ impl DeltaPatchApplier {
 
     /// Apply binary diff (decompress for our simple implementation)
     fn apply_binary_diff(&self, _old_data: &[u8], diff_data: &[u8]) -> Result<Vec<u8>> {
-        use flate2::read::GzDecoder;
-        use std::io::Read;
+        use oxiarc_deflate::gzip::gzip_decompress;
 
-        let mut decoder = GzDecoder::new(diff_data);
-        let mut result = Vec::new();
-        decoder
-            .read_to_end(&mut result)
-            .map_err(|e| TorshError::SerializationError(format!("Decompression failed: {}", e)))?;
-
-        Ok(result)
+        gzip_decompress(diff_data)
+            .map_err(|e| TorshError::SerializationError(format!("Decompression failed: {}", e)))
     }
 
     /// Update a manifest field

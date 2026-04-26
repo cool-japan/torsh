@@ -243,7 +243,7 @@ mod tests {
             let device = CudaDevice::new(0);
             assert!(device.is_ok());
 
-            let device = device.unwrap();
+            let device = device.expect("operation should succeed");
             assert_eq!(device.id(), 0);
             assert_eq!(device.device_type(), DeviceType::Cuda(0));
         }
@@ -252,8 +252,10 @@ mod tests {
     #[test]
     fn test_device_properties() {
         if crate::is_available() {
-            let device = CudaDevice::new(0).unwrap();
-            let props = device.properties().unwrap();
+            let device = CudaDevice::new(0).expect("Cuda Device should succeed");
+            let props = device
+                .properties()
+                .expect("device properties should be available");
 
             assert!(!props.name.is_empty());
             assert!(props.total_memory > 0);
@@ -264,15 +266,15 @@ mod tests {
     #[test]
     fn test_feature_support() {
         if crate::is_available() {
-            let device = CudaDevice::new(0).unwrap();
+            let device = CudaDevice::new(0).expect("Cuda Device should succeed");
 
             // Most modern GPUs should support these
             assert!(device
                 .supports_feature(CudaFeature::DoublePrecision)
-                .unwrap());
+                .expect("operation should succeed"));
             assert!(device
                 .supports_feature(CudaFeature::UnifiedAddressing)
-                .unwrap());
+                .expect("operation should succeed"));
         }
     }
 }

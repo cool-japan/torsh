@@ -259,7 +259,11 @@ mod tests {
 
         let config = SparseLayerConfig::linear(0.8);
         assert_eq!(config.input_sparsity, 0.8);
-        approx::assert_relative_eq!(config.output_sparsity.unwrap(), 0.64, epsilon = 1e-6); // 0.8 * 0.8
+        approx::assert_relative_eq!(
+            config.output_sparsity.expect("operation should succeed"),
+            0.64,
+            epsilon = 1e-6
+        ); // 0.8 * 0.8
 
         let config = SparseLayerConfig::graph(0.9);
         assert!(!config.use_bias);

@@ -1244,7 +1244,7 @@ mod tests {
 
         assert!(block1.can_merge_with(&block2));
 
-        let merged = block1.merge_with(&block2).unwrap();
+        let merged = block1.merge_with(&block2).expect("merge operation should succeed");
         assert_eq!(merged.start_addr, 1000);
         assert_eq!(merged.size, 96);
         assert_eq!(merged.end_addr, 1096);
@@ -1258,13 +1258,13 @@ mod tests {
         let block1 = MemoryBlock::new_allocated(1000, 64, 1, AllocationPurpose::TensorData);
         let block2 = MemoryBlock::new_allocated(2000, 128, 2, AllocationPurpose::GradientBuffer);
 
-        manager.track_allocation(block1).unwrap();
-        manager.track_allocation(block2).unwrap();
+        manager.track_allocation(block1).expect("allocation tracking should succeed");
+        manager.track_allocation(block2).expect("allocation tracking should succeed");
 
         assert_eq!(manager.memory_blocks.len(), 2);
 
         // Deallocate one block
-        manager.track_deallocation(1000).unwrap();
+        manager.track_deallocation(1000).expect("deallocation tracking should succeed");
         assert_eq!(manager.memory_blocks.len(), 1);
         assert_eq!(manager.free_blocks.len(), 1);
     }
@@ -1276,15 +1276,15 @@ mod tests {
         // Create fragmented memory pattern
         for i in 0..10 {
             let block = MemoryBlock::new_allocated(i * 200, 64, i, AllocationPurpose::TensorData);
-            manager.track_allocation(block).unwrap();
+            manager.track_allocation(block).expect("allocation tracking should succeed");
         }
 
         // Deallocate every other block to create fragmentation
         for i in (0..10).step_by(2) {
-            manager.track_deallocation(i * 200).unwrap();
+            manager.track_deallocation(i * 200).expect("deallocation tracking should succeed");
         }
 
-        let analysis = manager.analyze_fragmentation().unwrap();
+        let analysis = manager.analyze_fragmentation().expect("fragmentation analysis should succeed");
         assert!(analysis.overall_fragmentation_index > 0.0);
         assert!(analysis.external_fragmentation.free_block_count > 0);
     }
@@ -1296,16 +1296,16 @@ mod tests {
         // Create adjacent allocations
         for i in 0..5 {
             let block = MemoryBlock::new_allocated(i * 100, 50, i, AllocationPurpose::TensorData);
-            manager.track_allocation(block).unwrap();
+            manager.track_allocation(block).expect("allocation tracking should succeed");
         }
 
         // Deallocate to create adjacent free blocks
-        manager.track_deallocation(0).unwrap(); // 0-50
-        manager.track_deallocation(100).unwrap(); // 100-150
+        manager.track_deallocation(0).expect("deallocation tracking should succeed"); // 0-50
+        manager.track_deallocation(100).expect("deallocation tracking should succeed"); // 100-150
 
         assert_eq!(manager.free_blocks.len(), 2);
 
-        let result = manager.defragment(DefragmentationType::CoalescingBased).unwrap();
+        let result = manager.defragment(DefragmentationType::CoalescingBased).expect("defragmentation should succeed");
         assert!(result.success);
     }
 
@@ -1317,12 +1317,12 @@ mod tests {
         let base_addr = 10000;
         for i in 0..20 {
             let block = MemoryBlock::new_allocated(base_addr + i * 100, 50, i, AllocationPurpose::TensorData);
-            manager.track_allocation(block).unwrap();
+            manager.track_allocation(block).expect("allocation tracking should succeed");
         }
 
         // Deallocate many blocks in the region
         for i in (0..20).step_by(2) {
-            manager.track_deallocation(base_addr + i * 100).unwrap();
+            manager.track_deallocation(base_addr + i * 100).expect("deallocation tracking should succeed");
         }
 
         let hotspots = manager.identify_fragmentation_hotspots();
@@ -1337,12 +1337,12 @@ mod tests {
         for round in 0..20 {
             for i in 0..10 {
                 let block = MemoryBlock::new_allocated(round * 1000 + i * 50, 25, round * 10 + i, AllocationPurpose::TensorData);
-                manager.track_allocation(block).unwrap();
+                manager.track_allocation(block).expect("allocation tracking should succeed");
             }
 
             // Deallocate some to create fragmentation
             for i in 0..5 {
-                manager.track_deallocation(round * 1000 + i * 50).unwrap();
+                manager.track_deallocation(round * 1000 + i * 50).expect("deallocation tracking should succeed");
             }
         }
 

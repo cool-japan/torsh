@@ -1200,7 +1200,7 @@ mod tests {
 
     #[test]
     fn test_yolo_v5_creation() {
-        let model = yolo_v5_small(80).unwrap(); // COCO classes
+        let model = yolo_v5_small(80).expect("yolo v5 small should succeed"); // COCO classes
         assert_eq!(model.num_classes(), 80);
         assert_eq!(model.input_size(), (640, 640));
         assert_eq!(VisionModel::name(&model), "YOLOv5");
@@ -1208,7 +1208,7 @@ mod tests {
 
     #[test]
     fn test_retina_net_creation() {
-        let model = retina_net_resnet50(80).unwrap();
+        let model = retina_net_resnet50(80).expect("retina net resnet50 should succeed");
         assert_eq!(model.num_classes(), 80);
         assert_eq!(model.input_size(), (800, 800));
         assert_eq!(VisionModel::name(&model), "RetinaNet");
@@ -1216,7 +1216,7 @@ mod tests {
 
     #[test]
     fn test_ssd_creation() {
-        let model = ssd_300(21).unwrap(); // VOC classes
+        let model = ssd_300(21).expect("ssd 300 should succeed"); // VOC classes
         assert_eq!(model.num_classes(), 21);
         assert_eq!(model.input_size(), (300, 300));
         assert_eq!(VisionModel::name(&model), "SSD");
@@ -1237,8 +1237,11 @@ mod tests {
 
     #[test]
     fn test_anchor_generator() {
-        let generator = AnchorGenerator::new(vec![32, 64], vec![0.5, 1.0, 2.0]).unwrap();
-        let anchors = generator.generate(&[1, 3, 224, 224]).unwrap();
+        let generator = AnchorGenerator::new(vec![32, 64], vec![0.5, 1.0, 2.0])
+            .expect("Anchor Generator should succeed");
+        let anchors = generator
+            .generate(&[1, 3, 224, 224])
+            .expect("generation should succeed");
 
         // Should generate 2 scales * 3 ratios = 6 anchors
         assert_eq!(anchors.shape().dims(), &[6, 4]);

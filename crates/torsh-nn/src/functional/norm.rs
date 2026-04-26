@@ -1311,7 +1311,8 @@ mod tests {
     #[test]
     fn test_group_norm_invalid_groups() {
         // Test error handling when channels not divisible by num_groups
-        let input = Tensor::from_vec(vec![1.0; 2 * 5 * 3 * 3], &[2, 5, 3, 3]).unwrap();
+        let input = Tensor::from_vec(vec![1.0; 2 * 5 * 3 * 3], &[2, 5, 3, 3])
+            .expect("Tensor should succeed");
 
         let result = group_norm(&input, 3, None, None, 1e-5); // 5 channels, 3 groups
         assert!(result.is_err());
@@ -1411,7 +1412,8 @@ mod tests {
     #[test]
     fn test_instance_norm_invalid_dims() {
         // Test error handling for insufficient dimensions
-        let input = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], &[2, 2]).unwrap();
+        let input =
+            Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], &[2, 2]).expect("Tensor should succeed");
         let result = instance_norm(&input, None, None, 1e-5);
         assert!(result.is_err());
     }

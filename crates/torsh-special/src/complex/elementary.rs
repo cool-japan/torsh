@@ -140,9 +140,10 @@ mod tests {
     fn test_complex_log_principal_real_positive() {
         // log(e) = 1
         let input_data = vec![Complex64::new(std::f64::consts::E, 0.0)];
-        let input = Tensor::from_data(input_data, vec![1], DeviceType::Cpu).unwrap();
-        let result = complex_log_principal(&input).unwrap();
-        let data = result.data().unwrap();
+        let input =
+            Tensor::from_data(input_data, vec![1], DeviceType::Cpu).expect("Tensor should succeed");
+        let result = complex_log_principal(&input).expect("complex log principal should succeed");
+        let data = result.data().expect("tensor data should be accessible");
 
         assert_relative_eq!(data[0].re, 1.0, max_relative = 1e-10);
         assert_relative_eq!(data[0].im, 0.0, max_relative = 1e-10);
@@ -152,9 +153,10 @@ mod tests {
     fn test_complex_log_principal_imaginary_unit() {
         // log(i) = iπ/2
         let input_data = vec![Complex64::new(0.0, 1.0)];
-        let input = Tensor::from_data(input_data, vec![1], DeviceType::Cpu).unwrap();
-        let result = complex_log_principal(&input).unwrap();
-        let data = result.data().unwrap();
+        let input =
+            Tensor::from_data(input_data, vec![1], DeviceType::Cpu).expect("Tensor should succeed");
+        let result = complex_log_principal(&input).expect("complex log principal should succeed");
+        let data = result.data().expect("tensor data should be accessible");
 
         assert_relative_eq!(data[0].re, 0.0, max_relative = 1e-10);
         assert_relative_eq!(data[0].im, PI / 2.0, max_relative = 1e-10);
@@ -164,9 +166,10 @@ mod tests {
     fn test_complex_sqrt_principal() {
         // sqrt(4) = 2
         let input_data = vec![Complex64::new(4.0, 0.0)];
-        let input = Tensor::from_data(input_data, vec![1], DeviceType::Cpu).unwrap();
-        let result = complex_sqrt_principal(&input).unwrap();
-        let data = result.data().unwrap();
+        let input =
+            Tensor::from_data(input_data, vec![1], DeviceType::Cpu).expect("Tensor should succeed");
+        let result = complex_sqrt_principal(&input).expect("complex sqrt principal should succeed");
+        let data = result.data().expect("tensor data should be accessible");
 
         assert_relative_eq!(data[0].re, 2.0, max_relative = 1e-10);
         assert_relative_eq!(data[0].im, 0.0, max_relative = 1e-10);
@@ -176,9 +179,10 @@ mod tests {
     fn test_complex_sqrt_principal_negative_real() {
         // sqrt(-1) = i
         let input_data = vec![Complex64::new(-1.0, 0.0)];
-        let input = Tensor::from_data(input_data, vec![1], DeviceType::Cpu).unwrap();
-        let result = complex_sqrt_principal(&input).unwrap();
-        let data = result.data().unwrap();
+        let input =
+            Tensor::from_data(input_data, vec![1], DeviceType::Cpu).expect("Tensor should succeed");
+        let result = complex_sqrt_principal(&input).expect("complex sqrt principal should succeed");
+        let data = result.data().expect("tensor data should be accessible");
 
         assert_relative_eq!(data[0].re, 0.0, max_relative = 1e-10);
         assert_relative_eq!(data[0].im, 1.0, max_relative = 1e-10);
@@ -189,11 +193,14 @@ mod tests {
         // 2^3 = 8
         let base_data = vec![Complex64::new(2.0, 0.0)];
         let exp_data = vec![Complex64::new(3.0, 0.0)];
-        let base = Tensor::from_data(base_data, vec![1], DeviceType::Cpu).unwrap();
-        let exponent = Tensor::from_data(exp_data, vec![1], DeviceType::Cpu).unwrap();
+        let base =
+            Tensor::from_data(base_data, vec![1], DeviceType::Cpu).expect("Tensor should succeed");
+        let exponent =
+            Tensor::from_data(exp_data, vec![1], DeviceType::Cpu).expect("Tensor should succeed");
 
-        let result = complex_pow_principal(&base, &exponent).unwrap();
-        let data = result.data().unwrap();
+        let result =
+            complex_pow_principal(&base, &exponent).expect("complex pow principal should succeed");
+        let data = result.data().expect("tensor data should be accessible");
 
         assert_relative_eq!(data[0].re, 8.0, max_relative = 1e-10);
         assert_relative_eq!(data[0].im, 0.0, max_relative = 1e-10);
@@ -203,9 +210,10 @@ mod tests {
     fn test_complex_exp() {
         // exp(iπ) = -1 (Euler's identity)
         let input_data = vec![Complex64::new(0.0, PI)];
-        let input = Tensor::from_data(input_data, vec![1], DeviceType::Cpu).unwrap();
-        let result = complex_exp(&input).unwrap();
-        let data = result.data().unwrap();
+        let input =
+            Tensor::from_data(input_data, vec![1], DeviceType::Cpu).expect("Tensor should succeed");
+        let result = complex_exp(&input).expect("complex exp should succeed");
+        let data = result.data().expect("tensor data should be accessible");
 
         assert_relative_eq!(data[0].re, -1.0, max_relative = 1e-10);
         assert_relative_eq!(data[0].im, 0.0, max_relative = 1e-10);
@@ -216,13 +224,14 @@ mod tests {
         // sin²(z) + cos²(z) = 1
         let z = Complex64::new(0.5, 0.3);
         let input_data = vec![z];
-        let input = Tensor::from_data(input_data, vec![1], DeviceType::Cpu).unwrap();
+        let input =
+            Tensor::from_data(input_data, vec![1], DeviceType::Cpu).expect("Tensor should succeed");
 
-        let sin_result = complex_sin(&input).unwrap();
-        let cos_result = complex_cos(&input).unwrap();
+        let sin_result = complex_sin(&input).expect("complex sin should succeed");
+        let cos_result = complex_cos(&input).expect("complex cos should succeed");
 
-        let sin_data = sin_result.data().unwrap();
-        let cos_data = cos_result.data().unwrap();
+        let sin_data = sin_result.data().expect("tensor data should be accessible");
+        let cos_data = cos_result.data().expect("tensor data should be accessible");
 
         let sin_squared = sin_data[0] * sin_data[0];
         let cos_squared = cos_data[0] * cos_data[0];

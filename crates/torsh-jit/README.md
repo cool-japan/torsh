@@ -110,11 +110,11 @@ Typical improvements:
 
 ## Future Work
 
-- [ ] MLIR backend integration
+- [x] MLIR backend integration
 - [ ] Dynamic shape support
-- [ ] Control flow (if/while) support
+- [x] Control flow (if/while) support
 - [ ] Distributed JIT compilation
-- [ ] Profile-guided optimization
+- [x] Profile-guided optimization
 - [ ] Kernel autotuning
 
 ## License

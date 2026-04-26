@@ -1164,8 +1164,8 @@ mod tests {
 
         assert_eq!(patch_embed.num_patches(), 3136); // (224/4)^2 = 56^2
 
-        let input = torsh_tensor::creation::randn(&[1, 3, 224, 224]).unwrap();
-        let output = patch_embed.forward(&input).unwrap();
+        let input = torsh_tensor::creation::randn(&[1, 3, 224, 224]).expect("creation should succeed");
+        let output = patch_embed.forward(&input).expect("forward pass should succeed");
 
         assert_eq!(output.shape(), &[1, 3136, 96]);
     }
@@ -1174,8 +1174,8 @@ mod tests {
     fn test_window_attention() {
         let mut attn = WindowAttention::new(96, (7, 7), 3, true, None, 0.0, 0.0);
 
-        let input = torsh_tensor::creation::randn(&[4, 49, 96]).unwrap(); // 4 windows, 7*7=49 tokens, 96 dim
-        let output = attn.forward(&input).unwrap();
+        let input = torsh_tensor::creation::randn(&[4, 49, 96]).expect("creation should succeed"); // 4 windows, 7*7=49 tokens, 96 dim
+        let output = attn.forward(&input).expect("forward pass should succeed");
 
         assert_eq!(output.shape(), input.shape());
     }
@@ -1189,8 +1189,8 @@ mod tests {
         let mut shifted_block = SwinTransformerBlock::new(96, 3, 7, 3, 4.0, true, None, 0.0, 0.0, 0.0);
         assert!(shifted_block.is_shifted());
 
-        let input = torsh_tensor::creation::randn(&[1, 3136, 96]).unwrap();
-        let output = block.forward(&input).unwrap();
+        let input = torsh_tensor::creation::randn(&[1, 3136, 96]).expect("creation should succeed");
+        let output = block.forward(&input).expect("forward pass should succeed");
 
         assert_eq!(output.shape(), input.shape());
     }
@@ -1201,8 +1201,8 @@ mod tests {
 
         assert_eq!(merging.output_dim(), 192);
 
-        let input = torsh_tensor::creation::randn(&[1, 56, 56, 96]).unwrap();
-        let output = merging.forward(&input).unwrap();
+        let input = torsh_tensor::creation::randn(&[1, 56, 56, 96]).expect("creation should succeed");
+        let output = merging.forward(&input).expect("forward pass should succeed");
 
         assert_eq!(output.shape(), &[1, 28, 28, 192]); // Halved spatial, doubled channels
     }
@@ -1215,8 +1215,8 @@ mod tests {
         assert_eq!(layer.num_blocks(), 2);
         assert_eq!(layer.output_dim(), 192);
 
-        let input = torsh_tensor::creation::randn(&[1, 56, 56, 96]).unwrap();
-        let output = layer.forward(&input).unwrap();
+        let input = torsh_tensor::creation::randn(&[1, 56, 56, 96]).expect("creation should succeed");
+        let output = layer.forward(&input).expect("forward pass should succeed");
 
         assert_eq!(output.shape(), &[1, 28, 28, 192]);
     }
@@ -1231,8 +1231,8 @@ mod tests {
         ];
 
         for (name, model) in variants {
-            let input = torsh_tensor::creation::randn(&[1, 3, 224, 224]).unwrap();
-            let output = model.forward(&input).unwrap();
+            let input = torsh_tensor::creation::randn(&[1, 3, 224, 224]).expect("creation should succeed");
+            let output = model.forward(&input).expect("forward pass should succeed");
 
             assert_eq!(output.shape(), &[1, 1000], "Failed for Swin-{}", name);
 
@@ -1244,16 +1244,16 @@ mod tests {
 
     #[test]
     fn test_swin_factory() {
-        let model = SwinFactory::create("tiny", 1000).unwrap();
+        let model = SwinFactory::create("tiny", 1000).expect("Swin Factory should succeed");
         assert_eq!(model.config().num_classes, 1000);
         assert_eq!(model.config().embed_dim, 96);
 
-        let model = SwinFactory::create("base", 100).unwrap();
+        let model = SwinFactory::create("base", 100).expect("Swin Factory should succeed");
         assert_eq!(model.config().embed_dim, 128);
 
         assert!(SwinFactory::create("invalid", 1000).is_err());
 
-        let info = SwinFactory::model_info("tiny").unwrap();
+        let info = SwinFactory::model_info("tiny").expect("Swin Factory should succeed");
         assert!(info.contains("Swin-T"));
         assert!(info.contains("29M"));
 
@@ -1281,8 +1281,8 @@ mod tests {
 
         // Test different batch sizes
         for batch_size in [1, 2, 4] {
-            let input = torsh_tensor::creation::randn(&[batch_size, 3, 224, 224]).unwrap();
-            let output = model.forward(&input).unwrap();
+            let input = torsh_tensor::creation::randn(&[batch_size, 3, 224, 224]).expect("creation should succeed");
+            let output = model.forward(&input).expect("forward pass should succeed");
             assert_eq!(output.shape(), &[batch_size, 10]);
         }
     }

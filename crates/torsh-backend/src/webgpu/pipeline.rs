@@ -91,7 +91,7 @@ impl ComputePipeline {
                 .device()
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some(&format!("{} Pipeline Layout", descriptor.label)),
-                    bind_group_layouts: &bind_group_layouts.iter().collect::<Vec<_>>(),
+                    bind_group_layouts: &bind_group_layouts.iter().map(Some).collect::<Vec<_>>(),
                     immediate_size: 0,
                 });
 
@@ -487,7 +487,7 @@ mod tests {
 
                 let pipeline = ComputePipeline::new(device, descriptor);
                 if pipeline.is_ok() {
-                    let pipeline = pipeline.unwrap();
+                    let pipeline = pipeline.expect("operation should succeed");
                     assert_eq!(pipeline.descriptor().label, "test_pipeline");
                     assert_eq!(pipeline.descriptor().workgroup_size, (64, 1, 1));
                 }

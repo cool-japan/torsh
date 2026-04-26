@@ -766,7 +766,10 @@ mod tests {
 
         let fastest = report.find_fastest_operation("operation");
         assert!(fastest.is_some());
-        assert_eq!(fastest.unwrap().operation, "fast_operation");
+        assert_eq!(
+            fastest.expect("operation should succeed").operation,
+            "fast_operation"
+        );
 
         let top_ops = report.top_operations_by_throughput(2);
         assert_eq!(top_ops.len(), 2);

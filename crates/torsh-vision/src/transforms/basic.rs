@@ -395,10 +395,17 @@ mod tests {
     #[test]
     fn test_to_tensor_forward() {
         let to_tensor = ToTensor::new();
-        let input = creation::ones(&[3, 32, 32]).unwrap();
+        let input = creation::ones(&[3, 32, 32]).expect("creation should succeed");
 
-        let result = to_tensor.forward(&input).unwrap();
-        assert_eq!(result.get(&[0, 0, 0]).unwrap(), 1.0);
+        let result = to_tensor
+            .forward(&input)
+            .expect("forward pass should succeed");
+        assert_eq!(
+            result
+                .get(&[0, 0, 0])
+                .expect("element retrieval should succeed for valid index"),
+            1.0
+        );
     }
 
     #[test]

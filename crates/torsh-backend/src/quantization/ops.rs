@@ -535,10 +535,16 @@ mod tests {
         let ops = CpuQuantizationOps::new();
         let input = vec![0.0, 1.0, -1.0, 2.0];
         let mut params = QuantizationParams::int8_symmetric();
-        params.from_statistics(-2.0, 2.0).unwrap();
+        params
+            .from_statistics(-2.0, 2.0)
+            .expect("construction from statistics should succeed");
 
-        let quantized = ops.quantize_f32(&input, &params).unwrap();
-        let dequantized = ops.dequantize_f32(&quantized, &params).unwrap();
+        let quantized = ops
+            .quantize_f32(&input, &params)
+            .expect("f32 quantization should succeed");
+        let dequantized = ops
+            .dequantize_f32(&quantized, &params)
+            .expect("f32 dequantization should succeed");
 
         // Check that values are approximately preserved
         for (original, recovered) in input.iter().zip(dequantized.iter()) {
@@ -556,12 +562,18 @@ mod tests {
         let ops = CpuQuantizationOps::new();
         let input = vec![0.0, 0.5, 1.0];
         let mut params = QuantizationParams::uint8_asymmetric();
-        params.from_statistics(0.0, 1.0).unwrap();
+        params
+            .from_statistics(0.0, 1.0)
+            .expect("construction from statistics should succeed");
 
-        let quantized = ops.quantize_f32(&input, &params).unwrap();
+        let quantized = ops
+            .quantize_f32(&input, &params)
+            .expect("f32 quantization should succeed");
         assert_eq!(quantized.len(), 3);
 
-        let dequantized = ops.dequantize_f32(&quantized, &params).unwrap();
+        let dequantized = ops
+            .dequantize_f32(&quantized, &params)
+            .expect("f32 dequantization should succeed");
         assert_eq!(dequantized.len(), 3);
     }
 
@@ -570,12 +582,18 @@ mod tests {
         let ops = CpuQuantizationOps::new();
         let input = vec![0.0, 1.0, -1.0, 2.0]; // 4 elements
         let mut params = QuantizationParams::int4_symmetric();
-        params.from_statistics(-2.0, 2.0).unwrap();
+        params
+            .from_statistics(-2.0, 2.0)
+            .expect("construction from statistics should succeed");
 
-        let quantized = ops.quantize_f32(&input, &params).unwrap();
+        let quantized = ops
+            .quantize_f32(&input, &params)
+            .expect("f32 quantization should succeed");
         assert_eq!(quantized.len(), 2); // 4 elements packed into 2 bytes
 
-        let dequantized = ops.dequantize_f32(&quantized, &params).unwrap();
+        let dequantized = ops
+            .dequantize_f32(&quantized, &params)
+            .expect("f32 dequantization should succeed");
         assert_eq!(dequantized.len(), 4);
     }
 
@@ -586,7 +604,9 @@ mod tests {
         let sample2 = vec![-1.0, 0.5, 3.0];
         let samples = vec![sample1.as_slice(), sample2.as_slice()];
 
-        let params = ops.calibrate(&samples, QuantizedDType::Int8).unwrap();
+        let params = ops
+            .calibrate(&samples, QuantizedDType::Int8)
+            .expect("calibration should succeed");
         assert_eq!(params.dtype, QuantizedDType::Int8);
         assert_eq!(params.min_val, Some(-1.0));
         assert_eq!(params.max_val, Some(3.0));
@@ -606,7 +626,11 @@ mod tests {
     fn test_unimplemented_operations() {
         let ops = CpuQuantizationOps::new();
         let params = QuantizationParams::default();
-        let tensor = QuantizedTensor::new(vec![2, 2], params, crate::Device::cpu().unwrap());
+        let tensor = QuantizedTensor::new(
+            vec![2, 2],
+            params,
+            crate::Device::cpu().expect("Quantized Tensor should succeed"),
+        );
 
         assert!(ops.qmatmul(&tensor, &tensor).is_err());
         assert!(ops.qconv2d(&tensor, &tensor, None, (1, 1), (0, 0)).is_err());

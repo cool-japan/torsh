@@ -561,7 +561,7 @@ mod tests {
             9.5, 10.2, 10.1, -100.0, // outlier
             10.3, 9.8, 10.0,
         ];
-        let tensor = Tensor::from_vec(data, &[12]).unwrap();
+        let tensor = Tensor::from_vec(data, &[12]).expect("Tensor should succeed");
         TimeSeries::new(tensor)
     }
 
@@ -569,7 +569,9 @@ mod tests {
     fn test_iqr_detection() {
         let series = create_series_with_outliers();
         let detector = OutlierDetector::new(OutlierMethod::IQR, 1.5);
-        let result = detector.detect(&series).unwrap();
+        let result = detector
+            .detect(&series)
+            .expect("detection operation should succeed");
 
         assert_eq!(result.method, OutlierMethod::IQR);
         assert!(result.outlier_indices.len() >= 2); // Should detect at least 2 outliers
@@ -583,7 +585,9 @@ mod tests {
         // Use a lenient threshold - extreme outliers affect mean/std calculation
         // which can make z-scores less extreme than expected
         let detector = OutlierDetector::new(OutlierMethod::ZScore, 2.0);
-        let result = detector.detect(&series).unwrap();
+        let result = detector
+            .detect(&series)
+            .expect("detection operation should succeed");
 
         assert_eq!(result.method, OutlierMethod::ZScore);
         // Should detect at least one extreme outlier
@@ -599,7 +603,9 @@ mod tests {
     fn test_modified_zscore_detection() {
         let series = create_series_with_outliers();
         let detector = OutlierDetector::new(OutlierMethod::ModifiedZScore, 3.5);
-        let result = detector.detect(&series).unwrap();
+        let result = detector
+            .detect(&series)
+            .expect("detection operation should succeed");
 
         assert_eq!(result.method, OutlierMethod::ModifiedZScore);
         assert!(result.outlier_indices.len() >= 2);
@@ -609,7 +615,9 @@ mod tests {
     fn test_isolation_forest_detection() {
         let series = create_series_with_outliers();
         let detector = OutlierDetector::new(OutlierMethod::IsolationForest, 0.2);
-        let result = detector.detect(&series).unwrap();
+        let result = detector
+            .detect(&series)
+            .expect("detection operation should succeed");
 
         assert_eq!(result.method, OutlierMethod::IsolationForest);
         // Isolation forest should detect some outliers
@@ -620,13 +628,18 @@ mod tests {
     fn test_outlier_treatment_mean() {
         let series = create_series_with_outliers();
         let detector = OutlierDetector::new(OutlierMethod::ZScore, 3.0);
-        let detection = detector.detect(&series).unwrap();
+        let detection = detector
+            .detect(&series)
+            .expect("detection operation should succeed");
         let treated = detector
             .treat(&series, &detection, OutlierTreatment::Mean)
-            .unwrap();
+            .expect("operation should succeed");
 
         // Check that outliers were replaced
-        let treated_data = treated.values.to_vec().unwrap();
+        let treated_data = treated
+            .values
+            .to_vec()
+            .expect("tensor to_vec conversion should succeed");
         assert_eq!(treated_data.len(), series.len());
     }
 
@@ -634,10 +647,12 @@ mod tests {
     fn test_outlier_treatment_remove() {
         let series = create_series_with_outliers();
         let detector = OutlierDetector::new(OutlierMethod::IQR, 1.5);
-        let detection = detector.detect(&series).unwrap();
+        let detection = detector
+            .detect(&series)
+            .expect("detection operation should succeed");
         let treated = detector
             .treat(&series, &detection, OutlierTreatment::Remove)
-            .unwrap();
+            .expect("operation should succeed");
 
         // Series should be shorter after removing outliers
         assert!(treated.len() < series.len());
@@ -647,17 +662,25 @@ mod tests {
     fn test_outlier_treatment_interpolate() {
         let series = create_series_with_outliers();
         let detector = OutlierDetector::new(OutlierMethod::ZScore, 3.0);
-        let detection = detector.detect(&series).unwrap();
+        let detection = detector
+            .detect(&series)
+            .expect("detection operation should succeed");
         let treated = detector
             .treat(&series, &detection, OutlierTreatment::Interpolate)
-            .unwrap();
+            .expect("operation should succeed");
 
         // Length should be preserved
         assert_eq!(treated.len(), series.len());
 
         // Outlier values should be changed
-        let original_data = series.values.to_vec().unwrap();
-        let treated_data = treated.values.to_vec().unwrap();
+        let original_data = series
+            .values
+            .to_vec()
+            .expect("tensor to_vec conversion should succeed");
+        let treated_data = treated
+            .values
+            .to_vec()
+            .expect("tensor to_vec conversion should succeed");
         for &idx in &detection.outlier_indices {
             assert_ne!(original_data[idx], treated_data[idx]);
         }
@@ -668,7 +691,7 @@ mod tests {
         let series = create_series_with_outliers();
         let (treated, detection) =
             detect_and_treat_outliers(&series, OutlierMethod::IQR, 1.5, OutlierTreatment::Median)
-                .unwrap();
+                .expect("operation should succeed");
 
         assert!(!detection.outlier_indices.is_empty());
         assert_eq!(treated.len(), series.len());
@@ -678,11 +701,13 @@ mod tests {
     fn test_no_outliers() {
         // Normal series without outliers
         let data = vec![10.0f32, 10.1, 9.9, 10.2, 9.8, 10.0];
-        let tensor = Tensor::from_vec(data, &[6]).unwrap();
+        let tensor = Tensor::from_vec(data, &[6]).expect("Tensor should succeed");
         let series = TimeSeries::new(tensor);
 
         let detector = OutlierDetector::new(OutlierMethod::ZScore, 3.0);
-        let result = detector.detect(&series).unwrap();
+        let result = detector
+            .detect(&series)
+            .expect("detection operation should succeed");
 
         assert!(result.outlier_indices.is_empty());
     }
@@ -691,11 +716,13 @@ mod tests {
     fn test_constant_series() {
         // Constant series
         let data = vec![10.0f32; 10];
-        let tensor = Tensor::from_vec(data, &[10]).unwrap();
+        let tensor = Tensor::from_vec(data, &[10]).expect("Tensor should succeed");
         let series = TimeSeries::new(tensor);
 
         let detector = OutlierDetector::new(OutlierMethod::ZScore, 3.0);
-        let result = detector.detect(&series).unwrap();
+        let result = detector
+            .detect(&series)
+            .expect("detection operation should succeed");
 
         // No outliers in constant series
         assert!(result.outlier_indices.is_empty());

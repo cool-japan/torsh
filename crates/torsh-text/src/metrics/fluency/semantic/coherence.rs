@@ -887,17 +887,17 @@ mod tests {
     #[test]
     fn test_single_sentence_coherence() {
         let config = CoherenceAnalysisConfig::default();
-        let mut analyzer = SemanticCoherenceAnalyzer::new(config).unwrap();
+        let mut analyzer = SemanticCoherenceAnalyzer::new(config).expect("Semantic Coherence Analyzer should succeed");
 
         let sentences = vec!["This is a test sentence.".to_string()];
-        let coherence = analyzer.calculate_semantic_coherence(&sentences).unwrap();
+        let coherence = analyzer.calculate_semantic_coherence(&sentences).expect("semantic coherence calculation should succeed");
         assert_eq!(coherence, 1.0);
     }
 
     #[test]
     fn test_empty_input_handling() {
         let config = CoherenceAnalysisConfig::default();
-        let mut analyzer = SemanticCoherenceAnalyzer::new(config).unwrap();
+        let mut analyzer = SemanticCoherenceAnalyzer::new(config).expect("Semantic Coherence Analyzer should succeed");
 
         let sentences = vec![];
         let result = analyzer.calculate_semantic_coherence(&sentences);
@@ -910,35 +910,35 @@ mod tests {
             calculation_method: CoherenceMethod::Overlap,
             ..Default::default()
         };
-        let mut analyzer = SemanticCoherenceAnalyzer::new(config).unwrap();
+        let mut analyzer = SemanticCoherenceAnalyzer::new(config).expect("Semantic Coherence Analyzer should succeed");
 
         let sentences = vec![
             "The cat sat on the mat.".to_string(),
             "The cat was very happy.".to_string(),
         ];
 
-        let coherence = analyzer.calculate_semantic_coherence(&sentences).unwrap();
+        let coherence = analyzer.calculate_semantic_coherence(&sentences).expect("semantic coherence calculation should succeed");
         assert!(coherence > 0.0 && coherence <= 1.0);
     }
 
     #[test]
     fn test_word_similarity() {
         let config = CoherenceAnalysisConfig::default();
-        let mut analyzer = SemanticCoherenceAnalyzer::new(config).unwrap();
+        let mut analyzer = SemanticCoherenceAnalyzer::new(config).expect("Semantic Coherence Analyzer should succeed");
 
         // Test identical words
-        let similarity = analyzer.get_word_similarity("test", "test").unwrap();
+        let similarity = analyzer.get_word_similarity("test", "test").expect("word similarity retrieval should succeed");
         assert_eq!(similarity, 1.0);
 
         // Test different words
-        let similarity = analyzer.get_word_similarity("cat", "dog").unwrap();
+        let similarity = analyzer.get_word_similarity("cat", "dog").expect("word similarity retrieval should succeed");
         assert!(similarity >= 0.0 && similarity <= 1.0);
     }
 
     #[test]
     fn test_semantic_field_detection() {
         let config = CoherenceAnalysisConfig::default();
-        let analyzer = SemanticCoherenceAnalyzer::new(config).unwrap();
+        let analyzer = SemanticCoherenceAnalyzer::new(config).expect("Semantic Coherence Analyzer should succeed");
 
         // Test known words from semantic fields
         assert!(analyzer.get_word_semantic_field("happy").is_some());
@@ -951,14 +951,14 @@ mod tests {
     #[test]
     fn test_field_coverage_analysis() {
         let config = CoherenceAnalysisConfig::default();
-        let mut analyzer = SemanticCoherenceAnalyzer::new(config).unwrap();
+        let mut analyzer = SemanticCoherenceAnalyzer::new(config).expect("Semantic Coherence Analyzer should succeed");
 
         let sentences = vec![
             "I am happy today.".to_string(),
             "The day is bright and joyful.".to_string(),
         ];
 
-        let coverage = analyzer.analyze_field_coverage(&sentences).unwrap();
+        let coverage = analyzer.analyze_field_coverage(&sentences).expect("field coverage analysis should succeed");
         assert!(coverage.overall_coverage >= 0.0);
         assert!(!coverage.semantic_fields.is_empty());
     }
@@ -966,14 +966,14 @@ mod tests {
     #[test]
     fn test_consistency_analysis() {
         let config = CoherenceAnalysisConfig::default();
-        let mut analyzer = SemanticCoherenceAnalyzer::new(config).unwrap();
+        let mut analyzer = SemanticCoherenceAnalyzer::new(config).expect("Semantic Coherence Analyzer should succeed");
 
         let sentences = vec![
             "The concept is important.".to_string(),
             "This concept helps understanding.".to_string(),
         ];
 
-        let consistency = analyzer.analyze_consistency(&sentences).unwrap();
+        let consistency = analyzer.analyze_consistency(&sentences).expect("consistency analysis should succeed");
         assert!(consistency.overall_consistency >= 0.0 && consistency.overall_consistency <= 1.0);
     }
 
@@ -988,7 +988,7 @@ mod tests {
     #[test]
     fn test_cosine_similarity() {
         let config = CoherenceAnalysisConfig::default();
-        let analyzer = SemanticCoherenceAnalyzer::new(config).unwrap();
+        let analyzer = SemanticCoherenceAnalyzer::new(config).expect("Semantic Coherence Analyzer should succeed");
 
         let vec1 = vec![1.0, 0.0, 0.0];
         let vec2 = vec![1.0, 0.0, 0.0];
@@ -1004,7 +1004,7 @@ mod tests {
     #[test]
     fn test_tokenization() {
         let config = CoherenceAnalysisConfig::default();
-        let analyzer = SemanticCoherenceAnalyzer::new(config).unwrap();
+        let analyzer = SemanticCoherenceAnalyzer::new(config).expect("Semantic Coherence Analyzer should succeed");
 
         let sentence = "The cat, sat on the mat!";
         let tokens = analyzer.tokenize_sentence(sentence);

@@ -122,9 +122,10 @@ mod tests {
     fn test_complex_airy_ai_c64_at_origin() {
         // Ai(0) ≈ 0.35503
         let input_data = vec![Complex64::new(0.0, 0.0)];
-        let input = Tensor::from_data(input_data, vec![1], DeviceType::Cpu).unwrap();
-        let result = complex_airy_ai_c64(&input).unwrap();
-        let data = result.data().unwrap();
+        let input =
+            Tensor::from_data(input_data, vec![1], DeviceType::Cpu).expect("Tensor should succeed");
+        let result = complex_airy_ai_c64(&input).expect("complex airy ai c64 should succeed");
+        let data = result.data().expect("tensor data should be accessible");
 
         assert_relative_eq!(data[0].re, 0.355028, max_relative = 1e-4);
         assert_relative_eq!(data[0].im, 0.0, max_relative = 1e-10);
@@ -134,9 +135,10 @@ mod tests {
     fn test_complex_airy_bi_c64_at_origin() {
         // Bi(0) ≈ 0.61493
         let input_data = vec![Complex64::new(0.0, 0.0)];
-        let input = Tensor::from_data(input_data, vec![1], DeviceType::Cpu).unwrap();
-        let result = complex_airy_bi_c64(&input).unwrap();
-        let data = result.data().unwrap();
+        let input =
+            Tensor::from_data(input_data, vec![1], DeviceType::Cpu).expect("Tensor should succeed");
+        let result = complex_airy_bi_c64(&input).expect("complex airy bi c64 should succeed");
+        let data = result.data().expect("tensor data should be accessible");
 
         assert_relative_eq!(data[0].re, 0.61493, max_relative = 1e-3);
         assert_relative_eq!(data[0].im, 0.0, max_relative = 1e-10);
@@ -151,13 +153,14 @@ mod tests {
             Complex64::new(1.0, 1.0),
             Complex64::new(-1.0, 0.0),
         ];
-        let input = Tensor::from_data(input_data, vec![4], DeviceType::Cpu).unwrap();
+        let input =
+            Tensor::from_data(input_data, vec![4], DeviceType::Cpu).expect("Tensor should succeed");
 
-        let ai_result = complex_airy_ai_c64(&input).unwrap();
-        let bi_result = complex_airy_bi_c64(&input).unwrap();
+        let ai_result = complex_airy_ai_c64(&input).expect("complex airy ai c64 should succeed");
+        let bi_result = complex_airy_bi_c64(&input).expect("complex airy bi c64 should succeed");
 
-        let ai_data = ai_result.data().unwrap();
-        let bi_data = bi_result.data().unwrap();
+        let ai_data = ai_result.data().expect("tensor data should be accessible");
+        let bi_data = bi_result.data().expect("tensor data should be accessible");
 
         for i in 0..4 {
             assert!(ai_data[i].re.is_finite() && ai_data[i].im.is_finite());

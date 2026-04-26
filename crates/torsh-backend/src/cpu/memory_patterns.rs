@@ -602,7 +602,9 @@ mod tests {
     #[test]
     fn test_cache_aligned_allocator() {
         let allocator = CacheAlignedAllocator::new();
-        let buffer = allocator.allocate::<f32>(1000).unwrap();
+        let buffer = allocator
+            .allocate::<f32>(1000)
+            .expect("operation should succeed");
 
         assert_eq!(buffer.len(), 1000);
         assert!(buffer.is_cache_aligned());

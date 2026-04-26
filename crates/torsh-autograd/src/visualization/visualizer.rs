@@ -1318,7 +1318,7 @@ mod tests {
         let result = visualizer.analyze_gradient_flow(&ctx);
         assert!(result.is_ok());
 
-        let analysis = result.unwrap();
+        let analysis = result.expect("operation should succeed");
         assert_eq!(analysis.total_operations, 0); // Empty context
         assert_eq!(analysis.operations_with_gradients, 0);
     }
@@ -1331,7 +1331,7 @@ mod tests {
         let result = visualizer.generate_text_visualization(&analysis);
         assert!(result.is_ok());
 
-        let text = result.unwrap();
+        let text = result.expect("operation should succeed");
         assert!(text.contains("Gradient Flow Analysis"));
         assert!(text.contains("Total Operations: 0"));
     }
@@ -1344,7 +1344,7 @@ mod tests {
         let result = visualizer.generate_text_visualization(&analysis);
         assert!(result.is_ok());
 
-        let text = result.unwrap();
+        let text = result.expect("operation should succeed");
         assert!(text.contains("Compact"));
         assert!(text.contains("Operations: 0"));
     }
@@ -1357,7 +1357,7 @@ mod tests {
         let result = visualizer.generate_dot_visualization(&analysis);
         assert!(result.is_ok());
 
-        let dot = result.unwrap();
+        let dot = result.expect("operation should succeed");
         assert!(dot.contains("digraph GradientFlow"));
         assert!(dot.contains("rankdir=TB"));
         assert!(dot.contains("cluster_legend"));
@@ -1371,7 +1371,7 @@ mod tests {
         let result = visualizer.generate_html_visualization(&analysis);
         assert!(result.is_ok());
 
-        let html = result.unwrap();
+        let html = result.expect("operation should succeed");
         assert!(html.contains("<!DOCTYPE html>"));
         assert!(html.contains("Gradient Flow Analysis"));
         assert!(html.contains("stats-grid"));
@@ -1386,7 +1386,7 @@ mod tests {
         let result = visualizer.export_analysis_json(&analysis);
         assert!(result.is_ok());
 
-        let json = result.unwrap();
+        let json = result.expect("operation should succeed");
         assert!(json.contains("gradient_flow_analysis"));
         assert!(json.contains("total_operations"));
         assert!(json.contains("gradient_statistics"));

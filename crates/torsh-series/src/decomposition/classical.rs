@@ -387,7 +387,7 @@ mod tests {
             let noise = 0.1;
             data.push(trend + seasonal + noise);
         }
-        let tensor = Tensor::from_vec(data, &[50]).unwrap();
+        let tensor = Tensor::from_vec(data, &[50]).expect("Tensor should succeed");
         TimeSeries::new(tensor)
     }
 

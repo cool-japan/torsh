@@ -649,7 +649,7 @@ mod tests {
         let graph = create_linear_graph(&["conv2d", "relu", "pool"]);
         let mut matcher = PatternMatcher::new();
 
-        let matches = matcher.find_matches(&graph).unwrap();
+        let matches = matcher.find_matches(&graph).expect("pattern matching should succeed");
 
         // Should find conv_relu pattern
         let conv_relu_matches: Vec<&PatternMatch> = matches
@@ -680,7 +680,7 @@ mod tests {
         let mut matcher = PatternMatcher::new();
         let graph = create_linear_graph(&["conv2d", "relu"]);
 
-        let matches = matcher.find_matches(&graph).unwrap();
+        let matches = matcher.find_matches(&graph).expect("pattern matching should succeed");
         for match_result in matches {
             assert!(match_result.confidence >= 0.0 && match_result.confidence <= 1.0);
         }

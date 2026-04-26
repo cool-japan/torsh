@@ -995,7 +995,7 @@ mod tests {
         let config = Zero3CpuOffloadConfig::default();
         let pg = init_process_group(BackendType::Gloo, 0, 1, "127.0.0.1", 29500)
             .await
-            .unwrap();
+            .expect("operation should succeed");
         let scheduler = PrefetchScheduler::new(&config, Arc::new(pg));
 
         let status = scheduler.get_queue_status();
@@ -1011,13 +1011,13 @@ mod tests {
         let config = Zero3CpuOffloadConfig::default();
         let pg = init_process_group(BackendType::Gloo, 0, 1, "127.0.0.1", 29500)
             .await
-            .unwrap();
+            .expect("operation should succeed");
         let scheduler = PrefetchScheduler::new(&config, Arc::new(pg));
 
         let distance = scheduler
             .calculate_optimal_prefetch_distance()
             .await
-            .unwrap();
+            .expect("operation should succeed");
         assert!(distance >= 1);
         assert!(distance <= config.prefetch_buffer_size);
     }
@@ -1027,11 +1027,14 @@ mod tests {
         let config = Zero3CpuOffloadConfig::default();
         let pg = init_process_group(BackendType::Gloo, 0, 1, "127.0.0.1", 29500)
             .await
-            .unwrap();
+            .expect("operation should succeed");
         let scheduler = PrefetchScheduler::new(&config, Arc::new(pg));
 
         let layers = vec!["layer1".to_string(), "layer2".to_string()];
-        scheduler.batch_prefetch(layers).await.unwrap();
+        scheduler
+            .batch_prefetch(layers)
+            .await
+            .expect("operation should succeed");
 
         let metrics = scheduler.get_metrics();
         assert_eq!(metrics.batch_operations, 1);
@@ -1050,11 +1053,14 @@ mod tests {
         let config = Zero3CpuOffloadConfig::default();
         let pg = init_process_group(BackendType::Gloo, 0, 1, "127.0.0.1", 29500)
             .await
-            .unwrap();
+            .expect("operation should succeed");
         let scheduler = PrefetchScheduler::new(&config, Arc::new(pg));
 
         // Add some requests to queue (we'll mock this)
-        scheduler.cancel_all_prefetches().await.unwrap();
+        scheduler
+            .cancel_all_prefetches()
+            .await
+            .expect("operation should succeed");
 
         let status = scheduler.get_queue_status();
         assert_eq!(status.queued_requests, 0);

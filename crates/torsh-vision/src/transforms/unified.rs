@@ -780,8 +780,10 @@ mod tests {
     #[test]
     fn test_unified_resize() {
         let transform = UnifiedResize::new((224, 224));
-        let input = zeros(&[3, 256, 256]).unwrap();
-        let output = transform.apply(&input).unwrap();
+        let input = zeros(&[3, 256, 256]).expect("zeros should succeed");
+        let output = transform
+            .apply(&input)
+            .expect("apply operation should succeed");
         assert_eq!(output.shape().dims(), &[3, 224, 224]);
     }
 
@@ -797,8 +799,10 @@ mod tests {
         let old_transform = crate::transforms::Resize::new((224, 224));
         let bridge = TransformBridge::new(old_transform);
 
-        let input = zeros(&[3, 256, 256]).unwrap();
-        let output = bridge.apply(&input).unwrap();
+        let input = zeros(&[3, 256, 256]).expect("zeros should succeed");
+        let output = bridge
+            .apply(&input)
+            .expect("apply operation should succeed");
         assert_eq!(output.shape().dims(), &[3, 224, 224]);
     }
 
@@ -807,8 +811,10 @@ mod tests {
         let context = TransformContext::default();
         let transform = factory::create_resize((224, 224), &context);
 
-        let input = zeros(&[3, 256, 256]).unwrap();
-        let output = transform.apply(&input).unwrap();
+        let input = zeros(&[3, 256, 256]).expect("zeros should succeed");
+        let output = transform
+            .apply(&input)
+            .expect("apply operation should succeed");
         assert_eq!(output.shape().dims(), &[3, 224, 224]);
     }
 

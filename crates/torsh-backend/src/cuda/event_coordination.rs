@@ -710,12 +710,17 @@ mod tests {
     #[ignore = "Requires CUDA hardware - run with --ignored flag"]
     fn test_event_pool() {
         if crate::cuda::is_available() {
-            let _device = Arc::new(crate::cuda::device::CudaDevice::new(0).unwrap());
-            let pool = EventPool::new(4, 2).unwrap();
+            let _device =
+                Arc::new(crate::cuda::device::CudaDevice::new(0).expect("Arc should succeed"));
+            let pool = EventPool::new(4, 2).expect("Event Pool should succeed");
 
             // Test regular event acquisition
-            let event1 = pool.acquire_event(false).unwrap();
-            let event2 = pool.acquire_event(false).unwrap();
+            let event1 = pool
+                .acquire_event(false)
+                .expect("event acquisition should succeed");
+            let event2 = pool
+                .acquire_event(false)
+                .expect("event acquisition should succeed");
 
             let (available, timing, in_use) = pool.utilization();
             assert_eq!(in_use, 2);
@@ -733,10 +738,11 @@ mod tests {
     #[ignore = "Requires CUDA hardware - run with --ignored flag"]
     fn test_operation_coordinator() {
         if crate::cuda::is_available() {
-            let _device = Arc::new(crate::cuda::device::CudaDevice::new(0).unwrap());
-            let event_pool = Arc::new(EventPool::new(10, 5).unwrap());
+            let _device =
+                Arc::new(crate::cuda::device::CudaDevice::new(0).expect("Arc should succeed"));
+            let event_pool = Arc::new(EventPool::new(10, 5).expect("Arc should succeed"));
             let coordinator = OperationCoordinator::new(event_pool);
-            let stream = CudaStream::new().unwrap();
+            let stream = CudaStream::new().expect("Cuda Stream should succeed");
 
             // Register operation
             let op_id = coordinator
@@ -747,13 +753,17 @@ mod tests {
                     vec![],
                     "Test kernel".to_string(),
                 )
-                .unwrap();
+                .expect("operation should succeed");
 
             assert!(op_id > 0);
 
             // Test operation execution
-            coordinator.begin_operation(op_id, &stream).unwrap();
-            coordinator.complete_operation(op_id).unwrap();
+            coordinator
+                .begin_operation(op_id, &stream)
+                .expect("operation begin should succeed");
+            coordinator
+                .complete_operation(op_id)
+                .expect("operation completion should succeed");
 
             let metrics = coordinator.metrics();
             assert_eq!(metrics.total_operations, 1);
@@ -764,15 +774,19 @@ mod tests {
     #[test]
     fn test_cross_stream_barrier() {
         if crate::cuda::is_available() {
-            let _device = Arc::new(crate::cuda::device::CudaDevice::new(0).unwrap());
-            let stream1 = Arc::new(CudaStream::new().unwrap());
-            let stream2 = Arc::new(CudaStream::new().unwrap());
+            let _device =
+                Arc::new(crate::cuda::device::CudaDevice::new(0).expect("Arc should succeed"));
+            let stream1 = Arc::new(CudaStream::new().expect("Arc should succeed"));
+            let stream2 = Arc::new(CudaStream::new().expect("Arc should succeed"));
             let streams = vec![stream1, stream2];
 
-            let event_pool = Arc::new(EventPool::new(10, 5).unwrap());
-            let barrier = CrossStreamBarrier::new(streams, event_pool).unwrap();
+            let event_pool = Arc::new(EventPool::new(10, 5).expect("Arc should succeed"));
+            let barrier = CrossStreamBarrier::new(streams, event_pool)
+                .expect("Cross Stream Barrier should succeed");
 
-            let duration = barrier.synchronize().unwrap();
+            let duration = barrier
+                .synchronize()
+                .expect("synchronization should succeed");
             assert!(duration < Duration::from_secs(1));
         }
     }
@@ -781,14 +795,19 @@ mod tests {
     #[ignore = "Async event waiter has CUDA context threading issues - worker thread lacks context"]
     fn test_async_event_waiter() {
         if crate::cuda::is_available() {
-            let _device = Arc::new(crate::cuda::device::CudaDevice::new(0).unwrap());
+            let _device =
+                Arc::new(crate::cuda::device::CudaDevice::new(0).expect("Arc should succeed"));
             let waiter = AsyncEventWaiter::new();
-            let stream = CudaStream::new().unwrap();
-            let event = Arc::new(CudaEvent::new().unwrap());
+            let stream = CudaStream::new().expect("Cuda Stream should succeed");
+            let event = Arc::new(CudaEvent::new().expect("Arc should succeed"));
 
             // Record the event on a stream so it becomes "ready"
-            stream.record_event(&event).unwrap();
-            stream.synchronize().unwrap();
+            stream
+                .record_event(&event)
+                .expect("event recording should succeed");
+            stream
+                .synchronize()
+                .expect("synchronization should succeed");
 
             let callback_executed = Arc::new(std::sync::atomic::AtomicBool::new(false));
             let callback_flag = Arc::clone(&callback_executed);

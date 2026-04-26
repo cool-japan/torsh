@@ -286,16 +286,25 @@ impl DifferentiableProgramming {
         Ok(slice)
     }
 
-    pub fn grad(&mut self, _output: &Tensor, input: &Tensor) -> Result<Tensor> {
-        // TODO: Implement actual backward pass when AutogradTensor trait is available
-        // For now, return mock gradient (ones with same shape as input)
-        Ok(Tensor::ones(input.shape().dims(), input.device())?)
+    pub fn grad(&mut self, output: &Tensor, input: &Tensor) -> Result<Tensor> {
+        // Run the backward pass through the Tensor-native autograd engine.
+        // Tensor::backward() walks self.operation (the tensor's own computation graph)
+        // and stores gradients into leaf tensors via interior mutability.
+        // Note: output must be scalar (numel == 1) and have requires_grad = true.
+        output.backward()?;
+        input.grad().ok_or_else(|| {
+            torsh_core::TorshError::AutogradError(
+                "No gradient available for input tensor; ensure requires_grad is set \
+                 to true and that the input participates in the forward computation"
+                    .to_string(),
+            )
+        })
     }
 
-    pub fn backward(&mut self, _output: &Tensor) -> Result<()> {
-        // TODO: Implement actual backward pass when AutogradTensor trait is available
-        // For now, this is a no-op
-        Ok(())
+    pub fn backward(&mut self, output: &Tensor) -> Result<()> {
+        // Delegate to the Tensor-native backward pass.
+        // Tensor::backward() requires a scalar output (numel == 1) and requires_grad = true.
+        output.backward()
     }
 }
 

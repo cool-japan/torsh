@@ -149,7 +149,9 @@ impl Benchmarkable for BackwardPassBench {
             result
         });
 
-        forward_time += forward_duration;
+        // Ensure timing is at least 1ns to guard against sub-resolution measurements
+        // on fast hardware where the operation completes below timer granularity.
+        forward_time += forward_duration.max(Duration::from_nanos(1));
 
         // Backward pass with timing
         let (_backward_result, backward_duration) = measure_execution_time(|| {
@@ -161,7 +163,9 @@ impl Benchmarkable for BackwardPassBench {
             gradient_computation_count += 3; // One gradient per input tensor
         });
 
-        backward_time += backward_duration;
+        // Ensure timing is at least 1ns to guard against sub-resolution measurements
+        // on fast hardware where the operation completes below timer granularity.
+        backward_time += backward_duration.max(Duration::from_nanos(1));
 
         BackwardPassResult {
             forward_time,
@@ -511,7 +515,9 @@ impl Benchmarkable for CheckpointingBench {
                 layer3
             });
 
-            total_forward_time += forward_time;
+            // Ensure timing is at least 1ns to guard against sub-resolution measurements
+            // on fast hardware where the operation completes below timer granularity.
+            total_forward_time += forward_time.max(Duration::from_nanos(1));
 
             // Simulate checkpointing behavior
             let (_backward_result, backward_time, recomputation_time) =
@@ -595,7 +601,9 @@ impl Benchmarkable for CheckpointingBench {
                     }
                 };
 
-            total_backward_time += backward_time;
+            // Ensure timing is at least 1ns to guard against sub-resolution measurements
+            // on fast hardware where the operation completes below timer granularity.
+            total_backward_time += backward_time.max(Duration::from_nanos(1));
             total_recomputation_time += recomputation_time;
         }
 
@@ -728,6 +736,9 @@ impl Benchmarkable for GradientClippingBench {
             let (clipping_result, clipping_time) =
                 measure_execution_time(|| self.apply_clipping(parameter));
 
+            // Ensure timing is at least 1ns to guard against sub-resolution measurements
+            // on fast hardware where the operation completes below timer granularity.
+            let clipping_time = clipping_time.max(Duration::from_nanos(1));
             clipping_times.push(clipping_time);
 
             match clipping_result {
@@ -1044,7 +1055,8 @@ mod tests {
 
     #[test]
     fn test_apply_clipping() {
-        let tensor = create_ones_tensor::<f32>(&[3, 3], DeviceType::Cpu).unwrap();
+        let tensor =
+            create_ones_tensor::<f32>(&[3, 3], DeviceType::Cpu).expect("operation should succeed");
 
         let norm_bench = GradientClippingBench::new(ClippingType::NormClipping, 1.0);
         let result = norm_bench.apply_clipping(&tensor);

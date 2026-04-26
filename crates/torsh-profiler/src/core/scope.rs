@@ -299,7 +299,7 @@ mod tests {
             thread::sleep(Duration::from_millis(10));
         }
 
-        let stats = get_global_stats().unwrap();
+        let stats = get_global_stats().expect("get global stats should succeed");
         assert!(stats.0 > 0); // Should have at least one event
 
         stop_profiling();
@@ -315,7 +315,7 @@ mod tests {
             thread::sleep(Duration::from_millis(5));
         }
 
-        let stats = get_global_stats().unwrap();
+        let stats = get_global_stats().expect("get global stats should succeed");
         assert!(stats.0 > 0);
 
         stop_profiling();
@@ -332,7 +332,7 @@ mod tests {
         });
 
         assert_eq!(result, 42);
-        let stats = get_global_stats().unwrap();
+        let stats = get_global_stats().expect("get global stats should succeed");
         assert!(stats.0 > 0);
 
         stop_profiling();
@@ -357,7 +357,7 @@ mod tests {
             assert_eq!(bytes, Some(1024));
         }
 
-        let stats = get_global_stats().unwrap();
+        let stats = get_global_stats().expect("get global stats should succeed");
         assert!(stats.0 > 0);
 
         stop_profiling();
@@ -395,7 +395,7 @@ mod tests {
             thread::sleep(Duration::from_millis(5));
         }
 
-        let stats = get_global_stats().unwrap();
+        let stats = get_global_stats().expect("get global stats should succeed");
         assert!(stats.0 >= 2); // Should have at least 2 events
 
         stop_profiling();
@@ -404,7 +404,9 @@ mod tests {
     #[test]
     fn test_thread_id_extraction() {
         let id1 = get_thread_id();
-        let id2 = thread::spawn(|| get_thread_id()).join().unwrap();
+        let id2 = thread::spawn(|| get_thread_id())
+            .join()
+            .expect("join should succeed");
 
         // Thread IDs should be different
         assert_ne!(id1, id2);

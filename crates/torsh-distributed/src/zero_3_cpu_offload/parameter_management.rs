@@ -695,16 +695,19 @@ mod tests {
         model_params.add_parameter("layer1.weight".to_string(), vec![100, 50]);
         model_params.add_parameter("layer1.bias".to_string(), vec![50]);
 
-        let partitioner = ParameterPartitioner::new(&config, &rank_mapping, &model_params).unwrap();
+        let partitioner = ParameterPartitioner::new(&config, &rank_mapping, &model_params)
+            .expect("Parameter Partitioner should succeed");
 
         assert_eq!(partitioner.partition_map.len(), 2);
 
         let weight_partitions = partitioner
             .get_parameter_partitions("layer1.weight")
-            .unwrap();
+            .expect("operation should succeed");
         assert_eq!(weight_partitions.len(), 4); // 4 ranks
 
-        let owned_partition = partitioner.get_owned_partition("layer1.weight").unwrap();
+        let owned_partition = partitioner
+            .get_owned_partition("layer1.weight")
+            .expect("owned partition retrieval should succeed");
         assert_eq!(owned_partition.owner_rank, 0);
 
         let stats = partitioner.get_statistics();
@@ -737,7 +740,7 @@ mod tests {
     #[tokio::test]
     async fn test_cpu_parameter_store() {
         let config = Zero3CpuOffloadConfig::default();
-        let store = CpuParameterStore::new(&config).unwrap();
+        let store = CpuParameterStore::new(&config).expect("Cpu Parameter Store should succeed");
 
         let data = CpuParameterData::new(
             vec![1.0, 2.0, 3.0, 4.0],
@@ -748,15 +751,24 @@ mod tests {
         );
 
         // Test store and fetch
-        store.store("test_param", &data).await.unwrap();
+        store
+            .store("test_param", &data)
+            .await
+            .expect("operation should succeed");
         assert!(store.contains("test_param"));
         assert_eq!(store.parameter_count(), 1);
 
-        let fetched = store.fetch("test_param").await.unwrap();
+        let fetched = store
+            .fetch("test_param")
+            .await
+            .expect("operation should succeed");
         assert_eq!(fetched.data, data.data);
 
         // Test remove
-        let removed = store.remove("test_param").await.unwrap();
+        let removed = store
+            .remove("test_param")
+            .await
+            .expect("operation should succeed");
         assert!(removed.is_some());
         assert!(!store.contains("test_param"));
         assert_eq!(store.parameter_count(), 0);

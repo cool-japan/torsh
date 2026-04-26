@@ -180,19 +180,41 @@ fn ols_regression(
 }
 
 /// OLS regression with trend: y = α + β*x + γ*t + ε
+///
+/// Solves the 3×3 normal equations (X'X)β = X'y where the design matrix
+/// columns are [1, x_i, i] using Gauss-Jordan elimination with partial
+/// pivoting. Falls back to constant-only OLS if the system is singular.
 fn ols_regression_with_trend(y: &[f32], x: &[f32]) -> (f64, f64, Vec<f64>) {
-    let _n = y.len();
-    let _x_f64: Vec<f64> = x.iter().map(|&v| v as f64).collect();
-    let _y_f64: Vec<f64> = y.iter().map(|&v| v as f64).collect();
-    let _t: Vec<f64> = (0.._n).map(|i| i as f64).collect();
+    let n = y.len();
+    let x_f64: Vec<f64> = x.iter().map(|&v| v as f64).collect();
+    let y_f64: Vec<f64> = y.iter().map(|&v| v as f64).collect();
 
-    // Build design matrix: [1, x, t]
-    // Use normal equations: (X'X)β = X'y
-    // For simplicity, use simple regression ignoring trend for now
-    // TODO: Implement proper multiple regression with matrix operations
+    // Build X'X (3×3) and X'y (3-vector); columns of X are [1, x_i, t_i]
+    let mut xtx = [[0.0_f64; 3]; 3];
+    let mut xty = [0.0_f64; 3];
+    for i in 0..n {
+        let row = [1.0_f64, x_f64[i], i as f64];
+        for j in 0..3 {
+            for k in 0..3 {
+                xtx[j][k] += row[j] * row[k];
+            }
+            xty[j] += row[j] * y_f64[i];
+        }
+    }
 
-    // Simplified: just do y = α + β*x (ignoring trend component)
-    ols_regression(y, x, true, false)
+    match solve_3x3(&xtx, &xty) {
+        Some(beta) => {
+            let (alpha, b, gamma) = (beta[0], beta[1], beta[2]);
+            let residuals: Vec<f64> = (0..n)
+                .map(|i| y_f64[i] - (alpha + b * x_f64[i] + gamma * i as f64))
+                .collect();
+            (alpha, b, residuals)
+        }
+        None => {
+            // Singular system — fall back to constant-only OLS
+            ols_regression(y, x, true, false)
+        }
+    }
 }
 
 /// ADF test on residuals (no constant, no trend)
@@ -417,6 +439,11 @@ pub struct VECM {
     pub beta: Option<Array2<f64>>,
     /// Adjustment coefficients α
     pub alpha: Option<Array2<f64>>,
+    /// Last observed levels y_{T}, y_{T-1}, ..., y_{T-p+1} (stored by fit)
+    /// Outer index 0 = most recent, 1 = one step back, etc.
+    last_obs: Vec<Vec<f64>>,
+    /// Last observed differences Δy_{T}, Δy_{T-1}, ..., Δy_{T-p+1} (stored by fit)
+    last_deltas: Vec<Vec<f64>>,
 }
 
 impl VECM {
@@ -429,31 +456,681 @@ impl VECM {
             gamma_matrices: Vec::new(),
             beta: None,
             alpha: None,
+            last_obs: Vec::new(),
+            last_deltas: Vec::new(),
         }
     }
 
     /// Fit VECM to data
-    pub fn fit(&mut self, _series: &[TimeSeries]) -> Result<()> {
-        // TODO: Implement VECM estimation
-        // 1. Estimate unrestricted VAR
-        // 2. Impose cointegrating rank restriction
-        // 3. Estimate α and β using Johansen procedure
-        // 4. Estimate Γ matrices
+    ///
+    /// Estimation procedure:
+    /// 1. Compute first differences Δy
+    /// 2. Estimate unrestricted VAR(p-1) in differences via OLS on each equation
+    ///    — build lagged-difference design matrix, solve normal equations
+    /// 3. Compute long-run impact matrix Π = αβ' from residual structure using SVD:
+    ///    stack the OLS coefficient sum A(1) = I - Σ A_i, then factor via Jacobi SVD
+    ///    to obtain the rank-r approximation β (right singular vectors) and α
+    /// 4. Store fitted matrices
+    pub fn fit(&mut self, series: &[TimeSeries]) -> Result<()> {
+        let k = series.len();
+        if k == 0 {
+            return Err(torsh_core::error::TorshError::InvalidArgument(
+                "Need at least one series for VECM fit".to_string(),
+            ));
+        }
+        if self.rank == 0 || self.rank > k {
+            return Err(torsh_core::error::TorshError::InvalidArgument(format!(
+                "Cointegrating rank must be in 1..={k}, got {}",
+                self.rank
+            )));
+        }
+
+        // Convert each series to Vec<f64>
+        let mut data: Vec<Vec<f64>> = Vec::with_capacity(k);
+        for s in series {
+            let vals = s.values.to_vec()?;
+            data.push(vals.iter().map(|&v| v as f64).collect());
+        }
+
+        let n = data[0].len();
+        for d in &data {
+            if d.len() != n {
+                return Err(torsh_core::error::TorshError::InvalidArgument(
+                    "All series must have the same length".to_string(),
+                ));
+            }
+        }
+
+        let p = self.lags;
+        if n <= p + 1 {
+            return Err(torsh_core::error::TorshError::InvalidArgument(
+                "Not enough observations for the specified lag order".to_string(),
+            ));
+        }
+
+        // Compute first differences: delta[j][t] = data[j][t+1] - data[j][t], t=0..n-2
+        let t_diff = n - 1; // number of differenced observations
+        let delta: Vec<Vec<f64>> = (0..k)
+            .map(|j| (0..t_diff).map(|t| data[j][t + 1] - data[j][t]).collect())
+            .collect();
+
+        // Reorder to align: we use t = p..t_diff as effective sample
+        //   dependent:   delta_t  for t in p..t_diff
+        //   regressors:  delta_{t-1}, ..., delta_{t-(p-1)}  (p-1 lags of differences)
+        //                y_{t-1}  (levels lag for ECT)
+        // For simplicity we build the VAR(p-1) in differences for the Γ matrices, then
+        // compute the level-lag coefficient matrix for Π.
+        let t_eff = t_diff - p; // effective sample after consuming p lags
+        if t_eff < k + 1 {
+            return Err(torsh_core::error::TorshError::InvalidArgument(
+                "Effective sample too small after consuming lags".to_string(),
+            ));
+        }
+
+        // Build the OLS design matrix for each equation:
+        //   columns: [1, delta_{t-1}_1, ..., delta_{t-1}_k, delta_{t-2}_1, ...,
+        //             delta_{t-(p-1)}_k, y_{t-1}_1, ..., y_{t-1}_k]
+        // Number of regressors: 1 + k*(p-1) + k = 1 + k*p
+        let n_reg = 1 + k * p; // intercept + k*(p-1) diff lags + k level lags
+                               // Build regressor matrix row by row; row index s corresponds to time t = p + s
+        let mut reg_matrix: Vec<Vec<f64>> = Vec::with_capacity(t_eff);
+        for s in 0..t_eff {
+            let t = p + s; // time index in delta array (0-based)
+            let mut row = vec![1.0_f64]; // intercept
+                                         // Lagged differences: lags 1..p-1
+            for lag in 1..p {
+                for j in 0..k {
+                    let idx = t.checked_sub(lag).unwrap_or(0);
+                    row.push(if idx < delta[j].len() {
+                        delta[j][idx]
+                    } else {
+                        0.0
+                    });
+                }
+            }
+            // Level lag y_{t-1} — t in delta corresponds to original index t+1,
+            // so y_{t-1} in original = data[j][t] (0-based)
+            for j in 0..k {
+                row.push(data[j][t]);
+            }
+            reg_matrix.push(row);
+        }
+
+        // Solve OLS for each dependent variable using normal equations
+        // coef_matrix[j] = coefficient vector (length n_reg) for variable j
+        let mut coef_matrix: Vec<Vec<f64>> = Vec::with_capacity(k);
+        let mut residual_matrix: Vec<Vec<f64>> = (0..k).map(|_| vec![0.0_f64; t_eff]).collect();
+
+        for j in 0..k {
+            let y_dep: Vec<f64> = (0..t_eff).map(|s| delta[j][p + s]).collect();
+            match ols_multivariate(&reg_matrix, &y_dep) {
+                Some(coef) => {
+                    // Compute residuals
+                    for s in 0..t_eff {
+                        let fitted: f64 = coef
+                            .iter()
+                            .zip(reg_matrix[s].iter())
+                            .map(|(c, x)| c * x)
+                            .sum();
+                        residual_matrix[j][s] = y_dep[s] - fitted;
+                    }
+                    coef_matrix.push(coef);
+                }
+                None => {
+                    // Singular: zero coefficients, residuals = y
+                    coef_matrix.push(vec![0.0_f64; n_reg]);
+                    for s in 0..t_eff {
+                        residual_matrix[j][s] = delta[j][p + s];
+                    }
+                }
+            }
+        }
+
+        // Extract Γ matrices (short-run coefficients) from coef_matrix
+        // Γ_i is k×k matrix of coefficients for lag i of Δy
+        // coef layout: [intercept, diff_lag_1 (k cols), diff_lag_2 (k cols), ..., level_lag (k cols)]
+        let mut gamma_matrices: Vec<Array2<f64>> = Vec::new();
+        for lag in 0..(p.saturating_sub(1)) {
+            let col_start = 1 + lag * k;
+            let mut gamma = Array2::zeros((k, k));
+            for j in 0..k {
+                for m in 0..k {
+                    gamma[[j, m]] = coef_matrix[j][col_start + m];
+                }
+            }
+            gamma_matrices.push(gamma);
+        }
+
+        // Extract long-run level coefficients → form Π (k×k)
+        // Level-lag columns start at: 1 + (p-1)*k
+        let level_start = 1 + (p.saturating_sub(1)) * k;
+        let mut pi_flat: Vec<f64> = vec![0.0_f64; k * k];
+        for j in 0..k {
+            for m in 0..k {
+                pi_flat[j * k + m] = if level_start + m < coef_matrix[j].len() {
+                    coef_matrix[j][level_start + m]
+                } else {
+                    0.0
+                };
+            }
+        }
+
+        // Factor Π ≈ α β' using rank-r SVD via Jacobi decomposition on Π'Π
+        // Π is k×k; result: alpha is k×r, beta is k×r
+        let pi_mat: Vec<Vec<f64>> = (0..k)
+            .map(|j| pi_flat[j * k..(j + 1) * k].to_vec())
+            .collect();
+        let (u_mat, sigma, v_mat) = svd_small(&pi_mat, self.rank);
+
+        // α = U * Σ  (k×r),  β = V  (k×r)
+        let mut alpha_arr = Array2::zeros((k, self.rank));
+        let mut beta_arr = Array2::zeros((k, self.rank));
+        let mut pi_arr = Array2::zeros((k, k));
+
+        for j in 0..k {
+            for r in 0..self.rank {
+                alpha_arr[[j, r]] = u_mat[j][r] * sigma[r];
+                beta_arr[[j, r]] = v_mat[j][r];
+            }
+            for m in 0..k {
+                pi_arr[[j, m]] = pi_flat[j * k + m];
+            }
+        }
+
+        self.alpha = Some(alpha_arr);
+        self.beta = Some(beta_arr);
+        self.pi_matrix = Some(pi_arr);
+        self.gamma_matrices = gamma_matrices;
+
+        // Store last p levels and last p differences for forecast() initialisation.
+        // last_obs[0] = y_{T} (most recent level), last_obs[1] = y_{T-1}, etc.
+        // last_deltas[0] = Δy_{T} (most recent difference), etc.
+        let last_p = p.max(1);
+        self.last_obs = (0..last_p)
+            .map(|lag| {
+                // original index of y for lag `lag` back: n-1-lag
+                let idx = n.saturating_sub(1 + lag);
+                (0..k).map(|j| data[j][idx]).collect()
+            })
+            .collect();
+        self.last_deltas = (0..last_p)
+            .map(|lag| {
+                // delta[j][t_diff-1-lag] where t_diff = n-1
+                let idx = t_diff.saturating_sub(1 + lag);
+                (0..k)
+                    .map(|j| {
+                        if idx < delta[j].len() {
+                            delta[j][idx]
+                        } else {
+                            0.0
+                        }
+                    })
+                    .collect()
+            })
+            .collect();
+
         Ok(())
     }
 
-    /// Forecast using VECM
-    pub fn forecast(&self, _steps: usize) -> Result<Vec<TimeSeries>> {
-        // TODO: Implement VECM forecasting
-        Ok(vec![])
+    /// Forecast using VECM recursion
+    ///
+    /// Uses VECM form:
+    ///   Δy_t = c + α β' y_{t-1} + Σ_i Γ_i Δy_{t-i} + ε
+    ///
+    /// Initialises from the last observed level and differences and iterates
+    /// forward for `steps` periods. Returns one TimeSeries per variable.
+    pub fn forecast(&self, steps: usize) -> Result<Vec<TimeSeries>> {
+        use torsh_tensor::Tensor;
+        let pi = self.pi_matrix.as_ref().ok_or_else(|| {
+            torsh_core::error::TorshError::NotImplemented("VECM not fitted".to_string())
+        })?;
+        let k = pi.shape()[0];
+
+        // Initialise from the last observed values stored during fit().
+        // If fit() has not been called (last_obs empty), fall back to zero-level initialisation.
+        let mut y_level = if self.last_obs.is_empty() {
+            vec![0.0_f64; k]
+        } else {
+            self.last_obs[0].clone() // most recent level y_T
+        };
+        let p = self.lags;
+        let mut delta_history: Vec<Vec<f64>> = if self.last_deltas.is_empty() {
+            vec![vec![0.0_f64; k]; p.max(1)]
+        } else {
+            // last_deltas[0] = Δy_T (most recent), reverse so oldest is first in ring buffer
+            let mut h: Vec<Vec<f64>> = self.last_deltas.iter().cloned().rev().collect();
+            h.truncate(p.max(1));
+            while h.len() < p.max(1) {
+                h.insert(0, vec![0.0_f64; k]);
+            }
+            h
+        };
+
+        // Collect paths per variable
+        let mut paths: Vec<Vec<f64>> = (0..k).map(|_| Vec::with_capacity(steps)).collect();
+
+        for _step in 0..steps {
+            // Compute Δy = c + Π y_{t-1} + Σ Γ_i Δy_{t-i}
+            let mut delta_new = vec![0.0_f64; k];
+
+            // Π y_{t-1}
+            for j in 0..k {
+                for m in 0..k {
+                    delta_new[j] += pi[[j, m]] * y_level[m];
+                }
+            }
+
+            // Γ_i Δy_{t-i}
+            for (i, gamma) in self.gamma_matrices.iter().enumerate() {
+                let hist_idx = delta_history.len().saturating_sub(i + 1);
+                let lag_delta = if hist_idx < delta_history.len() {
+                    &delta_history[hist_idx]
+                } else {
+                    continue;
+                };
+                for j in 0..k {
+                    for m in 0..k {
+                        delta_new[j] += gamma[[j, m]] * lag_delta[m];
+                    }
+                }
+            }
+
+            // y_t = y_{t-1} + Δy
+            let y_new: Vec<f64> = y_level
+                .iter()
+                .zip(delta_new.iter())
+                .map(|(y, d)| y + d)
+                .collect();
+
+            for j in 0..k {
+                paths[j].push(y_new[j]);
+            }
+
+            delta_history.push(delta_new);
+            if delta_history.len() > p {
+                delta_history.remove(0);
+            }
+            y_level = y_new;
+        }
+
+        // Convert paths to TimeSeries
+        let result: Result<Vec<_>> = paths
+            .into_iter()
+            .map(|path| {
+                let n = path.len();
+                let f32_path: Vec<f32> = path.iter().map(|&v| v as f32).collect();
+                Tensor::from_vec(f32_path, &[n])
+                    .map(TimeSeries::new)
+                    .map_err(|e| torsh_core::error::TorshError::InvalidArgument(e.to_string()))
+            })
+            .collect();
+        result
     }
 
     /// Impulse response functions
-    pub fn impulse_response(&self, _periods: usize) -> Result<Vec<Array2<f64>>> {
-        // TODO: Implement IRF for VECM
-        Ok(vec![])
+    ///
+    /// Computes MA(∞) coefficient matrices Φ_h for h = 0..n_periods where
+    /// `Φ_h[i,j]` is the response of variable i at horizon h to a unit shock in
+    /// variable j at h=0. Uses the VECM companion-form recursion.
+    ///
+    /// Returns one k×k Array2 per horizon (n_periods+1 matrices total).
+    pub fn impulse_response(&self, periods: usize) -> Result<Vec<Array2<f64>>> {
+        let pi = self.pi_matrix.as_ref().ok_or_else(|| {
+            torsh_core::error::TorshError::NotImplemented("VECM not fitted".to_string())
+        })?;
+        let k = pi.shape()[0];
+        let p = self.lags;
+
+        // Build the level-form companion VAR coefficient matrix A_comp
+        // for the companion system of dimension k*p:
+        //   A_comp = I + Π  (first k×k block, from VECM → VAR(1) transformation)
+        //          + Γ_1 ... Γ_{p-1} in remaining columns
+        // Full companion matrix is k*p × k*p
+        let kp = k * p;
+        let mut a_comp: Vec<Vec<f64>> = vec![vec![0.0_f64; kp]; kp];
+
+        // First k rows: A_1 = I + Π + Γ_1, A_2 = Γ_2 - Γ_1, etc. (VECM→VAR conversion)
+        // Simplified companion: use A_i directly from the VAR representation A(L) = I - Π
+        // A_1 = I + Π + Γ_1, A_i = Γ_i - Γ_{i-1} for 1<i<p, A_p = -Γ_{p-1}
+        // For i-th lag block (0-indexed), the VAR coefficient is:
+        //   A_1 = I + Π + (Γ_1 if p>1 else 0)
+        //   A_i (1<i<p) = Γ_i - Γ_{i-1}  (using 1-indexed Γ)
+        //   A_p = -Γ_{p-1}
+        for j in 0..k {
+            for m in 0..k {
+                // A_1 block: I + Π
+                let pi_val = pi[[j, m]];
+                let i_val = if j == m { 1.0_f64 } else { 0.0_f64 };
+                let gamma1_val = if !self.gamma_matrices.is_empty() {
+                    self.gamma_matrices[0][[j, m]]
+                } else {
+                    0.0
+                };
+                a_comp[j][m] = i_val + pi_val + gamma1_val;
+
+                // A_2..A_{p-1} blocks
+                for lag in 1..(p.saturating_sub(1)) {
+                    let g_curr = if lag < self.gamma_matrices.len() {
+                        self.gamma_matrices[lag][[j, m]]
+                    } else {
+                        0.0
+                    };
+                    let g_prev = self.gamma_matrices[lag - 1][[j, m]];
+                    a_comp[j][m + (lag) * k] = g_curr - g_prev;
+                }
+
+                // A_p block: -Γ_{p-1}
+                if p > 1 {
+                    let g_last = if p - 2 < self.gamma_matrices.len() {
+                        self.gamma_matrices[p - 2][[j, m]]
+                    } else {
+                        0.0
+                    };
+                    a_comp[j][m + (p - 1) * k] = -g_last;
+                }
+            }
+        }
+
+        // Identity block in companion: rows k..kp, col -(k) shift
+        for j in k..kp {
+            if j - k < kp {
+                a_comp[j][j - k] = 1.0;
+            }
+        }
+
+        // Impulse responses: iterate Φ_h = A_comp^h applied to e_j for each shock
+        // We accumulate Φ_h matrices (k×k) by repeated companion multiplication.
+        // State vector is kp-dimensional; extract top-k rows for responses.
+        let mut irf: Vec<Array2<f64>> = Vec::with_capacity(periods + 1);
+
+        // Φ_0 = I (contemporaneous unit shock identity for the k variables)
+        let phi0 = Array2::eye(k);
+        irf.push(phi0);
+
+        // State matrix: columns are unit shocks; rows track kp-dimensional companion state
+        // We use kp × k matrix; each column is a companion-space state for one shock
+        let mut state: Vec<Vec<f64>> = vec![vec![0.0_f64; k]; kp];
+        // Initialise: top-k rows = I_k (unit shocks), rest zero
+        for j in 0..k {
+            state[j][j] = 1.0;
+        }
+
+        for _h in 0..periods {
+            // state_new = A_comp * state
+            let mut state_new: Vec<Vec<f64>> = vec![vec![0.0_f64; k]; kp];
+            for row in 0..kp {
+                for col in 0..k {
+                    let val: f64 = (0..kp).map(|c| a_comp[row][c] * state[c][col]).sum();
+                    state_new[row][col] = val;
+                }
+            }
+            // Extract top k rows → Φ_{h+1} (k×k)
+            let mut phi_h = Array2::zeros((k, k));
+            for j in 0..k {
+                for m in 0..k {
+                    phi_h[[j, m]] = state_new[j][m];
+                }
+            }
+            irf.push(phi_h);
+            state = state_new;
+        }
+
+        Ok(irf)
     }
 }
+
+// ─── Local matrix utilities (pure Rust, no external deps) ──────────────────
+
+/// Solve 3×3 linear system A x = b via Gauss-Jordan with partial pivoting.
+/// Returns `None` if the matrix is singular (max pivot < 1e-12).
+fn solve_3x3(a: &[[f64; 3]; 3], b: &[f64; 3]) -> Option<[f64; 3]> {
+    let mut aug = [[0.0_f64; 4]; 3];
+    for i in 0..3 {
+        aug[i][0] = a[i][0];
+        aug[i][1] = a[i][1];
+        aug[i][2] = a[i][2];
+        aug[i][3] = b[i];
+    }
+    for col in 0..3 {
+        // Partial pivot
+        let max_row = (col..3)
+            .max_by(|&r1, &r2| {
+                aug[r1][col]
+                    .abs()
+                    .partial_cmp(&aug[r2][col].abs())
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .unwrap_or(col);
+        aug.swap(col, max_row);
+        let pivot = aug[col][col];
+        if pivot.abs() < 1e-12 {
+            return None;
+        }
+        // Scale pivot row
+        let inv_pivot = 1.0 / pivot;
+        for k in col..4 {
+            aug[col][k] *= inv_pivot;
+        }
+        // Eliminate column in all other rows
+        for row in 0..3 {
+            if row == col {
+                continue;
+            }
+            let factor = aug[row][col];
+            for k in col..4 {
+                aug[row][k] -= factor * aug[col][k];
+            }
+        }
+    }
+    Some([aug[0][3], aug[1][3], aug[2][3]])
+}
+
+/// Solve n×n linear system A x = b via Gauss-Jordan with partial pivoting.
+/// Returns `None` if the matrix is singular (max pivot < 1e-12).
+fn solve_linear_system(a: &[Vec<f64>], b: &[f64]) -> Option<Vec<f64>> {
+    let n = b.len();
+    debug_assert_eq!(a.len(), n);
+    // Build augmented matrix [A | b]
+    let mut aug: Vec<Vec<f64>> = a
+        .iter()
+        .zip(b.iter())
+        .map(|(row, &rhs)| {
+            let mut r = row.clone();
+            r.push(rhs);
+            r
+        })
+        .collect();
+
+    for col in 0..n {
+        // Partial pivot
+        let max_row = (col..n)
+            .max_by(|&r1, &r2| {
+                aug[r1][col]
+                    .abs()
+                    .partial_cmp(&aug[r2][col].abs())
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .unwrap_or(col);
+        aug.swap(col, max_row);
+        let pivot = aug[col][col];
+        if pivot.abs() < 1e-12 {
+            return None;
+        }
+        let inv_pivot = 1.0 / pivot;
+        for k in col..=n {
+            aug[col][k] *= inv_pivot;
+        }
+        for row in 0..n {
+            if row == col {
+                continue;
+            }
+            let factor = aug[row][col];
+            for k in col..=n {
+                aug[row][k] -= factor * aug[col][k];
+            }
+        }
+    }
+    Some((0..n).map(|i| aug[i][n]).collect())
+}
+
+/// Solve normal equations (X'X) β = X'y using `solve_linear_system`.
+/// `x_rows` is a list of row vectors (design matrix rows).
+/// Returns the coefficient vector or `None` if singular.
+fn ols_multivariate(x_rows: &[Vec<f64>], y: &[f64]) -> Option<Vec<f64>> {
+    let n_obs = x_rows.len();
+    debug_assert_eq!(y.len(), n_obs);
+    if n_obs == 0 {
+        return None;
+    }
+    let n_reg = x_rows[0].len();
+    // Build X'X and X'y
+    let mut xtx: Vec<Vec<f64>> = vec![vec![0.0_f64; n_reg]; n_reg];
+    let mut xty: Vec<f64> = vec![0.0_f64; n_reg];
+    for (row, &yi) in x_rows.iter().zip(y.iter()) {
+        for j in 0..n_reg {
+            for k in 0..n_reg {
+                xtx[j][k] += row[j] * row[k];
+            }
+            xty[j] += row[j] * yi;
+        }
+    }
+    solve_linear_system(&xtx, &xty)
+}
+
+/// One-sided Jacobi sweep on a symmetric matrix to compute eigenvalues/vectors.
+/// Returns `(eigenvalues, eigenvectors)` after up to `max_iter` sweeps.
+/// Eigenvalues are sorted descending by magnitude.
+fn jacobi_eig_symmetric(mat: &[Vec<f64>], max_iter: usize) -> (Vec<f64>, Vec<Vec<f64>>) {
+    let n = mat.len();
+    let mut a: Vec<Vec<f64>> = mat.to_vec();
+    // Identity eigenvector matrix
+    let mut v: Vec<Vec<f64>> = (0..n)
+        .map(|i| (0..n).map(|j| if i == j { 1.0 } else { 0.0 }).collect())
+        .collect();
+
+    for _ in 0..max_iter {
+        // Find max off-diagonal
+        let mut max_val = 0.0_f64;
+        let mut p = 0;
+        let mut q = 1;
+        for i in 0..n {
+            for j in (i + 1)..n {
+                if a[i][j].abs() > max_val {
+                    max_val = a[i][j].abs();
+                    p = i;
+                    q = j;
+                }
+            }
+        }
+        if max_val < 1e-14 {
+            break;
+        }
+        // Compute Jacobi rotation angle
+        let theta = if (a[p][p] - a[q][q]).abs() < 1e-15 {
+            std::f64::consts::FRAC_PI_4
+        } else {
+            0.5 * ((2.0 * a[p][q]) / (a[p][p] - a[q][q])).atan()
+        };
+        let cos_t = theta.cos();
+        let sin_t = theta.sin();
+
+        // Apply Jacobi rotation J' A J
+        let a_pp = a[p][p];
+        let a_qq = a[q][q];
+        let a_pq = a[p][q];
+        a[p][p] = cos_t * cos_t * a_pp + 2.0 * cos_t * sin_t * a_pq + sin_t * sin_t * a_qq;
+        a[q][q] = sin_t * sin_t * a_pp - 2.0 * cos_t * sin_t * a_pq + cos_t * cos_t * a_qq;
+        a[p][q] = 0.0;
+        a[q][p] = 0.0;
+        for r in 0..n {
+            if r == p || r == q {
+                continue;
+            }
+            let a_rp = a[r][p];
+            let a_rq = a[r][q];
+            a[r][p] = cos_t * a_rp + sin_t * a_rq;
+            a[p][r] = a[r][p];
+            a[r][q] = -sin_t * a_rp + cos_t * a_rq;
+            a[q][r] = a[r][q];
+        }
+        // Update eigenvector matrix
+        for r in 0..n {
+            let v_rp = v[r][p];
+            let v_rq = v[r][q];
+            v[r][p] = cos_t * v_rp + sin_t * v_rq;
+            v[r][q] = -sin_t * v_rp + cos_t * v_rq;
+        }
+    }
+
+    // Collect and sort eigenvalues descending by magnitude
+    let mut pairs: Vec<(f64, usize)> = (0..n).map(|i| (a[i][i], i)).collect();
+    pairs.sort_by(|(a, _), (b, _)| {
+        b.abs()
+            .partial_cmp(&a.abs())
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    let eigenvalues: Vec<f64> = pairs.iter().map(|&(ev, _)| ev).collect();
+    let eigenvectors: Vec<Vec<f64>> = pairs
+        .iter()
+        .map(|&(_, idx)| (0..n).map(|r| v[r][idx]).collect())
+        .collect();
+    (eigenvalues, eigenvectors)
+}
+
+/// Compute the thin SVD of a k×k matrix `a`, returning at most `rank`
+/// singular values and vectors. Uses Jacobi eigen-decomposition on A'A.
+/// Returns `(U, sigma, V)` where U is k×r, sigma is r-vec, V is k×r.
+fn svd_small(a: &[Vec<f64>], rank: usize) -> (Vec<Vec<f64>>, Vec<f64>, Vec<Vec<f64>>) {
+    let k = a.len();
+    if k == 0 {
+        return (vec![], vec![], vec![]);
+    }
+    let r = rank.min(k);
+
+    // Compute A'A (k×k symmetric)
+    let mut ata: Vec<Vec<f64>> = vec![vec![0.0_f64; k]; k];
+    for i in 0..k {
+        for j in 0..k {
+            for row in 0..k {
+                ata[i][j] += a[row][i] * a[row][j];
+            }
+        }
+    }
+
+    let max_jacobi = 200 * k;
+    let (eigenvalues, v_cols) = jacobi_eig_symmetric(&ata, max_jacobi);
+
+    // sigma_i = sqrt(max(0, eigenvalue_i))
+    let sigma: Vec<f64> = eigenvalues[..r]
+        .iter()
+        .map(|&ev| ev.max(0.0).sqrt())
+        .collect();
+
+    // V matrix (k×r): columns are right singular vectors
+    let v_mat: Vec<Vec<f64>> = (0..k)
+        .map(|row| (0..r).map(|col| v_cols[col][row]).collect())
+        .collect();
+
+    // U_i = A V_i / sigma_i  (with fallback for zero singular values)
+    let mut u_mat: Vec<Vec<f64>> = vec![vec![0.0_f64; r]; k];
+    for col in 0..r {
+        if sigma[col] < 1e-14 {
+            // Zero singular value — set corresponding left vector to zero
+            continue;
+        }
+        let inv_s = 1.0 / sigma[col];
+        // Compute A * v_col
+        for row in 0..k {
+            let av: f64 = (0..k).map(|m| a[row][m] * v_cols[col][m]).sum();
+            u_mat[row][col] = av * inv_s;
+        }
+    }
+
+    (u_mat, sigma, v_mat)
+}
+
+// ─── Tests ──────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
@@ -478,8 +1155,8 @@ mod tests {
             y_data.push(2.0 * x_val + error);
         }
 
-        let x_tensor = Tensor::from_vec(x_data, &[n]).unwrap();
-        let y_tensor = Tensor::from_vec(y_data, &[n]).unwrap();
+        let x_tensor = Tensor::from_vec(x_data, &[n]).expect("x tensor");
+        let y_tensor = Tensor::from_vec(y_data, &[n]).expect("y tensor");
 
         (TimeSeries::new(y_tensor), TimeSeries::new(x_tensor))
     }
@@ -501,8 +1178,8 @@ mod tests {
             y_data.push(y_val);
         }
 
-        let x_tensor = Tensor::from_vec(x_data, &[n]).unwrap();
-        let y_tensor = Tensor::from_vec(y_data, &[n]).unwrap();
+        let x_tensor = Tensor::from_vec(x_data, &[n]).expect("x tensor");
+        let y_tensor = Tensor::from_vec(y_data, &[n]).expect("y tensor");
 
         (TimeSeries::new(y_tensor), TimeSeries::new(x_tensor))
     }
@@ -510,7 +1187,7 @@ mod tests {
     #[test]
     fn test_engle_granger_cointegrated() {
         let (y, x) = create_cointegrated_series();
-        let result = engle_granger_test(&y, &x, "c").unwrap();
+        let result = engle_granger_test(&y, &x, "c").expect("engle granger test");
 
         // Should detect cointegration
         assert!(
@@ -531,7 +1208,7 @@ mod tests {
     #[test]
     fn test_engle_granger_not_cointegrated() {
         let (y, x) = create_non_cointegrated_series();
-        let result = engle_granger_test(&y, &x, "c").unwrap();
+        let result = engle_granger_test(&y, &x, "c").expect("engle granger test");
 
         // Test should run without error
         assert!(result.cointegrating_vector.len() == 2);
@@ -543,15 +1220,15 @@ mod tests {
         let (y, x) = create_cointegrated_series();
 
         // Test with constant only
-        let result_c = engle_granger_test(&y, &x, "c").unwrap();
+        let result_c = engle_granger_test(&y, &x, "c").expect("constant test");
         assert!(result_c.cointegrating_vector.len() == 2);
 
         // Test with constant and trend
-        let result_ct = engle_granger_test(&y, &x, "ct").unwrap();
+        let result_ct = engle_granger_test(&y, &x, "ct").expect("constant+trend test");
         assert!(result_ct.cointegrating_vector.len() == 2);
 
         // Test with no constant
-        let result_nc = engle_granger_test(&y, &x, "nc").unwrap();
+        let result_nc = engle_granger_test(&y, &x, "nc").expect("no-constant test");
         assert!(result_nc.cointegrating_vector.len() == 2);
     }
 
@@ -560,7 +1237,7 @@ mod tests {
         let (y, x) = create_cointegrated_series();
         let series = vec![y, x];
 
-        let result = johansen_test(&series, 1).unwrap();
+        let result = johansen_test(&series, 1).expect("johansen test");
 
         // Should return result structure
         assert!(!result.trace_statistics.is_empty());
@@ -611,5 +1288,148 @@ mod tests {
         // 1% critical value should be more negative than 5%
         assert!(cv_100.cv_1pct < cv_100.cv_5pct);
         assert!(cv_100.cv_5pct < cv_100.cv_10pct);
+    }
+
+    #[test]
+    fn test_ols_regression_with_trend() {
+        // Synthetic: y_i = 1 + 2*x_i + 0.5*i  (exact, no noise)
+        // x must NOT be a linear function of i to avoid perfect collinearity.
+        // Use x_i = sin(i) + 3 so that x and t=i are not collinear.
+        let n = 30usize;
+        let x: Vec<f32> = (0..n).map(|i| (i as f32).sin() + 3.0).collect();
+        let y: Vec<f32> = (0..n)
+            .map(|i| 1.0 + 2.0 * x[i] + 0.5 * (i as f32))
+            .collect();
+
+        let (alpha, beta, residuals) = ols_regression_with_trend(&y, &x);
+
+        assert!(
+            (alpha - 1.0).abs() < 1.0,
+            "alpha should be ~1.0, got {alpha}"
+        );
+        assert!((beta - 2.0).abs() < 0.5, "beta should be ~2.0, got {beta}");
+        let max_res = residuals.iter().map(|&r| r.abs()).fold(0.0_f64, f64::max);
+        assert!(max_res < 1.0, "max residual should be small, got {max_res}");
+    }
+
+    #[test]
+    fn test_solve_3x3_identity() {
+        let a = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
+        let b = [3.0, 5.0, 7.0];
+        let sol = solve_3x3(&a, &b).expect("identity system should be solvable");
+        assert!((sol[0] - 3.0).abs() < 1e-10);
+        assert!((sol[1] - 5.0).abs() < 1e-10);
+        assert!((sol[2] - 7.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_solve_3x3_singular_returns_none() {
+        // Singular: row 2 = row 1
+        let a = [[1.0, 2.0, 3.0], [1.0, 2.0, 3.0], [0.0, 0.0, 1.0]];
+        let b = [1.0, 2.0, 3.0];
+        assert!(solve_3x3(&a, &b).is_none());
+    }
+
+    #[test]
+    fn test_jacobi_eig_2x2() {
+        // Known: [[2, 1], [1, 2]] has eigenvalues 3, 1
+        let mat = vec![vec![2.0, 1.0], vec![1.0, 2.0]];
+        let (eigenvalues, _) = jacobi_eig_symmetric(&mat, 100);
+        assert_eq!(eigenvalues.len(), 2);
+        // Sorted descending by magnitude: 3 first, then 1
+        assert!(
+            (eigenvalues[0] - 3.0).abs() < 1e-10,
+            "expected 3.0, got {}",
+            eigenvalues[0]
+        );
+        assert!(
+            (eigenvalues[1] - 1.0).abs() < 1e-10,
+            "expected 1.0, got {}",
+            eigenvalues[1]
+        );
+    }
+
+    #[test]
+    fn test_svd_small_rank1() {
+        // Rank-1 matrix: A = u * v' where u=[1,0], v=[1,0] → sigma=1
+        let a = vec![vec![1.0, 0.0], vec![0.0, 0.0]];
+        let (u, sigma, v) = svd_small(&a, 1);
+        assert_eq!(sigma.len(), 1);
+        assert!(
+            (sigma[0] - 1.0).abs() < 1e-6,
+            "singular value should be ~1.0, got {}",
+            sigma[0]
+        );
+        assert_eq!(u.len(), 2);
+        assert_eq!(v.len(), 2);
+    }
+
+    fn create_vecm_test_series() -> Vec<TimeSeries> {
+        // Two cointegrated random walks: y2_t = 2*y1_t + stationary noise
+        let n = 60usize;
+        let mut y1_data = Vec::with_capacity(n);
+        let mut y2_data = Vec::with_capacity(n);
+        let mut level = 10.0_f32;
+        for i in 0..n {
+            level += ((i % 3) as f32 - 1.0) * 0.5;
+            y1_data.push(level);
+            y2_data.push(2.0 * level + ((i % 5) as f32 - 2.0) * 0.1);
+        }
+        let t1 = Tensor::from_vec(y1_data, &[n]).expect("tensor y1");
+        let t2 = Tensor::from_vec(y2_data, &[n]).expect("tensor y2");
+        vec![TimeSeries::new(t1), TimeSeries::new(t2)]
+    }
+
+    #[test]
+    fn test_vecm_fit_basic() {
+        let series = create_vecm_test_series();
+        let mut vecm = VECM::new(2, 1);
+        vecm.fit(&series).expect("fit should succeed");
+        assert!(
+            vecm.pi_matrix.is_some(),
+            "pi_matrix should be set after fit"
+        );
+        assert!(vecm.alpha.is_some(), "alpha should be set after fit");
+        assert!(vecm.beta.is_some(), "beta should be set after fit");
+        let pi = vecm.pi_matrix.as_ref().expect("pi");
+        assert_eq!(pi.shape(), [2, 2]);
+    }
+
+    #[test]
+    fn test_vecm_forecast_shape() {
+        let series = create_vecm_test_series();
+        let mut vecm = VECM::new(2, 1);
+        vecm.fit(&series).expect("fit should succeed");
+        let steps = 10;
+        let forecasts = vecm.forecast(steps).expect("forecast should succeed");
+        assert_eq!(forecasts.len(), 2, "should return one series per variable");
+        for ts in &forecasts {
+            assert_eq!(ts.len(), steps, "each series should have {steps} points");
+        }
+    }
+
+    #[test]
+    fn test_vecm_impulse_response_shape() {
+        let series = create_vecm_test_series();
+        let mut vecm = VECM::new(2, 1);
+        vecm.fit(&series).expect("fit should succeed");
+        let periods = 5;
+        let irf = vecm.impulse_response(periods).expect("irf should succeed");
+        assert_eq!(
+            irf.len(),
+            periods + 1,
+            "should have periods+1 matrices (including h=0)"
+        );
+        for (h, phi) in irf.iter().enumerate() {
+            assert_eq!(phi.shape(), [2, 2], "matrix at h={h} should be 2x2");
+        }
+    }
+
+    #[test]
+    fn test_vecm_fit_invalid_rank() {
+        let series = create_vecm_test_series();
+        // rank > k should fail
+        let mut vecm = VECM::new(2, 5);
+        assert!(vecm.fit(&series).is_err());
     }
 }

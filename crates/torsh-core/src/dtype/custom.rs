@@ -45,18 +45,30 @@ pub trait CustomTensorElement: TensorElement + Any + Send + Sync {
         Self: Sized;
 
     /// Serialize the value to bytes
+    ///
+    /// The default implementation returns an error; types that derive
+    /// `serde::Serialize` should override this method and call
+    /// `oxicode::serde::encode_to_vec(self, oxicode::config::standard())`.
     fn serialize(&self) -> Result<Vec<u8>, String> {
-        // Default implementation using standard library serialization
-        Err("Serialization not implemented for this type".to_string())
+        Err(
+            "Serialization not implemented: override this method or derive serde::Serialize"
+                .to_string(),
+        )
     }
 
     /// Deserialize from bytes
+    ///
+    /// The default implementation returns an error; types that derive
+    /// `serde::Deserialize` should override this method and call
+    /// `oxicode::serde::decode_from_slice(bytes, oxicode::config::standard())`.
     fn deserialize(_data: &[u8]) -> Result<Self, String>
     where
         Self: Sized,
     {
-        // Default implementation
-        Err("Deserialization not implemented for this type".to_string())
+        Err(
+            "Deserialization not implemented: override this method or derive serde::Deserialize"
+                .to_string(),
+        )
     }
 
     /// Get a human-readable string representation
@@ -316,6 +328,7 @@ macro_rules! impl_custom_tensor_element {
 
 /// Example implementation of a custom 16-bit integer type with special semantics
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct CustomInt16 {
     pub value: i16,
     pub metadata: u8, // Additional metadata bits
@@ -396,21 +409,39 @@ impl CustomTensorElement for CustomInt16 {
     }
 
     fn serialize(&self) -> Result<Vec<u8>, String> {
-        let mut bytes = Vec::with_capacity(3);
-        bytes.extend_from_slice(&self.value.to_le_bytes());
-        bytes.push(self.metadata);
-        Ok(bytes)
+        #[cfg(feature = "serialize")]
+        {
+            use oxicode;
+            oxicode::serde::encode_to_vec(self, oxicode::config::standard())
+                .map_err(|e| format!("oxicode serialization error: {}", e))
+        }
+        #[cfg(not(feature = "serialize"))]
+        {
+            // Fallback: compact 3-byte little-endian representation.
+            let mut bytes = Vec::with_capacity(3);
+            bytes.extend_from_slice(&self.value.to_le_bytes());
+            bytes.push(self.metadata);
+            Ok(bytes)
+        }
     }
 
     fn deserialize(data: &[u8]) -> Result<Self, String> {
-        if data.len() != 3 {
-            return Err("CustomInt16 requires exactly 3 bytes".to_string());
+        #[cfg(feature = "serialize")]
+        {
+            use oxicode;
+            let (value, _) = oxicode::serde::decode_from_slice(data, oxicode::config::standard())
+                .map_err(|e| format!("oxicode deserialization error: {}", e))?;
+            Ok(value)
         }
-
-        let value = i16::from_le_bytes([data[0], data[1]]);
-        let metadata = data[2];
-
-        Ok(Self { value, metadata })
+        #[cfg(not(feature = "serialize"))]
+        {
+            if data.len() != 3 {
+                return Err("CustomInt16 requires exactly 3 bytes".to_string());
+            }
+            let value = i16::from_le_bytes([data[0], data[1]]);
+            let metadata = data[2];
+            Ok(Self { value, metadata })
+        }
     }
 
     fn display_string(&self) -> String {
@@ -730,9 +761,11 @@ mod tests {
         assert_eq!(val.metadata, 255);
         assert_eq!(val.display_string(), "42[255]");
 
-        // Test serialization
+        // Test serialization (round-trip).
+        // The encoded byte count depends on whether the `serialize` feature is
+        // enabled (oxicode format) or not (compact 3-byte fallback).
         let serialized = val.serialize().expect("serialize should succeed");
-        assert_eq!(serialized.len(), 3);
+        assert!(!serialized.is_empty(), "serialized bytes must be non-empty");
 
         let deserialized =
             CustomInt16::deserialize(&serialized).expect("deserialize should succeed");

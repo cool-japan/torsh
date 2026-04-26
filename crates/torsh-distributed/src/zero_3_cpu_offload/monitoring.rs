@@ -719,7 +719,7 @@ mod tests {
         stats.record_layer_execution("layer1".to_string(), Duration::from_millis(20));
         stats.record_layer_execution("layer2".to_string(), Duration::from_millis(30));
 
-        let slowest = stats.slowest_layer().unwrap();
+        let slowest = stats.slowest_layer().expect("slowest layer should be identifiable");
         assert_eq!(slowest.0, "layer2");
         assert_eq!(slowest.1, Duration::from_millis(30));
 

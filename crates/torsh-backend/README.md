@@ -31,7 +31,7 @@ let backend = Backend::new(BackendType::Metal)?; // Explicit Metal
 
 ```toml
 [dependencies]
-torsh-backends = { version = "0.1.1", features = ["cuda", "metal"] }
+torsh-backends = { version = "0.1.2", features = ["cuda", "metal"] }
 
 # Available features:
 # - "cpu" (default): CPU backend with SIMD optimizations
@@ -233,11 +233,17 @@ The previous separate backend crates (`torsh-backend-cpu`, `torsh-backend-cuda`,
 
 ```toml
 # Old (deprecated)
-torsh-backend-cuda = "0.1.1"
+torsh-backend-cuda = "0.1.2"
 
 # New (unified)
-torsh-backends = { version = "0.1.1", features = ["cuda"] }
+torsh-backends = { version = "0.1.2", features = ["cuda"] }
 ```
+
+## Dependencies
+
+Key dependency versions used by this crate:
+
+- `wgpu 29.x` — WebGPU compute backend (cross-platform GPU support)
 
 ## License
 

@@ -11,7 +11,7 @@ readme = "README.md"
 documentation = "https://docs.rs/torsh-jit"
 rust-version.workspace = true
 keywords = ["deep-learning", "jit", "compiler", "kernel-fusion", "optimization"]
-categories = ["science", "compilers", "mathematics"]
+categories = ["science", "development-tools", "mathematics"]
 
 [lints]
 workspace = true

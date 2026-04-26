@@ -754,7 +754,7 @@ mod tests {
         // For now, just ensure the function doesn't panic
         let params: Vec<Tensor> = Vec::new();
         let sgd_params = vec![Arc::new(RwLock::new(
-            creation::zeros::<f32>(&[10]).unwrap(),
+            creation::zeros::<f32>(&[10]).expect("operation should succeed"),
         ))];
         let sgd = SGD::new(sgd_params, 0.01, None, None, None, false);
 

@@ -252,15 +252,15 @@ impl CrossBackendValidator {
                 Ok(Ok(backend)) => {
                     // Test invalid device creation
                     let invalid_device_result = backend.create_device(9999);
-                    if invalid_device_result.is_ok() {
-                        return Err(format!(
-                            "Backend {:?} should reject invalid device ID",
-                            backend_type
-                        ));
-                    }
-
-                    // Test error message quality
-                    let error_msg = invalid_device_result.unwrap_err().to_string();
+                    let error_msg = match invalid_device_result {
+                        Ok(_) => {
+                            return Err(format!(
+                                "Backend {:?} should reject invalid device ID",
+                                backend_type
+                            ));
+                        }
+                        Err(e) => e.to_string(),
+                    };
                     if error_msg.is_empty() {
                         return Err(format!(
                             "Backend {:?} returned empty error message",

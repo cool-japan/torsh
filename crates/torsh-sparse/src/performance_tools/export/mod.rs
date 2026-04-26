@@ -65,7 +65,7 @@ mod tests {
         let csv = PerformanceExporter::to_csv(&report);
 
         assert!(csv.is_ok());
-        let csv_data = csv.unwrap();
+        let csv_data = csv.expect("operation should succeed");
         assert!(csv_data.contains("operation,count,total_time_ms"));
         assert!(csv_data.contains("op1"));
         assert!(csv_data.contains("op2"));
@@ -77,7 +77,7 @@ mod tests {
         let json = PerformanceExporter::to_json(&report);
 
         assert!(json.is_ok());
-        let json_data = json.unwrap();
+        let json_data = json.expect("operation should succeed");
         assert!(json_data.contains("total_measurements"));
         assert!(json_data.contains("operations"));
     }
@@ -92,7 +92,7 @@ mod tests {
         let csv = PerformanceExporter::measurements_to_csv(&measurements);
         assert!(csv.is_ok());
 
-        let csv_data = csv.unwrap();
+        let csv_data = csv.expect("operation should succeed");
         assert!(csv_data.contains("operation,duration_ms"));
         assert!(csv_data.contains("test1,100.000"));
         assert!(csv_data.contains("test2,200.000"));
@@ -168,7 +168,7 @@ mod tests {
         let trend = analyzer.analyze_operation_trend("op1");
         assert!(trend.is_some());
 
-        let trend_analysis = trend.unwrap();
+        let trend_analysis = trend.expect("operation should succeed");
         assert_eq!(trend_analysis.operation, "op1");
         assert_eq!(trend_analysis.trend_direction, TrendDirection::Declining);
         assert!(trend_analysis.performance_change_percent < 0.0); // Negative because performance got worse

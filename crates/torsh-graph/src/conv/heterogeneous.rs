@@ -662,7 +662,8 @@ mod tests {
         let mut hetero_graph = HeteroGraphData::new();
 
         // Add user nodes
-        let user_features = from_vec(vec![1.0, 2.0, 3.0, 4.0], &[2, 2], DeviceType::Cpu).unwrap();
+        let user_features = from_vec(vec![1.0, 2.0, 3.0, 4.0], &[2, 2], DeviceType::Cpu)
+            .expect("from vec should succeed");
         hetero_graph.add_node_type("user".to_string(), user_features);
 
         // Add item nodes
@@ -671,11 +672,12 @@ mod tests {
             &[2, 3],
             DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("operation should succeed");
         hetero_graph.add_node_type("item".to_string(), item_features);
 
         // Add user-item edges
-        let edge_index = from_vec(vec![0.0, 1.0, 0.0, 1.0], &[2, 2], DeviceType::Cpu).unwrap();
+        let edge_index = from_vec(vec![0.0, 1.0, 0.0, 1.0], &[2, 2], DeviceType::Cpu)
+            .expect("from vec should succeed");
         hetero_graph.add_edge_type(
             ("user".to_string(), "likes".to_string(), "item".to_string()),
             edge_index,
@@ -716,7 +718,7 @@ mod tests {
         let person_emb = kg_emb.get_entity_embedding(&"person".to_string(), 0);
         assert!(person_emb.is_some());
 
-        let emb = person_emb.unwrap();
+        let emb = person_emb.expect("operation should succeed");
         assert_eq!(emb.shape().dims(), &[50]);
 
         // Test triple scoring
@@ -728,6 +730,6 @@ mod tests {
             0,
         );
         assert!(score.is_some());
-        assert!(score.unwrap().is_finite());
+        assert!(score.expect("operation should succeed").is_finite());
     }
 }

@@ -93,7 +93,11 @@ impl WebGpuBuffer {
             )));
         }
 
-        buffer.slice(..).get_mapped_range_mut()[..data_bytes.len()].copy_from_slice(data_bytes);
+        buffer
+            .slice(..)
+            .get_mapped_range_mut()
+            .slice(..data_bytes.len())
+            .copy_from_slice(data_bytes);
         buffer.unmap();
         let size = descriptor.size as u64;
 
@@ -526,7 +530,8 @@ mod tests {
     #[test]
     fn test_buffer_usage_conversion() {
         let usage = BufferUsage::STORAGE | BufferUsage::UNIFORM | BufferUsage::COPY_SRC;
-        let wgpu_usage = WebGpuBuffer::convert_buffer_usage(&usage).unwrap();
+        let wgpu_usage =
+            WebGpuBuffer::convert_buffer_usage(&usage).expect("Web Gpu Buffer should succeed");
 
         assert!(wgpu_usage.contains(wgpu::BufferUsages::STORAGE));
         assert!(wgpu_usage.contains(wgpu::BufferUsages::UNIFORM));

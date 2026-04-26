@@ -1574,9 +1574,9 @@ mod tests {
                 MetricSourceType::Custom,
                 Box::new(|| MetricValue::Integer(42)),
             )
-            .unwrap();
+            .expect("operation should succeed");
 
-        let metrics = collector.collect_current_metrics().unwrap();
+        let metrics = collector.collect_current_metrics().expect("metrics collection should succeed");
         assert!(!metrics.is_empty());
     }
 
@@ -1585,7 +1585,7 @@ mod tests {
         let config = PerformanceMonitoringConfig::default();
         let mut detector = BottleneckDetector::new(&config);
 
-        let bottlenecks = detector.analyze_and_detect().unwrap();
+        let bottlenecks = detector.analyze_and_detect().expect("analysis and detection should succeed");
         assert!(bottlenecks.is_empty()); // No bottlenecks initially
     }
 
@@ -1594,7 +1594,7 @@ mod tests {
         let config = PerformanceMonitoringConfig::default();
         let mut recommender = OptimizationRecommender::new(&config);
 
-        let recommendations = recommender.generate_recommendations().unwrap();
+        let recommendations = recommender.generate_recommendations().expect("recommendation generation should succeed");
         assert!(!recommendations.is_empty());
     }
 
@@ -1608,7 +1608,7 @@ mod tests {
                 ProfilingSessionType::CpuProfiling,
                 vec!["test_component".to_string()],
             )
-            .unwrap();
+            .expect("operation should succeed");
 
         assert!(!session_id.is_empty());
         assert!(profiler.active_sessions.contains_key(&session_id));

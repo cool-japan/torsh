@@ -1130,7 +1130,7 @@ mod tests {
                 // Test device creation
                 let device_result = backend.default_device();
                 if device_result.is_ok() {
-                    let device = device_result.unwrap();
+                    let device = device_result.expect("operation should succeed");
                     assert_eq!(device.device_type(), DeviceType::Wgpu(0));
                 }
 

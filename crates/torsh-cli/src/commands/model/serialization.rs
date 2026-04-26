@@ -587,13 +587,17 @@ mod tests {
         let model_path = temp_dir.join("test_model.torsh");
 
         // Save model
-        save_model(&model, &model_path).await.unwrap();
+        save_model(&model, &model_path)
+            .await
+            .expect("operation should succeed");
 
         // Verify file was created
         assert!(model_path.exists());
 
         // Load model (simplified implementation may not preserve exact structure)
-        let loaded_model = load_model(&model_path).await.unwrap();
+        let loaded_model = load_model(&model_path)
+            .await
+            .expect("operation should succeed");
 
         // Verify basic properties (simplified loader may differ)
         // In real implementation, would verify exact layer count

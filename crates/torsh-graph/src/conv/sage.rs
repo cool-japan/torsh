@@ -194,9 +194,9 @@ mod tests {
             &[3, 4],
             DeviceType::Cpu,
         )
-        .unwrap();
-        let edge_index =
-            from_vec(vec![0.0, 1.0, 2.0, 1.0, 2.0, 0.0], &[2, 3], DeviceType::Cpu).unwrap();
+        .expect("operation should succeed");
+        let edge_index = from_vec(vec![0.0, 1.0, 2.0, 1.0, 2.0, 0.0], &[2, 3], DeviceType::Cpu)
+            .expect("from vec should succeed");
         let graph = GraphData::new(x, edge_index);
 
         let output = sage.forward(&graph);
@@ -204,7 +204,10 @@ mod tests {
         assert_eq!(output.num_nodes, 3);
 
         // Check that output is finite (simplified test since norm_dim doesn't exist)
-        let output_values = output.x.to_vec().unwrap();
+        let output_values = output
+            .x
+            .to_vec()
+            .expect("tensor to_vec conversion should succeed");
         for &val in &output_values {
             assert!(val.is_finite(), "Output should be finite");
         }

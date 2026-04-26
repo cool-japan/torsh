@@ -128,7 +128,9 @@ mod tests {
         let mut manager = ComputationGraphManager::new();
         assert_eq!(manager.node_count(), 0);
         assert_eq!(manager.total_memory_usage(), 0);
-        let cleaned = manager.cleanup_old_nodes(Duration::from_secs(1)).unwrap();
+        let cleaned = manager
+            .cleanup_old_nodes(Duration::from_secs(1))
+            .expect("operation should succeed");
         assert_eq!(cleaned, 0);
     }
     #[test]
@@ -137,11 +139,17 @@ mod tests {
         assert_eq!(manager.gradient_count(), 0);
         assert_eq!(manager.total_memory_usage(), 0);
         let gradient = vec![1.0, 2.0, 3.0];
-        manager.set_gradient(1, gradient.clone()).unwrap();
+        manager
+            .set_gradient(1, gradient.clone())
+            .expect("operation should succeed");
         assert_eq!(manager.gradient_count(), 1);
-        let retrieved = manager.get_gradient(1).unwrap();
+        let retrieved = manager
+            .get_gradient(1)
+            .expect("gradient retrieval should succeed");
         assert_eq!(retrieved, gradient);
-        manager.release_gradient(1).unwrap();
+        manager
+            .release_gradient(1)
+            .expect("gradient release should succeed");
         assert_eq!(manager.gradient_count(), 0);
     }
     #[test]
@@ -149,7 +157,9 @@ mod tests {
         let mut manager = MemoryBufferManager::new();
         assert_eq!(manager.buffer_count(), 0);
         assert_eq!(manager.total_allocated(), 0);
-        let cleaned = manager.cleanup_old_buffers(Duration::from_secs(1)).unwrap();
+        let cleaned = manager
+            .cleanup_old_buffers(Duration::from_secs(1))
+            .expect("operation should succeed");
         assert_eq!(cleaned, 0);
     }
     #[test]

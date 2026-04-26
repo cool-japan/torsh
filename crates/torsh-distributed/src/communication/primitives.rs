@@ -113,7 +113,7 @@ mod tests {
     async fn test_is_root_process() {
         let pg = ProcessGroup::new(BackendType::Gloo, 0, 4, "localhost", 8080)
             .await
-            .unwrap();
+            .expect("operation should succeed");
 
         assert!(is_root_process(&pg));
     }

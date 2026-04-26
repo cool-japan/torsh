@@ -68,7 +68,9 @@ mod tests {
         assert!(!module_list.is_empty());
 
         // Test individual module access
-        let linear1 = module_list.get(0).unwrap();
+        let linear1 = module_list
+            .get(0)
+            .expect("element retrieval should succeed for valid index");
         let input = randn::<f32>(&[2, 8])?;
         let output = linear1.forward(&input)?;
         assert_eq!(output.shape().dims(), &[2, 16]);
@@ -87,7 +89,9 @@ mod tests {
         assert!(!module_dict.is_empty());
 
         // Test individual module access
-        let linear1 = module_dict.get("linear1").unwrap();
+        let linear1 = module_dict
+            .get("linear1")
+            .expect("element retrieval should succeed for valid index");
         let input = randn::<f32>(&[3, 6])?;
         let output = linear1.forward(&input)?;
         assert_eq!(output.shape().dims(), &[3, 12]);

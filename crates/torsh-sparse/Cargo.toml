@@ -54,7 +54,7 @@ chrono = { workspace = true, optional = true }
 [dev-dependencies]
 approx = { workspace = true }
 criterion = { workspace = true }
-fastrand = "2.3"
+fastrand = "2.4"
 
 [[bench]]
 name = "sparse_benchmarks"

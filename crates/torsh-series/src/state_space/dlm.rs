@@ -462,7 +462,7 @@ mod tests {
     #[test]
     fn test_update() {
         let mut dlm = DynamicLinearModel::polynomial_trend(0, 1.0, 0.1);
-        let forecast = dlm.update(1.5).unwrap();
+        let forecast = dlm.update(1.5).expect("update operation should succeed");
         assert!(forecast.is_finite());
     }
 
@@ -481,7 +481,9 @@ mod tests {
     fn test_fit() {
         let mut dlm = DynamicLinearModel::polynomial_trend(1, 1.0, 0.1);
         let observations = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-        let forecasts = dlm.fit(&observations).unwrap();
+        let forecasts = dlm
+            .fit(&observations)
+            .expect("fit operation should succeed with valid input");
         assert_eq!(forecasts.len(), 5);
     }
 
@@ -503,8 +505,8 @@ mod tests {
     #[test]
     fn test_reset() {
         let mut dlm = DynamicLinearModel::polynomial_trend(1, 1.0, 0.1);
-        dlm.update(1.0).unwrap();
-        dlm.update(2.0).unwrap();
+        dlm.update(1.0).expect("update operation should succeed");
+        dlm.update(2.0).expect("update operation should succeed");
         assert_eq!(dlm.time_step, 2);
 
         dlm.reset();
@@ -523,7 +525,7 @@ mod tests {
     fn test_smooth() {
         let dlm = DynamicLinearModel::polynomial_trend(1, 1.0, 0.1);
         let observations = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-        let smoothed = dlm.smooth(&observations).unwrap();
+        let smoothed = dlm.smooth(&observations).expect("smoothing should succeed");
         assert_eq!(smoothed.len(), 5);
     }
 
@@ -532,10 +534,12 @@ mod tests {
         // Test with a linear trend
         let mut dlm = DynamicLinearModel::polynomial_trend(1, 0.1, 0.01);
         let true_observations = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
-        let forecasts = dlm.fit(&true_observations).unwrap();
+        let forecasts = dlm
+            .fit(&true_observations)
+            .expect("fit operation should succeed with valid input");
 
         // After seeing linear trend, forecasts should improve
-        let last_forecast = forecasts.last().unwrap();
+        let last_forecast = forecasts.last().expect("collection should be non-empty");
         assert!(
             (last_forecast - 8.0).abs() < 2.0,
             "Last forecast should be close to 8.0"

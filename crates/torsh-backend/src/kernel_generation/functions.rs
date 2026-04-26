@@ -77,7 +77,7 @@ mod tests {
         );
         let result = generator.generate_kernel(spec);
         assert!(result.is_ok());
-        let kernel = result.unwrap();
+        let kernel = result.expect("operation should succeed");
         assert!(!kernel.source_code.is_empty());
         assert_eq!(kernel.entry_point, "main");
     }
@@ -96,7 +96,7 @@ mod tests {
         );
         let result = generator.generate_kernel(spec);
         assert!(result.is_ok());
-        let kernel = result.unwrap();
+        let kernel = result.expect("operation should succeed");
         assert!(!kernel.source_code.is_empty());
         assert!(kernel.source_code.contains("__global__"));
     }
@@ -117,7 +117,7 @@ mod tests {
         );
         let result = generator.generate_kernel(spec);
         assert!(result.is_ok());
-        let kernel = result.unwrap();
+        let kernel = result.expect("operation should succeed");
         assert!(kernel.source_code.contains("workgroup"));
         assert!(kernel.source_code.contains("matrix"));
     }
@@ -477,7 +477,7 @@ mod tests {
             );
             let result = generator.generate_kernel(spec);
             assert!(result.is_ok());
-            let kernel = result.unwrap();
+            let kernel = result.expect("operation should succeed");
             assert!(!kernel.source_code.is_empty());
         }
     }

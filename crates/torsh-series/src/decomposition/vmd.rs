@@ -425,7 +425,7 @@ mod tests {
 
         let config = VMDConfig::new(2).with_alpha(2000.0).with_max_iter(100);
 
-        let result = vmd_decompose(&signal, &config).unwrap();
+        let result = vmd_decompose(&signal, &config).expect("vmd decompose should succeed");
 
         assert_eq!(result.num_modes(), 2);
         assert_eq!(result.signal_length(), n);
@@ -447,14 +447,14 @@ mod tests {
         let signal = t.mapv(|x| (2.0 * PI * 3.0 * x / n as f64).sin());
 
         let config = VMDConfig::new(2).with_max_iter(30);
-        let result = vmd_decompose(&signal, &config).unwrap();
+        let result = vmd_decompose(&signal, &config).expect("vmd decompose should succeed");
 
         assert_eq!(result.num_modes(), 2);
         assert_eq!(result.signal_length(), n);
 
         // Check that modes have been extracted
-        let mode0 = result.mode(0).unwrap();
-        let mode1 = result.mode(1).unwrap();
+        let mode0 = result.mode(0).expect("mode computation should succeed");
+        let mode1 = result.mode(1).expect("mode computation should succeed");
 
         assert_eq!(mode0.len(), n);
         assert_eq!(mode1.len(), n);
@@ -503,11 +503,11 @@ mod tests {
     fn test_vmd_mode_extraction() {
         let signal = Array1::from_vec((0..32).map(|i| (i as f64 * 0.1).sin()).collect());
         let config = VMDConfig::new(2);
-        let result = vmd_decompose(&signal, &config).unwrap();
+        let result = vmd_decompose(&signal, &config).expect("vmd decompose should succeed");
 
         // Test mode extraction
-        let mode0 = result.mode(0).unwrap();
-        let mode1 = result.mode(1).unwrap();
+        let mode0 = result.mode(0).expect("mode computation should succeed");
+        let mode1 = result.mode(1).expect("mode computation should succeed");
 
         assert_eq!(mode0.len(), 32);
         assert_eq!(mode1.len(), 32);

@@ -291,45 +291,55 @@ mod tests {
 
     #[test]
     fn test_cpu_buffer_creation() {
-        let buffer = CpuBuffer::new(1024, BufferUsage::STORAGE).unwrap();
+        let buffer = CpuBuffer::new(1024, BufferUsage::STORAGE).expect("Cpu Buffer should succeed");
         assert_eq!(buffer.size(), 1024);
         assert_eq!(buffer.usage(), BufferUsage::STORAGE);
     }
 
     #[test]
     fn test_cpu_buffer_read_write() {
-        let buffer = CpuBuffer::new(256, BufferUsage::STORAGE).unwrap();
+        let buffer = CpuBuffer::new(256, BufferUsage::STORAGE).expect("Cpu Buffer should succeed");
 
         let write_data = vec![1, 2, 3, 4, 5];
-        buffer.write_bytes(&write_data, 10).unwrap();
+        buffer
+            .write_bytes(&write_data, 10)
+            .expect("bytes write should succeed");
 
         let mut read_data = vec![0; 5];
-        buffer.read_bytes(&mut read_data, 10).unwrap();
+        buffer
+            .read_bytes(&mut read_data, 10)
+            .expect("bytes read should succeed");
 
         assert_eq!(read_data, write_data);
     }
 
     #[test]
     fn test_cpu_buffer_copy() {
-        let src_buffer = CpuBuffer::new(256, BufferUsage::STORAGE).unwrap();
-        let dst_buffer = CpuBuffer::new(256, BufferUsage::STORAGE).unwrap();
+        let src_buffer =
+            CpuBuffer::new(256, BufferUsage::STORAGE).expect("Cpu Buffer should succeed");
+        let dst_buffer =
+            CpuBuffer::new(256, BufferUsage::STORAGE).expect("Cpu Buffer should succeed");
 
         let test_data = vec![10, 20, 30, 40, 50];
-        src_buffer.write_bytes(&test_data, 0).unwrap();
+        src_buffer
+            .write_bytes(&test_data, 0)
+            .expect("bytes write should succeed");
 
         src_buffer
             .copy_to(&dst_buffer, 0, 0, test_data.len())
-            .unwrap();
+            .expect("operation should succeed");
 
         let mut read_data = vec![0; test_data.len()];
-        dst_buffer.read_bytes(&mut read_data, 0).unwrap();
+        dst_buffer
+            .read_bytes(&mut read_data, 0)
+            .expect("bytes read should succeed");
 
         assert_eq!(read_data, test_data);
     }
 
     #[test]
     fn test_buffer_bounds_checking() {
-        let buffer = CpuBuffer::new(10, BufferUsage::STORAGE).unwrap();
+        let buffer = CpuBuffer::new(10, BufferUsage::STORAGE).expect("Cpu Buffer should succeed");
 
         // Test read bounds
         let mut read_data = vec![0; 5];

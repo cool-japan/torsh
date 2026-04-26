@@ -375,6 +375,38 @@ impl<T: TensorElement + Copy> Tensor<T> {
             return self.broadcast_add(other);
         }
 
+        // f32 SIMD fast path: runtime dispatch without cfg gates
+        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
+            let self_data = self.data()?;
+            if self_data.len() >= 1024 {
+                let other_data = other.data()?;
+                // Safety: TypeId confirmed T == f32; reinterpreting same-layout slices.
+                let a_f32: &[f32] = unsafe {
+                    std::slice::from_raw_parts(self_data.as_ptr() as *const f32, self_data.len())
+                };
+                let b_f32: &[f32] = unsafe {
+                    std::slice::from_raw_parts(other_data.as_ptr() as *const f32, other_data.len())
+                };
+                let mut out = vec![0.0f32; self_data.len()];
+                crate::simd_ops_f32::add_into_f32(a_f32, b_f32, &mut out);
+                // Safety: T == f32 confirmed above; same size, alignment, and bit representation.
+                let result_data: Vec<T> = unsafe {
+                    let mut v = std::mem::ManuallyDrop::new(out);
+                    Vec::from_raw_parts(v.as_mut_ptr() as *mut T, v.len(), v.capacity())
+                };
+                let mut result =
+                    Self::from_data(result_data, self.shape().dims().to_vec(), self.device)?;
+                if self.requires_grad || other.requires_grad {
+                    result.requires_grad = true;
+                    result.operation = Operation::Add {
+                        lhs: Arc::new(self.clone()),
+                        rhs: Arc::new(other.clone()),
+                    };
+                }
+                return Ok(result);
+            }
+        }
+
         // Same shape - use optimized elementwise operation
         let mut result = self.elementwise_operation(other, |a, b| a + b)?;
 
@@ -457,6 +489,28 @@ impl<T: TensorElement + Copy> Tensor<T> {
     where
         T: std::ops::Sub<Output = T>,
     {
+        // f32 SIMD fast path: runtime dispatch without cfg gates
+        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>()
+            && self.shape() == other.shape()
+        {
+            let self_data = self.data()?;
+            if self_data.len() >= 1024 {
+                let other_data = other.data()?;
+                let a_f32: &[f32] = unsafe {
+                    std::slice::from_raw_parts(self_data.as_ptr() as *const f32, self_data.len())
+                };
+                let b_f32: &[f32] = unsafe {
+                    std::slice::from_raw_parts(other_data.as_ptr() as *const f32, other_data.len())
+                };
+                let mut out = vec![0.0f32; self_data.len()];
+                crate::simd_ops_f32::sub_into_f32(a_f32, b_f32, &mut out);
+                let result_data: Vec<T> = unsafe {
+                    let mut v = std::mem::ManuallyDrop::new(out);
+                    Vec::from_raw_parts(v.as_mut_ptr() as *mut T, v.len(), v.capacity())
+                };
+                return Self::from_data(result_data, self.shape().dims().to_vec(), self.device);
+            }
+        }
         self.elementwise_operation(other, |a, b| a - b)
     }
 
@@ -465,6 +519,28 @@ impl<T: TensorElement + Copy> Tensor<T> {
     where
         T: std::ops::Mul<Output = T>,
     {
+        // f32 SIMD fast path: runtime dispatch without cfg gates
+        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>()
+            && self.shape() == other.shape()
+        {
+            let self_data = self.data()?;
+            if self_data.len() >= 1024 {
+                let other_data = other.data()?;
+                let a_f32: &[f32] = unsafe {
+                    std::slice::from_raw_parts(self_data.as_ptr() as *const f32, self_data.len())
+                };
+                let b_f32: &[f32] = unsafe {
+                    std::slice::from_raw_parts(other_data.as_ptr() as *const f32, other_data.len())
+                };
+                let mut out = vec![0.0f32; self_data.len()];
+                crate::simd_ops_f32::mul_into_f32(a_f32, b_f32, &mut out);
+                let result_data: Vec<T> = unsafe {
+                    let mut v = std::mem::ManuallyDrop::new(out);
+                    Vec::from_raw_parts(v.as_mut_ptr() as *mut T, v.len(), v.capacity())
+                };
+                return Self::from_data(result_data, self.shape().dims().to_vec(), self.device);
+            }
+        }
         self.elementwise_operation(other, |a, b| a * b)
     }
 
@@ -473,6 +549,28 @@ impl<T: TensorElement + Copy> Tensor<T> {
     where
         T: std::ops::Div<Output = T>,
     {
+        // f32 SIMD fast path: runtime dispatch without cfg gates
+        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>()
+            && self.shape() == other.shape()
+        {
+            let self_data = self.data()?;
+            if self_data.len() >= 1024 {
+                let other_data = other.data()?;
+                let a_f32: &[f32] = unsafe {
+                    std::slice::from_raw_parts(self_data.as_ptr() as *const f32, self_data.len())
+                };
+                let b_f32: &[f32] = unsafe {
+                    std::slice::from_raw_parts(other_data.as_ptr() as *const f32, other_data.len())
+                };
+                let mut out = vec![0.0f32; self_data.len()];
+                crate::simd_ops_f32::div_into_f32(a_f32, b_f32, &mut out);
+                let result_data: Vec<T> = unsafe {
+                    let mut v = std::mem::ManuallyDrop::new(out);
+                    Vec::from_raw_parts(v.as_mut_ptr() as *mut T, v.len(), v.capacity())
+                };
+                return Self::from_data(result_data, self.shape().dims().to_vec(), self.device);
+            }
+        }
         self.elementwise_operation(other, |a, b| a / b)
     }
 
@@ -649,6 +747,196 @@ impl<T: TensorElement + Copy> Tensor<T> {
             .zip(data_b.iter())
             .map(|(&a, &b)| op(a, b))
             .collect())
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Block C – In-place tensor × tensor arithmetic with f32 SIMD fast paths
+// ─────────────────────────────────────────────────────────────────────────────
+
+impl<T: TensorElement + Copy> Tensor<T> {
+    /// Element-wise in-place addition: `self += other`.
+    ///
+    /// For f32 tensors with ≥ 1024 elements and matching shapes, this routes
+    /// through the SIMD-backed `simd_ops_f32::add_assign_f32` without any
+    /// additional allocation.
+    ///
+    /// # Errors
+    /// Returns an error if `requires_grad` is true (autograd cannot be tracked
+    /// through in-place mutations).
+    pub fn add_(&mut self, other: &Self) -> Result<&mut Self>
+    where
+        T: std::ops::Add<Output = T>,
+    {
+        if self.requires_grad {
+            return Err(TorshError::InvalidArgument(
+                "In-place operation on tensor that requires grad is not allowed".to_string(),
+            ));
+        }
+        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>()
+            && self.shape() == other.shape()
+            && self.numel() >= 1024
+        {
+            // Ensure mutable storage (converts SimdOptimized → Aligned when needed).
+            self.make_unique()?;
+            let other_data = other.data()?;
+            self.storage.with_slice_mut(|out_t: &mut [T]| {
+                // Safety: TypeId confirmed T == f32.
+                let out_f32: &mut [f32] = unsafe {
+                    std::slice::from_raw_parts_mut(out_t.as_mut_ptr() as *mut f32, out_t.len())
+                };
+                let rhs_f32: &[f32] = unsafe {
+                    std::slice::from_raw_parts(other_data.as_ptr() as *const f32, other_data.len())
+                };
+                crate::simd_ops_f32::add_assign_f32(out_f32, rhs_f32);
+                Ok(())
+            })?;
+            return Ok(self);
+        }
+        // Scalar fallback
+        let len = self.storage.len();
+        let other_data = other.data()?;
+        for i in 0..len {
+            let a = self.storage.get(i)?;
+            let b = *other_data.get(i).ok_or_else(|| TorshError::IndexError {
+                index: i,
+                size: other_data.len(),
+            })?;
+            self.storage.set(i, a + b)?;
+        }
+        Ok(self)
+    }
+
+    /// Element-wise in-place subtraction: `self -= other`.
+    ///
+    /// For f32 tensors with ≥ 1024 elements and matching shapes, this routes
+    /// through `simd_ops_f32::sub_assign_f32`.
+    pub fn sub_(&mut self, other: &Self) -> Result<&mut Self>
+    where
+        T: std::ops::Sub<Output = T>,
+    {
+        if self.requires_grad {
+            return Err(TorshError::InvalidArgument(
+                "In-place operation on tensor that requires grad is not allowed".to_string(),
+            ));
+        }
+        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>()
+            && self.shape() == other.shape()
+            && self.numel() >= 1024
+        {
+            self.make_unique()?;
+            let other_data = other.data()?;
+            self.storage.with_slice_mut(|out_t: &mut [T]| {
+                let out_f32: &mut [f32] = unsafe {
+                    std::slice::from_raw_parts_mut(out_t.as_mut_ptr() as *mut f32, out_t.len())
+                };
+                let rhs_f32: &[f32] = unsafe {
+                    std::slice::from_raw_parts(other_data.as_ptr() as *const f32, other_data.len())
+                };
+                crate::simd_ops_f32::sub_assign_f32(out_f32, rhs_f32);
+                Ok(())
+            })?;
+            return Ok(self);
+        }
+        let len = self.storage.len();
+        let other_data = other.data()?;
+        for i in 0..len {
+            let a = self.storage.get(i)?;
+            let b = *other_data.get(i).ok_or_else(|| TorshError::IndexError {
+                index: i,
+                size: other_data.len(),
+            })?;
+            self.storage.set(i, a - b)?;
+        }
+        Ok(self)
+    }
+
+    /// Element-wise in-place multiplication: `self *= other`.
+    ///
+    /// For f32 tensors with ≥ 1024 elements and matching shapes, this routes
+    /// through `simd_ops_f32::mul_assign_f32`.
+    pub fn mul_(&mut self, other: &Self) -> Result<&mut Self>
+    where
+        T: std::ops::Mul<Output = T>,
+    {
+        if self.requires_grad {
+            return Err(TorshError::InvalidArgument(
+                "In-place operation on tensor that requires grad is not allowed".to_string(),
+            ));
+        }
+        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>()
+            && self.shape() == other.shape()
+            && self.numel() >= 1024
+        {
+            self.make_unique()?;
+            let other_data = other.data()?;
+            self.storage.with_slice_mut(|out_t: &mut [T]| {
+                let out_f32: &mut [f32] = unsafe {
+                    std::slice::from_raw_parts_mut(out_t.as_mut_ptr() as *mut f32, out_t.len())
+                };
+                let rhs_f32: &[f32] = unsafe {
+                    std::slice::from_raw_parts(other_data.as_ptr() as *const f32, other_data.len())
+                };
+                crate::simd_ops_f32::mul_assign_f32(out_f32, rhs_f32);
+                Ok(())
+            })?;
+            return Ok(self);
+        }
+        let len = self.storage.len();
+        let other_data = other.data()?;
+        for i in 0..len {
+            let a = self.storage.get(i)?;
+            let b = *other_data.get(i).ok_or_else(|| TorshError::IndexError {
+                index: i,
+                size: other_data.len(),
+            })?;
+            self.storage.set(i, a * b)?;
+        }
+        Ok(self)
+    }
+
+    /// Element-wise in-place division: `self /= other`.
+    ///
+    /// For f32 tensors with ≥ 1024 elements and matching shapes, this routes
+    /// through `simd_ops_f32::div_assign_f32`.
+    pub fn div_(&mut self, other: &Self) -> Result<&mut Self>
+    where
+        T: std::ops::Div<Output = T>,
+    {
+        if self.requires_grad {
+            return Err(TorshError::InvalidArgument(
+                "In-place operation on tensor that requires grad is not allowed".to_string(),
+            ));
+        }
+        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>()
+            && self.shape() == other.shape()
+            && self.numel() >= 1024
+        {
+            self.make_unique()?;
+            let other_data = other.data()?;
+            self.storage.with_slice_mut(|out_t: &mut [T]| {
+                let out_f32: &mut [f32] = unsafe {
+                    std::slice::from_raw_parts_mut(out_t.as_mut_ptr() as *mut f32, out_t.len())
+                };
+                let rhs_f32: &[f32] = unsafe {
+                    std::slice::from_raw_parts(other_data.as_ptr() as *const f32, other_data.len())
+                };
+                crate::simd_ops_f32::div_assign_f32(out_f32, rhs_f32);
+                Ok(())
+            })?;
+            return Ok(self);
+        }
+        let len = self.storage.len();
+        let other_data = other.data()?;
+        for i in 0..len {
+            let a = self.storage.get(i)?;
+            let b = *other_data.get(i).ok_or_else(|| TorshError::IndexError {
+                index: i,
+                size: other_data.len(),
+            })?;
+            self.storage.set(i, a / b)?;
+        }
+        Ok(self)
     }
 }
 
@@ -1404,6 +1692,20 @@ impl<T: TensorElement + Copy + std::ops::Mul<Output = T>> Tensor<T> {
             ));
         }
 
+        // f32 SIMD fast path with PyTorch NaN-passthrough semantics
+        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() && self.numel() >= 1024 {
+            self.make_unique()?;
+            self.storage.with_slice_mut(|out_t: &mut [T]| {
+                // Safety: TypeId confirmed T == f32.
+                let out_f32: &mut [f32] = unsafe {
+                    std::slice::from_raw_parts_mut(out_t.as_mut_ptr() as *mut f32, out_t.len())
+                };
+                crate::simd_ops_f32::relu_assign_f32(out_f32);
+                Ok(())
+            })?;
+            return Ok(self);
+        }
+
         let zero = <T as scirs2_core::numeric::Zero>::zero();
         let len = self.storage.len();
 
@@ -1514,6 +1816,21 @@ impl<T: TensorElement + Copy + std::ops::Mul<Output = T>> Tensor<T> {
             ));
         }
 
+        // f32 SIMD fast path with PyTorch NaN-passthrough semantics
+        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() && self.numel() >= 1024 {
+            // Safety: TypeId confirmed T == f32; copy the scalar via transmute_copy.
+            let slope_f32: f32 = unsafe { std::mem::transmute_copy::<T, f32>(&negative_slope) };
+            self.make_unique()?;
+            self.storage.with_slice_mut(|out_t: &mut [T]| {
+                let out_f32: &mut [f32] = unsafe {
+                    std::slice::from_raw_parts_mut(out_t.as_mut_ptr() as *mut f32, out_t.len())
+                };
+                crate::simd_ops_f32::leaky_relu_assign_f32(out_f32, slope_f32);
+                Ok(())
+            })?;
+            return Ok(self);
+        }
+
         let zero = <T as scirs2_core::numeric::Zero>::zero();
         let len = self.storage.len();
 
@@ -1541,6 +1858,22 @@ impl<T: TensorElement + Copy + std::ops::Mul<Output = T>> Tensor<T> {
             ));
         }
 
+        // f32 SIMD fast path with PyTorch NaN-passthrough semantics
+        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() && self.numel() >= 1024 {
+            // Safety: TypeId confirmed T == f32; copy scalars via transmute_copy.
+            let min_f32: f32 = unsafe { std::mem::transmute_copy::<T, f32>(&min) };
+            let max_f32: f32 = unsafe { std::mem::transmute_copy::<T, f32>(&max) };
+            self.make_unique()?;
+            self.storage.with_slice_mut(|out_t: &mut [T]| {
+                let out_f32: &mut [f32] = unsafe {
+                    std::slice::from_raw_parts_mut(out_t.as_mut_ptr() as *mut f32, out_t.len())
+                };
+                crate::simd_ops_f32::clamp_assign_f32(out_f32, min_f32, max_f32);
+                Ok(())
+            })?;
+            return Ok(self);
+        }
+
         let len = self.storage.len();
 
         for i in 0..len {
@@ -1560,296 +1893,5 @@ impl<T: TensorElement + Copy + std::ops::Mul<Output = T>> Tensor<T> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use torsh_core::device::DeviceType;
-
-    #[test]
-    fn test_scalar_operations() {
-        let data = vec![1.0f32, 2.0, 3.0, 4.0];
-        let tensor = Tensor::from_data(data, vec![4], DeviceType::Cpu)
-            .expect("failed to create tensor for scalar ops");
-
-        let result = tensor.add_scalar(5.0).expect("add_scalar should succeed");
-        assert_eq!(
-            result.data().expect("failed to get add_scalar result data"),
-            vec![6.0, 7.0, 8.0, 9.0]
-        );
-
-        let result = tensor.mul_scalar(2.0).expect("mul_scalar should succeed");
-        assert_eq!(
-            result.data().expect("failed to get mul_scalar result data"),
-            vec![2.0, 4.0, 6.0, 8.0]
-        );
-
-        let result = tensor.sub_scalar(1.0).expect("sub_scalar should succeed");
-        assert_eq!(
-            result.data().expect("failed to get sub_scalar result data"),
-            vec![0.0, 1.0, 2.0, 3.0]
-        );
-
-        let result = tensor.div_scalar(2.0).expect("div_scalar should succeed");
-        assert_eq!(
-            result.data().expect("failed to get div_scalar result data"),
-            vec![0.5, 1.0, 1.5, 2.0]
-        );
-    }
-
-    #[test]
-    fn test_elementwise_operations() {
-        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu)
-            .expect("failed to create tensor a");
-        let b = Tensor::from_data(vec![4.0f32, 5.0, 6.0], vec![3], DeviceType::Cpu)
-            .expect("failed to create tensor b");
-
-        let result = a.add(&b).expect("elementwise add should succeed");
-        assert_eq!(
-            result.data().expect("failed to get add result data"),
-            vec![5.0, 7.0, 9.0]
-        );
-
-        let result = a.sub(&b).expect("elementwise sub should succeed");
-        assert_eq!(
-            result.data().expect("failed to get sub result data"),
-            vec![-3.0, -3.0, -3.0]
-        );
-
-        let result = a.mul(&b).expect("elementwise mul should succeed");
-        assert_eq!(
-            result.data().expect("failed to get mul result data"),
-            vec![4.0, 10.0, 18.0]
-        );
-
-        let result = b.div(&a).expect("elementwise div should succeed");
-        assert_eq!(
-            result.data().expect("failed to get div result data"),
-            vec![4.0, 2.5, 2.0]
-        );
-    }
-
-    #[test]
-    fn test_mathematical_functions() {
-        let data = vec![1.0f32, 4.0, 9.0, 16.0];
-        let tensor = Tensor::from_data(data, vec![4], DeviceType::Cpu)
-            .expect("failed to create tensor for math functions");
-
-        let sqrt_result = tensor.sqrt().expect("sqrt should succeed");
-        assert_eq!(
-            sqrt_result.data().expect("failed to get sqrt result data"),
-            vec![1.0, 2.0, 3.0, 4.0]
-        );
-
-        let data2 = vec![0.0f32, 1.0, 2.0];
-        let tensor2 = Tensor::from_data(data2, vec![3], DeviceType::Cpu)
-            .expect("failed to create tensor2 for exp");
-
-        let exp_result = tensor2.exp().expect("exp should succeed");
-        let expected_exp = vec![1.0, std::f32::consts::E, std::f32::consts::E.powi(2)];
-        for (got, &expected) in exp_result
-            .data()
-            .expect("failed to get exp result data")
-            .iter()
-            .zip(&expected_exp)
-        {
-            assert!((got - expected).abs() < 1e-6);
-        }
-    }
-
-    #[test]
-    fn test_trigonometric_functions() {
-        let data = vec![0.0f32, std::f32::consts::PI / 2.0, std::f32::consts::PI];
-        let tensor = Tensor::from_data(data, vec![3], DeviceType::Cpu)
-            .expect("failed to create tensor for trig functions");
-
-        let sin_result = tensor.sin().expect("sin should succeed");
-        let sin_data = sin_result.data().expect("failed to get sin result data");
-        assert!((sin_data[0] - 0.0).abs() < 1e-6);
-        assert!((sin_data[1] - 1.0).abs() < 1e-6);
-        assert!((sin_data[2] - 0.0).abs() < 1e-6);
-
-        let cos_result = tensor.cos().expect("cos should succeed");
-        let cos_data = cos_result.data().expect("failed to get cos result data");
-        assert!((cos_data[0] - 1.0).abs() < 1e-6);
-        assert!((cos_data[1] - 0.0).abs() < 1e-6);
-        assert!((cos_data[2] - (-1.0)).abs() < 1e-6);
-    }
-
-    #[test]
-    fn test_operator_overloads() {
-        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu)
-            .expect("failed to create tensor a for operator overloads");
-        let b = Tensor::from_data(vec![4.0f32, 5.0, 6.0], vec![3], DeviceType::Cpu)
-            .expect("failed to create tensor b for operator overloads");
-
-        let result = &a + &b;
-        assert_eq!(
-            result.data().expect("failed to get add operator result"),
-            vec![5.0, 7.0, 9.0]
-        );
-
-        let result = &b - &a;
-        assert_eq!(
-            result.data().expect("failed to get sub operator result"),
-            vec![3.0, 3.0, 3.0]
-        );
-
-        let result = &a * &b;
-        assert_eq!(
-            result.data().expect("failed to get mul operator result"),
-            vec![4.0, 10.0, 18.0]
-        );
-
-        let result = &b / &a;
-        assert_eq!(
-            result.data().expect("failed to get div operator result"),
-            vec![4.0, 2.5, 2.0]
-        );
-
-        let neg_result = -&a;
-        assert_eq!(
-            neg_result
-                .data()
-                .expect("failed to get neg operator result"),
-            vec![-1.0, -2.0, -3.0]
-        );
-    }
-
-    #[test]
-    fn test_power_operations() {
-        let data = vec![2.0f32, 3.0, 4.0];
-        let tensor = Tensor::from_data(data, vec![3], DeviceType::Cpu)
-            .expect("failed to create tensor for power ops");
-
-        let pow_result = tensor.pow(2.0).expect("pow should succeed");
-        assert_eq!(
-            pow_result.data().expect("failed to get pow result data"),
-            vec![4.0, 9.0, 16.0]
-        );
-
-        let exponents = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu)
-            .expect("failed to create exponents tensor");
-        let pow_tensor_result = tensor
-            .pow_tensor(&exponents)
-            .expect("pow_tensor should succeed");
-        assert_eq!(
-            pow_tensor_result
-                .data()
-                .expect("failed to get pow_tensor result data"),
-            vec![2.0, 9.0, 64.0]
-        );
-    }
-
-    #[test]
-    fn test_rounding_functions() {
-        let data = vec![1.2f32, 2.7, -1.5, -2.3];
-        let tensor = Tensor::from_data(data, vec![4], DeviceType::Cpu)
-            .expect("failed to create tensor for rounding");
-
-        let floor_result = tensor.floor().expect("floor should succeed");
-        assert_eq!(
-            floor_result
-                .data()
-                .expect("failed to get floor result data"),
-            vec![1.0, 2.0, -2.0, -3.0]
-        );
-
-        let ceil_result = tensor.ceil().expect("ceil should succeed");
-        assert_eq!(
-            ceil_result.data().expect("failed to get ceil result data"),
-            vec![2.0, 3.0, -1.0, -2.0]
-        );
-
-        let round_result = tensor.round().expect("round should succeed");
-        assert_eq!(
-            round_result
-                .data()
-                .expect("failed to get round result data"),
-            vec![1.0, 3.0, -2.0, -2.0]
-        );
-    }
-
-    #[test]
-    fn test_sign_function() {
-        let data = vec![-3.0f32, 0.0, 5.0, -1.0];
-        let tensor = Tensor::from_data(data, vec![4], DeviceType::Cpu)
-            .expect("failed to create tensor for sign");
-
-        let sign_result = tensor.sign().expect("sign should succeed");
-        assert_eq!(
-            sign_result.data().expect("failed to get sign result data"),
-            vec![-1.0, 0.0, 1.0, -1.0]
-        );
-    }
-
-    #[test]
-    fn test_shape_mismatch_error() {
-        let a = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu)
-            .expect("failed to create tensor a for shape mismatch test");
-        let b = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu)
-            .expect("failed to create tensor b for shape mismatch test");
-
-        assert!(a.add(&b).is_err());
-        assert!(a.mul(&b).is_err());
-    }
-
-    // ✅ In-place operation tests
-    #[test]
-    fn test_relu_inplace() {
-        let mut tensor =
-            Tensor::from_data(vec![-2.0f32, -1.0, 0.0, 1.0, 2.0], vec![5], DeviceType::Cpu)
-                .expect("failed to create tensor for relu inplace");
-
-        tensor.relu_().expect("relu_ should succeed");
-        let result = tensor.data().expect("failed to get relu_ result data");
-
-        assert_eq!(result, vec![0.0, 0.0, 0.0, 1.0, 2.0]);
-    }
-
-    #[test]
-    fn test_sigmoid_inplace() {
-        let mut tensor = Tensor::from_data(vec![0.0f32], vec![1], DeviceType::Cpu)
-            .expect("failed to create tensor for sigmoid inplace");
-
-        tensor.sigmoid_().expect("sigmoid_ should succeed");
-        let result = tensor.data().expect("failed to get sigmoid_ result data");
-
-        // sigmoid(0) = 0.5
-        assert!((result[0] - 0.5).abs() < 1e-6);
-    }
-
-    #[test]
-    fn test_tanh_inplace() {
-        let mut tensor = Tensor::from_data(vec![0.0f32], vec![1], DeviceType::Cpu)
-            .expect("failed to create tensor for tanh inplace");
-
-        tensor.tanh_().expect("tanh_ should succeed");
-        let result = tensor.data().expect("failed to get tanh_ result data");
-
-        // tanh(0) = 0
-        assert!(result[0].abs() < 1e-6);
-    }
-
-    #[test]
-    fn test_clamp_inplace() {
-        let mut tensor =
-            Tensor::from_data(vec![-2.0f32, -1.0, 0.0, 1.0, 2.0], vec![5], DeviceType::Cpu)
-                .expect("failed to create tensor for clamp inplace");
-
-        tensor.clamp_(-1.0, 1.0).expect("clamp_ should succeed");
-        let result = tensor.data().expect("failed to get clamp_ result data");
-
-        assert_eq!(result, vec![-1.0, -1.0, 0.0, 1.0, 1.0]);
-    }
-
-    #[test]
-    fn test_inplace_with_requires_grad_error() {
-        let mut tensor = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu)
-            .expect("failed to create tensor for requires_grad test");
-        tensor.requires_grad = true;
-
-        // In-place operations should fail on tensors with requires_grad=true
-        assert!(tensor.relu_().is_err());
-        assert!(tensor.sigmoid_().is_err());
-        assert!(tensor.tanh_().is_err());
-    }
-}
+#[path = "math_ops_tests.rs"]
+mod tests;

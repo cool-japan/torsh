@@ -1601,7 +1601,7 @@ mod tests {
         // Test dot product
         let a = vec![1.0, 2.0, 3.0, 4.0];
         let b = vec![2.0, 3.0, 4.0, 5.0];
-        let result = ops.dot_product_f32(&a, &b).unwrap();
+        let result = ops.dot_product_f32(&a, &b).expect("dot product computation should succeed");
         assert_eq!(result, 40.0); // 1*2 + 2*3 + 3*4 + 4*5 = 40
 
         // Test with mismatched lengths
@@ -1613,7 +1613,7 @@ mod tests {
         let b = vec![5.0, 6.0, 7.0, 8.0]; // 2x2 matrix
         let mut c = vec![0.0; 4]; // 2x2 result
 
-        ops.matrix_multiply_f32(&a, &b, &mut c, 2, 2, 2).unwrap();
+        ops.matrix_multiply_f32(&a, &b, &mut c, 2, 2, 2).expect("f32 matrix multiply should succeed");
         // Expected: [1*5+2*7, 1*6+2*8] = [19, 22]
         //          [3*5+4*7, 3*6+4*8] = [43, 50]
         assert_eq!(c, vec![19.0, 22.0, 43.0, 50.0]);

@@ -383,7 +383,7 @@ mod tests {
             let t = i as f32 * 0.1;
             data.push((2.0 * std::f32::consts::PI * t).sin());
         }
-        let tensor = Tensor::from_vec(data, &[128]).unwrap();
+        let tensor = Tensor::from_vec(data, &[128]).expect("Tensor should succeed");
         TimeSeries::new(tensor)
     }
 
@@ -391,7 +391,9 @@ mod tests {
     fn test_fft_analyzer() {
         let series = create_test_series();
         let analyzer = FFTAnalyzer::new(10.0);
-        let result = analyzer.fft(&series).unwrap();
+        let result = analyzer
+            .fft(&series)
+            .expect("FFT computation should succeed");
 
         assert_eq!(result.real.len(), 128);
         assert_eq!(result.imag.len(), 128);
@@ -402,7 +404,9 @@ mod tests {
     fn test_fft_with_window() {
         let series = create_test_series();
         let analyzer = FFTAnalyzer::new(10.0).with_window(WindowType::Hann);
-        let result = analyzer.fft(&series).unwrap();
+        let result = analyzer
+            .fft(&series)
+            .expect("FFT computation should succeed");
 
         assert_eq!(result.real.len(), 128);
     }
@@ -411,7 +415,9 @@ mod tests {
     fn test_fft_magnitude() {
         let series = create_test_series();
         let analyzer = FFTAnalyzer::new(10.0);
-        let result = analyzer.fft(&series).unwrap();
+        let result = analyzer
+            .fft(&series)
+            .expect("FFT computation should succeed");
         let magnitude = result.magnitude();
 
         assert_eq!(magnitude.len(), 128);
@@ -422,8 +428,12 @@ mod tests {
     fn test_ifft() {
         let series = create_test_series();
         let analyzer = FFTAnalyzer::new(10.0);
-        let fft_result = analyzer.fft(&series).unwrap();
-        let reconstructed = analyzer.ifft(&fft_result).unwrap();
+        let fft_result = analyzer
+            .fft(&series)
+            .expect("FFT computation should succeed");
+        let reconstructed = analyzer
+            .ifft(&fft_result)
+            .expect("IFFT computation should succeed");
 
         assert_eq!(reconstructed.len(), series.len());
     }
@@ -432,7 +442,9 @@ mod tests {
     fn test_psd_periodogram() {
         let series = create_test_series();
         let estimator = PSDEstimator::new(PSDMethod::Periodogram, 10.0);
-        let result = estimator.estimate(&series).unwrap();
+        let result = estimator
+            .estimate(&series)
+            .expect("estimation should succeed");
 
         assert_eq!(result.psd.len(), 128);
         assert_eq!(result.frequencies.len(), 128);
@@ -443,7 +455,7 @@ mod tests {
     fn test_periodogram_analyzer() {
         let series = create_test_series();
         let analyzer = PeriodogramAnalyzer::new(10.0);
-        let periodogram = analyzer.analyze(&series).unwrap();
+        let periodogram = analyzer.analyze(&series).expect("analysis should succeed");
 
         assert_eq!(periodogram.power.len(), 128);
         assert_eq!(periodogram.frequencies.len(), 128);
@@ -453,7 +465,9 @@ mod tests {
     fn test_dominant_frequency() {
         let series = create_test_series();
         let analyzer = PeriodogramAnalyzer::new(10.0);
-        let freq = analyzer.dominant_frequency(&series).unwrap();
+        let freq = analyzer
+            .dominant_frequency(&series)
+            .expect("dominant frequency estimation should succeed");
 
         assert!(freq >= 0.0);
     }
@@ -463,7 +477,9 @@ mod tests {
         let series1 = create_test_series();
         let series2 = create_test_series();
         let analyzer = CoherenceAnalyzer::new(10.0);
-        let coherence = analyzer.coherence(&series1, &series2).unwrap();
+        let coherence = analyzer
+            .coherence(&series1, &series2)
+            .expect("coherence computation should succeed");
 
         assert_eq!(coherence.len(), 128);
         assert!(coherence.iter().all(|&c| c >= 0.0 && c <= 1.0));
@@ -480,7 +496,9 @@ mod tests {
             WindowType::Rectangular,
         ] {
             let analyzer = FFTAnalyzer::new(10.0).with_window(window);
-            let result = analyzer.fft(&series).unwrap();
+            let result = analyzer
+                .fft(&series)
+                .expect("FFT computation should succeed");
             assert_eq!(result.real.len(), 128);
         }
     }

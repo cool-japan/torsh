@@ -50,21 +50,23 @@ mod tests {
     use tempfile::TempDir;
     #[test]
     fn test_model_zoo() {
-        let temp_dir = TempDir::new().unwrap();
-        let zoo = ModelZoo::new(temp_dir.path()).unwrap();
+        let temp_dir = TempDir::new().expect("Temp Dir should succeed");
+        let zoo = ModelZoo::new(temp_dir.path()).expect("operation should succeed");
         let models = zoo.list_models();
         assert!(!models.is_empty());
-        let resnet18 = zoo.get_model_info("resnet18").unwrap();
+        let resnet18 = zoo
+            .get_model_info("resnet18")
+            .expect("model info retrieval should succeed");
         assert_eq!(resnet18.architecture, "ResNet");
         assert_eq!(resnet18.config.num_classes, 1000);
     }
     #[test]
     fn test_model_download() {
-        let temp_dir = TempDir::new().unwrap();
-        let mut zoo = ModelZoo::new(temp_dir.path()).unwrap();
+        let temp_dir = TempDir::new().expect("Temp Dir should succeed");
+        let mut zoo = ModelZoo::new(temp_dir.path()).expect("operation should succeed");
         let dummy_model_content = b"dummy model data";
         let dummy_model_path = temp_dir.path().join("dummy_model.torsh");
-        std::fs::write(&dummy_model_path, dummy_model_content).unwrap();
+        std::fs::write(&dummy_model_path, dummy_model_content).expect("fs should succeed");
         let test_model = ModelInfo {
             name: "test_local_model".to_string(),
             architecture: "TestNet".to_string(),
@@ -109,7 +111,7 @@ mod tests {
     }
     #[test]
     fn test_enhanced_model_zoo_features() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("Temp Dir should succeed");
         let config = RegistryConfig {
             mirrors: vec!["https://mirror1.test.com".to_string()],
             retry_config: RetryConfig {
@@ -119,18 +121,23 @@ mod tests {
             },
             ..Default::default()
         };
-        let mut zoo = ModelZoo::with_config(temp_dir.path(), config).unwrap();
+        let mut zoo =
+            ModelZoo::with_config(temp_dir.path(), config).expect("operation should succeed");
         assert!(!zoo.mirror_health.is_empty());
-        let deps = zoo.resolve_dependencies("resnet18").unwrap();
+        let deps = zoo
+            .resolve_dependencies("resnet18")
+            .expect("dependency resolution should succeed");
         assert!(!deps.is_empty());
         assert!(deps.iter().any(|d| d.name == "torsh-vision"));
-        let synced = zoo.sync_with_huggingface(Some("microsoft")).unwrap();
+        let synced = zoo
+            .sync_with_huggingface(Some("microsoft"))
+            .expect("operation should succeed");
         assert!(!synced.is_empty());
     }
     #[test]
     fn test_model_recommendations() {
-        let temp_dir = TempDir::new().unwrap();
-        let zoo = ModelZoo::new(temp_dir.path()).unwrap();
+        let temp_dir = TempDir::new().expect("Temp Dir should succeed");
+        let zoo = ModelZoo::new(temp_dir.path()).expect("operation should succeed");
         let preferences = UserPreferences {
             preferred_architecture: Some("ResNet".to_string()),
             preferred_tasks: vec!["classification".to_string()],
@@ -155,8 +162,8 @@ mod tests {
     }
     #[test]
     fn test_advanced_search() {
-        let temp_dir = TempDir::new().unwrap();
-        let zoo = ModelZoo::new(temp_dir.path()).unwrap();
+        let temp_dir = TempDir::new().expect("Temp Dir should succeed");
+        let zoo = ModelZoo::new(temp_dir.path()).expect("operation should succeed");
         let query = ModelSearchQuery::new()
             .architecture("ResNet")
             .tag("classification")
@@ -177,17 +184,17 @@ mod tests {
     }
     #[test]
     fn test_version_management() {
-        let temp_dir = TempDir::new().unwrap();
-        let zoo = ModelZoo::new(temp_dir.path()).unwrap();
+        let temp_dir = TempDir::new().expect("Temp Dir should succeed");
+        let zoo = ModelZoo::new(temp_dir.path()).expect("operation should succeed");
         let version_1_0 = zoo.get_model_version("resnet18", "1.0");
         assert!(version_1_0.is_some());
         let version_1_1 = zoo.get_model_version("resnet18", "1.1");
         assert!(version_1_1.is_some());
-        let version_info = version_1_1.unwrap();
+        let version_info = version_1_1.expect("operation should succeed");
         assert_eq!(version_info.version, "1.1");
         let versions = zoo.get_model_versions("resnet18");
         assert!(versions.is_some());
-        let versions = versions.unwrap();
+        let versions = versions.expect("operation should succeed");
         assert!(!versions.is_empty());
     }
     #[test]

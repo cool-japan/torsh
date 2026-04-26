@@ -331,8 +331,12 @@ mod tests {
     }
 
     async fn setup_test_server() -> (SocketAddr, tokio::task::JoinHandle<()>) {
-        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let addr = listener.local_addr().unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("operation should succeed");
+        let addr = listener
+            .local_addr()
+            .expect("local address should be bound");
 
         let handle = tokio::spawn(async move {
             while let Ok((mut stream, _)) = listener.accept().await {
@@ -373,7 +377,9 @@ mod tests {
         let (server_addr, _handle) = setup_test_server().await;
         let config = ConnectionConfig::default();
 
-        let connection = ManagedConnection::new(server_addr, config).await.unwrap();
+        let connection = ManagedConnection::new(server_addr, config)
+            .await
+            .expect("operation should succeed");
 
         let message = TestMessage {
             id: 42,
@@ -381,10 +387,16 @@ mod tests {
         };
 
         // Send message
-        connection.send_message(&message).await.unwrap();
+        connection
+            .send_message(&message)
+            .await
+            .expect("operation should succeed");
 
         // Receive echo
-        let response: TestMessage = connection.receive_message().await.unwrap();
+        let response: TestMessage = connection
+            .receive_message()
+            .await
+            .expect("operation should succeed");
         assert_eq!(response, message);
     }
 
@@ -401,7 +413,10 @@ mod tests {
         };
 
         // Test send and receive
-        let response: TestMessage = pool.send_and_receive(server_addr, &message).await.unwrap();
+        let response: TestMessage = pool
+            .send_and_receive(server_addr, &message)
+            .await
+            .expect("operation should succeed");
         assert_eq!(response, message);
 
         // Check pool stats
@@ -420,7 +435,9 @@ mod tests {
         let pool = ConnectionPool::new(config);
 
         // Add a connection that will expire immediately
-        let _fake_addr: std::net::SocketAddr = "127.0.0.1:9999".parse().unwrap();
+        let _fake_addr: std::net::SocketAddr = "127.0.0.1:9999"
+            .parse()
+            .expect("parsing should succeed for valid input");
         let initial_stats = pool.get_stats().await;
 
         // Wait for expiration

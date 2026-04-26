@@ -1,6 +1,6 @@
 # ToRSh Development Roadmap
 
-**Status**: v0.1.1 (Released - March 17, 2026)
+**Status**: v0.1.2 (Released - April 26, 2026)
 
 ---
 
@@ -56,6 +56,7 @@
 ### Priority 0: Emergency Fixes (MUST FIX BEFORE RELEASE)
 
 #### CRITICAL #1: Fix Tensor Creation Overhead 🔥 ✅ **PHASES 1 & 2 COMPLETE**
+> (Tracked in crates/torsh-tensor/TODO.md — planned 2026-04-19 v0.1.2 slice: blocks A–G dispatched)
 - [x] **Phase 1 COMPLETE**: Implement zero-copy scoped access (Dec 31, 2025)
   - [x] `TensorView<'a, T>` and `TensorViewMut<'a, T>` types implemented
   - [x] `with_data_slice()` and `with_data_slice_mut()` methods added
@@ -120,6 +121,7 @@
 - **Status**: Benchmarks now measure actual operation performance correctly
 
 #### CRITICAL #4: Reduce Memory Allocations 🔥
+> (Tracked in crates/torsh-tensor/TODO.md — planned 2026-04-19 v0.1.2 slice: blocks A–G dispatched)
 - [ ] Implement buffer pooling (`scirs2_core::memory::BufferPool`)
 - [ ] Add in-place operations for all element-wise ops
 - [ ] Use views instead of clones
@@ -166,9 +168,9 @@ Build a **PyTorch-compatible deep learning framework in pure Rust** that combine
 - **Completeness**: Full scientific computing platform through SciRS2 integration
 - **Deployment**: Single binary, no Python runtime, edge-to-cloud ready
 
-## ✨ What We Have Now (v0.1.1)
+## ✨ What We Have Now (v0.1.2)
 
-### 🚀 v0.1.1 Status: Production-Ready Core ✅
+### 🚀 v0.1.2 Status: Production-Ready Core ✅
 
 ✅ **Performance issues resolved** (January 1, 2026): All 7 phases of SIMD optimization complete. See completed section above for benchmark results.
 
@@ -191,7 +193,7 @@ Build a **PyTorch-compatible deep learning framework in pure Rust** that combine
 - **Special Functions**: Gamma, Bessel, error functions
 
 ### Quality Metrics ✅
-- **9875 Unit Tests Passing**: 100% pass rate
+- **9,600+ Unit Tests Passing**: 100% pass rate
 - **Zero Compilation Errors**: All workspace packages compile cleanly
 - **Zero Warnings**: 100% compliance with no-warnings policy
 - **35/35 Packages**: 100% compilation success (torsh-distributed tests excluded)
@@ -799,7 +801,7 @@ Following comprehensive requirements submitted to SciRS2 team for SIMD operation
 - [x] Functional transformations system
 - [x] Tensor operations with advanced features
 - [x] Benchmarking infrastructure
-- [x] **9061/9062 tests passing (99.99% pass rate)**
+- [x] **9,600+ tests passing (100% pass rate)**
 - [x] **Zero compilation warnings**
 
 ---

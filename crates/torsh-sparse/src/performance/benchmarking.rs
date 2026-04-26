@@ -569,7 +569,7 @@ mod tests {
     #[test]
     fn test_memory_estimation() {
         let profiler = SparseProfiler::new(BenchmarkConfig::default());
-        let coo = create_test_sparse_tensor().unwrap();
+        let coo = create_test_sparse_tensor().expect("create test sparse tensor should succeed");
 
         let memory_usage = profiler.estimate_memory_usage(&coo);
         assert_eq!(memory_usage, 4 * 12); // 4 non-zeros * 12 bytes each (COO format)

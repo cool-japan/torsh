@@ -50,9 +50,9 @@
 ### 5. Additional Enhancements
 
 #### 5.1 Python API Completeness
-- [ ] Add missing tensor creation functions (zeros_like, ones_like, etc.)
-- [ ] Add missing tensor operations (cat, stack, etc.)
-- [ ] Add missing math operations (exp, log, sqrt, etc.)
+- [x] Add missing tensor creation functions (zeros_like, ones_like, etc.)
+- [x] Add missing tensor operations (cat, stack, etc.)
+- [x] Add missing math operations (exp, log, sqrt, etc.)
 - [ ] Add broadcasting support
 - [ ] Add indexing/slicing support
 

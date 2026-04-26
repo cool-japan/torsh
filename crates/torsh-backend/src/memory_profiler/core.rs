@@ -859,7 +859,7 @@ mod tests {
     #[test]
     fn test_bandwidth_utilization() {
         let bandwidth = BandwidthUtilization {
-            device: Device::cpu().unwrap(),
+            device: Device::cpu().expect("Device should succeed"),
             peak_bandwidth: 800_000_000,
             average_bandwidth: 600_000_000,
             theoretical_max_bandwidth: 1_000_000_000,

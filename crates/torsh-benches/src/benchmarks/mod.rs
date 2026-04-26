@@ -675,7 +675,9 @@ mod tests {
         suite.store_result("test_category", result1);
         suite.store_result("test_category", result2);
 
-        let summary = suite.get_category_summary("test_category").unwrap();
+        let summary = suite
+            .get_category_summary("test_category")
+            .expect("category summary retrieval should succeed");
         assert_eq!(summary.total_benchmarks, 2);
         assert_eq!(summary.avg_throughput, 150.0);
         assert_eq!(summary.avg_bandwidth, 75.0);

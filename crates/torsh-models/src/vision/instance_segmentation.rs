@@ -1021,7 +1021,7 @@ mod tests {
     #[test]
     fn test_mask_rcnn_forward() {
         let mask_rcnn = MaskRCNN::mask_rcnn_resnet50_coco();
-        let input = torsh_tensor::creation::randn(&[1, 3, 224, 224]).unwrap();
+        let input = torsh_tensor::creation::randn(&[1, 3, 224, 224]).expect("creation should succeed");
 
         let result = mask_rcnn.forward(&input);
         assert!(result.is_ok());
@@ -1030,7 +1030,7 @@ mod tests {
     #[test]
     fn test_yolo_forward() {
         let yolo = YOLO::yolov5s();
-        let input = torsh_tensor::creation::randn(&[1, 3, 640, 640]).unwrap();
+        let input = torsh_tensor::creation::randn(&[1, 3, 640, 640]).expect("creation should succeed");
 
         let result = yolo.forward(&input);
         assert!(result.is_ok());

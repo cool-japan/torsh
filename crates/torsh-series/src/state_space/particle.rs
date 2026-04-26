@@ -26,8 +26,10 @@ impl ParticleFilter {
     pub fn new(num_particles: usize, state_dim: usize) -> Self {
         let particles: Tensor<f32> =
             randn(&[num_particles, state_dim]).expect("tensor creation should succeed");
-        // TODO: Implement tensor scalar division
-        let weights = ones(&[num_particles]).expect("tensor creation should succeed"); // / num_particles as f32;
+        let weights = ones::<f32>(&[num_particles])
+            .expect("tensor creation should succeed")
+            .div_scalar(num_particles as f32)
+            .expect("weight normalization should succeed");
 
         Self {
             num_particles,
@@ -289,24 +291,36 @@ impl ParticleFilter {
     pub fn predict_with_noise(
         &mut self,
         transition_fn: &dyn Fn(&Tensor) -> Tensor,
-        _noise_std: f32,
+        noise_std: f32,
     ) {
-        // Apply transition and add noise to each particle
+        // Apply transition and add noise to each particle, building a new particles buffer
+        let mut new_particles = Vec::with_capacity(self.num_particles * self.state_dim);
+
         for i in 0..self.num_particles {
             let particle = self
                 .particles
                 .slice_tensor(0, i, i + 1)
                 .expect("slice should succeed");
-            let _predicted = transition_fn(&particle);
+            let predicted = transition_fn(&particle);
 
-            // Add noise
-            let _noise: Tensor<f32> =
+            // Scale a standard-normal noise tensor by noise_std and add to predicted
+            let noise: Tensor<f32> =
                 randn(&[1, self.state_dim]).expect("tensor creation should succeed");
-            // TODO: Implement scalar multiplication and addition
-            // let noisy_predicted = &predicted + &(&noise * noise_std);
+            let scaled_noise = noise
+                .mul_scalar(noise_std)
+                .expect("noise scaling should succeed");
+            let noisy_predicted = predicted
+                .add(&scaled_noise)
+                .expect("noise addition should succeed");
 
-            // TODO: Update particle in place
+            let row = noisy_predicted
+                .to_vec()
+                .expect("particle data extraction should succeed");
+            new_particles.extend_from_slice(&row);
         }
+
+        self.particles = Tensor::from_vec(new_particles, &[self.num_particles, self.state_dim])
+            .expect("particle tensor reconstruction should succeed");
     }
 
     /// Update weights based on observation likelihood
@@ -315,17 +329,23 @@ impl ParticleFilter {
         observation: &Tensor,
         likelihood_fn: &dyn Fn(&Tensor, &Tensor) -> f64,
     ) {
-        // Update particle weights based on likelihood
+        // Collect current weights into a vec, update each, then rebuild the tensor
+        let mut weights_vec = self
+            .weights
+            .to_vec()
+            .expect("weight data extraction should succeed");
+
         for i in 0..self.num_particles {
             let particle = self
                 .particles
                 .slice_tensor(0, i, i + 1)
                 .expect("slice should succeed");
-            let _likelihood = likelihood_fn(&particle, observation);
-
-            // TODO: Update weight in place when tensor indexing is available
-            // self.weights[i] *= likelihood as f32;
+            let likelihood = likelihood_fn(&particle, observation);
+            weights_vec[i] *= likelihood as f32;
         }
+
+        self.weights = Tensor::from_vec(weights_vec, &[self.num_particles])
+            .expect("weight tensor reconstruction should succeed");
 
         self.normalize_weights();
     }
@@ -436,7 +456,7 @@ mod tests {
 
     fn create_test_series() -> TimeSeries {
         let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0];
-        let tensor = Tensor::from_vec(data, &[5]).unwrap();
+        let tensor = Tensor::from_vec(data, &[5]).expect("Tensor should succeed");
         TimeSeries::new(tensor)
     }
 
@@ -461,8 +481,8 @@ mod tests {
 
     #[test]
     fn test_particle_filter_with_initial() {
-        let particles: Tensor<f32> = randn(&[50, 3]).unwrap();
-        let weights = ones(&[50]).unwrap();
+        let particles: Tensor<f32> = randn(&[50, 3]).expect("randn should succeed");
+        let weights = ones(&[50]).expect("ones should succeed");
 
         let pf = ParticleFilter::with_initial_particles(particles, Some(weights));
         let (num_particles, state_dim, _) = pf.config();
@@ -490,7 +510,7 @@ mod tests {
     #[test]
     fn test_particle_filter_set_particles() {
         let mut pf = ParticleFilter::new(50, 2);
-        let new_particles = zeros(&[50, 2]).unwrap();
+        let new_particles = zeros(&[50, 2]).expect("zeros should succeed");
 
         pf.set_particles(new_particles);
         assert_eq!(pf.particles().shape().dims(), [50, 2]);
@@ -499,7 +519,7 @@ mod tests {
     #[test]
     fn test_particle_filter_set_weights() {
         let mut pf = ParticleFilter::new(50, 2);
-        let new_weights = ones(&[50]).unwrap();
+        let new_weights = ones(&[50]).expect("ones should succeed");
 
         pf.set_weights(new_weights);
         assert_eq!(pf.weights().shape().dims(), [50]);
@@ -526,7 +546,7 @@ mod tests {
     #[test]
     fn test_particle_filter_update() {
         let mut pf = ParticleFilter::new(10, 2);
-        let obs = zeros(&[1]).unwrap();
+        let obs = zeros(&[1]).expect("zeros should succeed");
 
         pf.update(&obs, &gaussian_likelihood);
 

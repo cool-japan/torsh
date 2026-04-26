@@ -758,10 +758,14 @@ mod tests {
     fn test_snapshot_collection() {
         let monitor = GradientMemoryMonitor::new("test_op".to_string());
 
-        monitor.take_snapshot(1000).unwrap();
+        monitor
+            .take_snapshot(1000)
+            .expect("snapshot capture should succeed");
         assert_eq!(monitor.snapshot_count(), 1);
 
-        monitor.take_snapshot(2000).unwrap();
+        monitor
+            .take_snapshot(2000)
+            .expect("snapshot capture should succeed");
         assert_eq!(monitor.snapshot_count(), 2);
 
         // Check snapshots are properly recorded
@@ -779,13 +783,21 @@ mod tests {
         let monitor = GradientMemoryMonitor::new("test_op".to_string());
 
         // Simulate memory usage pattern
-        monitor.take_snapshot(1000).unwrap();
+        monitor
+            .take_snapshot(1000)
+            .expect("snapshot capture should succeed");
         std::thread::sleep(Duration::from_millis(10));
-        monitor.take_snapshot(3000).unwrap();
+        monitor
+            .take_snapshot(3000)
+            .expect("snapshot capture should succeed");
         std::thread::sleep(Duration::from_millis(10));
-        monitor.take_snapshot(2000).unwrap();
+        monitor
+            .take_snapshot(2000)
+            .expect("snapshot capture should succeed");
 
-        let results = monitor.stop_and_analyze().unwrap();
+        let results = monitor
+            .stop_and_analyze()
+            .expect("stop and analyze should succeed");
 
         assert_eq!(results.operation_name, "test_op");
         assert_eq!(results.snapshot_count, 3);
@@ -807,7 +819,9 @@ mod tests {
 
         // Add more snapshots than limit
         for i in 0..5 {
-            monitor.take_snapshot((i + 1) * 1000).unwrap();
+            monitor
+                .take_snapshot((i + 1) * 1000)
+                .expect("operation should succeed");
         }
 
         // Should not exceed max_snapshots
@@ -857,7 +871,9 @@ mod tests {
         let monitor = GradientMemoryMonitor::new("empty_test".to_string());
 
         // Analyze without any snapshots
-        let results = monitor.stop_and_analyze().unwrap();
+        let results = monitor
+            .stop_and_analyze()
+            .expect("stop and analyze should succeed");
 
         assert_eq!(results.snapshot_count, 0);
         assert_eq!(results.peak_memory_usage, 0);
@@ -870,11 +886,17 @@ mod tests {
         let monitor = GradientMemoryMonitor::new("anomaly_test".to_string());
 
         // Simulate high memory growth
-        monitor.take_snapshot(1024 * 1024).unwrap(); // 1MB
+        monitor
+            .take_snapshot(1024 * 1024)
+            .expect("snapshot capture should succeed"); // 1MB
         std::thread::sleep(Duration::from_millis(1));
-        monitor.take_snapshot(100 * 1024 * 1024).unwrap(); // 100MB - rapid growth
+        monitor
+            .take_snapshot(100 * 1024 * 1024)
+            .expect("snapshot capture should succeed"); // 100MB - rapid growth
 
-        let results = monitor.stop_and_analyze().unwrap();
+        let results = monitor
+            .stop_and_analyze()
+            .expect("stop and analyze should succeed");
 
         // Should detect high growth rate anomaly
         assert!(!results.anomalies.is_empty());
@@ -886,9 +908,13 @@ mod tests {
         let monitor = GradientMemoryMonitor::new("recommendation_test".to_string());
 
         // Simulate large memory usage
-        monitor.take_snapshot(2 * 1024 * 1024 * 1024).unwrap(); // 2GB
+        monitor
+            .take_snapshot(2 * 1024 * 1024 * 1024)
+            .expect("snapshot capture should succeed"); // 2GB
 
-        let results = monitor.stop_and_analyze().unwrap();
+        let results = monitor
+            .stop_and_analyze()
+            .expect("stop and analyze should succeed");
 
         // Should generate recommendations for large memory usage
         assert!(!results.recommendations.is_empty());

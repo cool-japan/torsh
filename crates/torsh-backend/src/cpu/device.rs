@@ -159,7 +159,7 @@ mod tests {
 
     #[test]
     fn test_cpu_device_creation() {
-        let device = CpuDevice::new(0, 8).unwrap();
+        let device = CpuDevice::new(0, 8).expect("Cpu Device should succeed");
         assert_eq!(device.id(), 0);
         assert_eq!(device.num_cores(), 8);
         let device_info = device.to_device();
@@ -169,7 +169,7 @@ mod tests {
 
     #[test]
     fn test_cpu_device_conversion() {
-        let cpu_device = CpuDevice::new(0, 4).unwrap();
+        let cpu_device = CpuDevice::new(0, 4).expect("Cpu Device should succeed");
         let device: Device = cpu_device.clone().into();
 
         assert_eq!(device.device_type(), DeviceType::Cpu);

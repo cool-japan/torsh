@@ -1531,7 +1531,7 @@ mod tests {
         let result = analyzer.analyze_entity_coherence(text);
         assert!(result.is_ok());
 
-        let coherence = result.unwrap();
+        let coherence = result.expect("operation should succeed");
         assert!(coherence.overall_coherence >= 0.0);
         assert!(coherence.overall_coherence <= 1.0);
         assert!(!coherence.entity_chains.is_empty());
@@ -1546,7 +1546,7 @@ mod tests {
         let result = analyzer.extract_entity_mentions(sentence, 0);
         assert!(result.is_ok());
 
-        let mentions = result.unwrap();
+        let mentions = result.expect("operation should succeed");
         assert!(!mentions.is_empty());
         assert!(mentions.iter().any(|m| m.mention_text == "John"));
     }
@@ -1616,7 +1616,7 @@ mod tests {
         let result = analyzer.construct_entity_chain("john".to_string(), mentions);
 
         assert!(result.is_ok());
-        let chain = result.unwrap();
+        let chain = result.expect("operation should succeed");
         assert_eq!(chain.entity, "john");
         assert_eq!(chain.mentions.len(), 2);
         assert!(chain.coherence_score > 0.0);
@@ -1662,7 +1662,7 @@ mod tests {
         let result = analyzer.calculate_chain_coherence(&mentions);
         assert!(result.is_ok());
 
-        let coherence = result.unwrap();
+        let coherence = result.expect("operation should succeed");
         assert!(coherence > 0.0);
         assert!(coherence <= 1.0);
     }

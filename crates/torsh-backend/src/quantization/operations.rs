@@ -813,7 +813,7 @@ mod tests {
 
     #[test]
     fn test_hardware_features_detection() {
-        let cpu_ops = HardwareQuantizationOps::new(Device::cpu().unwrap());
+        let cpu_ops = HardwareQuantizationOps::new(Device::cpu().expect("Hardware Quantization Ops should succeed"));
         let features = cpu_ops.hardware_features();
 
         assert!(features.supports_int8_simd);
@@ -823,7 +823,7 @@ mod tests {
 
     #[test]
     fn test_quantize_dequantize_u8() -> BackendResult<()> {
-        let ops = HardwareQuantizationOps::new(Device::cpu().unwrap());
+        let ops = HardwareQuantizationOps::new(Device::cpu().expect("Hardware Quantization Ops should succeed"));
         let params = QuantizationParams::uint8_asymmetric();
 
         let input = vec![0.0, 1.0, 2.0, 3.0, 4.0];
@@ -838,7 +838,7 @@ mod tests {
 
     #[test]
     fn test_quantize_i4_packed() -> BackendResult<()> {
-        let ops = HardwareQuantizationOps::new(Device::cpu().unwrap());
+        let ops = HardwareQuantizationOps::new(Device::cpu().expect("Hardware Quantization Ops should succeed"));
         let params = QuantizationParams::int4_symmetric();
 
         let input = vec![1.0, -1.0, 2.0, -2.0];
@@ -852,7 +852,7 @@ mod tests {
 
     #[test]
     fn test_binary_quantization() -> BackendResult<()> {
-        let ops = HardwareQuantizationOps::new(Device::cpu().unwrap());
+        let ops = HardwareQuantizationOps::new(Device::cpu().expect("Hardware Quantization Ops should succeed"));
         let params = QuantizationParams::binary();
 
         let input = vec![1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0];
@@ -868,7 +868,7 @@ mod tests {
 
     #[test]
     fn test_calibration() -> BackendResult<()> {
-        let ops = HardwareQuantizationOps::new(Device::cpu().unwrap());
+        let ops = HardwareQuantizationOps::new(Device::cpu().expect("Hardware Quantization Ops should succeed"));
 
         let sample1 = vec![0.0, 1.0, 2.0];
         let sample2 = vec![-1.0, 0.5, 3.0];
@@ -886,7 +886,7 @@ mod tests {
 
     #[test]
     fn test_qrelu() -> BackendResult<()> {
-        let ops = HardwareQuantizationOps::new(Device::cpu().unwrap());
+        let ops = HardwareQuantizationOps::new(Device::cpu().expect("Hardware Quantization Ops should succeed"));
         let params = QuantizationParams::int8_symmetric();
 
         // Create a quantized tensor with some negative values
@@ -895,7 +895,7 @@ mod tests {
             data,
             vec![3],
             params,
-            Device::cpu().unwrap(),
+            Device::cpu().expect("Device should succeed"),
         )?;
 
         let result = ops.qrelu(&tensor)?;
@@ -908,7 +908,7 @@ mod tests {
 
     #[test]
     fn test_qadd() -> BackendResult<()> {
-        let ops = HardwareQuantizationOps::new(Device::cpu().unwrap());
+        let ops = HardwareQuantizationOps::new(Device::cpu().expect("Hardware Quantization Ops should succeed"));
         let params = QuantizationParams::int8_symmetric();
 
         let data_a = vec![100u8, 50u8, 200u8];
@@ -918,14 +918,14 @@ mod tests {
             data_a,
             vec![3],
             params.clone(),
-            Device::cpu().unwrap(),
+            Device::cpu().expect("Device should succeed"),
         )?;
 
         let tensor_b = QuantizedTensor::from_data(
             data_b,
             vec![3],
             params,
-            Device::cpu().unwrap(),
+            Device::cpu().expect("Device should succeed"),
         )?;
 
         let result = ops.qadd(&tensor_a, &tensor_b)?;

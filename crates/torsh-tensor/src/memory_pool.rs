@@ -3,9 +3,12 @@
 // Memory pooling for efficient tensor memory management with SciRS2 Memory Optimization
 
 use crate::{Tensor, TensorStorage};
+use std::alloc::{handle_alloc_error, Layout};
 use std::collections::{HashMap, VecDeque};
 use std::marker::PhantomData;
-use std::sync::{Arc, Mutex};
+use std::mem::{ManuallyDrop, MaybeUninit};
+use std::ptr::NonNull;
+use std::sync::{Arc, Mutex, Weak};
 use torsh_core::{device::DeviceType, dtype::TensorElement, error::Result};
 
 // ✅ SciRS2 Memory Optimization Features
@@ -39,15 +42,163 @@ static MEMORY_POOL: std::sync::OnceLock<Arc<Mutex<GlobalMemoryPool>>> = std::syn
 
 /// Initialize the global memory pool
 pub fn init_memory_pool() -> Arc<Mutex<GlobalMemoryPool>> {
-    MEMORY_POOL
-        .get_or_init(|| Arc::new(Mutex::new(GlobalMemoryPool::new())))
-        .clone()
+    let arc = MEMORY_POOL
+        .get_or_init(|| {
+            let pool = Arc::new(Mutex::new(GlobalMemoryPool::new()));
+            // Store the Weak reference back into the pool so acquire_uninit can use it
+            if let Ok(mut guard) = pool.lock() {
+                guard.self_weak = Some(Arc::downgrade(&pool));
+            }
+            pool
+        })
+        .clone();
+    arc
 }
 
 /// Get reference to the global memory pool
 pub fn get_memory_pool() -> Arc<Mutex<GlobalMemoryPool>> {
     init_memory_pool()
 }
+
+// ─── RawEntry ────────────────────────────────────────────────────────────────
+
+/// An owned raw allocation stored in the pool's free-list.
+/// On `Drop` it deallocates the memory if it was not consumed.
+struct RawEntry {
+    ptr: NonNull<u8>,
+    capacity_bytes: usize,
+    layout: Layout,
+}
+
+/// SAFETY: `RawEntry` owns the raw pointer; transferring it to another thread is safe.
+unsafe impl Send for RawEntry {}
+
+impl Drop for RawEntry {
+    fn drop(&mut self) {
+        // SAFETY: ptr was allocated with this layout via `std::alloc::alloc`.
+        unsafe { std::alloc::dealloc(self.ptr.as_ptr(), self.layout) };
+    }
+}
+
+// ─── ReusedBuffer<T> ─────────────────────────────────────────────────────────
+
+/// A truly-pooled buffer: holds the **actual pooled allocation** without copying.
+///
+/// When dropped (or via `release_to_pool`), the buffer is returned to the global
+/// pool. Use `into_vec(len)` to take ownership as a `Vec<T>`.
+pub struct ReusedBuffer<T: 'static> {
+    ptr: NonNull<T>,
+    capacity: usize,
+    layout: Layout,
+    pool: Weak<Mutex<GlobalMemoryPool>>,
+}
+
+/// SAFETY: `ReusedBuffer<T>` owns a unique allocation; it is safe to send across threads
+/// when `T: Send`.
+unsafe impl<T: Send + 'static> Send for ReusedBuffer<T> {}
+
+impl<T: 'static> ReusedBuffer<T> {
+    /// Returns a mutable view of the buffer as uninitialized elements.
+    pub fn as_uninit_slice_mut(&mut self) -> &mut [MaybeUninit<T>] {
+        // SAFETY: ptr is valid for `capacity` elements; we have exclusive access via &mut self.
+        unsafe {
+            std::slice::from_raw_parts_mut(self.ptr.as_ptr() as *mut MaybeUninit<T>, self.capacity)
+        }
+    }
+
+    /// Capacity in elements (not bytes).
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
+
+    /// Raw pointer access — primarily for tests to verify address identity.
+    pub fn as_ptr_raw(&self) -> *mut T {
+        self.ptr.as_ptr()
+    }
+
+    /// Consume `self` and transfer ownership of the allocation to a `Vec<T>`.
+    ///
+    /// The caller must guarantee `len <= self.capacity()` and that the first `len`
+    /// elements have been initialized.
+    ///
+    /// The `Vec` now owns the memory and will free it on drop; it is NOT returned
+    /// to the pool.
+    pub fn into_vec(self, len: usize) -> Vec<T> {
+        debug_assert!(len <= self.capacity, "len must not exceed capacity");
+        // Wrap self in ManuallyDrop so our Drop impl does not run.
+        let md = ManuallyDrop::new(self);
+        // SAFETY: ptr was allocated with the global allocator for `md.capacity` elements.
+        // `len` elements are initialized (caller contract). capacity matches.
+        unsafe { Vec::from_raw_parts(md.ptr.as_ptr(), len, md.capacity) }
+    }
+
+    /// Consume `self` and return the buffer to the pool.
+    ///
+    /// If the pool is gone (Arc was dropped), the allocation is freed instead.
+    pub fn release_to_pool(self) {
+        // Wrap in ManuallyDrop to prevent our Drop from running.
+        let md = ManuallyDrop::new(self);
+        let raw_entry = RawEntry {
+            ptr: NonNull::new(md.ptr.as_ptr() as *mut u8)
+                .expect("ReusedBuffer pointer is non-null by construction"),
+            capacity_bytes: md.capacity * std::mem::size_of::<T>(),
+            layout: md.layout,
+        };
+        if let Some(pool_arc) = md.pool.upgrade() {
+            if let Ok(mut guard) = pool_arc.lock() {
+                let type_id = std::any::TypeId::of::<T>();
+                let size_class = guard.find_size_class(raw_entry.capacity_bytes);
+                let pool_key = (type_id, size_class);
+                if let Some(bucket) = guard.pools.get_mut(&pool_key) {
+                    if bucket.available_buffers.len() < bucket.max_buffers {
+                        bucket.available_buffers.push_back(raw_entry);
+                        bucket.deallocations += 1;
+                        // ManuallyDrop prevents double-free: raw_entry is now owned by the bucket.
+                        return;
+                    }
+                }
+            }
+        }
+        // Pool unavailable or full — `raw_entry` drops here and frees memory via RawEntry::Drop.
+    }
+}
+
+impl<T: 'static> Drop for ReusedBuffer<T> {
+    fn drop(&mut self) {
+        // Reconstruct a RawEntry to trigger a properly-guarded dealloc-or-return.
+        // We cannot call release_to_pool(self) directly (consumes), so replicate logic.
+        let raw_entry = RawEntry {
+            ptr: NonNull::new(self.ptr.as_ptr() as *mut u8)
+                .expect("ReusedBuffer pointer is non-null by construction"),
+            capacity_bytes: self.capacity * std::mem::size_of::<T>(),
+            layout: self.layout,
+        };
+        if let Some(pool_arc) = self.pool.upgrade() {
+            if let Ok(mut guard) = pool_arc.lock() {
+                let type_id = std::any::TypeId::of::<T>();
+                let size_class = guard.find_size_class(raw_entry.capacity_bytes);
+                let pool_key = (type_id, size_class);
+                if let Some(bucket) = guard.pools.get_mut(&pool_key) {
+                    if bucket.available_buffers.len() < bucket.max_buffers {
+                        // Wrap in ManuallyDrop so push_back takes it without scheduling
+                        // a double-free when the local binding goes out of scope.
+                        let md_entry = ManuallyDrop::new(raw_entry);
+                        // SAFETY: ManuallyDrop<RawEntry> has the same layout as RawEntry;
+                        // we read it once here and never again.
+                        bucket
+                            .available_buffers
+                            .push_back(unsafe { std::ptr::read(&*md_entry as *const RawEntry) });
+                        bucket.deallocations += 1;
+                        return;
+                    }
+                }
+            }
+        }
+        // raw_entry drops here → dealloc via RawEntry::Drop
+    }
+}
+
+// ─── GlobalMemoryPool ────────────────────────────────────────────────────────
 
 /// Enhanced global memory pool with SciRS2 memory optimization
 pub struct GlobalMemoryPool {
@@ -61,6 +212,8 @@ pub struct GlobalMemoryPool {
     scirs2_pool: GlobalBufferPool,
     /// ✅ SciRS2 Memory leak detector
     leak_detector: LeakDetector,
+    /// Weak self-reference used to hand out pool handles to `ReusedBuffer`.
+    self_weak: Option<Weak<Mutex<GlobalMemoryPool>>>,
     // ✅ SciRS2 Memory metrics collector (requires memory_efficient feature)
     // metrics_collector: MemoryMetricsCollector,
     // ✅ SciRS2 Adaptive chunking for large tensors (requires memory_efficient feature)
@@ -70,8 +223,8 @@ pub struct GlobalMemoryPool {
 /// Memory pool for specific data type and size class
 #[derive(Debug)]
 struct MemoryPool {
-    /// Available buffers ready for reuse
-    available_buffers: VecDeque<Vec<u8>>,
+    /// Available buffers ready for reuse (raw allocations)
+    available_buffers: VecDeque<RawEntry>,
     /// Size class this pool manages (in bytes)
     #[allow(dead_code)]
     size_class: usize,
@@ -161,6 +314,7 @@ impl GlobalMemoryPool {
             scirs2_pool: GlobalBufferPool::new(),
             leak_detector: LeakDetector::new(Default::default())
                 .unwrap_or_else(|_| panic!("Failed to initialize leak detector")),
+            self_weak: None,
             // metrics_collector: MemoryMetricsCollector::new(),
             // adaptive_chunking: AdaptiveChunking::new(),
         }
@@ -330,68 +484,106 @@ impl GlobalMemoryPool {
         self.stats.clone()
     }
 
-    /// Allocate memory for tensor elements
-    pub fn allocate<T: TensorElement + Default + 'static>(&mut self, count: usize) -> Vec<T> {
-        let type_id = std::any::TypeId::of::<T>();
-        let size_bytes = count * std::mem::size_of::<T>();
+    /// Acquire a truly-pooled, uninitialized buffer for `count` elements of type `T`.
+    ///
+    /// This is the low-level method. Prefer the free function [`global_acquire_uninit`].
+    ///
+    /// The returned [`ReusedBuffer<T>`] holds the **actual pooled allocation** — no copy
+    /// is made. Callers must initialize all elements before reading them.
+    pub fn acquire_uninit<T: 'static>(&mut self, count: usize) -> ReusedBuffer<T> {
+        let element_size = std::mem::size_of::<T>();
+        let element_align = std::mem::align_of::<T>();
+        let size_bytes = count * element_size;
         let size_class = self.find_size_class(size_bytes);
+        let type_id = std::any::TypeId::of::<T>();
+        let pool_key = (type_id, size_class);
+
+        let layout = Layout::from_size_align(size_bytes.max(1), element_align)
+            .expect("size and align are valid for T");
 
         // Update statistics
         self.stats.total_allocations += 1;
         self.stats.total_bytes_allocated += size_bytes;
 
-        // Try to get from pool
-        let pool_key = (type_id, size_class);
-        if let Some(pool) = self.pools.get_mut(&pool_key) {
-            if let Some(buffer) = pool.available_buffers.pop_front() {
-                // Pool hit - reuse existing buffer
+        // Try pool hit
+        if let Some(bucket) = self.pools.get_mut(&pool_key) {
+            // Scan for a compatible entry (may be larger than requested)
+            let mut found_idx: Option<usize> = None;
+            for (i, entry) in bucket.available_buffers.iter().enumerate() {
+                if entry.capacity_bytes >= size_bytes && entry.layout.align() >= element_align {
+                    found_idx = Some(i);
+                    break;
+                }
+            }
+            if let Some(idx) = found_idx {
+                let raw_entry = bucket
+                    .available_buffers
+                    .remove(idx)
+                    .expect("index was valid moments ago");
                 self.stats.pool_hits += 1;
-                pool.reuses += 1;
+                bucket.reuses += 1;
 
-                // Convert bytes to Vec<T>
-                let buffer_ptr = buffer.as_ptr() as *const T;
-                let mut result = Vec::with_capacity(count);
-                unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        buffer_ptr,
-                        result.as_mut_ptr(),
-                        count.min(buffer.len() / std::mem::size_of::<T>()),
-                    );
-                    result.set_len(count);
-                }
+                let ptr = NonNull::new(raw_entry.ptr.as_ptr() as *mut T)
+                    .expect("RawEntry pointer is non-null by construction");
+                // The raw_entry must not drop (its ptr is now owned by ReusedBuffer)
+                let actual_capacity = raw_entry.capacity_bytes / element_size;
+                let entry_layout = raw_entry.layout;
+                std::mem::forget(raw_entry);
 
-                // Fill any remaining elements with default values
-                if result.len() < count {
-                    result.resize(count, T::default());
-                }
-
-                return result;
+                let weak = self.self_weak.clone().unwrap_or_else(Weak::new);
+                return ReusedBuffer {
+                    ptr,
+                    capacity: actual_capacity,
+                    layout: entry_layout,
+                    pool: weak,
+                };
             }
         }
 
-        // Pool miss - create new allocation
+        // Pool miss — fresh allocation
         self.stats.pool_misses += 1;
 
-        // Create the pool if it doesn't exist
-        if !self.pools.contains_key(&pool_key) {
-            self.pools.insert(
-                pool_key,
-                MemoryPool {
-                    available_buffers: VecDeque::new(),
-                    size_class,
-                    max_buffers: self.config.max_buffers_per_class,
-                    allocations: 0,
-                    reuses: 0,
-                    deallocations: 0,
-                },
-            );
+        // Create the pool bucket if it doesn't exist yet
+        self.pools.entry(pool_key).or_insert_with(|| MemoryPool {
+            available_buffers: VecDeque::new(),
+            size_class,
+            max_buffers: self.config.max_buffers_per_class,
+            allocations: 0,
+            reuses: 0,
+            deallocations: 0,
+        });
+
+        if let Some(bucket) = self.pools.get_mut(&pool_key) {
+            bucket.allocations += 1;
         }
 
-        if let Some(pool) = self.pools.get_mut(&pool_key) {
-            pool.allocations += 1;
-        }
+        // SAFETY: layout is non-zero (we used .max(1) above).
+        let raw_ptr = unsafe { std::alloc::alloc(layout) };
+        let ptr = NonNull::new(raw_ptr as *mut T).unwrap_or_else(|| handle_alloc_error(layout));
 
-        vec![T::default(); count]
+        let weak = self.self_weak.clone().unwrap_or_else(Weak::new);
+        ReusedBuffer {
+            ptr,
+            capacity: count,
+            layout,
+            pool: weak,
+        }
+    }
+
+    /// Allocate memory for tensor elements.
+    ///
+    /// Returns a zero-initialized `Vec<T>`.
+    ///
+    /// # Deprecation
+    /// Use [`global_acquire_uninit`] for zero-copy buffer reuse.
+    #[deprecated = "Use global_acquire_uninit instead for zero-copy buffer reuse"]
+    pub fn allocate<T: TensorElement + Default + 'static>(&mut self, count: usize) -> Vec<T> {
+        let mut buf = self.acquire_uninit::<T>(count);
+        // Initialize all elements to Default
+        for slot in buf.as_uninit_slice_mut() {
+            slot.write(T::default());
+        }
+        buf.into_vec(count)
     }
 
     /// Find appropriate size class for allocation
@@ -403,31 +595,15 @@ impl GlobalMemoryPool {
             .unwrap_or(self.config.size_classes.len() - 1)
     }
 
-    /// Deallocate memory by returning it to the pool for reuse
+    /// Deallocate memory by dropping it (legacy; buffer is not returned to pool).
+    ///
+    /// The `deallocate` method previously attempted to store the allocation in the pool
+    /// using an unsafe `Vec<u8>` transmutation that could not reconstruct the correct
+    /// layout. Now the Vec is simply dropped. Use [`ReusedBuffer::release_to_pool`] for
+    /// true pool return.
     pub fn deallocate<T: 'static>(&mut self, data: Vec<T>) {
-        let type_id = std::any::TypeId::of::<T>();
-        let size_bytes = data.len() * std::mem::size_of::<T>();
-        let size_class = self.find_size_class(size_bytes);
-
-        let pool_key = (type_id, size_class);
-        if let Some(pool) = self.pools.get_mut(&pool_key) {
-            // Only add to pool if we haven't reached the limit
-            if pool.available_buffers.len() < pool.max_buffers {
-                // Convert Vec<T> to Vec<u8> for storage
-                let buffer = unsafe {
-                    let ptr = data.as_ptr() as *const u8;
-                    let len = data.len() * std::mem::size_of::<T>();
-                    std::slice::from_raw_parts(ptr, len).to_vec()
-                };
-
-                // Forget the original Vec to avoid double-free
-                std::mem::forget(data);
-
-                pool.available_buffers.push_back(buffer);
-                pool.deallocations += 1;
-            }
-        }
-        // If we can't add to pool, Vec will be dropped normally
+        // Just drop `data` — memory is freed by Vec's Drop.
+        drop(data);
     }
 
     /// Clear all pools
@@ -473,6 +649,36 @@ impl std::fmt::Debug for GlobalMemoryPool {
             .field("leak_detector", &"<LeakDetector>")
             .finish()
     }
+}
+
+// ─── Debug impl for MemoryPool (needs RawEntry to be Debug) ──────────────────
+
+impl std::fmt::Debug for RawEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RawEntry")
+            .field("capacity_bytes", &self.capacity_bytes)
+            .finish()
+    }
+}
+
+// ─── Public free function ─────────────────────────────────────────────────────
+
+/// Acquire an uninitialized buffer from the global memory pool.
+///
+/// This is the **preferred API** for zero-copy buffer reuse. The returned
+/// [`ReusedBuffer<T>`] holds the actual pooled allocation — no copying occurs.
+///
+/// # Safety contract on the caller
+/// Elements must be initialized before being read. Use [`ReusedBuffer::as_uninit_slice_mut`]
+/// to write values, then either:
+/// - call [`ReusedBuffer::into_vec`] to obtain an owning `Vec`, or
+/// - call [`ReusedBuffer::release_to_pool`] to return the buffer.
+pub fn global_acquire_uninit<T: 'static>(count: usize) -> ReusedBuffer<T> {
+    let pool_arc = get_memory_pool();
+    let mut guard = pool_arc
+        .lock()
+        .expect("global memory pool lock should not be poisoned");
+    guard.acquire_uninit::<T>(count)
 }
 
 /// Enhanced memory statistics with SciRS2 integration
@@ -674,6 +880,7 @@ impl<T: TensorElement + Copy + Default> PooledTensor<T> {
         let pool = get_memory_pool();
         let data = {
             let mut pool_guard = pool.lock().expect("lock should not be poisoned");
+            #[allow(deprecated)]
             pool_guard.allocate::<T>(numel)
         };
 
@@ -734,7 +941,7 @@ impl<T: TensorElement + Copy + Default> PooledTensor<T> {
 impl<T: TensorElement + std::default::Default> Drop for PooledTensor<T> {
     fn drop(&mut self) {
         if let Some((_type_id, _size_class)) = self.pool_key {
-            // Try to return memory to pool
+            // Return memory to pool via deallocate (which now simply drops).
             if let Ok(data) = self.tensor.to_vec() {
                 let pool = get_memory_pool();
                 let mut pool_guard = pool.lock().expect("lock should not be poisoned");
@@ -789,6 +996,9 @@ pub fn cleanup_memory_pool() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Serialise the pool-identity tests that rely on global singleton state.
+    static TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     #[test]
     fn test_memory_pool_basic() {
@@ -845,5 +1055,73 @@ mod tests {
             .expect("ones creation should succeed");
         let tensor = pooled.into_tensor();
         assert_eq!(tensor.numel(), 100);
+    }
+
+    // ── New ReusedBuffer tests ──────────────────────────────────────────────
+
+    #[test]
+    fn test_acquire_truly_reuses_allocation() {
+        let _guard = TEST_LOCK.lock().expect("test mutex should not be poisoned");
+        clear_memory_pool();
+
+        let buf1: ReusedBuffer<f32> = global_acquire_uninit::<f32>(1024);
+        let ptr1 = buf1.as_ptr_raw();
+        buf1.release_to_pool();
+
+        let buf2: ReusedBuffer<f32> = global_acquire_uninit::<f32>(1024);
+        let ptr2 = buf2.as_ptr_raw();
+        buf2.release_to_pool();
+
+        assert_eq!(
+            ptr1, ptr2,
+            "pool should return the same allocation on second acquire"
+        );
+    }
+
+    #[test]
+    fn test_into_vec_transfers_ownership() {
+        let _guard = TEST_LOCK.lock().expect("test mutex should not be poisoned");
+        clear_memory_pool();
+
+        let mut buf: ReusedBuffer<f32> = global_acquire_uninit::<f32>(64);
+        // Write to the buffer
+        for slot in buf.as_uninit_slice_mut() {
+            slot.write(1.0_f32);
+        }
+        let vec = buf.into_vec(64);
+        assert_eq!(vec.len(), 64);
+        assert!(vec.iter().all(|&x| x == 1.0_f32));
+    }
+
+    #[test]
+    fn test_drop_returns_to_pool() {
+        let _guard = TEST_LOCK.lock().expect("test mutex should not be poisoned");
+        clear_memory_pool();
+
+        {
+            let buf: ReusedBuffer<f32> = global_acquire_uninit::<f32>(256);
+            // Drop without consuming — should return to pool
+            drop(buf);
+        }
+
+        // Second acquire should be a pool hit (same size class)
+        let buf2: ReusedBuffer<f32> = global_acquire_uninit::<f32>(256);
+        buf2.release_to_pool();
+
+        let stats = get_pool_statistics();
+        assert!(
+            stats.pool_hits >= 1,
+            "expected at least one pool hit after drop-return"
+        );
+    }
+
+    #[test]
+    fn test_acquire_capacity_and_uninit_slice() {
+        let _guard = TEST_LOCK.lock().expect("test mutex should not be poisoned");
+        clear_memory_pool();
+
+        let buf: ReusedBuffer<u64> = global_acquire_uninit::<u64>(32);
+        assert_eq!(buf.capacity(), 32);
+        buf.release_to_pool();
     }
 }

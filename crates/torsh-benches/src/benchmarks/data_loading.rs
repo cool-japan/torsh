@@ -796,7 +796,10 @@ mod tests {
 
     #[test]
     fn test_helper_functions() {
-        let tensors = vec![rand::<f32>(&[4, 4]).unwrap(), rand::<f32>(&[4, 4]).unwrap()];
+        let tensors = vec![
+            rand::<f32>(&[4, 4]).expect("operation should succeed"),
+            rand::<f32>(&[4, 4]).expect("operation should succeed"),
+        ];
         let dataset = TensorDataset::new(tensors);
 
         let dataloader = simple_dataloader(dataset.clone(), 1, false);

@@ -127,7 +127,7 @@ mod tests {
     #[test]
     fn test_adaptive_avgpool2d_forward_invalid_input() {
         let pool = AdaptiveAvgPool2d::with_output_size(4);
-        let input = zeros(&[2, 3, 16]).unwrap();
+        let input = zeros(&[2, 3, 16]).expect("zeros should succeed");
         let result = pool.forward(&input);
         assert!(result.is_err());
     }
@@ -164,7 +164,7 @@ mod tests {
     #[test]
     fn test_maxpool1d_forward_invalid_input() {
         let pool = MaxPool1d::with_kernel_size(2);
-        let input = zeros(&[2]).unwrap();
+        let input = zeros(&[2]).expect("zeros should succeed");
         let result = pool.forward(&input);
         assert!(result.is_err());
     }
@@ -190,7 +190,7 @@ mod tests {
     #[test]
     fn test_maxpool3d_forward_invalid_input() {
         let pool = MaxPool3d::with_kernel_size(2);
-        let input = zeros(&[1, 1, 8, 8]).unwrap();
+        let input = zeros(&[1, 1, 8, 8]).expect("zeros should succeed");
         let result = pool.forward(&input);
         assert!(result.is_err());
     }
@@ -290,7 +290,7 @@ mod tests {
     #[test]
     fn test_fractional_maxpool1d_no_output_size_or_ratio() {
         let pool = FractionalMaxPool1d::new(2, None, None, false);
-        let input = zeros(&[1, 1, 16]).unwrap();
+        let input = zeros(&[1, 1, 16]).expect("zeros should succeed");
         let result = pool.forward(&input);
         assert!(result.is_err());
     }
@@ -371,7 +371,7 @@ mod tests {
     #[test]
     fn test_fractional_maxpool2d_invalid_input_shape() {
         let pool = FractionalMaxPool2d::with_output_ratio((2, 2), (0.5, 0.5));
-        let input = zeros(&[1, 32, 64]).unwrap();
+        let input = zeros(&[1, 32, 64]).expect("zeros should succeed");
         let result = pool.forward(&input);
         assert!(result.is_err());
         if let Err(e) = result {
@@ -381,7 +381,7 @@ mod tests {
     #[test]
     fn test_fractional_maxpool2d_invalid_ratio() {
         let pool = FractionalMaxPool2d::with_output_ratio((2, 2), (1.5, 0.5));
-        let input = zeros(&[1, 1, 32, 32]).unwrap();
+        let input = zeros(&[1, 1, 32, 32]).expect("zeros should succeed");
         let result = pool.forward(&input);
         assert!(result.is_err());
         if let Err(e) = result {
@@ -391,7 +391,7 @@ mod tests {
     #[test]
     fn test_fractional_maxpool2d_no_output_spec() {
         let pool = FractionalMaxPool2d::new((2, 2), None, None, false);
-        let input = zeros(&[1, 1, 32, 32]).unwrap();
+        let input = zeros(&[1, 1, 32, 32]).expect("zeros should succeed");
         let result = pool.forward(&input);
         assert!(result.is_err());
         if let Err(e) = result {
@@ -512,7 +512,7 @@ mod tests {
     #[test]
     fn test_adaptive_maxpool2d_invalid_input_shape() {
         let pool = AdaptiveMaxPool2d::with_output_size(4);
-        let input = zeros(&[1, 32, 64]).unwrap();
+        let input = zeros(&[1, 32, 64]).expect("zeros should succeed");
         let result = pool.forward(&input);
         assert!(result.is_err());
         if let Err(e) = result {

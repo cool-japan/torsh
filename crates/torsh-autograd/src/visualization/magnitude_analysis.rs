@@ -1108,7 +1108,7 @@ mod tests {
         let result = analyzer.analyze_gradients(&gradients, Some(1));
         assert!(result.is_ok());
 
-        let stats = result.unwrap();
+        let stats = result.expect("operation should succeed");
         assert_eq!(stats.layer_stats.len(), 2);
         assert_eq!(stats.global_stats.total_parameters, 6);
     }
@@ -1120,7 +1120,9 @@ mod tests {
         let mut gradients = HashMap::new();
         gradients.insert("test".to_string(), vec![0.1, 0.2, 0.3, 0.4, 0.5]);
 
-        let histogram = analyzer.compute_gradient_histogram(&gradients).unwrap();
+        let histogram = analyzer
+            .compute_gradient_histogram(&gradients)
+            .expect("gradient histogram computation should succeed");
         assert_eq!(histogram.total_count, 5);
         assert!(histogram.num_bins > 0);
     }
@@ -1135,12 +1137,18 @@ mod tests {
             vec![0.0, 0.001, 0.002, 0.0, 0.003],
         );
 
-        let layer_stats = analyzer.compute_layer_stats(&gradients).unwrap();
+        let layer_stats = analyzer
+            .compute_layer_stats(&gradients)
+            .expect("layer statistics computation should succeed");
         let stats = &layer_stats["test_layer"];
 
         assert_eq!(stats.parameter_count, 5);
         assert_eq!(stats.zero_percentage, 40.0); // 2 out of 5 are zero
-        assert!(torsh_core::TensorElement::to_f64(&stats.mean_magnitude).unwrap() > 0.0);
+        assert!(
+            torsh_core::TensorElement::to_f64(&stats.mean_magnitude)
+                .expect("Tensor Element should succeed")
+                > 0.0
+        );
     }
 
     #[test]
@@ -1153,20 +1161,28 @@ mod tests {
             vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
         );
 
-        let distribution = analyzer.compute_norm_distribution(&gradients).unwrap();
+        let distribution = analyzer
+            .compute_norm_distribution(&gradients)
+            .expect("norm distribution computation should succeed");
 
         // Check that percentiles are in ascending order
         assert!(
-            torsh_core::TensorElement::to_f64(&distribution.p25).unwrap()
-                <= torsh_core::TensorElement::to_f64(&distribution.p50).unwrap()
+            torsh_core::TensorElement::to_f64(&distribution.p25)
+                .expect("Tensor Element should succeed")
+                <= torsh_core::TensorElement::to_f64(&distribution.p50)
+                    .expect("Tensor Element should succeed")
         );
         assert!(
-            torsh_core::TensorElement::to_f64(&distribution.p50).unwrap()
-                <= torsh_core::TensorElement::to_f64(&distribution.p75).unwrap()
+            torsh_core::TensorElement::to_f64(&distribution.p50)
+                .expect("Tensor Element should succeed")
+                <= torsh_core::TensorElement::to_f64(&distribution.p75)
+                    .expect("Tensor Element should succeed")
         );
         assert!(
-            torsh_core::TensorElement::to_f64(&distribution.p75).unwrap()
-                <= torsh_core::TensorElement::to_f64(&distribution.p95).unwrap()
+            torsh_core::TensorElement::to_f64(&distribution.p75)
+                .expect("Tensor Element should succeed")
+                <= torsh_core::TensorElement::to_f64(&distribution.p95)
+                    .expect("Tensor Element should succeed")
         );
     }
 
@@ -1191,14 +1207,27 @@ mod tests {
         let values = vec![1.0, 2.0, 3.0, 4.0, 5.0];
 
         let mean = analyzer.compute_mean_magnitude(&values);
-        assert!((torsh_core::TensorElement::to_f64(&mean).unwrap() - 3.0).abs() < 1e-6);
+        assert!(
+            (torsh_core::TensorElement::to_f64(&mean).expect("Tensor Element should succeed")
+                - 3.0)
+                .abs()
+                < 1e-6
+        );
 
         let l1_norm = analyzer.compute_l1_norm(&values);
-        assert!((torsh_core::TensorElement::to_f64(&l1_norm).unwrap() - 15.0).abs() < 1e-6);
+        assert!(
+            (torsh_core::TensorElement::to_f64(&l1_norm).expect("Tensor Element should succeed")
+                - 15.0)
+                .abs()
+                < 1e-6
+        );
 
         let l2_norm = analyzer.compute_l2_norm(&values);
         assert!(
-            (torsh_core::TensorElement::to_f64(&l2_norm).unwrap() - (55.0_f64).sqrt()).abs() < 1e-6
+            (torsh_core::TensorElement::to_f64(&l2_norm).expect("Tensor Element should succeed")
+                - (55.0_f64).sqrt())
+            .abs()
+                < 1e-6
         );
     }
 
@@ -1209,7 +1238,9 @@ mod tests {
         // Add some data
         let mut gradients = HashMap::new();
         gradients.insert("test".to_string(), vec![0.1, 0.2]);
-        analyzer.analyze_gradients(&gradients, None).unwrap();
+        analyzer
+            .analyze_gradients(&gradients, None)
+            .expect("gradient analysis should succeed");
 
         assert_eq!(analyzer.history_size(), 1);
 
@@ -1223,16 +1254,20 @@ mod tests {
 
         let mut gradients1 = HashMap::new();
         gradients1.insert("test".to_string(), vec![0.001, 0.002]);
-        analyzer.analyze_gradients(&gradients1, None).unwrap();
+        analyzer
+            .analyze_gradients(&gradients1, None)
+            .expect("gradient analysis should succeed");
 
         let mut gradients2 = HashMap::new();
         gradients2.insert("test".to_string(), vec![0.002, 0.004]); // Double the magnitude
-        analyzer.analyze_gradients(&gradients2, None).unwrap();
+        analyzer
+            .analyze_gradients(&gradients2, None)
+            .expect("gradient analysis should succeed");
 
         let comparison = analyzer.get_historical_comparison();
         assert!(comparison.is_some());
 
-        let comp = comparison.unwrap();
+        let comp = comparison.expect("operation should succeed");
         assert!(comp.magnitude_change_percent > 0.0); // Should show increase
     }
 }

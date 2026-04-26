@@ -713,7 +713,7 @@ mod tests {
 
     #[test]
     fn test_benchmark_suite_creation() {
-        let device = Device::cpu().unwrap();
+        let device = Device::cpu().expect("Device should succeed");
         let config = BenchmarkConfig::default();
         let suite = QuantizationBenchmarkSuite::new(device, config);
 
@@ -886,12 +886,20 @@ mod tests {
         // Test finding most efficient
         let most_efficient = results.most_efficient();
         assert!(most_efficient.is_some());
-        assert_eq!(most_efficient.unwrap().dtype, QuantizedDType::Int4);
+        assert_eq!(
+            most_efficient.expect("operation should succeed").dtype,
+            QuantizedDType::Int4
+        );
 
         // Test finding highest compression
         let highest_compression = results.highest_compression();
         assert!(highest_compression.is_some());
-        assert_eq!(highest_compression.unwrap().compression_ratio, 8.0);
+        assert_eq!(
+            highest_compression
+                .expect("operation should succeed")
+                .compression_ratio,
+            8.0
+        );
     }
 
     #[test]
@@ -941,7 +949,7 @@ mod tests {
 
     #[test]
     fn test_quantization_ops_benchmark() {
-        let device = Device::cpu().unwrap();
+        let device = Device::cpu().expect("Device should succeed");
         let config = BenchmarkConfig {
             warmup_iterations: 1,
             benchmark_iterations: 2,
@@ -957,7 +965,7 @@ mod tests {
         let result = suite.benchmark_quantization_ops(&ops);
         assert!(result.is_ok());
 
-        let summary = result.unwrap();
+        let summary = result.expect("operation should succeed");
         assert!(!summary.results.is_empty());
     }
 }

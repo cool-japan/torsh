@@ -33,7 +33,7 @@ mod tests {
     }
     #[test]
     fn test_basic_metrics_analysis() {
-        let mut analyzer = SemanticMetricsAnalyzer::default().unwrap();
+        let mut analyzer = SemanticMetricsAnalyzer::default().expect("Semantic Metrics Analyzer should succeed");
         let similarity_scores = vec![
             0.8, 0.7, 0.9, 0.6, 0.8, 0.7, 0.9, 0.8, 0.6, 0.7, 0.8, 0.9, 0.7, 0.8, 0.9,
             0.6, 0.7, 0.8, 0.9, 0.7, 0.8, 0.6, 0.9, 0.7, 0.8, 0.9, 0.7, 0.8, 0.6, 0.9,
@@ -43,14 +43,14 @@ mod tests {
         let result = analyzer
             .analyze_metrics(&similarity_scores, &quality_scores, &confidence_scores);
         assert!(result.is_ok());
-        let result = result.unwrap();
+        let result = result.expect("operation should succeed");
         assert_eq!(result.summary.sample_count, 30);
         assert!(result.summary.similarity_stats.mean > 0.0);
         assert!(result.summary.similarity_stats.std_dev >= 0.0);
     }
     #[test]
     fn test_insufficient_data_error() {
-        let mut analyzer = SemanticMetricsAnalyzer::default().unwrap();
+        let mut analyzer = SemanticMetricsAnalyzer::default().expect("Semantic Metrics Analyzer should succeed");
         let similarity_scores = vec![0.5];
         let quality_scores = vec![0.8];
         let confidence_scores = vec![0.7];
@@ -64,7 +64,7 @@ mod tests {
     }
     #[test]
     fn test_mismatched_array_lengths() {
-        let mut analyzer = SemanticMetricsAnalyzer::default().unwrap();
+        let mut analyzer = SemanticMetricsAnalyzer::default().expect("Semantic Metrics Analyzer should succeed");
         let similarity_scores = vec![0.5, 0.6, 0.7];
         let quality_scores = vec![0.8, 0.9];
         let confidence_scores = vec![0.7, 0.8, 0.9];
@@ -88,7 +88,7 @@ mod tests {
             .enable_quality_assessment(true)
             .build();
         assert!(config.is_ok());
-        let config = config.unwrap();
+        let config = config.expect("operation should succeed");
         assert_eq!(config.confidence_level, 0.99);
         assert_eq!(config.max_clusters, 5);
         assert_eq!(config.outlier_threshold, 3.0);
@@ -107,9 +107,9 @@ mod tests {
     }
     #[test]
     fn test_basic_statistics_calculation() {
-        let analyzer = SemanticMetricsAnalyzer::default().unwrap();
+        let analyzer = SemanticMetricsAnalyzer::default().expect("Semantic Metrics Analyzer should succeed");
         let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-        let stats = analyzer.calculate_basic_statistics(&data).unwrap();
+        let stats = analyzer.calculate_basic_statistics(&data).expect("basic statistics calculation should succeed");
         assert_eq!(stats.mean, 3.0);
         assert_eq!(stats.median, 3.0);
         assert_eq!(stats.min, 1.0);
@@ -118,34 +118,34 @@ mod tests {
     }
     #[test]
     fn test_outlier_detection() {
-        let analyzer = SemanticMetricsAnalyzer::default().unwrap();
+        let analyzer = SemanticMetricsAnalyzer::default().expect("Semantic Metrics Analyzer should succeed");
         let data = vec![0.5, 0.6, 0.7, 0.6, 0.5, 0.6, 0.7, 0.9, 0.1];
-        let outliers = analyzer.detect_outliers(&data).unwrap();
+        let outliers = analyzer.detect_outliers(&data).expect("outlier detection should succeed");
         assert!(! outliers.is_empty());
         assert!(outliers.iter().any(| o | o.outlier_type == OutlierType::High));
         assert!(outliers.iter().any(| o | o.outlier_type == OutlierType::Low));
     }
     #[test]
     fn test_correlation_calculation() {
-        let analyzer = SemanticMetricsAnalyzer::default().unwrap();
+        let analyzer = SemanticMetricsAnalyzer::default().expect("Semantic Metrics Analyzer should succeed");
         let data1 = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let data2 = vec![2.0, 4.0, 6.0, 8.0, 10.0];
         let correlation = analyzer
             .calculate_pearson_correlation(&data1, &data2)
-            .unwrap();
+            .expect("operation should succeed");
         assert!((correlation - 1.0).abs() < 0.001);
     }
     #[test]
     fn test_clustering() {
-        let analyzer = SemanticMetricsAnalyzer::default().unwrap();
+        let analyzer = SemanticMetricsAnalyzer::default().expect("Semantic Metrics Analyzer should succeed");
         let data = vec![0.1, 0.15, 0.2, 0.8, 0.85, 0.9];
-        let clusters = analyzer.perform_similarity_clustering(&data).unwrap();
+        let clusters = analyzer.perform_similarity_clustering(&data).expect("similarity clustering should succeed");
         assert!(! clusters.is_empty());
         assert!(clusters.len() <= analyzer.config.max_clusters);
     }
     #[test]
     fn test_quality_assessment() {
-        let analyzer = SemanticMetricsAnalyzer::default().unwrap();
+        let analyzer = SemanticMetricsAnalyzer::default().expect("Semantic Metrics Analyzer should succeed");
         let similarity_scores = vec![
             0.5, 0.6, 0.7, 0.8, 0.9, 0.6, 0.7, 0.8, 0.5, 0.6, 0.7, 0.8, 0.9, 0.6, 0.7,
             0.8, 0.5, 0.6, 0.7, 0.8, 0.9, 0.6, 0.7, 0.8, 0.5, 0.6, 0.7, 0.8, 0.9, 0.6,
@@ -159,7 +159,7 @@ mod tests {
                 &confidence_scores,
             );
         assert!(quality_metrics.is_ok());
-        let metrics = quality_metrics.unwrap();
+        let metrics = quality_metrics.expect("operation should succeed");
         assert!(metrics.data_quality.overall_quality_score > 0.0);
         assert!(metrics.reliability_metrics.confidence_in_results > 0.0);
     }
@@ -181,7 +181,7 @@ mod tests {
             .enable_statistical_analysis(false)
             .enable_distribution_analysis(false)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
         let result = analyze_semantic_metrics_with_config(
             &similarity_scores,
             &quality_scores,
@@ -192,7 +192,7 @@ mod tests {
     }
     #[test]
     fn test_historical_data_management() {
-        let mut analyzer = SemanticMetricsAnalyzer::default().unwrap();
+        let mut analyzer = SemanticMetricsAnalyzer::default().expect("Semantic Metrics Analyzer should succeed");
         let data = vec![0.5, 0.6, 0.7];
         analyzer.store_historical_data(&data);
         assert_eq!(analyzer.historical_data.len(), 1);
@@ -201,15 +201,15 @@ mod tests {
     }
     #[test]
     fn test_rank_correlation() {
-        let analyzer = SemanticMetricsAnalyzer::default().unwrap();
+        let analyzer = SemanticMetricsAnalyzer::default().expect("Semantic Metrics Analyzer should succeed");
         let data1 = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let data2 = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-        let correlation = analyzer.calculate_rank_correlation(&data1, &data2).unwrap();
+        let correlation = analyzer.calculate_rank_correlation(&data1, &data2).expect("rank correlation calculation should succeed");
         assert!((correlation - 1.0).abs() < 0.001);
     }
     #[test]
     fn test_empty_data_statistics() {
-        let analyzer = SemanticMetricsAnalyzer::default().unwrap();
+        let analyzer = SemanticMetricsAnalyzer::default().expect("Semantic Metrics Analyzer should succeed");
         let empty_data: Vec<f64> = vec![];
         let result = analyzer.calculate_basic_statistics(&empty_data);
         assert!(result.is_err());
@@ -230,13 +230,13 @@ mod tests {
     }
     #[test]
     fn test_insights_generation() {
-        let mut analyzer = SemanticMetricsAnalyzer::default().unwrap();
+        let mut analyzer = SemanticMetricsAnalyzer::default().expect("Semantic Metrics Analyzer should succeed");
         let high_similarity = vec![0.9; 30];
         let high_quality = vec![0.9; 30];
         let high_confidence = vec![0.9; 30];
         let result = analyzer
             .analyze_metrics(&high_similarity, &high_quality, &high_confidence)
-            .unwrap();
+            .expect("operation should succeed");
         assert!(! result.summary.insights.is_empty());
         assert!(! result.summary.recommendations.is_empty());
     }

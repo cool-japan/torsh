@@ -758,11 +758,11 @@ mod tests {
     fn test_color_jitter_presets() {
         let strong = ColorJitter::strong();
         assert!(strong.is_active());
-        assert!(strong.get_brightness().unwrap() > 0.3);
+        assert!(strong.get_brightness().expect("get brightness should succeed") > 0.3);
 
         let mild = ColorJitter::mild();
         assert!(mild.is_active());
-        assert!(mild.get_brightness().unwrap() < 0.2);
+        assert!(mild.get_brightness().expect("get brightness should succeed") < 0.2);
     }
 
     #[test]
@@ -947,14 +947,14 @@ mod tests {
         let jitter = ColorJitter::new().with_order(JitterOrder::Fixed);
         // Can't easily test the actual ordering without exposing internal methods,
         // but we can test that it doesn't crash
-        let input = rand::<f32>(&[3, 32, 32]).unwrap();
+        let input = rand::<f32>(&[3, 32, 32]).expect("operation should succeed");
         let _result = jitter.forward(&input);
         // Result depends on ops module implementation
     }
 
     #[test]
     fn test_forward_operations() {
-        let input = rand::<f32>(&[3, 32, 32]).unwrap();
+        let input = rand::<f32>(&[3, 32, 32]).expect("operation should succeed");
 
         // Test that transforms don't panic (actual results depend on ops module)
         let jitter = ColorJitter::new(); // Inactive jitter should return clone

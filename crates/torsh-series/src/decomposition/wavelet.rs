@@ -339,7 +339,7 @@ mod tests {
             let val = (t).sin() + 0.5 * (5.0 * t).sin();
             data.push(val);
         }
-        let tensor = Tensor::from_vec(data, &[128]).unwrap();
+        let tensor = Tensor::from_vec(data, &[128]).expect("Tensor should succeed");
         TimeSeries::new(tensor)
     }
 
@@ -353,7 +353,9 @@ mod tests {
     fn test_wavelet_decomposition() {
         let series = create_test_series();
         let decomposer = WaveletDecomposer::new(WaveletType::Haar).with_level(3);
-        let decomposition = decomposer.decompose(&series).unwrap();
+        let decomposition = decomposer
+            .decompose(&series)
+            .expect("decomposition should succeed");
 
         assert_eq!(decomposition.level, 3);
         assert_eq!(decomposition.details.len(), 3);
@@ -364,8 +366,12 @@ mod tests {
     fn test_wavelet_reconstruction() {
         let series = create_test_series();
         let decomposer = WaveletDecomposer::new(WaveletType::Haar).with_level(2);
-        let decomposition = decomposer.decompose(&series).unwrap();
-        let reconstructed = decomposer.reconstruct(&decomposition).unwrap();
+        let decomposition = decomposer
+            .decompose(&series)
+            .expect("decomposition should succeed");
+        let reconstructed = decomposer
+            .reconstruct(&decomposition)
+            .expect("reconstruction should succeed");
 
         // Reconstructed should have similar length to original
         assert!(reconstructed.len() >= series.len() - 10); // Allow small difference due to padding
@@ -375,7 +381,9 @@ mod tests {
     fn test_single_level_dwt() {
         let series = create_test_series();
         let decomposer = WaveletDecomposer::new(WaveletType::Haar);
-        let (approx, detail) = decomposer.single_level_dwt(&series).unwrap();
+        let (approx, detail) = decomposer
+            .single_level_dwt(&series)
+            .expect("single-level DWT should succeed");
 
         assert!(approx.shape().dims()[0] > 0);
         assert!(detail.shape().dims()[0] > 0);
@@ -385,7 +393,7 @@ mod tests {
     fn test_cwt_analyzer() {
         let series = create_test_series();
         let analyzer = CWTAnalyzer::new(WaveletType::Morlet).with_sampling_period(0.1);
-        let result = analyzer.analyze(&series).unwrap();
+        let result = analyzer.analyze(&series).expect("analysis should succeed");
 
         assert!(result.coefficients.shape().dims()[0] > 0); // scales
         assert_eq!(result.coefficients.shape().dims()[1], series.len()); // time
@@ -404,7 +412,9 @@ mod tests {
     fn test_wavelet_packet_decomposer() {
         let series = create_test_series();
         let decomposer = WaveletPacketDecomposer::new(WaveletType::Daubechies4, 2);
-        let tree = decomposer.decompose(&series).unwrap();
+        let tree = decomposer
+            .decompose(&series)
+            .expect("decomposition should succeed");
 
         assert_eq!(tree.level, 2);
         assert!(!tree.nodes.is_empty());

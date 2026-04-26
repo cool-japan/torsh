@@ -795,30 +795,35 @@ mod tests {
 
     #[tokio::test]
     async fn test_cpu_backend_initialization() {
-        let mut backend = CpuBackend::new().unwrap();
+        let mut backend = CpuBackend::new().expect("Cpu Backend should succeed");
         assert!(!backend.initialized);
 
-        backend.initialize().await.unwrap();
+        backend
+            .initialize()
+            .await
+            .expect("operation should succeed");
         assert!(backend.initialized);
 
-        backend.shutdown().await.unwrap();
+        backend.shutdown().await.expect("operation should succeed");
         assert!(!backend.initialized);
     }
 
     #[tokio::test]
     async fn test_cpu_backend_devices() {
-        let backend = CpuBackend::new().unwrap();
+        let backend = CpuBackend::new().expect("Cpu Backend should succeed");
 
-        let devices = backend.devices().unwrap();
+        let devices = backend.devices().expect("device listing should succeed");
         assert!(!devices.is_empty());
 
-        let default_device = backend.default_device().unwrap();
+        let default_device = backend
+            .default_device()
+            .expect("default device should be available");
         assert_eq!(default_device.device_type(), DeviceType::Cpu);
     }
 
     #[test]
     fn test_cpu_backend_capabilities() {
-        let backend = CpuBackend::new().unwrap();
+        let backend = CpuBackend::new().expect("Cpu Backend should succeed");
         let caps = backend.capabilities();
 
         assert!(caps.max_compute_units > 0);
@@ -844,8 +849,8 @@ mod tests {
     #[tokio::test]
     async fn test_multiple_initialization() {
         // Test that multiple initialize() calls are safe
-        let mut backend1 = CpuBackend::new().unwrap();
-        let mut backend2 = CpuBackend::new().unwrap();
+        let mut backend1 = CpuBackend::new().expect("Cpu Backend should succeed");
+        let mut backend2 = CpuBackend::new().expect("Cpu Backend should succeed");
 
         let result1 = backend1.initialize().await;
         let result2 = backend2.initialize().await;
@@ -859,10 +864,13 @@ mod tests {
     #[tokio::test]
     async fn test_thread_pool_manager() {
         // Test thread pool manager functions
-        let mut backend = CpuBackend::new().unwrap();
+        let mut backend = CpuBackend::new().expect("Cpu Backend should succeed");
 
         // Initialize the backend to set up the thread pool
-        backend.initialize().await.unwrap();
+        backend
+            .initialize()
+            .await
+            .expect("operation should succeed");
 
         // After initializing the backend, thread pool should be initialized
         assert!(ThreadPoolManager::is_initialized());
@@ -878,13 +886,15 @@ mod tests {
     #[test]
     fn test_platform_optimization_features() {
         // Test platform optimization integration
-        let backend = CpuBackend::new().unwrap();
+        let backend = CpuBackend::new().expect("Cpu Backend should succeed");
 
         // Should have platform optimization enabled by default
         assert!(backend.has_platform_optimization());
 
         // Should be able to get CPU features info
-        let cpu_info = backend.cpu_features().unwrap();
+        let cpu_info = backend
+            .cpu_features()
+            .expect("CPU features should be detectable");
         assert!(!cpu_info.is_empty());
 
         if let Some(optimizer) = backend.platform_optimizer() {
@@ -900,11 +910,13 @@ mod tests {
         let backend = CpuBackend::builder()
             .platform_optimization(false)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         assert!(!backend.has_platform_optimization());
 
-        let cpu_info = backend.cpu_features().unwrap();
+        let cpu_info = backend
+            .cpu_features()
+            .expect("CPU features should be detectable");
         assert!(cpu_info.contains("disabled"));
     }
 
@@ -916,13 +928,13 @@ mod tests {
         assert!(cores <= 1024); // Sanity check for reasonable upper bound
 
         // Test that backend reports same core count
-        let backend = CpuBackend::new().unwrap();
+        let backend = CpuBackend::new().expect("Cpu Backend should succeed");
         assert_eq!(backend.num_cores(), cores);
     }
 
     #[tokio::test]
     async fn test_invalid_device_operations() {
-        let backend = CpuBackend::new().unwrap();
+        let backend = CpuBackend::new().expect("Cpu Backend should succeed");
 
         // Test creating device with invalid ID
         let result = backend.create_device(999);
@@ -935,8 +947,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_buffer_operations_edge_cases() {
-        let backend = CpuBackend::new().unwrap();
-        let device = backend.default_device().unwrap();
+        let backend = CpuBackend::new().expect("Cpu Backend should succeed");
+        let device = backend
+            .default_device()
+            .expect("default device should be available");
 
         // Test buffer creation with zero size
         let desc = BufferDescriptor {
@@ -979,10 +993,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_memory_manager_edge_cases() {
-        let backend = CpuBackend::new().unwrap();
-        let device = backend.default_device().unwrap();
+        let backend = CpuBackend::new().expect("Cpu Backend should succeed");
+        let device = backend
+            .default_device()
+            .expect("default device should be available");
 
-        let memory_manager = backend.memory_manager(&device).unwrap();
+        let memory_manager = backend
+            .memory_manager(&device)
+            .expect("memory manager should be available");
 
         // Test memory statistics
         let stats = memory_manager.stats();
@@ -1014,7 +1032,7 @@ mod tests {
         }
 
         for handle in handles {
-            handle.join().unwrap();
+            handle.join().expect("join should succeed");
         }
 
         let results = results.lock().expect("lock should not be poisoned");
@@ -1024,8 +1042,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_kernel_creation_edge_cases() {
-        let backend = CpuBackend::new().unwrap();
-        let device = backend.default_device().unwrap();
+        let backend = CpuBackend::new().expect("Cpu Backend should succeed");
+        let device = backend
+            .default_device()
+            .expect("default device should be available");
 
         // Test kernel creation with empty name
         let desc = KernelDescriptor {
@@ -1071,9 +1091,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_profiler_edge_cases() {
-        let backend = CpuBackend::new().unwrap();
+        let backend = CpuBackend::new().expect("Cpu Backend should succeed");
 
-        let profiler = backend.profiler().unwrap();
+        let profiler = backend.profiler().expect("profiler should be available");
 
         // Test profiler basic functionality
         // Note: Actual profiling tests would need more setup
@@ -1083,8 +1103,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_synchronization_edge_cases() {
-        let backend = CpuBackend::new().unwrap();
-        let device = backend.default_device().unwrap();
+        let backend = CpuBackend::new().expect("Cpu Backend should succeed");
+        let device = backend
+            .default_device()
+            .expect("default device should be available");
 
         // CPU synchronization should always succeed immediately
         let result = backend.synchronize(&device).await;
@@ -1099,8 +1121,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_buffer_copy_edge_cases() {
-        let backend = CpuBackend::new().unwrap();
-        let device = backend.default_device().unwrap();
+        let backend = CpuBackend::new().expect("Cpu Backend should succeed");
+        let device = backend
+            .default_device()
+            .expect("default device should be available");
 
         // Create small test buffers with proper alignment
         let desc = BufferDescriptor {
@@ -1134,8 +1158,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_host_device_transfer_edge_cases() {
-        let backend = CpuBackend::new().unwrap();
-        let device = backend.default_device().unwrap();
+        let backend = CpuBackend::new().expect("Cpu Backend should succeed");
+        let device = backend
+            .default_device()
+            .expect("default device should be available");
 
         let desc = BufferDescriptor {
             size: 100,

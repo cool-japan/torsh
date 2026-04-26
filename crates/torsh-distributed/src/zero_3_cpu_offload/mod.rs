@@ -30,6 +30,8 @@
 //!
 //! ```rust,no_run
 //! use torsh_distributed::zero_3_cpu_offload::{Zero3CpuOffloadManager, Zero3CpuOffloadConfig};
+//! use torsh_distributed::ModelParameters;
+//! use tracing::info;
 //! use std::sync::Arc;
 //!
 //! # async fn example() -> torsh_distributed::TorshResult<()> {
@@ -51,7 +53,7 @@
 //! // Create ZeRO-3 manager
 //! # let process_group = torsh_distributed::init_process_group(
 //! #     torsh_distributed::BackendType::Gloo, 0, 4, "127.0.0.1", 29500
-//! # )?;
+//! # ).await?;
 //! let mut manager = Zero3CpuOffloadManager::new(
 //!     config,
 //!     Arc::new(process_group),
@@ -59,10 +61,10 @@
 //! )?;
 //!
 //! // Execute training steps with automatic memory management
-//! # let input = torsh_tensor::Tensor::zeros(&[32, 512])?;
+//! # let input = torsh_tensor::Tensor::zeros(&[32, 512], torsh_tensor::prelude::DeviceType::Cpu)?;
 //! # let layer_names = vec!["layer1".to_string()];
 //! let output = manager.forward_pass(&input, &layer_names).await?;
-//! # let grad_output = torsh_tensor::Tensor::zeros(&[32, 1024])?;
+//! # let grad_output = torsh_tensor::Tensor::zeros(&[32, 1024], torsh_tensor::prelude::DeviceType::Cpu)?;
 //! manager.backward_pass(&grad_output, &layer_names).await?;
 //! manager.optimizer_step(0.001).await?;
 //!
@@ -1014,7 +1016,7 @@ mod tests {
     async fn test_zero3_manager_creation() {
         let pg = init_process_group(BackendType::Gloo, 0, 4, "127.0.0.1", 29500)
             .await
-            .unwrap();
+            .expect("operation should succeed");
         let config = Zero3CpuOffloadConfig::default();
 
         let mut model_params = ConfigModelParameters::new();
@@ -1024,7 +1026,7 @@ mod tests {
         let manager = Zero3CpuOffloadManager::new(config, Arc::new(pg), &model_params);
         assert!(manager.is_ok());
 
-        let manager = manager.unwrap();
+        let manager = manager.expect("operation should succeed");
         let stats = manager.get_performance_stats();
         assert_eq!(stats.forward_passes, 0);
 
@@ -1036,19 +1038,26 @@ mod tests {
     async fn test_manager_operations() {
         let pg = init_process_group(BackendType::Gloo, 0, 1, "127.0.0.1", 29500)
             .await
-            .unwrap();
+            .expect("operation should succeed");
         let config = Zero3CpuOffloadConfig::default();
 
         let mut model_params = ConfigModelParameters::new();
         model_params.add_parameter("test_layer".to_string(), vec![10, 10]);
 
-        let manager = Zero3CpuOffloadManager::new(config, Arc::new(pg), &model_params).unwrap();
+        let manager = Zero3CpuOffloadManager::new(config, Arc::new(pg), &model_params)
+            .expect("operation should succeed");
 
         // Test state reset
-        manager.reset_state().await.unwrap();
+        manager
+            .reset_state()
+            .await
+            .expect("operation should succeed");
 
         // Test memory optimization
-        manager.force_memory_optimization().await.unwrap();
+        manager
+            .force_memory_optimization()
+            .await
+            .expect("operation should succeed");
 
         // Test prefetch status
         let prefetch_status = manager.get_prefetch_status();
@@ -1060,25 +1069,32 @@ mod tests {
         let config = Zero3CpuOffloadConfig::default();
         let pg = init_process_group(BackendType::Gloo, 0, 1, "127.0.0.1", 29500)
             .await
-            .unwrap();
+            .expect("operation should succeed");
         let model_params = ConfigModelParameters::new();
-        let manager = Zero3CpuOffloadManager::new(config, Arc::new(pg), &model_params).unwrap();
+        let manager = Zero3CpuOffloadManager::new(config, Arc::new(pg), &model_params)
+            .expect("operation should succeed");
 
         let test_data = vec![1.0, 2.0, -1.5, 0.5];
         let shape = vec![2, 2];
 
         // Test FP16 compression
-        let (compressed, result_shape) = manager.compress_to_fp16(&test_data, &shape).unwrap();
+        let (compressed, result_shape) = manager
+            .compress_to_fp16(&test_data, &shape)
+            .expect("FP16 compression should succeed");
         assert_eq!(result_shape, shape);
         assert_eq!(compressed.len(), test_data.len());
 
         // Test BF16 compression
-        let (compressed, result_shape) = manager.compress_to_bf16(&test_data, &shape).unwrap();
+        let (compressed, result_shape) = manager
+            .compress_to_bf16(&test_data, &shape)
+            .expect("BF16 compression should succeed");
         assert_eq!(result_shape, shape);
         assert_eq!(compressed.len(), test_data.len());
 
         // Test INT8 compression
-        let (compressed, result_shape) = manager.compress_to_int8(&test_data, &shape).unwrap();
+        let (compressed, result_shape) = manager
+            .compress_to_int8(&test_data, &shape)
+            .expect("INT8 compression should succeed");
         assert_eq!(result_shape, shape);
         assert_eq!(compressed.len(), test_data.len());
     }

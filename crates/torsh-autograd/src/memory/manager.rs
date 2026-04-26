@@ -1184,7 +1184,8 @@ mod tests {
 
     #[test]
     fn test_system_memory_detection() {
-        let memory_info = AdaptiveMemoryManager::<f32>::get_system_memory_info().unwrap();
+        let memory_info = AdaptiveMemoryManager::<f32>::get_system_memory_info()
+            .expect("get system memory info should succeed");
         assert!(memory_info.total_memory > 0);
         assert!(memory_info.available_memory <= memory_info.total_memory);
         assert_eq!(
@@ -1223,17 +1224,22 @@ mod tests {
     #[test]
     fn test_adaptive_allocation() {
         let config = AdaptiveMemoryConfig::default();
-        let manager = AdaptiveMemoryManager::<f32>::new(config).unwrap();
+        let manager = AdaptiveMemoryManager::<f32>::new(config)
+            .expect("construction with valid parameters should succeed");
 
         // Test allocation
-        let memory = manager.allocate_gradient_memory(1000).unwrap();
+        let memory = manager
+            .allocate_gradient_memory(1000)
+            .expect("gradient memory allocation should succeed");
         assert_eq!(memory.len(), 1000);
 
         // Test deallocation
         manager.deallocate_gradient_memory(memory);
 
         // Test reuse - may allocate new memory if deallocation didn't work as expected
-        let reused_memory = manager.allocate_gradient_memory(1000).unwrap();
+        let reused_memory = manager
+            .allocate_gradient_memory(1000)
+            .expect("gradient memory allocation should succeed");
         assert!(
             reused_memory.len() >= 1000,
             "Expected reused memory length >= 1000, got {}",
@@ -1244,15 +1250,16 @@ mod tests {
     #[test]
     fn test_gradient_memory_analysis() {
         let config = AdaptiveMemoryConfig::default();
-        let manager = AdaptiveMemoryManager::<f32>::new(config).unwrap();
+        let manager = AdaptiveMemoryManager::<f32>::new(config)
+            .expect("construction with valid parameters should succeed");
 
         // Simulate gradient memory allocations
         let _memory1 = manager
             .allocate_gradient_memory_for_operation(1000, "test_op")
-            .unwrap();
+            .expect("operation should succeed");
         let _memory2 = manager
             .allocate_gradient_memory_for_operation(2000, "test_op")
-            .unwrap();
+            .expect("operation should succeed");
 
         let analysis = manager.analyze_gradient_memory_usage();
         assert!(
@@ -1264,11 +1271,12 @@ mod tests {
     #[test]
     fn test_memory_monitoring() {
         let config = AdaptiveMemoryConfig::default();
-        let manager = AdaptiveMemoryManager::<f32>::new(config).unwrap();
+        let manager = AdaptiveMemoryManager::<f32>::new(config)
+            .expect("construction with valid parameters should succeed");
 
         let monitor = manager
             .start_gradient_memory_monitoring("test_monitor".to_string())
-            .unwrap();
+            .expect("operation should succeed");
 
         assert_eq!(monitor.operation_name, "test_monitor");
         assert!(monitor.is_active());

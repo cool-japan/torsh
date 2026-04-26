@@ -49,7 +49,7 @@ thiserror.workspace = true
 anyhow.workspace = true
 
 # Model downloading (optional)
-reqwest = { version = "0.13", features = ["json", "stream"], optional = true }
+reqwest = { workspace = true, features = ["json", "stream"], optional = true }
 tokio = { workspace = true, features = ["fs", "io-util"], optional = true }
 
 # File system and utilities

@@ -41,6 +41,7 @@
 //! ```
 
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
+use hex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -573,33 +574,20 @@ impl BackupManager {
     fn calculate_checksum(&self, data: &[u8]) -> String {
         let mut hasher = Sha256::new();
         hasher.update(data);
-        format!("{:x}", hasher.finalize())
+        hex::encode(hasher.finalize().as_slice())
     }
 
     fn compress_data(&self, data: &[u8]) -> Result<Vec<u8>, TorshError> {
-        use flate2::write::GzEncoder;
-        use flate2::Compression;
-        use std::io::Write;
+        use oxiarc_deflate::gzip::gzip_compress;
 
-        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-        encoder
-            .write_all(data)
-            .map_err(|e| TorshError::RuntimeError(e.to_string()))?;
-        encoder
-            .finish()
-            .map_err(|e| TorshError::RuntimeError(e.to_string()))
+        // Level 6 matches the previous Compression::default() behaviour
+        gzip_compress(data, 6).map_err(|e| TorshError::RuntimeError(e.to_string()))
     }
 
     fn decompress_data(&self, data: &[u8]) -> Result<Vec<u8>, TorshError> {
-        use flate2::read::GzDecoder;
-        use std::io::Read;
+        use oxiarc_deflate::gzip::gzip_decompress;
 
-        let mut decoder = GzDecoder::new(data);
-        let mut decompressed = Vec::new();
-        decoder
-            .read_to_end(&mut decompressed)
-            .map_err(|e| TorshError::RuntimeError(e.to_string()))?;
-        Ok(decompressed)
+        gzip_decompress(data).map_err(|e| TorshError::RuntimeError(e.to_string()))
     }
 
     fn encrypt_data(&self, data: &[u8]) -> Result<Vec<u8>, TorshError> {

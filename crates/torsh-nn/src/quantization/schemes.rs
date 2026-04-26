@@ -548,7 +548,8 @@ mod tests {
     #[test]
     fn test_post_training_quantization() {
         let data = vec![1.0, -1.0, 0.5, -0.5, 2.0, -2.0];
-        let tensor = Tensor::from_data(data, vec![6], torsh_core::device::DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![6], torsh_core::device::DeviceType::Cpu)
+            .expect("Tensor should succeed");
 
         let ptq = PostTrainingQuantization::new(
             QuantizationScheme::Symmetric,
@@ -559,7 +560,7 @@ mod tests {
         let result = ptq.quantize_tensor(&tensor);
         assert!(result.is_ok());
 
-        let (_quantized, params) = result.unwrap();
+        let (_quantized, params) = result.expect("operation should succeed");
         // Note: quantized tensor will have F32 dtype due to our implementation
         assert!(params.scale > 0.0);
     }
@@ -567,12 +568,14 @@ mod tests {
     #[test]
     fn test_qat_fake_quantization() {
         let tensor_data = vec![0.1f32; 10];
-        let tensor =
-            Tensor::from_data(tensor_data, vec![10], torsh_core::device::DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(tensor_data, vec![10], torsh_core::device::DeviceType::Cpu)
+            .expect("Tensor should succeed");
         let params = QuantizationParams::symmetric(0.1, DType::F32, DType::I8);
 
         let qat = QuantizationAwareTraining::new(QuantizationScheme::Symmetric, DType::I8);
-        let fake_quantized = qat.fake_quantize_tensor(&tensor, &params).unwrap();
+        let fake_quantized = qat
+            .fake_quantize_tensor(&tensor, &params)
+            .expect("fake quantization should succeed");
 
         assert_eq!(fake_quantized.shape().dims(), tensor.shape().dims());
         // Note: tensor dtype will be F32 due to our implementation
@@ -581,15 +584,15 @@ mod tests {
     #[test]
     fn test_block_wise_quantization() {
         let data: Vec<f32> = (0..100).map(|x| x as f32 / 10.0).collect();
-        let tensor =
-            Tensor::from_data(data, vec![100], torsh_core::device::DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![100], torsh_core::device::DeviceType::Cpu)
+            .expect("Tensor should succeed");
 
         let block_quant = BlockWiseQuantization::new(25, QuantizationScheme::Symmetric, DType::I8);
 
         let result = block_quant.quantize_blocks(&tensor);
         assert!(result.is_ok());
 
-        let (quantized, params) = result.unwrap();
+        let (quantized, params) = result.expect("operation should succeed");
         assert_eq!(quantized.shape().dims(), tensor.shape().dims());
         assert_eq!(params.len(), 4); // 100 / 25 = 4 blocks
     }
@@ -616,6 +619,9 @@ mod tests {
         let mixed_prec = MixedPrecisionQuantization::new(layer_configs);
         let config = mixed_prec.get_layer_config("conv1");
         assert!(config.is_some());
-        assert_eq!(config.unwrap().weight_dtype, DType::I8);
+        assert_eq!(
+            config.expect("operation should succeed").weight_dtype,
+            DType::I8
+        );
     }
 }

@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "RsTorch"
-version = "0.1.1"
+version = "0.1.2"
 description = "PyTorch-compatible deep learning framework in Rust - Python bindings"
 readme = "README.md"
 requires-python = ">=3.8"

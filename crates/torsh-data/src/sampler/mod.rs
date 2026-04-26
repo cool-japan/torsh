@@ -587,22 +587,26 @@ mod tests {
         config.insert("seed".to_string(), "42".to_string());
 
         // Test sequential sampler
-        let sampler = create_sampler("sequential", 100, &config).unwrap();
+        let sampler =
+            create_sampler("sequential", 100, &config).expect("create sampler should succeed");
         assert_eq!(sampler.len(), 100);
 
         // Test random sampler
-        let sampler = create_sampler("random", 100, &config).unwrap();
+        let sampler =
+            create_sampler("random", 100, &config).expect("create sampler should succeed");
         assert_eq!(sampler.len(), 100);
 
         // Test weighted sampler
         config.insert("weights".to_string(), "0.1,0.3,0.6".to_string());
-        let sampler = create_sampler("weighted", 3, &config).unwrap();
+        let sampler =
+            create_sampler("weighted", 3, &config).expect("create sampler should succeed");
         assert_eq!(sampler.len(), 3);
 
         // Test distributed sampler
         config.insert("num_replicas".to_string(), "4".to_string());
         config.insert("rank".to_string(), "0".to_string());
-        let sampler = create_sampler("distributed", 1000, &config).unwrap();
+        let sampler =
+            create_sampler("distributed", 1000, &config).expect("create sampler should succeed");
         assert_eq!(sampler.len(), 250); // 1000 / 4 = 250
     }
 

@@ -331,13 +331,13 @@ pub fn upload_model_directory(
 
 /// Create a package archive
 fn create_package_archive(src_dir: &Path, dest_path: &Path) -> Result<()> {
-    use flate2::write::GzEncoder;
-    use flate2::Compression;
-    use tar::Builder;
+    use oxiarc_archive::TarWriter;
+    use oxiarc_deflate::GzipStreamEncoder;
 
     let file = File::create(dest_path)?;
-    let encoder = GzEncoder::new(file, Compression::default());
-    let mut archive = Builder::new(encoder);
+    // Level 6 matches the previous Compression::default() behaviour
+    let encoder = GzipStreamEncoder::new(file, 6);
+    let mut archive = TarWriter::new(encoder);
 
     // Add all files in directory
     for entry in fs::read_dir(src_dir)? {
@@ -345,14 +345,27 @@ fn create_package_archive(src_dir: &Path, dest_path: &Path) -> Result<()> {
         let path = entry.path();
         let name = path
             .file_name()
-            .ok_or_else(|| TorshError::InvalidArgument("Invalid filename".to_string()))?;
+            .ok_or_else(|| TorshError::InvalidArgument("Invalid filename".to_string()))?
+            .to_str()
+            .ok_or_else(|| TorshError::InvalidArgument("Non-UTF8 filename".to_string()))?
+            .to_owned();
 
         if path.is_file() {
-            archive.append_file(name, &mut File::open(&path)?)?;
+            let data = fs::read(&path)?;
+            archive.add_file(&name, &data).map_err(|e| {
+                TorshError::IoError(format!("Failed to add file to archive: {}", e))
+            })?;
         }
     }
 
-    archive.finish()?;
+    // Finalise the tar stream, then flush the gzip trailer explicitly
+    archive
+        .finish()
+        .map_err(|e| TorshError::IoError(format!("Failed to finalize tar: {}", e)))?;
+    let encoder = archive
+        .into_inner()
+        .map_err(|e| TorshError::IoError(format!("Failed to get inner writer: {}", e)))?;
+    encoder.finish()?;
     Ok(())
 }
 

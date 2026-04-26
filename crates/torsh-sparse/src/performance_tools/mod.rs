@@ -679,7 +679,7 @@ mod tests {
         let col_indices = vec![0, 1, 2];
         let values = vec![1.0, 2.0, 3.0];
         let shape = Shape::new(vec![3, 3]);
-        CooTensor::new(row_indices, col_indices, values, shape).unwrap()
+        CooTensor::new(row_indices, col_indices, values, shape).expect("Coo Tensor should succeed")
     }
 
     #[test]
@@ -718,7 +718,7 @@ mod tests {
         let result = quick_performance_check(&tensor);
 
         assert!(result.is_ok());
-        let quick_result = result.unwrap();
+        let quick_result = result.expect("operation should succeed");
 
         assert_eq!(quick_result.memory_analysis.format, SparseFormat::Coo);
         assert_eq!(quick_result.memory_analysis.nnz, 3);
@@ -728,7 +728,8 @@ mod tests {
     #[test]
     fn test_quick_performance_result_display() {
         let tensor = create_test_sparse_tensor();
-        let result = quick_performance_check(&tensor).unwrap();
+        let result =
+            quick_performance_check(&tensor).expect("quick performance check should succeed");
 
         let display_string = format!("{}", result);
         assert!(display_string.contains("Quick Performance Check"));

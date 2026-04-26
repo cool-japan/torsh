@@ -17,17 +17,21 @@ pub struct TensorFlowBenchRunner {
 #[cfg(feature = "tensorflow")]
 impl TensorFlowBenchRunner {
     pub fn new() -> Self {
-        let mut runner = Self {
+        Self {
             python_initialized: false,
             tensorflow_available: false,
             device: "cpu".to_string(),
-        };
-
-        if let Err(e) = runner.initialize_python() {
-            eprintln!("Warning: Failed to initialize Python/TensorFlow: {}", e);
         }
+    }
 
-        runner
+    /// Attempt to detect TensorFlow availability by initializing Python.
+    /// Only call from production benchmarking paths, not from unit tests.
+    pub fn detect_tensorflow(&mut self) {
+        if !self.python_initialized {
+            if let Err(e) = self.initialize_python() {
+                eprintln!("Warning: Failed to initialize Python/TensorFlow: {}", e);
+            }
+        }
     }
 
     /// Initialize Python interpreter and check TensorFlow availability
@@ -42,11 +46,6 @@ impl TensorFlowBenchRunner {
                     Ok(tf) => {
                         self.tensorflow_available = true;
                         self.python_initialized = true;
-
-                        // Check available devices
-                        let devices = tf
-                            .call_method0("config")?
-                            .call_method0("list_physical_devices")?;
 
                         // Try to find GPU
                         let gpu_devices = tf
@@ -566,20 +565,27 @@ pub fn run_tensorflow_comparison_suite() -> ComparisonRunner {
     runner
 }
 
-/// Generate comprehensive TensorFlow performance report
+/// Generate comprehensive TensorFlow performance report into a specific directory
+///
+/// Writes two files into `output_dir`:
+/// - `tensorflow_comparison.md` — basic comparison table
+/// - `tensorflow_vs_torsh_analysis.md` — detailed statistical analysis
 #[cfg(feature = "tensorflow")]
-pub fn generate_tensorflow_comparison_report() -> std::io::Result<()> {
+pub fn generate_tensorflow_comparison_report_to(
+    output_dir: &std::path::Path,
+) -> std::io::Result<()> {
     let runner = run_tensorflow_comparison_suite();
 
     // Generate markdown report
-    runner.generate_report("target/tensorflow_comparison.md")?;
+    runner.generate_report_to(&output_dir.join("tensorflow_comparison.md"))?;
 
     // Generate detailed analysis
     let mut analyzer = super::analysis::PerformanceAnalyzer::new();
     analyzer.add_results(runner.results());
 
     // Create comprehensive performance analysis
-    let mut analysis_file = std::fs::File::create("target/tensorflow_vs_torsh_analysis.md")?;
+    let mut analysis_file =
+        std::fs::File::create(output_dir.join("tensorflow_vs_torsh_analysis.md"))?;
     use std::io::Write;
 
     writeln!(
@@ -680,9 +686,22 @@ pub fn generate_tensorflow_comparison_report() -> std::io::Result<()> {
         "- ToRSh uses pure Rust implementations with SIMD optimizations"
     )?;
 
-    println!("📈 Comprehensive TensorFlow comparison report generated!");
-    println!("   📄 Basic report: target/tensorflow_comparison.md");
-    println!("   📊 Detailed analysis: target/tensorflow_vs_torsh_analysis.md");
+    println!("Comprehensive TensorFlow comparison report generated!");
+    println!(
+        "   Basic report: {}",
+        output_dir.join("tensorflow_comparison.md").display()
+    );
+    println!(
+        "   Detailed analysis: {}",
+        output_dir.join("tensorflow_vs_torsh_analysis.md").display()
+    );
 
     Ok(())
+}
+
+/// Generate comprehensive TensorFlow performance report (writes to a temp directory)
+#[cfg(feature = "tensorflow")]
+pub fn generate_tensorflow_comparison_report() -> std::io::Result<()> {
+    let output_dir = std::env::temp_dir();
+    generate_tensorflow_comparison_report_to(&output_dir)
 }

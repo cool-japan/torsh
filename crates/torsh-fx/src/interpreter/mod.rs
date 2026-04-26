@@ -376,14 +376,16 @@ mod tests {
         use petgraph::graph::NodeIndex;
 
         let mut env = ExecutionEnvironment::new(DeviceType::Cpu);
-        let tensor = zeros(&[2, 2]).unwrap();
+        let tensor = zeros(&[2, 2]).expect("zeros should succeed");
         let node_idx = NodeIndex::new(0);
 
         env.store(node_idx, tensor.clone());
         assert!(env.has_value(node_idx));
         assert_eq!(env.value_count(), 1);
 
-        let retrieved = env.get(node_idx).unwrap();
+        let retrieved = env
+            .get(node_idx)
+            .expect("element retrieval should succeed for valid index");
         assert_eq!(retrieved.shape().dims(), tensor.shape().dims());
     }
 

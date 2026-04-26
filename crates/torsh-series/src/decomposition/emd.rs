@@ -426,7 +426,7 @@ mod tests {
             data.push(high_freq + low_freq + trend);
         }
 
-        let tensor = Tensor::from_vec(data, &[n]).unwrap();
+        let tensor = Tensor::from_vec(data, &[n]).expect("Tensor should succeed");
         TimeSeries::new(tensor)
     }
 
@@ -463,7 +463,7 @@ mod tests {
             min_extrema: 3,
         };
 
-        let result = emd_decompose(&series, &config).unwrap();
+        let result = emd_decompose(&series, &config).expect("emd decompose should succeed");
 
         // Should extract at least one IMF
         assert!(!result.imfs.is_empty());
@@ -482,22 +482,32 @@ mod tests {
         let series = create_test_signal();
         let config = EMDConfig::default();
 
-        let result = emd_decompose(&series, &config).unwrap();
+        let result = emd_decompose(&series, &config).expect("emd decompose should succeed");
 
         // Reconstruct signal from IMFs and residual
-        let original_data = series.values.to_vec().unwrap();
+        let original_data = series
+            .values
+            .to_vec()
+            .expect("tensor to_vec conversion should succeed");
         let mut reconstructed = vec![0.0f32; series.len()];
 
         // Add all IMFs
         for imf in &result.imfs {
-            let imf_data = imf.values.to_vec().unwrap();
+            let imf_data = imf
+                .values
+                .to_vec()
+                .expect("tensor to_vec conversion should succeed");
             for i in 0..series.len() {
                 reconstructed[i] += imf_data[i];
             }
         }
 
         // Add residual
-        let residual_data = result.residual.values.to_vec().unwrap();
+        let residual_data = result
+            .residual
+            .values
+            .to_vec()
+            .expect("tensor to_vec conversion should succeed");
         for i in 0..series.len() {
             reconstructed[i] += residual_data[i];
         }
@@ -526,7 +536,8 @@ mod tests {
             min_extrema: 3,
         };
 
-        let result = eemd_decompose(&series, &config, 10, 0.1).unwrap();
+        let result =
+            eemd_decompose(&series, &config, 10, 0.1).expect("eemd decompose should succeed");
 
         // Should extract IMFs
         assert!(!result.imfs.is_empty());

@@ -1357,11 +1357,11 @@ mod tests {
     fn test_model_info() {
         let info = FlamingoFactory::model_info("flamingo-3b");
         assert!(info.is_ok());
-        assert!(info.unwrap().contains("3B"));
+        assert!(info.expect("operation should succeed").contains("3B"));
 
         let info_9b = FlamingoFactory::model_info("flamingo-9b");
         assert!(info_9b.is_ok());
-        assert!(info_9b.unwrap().contains("9B"));
+        assert!(info_9b.expect("operation should succeed").contains("9B"));
     }
 
     #[test]

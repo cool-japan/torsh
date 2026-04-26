@@ -593,13 +593,13 @@ mod tests {
             &[3, 3],
             DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("operation should succeed");
 
-        let edge_index =
-            from_vec(vec![0.0, 1.0, 2.0, 1.0, 2.0, 0.0], &[2, 3], DeviceType::Cpu).unwrap();
+        let edge_index = from_vec(vec![0.0, 1.0, 2.0, 1.0, 2.0, 0.0], &[2, 3], DeviceType::Cpu)
+            .expect("from vec should succeed");
 
-        let edge_attr =
-            from_vec(vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6], &[3, 2], DeviceType::Cpu).unwrap();
+        let edge_attr = from_vec(vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6], &[3, 2], DeviceType::Cpu)
+            .expect("from vec should succeed");
 
         let graph = GraphData::new(x, edge_index).with_edge_attr(edge_attr);
 
@@ -615,9 +615,11 @@ mod tests {
         let mpnn_max = MPNNConv::new(2, 4, 0, 8, 8, AggregationType::Max, false);
 
         // Create simple test graph
-        let x = from_vec(vec![1.0, 2.0, 3.0, 4.0], &[2, 2], DeviceType::Cpu).unwrap();
+        let x = from_vec(vec![1.0, 2.0, 3.0, 4.0], &[2, 2], DeviceType::Cpu)
+            .expect("from vec should succeed");
 
-        let edge_index = from_vec(vec![0.0, 1.0], &[2, 1], DeviceType::Cpu).unwrap();
+        let edge_index =
+            from_vec(vec![0.0, 1.0], &[2, 1], DeviceType::Cpu).expect("from vec should succeed");
 
         let graph = GraphData::new(x, edge_index);
 
@@ -632,9 +634,10 @@ mod tests {
         let mpnn = MPNNConv::new(3, 8, 0, 16, 16, AggregationType::Sum, false);
 
         // Create graph with nodes but no edges
-        let x = from_vec(vec![1.0, 2.0, 3.0], &[1, 3], DeviceType::Cpu).unwrap();
+        let x = from_vec(vec![1.0, 2.0, 3.0], &[1, 3], DeviceType::Cpu)
+            .expect("from vec should succeed");
 
-        let edge_index = zeros(&[2, 0]).unwrap();
+        let edge_index = zeros(&[2, 0]).expect("zeros should succeed");
         let graph = GraphData::new(x, edge_index);
 
         let output = mpnn.forward(&graph);

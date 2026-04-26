@@ -469,7 +469,8 @@ mod tests {
 
     #[test]
     fn test_manager_configuration_validation() {
-        let speed_manager = create_speed_optimized_manager().unwrap();
+        let speed_manager = create_speed_optimized_manager()
+            .expect("create speed optimized manager should succeed");
         assert!(
             matches!(
                 speed_manager.get_selection_strategy(),
@@ -478,10 +479,12 @@ mod tests {
             "Speed optimized manager should use weighted strategy"
         );
 
-        let reliability_manager = create_reliability_optimized_manager().unwrap();
+        let reliability_manager = create_reliability_optimized_manager()
+            .expect("create reliability optimized manager should succeed");
         assert_eq!(reliability_manager.get_config().min_reliability_score, 0.9);
 
-        let adaptive_manager = create_adaptive_manager().unwrap();
+        let adaptive_manager =
+            create_adaptive_manager().expect("create adaptive manager should succeed");
         assert_eq!(
             adaptive_manager.get_selection_strategy(),
             &MirrorSelectionStrategy::Adaptive
@@ -490,9 +493,12 @@ mod tests {
 
     #[test]
     fn test_regional_manager_differences() {
-        let us_manager = create_regional_manager("us").unwrap();
-        let eu_manager = create_regional_manager("eu").unwrap();
-        let asia_manager = create_regional_manager("asia").unwrap();
+        let us_manager =
+            create_regional_manager("us").expect("create regional manager should succeed");
+        let eu_manager =
+            create_regional_manager("eu").expect("create regional manager should succeed");
+        let asia_manager =
+            create_regional_manager("asia").expect("create regional manager should succeed");
 
         // Each regional manager should have different mirror configurations
         let us_mirrors = &us_manager.get_config().mirrors;
@@ -534,7 +540,7 @@ mod tests {
         let manager = MirrorManager::new(config);
         assert!(manager.is_ok());
 
-        let manager = manager.unwrap();
+        let manager = manager.expect("operation should succeed");
 
         // Test that geographic calculator is properly integrated
         let geo_calc = manager.get_geographic_calculator();
@@ -551,7 +557,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_benchmarking_integration() {
-        let mut manager = create_adaptive_manager().unwrap();
+        let mut manager =
+            create_adaptive_manager().expect("create adaptive manager should succeed");
 
         // This test verifies that the benchmarking system integrates properly
         // Note: Actual network requests will fail in test environment, but

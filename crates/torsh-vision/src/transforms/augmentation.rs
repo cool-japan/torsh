@@ -707,7 +707,7 @@ mod tests {
     #[test]
     fn test_random_erasing_forward_invalid_shape() {
         let erasing = RandomErasing::new(1.0); // Always apply
-        let input = creation::ones(&[10, 10]).unwrap(); // 2D tensor (invalid)
+        let input = creation::ones(&[10, 10]).expect("creation should succeed"); // 2D tensor (invalid)
 
         let result = erasing.forward(&input);
         assert!(result.is_err());
@@ -717,7 +717,7 @@ mod tests {
     #[test]
     fn test_cutout_forward_invalid_shape() {
         let cutout = Cutout::new(5, 1);
-        let input = creation::ones(&[10]).unwrap(); // 1D tensor (invalid)
+        let input = creation::ones(&[10]).expect("creation should succeed"); // 1D tensor (invalid)
 
         let result = cutout.forward(&input);
         assert!(result.is_err());

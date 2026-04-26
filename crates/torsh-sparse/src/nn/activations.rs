@@ -485,17 +485,17 @@ mod tests {
         let col_indices = vec![0, 1, 0, 2, 1];
         let values = vec![2.0, -1.0, 3.0, -2.0, 1.0];
         let shape = Shape::new(vec![3, 3]);
-        CooTensor::new(row_indices, col_indices, values, shape).unwrap()
+        CooTensor::new(row_indices, col_indices, values, shape).expect("Coo Tensor should succeed")
     }
 
     #[test]
     fn test_sparse_relu() {
         let relu = SparseReLU::new(false);
         let input = create_test_coo();
-        let output = relu.forward(&input).unwrap();
+        let output = relu.forward(&input).expect("forward pass should succeed");
 
         // ReLU should remove negative values, so output should have fewer non-zeros
-        let output_coo = output.to_coo().unwrap();
+        let output_coo = output.to_coo().expect("COO format conversion should succeed");
         let triplets = output_coo.triplets();
 
         // Should only have positive values: [2.0, 3.0, 1.0]
@@ -509,9 +509,9 @@ mod tests {
     fn test_sparse_leaky_relu() {
         let leaky_relu = SparseLeakyReLU::new(0.1);
         let input = create_test_coo();
-        let output = leaky_relu.forward(&input).unwrap();
+        let output = leaky_relu.forward(&input).expect("forward pass should succeed");
 
-        let output_coo = output.to_coo().unwrap();
+        let output_coo = output.to_coo().expect("COO format conversion should succeed");
         let triplets = output_coo.triplets();
 
         // Should preserve all values but scale negative ones
@@ -523,9 +523,9 @@ mod tests {
     fn test_sparse_sigmoid() {
         let sigmoid = SparseSigmoid::new();
         let input = create_test_coo();
-        let output = sigmoid.forward(&input).unwrap();
+        let output = sigmoid.forward(&input).expect("forward pass should succeed");
 
-        let output_coo = output.to_coo().unwrap();
+        let output_coo = output.to_coo().expect("COO format conversion should succeed");
         let triplets = output_coo.triplets();
 
         // Sigmoid preserves all values, maps to (0, 1)
@@ -539,9 +539,9 @@ mod tests {
     fn test_sparse_tanh() {
         let tanh = SparseTanh::new();
         let input = create_test_coo();
-        let output = tanh.forward(&input).unwrap();
+        let output = tanh.forward(&input).expect("forward pass should succeed");
 
-        let output_coo = output.to_coo().unwrap();
+        let output_coo = output.to_coo().expect("COO format conversion should succeed");
         let triplets = output_coo.triplets();
 
         // Tanh preserves all values, maps to (-1, 1)
@@ -555,9 +555,9 @@ mod tests {
     fn test_sparse_gelu() {
         let gelu = SparseGELU::new();
         let input = create_test_coo();
-        let output = gelu.forward(&input).unwrap();
+        let output = gelu.forward(&input).expect("forward pass should succeed");
 
-        let output_coo = output.to_coo().unwrap();
+        let output_coo = output.to_coo().expect("COO format conversion should succeed");
         let triplets = output_coo.triplets();
 
         // GELU should process all values
@@ -568,9 +568,9 @@ mod tests {
     fn test_sparse_swish() {
         let swish = SparseSwish::new();
         let input = create_test_coo();
-        let output = swish.forward(&input).unwrap();
+        let output = swish.forward(&input).expect("forward pass should succeed");
 
-        let output_coo = output.to_coo().unwrap();
+        let output_coo = output.to_coo().expect("COO format conversion should succeed");
         let triplets = output_coo.triplets();
 
         // Swish should process all values
@@ -581,9 +581,9 @@ mod tests {
     fn test_sparse_elu() {
         let elu = SparseELU::new(1.0);
         let input = create_test_coo();
-        let output = elu.forward(&input).unwrap();
+        let output = elu.forward(&input).expect("forward pass should succeed");
 
-        let output_coo = output.to_coo().unwrap();
+        let output_coo = output.to_coo().expect("COO format conversion should succeed");
         let triplets = output_coo.triplets();
 
         // ELU should process all values
@@ -606,10 +606,10 @@ mod tests {
     fn test_format_preservation() {
         let relu = SparseReLU::new(false);
         let coo_input = create_test_coo();
-        let csr_input = CsrTensor::from_coo(&coo_input).unwrap();
+        let csr_input = CsrTensor::from_coo(&coo_input).expect("Csr Tensor should succeed");
 
-        let coo_output = relu.forward(&coo_input).unwrap();
-        let csr_output = relu.forward(&csr_input).unwrap();
+        let coo_output = relu.forward(&coo_input).expect("forward pass should succeed");
+        let csr_output = relu.forward(&csr_input).expect("forward pass should succeed");
 
         assert_eq!(coo_output.format(), SparseFormat::Coo);
         assert_eq!(csr_output.format(), SparseFormat::Csr);
@@ -621,7 +621,7 @@ mod tests {
         let input = create_test_coo();
         let input_nnz = input.nnz();
 
-        let output = relu.forward(&input).unwrap();
+        let output = relu.forward(&input).expect("forward pass should succeed");
         let output_nnz = output.nnz();
 
         // ReLU should reduce the number of non-zeros (remove negatives)

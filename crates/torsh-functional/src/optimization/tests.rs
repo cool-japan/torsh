@@ -22,7 +22,7 @@ mod tests {
             Ok(from_vec(vec![grad_val], &[1], DeviceType::Cpu)?)
         };
 
-        let x0 = from_vec(vec![0.0], &[1], DeviceType::Cpu).unwrap();
+        let x0 = from_vec(vec![0.0], &[1], DeviceType::Cpu).expect("from vec should succeed");
         let params = GradientDescentParams {
             learning_rate: 0.1,
             max_iter: 100,
@@ -30,8 +30,8 @@ mod tests {
             line_search: None,
         };
 
-        let (x_opt, _) = gradient_descent(objective, gradient, &x0, Some(params)).unwrap();
-        let result = x_opt.data().unwrap()[0];
+        let (x_opt, _) = gradient_descent(objective, gradient, &x0, Some(params)).expect("operation should succeed");
+        let result = x_opt.data().expect("tensor data should be accessible")[0];
 
         assert!(
             (result - 2.0).abs() < 1e-3,
@@ -53,10 +53,10 @@ mod tests {
             Ok(from_vec(vec![2.0 * data[0]], &[1], DeviceType::Cpu)?)
         };
 
-        let x = from_vec(vec![1.0], &[1], DeviceType::Cpu).unwrap();
-        let p = from_vec(vec![-1.0], &[1], DeviceType::Cpu).unwrap(); // Descent direction
+        let x = from_vec(vec![1.0], &[1], DeviceType::Cpu).expect("from vec should succeed");
+        let p = from_vec(vec![-1.0], &[1], DeviceType::Cpu).expect("from vec should succeed"); // Descent direction
 
-        let alpha = backtracking_line_search(objective, gradient, &x, &p, None).unwrap();
+        let alpha = backtracking_line_search(objective, gradient, &x, &p, None).expect("backtracking line search should succeed");
 
         // Should find a reasonable step size
         assert!(alpha > 0.0 && alpha <= 1.0);
@@ -76,7 +76,7 @@ mod tests {
             Ok(from_vec(vec![2.0 * data[0]], &[1], DeviceType::Cpu)?)
         };
 
-        let x0 = from_vec(vec![1.0], &[1], DeviceType::Cpu).unwrap();
+        let x0 = from_vec(vec![1.0], &[1], DeviceType::Cpu).expect("from vec should succeed");
         let params = MomentumParams {
             learning_rate: 0.1,
             momentum: 0.9,
@@ -84,8 +84,8 @@ mod tests {
             tolerance: 1e-6,
         };
 
-        let (x_opt, _) = momentum_gradient_descent(objective, gradient, &x0, Some(params)).unwrap();
-        let result = x_opt.data().unwrap()[0];
+        let (x_opt, _) = momentum_gradient_descent(objective, gradient, &x0, Some(params)).expect("operation should succeed");
+        let result = x_opt.data().expect("tensor data should be accessible")[0];
 
         assert!(
             (result - 0.0).abs() < 1e-1,
@@ -96,8 +96,8 @@ mod tests {
 
     #[test]
     fn test_tensor_characteristics_analysis() {
-        let tensor = from_vec(vec![1.0, 0.0, 3.0, 0.0, 5.0], &[5], DeviceType::Cpu).unwrap();
-        let characteristics = TensorCharacteristics::analyze(&tensor).unwrap();
+        let tensor = from_vec(vec![1.0, 0.0, 3.0, 0.0, 5.0], &[5], DeviceType::Cpu).expect("from vec should succeed");
+        let characteristics = TensorCharacteristics::analyze(&tensor).expect("Tensor Characteristics should succeed");
 
         assert_eq!(characteristics.size, 5);
         assert_eq!(characteristics.sparsity, 0.4); // 2 out of 5 are zero
@@ -193,7 +193,7 @@ mod tests {
         };
 
         let config =
-            auto_configure_optimization(&characteristics, &OptimizationAlgorithm::Adam).unwrap();
+            auto_configure_optimization(&characteristics, &OptimizationAlgorithm::Adam).expect("auto configure optimization should succeed");
         assert!(config.contains("AdamParams"));
         assert!(config.contains("learning_rate"));
 
@@ -201,7 +201,7 @@ mod tests {
             &characteristics,
             &OptimizationAlgorithm::MomentumGradientDescent,
         )
-        .unwrap();
+        .expect("operation should succeed");
         assert!(momentum_config.contains("MomentumParams"));
         assert!(momentum_config.contains("momentum"));
     }

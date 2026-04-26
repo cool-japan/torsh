@@ -396,33 +396,18 @@ impl CheckpointManager {
 
     /// Compress data
     fn compress_data(&self, data: &[u8]) -> TorshResult<Vec<u8>> {
-        use flate2::write::GzEncoder;
-        use flate2::Compression;
-        use std::io::Write;
+        use oxiarc_deflate::gzip::gzip_compress;
 
-        let mut encoder =
-            GzEncoder::new(Vec::new(), Compression::new(self.options.compression_level));
-        encoder
-            .write_all(data)
-            .map_err(|e| TorshError::InvalidArgument(format!("Compression failed: {e}")))?;
-
-        encoder
-            .finish()
+        gzip_compress(data, self.options.compression_level as u8)
             .map_err(|e| TorshError::InvalidArgument(format!("Compression failed: {e}")))
     }
 
     /// Decompress data
     fn decompress_data(&self, data: &[u8]) -> TorshResult<Vec<u8>> {
-        use flate2::read::GzDecoder;
-        use std::io::Read;
+        use oxiarc_deflate::gzip::gzip_decompress;
 
-        let mut decoder = GzDecoder::new(data);
-        let mut decompressed = Vec::new();
-        decoder
-            .read_to_end(&mut decompressed)
-            .map_err(|e| TorshError::InvalidArgument(format!("Decompression failed: {e}")))?;
-
-        Ok(decompressed)
+        gzip_decompress(data)
+            .map_err(|e| TorshError::InvalidArgument(format!("Decompression failed: {e}")))
     }
 
     /// Load checkpoint history from directory

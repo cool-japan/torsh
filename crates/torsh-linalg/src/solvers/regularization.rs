@@ -533,13 +533,13 @@ mod tests {
 
     #[test]
     fn test_tikhonov_parameter_validation() {
-        let a = eye::<f32>(2).unwrap();
+        let a = eye::<f32>(2).expect("operation should succeed");
         let b = torsh_tensor::Tensor::from_data(
             vec![1.0f32, 2.0],
             vec![2],
             torsh_core::DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("operation should succeed");
 
         // Test invalid lambda
         assert!(solve_tikhonov(&a, &b, -0.1).is_err());
@@ -548,13 +548,13 @@ mod tests {
 
     #[test]
     fn test_damped_least_squares_parameter_validation() {
-        let a = eye::<f32>(2).unwrap();
+        let a = eye::<f32>(2).expect("operation should succeed");
         let b = torsh_tensor::Tensor::from_data(
             vec![1.0f32, 2.0],
             vec![2],
             torsh_core::DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("operation should succeed");
 
         // Test invalid lambda
         assert!(solve_damped_least_squares(&a, &b, -0.1, None, None).is_err());
@@ -562,13 +562,13 @@ mod tests {
         // Test mismatched damping factors
         let wrong_damping =
             torsh_tensor::Tensor::from_data(vec![1.0f32], vec![1], torsh_core::DeviceType::Cpu)
-                .unwrap();
+                .expect("operation should succeed");
         assert!(solve_damped_least_squares(&a, &b, 0.1, Some(&wrong_damping), None).is_err());
 
         // Test mismatched prior
         let wrong_prior =
             torsh_tensor::Tensor::from_data(vec![1.0f32], vec![1], torsh_core::DeviceType::Cpu)
-                .unwrap();
+                .expect("operation should succeed");
         assert!(solve_damped_least_squares(&a, &b, 0.1, None, Some(&wrong_prior)).is_err());
     }
 }

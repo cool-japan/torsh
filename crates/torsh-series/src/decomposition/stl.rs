@@ -117,7 +117,7 @@ mod tests {
             let noise = 0.1;
             data.push(trend + seasonal + noise);
         }
-        let tensor = Tensor::from_vec(data, &[50]).unwrap();
+        let tensor = Tensor::from_vec(data, &[50]).expect("Tensor should succeed");
         TimeSeries::new(tensor)
     }
 
@@ -140,7 +140,9 @@ mod tests {
     fn test_stl_decomposition_fit() {
         let series = create_test_series();
         let stl = STLDecomposition::new(12);
-        let result = stl.fit(&series).unwrap();
+        let result = stl
+            .fit(&series)
+            .expect("fit operation should succeed with valid input");
 
         // Check that components have the same length as input
         assert_eq!(result.trend.shape().dims()[0], series.len());
@@ -152,12 +154,14 @@ mod tests {
     fn test_stl_decomposition_short_series() {
         // Create a longer series to satisfy the STL requirements (>= 2 * period)
         let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0];
-        let tensor = Tensor::from_vec(data, &[10]).unwrap();
+        let tensor = Tensor::from_vec(data, &[10]).expect("Tensor should succeed");
         let series = TimeSeries::new(tensor);
 
         // Use a smaller period that works with the series length
         let stl = STLDecomposition::new(3);
-        let result = stl.fit(&series).unwrap();
+        let result = stl
+            .fit(&series)
+            .expect("fit operation should succeed with valid input");
 
         assert_eq!(result.trend.shape().dims()[0], series.len());
         assert_eq!(result.seasonal.shape().dims()[0], series.len());

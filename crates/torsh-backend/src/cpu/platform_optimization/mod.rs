@@ -125,7 +125,9 @@ mod tests {
         // Test dot product
         let a = vec![1.0, 2.0, 3.0, 4.0];
         let b = vec![2.0, 3.0, 4.0, 5.0];
-        let result = ops.dot_product_f32(&a, &b).unwrap();
+        let result = ops
+            .dot_product_f32(&a, &b)
+            .expect("dot product computation should succeed");
         assert_eq!(result, 40.0); // 1*2 + 2*3 + 3*4 + 4*5 = 40
 
         // Test with mismatched lengths
@@ -137,7 +139,8 @@ mod tests {
         let b = vec![5.0, 6.0, 7.0, 8.0]; // 2x2 matrix
         let mut c = vec![0.0; 4]; // 2x2 result
 
-        ops.matrix_multiply_f32(&a, &b, &mut c, 2, 2, 2).unwrap();
+        ops.matrix_multiply_f32(&a, &b, &mut c, 2, 2, 2)
+            .expect("f32 matrix multiply should succeed");
         // Expected: [1*5+2*7, 1*6+2*8] = [19, 22]
         //          [3*5+4*7, 3*6+4*8] = [43, 50]
         assert_eq!(c, vec![19.0, 22.0, 43.0, 50.0]);
@@ -230,7 +233,7 @@ mod tests {
 
     #[test]
     fn test_platform_optimizer() {
-        let optimizer = PlatformOptimizer::new().unwrap();
+        let optimizer = PlatformOptimizer::new().expect("Platform Optimizer should succeed");
 
         // Test that we can get CPU info
         let info_str = optimizer.get_cpu_info();
@@ -296,7 +299,7 @@ mod tests {
 
     #[test]
     fn test_detect_cpu_features() {
-        let features = detect_cpu_features().unwrap();
+        let features = detect_cpu_features().expect("detect cpu features should succeed");
 
         // Should detect some basic features on most platforms
         #[cfg(target_arch = "x86_64")]
@@ -346,12 +349,12 @@ mod tests {
         assert!(chunk_size > 0);
 
         // Test platform optimizer
-        let optimizer = PlatformOptimizer::new().unwrap();
+        let optimizer = PlatformOptimizer::new().expect("Platform Optimizer should succeed");
         let info = optimizer.get_cpu_info();
         assert!(!info.is_empty());
 
         // Test feature detection
-        let _features = detect_cpu_features().unwrap();
+        let _features = detect_cpu_features().expect("detect cpu features should succeed");
         // Features struct should be valid (features may or may not be present)
 
         println!("Phase 82 modular structure integrity verified");
@@ -379,7 +382,9 @@ mod tests {
             let b = vec![2.0; len];
 
             // Test dot product
-            let result = ops.dot_product_f32(&a, &b).unwrap();
+            let result = ops
+                .dot_product_f32(&a, &b)
+                .expect("dot product computation should succeed");
             let expected: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
             assert!(
                 (result - expected).abs() < 1e-6,

@@ -17,10 +17,12 @@
 //! ```rust,no_run
 //! use torsh_distributed::prometheus_exporter::{PrometheusExporter, PrometheusConfig};
 //! use torsh_distributed::advanced_monitoring::AdvancedMonitor;
+//! use torsh_distributed::{init_process_group, BackendType};
 //! use std::sync::Arc;
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!     let process_group = Arc::new(init_process_group(BackendType::Gloo, 0, 1, "127.0.0.1", 29500).await?);
 //!     let monitor = Arc::new(AdvancedMonitor::new(process_group));
 //!
 //!     let config = PrometheusConfig::builder()

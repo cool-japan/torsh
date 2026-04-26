@@ -381,7 +381,7 @@ mod tests {
         let result = SparseWeightGenerator::generate_sparse_weights(100, 50, 0.9);
         assert!(result.is_ok());
 
-        let sparse_matrix = result.unwrap();
+        let sparse_matrix = result.expect("operation should succeed");
         let expected_nnz = ((1.0 - 0.9) * 100.0 * 50.0) as usize;
         // Allow for small variation in random generation (±1)
         let actual_nnz = sparse_matrix.nnz();

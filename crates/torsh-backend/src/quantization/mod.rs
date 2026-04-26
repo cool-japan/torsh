@@ -441,11 +441,11 @@ mod tests {
 
     #[test]
     fn test_create_quantization_system() {
-        let device = Device::cpu().unwrap();
+        let device = Device::cpu().expect("Device should succeed");
         let system = create_quantization_system(device);
         assert!(system.is_ok());
 
-        let system = system.unwrap();
+        let system = system.expect("operation should succeed");
         assert!(!system.device().device_type().to_string().is_empty());
     }
 
@@ -464,18 +464,18 @@ mod tests {
 
     #[test]
     fn test_quantization_system_creation() {
-        let device = Device::cpu().unwrap();
+        let device = Device::cpu().expect("Device should succeed");
         let system = QuantizationSystem::new(device);
         assert!(system.is_ok());
 
-        let system = system.unwrap();
+        let system = system.expect("operation should succeed");
         assert!(system.hardware_features().max_parallel_ops >= 1);
     }
 
     #[test]
     fn test_quantization_system_operations() {
-        let device = Device::cpu().unwrap();
-        let system = QuantizationSystem::new(device).unwrap();
+        let device = Device::cpu().expect("Device should succeed");
+        let system = QuantizationSystem::new(device).expect("Quantization System should succeed");
 
         let data = vec![1.0, 2.0, 3.0, 4.0];
         let params = QuantizationParams::int8_symmetric();
@@ -485,24 +485,24 @@ mod tests {
         assert!(quantized.is_ok());
 
         // Test dequantization
-        let quantized_data = quantized.unwrap();
+        let quantized_data = quantized.expect("operation should succeed");
         let dequantized = system.dequantize_f32(&quantized_data, &params);
         assert!(dequantized.is_ok());
 
-        let dequantized_data = dequantized.unwrap();
+        let dequantized_data = dequantized.expect("operation should succeed");
         assert_eq!(dequantized_data.len(), data.len());
     }
 
     #[test]
     fn test_auto_quantize_tensor() {
-        let device = Device::cpu().unwrap();
+        let device = Device::cpu().expect("Device should succeed");
         let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
         let shape = vec![2, 3];
 
         let result = auto_quantize_tensor(&data, shape.clone(), device, QuantizedDType::Int8);
         assert!(result.is_ok());
 
-        let tensor = result.unwrap();
+        let tensor = result.expect("operation should succeed");
         assert_eq!(tensor.shape, shape);
         assert_eq!(tensor.params.dtype, QuantizedDType::Int8);
     }
@@ -544,8 +544,9 @@ mod tests {
 
     #[test]
     fn test_quantization_system_calibration() {
-        let device = Device::cpu().unwrap();
-        let mut system = QuantizationSystem::new(device).unwrap();
+        let device = Device::cpu().expect("Device should succeed");
+        let mut system =
+            QuantizationSystem::new(device).expect("Quantization System should succeed");
 
         let samples = vec![vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0]];
 
@@ -553,26 +554,27 @@ mod tests {
             system.calibrate_from_samples(samples, QuantizedDType::Int8, CalibrationMethod::MinMax);
 
         assert!(result.is_ok());
-        let params = result.unwrap();
+        let params = result.expect("operation should succeed");
         assert_eq!(params.dtype, QuantizedDType::Int8);
     }
 
     #[test]
     fn test_quantization_system_benchmarking() {
-        let device = Device::cpu().unwrap();
-        let mut system = QuantizationSystem::new(device).unwrap();
+        let device = Device::cpu().expect("Device should succeed");
+        let mut system =
+            QuantizationSystem::new(device).expect("Quantization System should succeed");
 
         let result = system.benchmark_operations();
         assert!(result.is_ok());
 
-        let summary = result.unwrap();
+        let summary = result.expect("operation should succeed");
         assert!(!summary.results.is_empty());
     }
 
     #[test]
     fn test_quantization_system_tensor_creation() {
-        let device = Device::cpu().unwrap();
-        let system = QuantizationSystem::new(device).unwrap();
+        let device = Device::cpu().expect("Device should succeed");
+        let system = QuantizationSystem::new(device).expect("Quantization System should succeed");
 
         let shape = vec![2, 3, 4];
         let params = QuantizationParams::int8_symmetric();
@@ -584,8 +586,8 @@ mod tests {
 
     #[test]
     fn test_quantization_system_performance_hints() {
-        let device = Device::cpu().unwrap();
-        let system = QuantizationSystem::new(device).unwrap();
+        let device = Device::cpu().expect("Device should succeed");
+        let system = QuantizationSystem::new(device).expect("Quantization System should succeed");
 
         let hints = system.performance_hints();
         assert!(!hints.preferred_dtypes.is_empty());

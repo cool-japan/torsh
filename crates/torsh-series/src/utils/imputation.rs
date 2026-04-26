@@ -438,7 +438,7 @@ mod tests {
 
     fn create_series_with_missing() -> TimeSeries {
         let data = vec![1.0f32, 2.0, f32::NAN, 4.0, f32::NAN, 6.0, 7.0, 8.0];
-        let tensor = Tensor::from_vec(data, &[8]).unwrap();
+        let tensor = Tensor::from_vec(data, &[8]).expect("Tensor should succeed");
         TimeSeries::new(tensor)
     }
 
@@ -446,12 +446,17 @@ mod tests {
     fn test_locf_imputation() {
         let series = create_series_with_missing();
         let imputer = TimeSeriesImputer::new(ImputationMethod::LOCF);
-        let imputed = imputer.fit_transform(&series).unwrap();
+        let imputed = imputer
+            .fit_transform(&series)
+            .expect("fit_transform should succeed with valid input");
 
         assert_eq!(imputed.len(), series.len());
         // Check that no NaN values remain
         for i in 0..imputed.len() {
-            let val = imputed.values.get_item_flat(i).unwrap();
+            let val = imputed
+                .values
+                .get_item_flat(i)
+                .expect("flat item retrieval should succeed for valid index");
             assert!(!val.is_nan());
         }
     }
@@ -460,11 +465,16 @@ mod tests {
     fn test_nocb_imputation() {
         let series = create_series_with_missing();
         let imputer = TimeSeriesImputer::new(ImputationMethod::NOCB);
-        let imputed = imputer.fit_transform(&series).unwrap();
+        let imputed = imputer
+            .fit_transform(&series)
+            .expect("fit_transform should succeed with valid input");
 
         assert_eq!(imputed.len(), series.len());
         for i in 0..imputed.len() {
-            let val = imputed.values.get_item_flat(i).unwrap();
+            let val = imputed
+                .values
+                .get_item_flat(i)
+                .expect("flat item retrieval should succeed for valid index");
             assert!(!val.is_nan());
         }
     }
@@ -473,11 +483,16 @@ mod tests {
     fn test_linear_interpolation() {
         let series = create_series_with_missing();
         let imputer = TimeSeriesImputer::new(ImputationMethod::Linear);
-        let imputed = imputer.fit_transform(&series).unwrap();
+        let imputed = imputer
+            .fit_transform(&series)
+            .expect("fit_transform should succeed with valid input");
 
         assert_eq!(imputed.len(), series.len());
         for i in 0..imputed.len() {
-            let val = imputed.values.get_item_flat(i).unwrap();
+            let val = imputed
+                .values
+                .get_item_flat(i)
+                .expect("flat item retrieval should succeed for valid index");
             assert!(!val.is_nan());
         }
     }
@@ -486,11 +501,16 @@ mod tests {
     fn test_mean_imputation() {
         let series = create_series_with_missing();
         let imputer = TimeSeriesImputer::new(ImputationMethod::Mean);
-        let imputed = imputer.fit_transform(&series).unwrap();
+        let imputed = imputer
+            .fit_transform(&series)
+            .expect("fit_transform should succeed with valid input");
 
         assert_eq!(imputed.len(), series.len());
         for i in 0..imputed.len() {
-            let val = imputed.values.get_item_flat(i).unwrap();
+            let val = imputed
+                .values
+                .get_item_flat(i)
+                .expect("flat item retrieval should succeed for valid index");
             assert!(!val.is_nan());
         }
     }
@@ -499,11 +519,16 @@ mod tests {
     fn test_median_imputation() {
         let series = create_series_with_missing();
         let imputer = TimeSeriesImputer::new(ImputationMethod::Median);
-        let imputed = imputer.fit_transform(&series).unwrap();
+        let imputed = imputer
+            .fit_transform(&series)
+            .expect("fit_transform should succeed with valid input");
 
         assert_eq!(imputed.len(), series.len());
         for i in 0..imputed.len() {
-            let val = imputed.values.get_item_flat(i).unwrap();
+            let val = imputed
+                .values
+                .get_item_flat(i)
+                .expect("flat item retrieval should succeed for valid index");
             assert!(!val.is_nan());
         }
     }
@@ -512,11 +537,16 @@ mod tests {
     fn test_kalman_imputation() {
         let series = create_series_with_missing();
         let imputer = TimeSeriesImputer::new(ImputationMethod::KalmanFilter).with_state_dim(1);
-        let imputed = imputer.fit_transform(&series).unwrap();
+        let imputed = imputer
+            .fit_transform(&series)
+            .expect("fit_transform should succeed with valid input");
 
         assert_eq!(imputed.len(), series.len());
         for i in 0..imputed.len() {
-            let val = imputed.values.get_item_flat(i).unwrap();
+            let val = imputed
+                .values
+                .get_item_flat(i)
+                .expect("flat item retrieval should succeed for valid index");
             assert!(!val.is_nan());
         }
     }
@@ -525,11 +555,16 @@ mod tests {
     fn test_seasonal_imputation() {
         let series = create_series_with_missing();
         let imputer = TimeSeriesImputer::new(ImputationMethod::Seasonal).with_seasonal_period(4);
-        let imputed = imputer.fit_transform(&series).unwrap();
+        let imputed = imputer
+            .fit_transform(&series)
+            .expect("fit_transform should succeed with valid input");
 
         assert_eq!(imputed.len(), series.len());
         for i in 0..imputed.len() {
-            let val = imputed.values.get_item_flat(i).unwrap();
+            let val = imputed
+                .values
+                .get_item_flat(i)
+                .expect("flat item retrieval should succeed for valid index");
             assert!(!val.is_nan());
         }
     }
@@ -538,14 +573,18 @@ mod tests {
     fn test_mice_imputation() {
         let series = create_series_with_missing();
         let mice = MICEImputer::new(3).with_max_iter(5);
-        let imputations = mice.fit_transform(&series).unwrap();
+        let imputations = mice
+            .fit_transform(&series)
+            .expect("fit_transform should succeed with valid input");
 
         assert_eq!(imputations.len(), 3);
         for imputed in &imputations {
             assert_eq!(imputed.len(), series.len());
         }
 
-        let pooled = mice.pool_results(&imputations).unwrap();
+        let pooled = mice
+            .pool_results(&imputations)
+            .expect("result pooling should succeed");
         assert_eq!(pooled.len(), series.len());
     }
 }

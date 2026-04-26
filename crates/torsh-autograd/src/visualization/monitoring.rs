@@ -1052,8 +1052,12 @@ mod tests {
         assert!(monitor.get_trend_analysis().is_none());
 
         // Add some analyses
-        monitor.analyze_and_store(&ctx).unwrap();
-        monitor.analyze_and_store(&ctx).unwrap();
+        monitor
+            .analyze_and_store(&ctx)
+            .expect("analysis and storage should succeed");
+        monitor
+            .analyze_and_store(&ctx)
+            .expect("analysis and storage should succeed");
 
         assert_eq!(monitor.analysis_history.len(), 2);
     }
@@ -1065,13 +1069,15 @@ mod tests {
 
         // Need multiple analyses for trend
         for _ in 0..5 {
-            monitor.analyze_and_store(&ctx).unwrap();
+            monitor
+                .analyze_and_store(&ctx)
+                .expect("analysis and storage should succeed");
         }
 
         let trend = monitor.get_trend_analysis();
         assert!(trend.is_some());
 
-        let trend_analysis = trend.unwrap();
+        let trend_analysis = trend.expect("operation should succeed");
         assert_eq!(trend_analysis.sample_count, 5);
         assert!(trend_analysis.confidence > 0.0);
     }
@@ -1113,8 +1119,12 @@ mod tests {
         let mut monitor = GradientFlowMonitor::new();
         let ctx = AutogradContext::new();
 
-        monitor.analyze_and_store(&ctx).unwrap();
-        monitor.analyze_and_store(&ctx).unwrap();
+        monitor
+            .analyze_and_store(&ctx)
+            .expect("analysis and storage should succeed");
+        monitor
+            .analyze_and_store(&ctx)
+            .expect("analysis and storage should succeed");
 
         let history = monitor.get_metric_history("operations");
         assert_eq!(history.len(), 2);
@@ -1128,12 +1138,14 @@ mod tests {
         let mut monitor = GradientFlowMonitor::new();
         let ctx = AutogradContext::new();
 
-        monitor.analyze_and_store(&ctx).unwrap();
+        monitor
+            .analyze_and_store(&ctx)
+            .expect("analysis and storage should succeed");
 
         let report = monitor.generate_monitoring_report();
         assert!(report.is_ok());
 
-        let report_text = report.unwrap();
+        let report_text = report.expect("operation should succeed");
         assert!(report_text.contains("Gradient Flow Monitoring Report"));
         assert!(report_text.contains("Monitoring Overview"));
     }
@@ -1143,7 +1155,9 @@ mod tests {
         let mut monitor = GradientFlowMonitor::new();
         let ctx = AutogradContext::new();
 
-        monitor.analyze_and_store(&ctx).unwrap();
+        monitor
+            .analyze_and_store(&ctx)
+            .expect("analysis and storage should succeed");
         assert_eq!(monitor.analysis_history.len(), 1);
 
         monitor.clear_history();
@@ -1157,7 +1171,9 @@ mod tests {
 
         assert!(monitor.latest_analysis().is_none());
 
-        monitor.analyze_and_store(&ctx).unwrap();
+        monitor
+            .analyze_and_store(&ctx)
+            .expect("analysis and storage should succeed");
         assert!(monitor.latest_analysis().is_some());
     }
 

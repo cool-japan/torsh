@@ -647,7 +647,9 @@ mod tests {
         let snapshot =
             PerformanceSnapshot::new(100.0, Duration::from_millis(200), 0.05, 40.0, 0.7, 0.8);
 
-        let result = controller.should_adapt(&snapshot).unwrap();
+        let result = controller
+            .should_adapt(&snapshot)
+            .expect("adaptation check should succeed");
         assert!(!result); // Should not adapt without sufficient history
     }
 

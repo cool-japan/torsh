@@ -756,7 +756,7 @@ mod tests {
         let candidate = "the quick brown fox";
         let reference = "the quick brown fox";
 
-        let metrics = rouge.calculate(candidate, reference).unwrap();
+        let metrics = rouge.calculate(candidate, reference).expect("calculation should succeed");
         assert!((metrics.precision - 1.0).abs() < 1e-10);
         assert!((metrics.recall - 1.0).abs() < 1e-10);
         assert!((metrics.f1_score - 1.0).abs() < 1e-10);
@@ -768,7 +768,7 @@ mod tests {
         let candidate = "the quick brown fox";
         let reference = "the fast brown fox";
 
-        let metrics = rouge.calculate(candidate, reference).unwrap();
+        let metrics = rouge.calculate(candidate, reference).expect("calculation should succeed");
         assert!(metrics.precision > 0.0 && metrics.precision < 1.0);
         assert!(metrics.recall > 0.0 && metrics.recall < 1.0);
         assert!(metrics.f1_score > 0.0 && metrics.f1_score < 1.0);
@@ -780,7 +780,7 @@ mod tests {
         let candidate = "the quick brown fox jumps";
         let reference = "the quick brown fox leaps";
 
-        let metrics = rouge.calculate(candidate, reference).unwrap();
+        let metrics = rouge.calculate(candidate, reference).expect("calculation should succeed");
         // Should have some bigram overlap: "the quick", "quick brown", "brown fox"
         assert!(metrics.precision > 0.0);
         assert!(metrics.recall > 0.0);
@@ -792,7 +792,7 @@ mod tests {
         let candidate = "A B C D E";
         let reference = "A C E";
 
-        let metrics = rouge.calculate(candidate, reference).unwrap();
+        let metrics = rouge.calculate(candidate, reference).expect("calculation should succeed");
         // LCS is "A C E" with length 3
         let expected_precision = 3.0 / 5.0; // 3 LCS tokens out of 5 candidate tokens
         let expected_recall = 3.0 / 3.0; // 3 LCS tokens out of 3 reference tokens
@@ -809,7 +809,7 @@ mod tests {
 
         let metrics = rouge
             .calculate_multi_reference(candidate, references)
-            .unwrap();
+            .expect("operation should succeed");
         assert!(metrics.precision > 0.0);
         assert!(metrics.recall > 0.0);
         assert!(metrics.f1_score > 0.0);
@@ -821,7 +821,7 @@ mod tests {
         let candidate = "The Quick Brown Fox";
         let reference = "the quick brown fox";
 
-        let metrics = rouge.calculate(candidate, reference).unwrap();
+        let metrics = rouge.calculate(candidate, reference).expect("calculation should succeed");
         assert!((metrics.f1_score - 1.0).abs() < 1e-10);
     }
 
@@ -831,7 +831,7 @@ mod tests {
         let candidate = "running jumped";
         let reference = "run jump";
 
-        let metrics = rouge.calculate(candidate, reference).unwrap();
+        let metrics = rouge.calculate(candidate, reference).expect("calculation should succeed");
         // With stemming: "running" -> "run", "jumped" -> "jump"
         assert!((metrics.f1_score - 1.0).abs() < 1e-10);
     }
@@ -842,7 +842,7 @@ mod tests {
         let candidate = "the cat is running";
         let reference = "a cat was running";
 
-        let metrics = rouge.calculate(candidate, reference).unwrap();
+        let metrics = rouge.calculate(candidate, reference).expect("calculation should succeed");
         // After stopword removal: "cat running" vs "cat running"
         assert!((metrics.f1_score - 1.0).abs() < 1e-10);
     }
@@ -851,12 +851,12 @@ mod tests {
     fn test_empty_texts() {
         let rouge = RougeScore::new(RougeType::Rouge1);
 
-        let metrics1 = rouge.calculate("", "some text").unwrap();
+        let metrics1 = rouge.calculate("", "some text").expect("calculation should succeed");
         assert_eq!(metrics1.precision, 0.0);
         assert_eq!(metrics1.recall, 0.0);
         assert_eq!(metrics1.f1_score, 0.0);
 
-        let metrics2 = rouge.calculate("some text", "").unwrap();
+        let metrics2 = rouge.calculate("some text", "").expect("calculation should succeed");
         assert_eq!(metrics2.precision, 0.0);
         assert_eq!(metrics2.recall, 0.0);
         assert_eq!(metrics2.f1_score, 0.0);
@@ -868,7 +868,7 @@ mod tests {
         let candidate = "the quick brown fox jumps";
         let reference = "the quick brown fox leaps";
 
-        let metrics = rouge.calculate(candidate, reference).unwrap();
+        let metrics = rouge.calculate(candidate, reference).expect("calculation should succeed");
         // Should have some trigram overlap
         assert!(metrics.precision >= 0.0);
         assert!(metrics.recall >= 0.0);
@@ -880,7 +880,7 @@ mod tests {
         let candidates = &["the quick fox", "hello world"];
         let references = &["the fast fox", "hello world"];
 
-        let metrics = rouge.calculate_corpus(candidates, references).unwrap();
+        let metrics = rouge.calculate_corpus(candidates, references).expect("corpus calculation should succeed");
         assert!(metrics.f1_score > 0.5); // Should be reasonably high
     }
 
@@ -904,8 +904,8 @@ mod tests {
         let candidate = "the quick fox";
         let reference = "the quick brown fox";
 
-        let metrics_f1 = rouge_f1.calculate(candidate, reference).unwrap();
-        let metrics_f2 = rouge_f2.calculate(candidate, reference).unwrap();
+        let metrics_f1 = rouge_f1.calculate(candidate, reference).expect("calculation should succeed");
+        let metrics_f2 = rouge_f2.calculate(candidate, reference).expect("calculation should succeed");
 
         // F2 should weight recall more heavily than F1
         // Since recall > precision in this case, F2 should be higher

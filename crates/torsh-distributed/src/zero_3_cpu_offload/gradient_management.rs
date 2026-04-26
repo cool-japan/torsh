@@ -864,14 +864,15 @@ mod tests {
         let config = Zero3CpuOffloadConfig::default();
         let rank_mapping = Zero3RankMapping::new(0, 4);
 
-        let partitioner = GradientPartitioner::new(&config, &rank_mapping).unwrap();
+        let partitioner = GradientPartitioner::new(&config, &rank_mapping)
+            .expect("Gradient Partitioner should succeed");
 
         let weight_grad = Tensor::ones(&[100], torsh_core::DeviceType::Cpu)?;
         let param_grads = ParameterGradients::new(weight_grad, None);
 
         let partitions = partitioner
             .partition_gradients("layer1", &param_grads)
-            .unwrap();
+            .expect("operation should succeed");
 
         assert_eq!(partitions.len(), 4); // 4 ranks
         assert_eq!(partitions[0].rank, 0);
@@ -879,7 +880,7 @@ mod tests {
 
         let owned = partitioner.get_owned_partition("layer1", &partitions);
         assert!(owned.is_some());
-        assert_eq!(owned.unwrap().rank, 0);
+        assert_eq!(owned.expect("operation should succeed").rank, 0);
         Ok(())
     }
 
@@ -888,19 +889,28 @@ mod tests {
         use torsh_tensor::Tensor;
 
         let config = Zero3CpuOffloadConfig::default();
-        let store = CpuGradientStore::new(&config).unwrap();
+        let store = CpuGradientStore::new(&config).expect("Cpu Gradient Store should succeed");
 
         let gradient = Tensor::ones(&[100], torsh_core::DeviceType::Cpu)?;
 
         // Test store and get
-        store.store("layer1", 0, &gradient).await.unwrap();
+        store
+            .store("layer1", 0, &gradient)
+            .await
+            .expect("operation should succeed");
         assert_eq!(store.gradient_count(), 1);
 
-        let retrieved = store.get_gradient("layer1", 0).await.unwrap();
+        let retrieved = store
+            .get_gradient("layer1", 0)
+            .await
+            .expect("operation should succeed");
         assert!(retrieved.is_some());
 
         // Test remove
-        let removed = store.remove_gradient("layer1", 0).await.unwrap();
+        let removed = store
+            .remove_gradient("layer1", 0)
+            .await
+            .expect("operation should succeed");
         assert!(removed.is_some());
         assert_eq!(store.gradient_count(), 0);
         Ok(())
@@ -911,19 +921,25 @@ mod tests {
         use torsh_tensor::Tensor;
 
         let config = Zero3CpuOffloadConfig::default();
-        let buffer = GpuGradientBuffer::new(&config).unwrap();
+        let buffer = GpuGradientBuffer::new(&config).expect("Gpu Gradient Buffer should succeed");
 
         let gradient = Tensor::ones(&[50], torsh_core::DeviceType::Cpu)?;
 
         // Test store and get
-        buffer.store("layer1", 0, &gradient).await.unwrap();
+        buffer
+            .store("layer1", 0, &gradient)
+            .await
+            .expect("operation should succeed");
         assert_eq!(buffer.gradient_count(), 1);
 
-        let retrieved = buffer.get_gradient("layer1", 0).await.unwrap();
+        let retrieved = buffer
+            .get_gradient("layer1", 0)
+            .await
+            .expect("operation should succeed");
         assert!(retrieved.is_some());
 
         // Test clear
-        buffer.clear().unwrap();
+        buffer.clear().expect("clear should succeed");
         assert_eq!(buffer.gradient_count(), 0);
         Ok(())
     }
@@ -933,16 +949,22 @@ mod tests {
         use torsh_tensor::Tensor;
 
         let config = Zero3CpuOffloadConfig::default();
-        let store = CpuGradientStore::new(&config).unwrap();
+        let store = CpuGradientStore::new(&config).expect("Cpu Gradient Store should succeed");
 
         // Store gradients for different partitions
         for i in 0..8 {
             let gradient = Tensor::ones(&[10], torsh_core::DeviceType::Cpu)?;
-            store.store("layer1", i, &gradient).await.unwrap();
+            store
+                .store("layer1", i, &gradient)
+                .await
+                .expect("operation should succeed");
         }
 
         // Get gradients owned by rank 0 (partitions 0, 4 for world_size=4)
-        let owned = store.get_owned_gradients(0, 4).await.unwrap();
+        let owned = store
+            .get_owned_gradients(0, 4)
+            .await
+            .expect("operation should succeed");
         assert_eq!(owned.len(), 2); // Should own partitions 0 and 4
 
         // Check that we got the right partitions

@@ -581,7 +581,9 @@ mod tests {
             analyzer.record_performance("linear_op", *input_size, execution_time, *memory);
         }
 
-        let analysis = analyzer.analyze_complexity("linear_op").unwrap();
+        let analysis = analyzer
+            .analyze_complexity("linear_op")
+            .expect("complexity analysis should succeed");
         assert_eq!(analysis.operation_name, "linear_op");
 
         // Debug output to understand which complexity is wrong
@@ -613,7 +615,9 @@ mod tests {
             analyzer.record_performance("quadratic_op", input_size, execution_time, memory_usage);
         }
 
-        let analysis = analyzer.analyze_complexity("quadratic_op").unwrap();
+        let analysis = analyzer
+            .analyze_complexity("quadratic_op")
+            .expect("complexity analysis should succeed");
         assert_eq!(analysis.operation_name, "quadratic_op");
         assert_eq!(analysis.time_complexity, ComplexityClass::Quadratic);
         assert!(analysis.scaling_factor > 1.0);
@@ -638,7 +642,9 @@ mod tests {
             analyzer.record_performance("constant_op", input_size, execution_time, memory_usage);
         }
 
-        let analysis = analyzer.analyze_complexity("constant_op").unwrap();
+        let analysis = analyzer
+            .analyze_complexity("constant_op")
+            .expect("complexity analysis should succeed");
         assert_eq!(analysis.operation_name, "constant_op");
         assert_eq!(analysis.time_complexity, ComplexityClass::Constant);
         assert_eq!(analysis.space_complexity, ComplexityClass::Constant);
@@ -672,7 +678,9 @@ mod tests {
             analyzer.record_performance("test_op", input_size, execution_time, memory_usage);
         }
 
-        let analysis = analyzer.analyze_complexity("test_op").unwrap();
+        let analysis = analyzer
+            .analyze_complexity("test_op")
+            .expect("complexity analysis should succeed");
         let prediction = &analysis.performance_prediction;
 
         // Should have predictions for larger input sizes
@@ -703,11 +711,15 @@ mod tests {
         }
 
         // First analysis should create cache entry
-        let _analysis1 = analyzer.analyze_complexity("cached_op").unwrap();
+        let _analysis1 = analyzer
+            .analyze_complexity("cached_op")
+            .expect("complexity analysis should succeed");
         assert_eq!(analyzer.get_complexity_summary().len(), 1);
 
         // Second analysis should use cache (same result)
-        let _analysis2 = analyzer.analyze_complexity("cached_op").unwrap();
+        let _analysis2 = analyzer
+            .analyze_complexity("cached_op")
+            .expect("complexity analysis should succeed");
         assert_eq!(analyzer.get_complexity_summary().len(), 1);
 
         // Clear cache and verify it's empty
@@ -742,7 +754,9 @@ mod tests {
                 i * 1024,
             );
         }
-        let _analysis = analyzer.analyze_complexity("test_op").unwrap();
+        let _analysis = analyzer
+            .analyze_complexity("test_op")
+            .expect("complexity analysis should succeed");
 
         // Should have cache entry
         assert_eq!(analyzer.get_complexity_summary().len(), 1);

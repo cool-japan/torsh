@@ -351,25 +351,25 @@ mod tests {
 
     #[test]
     fn test_switchable_norm_creation() {
-        let switchable_norm = SwitchableNorm2d::new(64).unwrap();
+        let switchable_norm = SwitchableNorm2d::new(64).expect("Switchable Norm2d should succeed");
         assert_eq!(switchable_norm.num_features(), 64);
         assert_eq!(switchable_norm.eps(), 1e-5);
     }
 
     #[test]
     fn test_switchable_norm_shape_validation() {
-        let switchable_norm = SwitchableNorm2d::new(3).unwrap();
+        let switchable_norm = SwitchableNorm2d::new(3).expect("Switchable Norm2d should succeed");
 
         // Valid input
-        let input = zeros(&[2, 3, 32, 32]).unwrap();
+        let input = zeros(&[2, 3, 32, 32]).expect("zeros should succeed");
         assert!(switchable_norm.forward(&input).is_ok());
 
         // Invalid dimensions
-        let input_3d = zeros(&[2, 3, 32]).unwrap();
+        let input_3d = zeros(&[2, 3, 32]).expect("zeros should succeed");
         assert!(switchable_norm.forward(&input_3d).is_err());
 
         // Wrong number of channels
-        let input_wrong_channels = zeros(&[2, 4, 32, 32]).unwrap();
+        let input_wrong_channels = zeros(&[2, 4, 32, 32]).expect("zeros should succeed");
         assert!(switchable_norm.forward(&input_wrong_channels).is_err());
     }
 }

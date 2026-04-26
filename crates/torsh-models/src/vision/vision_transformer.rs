@@ -632,8 +632,11 @@ mod tests {
         assert_eq!(patch_embed.num_patches(224), 14);
 
         // Test forward pass
-        let input = torsh_tensor::creation::randn(&[2, 3, 224, 224]).unwrap();
-        let output = patch_embed.forward(&input).unwrap();
+        let input =
+            torsh_tensor::creation::randn(&[2, 3, 224, 224]).expect("creation should succeed");
+        let output = patch_embed
+            .forward(&input)
+            .expect("forward pass should succeed");
 
         // Should be [batch_size, num_patches^2, embed_dim]
         assert_eq!(output.shape().dims(), &[2, 196, 768]); // 14*14 = 196 patches
@@ -641,10 +644,11 @@ mod tests {
 
     #[test]
     fn test_transformer_encoder_block() {
-        let mut block = TransformerEncoderBlock::new(768, 12, 4.0, 0.1, 0.0).unwrap();
+        let mut block = TransformerEncoderBlock::new(768, 12, 4.0, 0.1, 0.0)
+            .expect("Transformer Encoder Block should succeed");
 
-        let input = torsh_tensor::creation::randn(&[2, 197, 768]).unwrap(); // 196 patches + 1 cls token
-        let output = block.forward(&input).unwrap();
+        let input = torsh_tensor::creation::randn(&[2, 197, 768]).expect("creation should succeed"); // 196 patches + 1 cls token
+        let output = block.forward(&input).expect("forward pass should succeed");
 
         assert_eq!(output.shape(), input.shape());
 
@@ -668,9 +672,10 @@ mod tests {
         ];
 
         for (name, model) in variants {
-            let input = torsh_tensor::creation::randn(&[1, 3, 224, 224]).unwrap();
-            let model = model.unwrap();
-            let output = model.forward(&input).unwrap();
+            let input =
+                torsh_tensor::creation::randn(&[1, 3, 224, 224]).expect("creation should succeed");
+            let model = model.expect("operation should succeed");
+            let output = model.forward(&input).expect("forward pass should succeed");
 
             // All should output 10 classes
             assert_eq!(output.shape().dims(), &[1, 10], "Failed for {}", name);
@@ -680,7 +685,7 @@ mod tests {
     #[test]
     fn test_vit_factory() {
         // Test factory creation
-        let model = ViTFactory::create("base", 1000).unwrap();
+        let model = ViTFactory::create("base", 1000).expect("Vi TFactory should succeed");
         assert_eq!(model.config().num_classes, 1000);
         assert_eq!(model.config().embed_dim, 768);
 
@@ -688,7 +693,7 @@ mod tests {
         assert!(ViTFactory::create("invalid", 1000).is_err());
 
         // Test model info
-        let info = ViTFactory::model_info("base").unwrap();
+        let info = ViTFactory::model_info("base").expect("Vi TFactory should succeed");
         assert!(info.contains("ViT-Base"));
         assert!(info.contains("768d"));
 
@@ -700,7 +705,8 @@ mod tests {
 
     #[test]
     fn test_vit_parameters() {
-        let model = VisionTransformer::vit_tiny_patch16_224(10).unwrap();
+        let model =
+            VisionTransformer::vit_tiny_patch16_224(10).expect("Vision Transformer should succeed");
         let params = model.parameters();
 
         // Should have cls_token and pos_embed
@@ -725,14 +731,16 @@ mod tests {
         assert_eq!(config.patch_size, 16);
         assert_eq!(config.embed_dim, 768);
 
-        let model = VisionTransformer::vit_base_patch16_224(1000).unwrap();
+        let model = VisionTransformer::vit_base_patch16_224(1000)
+            .expect("Vision Transformer should succeed");
         assert_eq!(model.config().embed_dim, 768);
         assert_eq!(model.config().depth, 12);
     }
 
     #[test]
     fn test_model_num_parameters() {
-        let model = VisionTransformer::vit_tiny_patch16_224(10).unwrap();
+        let model =
+            VisionTransformer::vit_tiny_patch16_224(10).expect("Vision Transformer should succeed");
         let num_params = model.num_parameters();
 
         // Tiny should have around 5-6M parameters
@@ -742,12 +750,14 @@ mod tests {
 
     #[test]
     fn test_forward_pass_shapes() {
-        let model = VisionTransformer::vit_base_patch16_224(1000).unwrap();
+        let model = VisionTransformer::vit_base_patch16_224(1000)
+            .expect("Vision Transformer should succeed");
 
         // Test different batch sizes
         for batch_size in [1, 4, 8] {
-            let input = torsh_tensor::creation::randn(&[batch_size, 3, 224, 224]).unwrap();
-            let output = model.forward(&input).unwrap();
+            let input = torsh_tensor::creation::randn(&[batch_size, 3, 224, 224])
+                .expect("creation should succeed");
+            let output = model.forward(&input).expect("forward pass should succeed");
             assert_eq!(output.shape().dims(), &[batch_size, 1000]);
         }
     }

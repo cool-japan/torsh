@@ -1089,7 +1089,7 @@ mod tests {
         let references = &["The cat sat on the mat"];
         let candidates = &["A cat was sitting on the mat"];
 
-        let results = scorer.compute(references, candidates).unwrap();
+        let results = scorer.compute(references, candidates).expect("computation should succeed");
         assert_eq!(results.len(), 1);
 
         let result = &results[0];
@@ -1104,7 +1104,7 @@ mod tests {
         let references = &["hello world"];
         let candidates = &["hello world"];
 
-        let results = scorer.compute(references, candidates).unwrap();
+        let results = scorer.compute(references, candidates).expect("computation should succeed");
         let result = &results[0];
 
         // Should be very high similarity for identical texts
@@ -1117,7 +1117,7 @@ mod tests {
         let references = &[""];
         let candidates = &["hello"];
 
-        let results = scorer.compute(references, candidates).unwrap();
+        let results = scorer.compute(references, candidates).expect("computation should succeed");
         let result = &results[0];
 
         assert_eq!(result.precision, 0.0);
@@ -1137,8 +1137,8 @@ mod tests {
         let references = &["The quick brown fox"];
         let candidates = &["A fast brown fox"];
 
-        let results1 = scorer1.compute(references, candidates).unwrap();
-        let results2 = scorer2.compute(references, candidates).unwrap();
+        let results1 = scorer1.compute(references, candidates).expect("computation should succeed");
+        let results2 = scorer2.compute(references, candidates).expect("computation should succeed");
 
         // Results should be different due to different embedding strategies
         assert_ne!(results1[0].f1_score, results2[0].f1_score);
@@ -1157,8 +1157,8 @@ mod tests {
         let references = &["The cat sat"];
         let candidates = &["Cat was sitting"];
 
-        let results_greedy = scorer_greedy.compute(references, candidates).unwrap();
-        let results_attention = scorer_attention.compute(references, candidates).unwrap();
+        let results_greedy = scorer_greedy.compute(references, candidates).expect("computation should succeed");
+        let results_attention = scorer_attention.compute(references, candidates).expect("computation should succeed");
 
         // Both should produce reasonable scores
         assert!(results_greedy[0].f1_score > 0.0);
@@ -1168,13 +1168,13 @@ mod tests {
     #[test]
     fn test_detailed_computation() {
         let scorer = BertScore::new();
-        let result = scorer.compute_detailed("hello world", "hi world").unwrap();
+        let result = scorer.compute_detailed("hello world", "hi world").expect("detailed computation should succeed");
 
         assert!(result.precision > 0.0);
         assert!(result.recall > 0.0);
         assert!(result.alignment_details.is_some());
 
-        let details = result.alignment_details.unwrap();
+        let details = result.alignment_details.expect("operation should succeed");
         assert!(!details.reference_tokens.is_empty());
         assert!(!details.candidate_tokens.is_empty());
         assert!(!details.token_similarities.is_empty());
@@ -1188,7 +1188,7 @@ mod tests {
 
         let stats = scorer
             .compute_corpus_statistics(references, candidates)
-            .unwrap();
+            .expect("operation should succeed");
 
         assert_eq!(stats.num_pairs, 3);
         assert!(stats.mean_f1 > 0.0);
@@ -1207,7 +1207,7 @@ mod tests {
 
         let comparison = scorer1
             .compare_models(&scorer2, references, candidates)
-            .unwrap();
+            .expect("operation should succeed");
 
         assert_eq!(
             comparison.model1_wins + comparison.model2_wins + comparison.ties,
@@ -1221,13 +1221,13 @@ mod tests {
         let scorer = BertScore::new();
 
         // Test different tokenization
-        let char_tokens = scorer.tokenize("hello").unwrap();
+        let char_tokens = scorer.tokenize("hello").expect("tokenization should succeed");
         assert_eq!(char_tokens.len(), 1); // Word-level by default
 
         let config =
             BertScoreConfig::new().with_embedding_strategy(EmbeddingStrategy::CharacterBased);
         let char_scorer = BertScore::with_config(config);
-        let char_tokens = char_scorer.tokenize("hello").unwrap();
+        let char_tokens = char_scorer.tokenize("hello").expect("tokenization should succeed");
         assert_eq!(char_tokens.len(), 5); // Character-level
     }
 
@@ -1259,7 +1259,7 @@ mod tests {
         let references = &["Hello World"];
         let candidates = &["hello world"];
 
-        let results = scorer.compute(references, candidates).unwrap();
+        let results = scorer.compute(references, candidates).expect("computation should succeed");
         assert!(results[0].f1_score > 0.95); // Should be very high with case-insensitive
     }
 
@@ -1271,7 +1271,7 @@ mod tests {
 
         let matrix = scorer
             .compute_similarity_matrix(&ref_embeddings, &cand_embeddings)
-            .unwrap();
+            .expect("operation should succeed");
 
         assert_eq!(matrix.len(), 2);
         assert_eq!(matrix[0].len(), 2);

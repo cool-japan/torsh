@@ -1,5 +1,7 @@
 # torsh-tensor
 
+[![version](https://img.shields.io/badge/version-0.1.2-blue)](https://crates.io/crates/torsh-tensor)
+
 PyTorch-compatible tensor implementation for ToRSh, built on top of scirs2.
 
 ## Overview
@@ -13,6 +15,13 @@ This crate provides the core `Tensor` type with a familiar PyTorch-like API, wra
 - Broadcasting and shape manipulation
 - Comprehensive indexing and slicing
 - Integration with scirs2 for optimized computation
+- **`simd_ops_f32` module** (v0.1.2): zero-allocation SIMD f32 arithmetic (`add_into_f32`, `add_assign_f32`, etc.) and activation functions with PyTorch NaN semantics
+- **Real SIMD dispatch** (v0.1.2): `Tensor::add`/`sub`/`mul`/`div` automatically use AVX2/NEON acceleration via scirs2_core for f32 tensors with ≥ 1024 elements
+- **Zero-allocation in-place arithmetic** (v0.1.2): `add_`/`sub_`/`mul_`/`div_` dispatch through `simd_*_inplace` — no temporary buffers
+- **In-place activation SIMD** (v0.1.2): `relu_`/`leaky_relu_`/`clamp_` route to SIMD helpers for maximum throughput
+- **True buffer pool reuse** (v0.1.2): `GlobalMemoryPool::acquire_uninit::<T>()` returns `ReusedBuffer<T>` with zero copy on pool hit
+- **`simd` and `parallel` features enabled by default** — no `--features` flag required
+- **Allocation tracking benchmark** (v0.1.2): `benches/alloc_tracking.rs` (harness=false, dhat) proves `GlobalMemoryPool` achieves 100% alloc reduction — 10,000 blocks in naive path vs 0 in pooled path
 
 ## Usage
 
@@ -99,6 +108,28 @@ let slice = tensor.index(&[s![1..5], s![..], s![0..10; 2]])?;
 let mask = tensor.gt(&zeros)?;
 let selected = tensor.masked_select(&mask)?;
 ```
+
+## Performance
+
+torsh-tensor routes hot arithmetic paths through SIMD automatically when the `simd` feature is active (default since v0.1.2).
+
+- **Element-wise arithmetic** (`add`, `sub`, `mul`, `div`) on f32 tensors with ≥ 1024 elements dispatches through scirs2_core's AVX2 (x86-64) or NEON (AArch64) kernels.
+- **In-place variants** (`add_`, `sub_`, `mul_`, `div_`) use `simd_*_inplace` — no intermediate allocation occurs at any tensor size.
+- **Activation functions** (`relu_`, `leaky_relu_`, `clamp_`) take the same in-place SIMD path.
+- The **global memory pool** (`GlobalMemoryPool`) returns slabs without copying when the requested size matches an existing free buffer (`acquire_uninit::<T>()`).
+
+No special build flags are needed on supported targets; the feature-detection is done at runtime by scirs2_core.
+
+## Recent Changes
+
+### v0.1.2 — 2026-04-26
+
+- Added `simd_ops_f32` module with zero-allocation SIMD f32 arithmetic and activations (PyTorch NaN semantics).
+- Wired real SIMD dispatch into `Tensor::add`/`sub`/`mul`/`div` for f32 tensors ≥ 1024 elements (AVX2/NEON via scirs2_core).
+- `add_`/`sub_`/`mul_`/`div_` now call `simd_*_inplace` — zero extra allocations.
+- `relu_`/`leaky_relu_`/`clamp_` dispatch to SIMD helpers.
+- `GlobalMemoryPool::acquire_uninit::<T>()` returns `ReusedBuffer<T>` with no copy on pool hit.
+- `simd` and `parallel` features promoted to default features.
 
 ## License
 

@@ -47,11 +47,13 @@
 //! ```rust,no_run
 //! use torsh_distributed::three_d_parallelism::*;
 //! use torsh_distributed::{init_process_group, BackendType};
+//! use torsh_tensor::creation::tensor_1d;
+//! use tracing::info;
 //! use std::sync::Arc;
 //!
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! // Initialize distributed environment
-//! let pg = init_process_group(BackendType::Gloo, 0, 8, "127.0.0.1", 29500)?;
+//! let pg = init_process_group(BackendType::Gloo, 0, 8, "127.0.0.1", 29500).await?;
 //!
 //! // Configure 3D parallelism (2x2x2 = 8 devices)
 //! let config = ThreeDParallelismConfig {
@@ -70,12 +72,13 @@
 //! let mut coordinator = ThreeDParallelismCoordinator::new(config, Arc::new(pg))?;
 //!
 //! // Run training step
-//! let input = torsh_tensor::tensor_1d(&[0.1, 0.2, 0.3, 0.4])?;
+//! let input = tensor_1d(&[0.1f32, 0.2, 0.3, 0.4])?;
 //! let output = coordinator.forward_pass(&input, 0).await?;
 //! coordinator.backward_pass(&output, 0).await?;
 //!
 //! // Get performance report
-//! info!("{}", coordinator.get_performance_monitor().generate_report());
+//! let perf = coordinator.get_performance_stats();
+//! info!("tokens/s: {:.1}", perf.tokens_per_second);
 //! # Ok(())
 //! # }
 //! ```
@@ -223,7 +226,7 @@ mod tests {
             ..Default::default()
         };
 
-        let model_shards = ModelShards::new(&config).unwrap();
+        let model_shards = ModelShards::new(&config).expect("Model Shards should succeed");
 
         // Verify pipeline structure
         assert_eq!(model_shards.pipeline_stages.len(), 4); // pp_size
@@ -240,7 +243,7 @@ mod tests {
         let layer_0 = model_shards.get_layer_shard(0);
         assert!(layer_0.is_some());
 
-        let layer_shard = layer_0.unwrap();
+        let layer_shard = layer_0.expect("operation should succeed");
         assert_eq!(layer_shard.layer_id, 0);
         assert!(layer_shard.parameter_count() > 0);
     }
@@ -248,7 +251,7 @@ mod tests {
     /// Test layer shard parameter counting
     #[test]
     fn test_layer_shard_parameters() {
-        let layer = LayerShard::new(0, 4).unwrap(); // TP size 4
+        let layer = LayerShard::new(0, 4).expect("Layer Shard should succeed"); // TP size 4
 
         assert_eq!(layer.layer_id, 0);
         assert_eq!(layer.weight.shape().dims()[1], 128); // 512/4 = 128
@@ -257,7 +260,9 @@ mod tests {
 
         // Test gradient initialization
         let mut layer_with_grads = layer;
-        layer_with_grads.init_gradients().unwrap();
+        layer_with_grads
+            .init_gradients()
+            .expect("gradient initialization should succeed");
         assert!(layer_with_grads.grad_weight.is_some());
     }
 
@@ -265,7 +270,7 @@ mod tests {
     #[test]
     fn test_layer_types() {
         for layer_id in 0..8 {
-            let layer = LayerShard::new(layer_id, 2).unwrap();
+            let layer = LayerShard::new(layer_id, 2).expect("Layer Shard should succeed");
 
             // Verify layer type assignment
             let expected_type = match layer_id % 4 {
@@ -372,7 +377,8 @@ mod tests {
         };
         let rank_mapping = RankMapping::new(&config, 0);
 
-        let gradient_sync = GradientSynchronizer::new(&config, &rank_mapping).unwrap();
+        let gradient_sync = GradientSynchronizer::new(&config, &rank_mapping)
+            .expect("Gradient Synchronizer should succeed");
         let stats = gradient_sync.get_sync_stats();
         assert_eq!(stats.total_sync_operations, 0);
 
@@ -426,14 +432,14 @@ mod tests {
             ..Default::default()
         };
 
-        let model_shards = ModelShards::new(&config).unwrap();
+        let model_shards = ModelShards::new(&config).expect("Model Shards should succeed");
         let sharding_plan = model_shards.create_tp_sharding_plan(config.tp_size);
 
         // Should have sharding plans for each layer
         let layer_plan = sharding_plan.get_layer_plan(0, 0);
         assert!(layer_plan.is_some());
 
-        let plan = layer_plan.unwrap();
+        let plan = layer_plan.expect("operation should succeed");
         assert!(!plan.shard_strategies.is_empty());
         assert!(!plan.weight_shape.is_empty());
     }
@@ -570,7 +576,7 @@ mod tests {
         // Mock process group for testing
         let pg = init_process_group(BackendType::Gloo, 0, 8, "127.0.0.1", 29500)
             .await
-            .unwrap();
+            .expect("operation should succeed");
 
         let config = ThreeDParallelismConfig {
             dp_size: 2,
@@ -588,7 +594,7 @@ mod tests {
         let coordinator = ThreeDParallelismCoordinator::new(config, Arc::new(pg));
         assert!(coordinator.is_ok());
 
-        let coordinator = coordinator.unwrap();
+        let coordinator = coordinator.expect("operation should succeed");
 
         // Verify configuration
         let retrieved_config = coordinator.get_config();
@@ -623,7 +629,7 @@ mod tests {
         assert!(requirements.model_memory_mb > 0.0);
 
         // Model shards should distribute parameters efficiently
-        let model_shards = ModelShards::new(&config).unwrap();
+        let model_shards = ModelShards::new(&config).expect("Model Shards should succeed");
         let memory_usage = model_shards.memory_usage_bytes();
 
         // Should have reasonable memory usage

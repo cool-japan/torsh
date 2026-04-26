@@ -277,16 +277,17 @@ pub mod preprocessing {
         #[test]
         fn test_window_application() {
             let data: Vec<f32> = (0..1000).map(|i| (i as f32) * 0.001).collect();
-            let audio = Tensor::from_vec(data, &[1000]).unwrap();
-            let windowed = apply_window(&audio, WindowType::Hann).unwrap();
+            let audio = Tensor::from_vec(data, &[1000]).expect("Tensor should succeed");
+            let windowed =
+                apply_window(&audio, WindowType::Hann).expect("apply window should succeed");
             assert_eq!(windowed.shape(), audio.shape());
         }
 
         #[test]
         fn test_audio_normalization() {
             let data: Vec<f32> = (0..1000).map(|i| (i as f32) * 0.001).collect();
-            let audio = Tensor::from_vec(data, &[1000]).unwrap();
-            let normalized = normalize_audio(&audio).unwrap();
+            let audio = Tensor::from_vec(data, &[1000]).expect("Tensor should succeed");
+            let normalized = normalize_audio(&audio).expect("normalize audio should succeed");
             assert_eq!(normalized.shape(), audio.shape());
         }
     }
@@ -320,11 +321,15 @@ mod tests {
     #[test]
     fn test_architecture_from_string() {
         assert_eq!(
-            "wav2vec2".parse::<AudioArchitecture>().unwrap(),
+            "wav2vec2"
+                .parse::<AudioArchitecture>()
+                .expect("operation should succeed"),
             AudioArchitecture::Wav2Vec2
         );
         assert_eq!(
-            "whisper".parse::<AudioArchitecture>().unwrap(),
+            "whisper"
+                .parse::<AudioArchitecture>()
+                .expect("operation should succeed"),
             AudioArchitecture::Whisper
         );
         assert!("unknown".parse::<AudioArchitecture>().is_err());

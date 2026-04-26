@@ -574,19 +574,21 @@ mod tests {
 
     #[test]
     fn test_multi_head_attention() {
-        let mha = MultiHeadAttention::new(512, 8, 0.1, true).unwrap();
-        let input = randn(&[2, 10, 512]).unwrap(); // batch_size=2, seq_len=10, d_model=512
+        let mha = MultiHeadAttention::new(512, 8, 0.1, true)
+            .expect("Multi Head Attention should succeed");
+        let input = randn(&[2, 10, 512]).expect("randn should succeed"); // batch_size=2, seq_len=10, d_model=512
 
-        let output = mha.forward(&input).unwrap();
+        let output = mha.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[2, 10, 512]);
     }
 
     #[test]
     fn test_advanced_layer_norm() {
-        let ln = AdvancedLayerNorm::new(vec![512], true, 1e-5).unwrap();
-        let input = randn(&[2, 10, 512]).unwrap();
+        let ln = AdvancedLayerNorm::new(vec![512], true, 1e-5)
+            .expect("Advanced Layer Norm should succeed");
+        let input = randn(&[2, 10, 512]).expect("randn should succeed");
 
-        let output = ln.forward(&input).unwrap();
+        let output = ln.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[2, 10, 512]);
     }
 }

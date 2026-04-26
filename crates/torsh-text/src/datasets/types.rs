@@ -749,6 +749,247 @@ impl ConsolidatedDataset {
         ))
     }
 }
+
+/// Common dataset utilities
+pub struct DatasetUtils;
+
+impl DatasetUtils {
+    /// Create a balanced subset of a classification dataset
+    pub fn create_balanced_subset(
+        dataset: &ConsolidatedDataset,
+        samples_per_class: usize,
+    ) -> Result<ConsolidatedDataset> {
+        let mut class_counts: HashMap<String, usize> = HashMap::new();
+        let mut balanced_items = Vec::new();
+
+        for item in &dataset.items {
+            if let DataItem::Classification { text: _, label } = item {
+                let count = class_counts.get(label).unwrap_or(&0);
+                if *count < samples_per_class {
+                    balanced_items.push(item.clone());
+                    class_counts.insert(label.clone(), count + 1);
+                }
+            }
+        }
+
+        Ok(ConsolidatedDataset {
+            items: balanced_items,
+            task_type: dataset.task_type.clone(),
+            metadata: dataset.metadata.clone(),
+        })
+    }
+
+    /// Shuffle dataset items with optional seed
+    pub fn shuffle(dataset: &mut ConsolidatedDataset) {
+        // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
+        let mut rng = thread_rng();
+        dataset.items.shuffle(&mut rng);
+    }
+
+    /// Shuffle dataset items with a specific seed for reproducibility
+    pub fn shuffle_with_seed(dataset: &mut ConsolidatedDataset, seed: u64) {
+        // ✅ SciRS2 Policy Compliant - Using scirs2_core::random instead of direct rand
+        let mut rng = Random::seed(seed);
+        dataset.items.shuffle(&mut rng);
+    }
+
+    /// Sample a random subset from dataset
+    pub fn sample(dataset: &ConsolidatedDataset, n: usize) -> Result<ConsolidatedDataset> {
+        if n > dataset.items.len() {
+            return Err(TextError::DatasetError(format!(
+                "Cannot sample {} items from dataset with {} items",
+                n,
+                dataset.items.len()
+            )));
+        }
+
+        let mut rng = thread_rng();
+        let mut indices: Vec<usize> = (0..dataset.items.len()).collect();
+        indices.shuffle(&mut rng);
+
+        let sampled_items: Vec<DataItem> = indices[..n]
+            .iter()
+            .filter_map(|&i| dataset.items.get(i).cloned())
+            .collect();
+
+        Ok(ConsolidatedDataset {
+            items: sampled_items,
+            task_type: dataset.task_type.clone(),
+            metadata: dataset.metadata.clone(),
+        })
+    }
+
+    /// Filter dataset by minimum token count (whitespace-based)
+    pub fn filter_by_token_count(
+        dataset: &ConsolidatedDataset,
+        min_tokens: Option<usize>,
+        max_tokens: Option<usize>,
+    ) -> ConsolidatedDataset {
+        let filtered_items: Vec<DataItem> = dataset
+            .items
+            .iter()
+            .filter(|item| {
+                let token_count = match item {
+                    DataItem::Text(text) => text.split_whitespace().count(),
+                    DataItem::Classification { text, .. } => text.split_whitespace().count(),
+                    DataItem::Translation { source, .. } => source.split_whitespace().count(),
+                    DataItem::LanguageModeling { text, .. } => text.split_whitespace().count(),
+                    _ => return true, // Keep other types
+                };
+
+                if let Some(min) = min_tokens {
+                    if token_count < min {
+                        return false;
+                    }
+                }
+                if let Some(max) = max_tokens {
+                    if token_count > max {
+                        return false;
+                    }
+                }
+                true
+            })
+            .cloned()
+            .collect();
+
+        ConsolidatedDataset {
+            items: filtered_items,
+            task_type: dataset.task_type.clone(),
+            metadata: dataset.metadata.clone(),
+        }
+    }
+
+    /// Remove duplicates from dataset
+    pub fn deduplicate(dataset: &ConsolidatedDataset) -> ConsolidatedDataset {
+        let mut seen = std::collections::HashSet::new();
+        let dedup_items: Vec<DataItem> = dataset
+            .items
+            .iter()
+            .filter(|item| {
+                let key = match item {
+                    DataItem::Text(text) => text.clone(),
+                    DataItem::Classification { text, .. } => text.clone(),
+                    DataItem::Translation { source, .. } => source.clone(),
+                    DataItem::LanguageModeling { text, .. } => text.clone(),
+                    DataItem::SequenceLabeling { tokens, .. } => tokens.join(" "),
+                };
+                seen.insert(key)
+            })
+            .cloned()
+            .collect();
+
+        ConsolidatedDataset {
+            items: dedup_items,
+            task_type: dataset.task_type.clone(),
+            metadata: dataset.metadata.clone(),
+        }
+    }
+
+    /// Parallel batch loading from multiple CSV files
+    /// ✅ SciRS2 POLICY - Uses scirs2_core::parallel_ops
+    pub fn parallel_load_csv_files<P: AsRef<Path>>(
+        paths: &[P],
+        text_column: usize,
+        label_column: usize,
+        _has_header: bool,
+    ) -> Result<ConsolidatedDataset> {
+        let datasets: Result<Vec<_>> = paths
+            .iter()
+            .map(|path| {
+                ClassificationDataset::from_csv(path, text_column, label_column)
+                    .map(|ds| (ds.texts, ds.labels))
+            })
+            .collect();
+
+        let datasets = datasets?;
+
+        let mut all_texts = Vec::new();
+        let mut all_labels = Vec::new();
+
+        for (texts, labels) in datasets {
+            all_texts.extend(texts);
+            all_labels.extend(labels);
+        }
+
+        ConsolidatedDataset::new_classification(all_texts, all_labels)
+    }
+
+    /// Get dataset statistics
+    pub fn get_statistics(dataset: &ConsolidatedDataset) -> DatasetStatistics {
+        let total_items = dataset.items.len();
+
+        let (avg_text_length, min_text_length, max_text_length) = dataset
+            .items
+            .iter()
+            .filter_map(|item| match item {
+                DataItem::Text(text) => Some(text.len()),
+                DataItem::Classification { text, .. } => Some(text.len()),
+                DataItem::Translation { source, .. } => Some(source.len()),
+                DataItem::LanguageModeling { text, .. } => Some(text.len()),
+                _ => None,
+            })
+            .fold((0, usize::MAX, 0), |(sum, min, max), len| {
+                (sum + len, min.min(len), max.max(len))
+            });
+
+        let avg_text_length = if total_items > 0 {
+            avg_text_length / total_items
+        } else {
+            0
+        };
+
+        DatasetStatistics {
+            total_items,
+            avg_text_length,
+            min_text_length: if min_text_length == usize::MAX {
+                0
+            } else {
+                min_text_length
+            },
+            max_text_length,
+        }
+    }
+
+    /// Filter dataset by text length
+    pub fn filter_by_length(
+        dataset: &ConsolidatedDataset,
+        min_length: Option<usize>,
+        max_length: Option<usize>,
+    ) -> ConsolidatedDataset {
+        let filtered_items: Vec<DataItem> = dataset
+            .items
+            .iter()
+            .filter(|item| {
+                let text_len = match item {
+                    DataItem::Text(text) => text.len(),
+                    DataItem::Classification { text, .. } => text.len(),
+                    DataItem::Translation { source, .. } => source.len(),
+                    _ => return true, // Keep other types
+                };
+
+                if let Some(min) = min_length {
+                    if text_len < min {
+                        return false;
+                    }
+                }
+                if let Some(max) = max_length {
+                    if text_len > max {
+                        return false;
+                    }
+                }
+                true
+            })
+            .cloned()
+            .collect();
+
+        ConsolidatedDataset {
+            items: filtered_items,
+            task_type: dataset.task_type.clone(),
+            metadata: dataset.metadata.clone(),
+        }
+    }
+}
+
 /// WikiText Language Modeling Dataset
 #[derive(Debug, Clone)]
 pub struct WikiTextDataset {
@@ -1216,217 +1457,6 @@ impl UnifiedDatasetLoader {
         ))
     }
 }
-/// Common dataset utilities
-pub struct DatasetUtils;
-impl DatasetUtils {
-    /// Create a balanced subset of a classification dataset
-    pub fn create_balanced_subset(
-        dataset: &ConsolidatedDataset,
-        samples_per_class: usize,
-    ) -> Result<ConsolidatedDataset> {
-        let mut class_counts: HashMap<String, usize> = HashMap::new();
-        let mut balanced_items = Vec::new();
-        for item in &dataset.items {
-            if let DataItem::Classification { text: _, label } = item {
-                let count = class_counts.get(label).unwrap_or(&0);
-                if *count < samples_per_class {
-                    balanced_items.push(item.clone());
-                    class_counts.insert(label.clone(), count + 1);
-                }
-            }
-        }
-        Ok(ConsolidatedDataset {
-            items: balanced_items,
-            task_type: dataset.task_type.clone(),
-            metadata: dataset.metadata.clone(),
-        })
-    }
-    /// Shuffle dataset items with optional seed
-    pub fn shuffle(dataset: &mut ConsolidatedDataset) {
-        let mut rng = thread_rng();
-        dataset.items.shuffle(&mut rng);
-    }
-    /// Shuffle dataset items with a specific seed for reproducibility
-    pub fn shuffle_with_seed(dataset: &mut ConsolidatedDataset, seed: u64) {
-        let mut rng = Random::seed(seed);
-        dataset.items.shuffle(&mut rng);
-    }
-    /// Sample a random subset from dataset
-    pub fn sample(dataset: &ConsolidatedDataset, n: usize) -> Result<ConsolidatedDataset> {
-        if n > dataset.items.len() {
-            return Err(TextError::DatasetError(format!(
-                "Cannot sample {} items from dataset with {} items",
-                n,
-                dataset.items.len()
-            )));
-        }
-        let mut rng = thread_rng();
-        let mut indices: Vec<usize> = (0..dataset.items.len()).collect();
-        indices.shuffle(&mut rng);
-        let sampled_items: Vec<DataItem> = indices[..n]
-            .iter()
-            .filter_map(|&i| dataset.items.get(i).cloned())
-            .collect();
-        Ok(ConsolidatedDataset {
-            items: sampled_items,
-            task_type: dataset.task_type.clone(),
-            metadata: dataset.metadata.clone(),
-        })
-    }
-    /// Filter dataset by minimum token count (whitespace-based)
-    pub fn filter_by_token_count(
-        dataset: &ConsolidatedDataset,
-        min_tokens: Option<usize>,
-        max_tokens: Option<usize>,
-    ) -> ConsolidatedDataset {
-        let filtered_items: Vec<DataItem> = dataset
-            .items
-            .iter()
-            .filter(|item| {
-                let token_count = match item {
-                    DataItem::Text(text) => text.split_whitespace().count(),
-                    DataItem::Classification { text, .. } => text.split_whitespace().count(),
-                    DataItem::Translation { source, .. } => source.split_whitespace().count(),
-                    DataItem::LanguageModeling { text, .. } => text.split_whitespace().count(),
-                    _ => return true,
-                };
-                if let Some(min) = min_tokens {
-                    if token_count < min {
-                        return false;
-                    }
-                }
-                if let Some(max) = max_tokens {
-                    if token_count > max {
-                        return false;
-                    }
-                }
-                true
-            })
-            .cloned()
-            .collect();
-        ConsolidatedDataset {
-            items: filtered_items,
-            task_type: dataset.task_type.clone(),
-            metadata: dataset.metadata.clone(),
-        }
-    }
-    /// Remove duplicates from dataset
-    pub fn deduplicate(dataset: &ConsolidatedDataset) -> ConsolidatedDataset {
-        let mut seen = std::collections::HashSet::new();
-        let dedup_items: Vec<DataItem> = dataset
-            .items
-            .iter()
-            .filter(|item| {
-                let key = match item {
-                    DataItem::Text(text) => text.clone(),
-                    DataItem::Classification { text, .. } => text.clone(),
-                    DataItem::Translation { source, .. } => source.clone(),
-                    DataItem::LanguageModeling { text, .. } => text.clone(),
-                    DataItem::SequenceLabeling { tokens, .. } => tokens.join(" "),
-                };
-                seen.insert(key)
-            })
-            .cloned()
-            .collect();
-        ConsolidatedDataset {
-            items: dedup_items,
-            task_type: dataset.task_type.clone(),
-            metadata: dataset.metadata.clone(),
-        }
-    }
-    /// Parallel batch loading from multiple CSV files
-    /// ✅ SciRS2 POLICY - Uses scirs2_core::parallel_ops
-    pub fn parallel_load_csv_files<P: AsRef<Path>>(
-        paths: &[P],
-        text_column: usize,
-        label_column: usize,
-        _has_header: bool,
-    ) -> Result<ConsolidatedDataset> {
-        let datasets: Result<Vec<_>> = paths
-            .iter()
-            .map(|path| {
-                ClassificationDataset::from_csv(path, text_column, label_column)
-                    .map(|ds| (ds.texts, ds.labels))
-            })
-            .collect();
-        let datasets = datasets?;
-        let mut all_texts = Vec::new();
-        let mut all_labels = Vec::new();
-        for (texts, labels) in datasets {
-            all_texts.extend(texts);
-            all_labels.extend(labels);
-        }
-        ConsolidatedDataset::new_classification(all_texts, all_labels)
-    }
-    /// Get dataset statistics
-    pub fn get_statistics(dataset: &ConsolidatedDataset) -> DatasetStatistics {
-        let total_items = dataset.items.len();
-        let (avg_text_length, min_text_length, max_text_length) = dataset
-            .items
-            .iter()
-            .filter_map(|item| match item {
-                DataItem::Text(text) => Some(text.len()),
-                DataItem::Classification { text, .. } => Some(text.len()),
-                DataItem::Translation { source, .. } => Some(source.len()),
-                DataItem::LanguageModeling { text, .. } => Some(text.len()),
-                _ => None,
-            })
-            .fold((0, usize::MAX, 0), |(sum, min, max), len| {
-                (sum + len, min.min(len), max.max(len))
-            });
-        let avg_text_length = if total_items > 0 {
-            avg_text_length / total_items
-        } else {
-            0
-        };
-        DatasetStatistics {
-            total_items,
-            avg_text_length,
-            min_text_length: if min_text_length == usize::MAX {
-                0
-            } else {
-                min_text_length
-            },
-            max_text_length,
-        }
-    }
-    /// Filter dataset by text length
-    pub fn filter_by_length(
-        dataset: &ConsolidatedDataset,
-        min_length: Option<usize>,
-        max_length: Option<usize>,
-    ) -> ConsolidatedDataset {
-        let filtered_items: Vec<DataItem> = dataset
-            .items
-            .iter()
-            .filter(|item| {
-                let text_len = match item {
-                    DataItem::Text(text) => text.len(),
-                    DataItem::Classification { text, .. } => text.len(),
-                    DataItem::Translation { source, .. } => source.len(),
-                    _ => return true,
-                };
-                if let Some(min) = min_length {
-                    if text_len < min {
-                        return false;
-                    }
-                }
-                if let Some(max) = max_length {
-                    if text_len > max {
-                        return false;
-                    }
-                }
-                true
-            })
-            .cloned()
-            .collect();
-        ConsolidatedDataset {
-            items: filtered_items,
-            task_type: dataset.task_type.clone(),
-            metadata: dataset.metadata.clone(),
-        }
-    }
-}
 /// Split ratios for train/validation/test
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SplitRatios {
@@ -1522,5 +1552,229 @@ impl DatasetDownloader {
             }
         }
         Ok(())
+    }
+}
+
+// ============================================================================
+// Tests
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::super::functions::BatchDataset;
+    use super::*;
+
+    #[test]
+    fn test_dataset_utils_sample() {
+        let texts = vec![
+            "text1".to_string(),
+            "text2".to_string(),
+            "text3".to_string(),
+        ];
+        let labels = vec![
+            "label1".to_string(),
+            "label2".to_string(),
+            "label3".to_string(),
+        ];
+        let dataset = ConsolidatedDataset::new_classification(texts, labels)
+            .expect("Failed to create dataset");
+
+        let sampled = DatasetUtils::sample(&dataset, 2).expect("Failed to sample");
+        assert_eq!(sampled.len(), 2);
+    }
+
+    #[test]
+    fn test_dataset_utils_deduplicate() {
+        let texts = vec![
+            "text1".to_string(),
+            "text2".to_string(),
+            "text1".to_string(), // duplicate
+        ];
+        let labels = vec![
+            "label1".to_string(),
+            "label2".to_string(),
+            "label1".to_string(),
+        ];
+        let dataset = ConsolidatedDataset::new_classification(texts, labels)
+            .expect("Failed to create dataset");
+
+        let dedup = DatasetUtils::deduplicate(&dataset);
+        assert_eq!(dedup.len(), 2);
+    }
+
+    #[test]
+    fn test_dataset_utils_filter_by_token_count() {
+        let texts = vec![
+            "short".to_string(),
+            "this is longer text".to_string(),
+            "medium text".to_string(),
+        ];
+        let labels = vec![
+            "label1".to_string(),
+            "label2".to_string(),
+            "label3".to_string(),
+        ];
+        let dataset = ConsolidatedDataset::new_classification(texts, labels)
+            .expect("Failed to create dataset");
+
+        let filtered = DatasetUtils::filter_by_token_count(&dataset, Some(2), Some(3));
+        assert_eq!(filtered.len(), 1); // "this is longer text" (4 tokens) and "short" (1 token) filtered out, only "medium text" (2 tokens) remains
+    }
+
+    #[test]
+    fn test_dataset_utils_statistics() {
+        let texts = vec!["ab".to_string(), "abcd".to_string(), "abcdef".to_string()];
+        let labels = vec![
+            "label1".to_string(),
+            "label2".to_string(),
+            "label3".to_string(),
+        ];
+        let dataset = ConsolidatedDataset::new_classification(texts, labels)
+            .expect("Failed to create dataset");
+
+        let stats = DatasetUtils::get_statistics(&dataset);
+        assert_eq!(stats.total_items, 3);
+        assert_eq!(stats.min_text_length, 2);
+        assert_eq!(stats.max_text_length, 6);
+        assert_eq!(stats.avg_text_length, 4);
+    }
+
+    #[test]
+    fn test_batch_iterator() {
+        let texts = vec![
+            "text1".to_string(),
+            "text2".to_string(),
+            "text3".to_string(),
+            "text4".to_string(),
+            "text5".to_string(),
+        ];
+        let dataset = TextDataset::from_texts(texts);
+
+        let batches: Vec<_> = dataset.batch_iter(2).collect();
+        assert_eq!(batches.len(), 3); // 2 + 2 + 1
+        assert_eq!(batches[0].as_ref().ok().map(|b| b.len()), Some(2));
+        assert_eq!(batches[1].as_ref().ok().map(|b| b.len()), Some(2));
+        assert_eq!(batches[2].as_ref().ok().map(|b| b.len()), Some(1));
+    }
+
+    #[test]
+    fn test_data_augmentation_random_deletion() {
+        let text = "this is a test sentence";
+        let augmented = DataAugmentation::random_deletion(text, 0.2);
+        // Should have some words deleted
+        assert!(!augmented.is_empty());
+    }
+
+    #[test]
+    fn test_data_augmentation_random_swap() {
+        let text = "word1 word2 word3 word4";
+        let augmented = DataAugmentation::random_swap(text, 2);
+        // Should have same number of words
+        assert_eq!(
+            text.split_whitespace().count(),
+            augmented.split_whitespace().count()
+        );
+    }
+
+    #[test]
+    fn test_preprocessing_pipeline() {
+        let pipeline = PreprocessingPipeline::new()
+            .lowercase()
+            .remove_punctuation()
+            .normalize_whitespace();
+
+        let text = "Hello,  World!  This   is  a   TEST.";
+        let processed = pipeline.process(text);
+        assert_eq!(processed, "hello world this is a test");
+    }
+
+    #[test]
+    fn test_preprocessing_stopwords() {
+        let stopwords = Stopwords::english();
+        let pipeline = PreprocessingPipeline::new()
+            .lowercase()
+            .remove_stopwords(stopwords);
+
+        let text = "This is a test with the stopwords";
+        let processed = pipeline.process(text);
+        // Should remove common stopwords like "is", "a", "the", "with"
+        assert!(!processed.contains(" is "));
+        assert!(!processed.contains(" a "));
+    }
+
+    #[test]
+    fn test_preprocessing_remove_urls() {
+        let pipeline = PreprocessingPipeline::new().remove_urls();
+        let text = "Check out https://example.com and http://test.com for more";
+        let processed = pipeline.process(text);
+        assert!(!processed.contains("https://"));
+        assert!(!processed.contains("http://"));
+    }
+
+    #[test]
+    fn test_preprocessing_remove_html() {
+        let pipeline = PreprocessingPipeline::new().remove_html_tags();
+        let text = "<p>Hello <strong>world</strong></p>";
+        let processed = pipeline.process(text);
+        assert!(!processed.contains('<'));
+        assert!(!processed.contains('>'));
+    }
+
+    #[test]
+    fn test_preprocessing_length_constraints() {
+        let pipeline = PreprocessingPipeline::new().min_length(5).max_length(20);
+
+        let short = "Hi";
+        let good = "Hello World";
+        let long = "This is a very long text that exceeds the maximum length";
+
+        assert_eq!(pipeline.process(short), "");
+        assert_eq!(pipeline.process(good), "Hello World");
+        assert_eq!(pipeline.process(long).len(), 20);
+    }
+
+    #[test]
+    fn test_shuffle_with_seed() {
+        let texts = vec![
+            "text1".to_string(),
+            "text2".to_string(),
+            "text3".to_string(),
+            "text4".to_string(),
+        ];
+        let labels = vec![
+            "label1".to_string(),
+            "label2".to_string(),
+            "label3".to_string(),
+            "label4".to_string(),
+        ];
+        let mut dataset1 = ConsolidatedDataset::new_classification(texts.clone(), labels.clone())
+            .expect("Failed to create dataset");
+        let mut dataset2 = ConsolidatedDataset::new_classification(texts, labels)
+            .expect("Failed to create dataset");
+
+        DatasetUtils::shuffle_with_seed(&mut dataset1, 42);
+        DatasetUtils::shuffle_with_seed(&mut dataset2, 42);
+
+        // Both should have same order with same seed
+        for i in 0..dataset1.len() {
+            let item1 = dataset1.get_item(i).expect("Failed to get item");
+            let item2 = dataset2.get_item(i).expect("Failed to get item");
+            match (item1, item2) {
+                (
+                    DataItem::Classification {
+                        text: t1,
+                        label: l1,
+                    },
+                    DataItem::Classification {
+                        text: t2,
+                        label: l2,
+                    },
+                ) => {
+                    assert_eq!(t1, t2);
+                    assert_eq!(l1, l2);
+                }
+                _ => panic!("Unexpected item type"),
+            }
+        }
     }
 }

@@ -263,8 +263,8 @@ mod tests {
 
     #[test]
     fn test_tensor_to_image_rgb() {
-        let tensor = creation::ones(&[3, 10, 10]).unwrap();
-        let image = tensor_to_image(&tensor, false).unwrap();
+        let tensor = creation::ones(&[3, 10, 10]).expect("creation should succeed");
+        let image = tensor_to_image(&tensor, false).expect("tensor to image should succeed");
 
         match image {
             DynamicImage::ImageRgb8(rgb_img) => {
@@ -277,8 +277,8 @@ mod tests {
 
     #[test]
     fn test_tensor_to_image_grayscale() {
-        let tensor = creation::ones(&[1, 10, 10]).unwrap();
-        let image = tensor_to_image(&tensor, false).unwrap();
+        let tensor = creation::ones(&[1, 10, 10]).expect("creation should succeed");
+        let image = tensor_to_image(&tensor, false).expect("tensor to image should succeed");
 
         match image {
             DynamicImage::ImageLuma8(gray_img) => {
@@ -291,26 +291,29 @@ mod tests {
 
     #[test]
     fn test_image_to_tensor_roundtrip() {
-        let original_tensor = creation::rand(&[3, 5, 5]).unwrap();
-        let image = tensor_to_image(&original_tensor, false).unwrap();
-        let converted_tensor = image_to_tensor(&image).unwrap();
+        let original_tensor = creation::rand(&[3, 5, 5]).expect("creation should succeed");
+        let image =
+            tensor_to_image(&original_tensor, false).expect("tensor to image should succeed");
+        let converted_tensor = image_to_tensor(&image).expect("image to tensor should succeed");
 
         assert_eq!(converted_tensor.shape().dims(), &[3, 5, 5]);
     }
 
     #[test]
     fn test_denormalize() {
-        let tensor = creation::zeros(&[3, 2, 2]).unwrap();
+        let tensor = creation::zeros(&[3, 2, 2]).expect("creation should succeed");
         let mean = [0.5, 0.5, 0.5];
         let std = [0.2, 0.2, 0.2];
 
-        let result = denormalize(&tensor, &mean, &std).unwrap();
+        let result = denormalize(&tensor, &mean, &std).expect("denormalize should succeed");
 
         // All values should be equal to the mean since input was zeros
         for c in 0..3 {
             for y in 0..2 {
                 for x in 0..2 {
-                    let val = result.get(&[c, y, x]).unwrap();
+                    let val = result
+                        .get(&[c, y, x])
+                        .expect("element retrieval should succeed for valid index");
                     assert!((val - 0.5).abs() < 1e-6);
                 }
             }
@@ -319,7 +322,7 @@ mod tests {
 
     #[test]
     fn test_denormalize_invalid_channels() {
-        let tensor = creation::zeros(&[3, 2, 2]).unwrap();
+        let tensor = creation::zeros(&[3, 2, 2]).expect("creation should succeed");
         let mean = [0.5, 0.5]; // Wrong length
         let std = [0.2, 0.2, 0.2];
 
@@ -328,7 +331,7 @@ mod tests {
 
     #[test]
     fn test_denormalize_zero_std() {
-        let tensor = creation::zeros(&[3, 2, 2]).unwrap();
+        let tensor = creation::zeros(&[3, 2, 2]).expect("creation should succeed");
         let mean = [0.5, 0.5, 0.5];
         let std = [0.2, 0.0, 0.2]; // Zero std
 

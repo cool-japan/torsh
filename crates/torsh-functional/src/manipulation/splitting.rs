@@ -657,22 +657,22 @@ mod tests {
     #[test]
     #[should_panic(expected = "Input tensor must have at least 2 dimensions for hsplit")]
     fn test_hsplit_invalid_dimensions() {
-        let tensor = randn(&[5], None, None, None).unwrap(); // 1D tensor
-        hsplit(&tensor, TensorSplitArg::Sections(2)).unwrap();
+        let tensor = randn(&[5], None, None, None).expect("randn should succeed"); // 1D tensor
+        hsplit(&tensor, TensorSplitArg::Sections(2)).expect("operation should succeed");
     }
 
     #[test]
     #[should_panic(expected = "Input tensor must have at least 2 dimensions for vsplit")]
     fn test_vsplit_invalid_dimensions() {
-        let tensor = randn(&[5], None, None, None).unwrap(); // 1D tensor
-        vsplit(&tensor, TensorSplitArg::Sections(2)).unwrap();
+        let tensor = randn(&[5], None, None, None).expect("randn should succeed"); // 1D tensor
+        vsplit(&tensor, TensorSplitArg::Sections(2)).expect("operation should succeed");
     }
 
     #[test]
     #[should_panic(expected = "Input tensor must have at least 3 dimensions for dsplit")]
     fn test_dsplit_invalid_dimensions() {
-        let tensor = randn(&[3, 4], None, None, None).unwrap(); // 2D tensor
-        dsplit(&tensor, TensorSplitArg::Sections(2)).unwrap();
+        let tensor = randn(&[3, 4], None, None, None).expect("randn should succeed"); // 2D tensor
+        dsplit(&tensor, TensorSplitArg::Sections(2)).expect("operation should succeed");
     }
 
     #[test]

@@ -887,7 +887,7 @@ mod tests {
     #[test]
     fn test_add_remove_mirror() {
         let config = create_test_config();
-        let mut manager = MirrorManager::new(config).unwrap();
+        let mut manager = MirrorManager::new(config).expect("Mirror Manager should succeed");
 
         assert_eq!(manager.config.mirrors.len(), 1);
 
@@ -946,7 +946,7 @@ mod tests {
     #[test]
     fn test_get_mirror_statistics() {
         let config = create_test_config();
-        let manager = MirrorManager::new(config).unwrap();
+        let manager = MirrorManager::new(config).expect("Mirror Manager should succeed");
         let stats = manager.get_mirror_statistics();
 
         assert_eq!(stats.len(), 1);
@@ -958,7 +958,7 @@ mod tests {
     #[test]
     fn test_selection_strategy_update() {
         let config = create_test_config();
-        let mut manager = MirrorManager::new(config).unwrap();
+        let mut manager = MirrorManager::new(config).expect("Mirror Manager should succeed");
 
         assert_eq!(
             manager.get_selection_strategy(),
@@ -973,7 +973,7 @@ mod tests {
     #[test]
     fn test_config_update() {
         let config = create_test_config();
-        let mut manager = MirrorManager::new(config).unwrap();
+        let mut manager = MirrorManager::new(config).expect("Mirror Manager should succeed");
 
         let mut new_config = create_test_config();
         new_config.max_mirror_attempts = 5;
@@ -990,7 +990,7 @@ mod tests {
     #[tokio::test]
     async fn test_should_benchmark() {
         let config = create_test_config();
-        let manager = MirrorManager::new(config).unwrap();
+        let manager = MirrorManager::new(config).expect("Mirror Manager should succeed");
 
         // Should benchmark initially (last_benchmark = 0)
         assert!(manager.should_benchmark().await);
@@ -999,7 +999,7 @@ mod tests {
     #[test]
     fn test_clear_cache() {
         let config = create_test_config();
-        let mut manager = MirrorManager::new(config).unwrap();
+        let mut manager = MirrorManager::new(config).expect("Mirror Manager should succeed");
 
         // Add some test data to selection history
         manager.selection_state.record_selection(
@@ -1025,7 +1025,7 @@ mod tests {
     #[test]
     fn test_detect_mirror_issues() {
         let config = create_test_config();
-        let manager = MirrorManager::new(config).unwrap();
+        let manager = MirrorManager::new(config).expect("Mirror Manager should succeed");
 
         // Test healthy mirror
         let healthy_mirror = &manager.config.mirrors[0];

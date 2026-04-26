@@ -9,15 +9,20 @@ use crate::core::{ComparisonRunner, PerformanceAnalyzer};
 // to maintain backward compatibility while avoiding duplication
 pub use crate::ndarray_comparisons::{run_comparison_benchmarks, run_extended_benchmarks};
 
-/// Comprehensive benchmark suite with analysis
-pub fn benchmark_and_analyze() -> std::io::Result<()> {
-    // Ensure target directory exists
-    std::fs::create_dir_all("target")?;
+/// Comprehensive benchmark suite with analysis.
+///
+/// Writes two reports: a comparison report and a performance analysis report.
+/// Both are written to `output_dir` (which is created if absent).
+pub fn benchmark_and_analyze_to(output_dir: &std::path::Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(output_dir)?;
 
     let runner = run_extended_benchmarks();
 
     // Generate basic comparison report
-    runner.generate_report("target/comparison_report.md")?;
+    let comparison_report = output_dir.join("comparison_report.md");
+    runner.generate_report(comparison_report.to_str().ok_or_else(|| {
+        std::io::Error::new(std::io::ErrorKind::InvalidInput, "non-UTF-8 path")
+    })?)?;
 
     // Perform detailed analysis
     let mut analyzer = PerformanceAnalyzer::new();
@@ -26,7 +31,8 @@ pub fn benchmark_and_analyze() -> std::io::Result<()> {
     // Analyze key operations
     let operations = ["matrix_multiplication", "elementwise_addition", "conv2d"];
 
-    let mut analysis_file = std::fs::File::create("target/performance_analysis.md")?;
+    let analysis_path = output_dir.join("performance_analysis.md");
+    let mut analysis_file = std::fs::File::create(&analysis_path)?;
     use std::io::Write;
 
     writeln!(analysis_file, "# ToRSh Performance Analysis\n")?;
@@ -65,10 +71,15 @@ pub fn benchmark_and_analyze() -> std::io::Result<()> {
     }
 
     println!("Extended benchmarks completed!");
-    println!("Results saved to target/comparison_report.md");
-    println!("Analysis saved to target/performance_analysis.md");
+    println!("Results saved to {}", comparison_report.display());
+    println!("Analysis saved to {}", analysis_path.display());
 
     Ok(())
+}
+
+/// Comprehensive benchmark suite with analysis (writes to `target/` directory).
+pub fn benchmark_and_analyze() -> std::io::Result<()> {
+    benchmark_and_analyze_to(std::path::Path::new("target"))
 }
 
 /// Legacy function for backward compatibility
@@ -76,14 +87,17 @@ pub fn benchmark_and_compare() -> std::io::Result<()> {
     benchmark_and_analyze()
 }
 
-/// Generate master comparison report with all available benchmark suites
-pub fn generate_master_comparison_report() -> std::io::Result<()> {
+/// Generate master comparison report with all available benchmark suites.
+///
+/// Writes the report to `output_path`.
+pub fn generate_master_comparison_report_to(output_path: &std::path::Path) -> std::io::Result<()> {
     use std::io::Write;
 
-    // Ensure target directory exists
-    std::fs::create_dir_all("target")?;
+    if let Some(parent) = output_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
 
-    let mut report_file = std::fs::File::create("target/master_comparison_report.md")?;
+    let mut report_file = std::fs::File::create(output_path)?;
 
     writeln!(
         report_file,
@@ -173,9 +187,14 @@ pub fn generate_master_comparison_report() -> std::io::Result<()> {
     )?;
 
     println!("📈 Master comparison report generated!");
-    println!("   📄 Report: target/master_comparison_report.md");
+    println!("   📄 Report: {}", output_path.display());
 
     Ok(())
+}
+
+/// Generate master comparison report with all available benchmark suites (writes to `target/`).
+pub fn generate_master_comparison_report() -> std::io::Result<()> {
+    generate_master_comparison_report_to(std::path::Path::new("target/master_comparison_report.md"))
 }
 
 /// Helper function to write a comparison section
@@ -293,13 +312,14 @@ mod tests {
 
     #[test]
     fn test_benchmark_and_analyze() {
-        // Test that the analysis function can run without errors
-        assert!(benchmark_and_analyze().is_ok());
+        let temp_dir = tempfile::tempdir().expect("failed to create temp dir");
+        assert!(benchmark_and_analyze_to(temp_dir.path()).is_ok());
     }
 
     #[test]
     fn test_generate_master_report() {
-        // Test that master report generation can run without errors
-        assert!(generate_master_comparison_report().is_ok());
+        let temp_dir = tempfile::tempdir().expect("failed to create temp dir");
+        let report_path = temp_dir.path().join("master_comparison_report.md");
+        assert!(generate_master_comparison_report_to(&report_path).is_ok());
     }
 }

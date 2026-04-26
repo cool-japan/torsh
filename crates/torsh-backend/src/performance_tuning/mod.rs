@@ -506,7 +506,8 @@ mod tests {
 
     #[test]
     fn test_cache_key_computation() {
-        let coordinator = PerformanceTuningCoordinator::new().unwrap();
+        let coordinator = PerformanceTuningCoordinator::new()
+            .expect("Performance Tuning Coordinator should succeed");
 
         let workload = WorkloadCharacteristics {
             operation_type: OperationType::ElementWise,

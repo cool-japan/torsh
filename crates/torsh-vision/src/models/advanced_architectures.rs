@@ -747,7 +747,7 @@ mod tests {
 
     #[test]
     fn test_advanced_vit_creation() {
-        let vit = AdvancedViT::vit_tiny().unwrap();
+        let vit = AdvancedViT::vit_tiny().expect("Advanced Vi T should succeed");
         assert_eq!(vit.num_classes(), 1000);
         assert_eq!(vit.input_size(), (224, 224));
     }
@@ -755,17 +755,19 @@ mod tests {
     #[test]
     #[ignore = "KNOWN ISSUE: TransformerBlock tensor slicing - FlashMultiHeadAttention uses complex 5D tensor reshaping with narrow/squeeze operations that fail in batch scenarios. Deferred to v0.2.0 for attention mechanism refactor. See: TODO.md"]
     fn test_vit_forward() {
-        let vit = AdvancedViT::vit_tiny().unwrap();
-        let input = randn::<f32>(&[1, 3, 224, 224]).unwrap();
-        let output = vit.forward(&input).unwrap();
+        let vit = AdvancedViT::vit_tiny().expect("Advanced Vi T should succeed");
+        let input = randn::<f32>(&[1, 3, 224, 224]).expect("operation should succeed");
+        let output = vit.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[1, 1000]);
     }
 
     #[test]
     fn test_patch_embedding() {
-        let patch_embed = PatchEmbedding::new(16, 192, 3).unwrap();
-        let input = randn::<f32>(&[1, 3, 224, 224]).unwrap();
-        let output = patch_embed.forward(&input).unwrap();
+        let patch_embed = PatchEmbedding::new(16, 192, 3).expect("Patch Embedding should succeed");
+        let input = randn::<f32>(&[1, 3, 224, 224]).expect("operation should succeed");
+        let output = patch_embed
+            .forward(&input)
+            .expect("forward pass should succeed");
 
         let expected_patches = (224 / 16) * (224 / 16); // 196 patches
         assert_eq!(output.shape().dims(), &[1, expected_patches, 192]);
@@ -774,17 +776,19 @@ mod tests {
     #[test]
     #[ignore = "KNOWN ISSUE: TransformerBlock tensor slicing - FlashMultiHeadAttention uses complex 5D tensor reshaping (qkv [3,B,H,N,D] -> narrow/squeeze pattern) that fails due to shape tracking inconsistencies. Root cause: Lines 443-448 with multiple squeeze operations on narrowed tensors. Requires attention mechanism refactor with improved tensor slicing API. Deferred to v0.2.0. See: TODO.md"]
     fn test_transformer_block() {
-        let block = TransformerBlock::new(192, 3, 4.0, 0.1, 0.0, false).unwrap();
-        let input = randn::<f32>(&[1, 197, 192]).unwrap(); // 196 patches + 1 cls token
-        let output = block.forward(&input).unwrap();
+        let block = TransformerBlock::new(192, 3, 4.0, 0.1, 0.0, false)
+            .expect("Transformer Block should succeed");
+        let input = randn::<f32>(&[1, 197, 192]).expect("operation should succeed"); // 196 patches + 1 cls token
+        let output = block.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[1, 197, 192]);
     }
 
     #[test]
     fn test_flash_attention() {
-        let attn = FlashMultiHeadAttention::new(192, 3, 0.1, true).unwrap();
-        let input = randn::<f32>(&[1, 197, 192]).unwrap();
-        let output = attn.forward(&input).unwrap();
+        let attn = FlashMultiHeadAttention::new(192, 3, 0.1, true)
+            .expect("Flash Multi Head Attention should succeed");
+        let input = randn::<f32>(&[1, 197, 192]).expect("operation should succeed");
+        let output = attn.forward(&input).expect("forward pass should succeed");
         assert_eq!(output.shape().dims(), &[1, 197, 192]);
     }
 }

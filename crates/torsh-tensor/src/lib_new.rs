@@ -207,6 +207,13 @@ impl<T: TensorElement> torsh_autograd::AutogradTensor<T> for Tensor<T> {
     {
         Box::new(self.zeros_like().unwrap_or_else(|_| self.clone()))
     }
+
+    fn with_data(&self, data: Vec<T>) -> torsh_core::error::Result<Box<dyn torsh_autograd::AutogradTensor<T>>> {
+        let shape = self.shape().dims().to_vec();
+        let new_tensor = Tensor::from_data(data, shape, self.device.clone())?
+            .requires_grad_(self.requires_grad());
+        Ok(Box::new(new_tensor))
+    }
 }
 
 // Re-export commonly used functions and types for convenience

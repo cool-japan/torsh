@@ -269,7 +269,7 @@ mod tests {
 
         let resize = registry.create("resize");
         assert!(resize.is_some());
-        assert_eq!(resize.unwrap().name(), "Resize");
+        assert_eq!(resize.expect("operation should succeed").name(), "Resize");
 
         let unknown = registry.create("unknown");
         assert!(unknown.is_none());
@@ -285,7 +285,7 @@ mod tests {
 
         let custom = registry.create("custom_resize");
         assert!(custom.is_some());
-        assert_eq!(custom.unwrap().name(), "Resize");
+        assert_eq!(custom.expect("operation should succeed").name(), "Resize");
     }
 
     #[test]

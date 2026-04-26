@@ -472,8 +472,8 @@ mod tests {
     #[test]
     fn test_pass_config_serialization() {
         let config = PassConfig::default();
-        let serialized = serde_json::to_string(&config).unwrap();
-        let deserialized: PassConfig = serde_json::from_str(&serialized).unwrap();
+        let serialized = serde_json::to_string(&config).expect("serde json should succeed");
+        let deserialized: PassConfig = serde_json::from_str(&serialized).expect("serde json should succeed");
 
         assert_eq!(
             config.enable_pattern_optimization,
@@ -503,7 +503,7 @@ mod tests {
         let mut manager = PassManager::new();
         let mut graph = ComputationGraph::new();
 
-        let result = manager.run_all(&mut graph).unwrap();
+        let result = manager.run_all(&mut graph).expect("run_all should complete successfully");
         assert_eq!(result.nodes_before, 0);
         assert_eq!(result.nodes_after, 0);
         assert!(result.converged);

@@ -449,7 +449,7 @@ mod tests {
         let layer = SparseEmbedding::new(1000, 128, 0.9);
         assert!(layer.is_ok());
 
-        let layer = layer.unwrap();
+        let layer = layer.expect("operation should succeed");
         assert_eq!(layer.vocab_size(), 1000);
         assert_eq!(layer.embedding_dim(), 128);
         assert_eq!(layer.sparsity(), 0.9);
@@ -457,7 +457,7 @@ mod tests {
 
     #[test]
     fn test_sparse_embedding_dimensions() {
-        let layer = SparseEmbedding::new(500, 64, 0.8).unwrap();
+        let layer = SparseEmbedding::new(500, 64, 0.8).expect("Sparse Embedding should succeed");
 
         let output_dims = layer.output_dimensions(&[10]);
         assert_eq!(output_dims, vec![10, 64]);
@@ -468,30 +468,30 @@ mod tests {
 
     #[test]
     fn test_embedding_lookup() {
-        let layer = SparseEmbedding::new(100, 50, 0.5).unwrap();
+        let layer = SparseEmbedding::new(100, 50, 0.5).expect("Sparse Embedding should succeed");
 
         let indices = vec![0, 1, 99];
         let result = layer.forward(&indices);
         assert!(result.is_ok());
 
-        let output = result.unwrap();
+        let output = result.expect("operation should succeed");
         assert_eq!(output.shape().dims(), &[3, 50]);
     }
 
     #[test]
     fn test_single_embedding_lookup() {
-        let layer = SparseEmbedding::new(100, 50, 0.5).unwrap();
+        let layer = SparseEmbedding::new(100, 50, 0.5).expect("Sparse Embedding should succeed");
 
         let result = layer.get_embedding(42);
         assert!(result.is_ok());
 
-        let embedding = result.unwrap();
+        let embedding = result.expect("operation should succeed");
         assert_eq!(embedding.shape().dims(), &[50]);
     }
 
     #[test]
     fn test_invalid_indices() {
-        let layer = SparseEmbedding::new(100, 50, 0.5).unwrap();
+        let layer = SparseEmbedding::new(100, 50, 0.5).expect("Sparse Embedding should succeed");
 
         let indices = vec![0, 1, 100]; // Index 100 is out of bounds
         let result = layer.forward(&indices);
@@ -500,7 +500,7 @@ mod tests {
 
     #[test]
     fn test_memory_stats() {
-        let layer = SparseEmbedding::new(1000, 128, 0.9).unwrap();
+        let layer = SparseEmbedding::new(1000, 128, 0.9).expect("Sparse Embedding should succeed");
         let stats = layer.memory_stats();
 
         assert_eq!(stats.dense_parameters, 128000); // 1000 * 128
@@ -520,7 +520,8 @@ mod tests {
 
     #[test]
     fn test_pruning() {
-        let mut layer = SparseEmbedding::new(100, 50, 0.5).unwrap();
+        let mut layer =
+            SparseEmbedding::new(100, 50, 0.5).expect("Sparse Embedding should succeed");
         let initial_sparsity = layer.sparsity();
 
         let result = layer.prune_to_sparsity(0.8);

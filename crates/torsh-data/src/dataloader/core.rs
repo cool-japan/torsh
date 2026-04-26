@@ -426,7 +426,7 @@ mod tests {
     #[test]
     fn test_dataloader_builder() {
         // Create a tensor with 5 samples (first dimension is number of samples)
-        let tensor = torsh_tensor::creation::ones::<f32>(&[5]).unwrap();
+        let tensor = torsh_tensor::creation::ones::<f32>(&[5]).expect("operation should succeed");
         let dataset = TensorDataset::from_tensor(tensor);
         let builder = DataLoaderBuilder::new(dataset);
 
@@ -440,7 +440,7 @@ mod tests {
     #[test]
     fn test_dataloader_builder_configuration() {
         // Create a tensor with 5 samples (first dimension is number of samples)
-        let tensor = torsh_tensor::creation::ones::<f32>(&[5]).unwrap();
+        let tensor = torsh_tensor::creation::ones::<f32>(&[5]).expect("operation should succeed");
         let dataset = TensorDataset::from_tensor(tensor);
         let builder = DataLoaderBuilder::new(dataset)
             .batch_size(2)
@@ -459,12 +459,12 @@ mod tests {
     #[test]
     fn test_dataloader_sequential_build() {
         // Create a tensor with 5 samples (first dimension is number of samples)
-        let tensor = torsh_tensor::creation::ones::<f32>(&[5]).unwrap();
+        let tensor = torsh_tensor::creation::ones::<f32>(&[5]).expect("operation should succeed");
         let dataset = TensorDataset::from_tensor(tensor);
         let dataloader = DataLoaderBuilder::new(dataset)
             .batch_size(2)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         assert_eq!(dataloader.len(), 3); // 5 items, batch size 2 = 3 batches (last with 1 item)
         assert!(!dataloader.is_empty());
@@ -473,13 +473,13 @@ mod tests {
     #[test]
     fn test_dataloader_random_build() {
         // Create a tensor with 5 samples (first dimension is number of samples)
-        let tensor = torsh_tensor::creation::ones::<f32>(&[5]).unwrap();
+        let tensor = torsh_tensor::creation::ones::<f32>(&[5]).expect("operation should succeed");
         let dataset = TensorDataset::from_tensor(tensor);
         let dataloader = DataLoaderBuilder::new(dataset)
             .batch_size(2)
             .generator(42)
             .build_with_random_sampling()
-            .unwrap();
+            .expect("operation should succeed");
 
         assert_eq!(dataloader.len(), 3);
         assert!(!dataloader.is_empty());
@@ -488,16 +488,22 @@ mod tests {
     #[test]
     fn test_dataloader_iteration() {
         // Create a tensor with 4 samples (first dimension is number of samples)
-        let tensor = torsh_tensor::creation::ones::<f32>(&[4]).unwrap();
+        let tensor = torsh_tensor::creation::ones::<f32>(&[4]).expect("operation should succeed");
         let dataset = TensorDataset::from_tensor(tensor);
         let dataloader = DataLoaderBuilder::new(dataset)
             .batch_size(2)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         let mut iter = dataloader.iter();
-        let batch1 = iter.next().unwrap().unwrap();
-        let batch2 = iter.next().unwrap().unwrap();
+        let batch1 = iter
+            .next()
+            .expect("iterator should have a next element")
+            .expect("operation should succeed");
+        let batch2 = iter
+            .next()
+            .expect("iterator should have a next element")
+            .expect("operation should succeed");
         assert!(iter.next().is_none());
 
         // Verify batch contents (each batch should have 1 stacked tensor)
@@ -513,13 +519,13 @@ mod tests {
     #[test]
     fn test_dataloader_drop_last() {
         // Create a tensor with 5 samples (first dimension is number of samples)
-        let tensor = torsh_tensor::creation::ones::<f32>(&[5]).unwrap();
+        let tensor = torsh_tensor::creation::ones::<f32>(&[5]).expect("operation should succeed");
         let dataset = TensorDataset::from_tensor(tensor);
         let dataloader = DataLoaderBuilder::new(dataset)
             .batch_size(2)
             .drop_last(true)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         assert_eq!(dataloader.len(), 2); // 5 items, batch size 2, drop_last = 2 complete batches
     }
@@ -527,12 +533,12 @@ mod tests {
     #[test]
     fn test_dataloader_trait_implementation() {
         // Create a tensor with 5 samples (first dimension is number of samples)
-        let tensor = torsh_tensor::creation::ones::<f32>(&[5]).unwrap();
+        let tensor = torsh_tensor::creation::ones::<f32>(&[5]).expect("operation should succeed");
         let dataset = TensorDataset::from_tensor(tensor);
         let dataloader = DataLoaderBuilder::new(dataset)
             .batch_size(2)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         // Test trait methods
         assert_eq!(DataLoaderTrait::len(&dataloader), 3);
@@ -546,7 +552,7 @@ mod tests {
         let dataloader = DataLoaderBuilder::new(dataset)
             .batch_size(2)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         assert_eq!(dataloader.len(), 0);
         assert!(dataloader.is_empty());

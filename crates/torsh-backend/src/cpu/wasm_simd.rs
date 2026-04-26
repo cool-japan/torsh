@@ -1222,7 +1222,9 @@ mod tests {
         let a = vec![1.0, 2.0, 3.0, 4.0];
         let b = vec![2.0, 3.0, 4.0, 5.0];
 
-        let result = wasm_ops.dot_product_f32(&a, &b).unwrap();
+        let result = wasm_ops
+            .dot_product_f32(&a, &b)
+            .expect("dot product computation should succeed");
         let expected = 1.0 * 2.0 + 2.0 * 3.0 + 3.0 * 4.0 + 4.0 * 5.0; // = 40.0
         assert!((result - expected).abs() < 1e-6);
     }
@@ -1308,12 +1310,12 @@ mod tests {
         let wasm_ops = WasmSimdOps::new();
         let input = vec![1.0, 2.0, 3.0, 4.0, 5.0];
 
-        let result = wasm_ops.sum_f32(&input).unwrap();
+        let result = wasm_ops.sum_f32(&input).expect("f32 sum should succeed");
         assert_eq!(result, 15.0);
 
         // Test empty array
         let empty: Vec<f32> = vec![];
-        let empty_result = wasm_ops.sum_f32(&empty).unwrap();
+        let empty_result = wasm_ops.sum_f32(&empty).expect("f32 sum should succeed");
         assert_eq!(empty_result, 0.0);
     }
 
@@ -1350,12 +1352,12 @@ mod tests {
         let wasm_ops = WasmSimdOps::new();
         let input = vec![1.0, 5.0, 2.0, 8.0, 3.0];
 
-        let result = wasm_ops.max_f32(&input).unwrap();
+        let result = wasm_ops.max_f32(&input).expect("f32 max should succeed");
         assert_eq!(result, 8.0);
 
         // Test single element
         let single = vec![42.0];
-        let single_result = wasm_ops.max_f32(&single).unwrap();
+        let single_result = wasm_ops.max_f32(&single).expect("f32 max should succeed");
         assert_eq!(single_result, 42.0);
 
         // Test empty array should fail
@@ -1369,12 +1371,14 @@ mod tests {
         let wasm_ops = WasmSimdOps::new();
         let input = vec![5.0, 1.0, 8.0, 2.0, 3.0];
 
-        let result = wasm_ops.min_f32(&input).unwrap();
+        let result = wasm_ops.min_f32(&input).expect("f32 min should succeed");
         assert_eq!(result, 1.0);
 
         // Test with negative numbers
         let input_neg = vec![-5.0, -1.0, -8.0, -2.0];
-        let result_neg = wasm_ops.min_f32(&input_neg).unwrap();
+        let result_neg = wasm_ops
+            .min_f32(&input_neg)
+            .expect("f32 min should succeed");
         assert_eq!(result_neg, -8.0);
     }
 
@@ -1443,7 +1447,7 @@ mod tests {
         assert_eq!(result[size - 1], (2 * size - 1) as f32); // (size-1) + size
 
         // Test sum of large array
-        let sum_result = wasm_ops.sum_f32(&a).unwrap();
+        let sum_result = wasm_ops.sum_f32(&a).expect("f32 sum should succeed");
         let expected: f32 = (0..size).map(|i| i as f32).sum();
         assert!((sum_result - expected).abs() < 1e-6);
     }

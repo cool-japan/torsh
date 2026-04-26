@@ -191,10 +191,10 @@ impl Benchmarkable for KernelFusionBench {
         let fused_time = fused_start.elapsed();
 
         // Calculate speedup ratio
-        let speedup_ratio = if fused_time.as_nanos() > 0 {
+        let speedup_ratio = if fused_time.as_nanos() > 0 && unfused_time.as_nanos() > 0 {
             unfused_time.as_secs_f64() / fused_time.as_secs_f64()
         } else {
-            1.0
+            1.0 // operations too fast to measure reliably; treat as equal speed
         };
 
         (fused_result, speedup_ratio)
@@ -474,10 +474,10 @@ impl Benchmarkable for GraphOptimizationBench {
         let optimized_time = optimized_start.elapsed();
 
         // Calculate speedup ratio
-        let speedup_ratio = if optimized_time.as_nanos() > 0 {
+        let speedup_ratio = if optimized_time.as_nanos() > 0 && unoptimized_time.as_nanos() > 0 {
             unoptimized_time.as_secs_f64() / optimized_time.as_secs_f64()
         } else {
-            1.0
+            1.0 // operations too fast to measure reliably; treat as equal speed
         };
 
         (optimized_result, speedup_ratio)
@@ -978,10 +978,10 @@ mod tests {
 
     #[test]
     fn test_mock_functions() {
-        let a = rand::<f32>(&[4, 4]).unwrap();
-        let b = rand::<f32>(&[4, 4]).unwrap();
-        let c = rand::<f32>(&[4, 4]).unwrap();
-        let d = rand::<f32>(&[4, 4]).unwrap();
+        let a = rand::<f32>(&[4, 4]).expect("operation should succeed");
+        let b = rand::<f32>(&[4, 4]).expect("operation should succeed");
+        let c = rand::<f32>(&[4, 4]).expect("operation should succeed");
+        let d = rand::<f32>(&[4, 4]).expect("operation should succeed");
 
         // Test fusion mock functions
         let _fused_result = mock_fused_add_relu(&a, &b);
@@ -1017,7 +1017,7 @@ mod tests {
     #[test]
     fn test_mean_reduction_edge_cases() {
         // Test 1D tensor
-        let tensor_1d = rand::<f32>(&[10]).unwrap();
+        let tensor_1d = rand::<f32>(&[10]).expect("operation should succeed");
         let result_1d = mock_mean_reduction(&tensor_1d);
         assert_eq!(
             result_1d.shape().dims().len(),
@@ -1025,7 +1025,7 @@ mod tests {
         );
 
         // Test 3D tensor
-        let tensor_3d = rand::<f32>(&[4, 4, 8]).unwrap();
+        let tensor_3d = rand::<f32>(&[4, 4, 8]).expect("operation should succeed");
         let result_3d = mock_mean_reduction(&tensor_3d);
         assert_eq!(result_3d.shape().dims().len(), 2); // Reduced last dimension
     }

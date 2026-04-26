@@ -729,7 +729,12 @@ mod tests {
 
         let client_model = manager.get_client_model("client_1");
         assert!(client_model.is_some());
-        assert_eq!(client_model.unwrap().get("param_1"), Some(&vec![1.0, 2.0]));
+        assert_eq!(
+            client_model
+                .expect("operation should succeed")
+                .get("param_1"),
+            Some(&vec![1.0, 2.0])
+        );
     }
 
     #[test]
@@ -841,7 +846,7 @@ mod tests {
 
         let history = manager.get_adaptation_history("client_1");
         assert!(history.is_some());
-        assert!(!history.unwrap().is_empty());
+        assert!(!history.expect("operation should succeed").is_empty());
     }
 
     #[test]

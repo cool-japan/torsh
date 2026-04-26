@@ -431,11 +431,13 @@ mod tests {
     #[test]
     fn test_quantized_relu() {
         let data = vec![-2.0f32, -1.0f32, 0.0f32, 1.0f32, 2.0f32];
-        let tensor = Tensor::from_data(data, vec![5], torsh_core::device::DeviceType::Cpu).unwrap();
+        let tensor = Tensor::from_data(data, vec![5], torsh_core::device::DeviceType::Cpu)
+            .expect("Tensor should succeed");
 
         let params = QuantizationParams::symmetric(1.0 / 127.0, DType::F32, DType::I8);
 
-        let result = quantized_relu_int8(&tensor, &params, &params).unwrap();
+        let result = quantized_relu_int8(&tensor, &params, &params)
+            .expect("quantized relu int8 should succeed");
         let result_data = result
             .to_vec()
             .expect("tensor to vec conversion should succeed");

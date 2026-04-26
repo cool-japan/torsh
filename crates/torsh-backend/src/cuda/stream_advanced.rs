@@ -752,11 +752,12 @@ mod tests {
     #[ignore = "Requires CUDA hardware - run with --ignored flag"]
     fn test_advanced_stream_pool() {
         if crate::cuda::is_available() {
-            let _device = Arc::new(crate::cuda::device::CudaDevice::new(0).unwrap());
+            let _device =
+                Arc::new(crate::cuda::device::CudaDevice::new(0).expect("Arc should succeed"));
             let pool = AdvancedStreamPool::new(8);
             assert!(pool.is_ok());
 
-            let pool = pool.unwrap();
+            let pool = pool.expect("operation should succeed");
 
             // Test different workload types
             let compute_stream = pool.get_stream_for_workload(WorkloadType::Compute);
@@ -780,10 +781,11 @@ mod tests {
     #[test]
     fn test_stream_ordered_allocator() {
         if crate::cuda::is_available() {
-            let _device = Arc::new(crate::cuda::device::CudaDevice::new(0).unwrap());
+            let _device =
+                Arc::new(crate::cuda::device::CudaDevice::new(0).expect("Arc should succeed"));
             let mut allocator = StreamOrderedAllocator::new();
-            let stream1 = CudaStream::new().unwrap();
-            let stream2 = CudaStream::new().unwrap();
+            let stream1 = CudaStream::new().expect("Cuda Stream should succeed");
+            let stream2 = CudaStream::new().expect("Cuda Stream should succeed");
 
             // Allocate memory for different streams
             let alloc1 = allocator.allocate_for_stream(&stream1, 1024);
@@ -804,9 +806,10 @@ mod tests {
     #[ignore = "Requires CUDA hardware - run with --ignored flag"]
     fn test_multi_stream_coordinator() {
         if crate::cuda::is_available() {
-            let _device = Arc::new(crate::cuda::device::CudaDevice::new(0).unwrap());
-            let stream1 = Arc::new(CudaStream::new().unwrap());
-            let stream2 = Arc::new(CudaStream::new().unwrap());
+            let _device =
+                Arc::new(crate::cuda::device::CudaDevice::new(0).expect("Arc should succeed"));
+            let stream1 = Arc::new(CudaStream::new().expect("Arc should succeed"));
+            let stream2 = Arc::new(CudaStream::new().expect("Arc should succeed"));
             let streams = vec![stream1.clone(), stream2.clone()];
 
             let mut coordinator = MultiStreamCoordinator::new(streams);
@@ -829,9 +832,10 @@ mod tests {
     #[ignore = "Requires CUDA hardware - run with --ignored flag"]
     fn test_stream_profiler() {
         if crate::cuda::is_available() {
-            let _device = Arc::new(crate::cuda::device::CudaDevice::new(0).unwrap());
+            let _device =
+                Arc::new(crate::cuda::device::CudaDevice::new(0).expect("Arc should succeed"));
             let mut profiler = StreamProfiler::new();
-            let stream = CudaStream::new().unwrap();
+            let stream = CudaStream::new().expect("Cuda Stream should succeed");
 
             // Enable profiling
             profiler.enable();
@@ -846,7 +850,7 @@ mod tests {
             let report = profiler.get_stream_report(&stream);
             assert!(report.is_some());
 
-            let report = report.unwrap();
+            let report = report.expect("operation should succeed");
             assert_eq!(report.operation_count, 1);
             assert_eq!(report.memory_transfers, 1);
             assert_eq!(report.kernel_launches, 1);

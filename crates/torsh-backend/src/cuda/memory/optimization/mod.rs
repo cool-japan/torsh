@@ -560,7 +560,7 @@ mod tests {
             .build();
 
         assert!(objectives.is_ok());
-        let obj = objectives.unwrap();
+        let obj = objectives.expect("operation should succeed");
         assert!(obj.memory_objectives.minimize_usage);
         assert!(obj.performance_objectives.maximize_throughput);
         assert!(obj.performance_objectives.minimize_latency);
@@ -581,7 +581,7 @@ mod tests {
             .build();
 
         assert!(objectives.is_ok());
-        let obj = objectives.unwrap();
+        let obj = objectives.expect("operation should succeed");
         assert_eq!(obj.constraints.len(), 1);
         assert_eq!(obj.constraints[0].name, "max_memory");
     }
@@ -589,13 +589,13 @@ mod tests {
     #[tokio::test]
     async fn test_optimization_engine_basic_workflow() {
         let config = OptimizationConfig::default();
-        let mut engine = OptimizationEngine::new(config).unwrap();
+        let mut engine = OptimizationEngine::new(config).expect("Optimization Engine should succeed");
 
         let objectives = OptimizationObjectives::builder()
             .minimize_memory_usage()
             .maximize_throughput()
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         // This would require proper initialization of all components
         // In a real test, we'd need to set up mock components
@@ -608,7 +608,7 @@ mod tests {
     #[tokio::test]
     async fn test_optimization_feedback_learning() {
         let config = OptimizationConfig::default();
-        let mut engine = OptimizationEngine::new(config).unwrap();
+        let mut engine = OptimizationEngine::new(config).expect("Optimization Engine should succeed");
 
         let feedback = OptimizationFeedback {
             solution_id: "test_solution".to_string(),
@@ -633,7 +633,7 @@ mod tests {
     #[tokio::test]
     async fn test_optimization_metrics_collection() {
         let config = OptimizationConfig::default();
-        let engine = OptimizationEngine::new(config).unwrap();
+        let engine = OptimizationEngine::new(config).expect("Optimization Engine should succeed");
 
         // Test that metrics can be retrieved
         assert!(engine.get_metrics().await.is_ok() || engine.get_metrics().await.is_err());
@@ -702,7 +702,7 @@ mod tests {
     #[tokio::test]
     async fn test_optimization_history_querying() {
         let config = OptimizationConfig::default();
-        let engine = OptimizationEngine::new(config).unwrap();
+        let engine = OptimizationEngine::new(config).expect("Optimization Engine should succeed");
 
         let query = HistoryQuery::new()
             .with_time_range(
@@ -720,7 +720,7 @@ mod tests {
     #[tokio::test]
     async fn test_dynamic_config_update() {
         let config = OptimizationConfig::default();
-        let mut engine = OptimizationEngine::new(config).unwrap();
+        let mut engine = OptimizationEngine::new(config).expect("Optimization Engine should succeed");
 
         let new_config = OptimizationConfig {
             ..Default::default()

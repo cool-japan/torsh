@@ -519,7 +519,7 @@ mod tests {
     fn test_tensor_creation() {
         let shape = vec![2, 3, 4];
         let params = QuantizationParams::int8_symmetric();
-        let device = Device::cpu().unwrap();
+        let device = Device::cpu().expect("Device should succeed");
         let tensor = QuantizedTensor::new(shape.clone(), params, device.clone());
 
         assert_eq!(tensor.shape(), &shape);
@@ -532,7 +532,11 @@ mod tests {
     fn test_int4_tensor_size() {
         let shape = vec![8];
         let params = QuantizationParams::int4_symmetric();
-        let tensor = QuantizedTensor::new(shape, params, Device::cpu().unwrap());
+        let tensor = QuantizedTensor::new(
+            shape,
+            params,
+            Device::cpu().expect("Quantized Tensor should succeed"),
+        );
 
         assert_eq!(tensor.num_elements(), 8);
         assert_eq!(tensor.memory_usage(), 4); // 2 elements per byte for Int4
@@ -543,7 +547,11 @@ mod tests {
         let shape = vec![16];
         let mut params = QuantizationParams::default();
         params.dtype = QuantizedDType::Binary;
-        let tensor = QuantizedTensor::new(shape, params, Device::cpu().unwrap());
+        let tensor = QuantizedTensor::new(
+            shape,
+            params,
+            Device::cpu().expect("Quantized Tensor should succeed"),
+        );
 
         assert_eq!(tensor.num_elements(), 16);
         assert_eq!(tensor.memory_usage(), 2); // 8 elements per byte for Binary
@@ -554,9 +562,13 @@ mod tests {
         let data = vec![1, 2, 3, 4];
         let shape = vec![4];
         let params = QuantizationParams::int8_symmetric();
-        let tensor =
-            QuantizedTensor::from_data(data.clone(), shape, params, Device::cpu().unwrap())
-                .unwrap();
+        let tensor = QuantizedTensor::from_data(
+            data.clone(),
+            shape,
+            params,
+            Device::cpu().expect("Device should succeed"),
+        )
+        .expect("operation should succeed");
 
         assert_eq!(tensor.data, data);
         assert_eq!(tensor.num_elements(), 4);
@@ -567,7 +579,12 @@ mod tests {
         let data = vec![1, 2, 3]; // 3 bytes
         let shape = vec![4]; // Expects 4 bytes for Int8
         let params = QuantizationParams::int8_symmetric();
-        let result = QuantizedTensor::from_data(data, shape, params, Device::cpu().unwrap());
+        let result = QuantizedTensor::from_data(
+            data,
+            shape,
+            params,
+            Device::cpu().expect("Quantized Tensor should succeed"),
+        );
 
         assert!(result.is_err());
     }
@@ -577,9 +594,11 @@ mod tests {
         let tensor = QuantizedTensor::new(
             vec![2, 6],
             QuantizationParams::default(),
-            Device::cpu().unwrap(),
+            Device::cpu().expect("Device should succeed"),
         );
-        let reshaped = tensor.reshape(vec![3, 4]).unwrap();
+        let reshaped = tensor
+            .reshape(vec![3, 4])
+            .expect("reshape should succeed with compatible dimensions");
 
         assert_eq!(reshaped.shape(), &[3, 4]);
         assert_eq!(reshaped.num_elements(), 12);
@@ -591,7 +610,7 @@ mod tests {
         let tensor = QuantizedTensor::new(
             vec![2, 6],
             QuantizationParams::default(),
-            Device::cpu().unwrap(),
+            Device::cpu().expect("Device should succeed"),
         );
         let result = tensor.reshape(vec![3, 5]); // 15 elements != 12
 
@@ -603,9 +622,11 @@ mod tests {
         let tensor = QuantizedTensor::new(
             vec![2, 6],
             QuantizationParams::default(),
-            Device::cpu().unwrap(),
+            Device::cpu().expect("Device should succeed"),
         );
-        let view = tensor.view(vec![4, 3]).unwrap();
+        let view = tensor
+            .view(vec![4, 3])
+            .expect("view operation should succeed with compatible shape");
 
         assert_eq!(view.shape(), &[4, 3]);
         assert_eq!(view.num_elements(), 12);
@@ -617,14 +638,14 @@ mod tests {
         let int8_tensor = QuantizedTensor::new(
             vec![10],
             QuantizationParams::int8_symmetric(),
-            Device::cpu().unwrap(),
+            Device::cpu().expect("Device should succeed"),
         );
         assert_eq!(int8_tensor.storage_efficiency(), 0.25); // 1 byte vs 4 bytes per element
 
         let int4_tensor = QuantizedTensor::new(
             vec![10],
             QuantizationParams::int4_symmetric(),
-            Device::cpu().unwrap(),
+            Device::cpu().expect("Device should succeed"),
         );
         assert_eq!(int4_tensor.storage_efficiency(), 0.125); // 0.5 bytes vs 4 bytes per element
     }
@@ -634,14 +655,14 @@ mod tests {
         let int8_tensor = QuantizedTensor::new(
             vec![10],
             QuantizationParams::int8_symmetric(),
-            Device::cpu().unwrap(),
+            Device::cpu().expect("Device should succeed"),
         );
         assert_eq!(int8_tensor.compression_ratio(), 4.0); // 4x compression
 
         let int4_tensor = QuantizedTensor::new(
             vec![10],
             QuantizationParams::int4_symmetric(),
-            Device::cpu().unwrap(),
+            Device::cpu().expect("Device should succeed"),
         );
         assert_eq!(int4_tensor.compression_ratio(), 8.0); // 8x compression
     }
@@ -651,9 +672,11 @@ mod tests {
         let tensor = QuantizedTensor::new(
             vec![4],
             QuantizationParams::int8_symmetric(),
-            Device::cpu().unwrap(),
+            Device::cpu().expect("Device should succeed"),
         );
-        let slice = tensor.data_slice(1, 2).unwrap();
+        let slice = tensor
+            .data_slice(1, 2)
+            .expect("data slice should be accessible");
         assert_eq!(slice.len(), 2);
 
         // Out of bounds should fail
@@ -665,7 +688,7 @@ mod tests {
         let tensor = QuantizedTensor::new(
             vec![2, 3],
             QuantizationParams::default(),
-            Device::cpu().unwrap(),
+            Device::cpu().expect("Device should succeed"),
         );
         assert!(tensor.validate().is_ok());
 
@@ -680,13 +703,13 @@ mod tests {
         let tensor = QuantizedTensor::new(
             vec![2, 3, 4],
             QuantizationParams::default(),
-            Device::cpu().unwrap(),
+            Device::cpu().expect("Device should succeed"),
         );
 
         assert_eq!(tensor.ndim(), 3);
-        assert_eq!(tensor.size(0).unwrap(), 2);
-        assert_eq!(tensor.size(1).unwrap(), 3);
-        assert_eq!(tensor.size(2).unwrap(), 4);
+        assert_eq!(tensor.size(0).expect("tensor size should be valid"), 2);
+        assert_eq!(tensor.size(1).expect("tensor size should be valid"), 3);
+        assert_eq!(tensor.size(2).expect("tensor size should be valid"), 4);
         assert!(tensor.size(3).is_err()); // Out of bounds
 
         assert!(!tensor.is_empty());
@@ -697,7 +720,7 @@ mod tests {
         let tensor = QuantizedTensor::new(
             vec![0],
             QuantizationParams::default(),
-            Device::cpu().unwrap(),
+            Device::cpu().expect("Device should succeed"),
         );
         assert!(tensor.validate().is_err()); // Zero dimension should be invalid
     }

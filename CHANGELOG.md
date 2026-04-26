@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-04-26
+
+### Added
+- `simd_ops_f32` module: zero-allocation SIMD f32 arithmetic helpers (`add_into_f32`, `sub_into_f32`, `mul_into_f32`, `div_into_f32`, `add_assign_f32`, `sub_assign_f32`, `mul_assign_f32`, `div_assign_f32`) backed by `scirs2_core::simd_ops::SimdUnifiedOps` (AVX2/NEON with scalar fallback)
+- In-place activation SIMD helpers (`relu_assign_f32`, `leaky_relu_assign_f32`, `clamp_assign_f32`) with PyTorch-compatible NaN passthrough semantics
+- `BinaryF32Op` enum with `dispatch_into`/`dispatch_inplace` for zero-branch op selection
+- `GlobalMemoryPool::acquire_uninit<T>` / `global_acquire_uninit<T>` API: returns the actual pooled allocation via `ReusedBuffer<T>` RAII type (zero-copy on pool hit, replacing the copy-on-hit bug)
+- `ReusedBuffer<T>`: RAII pooled buffer with `as_uninit_slice_mut`, `into_vec`, `release_to_pool`; auto-returns to pool on drop
+- Performance regression framework: criterion benchmarks in `benches/regression_baselines.rs` and CI threshold script `scripts/check_perf_regression.sh`
+- `dhat` allocation-tracking benchmark (`benches/alloc_tracking.rs`) proving `GlobalMemoryPool` achieves 100% reduction in heap blocks on hot loops (10,000 alloc blocks → 0 with pooling)
+
+### Changed
+- `Tensor::add` / `sub` / `mul` / `div` for f32 tensors ≥ 1024 elements: dispatch to real SIMD via `simd_ops_f32` (replaces fake `par_iter` branch that was gated behind `cfg(feature = "simd")`)
+- `Tensor::add_` / `sub_` / `mul_` / `div_` for f32 ≥ 1024 elements: zero-allocation SIMD in-place arithmetic
+- `Tensor::relu_` / `leaky_relu_` / `clamp_` for f32 ≥ 1024 elements: SIMD-dispatched in-place activations
+- Default features now include `simd` and `parallel` (`default = ["std", "simd", "parallel"]`)
+- `simd` feature now enables `scirs2-core/simd` so scirs2 SIMD intrinsics activate automatically
+- `math_ops.rs` split into `math_ops.rs` (1917 lines) + `math_ops_tests.rs` (563 lines) to enforce < 2000 line policy
+- `GlobalMemoryPool::allocate<T>` deprecated (kept for compatibility); callers should use `global_acquire_uninit`
+- Upgraded wgpu 28.0.0 → 29.0.1 with full API migration (Instance::new value arg, BindGroupLayout Option wrapping, u64 limits, PollType::Wait, BufferViewMut streaming API)
+- Upgraded sha2 0.10 → 0.11; hash output now via `hex::encode()`
+- Upgraded cranelift 0.130 → 0.131
+- Upgraded prometheus 0.13 → 0.14, quickcheck 1.0 → 1.1, unicode-segmentation 1.12 → 1.13, imageproc 0.25 → 0.26
+- `torsh-hub`: replaced `Vec<u8>` buffer workaround with `TarStreamReader` streaming extraction — O(512 B) memory vs O(archive size) for `.tar.gz` archives
+- All local `oxiarc-*` path deps replaced with published registry versions (0.2.7)
+- Python bindings version bumped to 0.1.2
+
+### Fixed
+- `GlobalMemoryPool` pool hits no longer copy into a new `Vec` — the actual pooled allocation is returned
+- 5 doctests in `torsh-distributed` fixed: missing `.await` on async calls in `nccl_ops`, `alerting`, `prometheus_exporter`, `three_d_parallelism`, and `zero_3_cpu_offload` doc examples
+
 ## [0.1.1] - 2026-03-17
 
 ### Changed

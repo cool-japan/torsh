@@ -55,7 +55,7 @@ mod tests {
         let result = controller
             .apply_strategy("performance_degradation_response", &state);
         assert!(result.is_ok());
-        let event = result.unwrap();
+        let event = result.expect("operation should succeed");
         assert_eq!(event.strategy, "performance_degradation_response");
         assert!(! event.actions.is_empty());
         assert_eq!(controller.adaptation_history.len(), 1);
@@ -102,7 +102,7 @@ mod tests {
         let strategy = controller
             .adaptation_strategies
             .get("performance_degradation_response")
-            .unwrap();
+            .expect("operation should succeed");
         let state = SystemState::default();
         let priority = controller.calculate_priority(strategy, &state);
         assert!(priority >= 0.0 && priority <= 1.0);
@@ -113,7 +113,7 @@ mod tests {
         let mut strategy = controller
             .adaptation_strategies
             .get("performance_degradation_response")
-            .unwrap()
+            .expect("operation should succeed")
             .clone();
         let state = SystemState::default();
         strategy.success_rate = 0.0;
@@ -131,7 +131,7 @@ mod tests {
         let strategy = controller
             .adaptation_strategies
             .get("performance_degradation_response")
-            .unwrap();
+            .expect("operation should succeed");
         let risk = controller.assess_risk(strategy);
         assert!(risk >= 0.0 && risk <= 1.0);
         let mut high_risk_strategy = strategy.clone();
@@ -199,7 +199,7 @@ mod tests {
         };
         let result = controller.execute_action(&action);
         assert!(result.is_ok());
-        assert!(result.unwrap().contains("test_param"));
+        assert!(result.expect("operation should succeed").contains("test_param"));
         let action = AdaptationAction::StrategySwitch {
             from_strategy: "old_strategy".to_string(),
             to_strategy: "new_strategy".to_string(),
@@ -207,7 +207,7 @@ mod tests {
         };
         let result = controller.execute_action(&action);
         assert!(result.is_ok());
-        assert!(result.unwrap().contains("Switch from old_strategy to new_strategy"));
+        assert!(result.expect("operation should succeed").contains("Switch from old_strategy to new_strategy"));
     }
     #[test]
     fn test_strategy_lifecycle() {

@@ -1329,7 +1329,9 @@ mod tests {
         assert!(manager.supports_unified_memory());
 
         // Test unified memory allocation
-        let ptr = manager.allocate_unified(1024).unwrap();
+        let ptr = manager
+            .allocate_unified(1024)
+            .expect("unified memory allocation should succeed");
         assert!(!ptr.is_null());
 
         // Test deallocation
@@ -1342,7 +1344,9 @@ mod tests {
         let mut manager = CpuMemoryManager::new();
 
         // Test raw memory allocation with alignment
-        let ptr = manager.allocate_raw(256, 16).unwrap();
+        let ptr = manager
+            .allocate_raw(256, 16)
+            .expect("raw memory allocation should succeed");
         assert!(!ptr.is_null());
 
         // Check alignment
@@ -1358,8 +1362,12 @@ mod tests {
         let manager = CpuMemoryManager::new();
 
         // Test memory queries
-        let total = manager.total_memory().unwrap();
-        let available = manager.available_memory().unwrap();
+        let total = manager
+            .total_memory()
+            .expect("total memory query should succeed");
+        let available = manager
+            .available_memory()
+            .expect("available memory query should succeed");
 
         assert!(total > 0);
         assert!(available > 0);
@@ -1371,7 +1379,9 @@ mod tests {
         let mut manager = CpuMemoryManager::new();
 
         // Test prefetch operations (should be no-ops for CPU)
-        let ptr = manager.allocate_raw(64, 8).unwrap();
+        let ptr = manager
+            .allocate_raw(64, 8)
+            .expect("raw memory allocation should succeed");
 
         assert!(manager.prefetch_to_device(ptr, 64).is_ok());
         assert!(manager.prefetch_to_host(ptr, 64).is_ok());
@@ -1385,7 +1395,9 @@ mod tests {
         assert!(manager.synchronize().is_ok());
 
         // Cleanup
-        manager.deallocate_raw(ptr, 64).unwrap();
+        manager
+            .deallocate_raw(ptr, 64)
+            .expect("raw memory deallocation should succeed");
     }
 
     #[test]
@@ -1409,7 +1421,7 @@ mod tests {
         let manager = factory.create_manager(&device);
         assert!(manager.is_ok());
 
-        let manager = manager.unwrap();
+        let manager = manager.expect("operation should succeed");
         assert!(manager.supports_unified_memory());
     }
 }

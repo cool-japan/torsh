@@ -105,6 +105,7 @@ pub mod fft;
 pub mod scirs2_backend;
 pub mod scirs2_stats_integration;
 pub mod shape_inference_debugger;
+pub mod simd_ops_f32;
 pub mod sparse;
 pub mod stats;
 pub mod tensor_comprehension;

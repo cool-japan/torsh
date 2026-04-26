@@ -196,15 +196,21 @@ mod tests {
         let mut profiler = CpuProfiler::new();
         assert!(!profiler.is_enabled());
 
-        profiler.start().unwrap();
+        profiler.start().expect("start operation should succeed");
         assert!(profiler.is_enabled());
 
-        let event_id = profiler.begin_event("test_event").unwrap();
-        profiler.end_event(event_id).unwrap();
+        let event_id = profiler
+            .begin_event("test_event")
+            .expect("event begin should succeed");
+        profiler
+            .end_event(event_id)
+            .expect("event end should succeed");
 
-        profiler.marker("test_marker").unwrap();
+        profiler
+            .marker("test_marker")
+            .expect("marker operation should succeed");
 
-        profiler.stop().unwrap();
+        profiler.stop().expect("stop should succeed");
         assert!(!profiler.is_enabled());
 
         let report = profiler.report();
@@ -217,11 +223,17 @@ mod tests {
         let mut profiler = CpuProfiler::new();
 
         // Operations should be no-ops when disabled
-        let event_id = profiler.begin_event("test").unwrap();
+        let event_id = profiler
+            .begin_event("test")
+            .expect("event begin should succeed");
         assert_eq!(event_id.0, 0);
 
-        profiler.end_event(event_id).unwrap();
-        profiler.marker("test_marker").unwrap();
+        profiler
+            .end_event(event_id)
+            .expect("event end should succeed");
+        profiler
+            .marker("test_marker")
+            .expect("marker operation should succeed");
 
         let report = profiler.report();
         assert!(!report.contains("test"));
@@ -230,9 +242,11 @@ mod tests {
     #[test]
     fn test_cpu_profiler_clear() {
         let mut profiler = CpuProfiler::new();
-        profiler.start().unwrap();
+        profiler.start().expect("start operation should succeed");
 
-        profiler.begin_event("test").unwrap();
+        profiler
+            .begin_event("test")
+            .expect("event begin should succeed");
         profiler.clear();
 
         let report = profiler.report();

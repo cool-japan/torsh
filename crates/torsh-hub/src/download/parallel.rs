@@ -611,25 +611,46 @@ pub fn download_github_repo(
 /// Extract a tar.gz archive
 ///
 /// This internal function handles the extraction of tar.gz archives using
-/// the flate2 and tar crates for decompression and archive extraction.
+/// the oxiarc-deflate and oxiarc-archive crates for decompression and archive extraction.
 fn extract_tarball(archive_path: &Path, dest_dir: &Path) -> Result<()> {
-    use flate2::read::GzDecoder;
-    use tar::Archive;
+    use oxiarc_archive::TarStreamReader;
+    use oxiarc_core::EntryType;
+    use oxiarc_deflate::GzipStreamDecoder;
+    use std::io;
 
     let file = std::fs::File::open(archive_path)?;
-    let gz = GzDecoder::new(file);
-    let mut archive = Archive::new(gz);
+    let decoder = GzipStreamDecoder::new(file);
+    let mut stream = TarStreamReader::new(decoder);
 
-    // Create parent directory
+    let base_dir = dest_dir.parent().unwrap_or_else(|| Path::new("."));
     if let Some(parent) = dest_dir.parent() {
         fs::create_dir_all(parent)?;
     }
 
-    // Extract files
-    archive
-        .unpack(dest_dir.parent().unwrap_or_else(|| Path::new(".")))
-        .map_err(|e| TorshError::IoError(e.to_string()))?;
-
+    while let Some(mut entry) = stream
+        .next_entry()
+        .map_err(|e| TorshError::IoError(format!("Failed to read tar entry: {}", e)))?
+    {
+        let dest = base_dir.join(&entry.header.name);
+        match entry.header.entry_type() {
+            EntryType::Directory => {
+                fs::create_dir_all(&dest)
+                    .map_err(|e| TorshError::IoError(format!("Failed to create dir: {}", e)))?;
+            }
+            EntryType::File => {
+                if let Some(parent) = dest.parent() {
+                    fs::create_dir_all(parent).map_err(|e| {
+                        TorshError::IoError(format!("Failed to create parent dir: {}", e))
+                    })?;
+                }
+                let mut out = std::fs::File::create(&dest)
+                    .map_err(|e| TorshError::IoError(format!("Failed to create file: {}", e)))?;
+                io::copy(&mut entry, &mut out)
+                    .map_err(|e| TorshError::IoError(format!("Failed to write file: {}", e)))?;
+            }
+            _ => {}
+        }
+    }
     Ok(())
 }
 
@@ -665,13 +686,13 @@ mod tests {
         let config = ParallelDownloadConfig::default();
         let results = download_files_parallel(downloads, config, false)
             .await
-            .unwrap();
+            .expect("operation should succeed");
         assert!(results.is_empty());
     }
 
     #[tokio::test]
     async fn test_streaming_download_url_validation() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("Temp Dir should succeed");
         let dest_path = temp_dir.path().join("test.txt");
         let config = ParallelDownloadConfig::default();
 
@@ -690,7 +711,7 @@ mod tests {
     #[test]
     fn test_cdn_endpoint_sorting() {
         let config = CdnConfig::default();
-        let manager = CdnManager::new(config).unwrap();
+        let manager = CdnManager::new(config).expect("Cdn Manager should succeed");
 
         let endpoints = manager.get_available_endpoints();
         assert_eq!(endpoints.len(), 2);
@@ -702,7 +723,7 @@ mod tests {
     #[test]
     fn test_cdn_statistics() {
         let config = CdnConfig::default();
-        let manager = CdnManager::new(config).unwrap();
+        let manager = CdnManager::new(config).expect("Cdn Manager should succeed");
 
         let stats = manager.get_statistics();
         assert_eq!(stats.total_endpoints, 2);

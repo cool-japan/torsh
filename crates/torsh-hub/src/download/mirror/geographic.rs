@@ -510,14 +510,16 @@ mod tests {
     #[test]
     fn test_geographic_midpoint() {
         let locations = vec![(40.0, -74.0), (41.0, -73.0)];
-        let midpoint = calculate_geographic_midpoint(&locations).unwrap();
+        let midpoint = calculate_geographic_midpoint(&locations)
+            .expect("calculate geographic midpoint should succeed");
         assert_eq!(midpoint, (40.5, -73.5));
     }
 
     #[test]
     fn test_bounding_box_calculation() {
         let coordinates = vec![(40.0, -74.0), (41.0, -73.0)];
-        let bbox = calculate_bounding_box(&coordinates, 10.0).unwrap();
+        let bbox = calculate_bounding_box(&coordinates, 10.0)
+            .expect("calculate bounding box should succeed");
 
         // Should expand beyond the original coordinates
         assert!(bbox.0 < 40.0); // min_lat

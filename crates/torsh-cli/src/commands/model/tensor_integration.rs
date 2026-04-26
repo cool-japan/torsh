@@ -340,7 +340,7 @@ mod tests {
     fn test_model_tensor_creation() {
         let tensor =
             ModelTensor::new_random("test".to_string(), vec![10, 20], true, DeviceType::Cpu)
-                .unwrap();
+                .expect("operation should succeed");
 
         assert_eq!(tensor.shape(), vec![10, 20]);
         assert_eq!(tensor.numel(), 200);
@@ -349,7 +349,8 @@ mod tests {
 
     #[test]
     fn test_real_model_creation() {
-        let model = create_real_model("test_model", 3, DeviceType::Cpu).unwrap();
+        let model = create_real_model("test_model", 3, DeviceType::Cpu)
+            .expect("create real model should succeed");
 
         assert_eq!(model.layers.len(), 3);
         assert!(model.weights.len() >= 6); // At least 3 layers * 2 (weight + bias)
@@ -357,10 +358,10 @@ mod tests {
 
     #[test]
     fn test_tensor_serialization() {
-        let tensor =
-            ModelTensor::new_random("test".to_string(), vec![5, 5], true, DeviceType::Cpu).unwrap();
+        let tensor = ModelTensor::new_random("test".to_string(), vec![5, 5], true, DeviceType::Cpu)
+            .expect("operation should succeed");
 
-        let bytes = tensor.to_bytes().unwrap();
+        let bytes = tensor.to_bytes().expect("byte conversion should succeed");
         assert_eq!(bytes.len(), 25 * 4); // 25 elements * 4 bytes per f32
 
         let reconstructed = ModelTensor::from_bytes(
@@ -370,14 +371,14 @@ mod tests {
             true,
             DeviceType::Cpu,
         )
-        .unwrap();
+        .expect("operation should succeed");
 
         assert_eq!(reconstructed.shape(), tensor.shape());
     }
 
     #[test]
     fn test_xavier_initialization() {
-        let tensor = xavier_init(100, 50, DeviceType::Cpu).unwrap();
+        let tensor = xavier_init(100, 50, DeviceType::Cpu).expect("xavier init should succeed");
         assert_eq!(tensor.shape().dims(), &[50, 100]);
     }
 

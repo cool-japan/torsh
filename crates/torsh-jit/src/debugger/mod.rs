@@ -638,7 +638,9 @@ mod tests {
         let mut debugger = create_debugger();
 
         let location = BreakpointLocation::GraphNode(crate::NodeId::new(0));
-        let bp_id = debugger.set_breakpoint(location).unwrap();
+        let bp_id = debugger
+            .set_breakpoint(location)
+            .expect("breakpoint setting should succeed");
 
         assert_eq!(debugger.breakpoints().count(), 1);
         assert!(debugger.remove_breakpoint(bp_id).is_ok());
@@ -649,7 +651,9 @@ mod tests {
     fn test_watch_management() {
         let mut debugger = create_debugger();
 
-        let watch_id = debugger.add_watch("test_expression".to_string()).unwrap();
+        let watch_id = debugger
+            .add_watch("test_expression".to_string())
+            .expect("operation should succeed");
         assert_eq!(debugger.watch_manager().count(), 1);
 
         assert!(debugger.remove_watch(watch_id).is_ok());

@@ -458,11 +458,11 @@ mod tests {
     #[test]
     fn test_multimodal_architecture_from_str() {
         assert_eq!(
-            MultimodalArchitecture::from_str("clip").unwrap(),
+            MultimodalArchitecture::from_str("clip").expect("Multimodal Architecture should succeed"),
             MultimodalArchitecture::CLIP
         );
         assert_eq!(
-            MultimodalArchitecture::from_str("ALIGN").unwrap(),
+            MultimodalArchitecture::from_str("ALIGN").expect("Multimodal Architecture should succeed"),
             MultimodalArchitecture::ALIGN
         );
         assert!(MultimodalArchitecture::from_str("invalid").is_err());
@@ -489,7 +489,7 @@ mod tests {
         assert_eq!(gelu.as_str(), "gelu");
 
         assert_eq!(
-            ActivationType::from_str("quick_gelu").unwrap(),
+            ActivationType::from_str("quick_gelu").expect("Activation Type should succeed"),
             ActivationType::QuickGELU
         );
         assert!(ActivationType::from_str("invalid").is_err());
