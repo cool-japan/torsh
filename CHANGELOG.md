@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.2] - 2026-04-24
+## [0.1.2] - 2026-04-26
 
 ### Added
 - `simd_ops_f32` module: zero-allocation SIMD f32 arithmetic helpers (`add_into_f32`, `sub_into_f32`, `mul_into_f32`, `div_into_f32`, `add_assign_f32`, `sub_assign_f32`, `mul_assign_f32`, `div_assign_f32`) backed by `scirs2_core::simd_ops::SimdUnifiedOps` (AVX2/NEON with scalar fallback)

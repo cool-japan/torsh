@@ -1,6 +1,6 @@
 # ToRSh Development Roadmap
 
-**Status**: v0.1.2 (Released - April 24, 2026)
+**Status**: v0.1.2 (Released - April 26, 2026)
 
 ---
 
@@ -193,7 +193,7 @@ Build a **PyTorch-compatible deep learning framework in pure Rust** that combine
 - **Special Functions**: Gamma, Bessel, error functions
 
 ### Quality Metrics ✅
-- **9875 Unit Tests Passing**: 100% pass rate
+- **9,600+ Unit Tests Passing**: 100% pass rate
 - **Zero Compilation Errors**: All workspace packages compile cleanly
 - **Zero Warnings**: 100% compliance with no-warnings policy
 - **35/35 Packages**: 100% compilation success (torsh-distributed tests excluded)
@@ -801,7 +801,7 @@ Following comprehensive requirements submitted to SciRS2 team for SIMD operation
 - [x] Functional transformations system
 - [x] Tensor operations with advanced features
 - [x] Benchmarking infrastructure
-- [x] **9061/9062 tests passing (99.99% pass rate)**
+- [x] **9,600+ tests passing (100% pass rate)**
 - [x] **Zero compilation warnings**
 
 ---

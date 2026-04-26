@@ -341,7 +341,7 @@ cargo bench --package torsh-benches -- advanced_optimizers
 
 ### Roadmap
 
-**v0.1.2 (Current)** - *2026-04-24* — SIMD performance release: real AVX2/NEON dispatch for f32 arithmetic and activations, true buffer pool reuse (100% alloc reduction proven by dhat benchmark), criterion regression framework, streaming TAR extraction in torsh-hub, simd+parallel enabled by default
+**v0.1.2 (Current)** - *2026-04-26* — SIMD performance release: real AVX2/NEON dispatch for f32 arithmetic and activations, true buffer pool reuse (100% alloc reduction proven by dhat benchmark), criterion regression framework, streaming TAR extraction in torsh-hub, simd+parallel enabled by default
 
 **v0.1.1** - *Initial Release*
 - ✅ Core tensor operations with PyTorch API compatibility
@@ -516,7 +516,7 @@ make format    # Code formatting
 make audit     # Security audit
 ```
 
-**Test Coverage**: 9,800+ tests across all modules.
+**Test Coverage**: 9,600+ tests across all modules.
 
 ## 📈 Performance Benchmarks
 
@@ -560,7 +560,7 @@ make docs     # Build documentation
 
 ### Getting Started
 
-- ✅ Core functionality is stable and tested (9,800+ tests passing)
+- ✅ Core functionality is stable and tested (9,600+ tests passing)
 - ✅ APIs are stabilized for core crates
 - ⚠️ Some advanced features are still under active development
 - ✅ Comprehensive documentation available

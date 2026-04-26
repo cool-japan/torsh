@@ -26,7 +26,7 @@ maturin develop
 maturin develop --release
 ```
 
-#### From PyPI (Coming Soon)
+#### From PyPI (v0.1.2 pending publication)
 
 ```bash
 pip install RsTorch
@@ -325,4 +325,4 @@ Licensed under the Apache License, Version 2.0. See [LICENSE](../../LICENSE) for
 
 ---
 
-**Status**: 🚧 Active Development | **Version**: 0.1.2 | **Last Updated**: 2026-04-24
+**Status**: Active Development | **Version**: 0.1.2 | **Last Updated**: 2026-04-26

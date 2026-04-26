@@ -122,7 +122,7 @@ No special build flags are needed on supported targets; the feature-detection is
 
 ## Recent Changes
 
-### v0.1.2 — 2026-04-20
+### v0.1.2 — 2026-04-26
 
 - Added `simd_ops_f32` module with zero-allocation SIMD f32 arithmetic and activations (PyTorch NaN semantics).
 - Wired real SIMD dispatch into `Tensor::add`/`sub`/`mul`/`div` for f32 tensors ≥ 1024 elements (AVX2/NEON via scirs2_core).
