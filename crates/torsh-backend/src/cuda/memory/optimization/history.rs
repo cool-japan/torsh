@@ -7,6 +7,7 @@
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
+use chrono;
 
 // Import types from config module
 use super::config::{HistoryStorageConfig, TrendAnalysisConfig};
@@ -124,9 +125,48 @@ impl HistoryPerformanceTracker {
 #[derive(Debug, Default)]
 pub struct ArchivalCandidates {}
 
-/// History query (stub implementation)
+/// History query with optional time range, limit, and strategy filters
 #[derive(Debug, Clone, Default)]
-pub struct HistoryQuery {}
+pub struct HistoryQuery {
+    /// Inclusive start of the time range to query
+    pub time_range_start: Option<chrono::DateTime<chrono::Utc>>,
+    /// Inclusive end of the time range to query
+    pub time_range_end: Option<chrono::DateTime<chrono::Utc>>,
+    /// Maximum number of records to return
+    pub limit: Option<usize>,
+    /// Filter by strategy name
+    pub strategy: Option<String>,
+}
+
+impl HistoryQuery {
+    /// Create a new, empty query (returns all records up to the default limit)
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Restrict results to records whose timestamp falls within `[start, end]`
+    pub fn with_time_range(
+        mut self,
+        start: chrono::DateTime<chrono::Utc>,
+        end: chrono::DateTime<chrono::Utc>,
+    ) -> Self {
+        self.time_range_start = Some(start);
+        self.time_range_end = Some(end);
+        self
+    }
+
+    /// Cap the number of records returned
+    pub fn with_limit(mut self, limit: usize) -> Self {
+        self.limit = Some(limit);
+        self
+    }
+
+    /// Filter records to a specific strategy name
+    pub fn with_strategy(mut self, strategy: impl Into<String>) -> Self {
+        self.strategy = Some(strategy.into());
+        self
+    }
+}
 
 /// History query result (stub implementation)
 #[derive(Debug, Clone, Default)]

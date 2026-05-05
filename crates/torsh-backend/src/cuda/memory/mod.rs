@@ -114,11 +114,10 @@ pub use statistics::{
     SystemHealthMetrics, TrendAnalysis,
 };
 
-// TODO: optimization module temporarily disabled due to extensive API refactoring needed
-// pub use optimization::{
-//     CudaMemoryOptimizationEngine, MLOptimizationConfig, MultiObjectiveResult, OptimizationResult,
-//     OptimizationStrategy, PerformanceTarget,
-// };
+pub use optimization::{
+    CudaMemoryOptimizationEngine, MLOptimizationConfig, MultiObjectiveResult, OptimizationResult,
+    OptimizationStrategy, PerformanceTarget,
+};
 
 // TODO: manager module temporarily disabled due to extensive API compatibility refactoring needed
 // pub use manager::{
@@ -133,8 +132,7 @@ pub mod device_memory;
 // TODO: manager module temporarily disabled due to extensive API compatibility refactoring needed
 // pub mod manager;
 pub mod memory_pools;
-// TODO: optimization module temporarily disabled due to extensive API refactoring needed
-// pub mod optimization;
+pub mod optimization;
 pub mod pinned_memory;
 #[allow(unused_imports)]
 pub mod statistics;
@@ -144,76 +142,6 @@ pub mod unified_memory;
 pub type MemoryResult<T> = Result<T, String>;
 pub type AllocationHandle = Box<dyn CudaMemoryAllocation>;
 
-// Placeholder types for disabled optimization module
-/// Placeholder for optimization result (optimization module disabled)
-#[derive(Debug, Clone, Default)]
-pub struct OptimizationResult {
-    pub success: bool,
-    pub message: String,
-}
-
-/// Placeholder for ML optimization config (optimization module disabled)
-#[derive(Debug, Clone, Default)]
-pub struct MLOptimizationConfig {
-    pub enabled: bool,
-}
-
-/// Placeholder for optimization strategy (optimization module disabled)
-#[derive(Debug, Clone, Default)]
-pub struct OptimizationStrategy {
-    pub name: String,
-}
-
-/// Placeholder for performance target (optimization module disabled)
-#[derive(Debug, Clone, Default)]
-pub struct PerformanceTarget {
-    pub target: f64,
-}
-
-/// Placeholder for multi-objective result (optimization module disabled)
-#[derive(Debug, Clone, Default)]
-pub struct MultiObjectiveResult {
-    pub success: bool,
-}
-
-/// Placeholder for memory optimization engine (optimization module disabled)
-pub struct CudaMemoryOptimizationEngine {
-    _placeholder: (),
-}
-
-impl CudaMemoryOptimizationEngine {
-    pub fn new(_config: MLOptimizationConfig) -> Self {
-        Self { _placeholder: () }
-    }
-
-    pub fn optimize(&self, _strategy: &OptimizationStrategy) -> OptimizationResult {
-        OptimizationResult {
-            success: false,
-            message: "Optimization module disabled".to_string(),
-        }
-    }
-
-    pub fn run_iteration(&self) -> OptimizationResult {
-        OptimizationResult {
-            success: false,
-            message: "Optimization module disabled".to_string(),
-        }
-    }
-
-    pub fn shutdown(&self) -> OptimizationResult {
-        OptimizationResult {
-            success: true,
-            message: "Shutdown complete".to_string(),
-        }
-    }
-
-    pub fn get_status(&self) -> OptimizationResult {
-        OptimizationResult {
-            success: true,
-            message: "Optimization module disabled".to_string(),
-        }
-    }
-}
 
 // ============== Manager Module Placeholders ==============
 // TODO: manager module temporarily disabled due to extensive API compatibility refactoring needed
@@ -551,10 +479,7 @@ pub fn get_system_health() -> MemoryResult<SystemHealthStatus> {
 /// Trigger manual memory optimization
 /// TODO: Manager module disabled - returns stub
 pub fn optimize_memory_layout() -> MemoryResult<OptimizationResult> {
-    Ok(OptimizationResult {
-        success: false,
-        message: "Manager module disabled".to_string(),
-    })
+    Ok(OptimizationResult::default())
 }
 
 /// Perform system maintenance
