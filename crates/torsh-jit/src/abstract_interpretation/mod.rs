@@ -89,6 +89,9 @@
 pub mod domains;
 pub mod framework;
 
+#[cfg(test)]
+mod framework_tests;
+
 // Advanced modules (to be implemented based on need)
 // pub mod analysis_engines;
 // pub mod graph_representation;

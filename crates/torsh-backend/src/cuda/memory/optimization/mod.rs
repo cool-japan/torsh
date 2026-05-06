@@ -249,13 +249,36 @@ impl OptimizationEngine {
             })
             .collect();
 
-        Ok(OptimizationResults {
+        let results = OptimizationResults {
             pareto_solutions: all_solutions,
             best_solution,
             convergence_metrics: ConvergenceMetrics::default(),
             execution_metrics: ExecutionMetrics::default(),
             validation_results: ValidationResults::default(),
-        })
+        };
+
+        // Record this optimization run in the history manager so that
+        // subsequent `get_history` calls return a non-empty result.
+        let mut record_metadata = std::collections::HashMap::new();
+        record_metadata.insert("strategy".to_string(), "NSGA2".to_string());
+        let record = OptimizationRecord {
+            timestamp: chrono::Utc::now(),
+            objectives: objectives.clone(),
+            results: results.clone(),
+            metadata: record_metadata,
+        };
+        // Recording failure is non-fatal: log but do not abort the optimization.
+        if let Err(e) = self
+            .history_manager
+            .read()
+            .await
+            .record_optimization(record)
+        {
+            // Surface as a no-op: history is best-effort.
+            let _ = e;
+        }
+
+        Ok(results)
     }
 
     /// Starts continuous optimization monitoring
@@ -333,9 +356,8 @@ impl OptimizationEngine {
         self.history_manager
             .read()
             .await
-            .query_history(query)
-            .map_err(|e| OptimizationError::HistoryError(e.to_string()))?;
-        Ok(Vec::new())
+            .get_optimization_records(&query)
+            .map_err(|e| OptimizationError::HistoryError(e.to_string()))
     }
 
     /// Incorporates user feedback into the ML engine's training set

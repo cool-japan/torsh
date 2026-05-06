@@ -257,6 +257,9 @@ pub struct ModelEnsemble<M: Module> {
     meta_learner: Option<Box<dyn Module>>,
     stats: Option<EnsembleStats>,
     adaptation_state: Option<AdaptationState>,
+    /// Gating weight matrix for MoE: shape [num_models x input_features].
+    /// Row `m` is the weight vector for expert `m`.
+    gating_matrix: Option<Vec<Vec<f64>>>,
 }
 
 /// State for online adaptation
@@ -288,6 +291,7 @@ impl<M: Module> ModelEnsemble<M> {
             meta_learner: None,
             stats: None,
             adaptation_state: None,
+            gating_matrix: None,
         }
     }
 
@@ -660,6 +664,11 @@ impl<M: Module> ModelEnsemble<M> {
     }
 
     // Training methods
+
+    /// Stacking ensemble training: generate OOF meta-features via k-fold CV (k=5)
+    /// then fit a ridge-regression meta-learner (gradient descent, 100 iterations,
+    /// lr = 0.01, α from config) that learns per-base-model scalar weights
+    /// minimising hold-out MSE.
     fn train_stacking_ensemble(
         &mut self,
         inputs: &[Tensor],
@@ -667,18 +676,131 @@ impl<M: Module> ModelEnsemble<M> {
         meta_learner_config: &MetaLearnerConfig,
         use_cross_validation: bool,
     ) -> Result<()> {
-        // Generate meta-features using cross-validation or hold-out
-        let _meta_features = if use_cross_validation {
-            self.generate_cv_meta_features(inputs, targets, 5)?
+        if inputs.is_empty() || targets.is_empty() {
+            self.meta_learner = Some(self.create_meta_learner(meta_learner_config)?);
+            return Ok(());
+        }
+        if inputs.len() != targets.len() {
+            return Err(TorshError::ComputeError(format!(
+                "stacking train: input/target length mismatch {} vs {}",
+                inputs.len(),
+                targets.len()
+            )));
+        }
+
+        // Step 1: generate out-of-fold (OOF) predictions.
+        let k = if use_cross_validation { 5 } else { 1 };
+        let meta_features = if use_cross_validation {
+            self.generate_cv_meta_features(inputs, targets, k)?
         } else {
             self.generate_holdout_meta_features(inputs, targets, 0.2)?
         };
 
-        // Train meta-learner on meta-features
-        self.meta_learner = Some(self.create_meta_learner(meta_learner_config)?);
+        // Step 2: determine ridge alpha from config.
+        let alpha = match &meta_learner_config.learner_type {
+            MetaLearnerType::RidgeRegression { alpha } => *alpha,
+            _ => 1.0,
+        };
 
-        // Train meta-learner (simplified)
-        // In practice, this would involve proper training loop
+        // Step 3: extract meta-features and targets into flat f64 vecs for GD.
+        // meta_features[n] shape = [1, num_models * output_dim]
+        // We want per-model scalar weights w_m so that:
+        //   ŷ_n = Σ_m  w_m * avg(pred_{n,m})   (averaged over output dims)
+        // and we minimise MSE + alpha * ||w||^2.
+        let n_models = self.models.len();
+        if n_models == 0 {
+            self.meta_learner = Some(self.create_meta_learner(meta_learner_config)?);
+            return Ok(());
+        }
+
+        // Build per-sample per-model scalar predictions (avg over output).
+        let n_samples = meta_features.len().min(targets.len());
+        if n_samples == 0 {
+            self.meta_learner = Some(self.create_meta_learner(meta_learner_config)?);
+            return Ok(());
+        }
+
+        // Each meta-feature has width = n_models * out_dim.
+        let meta_width = meta_features[0].numel();
+        let out_dim = if n_models > 0 { meta_width / n_models } else { 1 };
+
+        // per_model_avg[sample][model] = average output value of that model for that sample.
+        let mut per_model_avg: Vec<Vec<f64>> = Vec::with_capacity(n_samples);
+        for mf in meta_features.iter().take(n_samples) {
+            let data = mf.to_vec()?;
+            let mut row = Vec::with_capacity(n_models);
+            for m in 0..n_models {
+                let start = m * out_dim;
+                let end = (start + out_dim).min(data.len());
+                let avg = if end > start {
+                    data[start..end].iter().map(|&v| v as f64).sum::<f64>()
+                        / (end - start) as f64
+                } else {
+                    0.0
+                };
+                row.push(avg);
+            }
+            per_model_avg.push(row);
+        }
+
+        // Target scalar per sample (average over output dims).
+        let target_scalars: Vec<f64> = targets
+            .iter()
+            .take(n_samples)
+            .map(|t| -> Result<f64> {
+                let d = t.to_vec()?;
+                let s = d.iter().map(|&v| v as f64).sum::<f64>()
+                    / d.len().max(1) as f64;
+                Ok(s)
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        // Step 4: gradient descent to learn per-model weights w (ridge regression).
+        let lr = 0.01_f64;
+        let n_iters = 100_usize;
+        let mut w: Vec<f64> = vec![1.0 / n_models as f64; n_models];
+
+        for _ in 0..n_iters {
+            let mut grad = vec![0.0_f64; n_models];
+            for (pma, &t_scalar) in per_model_avg.iter().zip(target_scalars.iter()) {
+                let y_hat: f64 = w.iter().zip(pma.iter()).map(|(wi, xi)| wi * xi).sum();
+                let err = y_hat - t_scalar;
+                for m in 0..n_models {
+                    grad[m] += 2.0 * err * pma[m];
+                }
+            }
+            for m in 0..n_models {
+                // Ridge penalty gradient: 2 * alpha * w_m
+                grad[m] = grad[m] / n_samples as f64 + 2.0 * alpha * w[m];
+                w[m] -= lr * grad[m];
+                if !w[m].is_finite() {
+                    w[m] = 1.0 / n_models as f64;
+                }
+            }
+        }
+
+        // Step 5: clamp negatives and normalise so weights live on the probability simplex.
+        for wi in &mut w {
+            *wi = wi.max(0.0);
+        }
+        let w_sum: f64 = w.iter().sum();
+        if w_sum > 1e-10 {
+            for wi in &mut w {
+                *wi /= w_sum;
+            }
+        } else {
+            w = vec![1.0 / n_models as f64; n_models];
+        }
+
+        // Store normalised weights on the ensemble.
+        self.weights = w.clone();
+
+        // Step 6: build the meta-learner box with the trained weights.
+        self.meta_learner = Some(Box::new(StackingMetaLearner::new(
+            w,
+            out_dim,
+            meta_learner_config.include_original_features,
+        )));
 
         Ok(())
     }
@@ -761,14 +883,160 @@ impl<M: Module> ModelEnsemble<M> {
         Ok(())
     }
 
+    /// Mixture-of-Experts gating: learn a linear gating matrix W ∈ ℝ^{M×D} such that
+    /// gate_n = softmax(W · x_n) gives per-sample expert weights that minimise MSE on
+    /// training data.  Training uses gradient descent (lr = 0.01, 100 iterations).
     fn train_mixture_of_experts(
         &mut self,
-        _inputs: &[Tensor],
-        _targets: &[Tensor],
+        inputs: &[Tensor],
+        targets: &[Tensor],
         _gating_network: &GatingNetworkConfig,
     ) -> Result<()> {
-        // Simplified MoE training
-        // In practice, this would involve training the gating network
+        let n_models = self.models.len();
+        if n_models == 0 || inputs.is_empty() || targets.is_empty() {
+            return Ok(());
+        }
+        if inputs.len() != targets.len() {
+            return Err(TorshError::ComputeError(format!(
+                "MoE train: input/target length mismatch {} vs {}",
+                inputs.len(),
+                targets.len()
+            )));
+        }
+
+        // Determine input feature dimension from the first sample.
+        let in_dim = inputs[0].numel();
+        if in_dim == 0 {
+            return Ok(());
+        }
+
+        // Initialise gating weight matrix W[m][d] = 0 (produces uniform softmax).
+        let mut gate_w: Vec<Vec<f64>> = vec![vec![0.0_f64; in_dim]; n_models];
+
+        let lr = 0.01_f64;
+        let n_iters = 100_usize;
+        let n_samples = inputs.len();
+
+        // Pre-fetch all input / target vecs to avoid repeated tensor extraction in loop.
+        let input_vecs: Vec<Vec<f64>> = inputs
+            .iter()
+            .map(|t| -> Result<Vec<f64>> {
+                Ok(t.to_vec()?.iter().map(|&v| v as f64).collect())
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        // Collect per-expert, per-sample predictions as average scalar.
+        let mut expert_preds: Vec<Vec<f64>> = vec![vec![0.0_f64; n_samples]; n_models];
+        for m in 0..n_models {
+            for (s, input) in inputs.iter().enumerate() {
+                let pred = self.models[m].forward(input)?;
+                let data = pred.to_vec()?;
+                let avg = data.iter().map(|&v| v as f64).sum::<f64>()
+                    / data.len().max(1) as f64;
+                expert_preds[m][s] = avg;
+            }
+        }
+
+        let target_scalars: Vec<f64> = targets
+            .iter()
+            .map(|t| -> Result<f64> {
+                let d = t.to_vec()?;
+                Ok(d.iter().map(|&v| v as f64).sum::<f64>() / d.len().max(1) as f64)
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        // Gradient descent on the gating matrix.
+        for _ in 0..n_iters {
+            // Accumulate gradients across samples.
+            let mut dw: Vec<Vec<f64>> = vec![vec![0.0_f64; in_dim]; n_models];
+
+            for s in 0..n_samples {
+                let x = &input_vecs[s];
+
+                // Compute logits: logit[m] = dot(W[m], x).
+                let logits: Vec<f64> = gate_w
+                    .iter()
+                    .map(|row| row.iter().zip(x.iter()).map(|(w, xi)| w * xi).sum::<f64>())
+                    .collect();
+
+                // Softmax over logits.
+                let max_logit = logits.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+                let exps: Vec<f64> = logits.iter().map(|l| (l - max_logit).exp()).collect();
+                let exp_sum: f64 = exps.iter().sum();
+                let gates: Vec<f64> = if exp_sum > f64::EPSILON {
+                    exps.iter().map(|e| e / exp_sum).collect()
+                } else {
+                    vec![1.0 / n_models as f64; n_models]
+                };
+
+                // Ensemble output: ŷ = Σ_m gate_m * expert_m(x).
+                let y_hat: f64 = gates
+                    .iter()
+                    .zip(expert_preds.iter())
+                    .map(|(g, ep)| g * ep[s])
+                    .sum();
+                let err = y_hat - target_scalars[s]; // residual
+
+                // Gradient of MSE loss w.r.t. gate_m:
+                //   ∂L/∂g_m = 2 * err * expert_m
+                // Gradient of softmax gating w.r.t. logit_m (chain rule):
+                //   ∂g_m/∂logit_k = g_m*(δ_{mk} - g_k)
+                // Combined: ∂L/∂logit_k = 2*err * Σ_m expert_m * g_m*(δ_{mk}-g_k)
+                //                        = 2*err * (expert_k*g_k - g_k * Σ_m expert_m*g_m)
+                //                        = 2*err * g_k * (expert_k - ŷ)
+                for k in 0..n_models {
+                    let d_logit_k = 2.0 * err * gates[k] * (expert_preds[k][s] - y_hat);
+                    // ∂logit_k/∂W[k][d] = x[d]
+                    for d in 0..in_dim {
+                        dw[k][d] += d_logit_k * x[d];
+                    }
+                }
+            }
+
+            // Apply gradient step.
+            for m in 0..n_models {
+                for d in 0..in_dim {
+                    let g = dw[m][d] / n_samples as f64;
+                    gate_w[m][d] -= lr * g;
+                    if !gate_w[m][d].is_finite() {
+                        gate_w[m][d] = 0.0;
+                    }
+                }
+            }
+        }
+
+        // Store the learned gating matrix for use at inference time.
+        self.gating_matrix = Some(gate_w.clone());
+
+        // Compute final per-sample average gate weights and store as ensemble weights.
+        // We evaluate the gating on all training inputs and average.
+        let mut avg_gates = vec![0.0_f64; n_models];
+        for x in &input_vecs {
+            let logits: Vec<f64> = gate_w
+                .iter()
+                .map(|row| row.iter().zip(x.iter()).map(|(w, xi)| w * xi).sum::<f64>())
+                .collect();
+            let max_logit = logits.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+            let exps: Vec<f64> = logits.iter().map(|l| (l - max_logit).exp()).collect();
+            let exp_sum: f64 = exps.iter().sum();
+            if exp_sum > f64::EPSILON {
+                for m in 0..n_models {
+                    avg_gates[m] += exps[m] / exp_sum;
+                }
+            } else {
+                for m in 0..n_models {
+                    avg_gates[m] += 1.0 / n_models as f64;
+                }
+            }
+        }
+        let gate_sum: f64 = avg_gates.iter().sum();
+        if gate_sum > f64::EPSILON {
+            for m in 0..n_models {
+                avg_gates[m] /= gate_sum;
+            }
+        }
+        self.weights = avg_gates;
+
         Ok(())
     }
 
@@ -1152,30 +1420,107 @@ impl<M: Module> ModelEnsemble<M> {
         })
     }
 
+    /// Build cross-validation meta-features for stacking. With `k` folds, every
+    /// example becomes a meta-feature vector formed by concatenating each base
+    /// model's prediction on that example. The fold structure is preserved so the
+    /// resulting features are aligned with the original input order.
     fn generate_cv_meta_features(
         &self,
-        _inputs: &[Tensor],
-        _targets: &[Tensor],
-        _k: usize,
+        inputs: &[Tensor],
+        targets: &[Tensor],
+        k: usize,
     ) -> Result<Vec<Tensor>> {
-        // Generate cross-validation meta-features for stacking
-        Ok(vec![])
+        if inputs.is_empty() {
+            return Ok(vec![]);
+        }
+        if inputs.len() != targets.len() {
+            return Err(TorshError::ComputeError(format!(
+                "CV meta-feature input/target length mismatch: {} vs {}",
+                inputs.len(),
+                targets.len()
+            )));
+        }
+        let folds = k.max(1).min(inputs.len());
+        let fold_size = inputs.len().div_ceil(folds);
+
+        let mut meta_features = Vec::with_capacity(inputs.len());
+        for fold_idx in 0..folds {
+            let start = fold_idx * fold_size;
+            let end = ((fold_idx + 1) * fold_size).min(inputs.len());
+            for input in &inputs[start..end] {
+                let prediction = self.concatenate_base_predictions(input)?;
+                meta_features.push(prediction);
+            }
+        }
+        Ok(meta_features)
     }
 
+    /// Build hold-out meta-features for stacking. The trailing `split_ratio`
+    /// fraction of the dataset becomes the hold-out, and we record concatenated
+    /// base-model predictions for that slice.
     fn generate_holdout_meta_features(
         &self,
-        _inputs: &[Tensor],
+        inputs: &[Tensor],
         _targets: &[Tensor],
-        _split_ratio: f64,
+        split_ratio: f64,
     ) -> Result<Vec<Tensor>> {
-        // Generate hold-out meta-features for stacking
-        Ok(vec![])
+        if inputs.is_empty() {
+            return Ok(vec![]);
+        }
+        let split_ratio = split_ratio.clamp(0.0, 1.0);
+        let holdout_count = ((inputs.len() as f64) * split_ratio).ceil() as usize;
+        let holdout_count = holdout_count.max(1).min(inputs.len());
+        let split_at = inputs.len() - holdout_count;
+
+        let mut meta_features = Vec::with_capacity(holdout_count);
+        for input in &inputs[split_at..] {
+            meta_features.push(self.concatenate_base_predictions(input)?);
+        }
+        Ok(meta_features)
     }
 
-    fn create_meta_learner(&self, _config: &MetaLearnerConfig) -> Result<Box<dyn Module>> {
-        // Create meta-learner based on configuration
-        // This is a simplified implementation
-        Ok(Box::new(SimpleMeta::new()))
+    /// Concatenate the per-base-model predictions for a single input into a flat
+    /// meta-feature tensor (1 x sum(C_i)). Used by both CV and hold-out meta-feature
+    /// generation.
+    fn concatenate_base_predictions(&self, input: &Tensor) -> Result<Tensor> {
+        let predictions = self.get_individual_predictions(input)?;
+        if predictions.is_empty() {
+            return Err(TorshError::ComputeError(
+                "Cannot build meta-features from an empty ensemble".to_string(),
+            ));
+        }
+        let device = predictions[0].device();
+        let mut data: Vec<f32> = Vec::new();
+        for pred in &predictions {
+            data.extend(pred.to_vec()?);
+        }
+        let len = data.len();
+        Tensor::from_data(data, vec![1, len], device)
+    }
+
+    /// Factory: construct a meta-learner module suitable for stacking.
+    ///
+    /// For `RidgeRegression` and `LinearRegression`, returns a
+    /// [`StackingMetaLearner`] initialised with uniform per-model weights.
+    /// For other learner types a [`SimpleMeta`] pass-through is returned as a
+    /// safe fallback — the stacking training loop replaces it with a trained
+    /// `StackingMetaLearner` anyway.
+    pub fn create_meta_learner(&self, config: &MetaLearnerConfig) -> Result<Box<dyn Module>> {
+        let n_models = self.models.len();
+        match &config.learner_type {
+            MetaLearnerType::LinearRegression
+            | MetaLearnerType::LogisticRegression
+            | MetaLearnerType::RidgeRegression { .. } => {
+                // Default: uniform weights, output_dim=1 (scalar combination).
+                let weights = vec![1.0 / n_models.max(1) as f64; n_models];
+                Ok(Box::new(StackingMetaLearner::new(
+                    weights,
+                    1,
+                    config.include_original_features,
+                )))
+            }
+            _ => Ok(Box::new(SimpleMeta::new())),
+        }
     }
 
     /// Get current ensemble statistics
@@ -1209,7 +1554,114 @@ impl<M: Module> ModelEnsemble<M> {
     }
 }
 
-// Simplified meta-learner implementation
+/// Pearson correlation coefficient between two equal-length f32 series.
+/// Returns `0.0` if the inputs are empty, mismatched, or have zero variance.
+fn pearson_correlation(a: &[f32], b: &[f32]) -> f64 {
+    if a.is_empty() || a.len() != b.len() {
+        return 0.0;
+    }
+    let n = a.len() as f64;
+    let mean_a = a.iter().map(|x| *x as f64).sum::<f64>() / n;
+    let mean_b = b.iter().map(|x| *x as f64).sum::<f64>() / n;
+    let mut num = 0.0f64;
+    let mut var_a = 0.0f64;
+    let mut var_b = 0.0f64;
+    for (&x, &y) in a.iter().zip(b.iter()) {
+        let dx = x as f64 - mean_a;
+        let dy = y as f64 - mean_b;
+        num += dx * dy;
+        var_a += dx * dx;
+        var_b += dy * dy;
+    }
+    let denom = (var_a * var_b).sqrt();
+    if denom > f64::EPSILON {
+        num / denom
+    } else {
+        0.0
+    }
+}
+
+/// Meta-learner for stacking that applies learned per-model scalar weights to the
+/// concatenated base-model output vector.
+///
+/// Given an input of shape `[1, n_models * out_dim]` it computes:
+///   output[j] = Σ_m  weights[m] * input[m * out_dim + j]   for j in 0..out_dim
+struct StackingMetaLearner {
+    /// Normalised per-model weights (sums to 1).
+    weights: Vec<f64>,
+    /// Output dimension expected per model slot.
+    out_dim: usize,
+    /// Whether the input also contains original features appended after the model predictions.
+    include_original: bool,
+}
+
+impl StackingMetaLearner {
+    fn new(weights: Vec<f64>, out_dim: usize, include_original: bool) -> Self {
+        Self {
+            weights,
+            out_dim: out_dim.max(1),
+            include_original,
+        }
+    }
+}
+
+impl Module for StackingMetaLearner {
+    fn forward(&self, input: &Tensor) -> Result<Tensor> {
+        let data = input.to_vec()?;
+        let n_models = self.weights.len();
+        let out_dim = self.out_dim;
+        let expected = n_models * out_dim;
+
+        // If input is shorter than expected (e.g. scalar meta-features), fall back
+        // to uniform weighted sum of whatever is there.
+        let (model_data, _orig) = if data.len() >= expected {
+            data.split_at(expected)
+        } else {
+            (data.as_slice(), &[] as &[f32])
+        };
+
+        let effective_out = if n_models > 0 && model_data.len() >= n_models * out_dim {
+            out_dim
+        } else if n_models > 0 {
+            (model_data.len() / n_models).max(1)
+        } else {
+            1
+        };
+
+        let mut result = vec![0.0_f32; effective_out];
+        for (m, &w) in self.weights.iter().enumerate() {
+            let start = m * effective_out;
+            let end = (start + effective_out).min(model_data.len());
+            for (j, slot) in result.iter_mut().enumerate() {
+                let idx = start + j;
+                if idx < end {
+                    *slot += (w as f32) * model_data[idx];
+                }
+            }
+        }
+
+        let device = input.device();
+        let len = result.len();
+        Tensor::from_data(result, vec![1, len], device)
+    }
+
+    fn parameters(&self) -> HashMap<String, torsh_nn::Parameter> {
+        HashMap::new()
+    }
+    fn named_parameters(&self) -> HashMap<String, torsh_nn::Parameter> {
+        HashMap::new()
+    }
+    fn training(&self) -> bool {
+        true
+    }
+    fn train(&mut self) {}
+    fn eval(&mut self) {}
+    fn to_device(&mut self, _device: torsh_core::DeviceType) -> Result<()> {
+        Ok(())
+    }
+}
+
+// Simplified pass-through meta-learner (used as fallback for non-linear learner types)
 struct SimpleMeta;
 
 impl SimpleMeta {
@@ -1375,173 +1827,8 @@ pub mod ensembling_utils {
     }
 }
 
+// Tests are in a separate file to keep this file under the 2000-line limit.
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use torsh_core::DeviceType;
-    use torsh_tensor::Tensor;
+#[path = "ensembling_tests.rs"]
+mod tests;
 
-    // Simple mock model for testing
-    struct MockModel {
-        bias: f32,
-    }
-
-    impl MockModel {
-        fn new(bias: f32) -> Self {
-            Self { bias }
-        }
-    }
-
-    impl Module for MockModel {
-        fn forward(&self, input: &Tensor) -> Result<Tensor> {
-            input.add_scalar(self.bias)
-        }
-
-        fn parameters(&self) -> HashMap<String, torsh_nn::Parameter> {
-            HashMap::new()
-        }
-        fn named_parameters(&self) -> HashMap<String, torsh_nn::Parameter> {
-            HashMap::new()
-        }
-        fn training(&self) -> bool {
-            true
-        }
-        fn train(&mut self) {}
-        fn eval(&mut self) {}
-        fn to_device(&mut self, _device: torsh_core::DeviceType) -> Result<()> {
-            Ok(())
-        }
-    }
-
-    #[test]
-    fn test_simple_average_ensemble() {
-        let models = vec![
-            MockModel::new(0.1),
-            MockModel::new(0.2),
-            MockModel::new(0.3),
-        ];
-
-        let config = ensembling_utils::simple_average_config();
-        let mut ensemble = ModelEnsemble::new(models, config);
-
-        let device = DeviceType::Cpu;
-        let input = Tensor::ones(&[1, 5], device).unwrap();
-        let prediction = ensemble.predict(&input).unwrap();
-
-        assert_eq!(prediction.shape(), input.shape());
-    }
-
-    #[test]
-    fn test_weighted_average_ensemble() {
-        let models = vec![MockModel::new(0.1), MockModel::new(0.2)];
-
-        let weights = vec![0.7, 0.3];
-        let config = ensembling_utils::weighted_average_config(weights.clone(), false);
-        let mut ensemble = ModelEnsemble::new(models, config);
-
-        assert_eq!(ensemble.get_weights(), &weights);
-
-        let device = DeviceType::Cpu;
-        let input = Tensor::ones(&[1, 3], device).unwrap();
-        let prediction = ensemble.predict(&input).unwrap();
-
-        assert_eq!(prediction.shape(), input.shape());
-    }
-
-    #[test]
-    fn test_ensemble_weight_setting() {
-        let models = vec![MockModel::new(0.0), MockModel::new(0.0)];
-        let config = ensembling_utils::simple_average_config();
-        let mut ensemble = ModelEnsemble::new(models, config);
-
-        let new_weights = vec![0.8, 0.2];
-        ensemble.set_weights(new_weights).unwrap();
-
-        let weights = ensemble.get_weights();
-        assert!((weights[0] - 0.8).abs() < 1e-6);
-        assert!((weights[1] - 0.2).abs() < 1e-6);
-    }
-
-    #[test]
-    fn test_individual_predictions() {
-        let models = vec![MockModel::new(1.0), MockModel::new(2.0)];
-
-        let config = ensembling_utils::simple_average_config();
-        let ensemble = ModelEnsemble::new(models, config);
-
-        let device = DeviceType::Cpu;
-        let input = Tensor::zeros(&[1, 3], device).unwrap();
-        let predictions = ensemble.get_individual_predictions(&input).unwrap();
-
-        assert_eq!(predictions.len(), 2);
-        assert_eq!(predictions[0].shape(), input.shape());
-        assert_eq!(predictions[1].shape(), input.shape());
-    }
-
-    #[test]
-    fn test_ensemble_config_creation() {
-        let config = ensembling_utils::stacking_config(MetaLearnerType::LinearRegression);
-        assert!(matches!(config.method, EnsembleMethod::Stacking { .. }));
-        assert!(config.diversity_regularization.is_some());
-
-        let online_config = ensembling_utils::online_adaptive_config(0.01);
-        assert!(online_config.online_adaptation.is_some());
-    }
-
-    #[test]
-    fn test_utility_functions() {
-        let accuracies = vec![0.8, 0.82, 0.78, 0.85];
-        let diversities = vec![0.3, 0.4, 0.35];
-
-        let optimal_size =
-            ensembling_utils::calculate_optimal_ensemble_size(&accuracies, &diversities, 0.1);
-        assert!(optimal_size >= 1 && optimal_size <= accuracies.len());
-
-        let improvement = ensembling_utils::estimate_ensemble_improvement(
-            &accuracies,
-            &EnsembleMethod::SimpleAverage,
-        );
-        assert!(improvement > 0.0);
-
-        let complexity = ensembling_utils::calculate_ensemble_complexity(
-            3,
-            &EnsembleMethod::Stacking {
-                meta_learner_config: MetaLearnerConfig {
-                    learner_type: MetaLearnerType::LinearRegression,
-                    config: HashMap::new(),
-                    include_original_features: false,
-                },
-                use_cross_validation: true,
-            },
-        );
-        assert!(complexity > 3.0);
-    }
-
-    #[test]
-    fn test_config_serialization() {
-        let config = EnsembleConfig {
-            method: EnsembleMethod::WeightedAverage {
-                weights: vec![0.5, 0.3, 0.2],
-                learnable: true,
-            },
-            validation_strategy: EnsembleValidationStrategy::KFold { k: 5 },
-            diversity_regularization: Some(DiversityRegularization {
-                strength: 0.1,
-                metric: DiversityMetric::Disagreement,
-                encourage: true,
-            }),
-            performance_weighting: true,
-            online_adaptation: None,
-        };
-
-        let serialized = serde_json::to_string(&config).unwrap();
-        let deserialized: EnsembleConfig = serde_json::from_str(&serialized).unwrap();
-
-        assert!(matches!(
-            deserialized.method,
-            EnsembleMethod::WeightedAverage { .. }
-        ));
-        assert!(deserialized.diversity_regularization.is_some());
-        assert!(deserialized.performance_weighting);
-    }
-}

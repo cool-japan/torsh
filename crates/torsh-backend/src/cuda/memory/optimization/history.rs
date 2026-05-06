@@ -168,9 +168,12 @@ impl HistoryQuery {
     }
 }
 
-/// History query result (stub implementation)
+/// History query result
 #[derive(Debug, Clone, Default)]
-pub struct HistoryQueryResult {}
+pub struct HistoryQueryResult {
+    /// Flat list of optimization records returned by the query
+    pub records: Vec<crate::cuda::memory::optimization::OptimizationRecord>,
+}
 
 /// Trend analysis result (stub implementation)
 #[derive(Debug, Clone, Default)]
@@ -473,6 +476,8 @@ pub struct OptimizationHistoryManager {
     visualization_system: HistoryVisualizationSystem,
     /// Performance impact tracker
     performance_tracker: HistoryPerformanceTracker,
+    /// In-memory store for high-level optimization records
+    optimization_records: Arc<RwLock<Vec<crate::cuda::memory::optimization::OptimizationRecord>>>,
 }
 
 /// Core optimization history storage
@@ -818,7 +823,60 @@ impl OptimizationHistoryManager {
                 config.visualization_config.clone(),
             ),
             performance_tracker: HistoryPerformanceTracker::new(config.performance_config.clone()),
+            optimization_records: Arc::new(RwLock::new(Vec::new())),
         }
+    }
+
+    /// Record a completed optimization run for future retrieval via `get_history`
+    pub fn record_optimization(
+        &self,
+        record: crate::cuda::memory::optimization::OptimizationRecord,
+    ) -> Result<(), HistoryError> {
+        self.optimization_records
+            .write()
+            .map_err(|_| HistoryError::LockError)?
+            .push(record);
+        Ok(())
+    }
+
+    /// Return stored optimization records filtered by the given query
+    pub fn get_optimization_records(
+        &self,
+        query: &HistoryQuery,
+    ) -> Result<Vec<crate::cuda::memory::optimization::OptimizationRecord>, HistoryError> {
+        let records = self
+            .optimization_records
+            .read()
+            .map_err(|_| HistoryError::LockError)?;
+
+        let iter = records.iter().filter(|r| {
+            if let Some(start) = query.time_range_start {
+                if r.timestamp < start {
+                    return false;
+                }
+            }
+            if let Some(end) = query.time_range_end {
+                if r.timestamp > end {
+                    return false;
+                }
+            }
+            if let Some(ref strategy) = query.strategy {
+                match r.metadata.get("strategy") {
+                    Some(s) if s == strategy => {}
+                    _ => return false,
+                }
+            }
+            true
+        });
+
+        let mut result: Vec<crate::cuda::memory::optimization::OptimizationRecord> =
+            iter.cloned().collect();
+
+        if let Some(limit) = query.limit {
+            result.truncate(limit);
+        }
+
+        Ok(result)
     }
 
     /// Initialize the history management system
