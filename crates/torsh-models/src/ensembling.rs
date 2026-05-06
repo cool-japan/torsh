@@ -433,48 +433,124 @@ impl<M: Module> ModelEnsemble<M> {
 
     fn majority_voting_prediction(&self, input: &Tensor) -> Result<Tensor> {
         let predictions = self.get_individual_predictions(input)?;
-
-        // For classification: find mode of predictions
-        // This is a simplified implementation
-        let mut vote_counts = HashMap::new();
-
-        for prediction in &predictions {
-            let argmax = self.argmax(prediction)?;
-            *vote_counts.entry(argmax).or_insert(0) += 1;
+        if predictions.is_empty() {
+            return Err(TorshError::ComputeError(
+                "Cannot perform majority voting on an empty ensemble".to_string(),
+            ));
         }
 
-        let _majority_class = vote_counts
-            .into_iter()
-            .max_by_key(|(_, count)| *count)
-            .map(|(class, _)| class)
-            .unwrap_or(0);
+        // Per-row argmax. The trailing dimension is treated as the class axis.
+        let dims = predictions[0].shape().dims().to_vec();
+        let num_classes = *dims.last().unwrap_or(&1);
+        let num_rows = if num_classes == 0 {
+            0
+        } else {
+            predictions[0].numel() / num_classes
+        };
 
-        // Create one-hot tensor
-        let result = Tensor::zeros(predictions[0].shape().dims(), predictions[0].device())?;
-        // Set the majority class to 1 (simplified implementation)
-        Ok(result)
+        // Collect argmax index per row, per model.
+        let mut per_model_rows: Vec<Vec<usize>> = Vec::with_capacity(predictions.len());
+        for prediction in &predictions {
+            let data = prediction.to_vec()?;
+            let mut row_argmaxes = Vec::with_capacity(num_rows);
+            for row in 0..num_rows {
+                let start = row * num_classes;
+                let end = start + num_classes;
+                let (best_idx, _) = data[start..end]
+                    .iter()
+                    .enumerate()
+                    .max_by(|(_, a), (_, b)| {
+                        a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
+                    })
+                    .unwrap_or((0, &0.0));
+                row_argmaxes.push(best_idx);
+            }
+            per_model_rows.push(row_argmaxes);
+        }
+
+        // For each row, take the mode across models.
+        let mut output = vec![0.0f32; num_rows * num_classes];
+        for row in 0..num_rows {
+            let mut counts: HashMap<usize, usize> = HashMap::new();
+            for model_rows in &per_model_rows {
+                *counts.entry(model_rows[row]).or_insert(0) += 1;
+            }
+            let majority = counts
+                .into_iter()
+                .max_by_key(|(_, count)| *count)
+                .map(|(class, _)| class)
+                .unwrap_or(0);
+            if majority < num_classes {
+                output[row * num_classes + majority] = 1.0;
+            }
+        }
+
+        Tensor::from_data(output, dims, predictions[0].device())
     }
 
     fn weighted_voting_prediction(&self, input: &Tensor, weights: &[f64]) -> Result<Tensor> {
         let predictions = self.get_individual_predictions(input)?;
-        let mut weighted_votes = HashMap::new();
-
-        for (prediction, &weight) in predictions.iter().zip(weights) {
-            let argmax = self.argmax(prediction)?;
-            *weighted_votes.entry(argmax).or_insert(0.0) += weight;
+        if predictions.is_empty() {
+            return Err(TorshError::ComputeError(
+                "Cannot perform weighted voting on an empty ensemble".to_string(),
+            ));
+        }
+        if weights.len() != predictions.len() {
+            return Err(TorshError::ComputeError(format!(
+                "Voting weights length {} does not match number of base models {}",
+                weights.len(),
+                predictions.len()
+            )));
         }
 
-        let _weighted_majority = weighted_votes
-            .into_iter()
-            .max_by(|(_, a), (_, b)| {
-                a.partial_cmp(b)
-                    .expect("weighted votes should be comparable")
-            })
-            .map(|(class, _)| class)
-            .unwrap_or(0);
+        let dims = predictions[0].shape().dims().to_vec();
+        let num_classes = *dims.last().unwrap_or(&1);
+        let num_rows = if num_classes == 0 {
+            0
+        } else {
+            predictions[0].numel() / num_classes
+        };
 
-        // Create result tensor (simplified)
-        Tensor::zeros(predictions[0].shape().dims(), predictions[0].device())
+        // Per-row argmax for each model.
+        let mut per_model_rows: Vec<Vec<usize>> = Vec::with_capacity(predictions.len());
+        for prediction in &predictions {
+            let data = prediction.to_vec()?;
+            let mut row_argmaxes = Vec::with_capacity(num_rows);
+            for row in 0..num_rows {
+                let start = row * num_classes;
+                let end = start + num_classes;
+                let (best_idx, _) = data[start..end]
+                    .iter()
+                    .enumerate()
+                    .max_by(|(_, a), (_, b)| {
+                        a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
+                    })
+                    .unwrap_or((0, &0.0));
+                row_argmaxes.push(best_idx);
+            }
+            per_model_rows.push(row_argmaxes);
+        }
+
+        // Weighted vote per row. The class with the largest accumulated weight wins.
+        let mut output = vec![0.0f32; num_rows * num_classes];
+        for row in 0..num_rows {
+            let mut weighted_votes: HashMap<usize, f64> = HashMap::new();
+            for (model_rows, &weight) in per_model_rows.iter().zip(weights.iter()) {
+                *weighted_votes.entry(model_rows[row]).or_insert(0.0) += weight;
+            }
+            let majority = weighted_votes
+                .into_iter()
+                .max_by(|(_, a), (_, b)| {
+                    a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
+                })
+                .map(|(class, _)| class)
+                .unwrap_or(0);
+            if majority < num_classes {
+                output[row * num_classes + majority] = 1.0;
+            }
+        }
+
+        Tensor::from_data(output, dims, predictions[0].device())
     }
 
     fn stacking_prediction(&self, input: &Tensor) -> Result<Tensor> {
@@ -636,13 +712,52 @@ impl<M: Module> ModelEnsemble<M> {
 
     fn train_dynamic_selection(
         &mut self,
-        _inputs: &[Tensor],
-        _targets: &[Tensor],
+        inputs: &[Tensor],
+        targets: &[Tensor],
         _selection_method: &SelectionMethod,
-        _validation_split: f64,
+        validation_split: f64,
     ) -> Result<()> {
-        // Simplified dynamic selection training
-        // In practice, this would involve training selection criteria
+        if inputs.is_empty() || targets.is_empty() {
+            return Ok(());
+        }
+        if inputs.len() != targets.len() {
+            return Err(TorshError::ComputeError(format!(
+                "Input/target length mismatch: {} vs {}",
+                inputs.len(),
+                targets.len()
+            )));
+        }
+
+        // Take the trailing fraction of the dataset as the validation split.
+        let split_ratio = validation_split.clamp(0.0, 1.0);
+        let val_count = ((inputs.len() as f64) * split_ratio).ceil() as usize;
+        let val_count = val_count.max(1).min(inputs.len());
+        let split_at = inputs.len() - val_count;
+
+        // Per-model performance: accumulated negative MSE over the validation slice.
+        let mut performances = vec![0.0f64; self.models.len()];
+        for (input, target) in inputs[split_at..].iter().zip(targets[split_at..].iter()) {
+            for (i, model) in self.models.iter().enumerate() {
+                let prediction = model.forward(input)?;
+                let loss = self.calculate_loss(&prediction, target)?;
+                performances[i] += -loss;
+            }
+        }
+
+        // Convert validation scores into normalized weights so the dynamic selector
+        // has a meaningful preference signal.
+        let min_score = performances
+            .iter()
+            .cloned()
+            .fold(f64::INFINITY, f64::min);
+        let shifted: Vec<f64> = performances
+            .iter()
+            .map(|&p| p - min_score + 1e-8)
+            .collect();
+        let weight_sum: f64 = shifted.iter().sum();
+        if weight_sum > 0.0 {
+            self.weights = shifted.iter().map(|&w| w / weight_sum).collect();
+        }
         Ok(())
     }
 
@@ -716,57 +831,325 @@ impl<M: Module> ModelEnsemble<M> {
 
     fn online_weight_update(
         &mut self,
-        _input: &Tensor,
-        _target: &Tensor,
+        input: &Tensor,
+        target: &Tensor,
         _prediction: &Tensor,
         adaptation_config: &OnlineAdaptationConfig,
     ) -> Result<()> {
-        if let Some(state) = &mut self.adaptation_state {
-            // Simplified online weight update
-            // In practice, this would involve more sophisticated adaptation algorithms
+        // Compute per-model losses up front so we can borrow `self` immutably here
+        // before mutating `self.weights` / `self.adaptation_state` below.
+        let mut per_model_losses = Vec::with_capacity(self.models.len());
+        for model in &self.models {
+            let prediction = model.forward(input)?;
+            let loss = self.calculate_loss(&prediction, target)?;
+            per_model_losses.push(loss);
+        }
 
+        let lr = adaptation_config.learning_rate;
+        let forgetting = adaptation_config.forgetting_factor;
+        let min_weight = adaptation_config.min_weight;
+
+        // Convert per-model losses into reward signals: lower loss => larger reward.
+        let max_loss = per_model_losses
+            .iter()
+            .cloned()
+            .fold(0.0f64, f64::max);
+        let rewards: Vec<f64> = per_model_losses
+            .iter()
+            .map(|&loss| (max_loss - loss).max(0.0))
+            .collect();
+        let reward_sum: f64 = rewards.iter().sum();
+        let normalized_rewards: Vec<f64> = if reward_sum > 0.0 {
+            rewards.iter().map(|r| r / reward_sum).collect()
+        } else {
+            // All models tied: use uniform reward to avoid division by zero.
+            vec![1.0 / self.models.len() as f64; self.models.len()]
+        };
+
+        if let Some(state) = &mut self.adaptation_state {
             state.step_count += 1;
 
-            // Apply forgetting factor
-            for weight in &mut self.weights {
-                *weight *= adaptation_config.forgetting_factor;
+            // Track rolling per-model performance history (bounded window).
+            for (i, &loss) in per_model_losses.iter().enumerate() {
+                if i < state.performance_history.len() {
+                    state.performance_history[i].push(loss);
+                    let window = adaptation_config.window_size.max(1);
+                    let history = &mut state.performance_history[i];
+                    if history.len() > window {
+                        let drop = history.len() - window;
+                        history.drain(0..drop);
+                    }
+                }
             }
 
-            // Normalize weights
-            let weight_sum: f64 = self.weights.iter().sum();
+            // Update weights using a momentum-style EMA combining the previous weight,
+            // the forgetting factor, and the gradient towards the per-step reward target.
+            for (i, weight) in self.weights.iter_mut().enumerate() {
+                let target_weight = normalized_rewards[i];
+                let momentum = state.momentum.get_mut(i);
+                let delta = lr * (target_weight - *weight);
+                if let Some(m) = momentum {
+                    *m = forgetting * *m + delta;
+                    *weight += *m;
+                } else {
+                    *weight += delta;
+                }
+                if !weight.is_finite() {
+                    *weight = min_weight.max(0.0);
+                }
+            }
+        } else {
+            // No adaptation state yet — fall back to a simple convex combination.
+            for (weight, &target_weight) in
+                self.weights.iter_mut().zip(normalized_rewards.iter())
+            {
+                *weight = forgetting * *weight + (1.0 - forgetting) * target_weight;
+            }
+        }
+
+        // Clamp to the floor and renormalise so weights stay a probability simplex.
+        for weight in &mut self.weights {
+            *weight = weight.max(min_weight).max(0.0);
+        }
+        let weight_sum: f64 = self.weights.iter().sum();
+        if weight_sum > 0.0 {
             for weight in &mut self.weights {
                 *weight /= weight_sum;
-                *weight = weight.max(adaptation_config.min_weight);
             }
         }
 
         Ok(())
     }
 
-    // Diversity calculation methods
-    fn calculate_disagreement(&self, _all_predictions: &[Vec<Tensor>]) -> Result<f64> {
-        // Simplified disagreement calculation
-        Ok(0.5)
+    // ----- Diversity calculation helpers -----
+
+    /// Helper: collapse a (sample, model) prediction grid into per-(sample, model)
+    /// flat-argmax class labels. Returns `None` if the grid is empty or jagged.
+    fn predictions_to_labels(
+        &self,
+        all_predictions: &[Vec<Tensor>],
+    ) -> Result<Option<Vec<Vec<usize>>>> {
+        if all_predictions.is_empty() {
+            return Ok(None);
+        }
+        let num_models = all_predictions[0].len();
+        if num_models == 0 {
+            return Ok(None);
+        }
+
+        let mut labels: Vec<Vec<usize>> = Vec::with_capacity(all_predictions.len());
+        for sample_preds in all_predictions {
+            if sample_preds.len() != num_models {
+                return Err(TorshError::ComputeError(
+                    "Inconsistent number of model predictions across samples".to_string(),
+                ));
+            }
+            let mut row = Vec::with_capacity(num_models);
+            for prediction in sample_preds {
+                row.push(self.argmax(prediction)?);
+            }
+            labels.push(row);
+        }
+        Ok(Some(labels))
     }
 
-    fn calculate_correlation(&self, _all_predictions: &[Vec<Tensor>]) -> Result<f64> {
-        // Simplified correlation calculation
-        Ok(0.3)
+    /// Pairwise disagreement: average over all model pairs and samples of the indicator
+    /// that the two models predict different classes. Bounded in `[0.0, 1.0]`.
+    fn calculate_disagreement(&self, all_predictions: &[Vec<Tensor>]) -> Result<f64> {
+        let labels = match self.predictions_to_labels(all_predictions)? {
+            Some(l) => l,
+            None => return Ok(0.0),
+        };
+        let num_models = labels[0].len();
+        if num_models < 2 {
+            return Ok(0.0);
+        }
+
+        let pair_count = num_models * (num_models - 1) / 2;
+        let mut disagreement = 0.0;
+        for row in &labels {
+            for i in 0..num_models {
+                for j in (i + 1)..num_models {
+                    if row[i] != row[j] {
+                        disagreement += 1.0;
+                    }
+                }
+            }
+        }
+        let total = labels.len() as f64 * pair_count as f64;
+        Ok(if total > 0.0 { disagreement / total } else { 0.0 })
     }
 
-    fn calculate_entropy(&self, _all_predictions: &[Vec<Tensor>]) -> Result<f64> {
-        // Simplified entropy calculation
-        Ok(0.8)
+    /// Average Pearson correlation of raw output vectors across model pairs.
+    fn calculate_correlation(&self, all_predictions: &[Vec<Tensor>]) -> Result<f64> {
+        if all_predictions.is_empty() {
+            return Ok(0.0);
+        }
+        let num_models = all_predictions[0].len();
+        if num_models < 2 {
+            return Ok(0.0);
+        }
+
+        // Stack each model's outputs across all samples into a single flat vector.
+        let mut model_vectors: Vec<Vec<f32>> = vec![Vec::new(); num_models];
+        for sample_preds in all_predictions {
+            for (idx, prediction) in sample_preds.iter().enumerate() {
+                let data = prediction.to_vec()?;
+                model_vectors[idx].extend_from_slice(&data);
+            }
+        }
+
+        let mut total = 0.0f64;
+        let mut count = 0usize;
+        for i in 0..num_models {
+            for j in (i + 1)..num_models {
+                let r = pearson_correlation(&model_vectors[i], &model_vectors[j]);
+                total += r;
+                count += 1;
+            }
+        }
+        Ok(if count > 0 { total / count as f64 } else { 0.0 })
     }
 
-    fn calculate_q_statistic(&self, _all_predictions: &[Vec<Tensor>]) -> Result<f64> {
-        // Simplified Q-statistic calculation
-        Ok(0.2)
+    /// Per-sample classification entropy averaged over the dataset (Cunningham &
+    /// Carney definition): `-(p*log p + (1-p)*log(1-p))` averaged over samples,
+    /// where `p` is the fraction of models that pick the modal class.
+    fn calculate_entropy(&self, all_predictions: &[Vec<Tensor>]) -> Result<f64> {
+        let labels = match self.predictions_to_labels(all_predictions)? {
+            Some(l) => l,
+            None => return Ok(0.0),
+        };
+        let num_models = labels[0].len();
+        if num_models == 0 {
+            return Ok(0.0);
+        }
+        let mut total = 0.0f64;
+        for row in &labels {
+            let mut counts: HashMap<usize, usize> = HashMap::new();
+            for &lbl in row {
+                *counts.entry(lbl).or_insert(0) += 1;
+            }
+            let modal = counts.values().copied().max().unwrap_or(0) as f64;
+            let p = modal / num_models as f64;
+            let q = 1.0 - p;
+            let term = if p > 0.0 && q > 0.0 {
+                -(p * p.ln() + q * q.ln())
+            } else {
+                0.0
+            };
+            total += term;
+        }
+        Ok(total / labels.len() as f64)
     }
 
-    fn calculate_kappa_statistic(&self, _all_predictions: &[Vec<Tensor>]) -> Result<f64> {
-        // Simplified Kappa statistic calculation
-        Ok(0.6)
+    /// Yule's Q-statistic averaged over model pairs. Requires binary correctness,
+    /// which we approximate by comparing each model's argmax to the overall majority
+    /// vote. `Q = (N11*N00 - N01*N10) / (N11*N00 + N01*N10)`, range `[-1, 1]`.
+    fn calculate_q_statistic(&self, all_predictions: &[Vec<Tensor>]) -> Result<f64> {
+        let labels = match self.predictions_to_labels(all_predictions)? {
+            Some(l) => l,
+            None => return Ok(0.0),
+        };
+        let num_models = labels[0].len();
+        if num_models < 2 {
+            return Ok(0.0);
+        }
+
+        // Treat the per-sample majority vote as ground truth and convert each
+        // model's prediction into a 0/1 correctness indicator.
+        let mut correct: Vec<Vec<u8>> = Vec::with_capacity(labels.len());
+        for row in &labels {
+            let mut counts: HashMap<usize, usize> = HashMap::new();
+            for &lbl in row {
+                *counts.entry(lbl).or_insert(0) += 1;
+            }
+            let majority = counts
+                .into_iter()
+                .max_by_key(|(_, count)| *count)
+                .map(|(class, _)| class)
+                .unwrap_or(0);
+            correct.push(row.iter().map(|&l| (l == majority) as u8).collect());
+        }
+
+        let mut total_q = 0.0f64;
+        let mut pair_count = 0usize;
+        for i in 0..num_models {
+            for j in (i + 1)..num_models {
+                let mut n11 = 0.0f64;
+                let mut n10 = 0.0f64;
+                let mut n01 = 0.0f64;
+                let mut n00 = 0.0f64;
+                for row in &correct {
+                    match (row[i], row[j]) {
+                        (1, 1) => n11 += 1.0,
+                        (1, 0) => n10 += 1.0,
+                        (0, 1) => n01 += 1.0,
+                        _ => n00 += 1.0,
+                    }
+                }
+                let numerator = n11 * n00 - n01 * n10;
+                let denominator = n11 * n00 + n01 * n10;
+                if denominator.abs() > f64::EPSILON {
+                    total_q += numerator / denominator;
+                    pair_count += 1;
+                }
+            }
+        }
+        Ok(if pair_count > 0 {
+            total_q / pair_count as f64
+        } else {
+            0.0
+        })
+    }
+
+    /// Average Cohen's kappa across model pairs (label agreement corrected for
+    /// chance). Returns 0 when no agreement signal is available.
+    fn calculate_kappa_statistic(&self, all_predictions: &[Vec<Tensor>]) -> Result<f64> {
+        let labels = match self.predictions_to_labels(all_predictions)? {
+            Some(l) => l,
+            None => return Ok(0.0),
+        };
+        let num_models = labels[0].len();
+        if num_models < 2 || labels.is_empty() {
+            return Ok(0.0);
+        }
+
+        let n = labels.len() as f64;
+        let mut total_kappa = 0.0f64;
+        let mut pair_count = 0usize;
+        for i in 0..num_models {
+            for j in (i + 1)..num_models {
+                let mut po = 0.0f64;
+                let mut counts_i: HashMap<usize, f64> = HashMap::new();
+                let mut counts_j: HashMap<usize, f64> = HashMap::new();
+                for row in &labels {
+                    if row[i] == row[j] {
+                        po += 1.0;
+                    }
+                    *counts_i.entry(row[i]).or_insert(0.0) += 1.0;
+                    *counts_j.entry(row[j]).or_insert(0.0) += 1.0;
+                }
+                po /= n;
+                let mut pe = 0.0f64;
+                for (cls, ci) in &counts_i {
+                    if let Some(cj) = counts_j.get(cls) {
+                        pe += (ci / n) * (cj / n);
+                    }
+                }
+                let kappa = if (1.0 - pe).abs() > f64::EPSILON {
+                    (po - pe) / (1.0 - pe)
+                } else {
+                    0.0
+                };
+                total_kappa += kappa;
+                pair_count += 1;
+            }
+        }
+        Ok(if pair_count > 0 {
+            total_kappa / pair_count as f64
+        } else {
+            0.0
+        })
     }
 
     fn generate_cv_meta_features(
