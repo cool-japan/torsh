@@ -8,8 +8,6 @@ use std::time::{Duration, SystemTime};
 
 use super::functions::ConfigValidator;
 
-use std::collections::{HashMap, VecDeque};
-
 #[derive(Debug, Clone)]
 pub struct SLAConfig;
 #[derive(Debug, Clone)]

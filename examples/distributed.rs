@@ -78,7 +78,7 @@ impl ProcessGroup {
 
     /// All-reduce operation for gradient synchronization
     fn all_reduce(&self, tensor: &mut Tensor) -> Result<(), Box<dyn Error>> {
-        let comm = self.communicator.lock().unwrap();
+        let comm = self.communicator.lock().unwrap_or_else(|e| e.into_inner());
         comm.all_reduce(tensor, "sum")?;
 
         // Average gradients across all processes
@@ -88,14 +88,14 @@ impl ProcessGroup {
 
     /// Broadcast tensor from source rank to all others
     fn broadcast(&self, tensor: &mut Tensor, src_rank: usize) -> Result<(), Box<dyn Error>> {
-        let comm = self.communicator.lock().unwrap();
+        let comm = self.communicator.lock().unwrap_or_else(|e| e.into_inner());
         comm.broadcast(tensor, src_rank)?;
         Ok(())
     }
 
     /// Barrier synchronization
     fn barrier(&self) -> Result<(), Box<dyn Error>> {
-        let comm = self.communicator.lock().unwrap();
+        let comm = self.communicator.lock().unwrap_or_else(|e| e.into_inner());
         comm.barrier()?;
         Ok(())
     }

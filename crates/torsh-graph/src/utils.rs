@@ -733,7 +733,7 @@ pub mod memory_efficient {
         /// Convert to dense edge_index format
         pub fn to_edge_index(&self) -> Tensor {
             if self.edge_list.is_empty() {
-                return zeros(&[2, 0]).unwrap();
+                return zeros(&[2, 0]).expect("zeros([2,0]) shape is valid");
             }
 
             let mut edge_vec = Vec::with_capacity(2 * self.num_edges);
@@ -745,7 +745,8 @@ pub mod memory_efficient {
                 edge_vec.push(dst as i64);
             }
 
-            from_vec(edge_vec, &[2, self.num_edges], DeviceType::Cpu).unwrap()
+            from_vec(edge_vec, &[2, self.num_edges], DeviceType::Cpu)
+                .expect("edge_vec length matches [2, num_edges]")
         }
 
         /// Get memory footprint in bytes
@@ -864,7 +865,7 @@ pub mod memory_efficient {
             // Extract node features for this chunk
             let chunk_features = graph.x
                 .slice_tensor(0, chunk_start as i64, chunk_end as i64)
-                .unwrap();
+                .expect("chunk bounds are within graph node range");
 
             let chunk_graph = GraphData::new(chunk_features, chunk_edge_index);
             results.push(processor(&chunk_graph));
@@ -949,9 +950,9 @@ pub mod memory_efficient {
             for &node in cluster {
                 let node_features = graph.x
                     .slice_tensor(0, node as i64, (node + 1) as i64)
-                    .unwrap()
+                    .expect("node index is within graph node range")
                     .to_vec()
-                    .unwrap();
+                    .expect("tensor to_vec conversion succeeds");
 
                 for (i, &feat) in node_features.iter().enumerate() {
                     cluster_features[i] += feat;

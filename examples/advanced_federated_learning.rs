@@ -77,7 +77,7 @@ impl FederatedClient {
 
                 // Backward pass with gradient clipping for privacy
                 {
-                    let mut optimizer = self.optimizer.lock().unwrap();
+                    let mut optimizer = self.optimizer.lock().unwrap_or_else(|e| e.into_inner());
                     optimizer.zero_grad();
                 }
 
@@ -90,7 +90,7 @@ impl FederatedClient {
                 self.add_privacy_noise()?;
 
                 {
-                    let mut optimizer = self.optimizer.lock().unwrap();
+                    let mut optimizer = self.optimizer.lock().unwrap_or_else(|e| e.into_inner());
                     optimizer.step()?;
                 }
 

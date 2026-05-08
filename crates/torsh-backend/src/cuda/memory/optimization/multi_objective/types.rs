@@ -5,8 +5,6 @@
 use std::collections::{HashMap, VecDeque};
 use std::time::{Duration, Instant};
 
-use std::collections::{HashMap, VecDeque};
-
 /// Clustering configuration for diversity maintenance
 #[derive(Debug, Clone)]
 pub struct ClusteringConfig {

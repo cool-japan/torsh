@@ -6,8 +6,6 @@ use scirs2_core::ndarray::{Array1, Array2};
 use std::collections::{HashMap, VecDeque};
 use std::time::{Duration, Instant};
 
-use std::collections::{VecDeque, HashMap};
-
 /// RL learning parameters
 #[derive(Debug, Clone)]
 pub struct RLLearningParams {
