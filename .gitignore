@@ -80,3 +80,5 @@ crates/torsh-hub/targets/
 
 # Rustc ICE dumps
 rustc-ice-*.txt
+
+target
