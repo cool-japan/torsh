@@ -68,15 +68,14 @@ pub mod multi_stream_usage_examples;
 pub mod occupancy;
 
 // Advanced Performance Optimization Modules
-// TODO: temporarily disabled due to optimization module refactoring
-// #[cfg(cuda_available)]
-// pub mod high_performance_kernels;
-// #[cfg(cuda_available)]
-// pub mod intelligent_task_scheduler;
-// #[cfg(cuda_available)]
-// pub mod kernel_fusion_optimizer;
-// #[cfg(cuda_available)]
-// pub mod performance_optimization_coordinator;
+#[cfg(cuda_available)]
+pub mod high_performance_kernels;
+#[cfg(cuda_available)]
+pub mod intelligent_task_scheduler;
+#[cfg(cuda_available)]
+pub mod kernel_fusion_optimizer;
+#[cfg(cuda_available)]
+pub mod performance_optimization_coordinator;
 
 // Fallback modules when CUDA is not available
 #[cfg(not(cuda_available))]

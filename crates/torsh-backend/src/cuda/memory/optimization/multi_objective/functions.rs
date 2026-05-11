@@ -2,13 +2,11 @@
 //!
 //! 🤖 Generated with [SplitRS](https://github.com/cool-japan/splitrs)
 
-use std::collections::{HashMap, VecDeque};
-
-use super::types::{ConvergenceCriteria, Individual, MOAlgorithmType, MultiObjectiveAlgorithm, MultiObjectiveOptimizer};
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::super::*;
+    use std::collections::HashMap;
     #[test]
     fn test_multi_objective_optimizer_creation() {
         let optimizer = MultiObjectiveOptimizer::new();

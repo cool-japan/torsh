@@ -690,11 +690,11 @@ pub enum ModelSelectionType {
 #[derive(Debug)]
 pub struct MLOptimizationEngine {
     /// ML models for optimization
-    models: HashMap<String, MLModel>,
+    pub models: HashMap<String, MLModel>,
     /// Training data
-    training_data: VecDeque<TrainingExample>,
+    pub training_data: VecDeque<TrainingExample>,
     /// Feature extractors
-    feature_extractors: Vec<FeatureExtractor>,
+    pub feature_extractors: Vec<FeatureExtractor>,
     /// Model performance tracker
     model_performance: HashMap<String, ModelPerformance>,
     /// Online learning configuration
@@ -754,7 +754,7 @@ impl MLOptimizationEngine {
     pub fn predict(
         &self,
         model_id: &str,
-        features: HashMap<String, f64>,
+        _features: HashMap<String, f64>,
     ) -> Result<Prediction, MLError> {
         if let Some(model) = self.models.get(model_id) {
             match model.training_status {
@@ -845,15 +845,18 @@ impl MLOptimizationEngine {
         if self.training_data.len() < self.online_learning_config.min_examples {
             return Ok(());
         }
-        for (model_id, model) in &mut self.models {
-            if model.training_status == TrainingStatus::Trained {
-                self.incremental_train_model(model_id)?;
-            }
+        // Collect model_ids first to avoid borrow conflict
+        let trained_model_ids: Vec<String> = self.models.iter()
+            .filter(|(_, model)| model.training_status == TrainingStatus::Trained)
+            .map(|(id, _)| id.clone())
+            .collect();
+        for model_id in trained_model_ids {
+            self.incremental_train_model(&model_id)?;
         }
         Ok(())
     }
     /// Incrementally train a model with new data
-    fn incremental_train_model(&mut self, model_id: &str) -> Result<(), MLError> {
+    fn incremental_train_model(&mut self, _model_id: &str) -> Result<(), MLError> {
         Ok(())
     }
     /// Get optimization recommendations
@@ -898,7 +901,7 @@ impl MLOptimizationEngine {
     pub fn evaluate_model(
         &mut self,
         model_id: &str,
-        test_data: &[TrainingExample],
+        _test_data: &[TrainingExample],
     ) -> Result<ModelPerformance, MLError> {
         if !self.models.contains_key(model_id) {
             return Err(MLError::ModelNotFound(model_id.to_string()));
@@ -965,7 +968,7 @@ impl MLOptimizationEngine {
     pub fn create_ensemble(
         &mut self,
         model_ids: &[String],
-        ensemble_config: EnsembleConfig,
+        _ensemble_config: EnsembleConfig,
     ) -> Result<String, MLError> {
         let ensemble_id = format!("ensemble_{}", Instant::now().elapsed().as_nanos());
         let ensemble_model = MLModel {
@@ -1034,7 +1037,7 @@ impl MLOptimizationEngine {
     pub fn optimize_hyperparameters(
         &mut self,
         model_id: &str,
-        search_space: SearchSpace,
+        _search_space: SearchSpace,
     ) -> Result<HashMap<String, f64>, MLError> {
         if !self.models.contains_key(model_id) {
             return Err(MLError::ModelNotFound(model_id.to_string()));

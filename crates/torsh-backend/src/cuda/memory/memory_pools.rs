@@ -7,8 +7,8 @@
 // Allow unused variables for pool manager stubs
 #![allow(unused_variables)]
 
-use super::allocation::{CudaAllocation, PinnedAllocation, UnifiedAllocation};
-use crate::cuda::error::{CudaError, CudaResult};
+use super::allocation::{size_class as compute_size_class, CudaAllocation, PinnedAllocation, UnifiedAllocation};
+use crate::cuda::error::{CudaError, CudaResult, CustResultExt};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
@@ -1441,6 +1441,75 @@ impl UnifiedMemoryPoolManager {
     fn calculate_global_health_score(&self) -> f32 {
         // Simplified calculation
         0.85
+    }
+
+    /// Allocate a `CudaAllocation` from the device pool for `device_id`.
+    ///
+    /// Finds the appropriate size class (next power-of-two >= `size`), reuses a
+    /// free allocation if one is available, otherwise calls `cust::memory::cuda_malloc`
+    /// to allocate a new CUDA device block.
+    pub fn allocate_from_device_pool(
+        &self,
+        size: usize,
+        device_id: usize,
+    ) -> CudaResult<CudaAllocation> {
+        let sc = compute_size_class(size);
+
+        let mut device_pools = self.device_pools.write().map_err(|_| CudaError::Context {
+            message: "Failed to acquire device pools write lock for allocation".to_string(),
+        })?;
+
+        let device_map = device_pools.entry(device_id).or_insert_with(HashMap::new);
+        let pool = device_map
+            .entry(sc)
+            .or_insert_with(|| DevicePool::new(device_id, sc, DevicePoolConfig::default()));
+
+        // Reuse an existing free allocation if available
+        if let Some(mut alloc) = pool.free_allocations.pop() {
+            alloc.in_use = true;
+            pool.active_allocations.push(alloc);
+            pool.stats.total_allocations += 1;
+            pool.stats.cache_hits += 1;
+            pool.last_access = Instant::now();
+            return Ok(alloc);
+        }
+
+        // No free allocation — call the real CUDA allocator
+        let ptr = unsafe { cust::memory::cuda_malloc(sc).cuda_result()? };
+        let alloc = CudaAllocation::new_on_device(ptr, sc, sc, device_id);
+        pool.active_allocations.push(alloc);
+        pool.stats.total_allocations += 1;
+        pool.stats.cache_misses += 1;
+        pool.last_access = Instant::now();
+
+        Ok(alloc)
+    }
+
+    /// Return a `CudaAllocation` back to the device pool for future reuse.
+    ///
+    /// If the pool's free list is at capacity the allocation is kept anyway
+    /// (the pool will trim on the next cleanup pass).
+    pub fn return_to_device_pool(&self, mut alloc: CudaAllocation, device_id: usize) {
+        let sc = alloc.size_class;
+        alloc.in_use = false;
+
+        let Ok(mut device_pools) = self.device_pools.write() else {
+            return;
+        };
+
+        let device_map = device_pools.entry(device_id).or_insert_with(HashMap::new);
+        let pool = device_map
+            .entry(sc)
+            .or_insert_with(|| DevicePool::new(device_id, sc, DevicePoolConfig::default()));
+
+        // Remove from active list (best-effort; compare by device pointer address)
+        let raw = alloc.ptr.as_raw();
+        pool.active_allocations
+            .retain(|a| a.ptr.as_raw() != raw);
+
+        pool.free_allocations.push(alloc);
+        pool.stats.total_deallocations += 1;
+        pool.last_access = Instant::now();
     }
 }
 

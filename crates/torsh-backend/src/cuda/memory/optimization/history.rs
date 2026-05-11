@@ -39,6 +39,10 @@ impl DataCompressionSystem {
     fn new(_config: CompressionConfig) -> Self {
         Self {}
     }
+    fn initialize(&mut self) -> Result<(), HistoryError> { Ok(()) }
+    fn compress_data(&mut self, _config: CompressionConfig, _storage: &mut HistoryStorage) -> Result<CompressionResult, HistoryError> {
+        Ok(CompressionResult::default())
+    }
 }
 
 /// History query system (stub implementation)
@@ -48,6 +52,10 @@ pub struct HistoryQuerySystem {}
 impl HistoryQuerySystem {
     fn new(_config: QueryConfig) -> Self {
         Self {}
+    }
+    fn initialize(&mut self) -> Result<(), HistoryError> { Ok(()) }
+    fn execute_query(&self, _query: HistoryQuery) -> Result<HistoryQueryResult, HistoryError> {
+        Ok(HistoryQueryResult::default())
     }
 }
 
@@ -59,6 +67,7 @@ impl DataMigrationSystem {
     fn new(_config: MigrationConfig) -> Self {
         Self {}
     }
+    fn initialize(&mut self) -> Result<(), HistoryError> { Ok(()) }
 }
 
 /// Data retention manager (stub implementation)
@@ -68,6 +77,13 @@ pub struct DataRetentionManager {}
 impl DataRetentionManager {
     fn new(_config: RetentionConfig) -> Self {
         Self {}
+    }
+    fn initialize(&mut self) -> Result<(), HistoryError> { Ok(()) }
+    fn apply_policies(&mut self, _storage: &mut HistoryStorage) -> Result<RetentionResult, HistoryError> {
+        Ok(RetentionResult::default())
+    }
+    fn identify_archival_candidates(&self, _storage: &HistoryStorage) -> Result<ArchivalCandidates, HistoryError> {
+        Ok(ArchivalCandidates::default())
     }
 }
 
@@ -79,6 +95,15 @@ impl HistoryValidationSystem {
     fn new(_config: ValidationConfig) -> Self {
         Self {}
     }
+    fn initialize(&mut self) -> Result<(), HistoryError> { Ok(()) }
+    fn validate_execution(&self, _execution: &StrategyExecution) -> Result<(), HistoryError> { Ok(()) }
+    fn validate_performance(&self, _performance: &HistoricalPerformance) -> Result<(), HistoryError> { Ok(()) }
+    fn validate_configuration_change(&self, _change: &ConfigurationChange) -> Result<(), HistoryError> { Ok(()) }
+    fn validate_milestone(&self, _milestone: &LearningMilestone) -> Result<(), HistoryError> { Ok(()) }
+    fn validate_query(&self, _query: &HistoryQuery) -> Result<(), HistoryError> { Ok(()) }
+    fn validate_data_integrity(&self, _storage: &HistoryStorage) -> Result<IntegrityValidationResult, HistoryError> {
+        Ok(IntegrityValidationResult::default())
+    }
 }
 
 /// History export import system (stub implementation)
@@ -88,6 +113,13 @@ pub struct HistoryExportImportSystem {}
 impl HistoryExportImportSystem {
     fn new(_config: ExportImportConfig) -> Self {
         Self {}
+    }
+    fn initialize(&mut self) -> Result<(), HistoryError> { Ok(()) }
+    fn export_data(&self, _config: HistoryExportConfig, _storage: &HistoryStorage) -> Result<HistoryExportResult, HistoryError> {
+        Ok(HistoryExportResult::default())
+    }
+    fn import_data(&self, _data: HistoryImportData, _storage: &mut HistoryStorage) -> Result<HistoryImportResult, HistoryError> {
+        Ok(HistoryImportResult::default())
     }
 }
 
@@ -99,6 +131,10 @@ impl HistoricalTrendAnalyzer {
     fn new(_config: TrendConfig) -> Self {
         Self {}
     }
+    fn initialize(&mut self) -> Result<(), HistoryError> { Ok(()) }
+    fn analyze_trends(&self, _config: TrendAnalysisConfig) -> Result<TrendAnalysisResult, HistoryError> {
+        Ok(TrendAnalysisResult::default())
+    }
 }
 
 /// History visualization system (stub implementation)
@@ -108,6 +144,10 @@ pub struct HistoryVisualizationSystem {}
 impl HistoryVisualizationSystem {
     fn new(_config: VisualizationConfig) -> Self {
         Self {}
+    }
+    fn initialize(&mut self) -> Result<(), HistoryError> { Ok(()) }
+    fn generate_visualizations(&self, _config: VisualizationConfig, _storage: &HistoryStorage) -> Result<VisualizationResult, HistoryError> {
+        Ok(VisualizationResult::default())
     }
 }
 
@@ -119,11 +159,18 @@ impl HistoryPerformanceTracker {
     fn new(_config: PerformanceConfig) -> Self {
         Self {}
     }
+    fn initialize(&mut self) -> Result<(), HistoryError> { Ok(()) }
+    fn update_tracking(&mut self, _performance: &HistoricalPerformance) -> Result<(), HistoryError> { Ok(()) }
+    fn generate_impact_report(&self) -> PerformanceImpactReport { PerformanceImpactReport::default() }
 }
 
 /// Archival candidates (stub implementation)
 #[derive(Debug, Default)]
 pub struct ArchivalCandidates {}
+
+impl ArchivalCandidates {
+    pub fn is_empty(&self) -> bool { true }
+}
 
 /// History query with optional time range, limit, and strategy filters
 #[derive(Debug, Clone, Default)]
@@ -181,7 +228,9 @@ pub struct TrendAnalysisResult {}
 
 /// Archive result (stub implementation)
 #[derive(Debug, Clone, Default)]
-pub struct ArchiveResult {}
+pub struct ArchiveResult {
+    pub archived_items: Vec<ArchivedItem>,
+}
 
 /// History export result (stub implementation)
 #[derive(Debug, Clone, Default)]
@@ -778,6 +827,27 @@ pub struct DataArchivalSystem {
     cost_optimizer: ArchiveCostOptimizer,
 }
 
+impl DataArchivalSystem {
+    fn new_default() -> Self {
+        Self {
+            archive_backends: HashMap::new(),
+            archival_policies: Vec::new(),
+            scheduler: ArchivalScheduler::new(),
+            lifecycle_manager: DataLifecycleManager::new(),
+            integrity_checker: ArchiveIntegrityChecker::new(),
+            optimization_engine: ArchiveOptimizationEngine::new(),
+            search_index: ArchiveSearchIndex::new(),
+            recovery_system: ArchiveRecoverySystem::new(),
+            monitoring_system: ArchiveMonitoringSystem::new(),
+            cost_optimizer: ArchiveCostOptimizer::new(),
+        }
+    }
+    fn initialize(&mut self) -> Result<(), HistoryError> { Ok(()) }
+    fn archive_data(&mut self, _candidates: ArchivalCandidates) -> Result<ArchiveResult, HistoryError> {
+        Ok(ArchiveResult::default())
+    }
+}
+
 /// Historical analytics engine
 #[derive(Debug)]
 pub struct HistoricalAnalyticsEngine {
@@ -803,26 +873,65 @@ pub struct HistoricalAnalyticsEngine {
     ab_test_analyzer: ABTestAnalysisEngine,
 }
 
+impl HistoricalAnalyticsEngine {
+    fn new_default() -> Self {
+        Self {
+            time_series_analyzer: TimeSeriesAnalyzer::default(),
+            statistical_analyzer: StatisticalAnalysisEngine::default(),
+            ml_analyzer: MLAnalyticsEngine::default(),
+            pattern_recognizer: PatternRecognitionSystem::default(),
+            correlation_analyzer: CorrelationAnalysisEngine::default(),
+            predictive_modeler: PredictiveModeler::default(),
+            anomaly_detector: AnomalyDetectionEngine::default(),
+            trend_analyzer: TrendAnalysisEngine::default(),
+            cohort_analyzer: CohortAnalysisEngine::default(),
+            ab_test_analyzer: ABTestAnalysisEngine::default(),
+        }
+    }
+    fn initialize(&mut self) -> Result<(), HistoryError> { Ok(()) }
+    fn update_with_execution(&mut self, _execution: &StrategyExecution) -> Result<(), HistoryError> { Ok(()) }
+    fn update_with_performance(&mut self, _performance: &HistoricalPerformance) -> Result<(), HistoryError> { Ok(()) }
+    fn update_with_configuration_change(&mut self, _change: &ConfigurationChange) -> Result<(), HistoryError> { Ok(()) }
+    fn update_with_milestone(&mut self, _milestone: &LearningMilestone) -> Result<(), HistoryError> { Ok(()) }
+    fn generate_comprehensive_analytics(&self, _timeframe: TimeFrame) -> Result<HistoryAnalytics, HistoryError> {
+        use super::monitoring::{ResourceUtilizationPatterns, FrequencyPatterns, ErrorPatterns, SeasonalPatterns, PredictiveInsights, BenchmarkComparisons, ROIAnalysis, CorrelationAnalysis, AnomalyAnalysis};
+        Ok(HistoryAnalytics {
+            success_trends: HashMap::new(),
+            improvement_trends: HashMap::new(),
+            top_strategies: Vec::new(),
+            resource_patterns: ResourceUtilizationPatterns::default(),
+            frequency_patterns: FrequencyPatterns::default(),
+            error_patterns: ErrorPatterns::default(),
+            seasonal_patterns: SeasonalPatterns::default(),
+            predictive_insights: PredictiveInsights::default(),
+            benchmark_comparisons: BenchmarkComparisons::default(),
+            roi_analysis: ROIAnalysis::default(),
+            correlation_analysis: CorrelationAnalysis::default(),
+            anomaly_analysis: AnomalyAnalysis::default(),
+        })
+    }
+    fn handle_data_archival(&mut self, _result: &ArchiveResult) -> Result<(), HistoryError> { Ok(()) }
+    fn handle_retention_cleanup(&mut self, _result: &RetentionResult) -> Result<(), HistoryError> { Ok(()) }
+    fn analyze_configuration_impact(&mut self, _change: &ConfigurationChange) -> Result<(), HistoryError> { Ok(()) }
+    fn generate_milestone_insights(&mut self, _milestone: &LearningMilestone) -> Result<(), HistoryError> { Ok(()) }
+}
+
 impl OptimizationHistoryManager {
     /// Create a new history manager
-    pub fn new(config: HistoryManagerConfig) -> Self {
+    pub fn new(_config: HistoryManagerConfig) -> Self {
         Self {
-            history_storage: HistoryStorage::new(config.storage_config.clone()),
-            archival_system: DataArchivalSystem::new(config.archival_config.clone()),
-            analytics_engine: HistoricalAnalyticsEngine::new(config.analytics_config.clone()),
-            compression_system: DataCompressionSystem::new(config.compression_config.clone()),
-            query_system: HistoryQuerySystem::new(config.query_config.clone()),
-            migration_system: DataMigrationSystem::new(config.migration_config.clone()),
-            retention_manager: DataRetentionManager::new(config.retention_config.clone()),
-            validation_system: HistoryValidationSystem::new(config.validation_config.clone()),
-            export_import_system: HistoryExportImportSystem::new(
-                config.export_import_config.clone(),
-            ),
-            trend_analyzer: HistoricalTrendAnalyzer::new(config.trend_config.clone()),
-            visualization_system: HistoryVisualizationSystem::new(
-                config.visualization_config.clone(),
-            ),
-            performance_tracker: HistoryPerformanceTracker::new(config.performance_config.clone()),
+            history_storage: HistoryStorage::new(HistoryStorageConfig::default()),
+            archival_system: DataArchivalSystem::new_default(),
+            analytics_engine: HistoricalAnalyticsEngine::new_default(),
+            compression_system: DataCompressionSystem::new(CompressionConfig {}),
+            query_system: HistoryQuerySystem::new(QueryConfig {}),
+            migration_system: DataMigrationSystem::new(MigrationConfig {}),
+            retention_manager: DataRetentionManager::new(RetentionConfig {}),
+            validation_system: HistoryValidationSystem::new(ValidationConfig {}),
+            export_import_system: HistoryExportImportSystem::new(ExportImportConfig {}),
+            trend_analyzer: HistoricalTrendAnalyzer::new(TrendConfig {}),
+            visualization_system: HistoryVisualizationSystem::new(VisualizationConfig {}),
+            performance_tracker: HistoryPerformanceTracker::new(PerformanceConfig {}),
             optimization_records: Arc::new(RwLock::new(Vec::new())),
         }
     }
@@ -1158,18 +1267,24 @@ impl OptimizationHistoryManager {
         // Calculate delta improvement from previous point
         let delta_improvement = self.calculate_delta_improvement(&metrics)?;
 
+        let external_factors: HashMap<String, f64> = execution
+            .context
+            .environment
+            .iter()
+            .filter_map(|(k, v)| v.parse::<f64>().ok().map(|f| (k.clone(), f)))
+            .collect();
         let evolution_point = PerformanceEvolutionPoint {
             timestamp: execution.timestamp,
             metrics,
             improvement,
             delta_improvement,
             contributing_factors: self.identify_contributing_factors(execution)?,
-            system_state: execution.context.system_state.clone(),
+            system_state: SystemState::default(),
             active_strategy: execution.strategy_id.clone(),
             measurement_confidence: self.calculate_measurement_confidence(&execution.results)?,
             statistical_significance: self
                 .calculate_statistical_significance(&execution.results)?,
-            external_factors: execution.context.environment.clone(),
+            external_factors,
             data_quality: execution.quality_metrics.overall_quality,
             anomaly_indicators: self.detect_anomaly_indicators(&execution.results)?,
             trend_analysis: self.perform_trend_analysis(&execution.results)?,
@@ -1189,7 +1304,7 @@ impl OptimizationHistoryManager {
 
     fn calculate_improvement_from_baseline(
         &self,
-        metrics: &HashMap<String, f64>,
+        _metrics: &HashMap<String, f64>,
     ) -> Result<f32, HistoryError> {
         // Calculate improvement from baseline performance
         Ok(0.05) // 5% improvement placeholder
@@ -1197,7 +1312,7 @@ impl OptimizationHistoryManager {
 
     fn calculate_delta_improvement(
         &self,
-        metrics: &HashMap<String, f64>,
+        _metrics: &HashMap<String, f64>,
     ) -> Result<f32, HistoryError> {
         // Calculate improvement from previous point
         Ok(0.01) // 1% delta improvement placeholder
@@ -1205,7 +1320,7 @@ impl OptimizationHistoryManager {
 
     fn identify_contributing_factors(
         &self,
-        execution: &StrategyExecution,
+        _execution: &StrategyExecution,
     ) -> Result<Vec<String>, HistoryError> {
         // Identify factors that contributed to performance
         Ok(vec![
@@ -1216,7 +1331,7 @@ impl OptimizationHistoryManager {
 
     fn calculate_measurement_confidence(
         &self,
-        results: &OptimizationResults,
+        _results: &OptimizationResults,
     ) -> Result<f32, HistoryError> {
         // Calculate confidence in measurements
         Ok(0.9)
@@ -1224,7 +1339,7 @@ impl OptimizationHistoryManager {
 
     fn calculate_statistical_significance(
         &self,
-        results: &OptimizationResults,
+        _results: &OptimizationResults,
     ) -> Result<f32, HistoryError> {
         // Calculate statistical significance of results
         Ok(0.95)
@@ -1232,7 +1347,7 @@ impl OptimizationHistoryManager {
 
     fn detect_anomaly_indicators(
         &self,
-        results: &OptimizationResults,
+        _results: &OptimizationResults,
     ) -> Result<Vec<AnomalyIndicator>, HistoryError> {
         // Detect anomalies in results
         Ok(Vec::new())
@@ -1240,7 +1355,7 @@ impl OptimizationHistoryManager {
 
     fn perform_trend_analysis(
         &self,
-        results: &OptimizationResults,
+        _results: &OptimizationResults,
     ) -> Result<TrendAnalysis, HistoryError> {
         // Perform trend analysis on results
         Ok(TrendAnalysis::default())
@@ -1248,7 +1363,7 @@ impl OptimizationHistoryManager {
 
     fn compare_with_baseline(
         &self,
-        results: &OptimizationResults,
+        _results: &OptimizationResults,
     ) -> Result<BaselineComparison, HistoryError> {
         // Compare results with baseline
         Ok(BaselineComparison::default())
@@ -1307,7 +1422,7 @@ impl OptimizationHistoryManager {
 
     fn identify_archival_data(
         &self,
-        criteria: &ArchiveCriteria,
+        _criteria: &ArchiveCriteria,
     ) -> Result<ArchivalCandidates, HistoryError> {
         // Identify data that meets archival criteria
         Ok(ArchivalCandidates::default())
@@ -1566,7 +1681,7 @@ impl HistoryStorage {
         Some(Instant::now())
     }
 
-    fn remove_archived_item(&mut self, item: &ArchivedItem) -> Result<(), HistoryError> {
+    fn remove_archived_item(&mut self, _item: &ArchivedItem) -> Result<(), HistoryError> {
         // Remove archived item from storage
         Ok(())
     }

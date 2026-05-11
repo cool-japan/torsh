@@ -7,10 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, VecDeque};
-use std::sync::{
-    atomic::{AtomicU64, AtomicUsize, Ordering},
-    Arc, Mutex,
-};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 /// Helper function for serde default Instant value
@@ -517,6 +514,7 @@ pub struct HardwareAllocation {
     pub allocation_constraints: Vec<HardwareAllocationConstraint>,
 
     /// Allocation timestamp
+    #[serde(skip, default = "default_instant")]
     pub allocated_at: Instant,
 }
 
@@ -650,7 +648,7 @@ pub struct GpuUtilizationTracker {
 }
 
 /// CPU utilization monitor
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CpuUtilizationMonitor {
     /// Per-core utilization
     pub per_core_utilization: HashMap<CpuCoreId, f64>,
@@ -672,7 +670,7 @@ pub struct CpuUtilizationMonitor {
 }
 
 /// Memory utilization tracker
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MemoryUtilizationTracker {
     /// System memory utilization
     pub system_memory_utilization: f64,
@@ -752,7 +750,7 @@ impl OptimizationResourceManager {
         }
 
         // Execute allocation through allocation engine
-        let mut allocation_engine = self.allocation_engine.lock().expect("lock should not be poisoned");
+        let allocation_engine = self.allocation_engine.lock().expect("lock should not be poisoned");
         let allocation_plan = allocation_engine.create_allocation_plan(task_id, requirements)?;
 
         // Allocate GPU resources if needed
@@ -876,15 +874,16 @@ impl OptimizationResourceManager {
             memory_manager.get_current_utilization()
         };
 
+        let overall_utilization = self.calculate_overall_utilization(
+            &gpu_utilization,
+            &cpu_utilization,
+            &memory_utilization,
+        );
         Ok(ResourceUtilization {
             gpu_utilization,
             cpu_utilization,
             memory_utilization,
-            overall_utilization: self.calculate_overall_utilization(
-                &gpu_utilization,
-                &cpu_utilization,
-                &memory_utilization,
-            ),
+            overall_utilization,
             timestamp: Instant::now(),
         })
     }
@@ -897,7 +896,7 @@ impl OptimizationResourceManager {
 
     /// Optimize resource allocation
     pub fn optimize_resources(&self) -> Result<OptimizationResults, ResourceError> {
-        let mut optimization_engine = self.optimization_engine.lock().expect("lock should not be poisoned");
+        let optimization_engine = self.optimization_engine.lock().expect("lock should not be poisoned");
         optimization_engine.optimize_current_allocations()
     }
 
@@ -1099,7 +1098,7 @@ impl GpuResourceManager {
         let memory_allocation = GpuMemoryAllocation {
             address_range: MemoryAddressRange {
                 start_address: 0, // Would be actual GPU memory address
-                end_address: requirements.min_gpu_memory_bytes,
+                end_address: requirements.min_gpu_memory_bytes as u64,
             },
             size_bytes: requirements.min_gpu_memory_bytes,
             memory_type: GpuMemoryType::Global,
@@ -1119,11 +1118,8 @@ impl GpuResourceManager {
         };
 
         // Update device availability
-        let current_available = device.available_memory_bytes.load(Ordering::Relaxed);
-        device.available_memory_bytes.store(
-            current_available.saturating_sub(requirements.min_gpu_memory_bytes),
-            Ordering::Relaxed,
-        );
+        device.available_memory_bytes = device.available_memory_bytes
+            .saturating_sub(requirements.min_gpu_memory_bytes);
 
         Ok(GpuAllocation {
             allocation_id: AllocationId::new(),
@@ -1141,10 +1137,10 @@ impl GpuResourceManager {
     fn deallocate_device_resources(
         &mut self,
         device_id: GpuDeviceId,
-        allocation_id: AllocationId,
+        _allocation_id: AllocationId,
     ) -> Result<(), ResourceError> {
         // Find the device and return resources
-        if let Some(device) = self
+        if let Some(_device) = self
             .available_devices
             .iter_mut()
             .find(|d| d.device_id == device_id)
@@ -1240,7 +1236,7 @@ impl MemoryResourceManager {
             task_id,
             address_range: MemoryAddressRange {
                 start_address: 0, // Would be actual memory address
-                end_address: requirements.min_memory_bytes,
+                end_address: requirements.min_memory_bytes as u64,
             },
             size_bytes: requirements.min_memory_bytes,
             pool_source: MemoryPoolType::System,
@@ -1263,7 +1259,7 @@ impl MemoryResourceManager {
 
     fn has_sufficient_memory(
         &self,
-        requirements: &super::task_management::MemoryRequirements,
+        _requirements: &super::task_management::MemoryRequirements,
     ) -> bool {
         // Simplified check - would involve actual memory availability
         true // For now, assume sufficient memory
@@ -1296,7 +1292,7 @@ impl MemoryResourceManager {
 }
 
 impl HardwareResourceManager {
-    fn new(config: &ResourceManagementConfig) -> Self {
+    fn new(_config: &ResourceManagementConfig) -> Self {
         Self {
             hardware_inventory: HardwareInventory::discover(),
             hardware_allocations: HashMap::new(),
@@ -1318,7 +1314,7 @@ impl HardwareResourceManager {
             let allocation = HardwareAllocation {
                 allocation_id: AllocationId::new(),
                 task_id,
-                hardware_type: requirement.hardware_type,
+                hardware_type: requirement.hardware_type.clone(),
                 device_id: HardwareDeviceId::new(),
                 utilization_details: HardwareUtilizationDetails::default(),
                 performance_expectations: HardwarePerformanceExpectations::default(),
@@ -1394,12 +1390,60 @@ macro_rules! newtype_id {
 // Generate placeholder types for all the complex types that would be fully implemented
 default_placeholder_type!(AllocationId);
 default_placeholder_type!(GpuCapabilities);
-default_placeholder_type!(GpuDeviceStatus);
-default_placeholder_type!(AllocationStatus);
+
+/// GPU device status
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum GpuDeviceStatus {
+    #[default]
+    Available,
+    Busy,
+    Error,
+    Offline,
+}
+
+/// Allocation status for resource tracking
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum AllocationStatus {
+    #[default]
+    Active,
+    Released,
+    Failed,
+    Pending,
+}
+
+impl AllocationStatus {
+    pub const fn new_active() -> bool { true }
+}
+
 default_placeholder_type!(AllocationPerformanceMetrics);
-default_placeholder_type!(MemoryAddressRange);
-default_placeholder_type!(GpuMemoryType);
-default_placeholder_type!(MemoryAccessPattern);
+
+/// Memory address range
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct MemoryAddressRange {
+    pub start_address: u64,
+    pub end_address: u64,
+}
+/// GPU memory type classification
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum GpuMemoryType {
+    #[default]
+    Global,
+    Shared,
+    Local,
+    Texture,
+    Constant,
+    Unified,
+}
+
+/// Memory access pattern classification
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum MemoryAccessPattern {
+    #[default]
+    Sequential,
+    Strided,
+    Random,
+    Coalesced,
+}
 default_placeholder_type!(MemoryFragmentationInfo);
 default_placeholder_type!(SmAllocation);
 default_placeholder_type!(ClockAllocation);
@@ -1410,9 +1454,20 @@ default_placeholder_type!(ThreadAllocation);
 default_placeholder_type!(CpuAllocationPerformanceMetrics);
 default_placeholder_type!(MemoryProtectionFlags);
 default_placeholder_type!(NumaLocalityInfo);
-default_placeholder_type!(MemoryAllocationStrategy);
+/// System memory allocation strategy
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum MemoryAllocationStrategy {
+    #[default]
+    BestFit,
+    FirstFit,
+    WorstFit,
+    SlabAllocator,
+    BuddySystem,
+}
+
 default_placeholder_type!(MemoryPerformanceCharacteristics);
-default_placeholder_type!(HardwareType);
+/// Hardware resource type (re-exported from task_management for unified interface)
+pub use super::task_management::HardwareType;
 default_placeholder_type!(HardwareDeviceId);
 default_placeholder_type!(HardwareUtilizationDetails);
 default_placeholder_type!(HardwarePerformanceExpectations);
@@ -1428,7 +1483,17 @@ default_placeholder_type!(ThreadTask);
 default_placeholder_type!(ThreadPoolConfig);
 default_placeholder_type!(ThreadPoolMetrics);
 default_placeholder_type!(ThreadPoolLoadBalancer);
-default_placeholder_type!(MemoryAllocationAlgorithm);
+/// Memory pool allocation algorithm
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum MemoryAllocationAlgorithm {
+    #[default]
+    BestFit,
+    FirstFit,
+    WorstFit,
+    NextFit,
+    BuddySystem,
+}
+
 default_placeholder_type!(MemoryPoolPerformanceMetrics);
 default_placeholder_type!(HardwareResourceInfo);
 default_placeholder_type!(HardwarePoolUtilizationMetrics);
@@ -1443,6 +1508,21 @@ default_placeholder_type!(CacheUtilizationMetrics);
 default_placeholder_type!(ThroughputMetrics);
 default_placeholder_type!(QualityOfServiceMetrics);
 default_placeholder_type!(ResourceContentionMetrics);
+
+/// CPU allocation (alias to CpuCoreAllocation for unified interface)
+pub type CpuAllocation = CpuCoreAllocation;
+
+/// Memory allocation (alias to SystemMemoryAllocation for unified interface)
+pub type MemoryAllocation = SystemMemoryAllocation;
+
+/// Resource allocation metadata for tracking and auditing
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ResourceAllocationMetadata {
+    pub allocation_reason: String,
+    pub priority_override: Option<u8>,
+    pub tags: Vec<String>,
+    pub custom_data: HashMap<String, String>,
+}
 
 // Additional complex types
 default_placeholder_type!(ResourceMonitoringConfig);
@@ -1486,10 +1566,94 @@ default_placeholder_type!(SchedulingOptimizationEngine);
 default_placeholder_type!(ResourceLoadBalancer);
 default_placeholder_type!(ResourceOptimizationEngine);
 default_placeholder_type!(ResourcePerformanceTracker);
-default_placeholder_type!(ResourceStatistics);
-default_placeholder_type!(ResourceAllocation);
-default_placeholder_type!(ResourceAvailability);
-default_placeholder_type!(ResourceUtilization);
+
+/// Statistics tracking resource allocation operations
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ResourceStatistics {
+    pub successful_allocations: u64,
+    pub failed_allocations: u64,
+    pub successful_deallocations: u64,
+    pub failed_deallocations: u64,
+    pub total_allocated_resources: usize,
+    pub peak_allocated_resources: usize,
+    pub total_optimization_runs: u64,
+}
+
+impl ResourceStatistics {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+/// Resource availability information
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ResourceAvailability {
+    pub sufficient: bool,
+    pub missing_resources: Vec<String>,
+}
+
+/// Comprehensive resource allocation record
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourceAllocation {
+    pub allocation_id: AllocationId,
+    pub task_id: TaskId,
+    pub gpu_allocations: Vec<GpuAllocation>,
+    pub cpu_allocations: Vec<CpuAllocation>,
+    pub memory_allocations: Vec<MemoryAllocation>,
+    pub hardware_allocations: Vec<HardwareAllocation>,
+    pub allocation_strategy_used: ResourceAllocationStrategy,
+    #[serde(skip, default = "default_instant")]
+    pub allocated_at: Instant,
+    pub allocation_metadata: ResourceAllocationMetadata,
+}
+
+impl Default for ResourceAllocation {
+    fn default() -> Self {
+        Self {
+            allocation_id: AllocationId::default(),
+            task_id: TaskId(uuid::Uuid::nil()),
+            gpu_allocations: Vec::new(),
+            cpu_allocations: Vec::new(),
+            memory_allocations: Vec::new(),
+            hardware_allocations: Vec::new(),
+            allocation_strategy_used: ResourceAllocationStrategy::Dynamic,
+            allocated_at: Instant::now(),
+            allocation_metadata: ResourceAllocationMetadata::default(),
+        }
+    }
+}
+
+impl ResourceAllocation {
+    pub fn total_resource_count(&self) -> usize {
+        self.gpu_allocations.len()
+            + self.cpu_allocations.len()
+            + self.memory_allocations.len()
+            + self.hardware_allocations.len()
+    }
+}
+/// Aggregate resource utilization snapshot
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourceUtilization {
+    pub gpu_utilization: GpuUtilizationTracker,
+    pub cpu_utilization: CpuUtilizationMonitor,
+    pub memory_utilization: MemoryUtilizationTracker,
+    pub overall_utilization: f64,
+    #[serde(skip, default = "default_instant")]
+    pub timestamp: Instant,
+}
+
+impl Default for ResourceUtilization {
+    fn default() -> Self {
+        Self {
+            gpu_utilization: GpuUtilizationTracker::default(),
+            cpu_utilization: CpuUtilizationMonitor::default(),
+            memory_utilization: MemoryUtilizationTracker::default(),
+            overall_utilization: 0.0,
+            timestamp: Instant::now(),
+        }
+    }
+}
+
 default_placeholder_type!(OptimizationResults);
 
 // Trait definitions for pluggable algorithms
@@ -1511,11 +1675,6 @@ impl AllocationId {
     }
 }
 
-impl GpuDeviceStatus {
-    const fn Available() -> Self {
-        Self { placeholder: false }
-    }
-}
 
 // PartialEq is already derived by the default_placeholder_type macro
 
@@ -1592,13 +1751,13 @@ impl Default for ResourceManagementConfig {
 }
 
 impl GpuResourceLimits {
-    fn from_config(config: &GpuAllocationConfig) -> Self {
+    fn from_config(_config: &GpuAllocationConfig) -> Self {
         Self::default()
     }
 }
 
 impl CpuResourceLimits {
-    fn from_config(config: &CpuAllocationConfig) -> Self {
+    fn from_config(_config: &CpuAllocationConfig) -> Self {
         Self::default()
     }
 }
@@ -1676,18 +1835,18 @@ impl ResourceAllocationEngine {
 
     fn create_allocation_plan(
         &self,
-        task_id: TaskId,
-        requirements: &ResourceRequirements,
+        _task_id: TaskId,
+        _requirements: &ResourceRequirements,
     ) -> Result<AllocationPlan, ResourceError> {
         Ok(AllocationPlan {
             strategy: self.allocation_strategy,
-            metadata: HashMap::new(),
+            metadata: ResourceAllocationMetadata::default(),
         })
     }
 }
 
 impl ResourceMonitoringSystem {
-    fn new(config: &ResourceManagementConfig) -> Self {
+    fn new(_config: &ResourceManagementConfig) -> Self {
         Self {
             monitoring_agents: HashMap::new(),
             metrics_collector: MetricsCollector::default(),
@@ -1700,18 +1859,18 @@ impl ResourceMonitoringSystem {
 
     fn start_monitoring_allocation(
         &mut self,
-        allocation: &ResourceAllocation,
+        _allocation: &ResourceAllocation,
     ) -> Result<(), ResourceError> {
         Ok(())
     }
 
-    fn stop_monitoring_allocation(&mut self, task_id: TaskId) -> Result<(), ResourceError> {
+    fn stop_monitoring_allocation(&mut self, _task_id: TaskId) -> Result<(), ResourceError> {
         Ok(())
     }
 }
 
 impl ResourcePoolManager {
-    fn new(config: &ResourceManagementConfig) -> Self {
+    fn new(_config: &ResourceManagementConfig) -> Self {
         Self {
             gpu_memory_pools: HashMap::new(),
             cpu_thread_pools: HashMap::new(),
@@ -1724,7 +1883,7 @@ impl ResourcePoolManager {
 }
 
 impl ResourceScheduler {
-    fn new(config: &ResourceManagementConfig) -> Self {
+    fn new(_config: &ResourceManagementConfig) -> Self {
         Self {
             scheduling_queue: VecDeque::new(),
             scheduling_algorithms: HashMap::new(),
@@ -1737,7 +1896,7 @@ impl ResourceScheduler {
 }
 
 impl ResourceOptimizationEngine {
-    fn new(config: &ResourceManagementConfig) -> Self {
+    fn new(_config: &ResourceManagementConfig) -> Self {
         Self::default()
     }
 
@@ -1752,35 +1911,11 @@ impl ResourcePerformanceTracker {
     }
 }
 
-impl ResourceStatistics {
-    fn new() -> Self {
-        Self {
-            successful_allocations: 0,
-            successful_deallocations: 0,
-            total_allocated_resources: 0,
-            ..Default::default()
-        }
-    }
-
-    fn total_resource_count(&self) -> usize {
-        self.total_allocated_resources
-    }
-}
-
-impl ResourceAllocation {
-    fn total_resource_count(&self) -> usize {
-        self.gpu_allocations.len()
-            + self.cpu_allocations.len()
-            + self.memory_allocations.len()
-            + self.hardware_allocations.len()
-    }
-}
-
 // Additional supporting types
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AllocationPlan {
     pub strategy: ResourceAllocationStrategy,
-    pub metadata: HashMap<String, String>,
+    pub metadata: ResourceAllocationMetadata,
 }
 
 impl Default for MemoryPoolType {

@@ -8,6 +8,7 @@
 //!
 //! 🤖 Generated with [SplitRS](https://github.com/cool-japan/splitrs)
 
+use std::fmt;
 use super::types::ConfigVersion;
 
 impl fmt::Display for ConfigVersion {

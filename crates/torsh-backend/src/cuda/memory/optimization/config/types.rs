@@ -15,7 +15,32 @@ pub struct ArchiveConfig;
 #[derive(Debug, Clone)]
 pub struct IntegrationsConfig;
 #[derive(Debug, Clone)]
-pub struct ConfigManagerConfig;
+pub struct ConfigManagerConfig {
+    pub registry_config: ConfigRegistryConfig,
+    pub validation_config: ValidationConfig,
+    pub versioning_config: ConfigVersioningConfig,
+    pub dynamic_config: DynamicConfigConfig,
+    pub template_config: ConfigTemplateConfig,
+    pub environment_config: ConfigEnvironmentConfig,
+    pub persistence_config: ConfigPersistenceConfig,
+    pub audit_config: AuditConfig,
+    pub backup_config: ConfigBackupConfig,
+    pub sync_config: ConfigSyncConfig,
+    pub schema_config: ConfigSchemaConfig,
+    pub migration_config: ConfigMigrationConfig,
+}
+#[derive(Debug, Clone, Default)]
+pub struct ConfigRegistryConfig;
+#[derive(Debug, Clone, Default)]
+pub struct ConfigVersioningConfig;
+#[derive(Debug, Clone, Default)]
+pub struct DynamicConfigConfig;
+#[derive(Debug, Clone, Default)]
+pub struct ConfigTemplateConfig;
+#[derive(Debug, Clone, Default)]
+pub struct ConfigSchemaConfig;
+#[derive(Debug, Clone, Default)]
+pub struct ConfigMigrationConfig;
 #[derive(Debug)]
 pub struct VersionAnalyticsEngine;
 impl VersionAnalyticsEngine {
@@ -23,9 +48,10 @@ impl VersionAnalyticsEngine {
         Self
     }
 }
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone)]
 pub struct AnalysisConfig;
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ConfigHierarchy;
 #[derive(Debug, Clone)]
 pub struct TrendAnalysisConfig;
@@ -63,11 +89,53 @@ pub struct ConfigRegistry {
     /// Configuration usage statistics
     usage_statistics: ConfigUsageStatistics,
 }
+impl ConfigRegistry {
+    pub fn new(_: ConfigRegistryConfig) -> Self {
+        Self {
+            configurations: Arc::new(RwLock::new(HashMap::new())),
+            hierarchies: HashMap::new(),
+            profiles: HashMap::new(),
+            default_config: Arc::new(RwLock::new(OptimizationConfig::default())),
+            config_index: ConfigIndex::new(),
+            relationships: ConfigRelationshipGraph::new(),
+            metadata_index: ConfigMetadataIndex::new(),
+            usage_statistics: ConfigUsageStatistics::new(),
+        }
+    }
+    pub fn initialize(&mut self) -> Result<(), ConfigError> { Ok(()) }
+    pub fn register(&mut self, id: String, config: OptimizationConfig) -> Result<(), ConfigError> {
+        self.configurations.write().map_err(|_| ConfigError::LockError)?.insert(id, config);
+        Ok(())
+    }
+    pub fn get_configuration(&self, id: &str) -> Result<OptimizationConfig, ConfigError> {
+        self.configurations.read().map_err(|_| ConfigError::LockError)?
+            .get(id).cloned()
+            .ok_or_else(|| ConfigError::ConfigurationNotFound(id.to_string()))
+    }
+    pub fn update_configuration(&mut self, id: &str, config: OptimizationConfig) -> Result<(), ConfigError> {
+        self.configurations.write().map_err(|_| ConfigError::LockError)?.insert(id.to_string(), config);
+        Ok(())
+    }
+    pub fn configuration_exists(&self, id: &str) -> bool {
+        self.configurations.read().map(|m| m.contains_key(id)).unwrap_or(false)
+    }
+    pub fn get_all_configurations(&self) -> HashMap<String, OptimizationConfig> {
+        self.configurations.read().map(|m| m.clone()).unwrap_or_default()
+    }
+    pub fn get_analytics(&self) -> ConfigUsageAnalytics { ConfigUsageAnalytics::default() }
+    pub fn count_configurations(&self) -> usize {
+        self.configurations.read().map(|m| m.len()).unwrap_or(0)
+    }
+    pub fn count_active_configurations(&self) -> usize { self.count_configurations() }
+}
 #[derive(Debug)]
 pub struct ConfigMigrationSystem;
 impl ConfigMigrationSystem {
-    pub fn new() -> Self {
+    pub fn new(_: ConfigMigrationConfig) -> Self {
         Self
+    }
+    pub fn initialize(&mut self) -> Result<(), ConfigError> {
+        Ok(())
     }
 }
 #[derive(Debug)]
@@ -78,7 +146,14 @@ impl ConfigMetadataIndex {
     }
 }
 #[derive(Debug, Clone)]
-pub struct ConfigVersionEntry;
+pub struct ConfigVersionEntry {
+    pub version: ConfigVersion,
+}
+impl ConfigVersionEntry {
+    pub fn new(version: ConfigVersion) -> Self {
+        Self { version }
+    }
+}
 #[derive(Debug)]
 pub struct ConfigSecurityValidator;
 impl ConfigSecurityValidator {
@@ -88,7 +163,7 @@ impl ConfigSecurityValidator {
 }
 #[derive(Debug, Clone)]
 pub struct ProfilingConfig;
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ConfigPerformanceAnalytics;
 #[derive(Debug, Clone)]
 pub struct ConfigBackupConfig;
@@ -172,17 +247,38 @@ impl TemplateInheritanceManager {
         Self
     }
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConfigStatus;
+impl ConfigStatus {
+    pub const ACTIVE: Self = Self;
+    pub const INACTIVE: Self = Self;
+}
 #[derive(Debug, Clone)]
 pub struct ConfigEnvironmentManager;
 impl ConfigEnvironmentManager {
     pub fn new(_: ConfigEnvironmentConfig) -> Self {
         Self
     }
+    pub fn initialize(&mut self) -> Result<(), ConfigError> {
+        Ok(())
+    }
 }
 #[derive(Debug, Clone)]
-pub struct ConfigImportResult;
+pub struct ConfigImportResult {
+    pub config_id: String,
+    pub imported_successfully: bool,
+    pub validation_result: ConfigValidationResult,
+    pub import_timestamp: SystemTime,
+}
+/// Placeholder update details type
+#[derive(Debug, Clone)]
+pub struct UpdateDetails {
+    pub requires_sync: bool,
+}
+/// Impact analysis placeholder
+#[derive(Debug, Clone)]
+pub struct ImpactAnalysis;
+
 /// Configuration validation system
 #[derive(Debug)]
 pub struct ConfigValidationSystem {
@@ -206,6 +302,27 @@ pub struct ConfigValidationSystem {
     custom_validators: HashMap<String, Box<dyn ConfigValidator>>,
     /// Validation cache
     validation_cache: ValidationCache,
+}
+impl ConfigValidationSystem {
+    pub fn new(_: ValidationConfig) -> Self {
+        Self {
+            rules_engine: ValidationRulesEngine::new(),
+            schema_validator: ConfigSchemaValidator::new(),
+            constraint_checker: ConfigConstraintChecker::new(),
+            dependency_validator: ConfigDependencyValidator::new(),
+            compatibility_checker: ConfigCompatibilityChecker::new(),
+            security_validator: ConfigSecurityValidator::new(),
+            performance_validator: ConfigPerformanceValidator::new(),
+            business_rules_validator: ConfigBusinessRulesValidator::new(),
+            custom_validators: HashMap::new(),
+            validation_cache: ValidationCache::new(),
+        }
+    }
+    pub fn initialize(&mut self) -> Result<(), ConfigError> { Ok(()) }
+    pub fn validate_configuration(&self, _: &OptimizationConfig) -> Result<(), ConfigError> { Ok(()) }
+    pub fn validate_update_compatibility(&self, _: &OptimizationConfig, _: &OptimizationConfig) -> Result<(), ConfigError> { Ok(()) }
+    pub fn comprehensive_validation(&self, _: &OptimizationConfig) -> Result<ConfigValidationResult, ConfigError> { Ok(ConfigValidationResult::default()) }
+    pub fn check_conflicts(&self, _: &str, _: &OptimizationConfig) -> Result<(), ConfigError> { Ok(()) }
 }
 /// Core optimization configuration
 #[derive(Debug, Clone)]
@@ -550,7 +667,7 @@ impl UpdateRollbackSystem {
         Self
     }
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ConfigSyncResult;
 #[derive(Debug)]
 pub struct TemplateAnalytics;
@@ -576,9 +693,21 @@ impl ConfigRelationshipGraph {
     }
 }
 #[derive(Debug, Clone)]
-pub struct ConfigAnalytics;
+pub struct ConfigAnalytics {
+    pub registry_analytics: ConfigUsageAnalytics,
+    pub version_analytics: ConfigUsageAnalytics,
+    pub usage_analytics: ConfigUsageAnalytics,
+    pub performance_analytics: ConfigPerformanceAnalytics,
+    pub total_configurations: usize,
+    pub active_configurations: usize,
+    pub template_usage: TemplateUsageStats,
+}
+#[derive(Debug, Clone, Default)]
+pub struct TemplateUsageStats;
 #[derive(Debug, Clone)]
-pub struct SecurityConfig;
+pub struct SecurityConfig {
+    pub enable_encryption: bool,
+}
 #[derive(Debug, Clone)]
 pub struct ConfigPersistenceConfig;
 #[derive(Debug, Clone)]
@@ -587,6 +716,9 @@ impl ConfigPersistenceLayer {
     pub fn new(_: ConfigPersistenceConfig) -> Self {
         Self
     }
+    pub fn initialize(&mut self) -> Result<(), ConfigError> { Ok(()) }
+    pub fn export_configuration(&self, _: &OptimizationConfig, _: ConfigExportConfig) -> Result<Vec<u8>, ConfigError> { Ok(Vec::new()) }
+    pub fn parse_import_data(&self, _: ConfigImportData) -> Result<OptimizationConfig, ConfigError> { Ok(OptimizationConfig::default()) }
 }
 #[derive(Debug, Clone)]
 pub struct ExportImportConfig;
@@ -599,7 +731,7 @@ impl ConfigMergeResolver {
         Self
     }
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ConfigBackupResult;
 #[derive(Debug)]
 pub struct ConfigConstraintChecker;
@@ -639,6 +771,25 @@ pub struct DynamicConfigUpdater {
     /// Update impact analyzer
     impact_analyzer: UpdateImpactAnalyzer,
 }
+impl DynamicConfigUpdater {
+    pub fn new(_: DynamicConfigConfig) -> Self {
+        Self {
+            update_manager: RealTimeUpdateManager::new(),
+            hot_reload_system: ConfigHotReloadSystem::new(),
+            propagation_engine: UpdatePropagationEngine::new(),
+            sync_coordinator: ConfigSyncCoordinator::new(),
+            validation_pipeline: UpdateValidationPipeline::new(),
+            rollback_system: UpdateRollbackSystem::new(),
+            notification_system: UpdateNotificationSystem::new(),
+            impact_analyzer: UpdateImpactAnalyzer::new(),
+        }
+    }
+    pub fn initialize(&mut self) -> Result<(), ConfigError> { Ok(()) }
+    pub fn analyze_update_impact(&mut self, _: &OptimizationConfig, _: &OptimizationConfig) -> Result<ImpactAnalysis, ConfigError> { Ok(ImpactAnalysis) }
+    pub fn apply_update(&mut self, _: &str, _: OptimizationConfig) -> Result<UpdateDetails, ConfigError> {
+        Ok(UpdateDetails { requires_sync: false })
+    }
+}
 #[derive(Debug, Clone)]
 pub struct BenchmarkConfig;
 #[derive(Debug)]
@@ -662,12 +813,18 @@ impl RealTimeUpdateManager {
         Self
     }
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ConfigUsageAnalytics;
 #[derive(Debug, Clone)]
 pub struct ValidationConfig;
 #[derive(Debug, Clone)]
-pub struct ConfigUpdateResult;
+pub struct ConfigUpdateResult {
+    pub success: bool,
+    pub version: ConfigVersion,
+    pub impact_analysis: ImpactAnalysis,
+    pub update_details: UpdateDetails,
+    pub rollback_info: RollbackInfo,
+}
 #[derive(Debug, Clone)]
 pub struct ValidationResult {
     pub is_valid: bool,
@@ -744,6 +901,27 @@ pub struct ConfigTemplateManager {
     /// Template analytics
     analytics: TemplateAnalytics,
 }
+impl ConfigTemplateManager {
+    pub fn new(_: ConfigTemplateConfig) -> Self {
+        Self {
+            template_registry: TemplateRegistry::new(),
+            template_engine: ConfigTemplateEngine::new(),
+            validation_system: TemplateValidationSystem::new(),
+            inheritance_manager: TemplateInheritanceManager::new(),
+            composition_system: TemplateCompositionSystem::new(),
+            customization_framework: TemplateCustomizationFramework::new(),
+            sharing_system: TemplateShareSystem::new(),
+            analytics: TemplateAnalytics::new(),
+        }
+    }
+    pub fn initialize(&mut self) -> Result<(), ConfigError> { Ok(()) }
+    pub fn get_template(&self, _: &str) -> Result<ConfigTemplate, ConfigError> { Ok(ConfigTemplate) }
+    pub fn instantiate_template(&self, _: ConfigTemplate, _: std::collections::HashMap<String, ConfigValue>) -> Result<OptimizationConfig, ConfigError> { Ok(OptimizationConfig::default()) }
+    pub fn get_usage_statistics(&self) -> TemplateUsageStats { TemplateUsageStats::default() }
+}
+#[derive(Debug, Clone, Default)]
+pub struct ConfigTemplate;
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone)]
 pub struct DashboardConfig;
 #[derive(Debug)]
@@ -753,8 +931,14 @@ impl TemplateShareSystem {
         Self
     }
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ConfigSource;
+impl ConfigSource {
+    pub const DEFAULT: Self = Self;
+    pub const FILE: Self = Self;
+    pub const ENVIRONMENT: Self = Self;
+    pub const REMOTE: Self = Self;
+}
 #[derive(Debug)]
 pub struct TemplateCompositionSystem;
 impl TemplateCompositionSystem {
@@ -775,10 +959,21 @@ impl ConfigSynchronizationSystem {
     pub fn new(_: ConfigSyncConfig) -> Self {
         Self
     }
+    pub fn initialize(&mut self) -> Result<(), ConfigError> { Ok(()) }
+    pub fn synchronize_configuration(&self, _: &str, _: &OptimizationConfig) -> Result<(), ConfigError> { Ok(()) }
+    pub fn synchronize_all_configurations(&self, _: ConfigSyncConfig) -> Result<ConfigSyncResult, ConfigError> { Ok(ConfigSyncResult) }
 }
 #[derive(Debug, Clone)]
-pub struct ConfigExportResult;
-#[derive(Debug, Clone)]
+pub struct ConfigExportResult {
+    pub data: Vec<u8>,
+    pub format: ConfigExportFormat,
+    pub includes_metadata: bool,
+    pub includes_history: bool,
+    pub export_timestamp: SystemTime,
+}
+#[derive(Debug, Clone, Default)]
+pub struct ConfigExportFormat;
+#[derive(Debug, Clone, Default)]
 pub struct ConfigRollbackResult;
 #[derive(Debug)]
 pub struct ConfigBusinessRulesValidator;
@@ -790,7 +985,11 @@ impl ConfigBusinessRulesValidator {
 #[derive(Debug, Clone)]
 pub struct ConfigImportData;
 #[derive(Debug, Clone)]
-pub struct HistoryStorageConfig;
+pub struct HistoryStorageConfig {
+    pub max_evolution_points: usize,
+    pub max_performance_records: usize,
+    pub max_configuration_changes: usize,
+}
 #[derive(Debug)]
 pub struct ConfigSyncCoordinator;
 impl ConfigSyncCoordinator {
@@ -810,11 +1009,54 @@ pub struct ThermalConfig;
 #[derive(Debug, Clone)]
 pub struct MultiObjectiveConfig;
 #[derive(Debug, Clone)]
-pub struct DebugConfig;
-#[derive(Debug, Clone)]
+pub struct DebugConfig {
+    pub enable_debug_logging: bool,
+    pub enable_performance_profiling: bool,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConfigPriority;
+impl ConfigPriority {
+    pub const NORMAL: Self = Self;
+    pub const HIGH: Self = Self;
+    pub const LOW: Self = Self;
+}
+// MonitoringConfig sub-types
+#[derive(Debug, Clone, Default)]
+pub struct StateMonitorConfig {
+    pub max_history_size: usize,
+}
+#[derive(Debug, Clone, Default)]
+pub struct AlertingConfig;
+#[derive(Debug, Clone, Default)]
+pub struct LogConfig;
+#[derive(Debug, Clone, Default)]
+pub struct AnomalyConfig;
+#[derive(Debug, Clone, Default)]
+pub struct TrendConfig;
+#[derive(Debug, Clone, Default)]
+pub struct HealthConfig;
+#[derive(Debug, Clone, Default)]
+pub struct ResourceConfig;
+#[derive(Debug, Clone, Default)]
+pub struct CorrelationConfig;
+#[derive(Debug, Clone, Default)]
+pub struct TracingConfig;
+
 #[derive(Debug, Clone)]
-pub struct MonitoringConfig;
+pub struct MonitoringConfig {
+    pub monitoring_interval: Duration,
+    pub system_monitor_config: StateMonitorConfig,
+    pub metrics_config: MetricsConfig,
+    pub alerting_config: AlertingConfig,
+    pub dashboard_config: DashboardConfig,
+    pub log_config: LogConfig,
+    pub anomaly_config: AnomalyConfig,
+    pub trend_config: TrendConfig,
+    pub health_config: HealthConfig,
+    pub resource_config: ResourceConfig,
+    pub correlation_config: CorrelationConfig,
+    pub tracing_config: TracingConfig,
+}
 #[derive(Debug)]
 pub enum ConfigError {
     ConfigurationNotFound(String),
@@ -852,6 +1094,11 @@ impl ConfigAuditSystem {
     pub fn new(_: AuditConfig) -> Self {
         Self
     }
+    pub fn initialize(&mut self) -> Result<(), ConfigError> { Ok(()) }
+    pub fn record_configuration_registration(&self, _: &str, _: &OptimizationConfig) -> Result<(), ConfigError> { Ok(()) }
+    pub fn record_configuration_update(&self, _: &str, _: &OptimizationConfig, _: &OptimizationConfig) -> Result<(), ConfigError> { Ok(()) }
+    pub fn record_configuration_rollback(&self, _: &str, _: &ConfigVersion) -> Result<(), ConfigError> { Ok(()) }
+    pub fn get_audit_trail(&self, _: &str) -> Result<ConfigAuditTrail, ConfigError> { Ok(ConfigAuditTrail) }
 }
 /// Comprehensive configuration management system
 #[derive(Debug)]
@@ -882,8 +1129,45 @@ pub struct OptimizationConfigManager {
     migration_system: ConfigMigrationSystem,
 }
 impl OptimizationConfigManager {
-    /// Create a new configuration manager
-    pub fn new(manager_config: ConfigManagerConfig) -> Self {
+    /// Create a new configuration manager from OptimizationConfig
+    pub fn new(_config: OptimizationConfig) -> Result<Self, ConfigError> {
+        let manager_config = ConfigManagerConfig::default();
+        Ok(Self {
+            config_registry: ConfigRegistry::new(manager_config.registry_config.clone()),
+            validation_system: ConfigValidationSystem::new(
+                manager_config.validation_config.clone(),
+            ),
+            versioning_system: ConfigVersioningSystem::new(
+                manager_config.versioning_config.clone(),
+            ),
+            dynamic_updater: DynamicConfigUpdater::new(
+                manager_config.dynamic_config.clone(),
+            ),
+            template_manager: ConfigTemplateManager::new(
+                manager_config.template_config.clone(),
+            ),
+            environment_manager: ConfigEnvironmentManager::new(
+                manager_config.environment_config.clone(),
+            ),
+            persistence_layer: ConfigPersistenceLayer::new(
+                manager_config.persistence_config.clone(),
+            ),
+            audit_system: ConfigAuditSystem::new(manager_config.audit_config.clone()),
+            backup_system: ConfigBackupSystem::new(manager_config.backup_config.clone()),
+            sync_system: ConfigSynchronizationSystem::new(
+                manager_config.sync_config.clone(),
+            ),
+            schema_manager: ConfigSchemaManager::new(
+                manager_config.schema_config.clone(),
+            ),
+            migration_system: ConfigMigrationSystem::new(
+                manager_config.migration_config.clone(),
+            ),
+        })
+    }
+
+    /// Create a new configuration manager from ConfigManagerConfig
+    pub fn from_manager_config(manager_config: ConfigManagerConfig) -> Self {
         Self {
             config_registry: ConfigRegistry::new(manager_config.registry_config.clone()),
             validation_system: ConfigValidationSystem::new(
@@ -1042,14 +1326,17 @@ impl OptimizationConfigManager {
         export_config: ConfigExportConfig,
     ) -> Result<ConfigExportResult, ConfigError> {
         let config = self.get_configuration(config_id)?;
+        let format = export_config.format.clone();
+        let includes_metadata = export_config.include_metadata;
+        let includes_history = export_config.include_history;
         let export_data = self
             .persistence_layer
             .export_configuration(&config, export_config)?;
         Ok(ConfigExportResult {
             data: export_data,
-            format: export_config.format,
-            includes_metadata: export_config.include_metadata,
-            includes_history: export_config.include_history,
+            format,
+            includes_metadata,
+            includes_history,
             export_timestamp: SystemTime::now(),
         })
     }
@@ -1213,8 +1500,11 @@ pub struct MLConfig;
 #[derive(Debug)]
 pub struct ConfigSchemaManager;
 impl ConfigSchemaManager {
-    pub fn new() -> Self {
+    pub fn new(_: ConfigSchemaConfig) -> Self {
         Self
+    }
+    pub fn initialize(&mut self) -> Result<(), ConfigError> {
+        Ok(())
     }
 }
 #[derive(Debug, Clone)]
@@ -1225,6 +1515,11 @@ pub struct HistoryConfig;
 pub struct CompressionConfig;
 #[derive(Debug, Clone)]
 pub struct ConfigMergeRule;
+impl ConfigMergeRule {
+    pub fn apply(&self, _current: &mut OptimizationConfig, _other: &OptimizationConfig) -> Result<(), ConfigError> {
+        Ok(())
+    }
+}
 #[derive(Debug)]
 pub struct TemplateRegistry;
 impl TemplateRegistry {
@@ -1233,9 +1528,15 @@ impl TemplateRegistry {
     }
 }
 #[derive(Debug, Clone)]
-pub struct ConfigExportConfig;
+pub struct ConfigExportConfig {
+    pub format: ConfigExportFormat,
+    pub include_metadata: bool,
+    pub include_history: bool,
+}
 #[derive(Debug, Clone)]
-pub struct AuditConfig;
+pub struct AuditConfig {
+    pub enable_audit_logging: bool,
+}
 #[derive(Debug, Clone)]
 pub struct NotificationConfig;
 #[derive(Debug)]
@@ -1254,7 +1555,7 @@ impl ConfigTemplateEngine {
         Self
     }
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ConfigAuditTrail;
 #[derive(Debug)]
 pub struct ConfigBackupSystem;
@@ -1262,11 +1563,21 @@ impl ConfigBackupSystem {
     pub fn new(_: ConfigBackupConfig) -> Self {
         Self
     }
+    pub fn initialize(&mut self) -> Result<(), ConfigError> { Ok(()) }
+    pub fn backup_configuration(&self, _: &str, _: &OptimizationConfig) -> Result<(), ConfigError> { Ok(()) }
+    pub fn backup_all_configurations(&self, _: ConfigBackupConfig) -> Result<ConfigBackupResult, ConfigError> { Ok(ConfigBackupResult) }
+    pub fn restore_configurations(&self, _: ConfigRestoreConfig) -> Result<ConfigRestoreResult, ConfigError> { Ok(ConfigRestoreResult) }
 }
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone)]
 pub struct MetricsConfig;
 #[derive(Debug, Clone)]
-pub struct RollbackInfo;
+pub struct RollbackInfo {
+    pub config_id: String,
+    pub rollback_version: ConfigVersion,
+    pub rollback_timestamp: SystemTime,
+    pub rollback_checksum: String,
+}
 #[derive(Debug)]
 pub struct ConfigPerformanceValidator;
 impl ConfigPerformanceValidator {
@@ -1288,7 +1599,7 @@ impl TemplateValidationSystem {
         Self
     }
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ConfigRestoreResult;
 /// Configuration versioning and history system
 #[derive(Debug)]
@@ -1309,6 +1620,29 @@ pub struct ConfigVersioningSystem {
     analytics_engine: VersionAnalyticsEngine,
     /// Version publishing system
     publishing_system: VersionPublishingSystem,
+}
+impl ConfigVersioningSystem {
+    pub fn new(_: ConfigVersioningConfig) -> Self {
+        Self {
+            version_history: Arc::new(RwLock::new(HashMap::new())),
+            comparison_engine: ConfigComparisonEngine::new(),
+            change_tracker: ConfigChangeTracker::new(),
+            rollback_manager: ConfigRollbackManager::new(),
+            merge_resolver: ConfigMergeResolver::new(),
+            branch_manager: ConfigBranchManager::new(),
+            analytics_engine: VersionAnalyticsEngine::new(),
+            publishing_system: VersionPublishingSystem::new(),
+        }
+    }
+    pub fn initialize(&mut self) -> Result<(), ConfigError> { Ok(()) }
+    pub fn create_initial_version(&mut self, _: &str, _: &OptimizationConfig) -> Result<(), ConfigError> { Ok(()) }
+    pub fn create_version_entry(&mut self, _: &str, config: &OptimizationConfig, _: &OptimizationConfig) -> Result<ConfigVersionEntry, ConfigError> { Ok(ConfigVersionEntry { version: config.metadata.version.clone() }) }
+    pub fn get_version_history(&self, _: &str) -> Result<Vec<ConfigVersionEntry>, ConfigError> { Ok(Vec::new()) }
+    pub fn get_version_config(&self, _: &str, _: &ConfigVersion) -> Result<OptimizationConfig, ConfigError> { Ok(OptimizationConfig::default()) }
+    pub fn rollback_to_version(&mut self, _: &str, _: ConfigVersion) -> Result<ConfigRollbackResult, ConfigError> { Ok(ConfigRollbackResult::default()) }
+    pub fn version_exists(&self, _: &str, _: &ConfigVersion) -> Result<bool, ConfigError> { Ok(true) }
+    pub fn validate_rollback_compatibility(&self, _: &str, _: &ConfigVersion) -> Result<(), ConfigError> { Ok(()) }
+    pub fn get_analytics(&self) -> ConfigUsageAnalytics { ConfigUsageAnalytics::default() }
 }
 #[derive(Debug)]
 pub struct ConfigUsageStatistics;
@@ -1338,6 +1672,7 @@ impl ConfigCompatibilityChecker {
         Self
     }
 }
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone)]
 pub struct AlertSystemConfig;
 #[derive(Debug)]
@@ -1348,6 +1683,14 @@ impl ValidationCache {
     }
 }
 #[derive(Debug, Clone)]
-pub struct ConfigValidationResult;
+pub struct ConfigValidationResult {
+    pub is_valid: bool,
+    pub errors: Vec<String>,
+}
+impl Default for ConfigValidationResult {
+    fn default() -> Self {
+        Self { is_valid: true, errors: Vec::new() }
+    }
+}
 #[derive(Debug, Clone)]
 pub struct ConfigSyncConfig;

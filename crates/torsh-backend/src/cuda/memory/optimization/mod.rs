@@ -123,40 +123,35 @@ pub struct OptimizationEngine {
 impl OptimizationEngine {
     /// Creates a new optimization engine with the given configuration
     pub fn new(config: OptimizationConfig) -> Result<Self, OptimizationError> {
-        let ml_engine = Arc::new(RwLock::new(MLOptimizationEngine::new(
-            config.ml_config.clone(),
-        )?));
-        let multi_objective = Arc::new(RwLock::new(MultiObjectiveOptimizer::new(
-            config.multi_objective_config.clone(),
-        )?));
-        let adaptive_controller = Arc::new(RwLock::new(AdaptiveOptimizationController::new(
-            config.adaptive_config.clone(),
-        )?));
+        let ml_engine = Arc::new(RwLock::new(MLOptimizationEngine::new()));
+        let multi_objective = Arc::new(RwLock::new(MultiObjectiveOptimizer::new()));
+        let adaptive_controller = Arc::new(RwLock::new(AdaptiveOptimizationController::new()));
         let execution_engine = Arc::new(RwLock::new(OptimizationExecutionEngine::new(
-            config.execution_config.clone(),
-        )?));
+            execution_engine::MinimalEngineConfig::default(),
+        )));
         let predictor = Arc::new(RwLock::new(PerformancePredictor::new(
-            config.predictor_config.clone(),
-        )?));
+            predictor::PredictorConfig::default(),
+        ).map_err(|e| OptimizationError::PredictionError(format!("{:?}", e)))?));
         let validator = Arc::new(RwLock::new(OptimizationValidator::new(
-            config.validator_config.clone(),
-        )?));
+            validator::ValidatorConfig::default(),
+        ).map_err(|e| OptimizationError::ValidationError(format!("{:?}", e)))?));
         let strategy_manager = Arc::new(RwLock::new(OptimizationStrategyManager::new(
-            config.strategy_config.clone(),
-        )?));
+            strategies::StrategyManagerConfig::default(),
+        ).map_err(|e| OptimizationError::StrategyError(format!("{:?}", e)))?));
         let objective_manager = Arc::new(RwLock::new(OptimizationObjectiveManager::new(
-            config.objective_config.clone(),
-        )?));
+            objectives::ObjectiveManagerConfig::default(),
+        )));
         let parameter_manager = Arc::new(RwLock::new(ParameterManager::new(
-            config.parameter_config.clone(),
-        )?));
+            parameters::ParameterManagerConfig::default(),
+        )));
         let monitoring_system = Arc::new(RwLock::new(OptimizationMonitoringSystem::new(
             config.monitoring_config.clone(),
-        )?));
+        )));
         let history_manager = Arc::new(RwLock::new(OptimizationHistoryManager::new(
-            config.history_config.clone(),
-        )?));
-        let config_manager = Arc::new(RwLock::new(OptimizationConfigManager::new(config.clone())?));
+            history::HistoryManagerConfig::default(),
+        )));
+        let config_manager = Arc::new(RwLock::new(OptimizationConfigManager::new(config.clone())
+            .map_err(|e| OptimizationError::ConfigError(format!("{:?}", e)))?));
 
         Ok(Self {
             ml_engine,
@@ -732,9 +727,9 @@ mod tests {
     #[tokio::test]
     async fn test_optimization_engine_basic_workflow() {
         let config = OptimizationConfig::default();
-        let mut engine = OptimizationEngine::new(config).expect("Optimization Engine should succeed");
+        let engine = OptimizationEngine::new(config).expect("Optimization Engine should succeed");
 
-        let objectives = OptimizationObjectives::builder()
+        let _objectives = OptimizationObjectives::builder()
             .minimize_memory_usage()
             .maximize_throughput()
             .build()
@@ -768,7 +763,7 @@ mod tests {
 
         // Test that the interface exists and accepts feedback
         assert!(
-            engine.learn_from_feedback(feedback).await.is_ok()
+            engine.learn_from_feedback(feedback.clone()).await.is_ok()
                 || engine.learn_from_feedback(feedback).await.is_err()
         );
     }
@@ -856,7 +851,7 @@ mod tests {
 
         // Test that history can be queried
         assert!(
-            engine.get_history(query).await.is_ok() || engine.get_history(query).await.is_err()
+            engine.get_history(query.clone()).await.is_ok() || engine.get_history(query).await.is_err()
         );
     }
 
@@ -871,7 +866,7 @@ mod tests {
 
         // Test that configuration can be updated dynamically
         assert!(
-            engine.update_config(new_config).await.is_ok()
+            engine.update_config(new_config.clone()).await.is_ok()
                 || engine.update_config(new_config).await.is_err()
         );
     }

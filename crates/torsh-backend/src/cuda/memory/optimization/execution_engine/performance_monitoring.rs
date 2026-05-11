@@ -281,7 +281,6 @@ pub struct DashboardDataProvider {
 // === Core Types and Structures ===
 
 /// Metric source for data collection
-#[derive(Debug, Clone)]
 pub struct MetricSource {
     /// Source identifier
     pub source_id: String,
@@ -289,8 +288,8 @@ pub struct MetricSource {
     /// Source type
     pub source_type: MetricSourceType,
 
-    /// Data collection function
-    pub collector: Box<dyn Fn() -> MetricValue + Send + Sync>,
+    /// Data collection function (optional - None for placeholder sources)
+    pub collector: Option<Box<dyn Fn() -> MetricValue + Send + Sync>>,
 
     /// Collection interval
     pub collection_interval: Duration,
@@ -303,6 +302,35 @@ pub struct MetricSource {
 
     /// Collection history
     pub history: VecDeque<MetricDataPoint>,
+}
+
+impl std::fmt::Debug for MetricSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MetricSource")
+            .field("source_id", &self.source_id)
+            .field("source_type", &self.source_type)
+            .field("collector", &"<dyn Fn>")
+            .field("collection_interval", &self.collection_interval)
+            .field("last_collected", &self.last_collected)
+            .field("config", &self.config)
+            .field("history", &self.history)
+            .finish()
+    }
+}
+
+impl Clone for MetricSource {
+    fn clone(&self) -> Self {
+        // Note: collector cannot be cloned, so create a no-op replacement
+        Self {
+            source_id: self.source_id.clone(),
+            source_type: self.source_type.clone(),
+            collector: None,
+            collection_interval: self.collection_interval,
+            last_collected: self.last_collected,
+            config: self.config.clone(),
+            history: self.history.clone(),
+        }
+    }
 }
 
 /// Performance metric data point
@@ -679,6 +707,20 @@ pub struct OptimizationRecommenderConfig {
     pub analysis_window: Duration,
 }
 
+impl Default for PerformanceMonitoringConfig {
+    fn default() -> Self {
+        Self {
+            enable_realtime_monitoring: true,
+            metrics_config: MetricsConfig::default(),
+            profiling_config: ProfilingConfig::default(),
+            alert_config: AlertSystemConfig::default(),
+            dashboard_config: DashboardConfig::default(),
+            analysis_config: AnalysisConfig::default(),
+            data_retention: DataRetentionConfig::default(),
+        }
+    }
+}
+
 // === Implementation ===
 
 impl PerformanceMonitoringManager {
@@ -828,7 +870,11 @@ impl MetricsCollector {
         let mut metrics = Vec::new();
 
         for (source_id, source) in &self.metric_sources {
-            let value = (source.collector)();
+            let value = if let Some(ref collector) = source.collector {
+                (collector)()
+            } else {
+                MetricValue::Integer(0)
+            };
             let data_point = MetricDataPoint {
                 timestamp: SystemTime::now(),
                 value,
@@ -884,7 +930,7 @@ impl MetricsCollector {
         let source = MetricSource {
             source_id: source_id.to_string(),
             source_type,
-            collector,
+            collector: Some(collector),
             collection_interval: Duration::from_secs(1),
             last_collected: Instant::now(),
             config: MetricSourceConfig::default(),
@@ -897,8 +943,8 @@ impl MetricsCollector {
 
     fn start_source_collection(
         &self,
-        source_id: &str,
-        source: &MetricSource,
+        _source_id: &str,
+        _source: &MetricSource,
     ) -> Result<(), PerformanceMonitoringError> {
         // Implementation would start background collection thread
         Ok(())
@@ -906,7 +952,7 @@ impl MetricsCollector {
 }
 
 impl BottleneckDetector {
-    fn new(config: &PerformanceMonitoringConfig) -> Self {
+    fn new(_config: &PerformanceMonitoringConfig) -> Self {
         Self {
             bottleneck_scanners: HashMap::new(),
             dependency_analyzer: DependencyGraphAnalyzer::new(),
@@ -928,7 +974,7 @@ impl BottleneckDetector {
         let mut bottlenecks = Vec::new();
 
         // Analyze different bottleneck types
-        for (scanner_id, scanner) in &self.bottleneck_scanners {
+        for (_scanner_id, scanner) in &self.bottleneck_scanners {
             if let Some(bottleneck) = scanner.scan_for_bottlenecks()? {
                 bottlenecks.push(bottleneck);
             }
@@ -1099,7 +1145,7 @@ pub struct PerformanceHistoryEntry {
 
 // Implement constructors and methods
 impl MetricContext {
-    fn new(source_id: String) -> Self {
+    fn new(_source_id: String) -> Self {
         Self::default()
     }
 }
@@ -1111,7 +1157,7 @@ impl MetricsAggregator {
 }
 
 impl MetricsStorageEngine {
-    fn new(config: &MetricsConfig) -> Self {
+    fn new(_config: &MetricsConfig) -> Self {
         Self::default()
     }
 }
@@ -1143,7 +1189,7 @@ impl PerformanceAnalyzer {
 }
 
 impl ResourceUtilizationMonitor {
-    fn new(config: &PerformanceMonitoringConfig) -> Self {
+    fn new(_config: &PerformanceMonitoringConfig) -> Self {
         Self {
             gpu_monitors: HashMap::new(),
             memory_monitors: HashMap::new(),
@@ -1199,7 +1245,7 @@ impl PerformanceProfiler {
 }
 
 impl OptimizationRecommender {
-    fn new(config: &PerformanceMonitoringConfig) -> Self {
+    fn new(_config: &PerformanceMonitoringConfig) -> Self {
         Self {
             recommendation_engines: HashMap::new(),
             model_analyzer: PerformanceModelAnalyzer::new(),
@@ -1292,8 +1338,8 @@ impl DashboardDataProvider {
 
     fn generate_dashboard_data(
         &self,
-        chart_type: ChartType,
-        time_range: Duration,
+        _chart_type: ChartType,
+        _time_range: Duration,
     ) -> Result<DashboardData, PerformanceMonitoringError> {
         // Implementation would generate dashboard data based on chart type and time range
         Ok(DashboardData::default())
@@ -1301,7 +1347,7 @@ impl DashboardDataProvider {
 }
 
 impl BottleneckScanner {
-    fn new(bottleneck_type: BottleneckType) -> Self {
+    fn new(_bottleneck_type: BottleneckType) -> Self {
         Self::default()
     }
 

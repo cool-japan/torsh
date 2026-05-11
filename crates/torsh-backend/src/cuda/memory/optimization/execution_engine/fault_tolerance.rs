@@ -7,15 +7,16 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
-use std::sync::{
-    atomic::{AtomicUsize, Ordering},
-    Arc, Mutex, RwLock,
-};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant, SystemTime};
-use uuid;
 
 use super::config::{CheckpointConfig, FaultToleranceConfig, RetryConfig};
 use super::task_management::{TaskError, TaskId};
+
+/// Helper for serde default Instant value
+fn default_instant() -> Instant {
+    Instant::now()
+}
 
 /// Comprehensive fault tolerance manager for CUDA execution
 ///
@@ -123,7 +124,7 @@ pub struct CircuitBreakerManager {
     recovery_checker: RecoveryConditionChecker,
 
     /// Circuit breaker configuration
-    config: CircuitBreakerConfig,
+    config: CircuitBreakerConfiguration,
 
     /// Performance metrics
     performance_metrics: CircuitBreakerMetrics,
@@ -148,7 +149,7 @@ pub struct RecoveryOrchestrator {
     validation_system: RecoveryValidationSystem,
 
     /// Recovery configuration
-    config: RecoveryConfig,
+    config: FaultRecoveryConfig,
 
     /// Recovery history
     recovery_history: VecDeque<RecoveryRecord>,
@@ -353,7 +354,6 @@ pub struct RecoveryStrategy {
 }
 
 /// Health checker for monitoring system health
-#[derive(Debug)]
 pub struct HealthChecker {
     /// Checker name
     pub name: String,
@@ -378,6 +378,21 @@ pub struct HealthChecker {
 
     /// Health history
     pub health_history: VecDeque<HealthCheckRecord>,
+}
+
+impl std::fmt::Debug for HealthChecker {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HealthChecker")
+            .field("name", &self.name)
+            .field("check_type", &self.check_type)
+            .field("check_interval", &self.check_interval)
+            .field("check_function", &"<dyn Fn>")
+            .field("timeout", &self.timeout)
+            .field("last_result", &self.last_result)
+            .field("last_check_time", &self.last_check_time)
+            .field("health_history", &self.health_history)
+            .finish()
+    }
 }
 
 /// Checkpoint for preserving task state
@@ -522,7 +537,7 @@ pub enum ConfigurationFailureType {
 }
 
 /// Retry strategies
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum RetryStrategy {
     /// Fixed delay between retries
     FixedDelay(Duration),
@@ -607,7 +622,7 @@ pub enum CompressionType {
 // === Configuration Structures ===
 
 /// Failure detection configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct FailureDetectionConfig {
     /// Enable anomaly detection
     pub enable_anomaly_detection: bool,
@@ -648,8 +663,8 @@ pub struct CircuitBreakerConfig {
 }
 
 /// Recovery configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RecoveryConfig {
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct FaultRecoveryConfig {
     /// Maximum concurrent recoveries
     pub max_concurrent_recoveries: usize,
 
@@ -667,7 +682,7 @@ pub struct RecoveryConfig {
 }
 
 /// Health monitoring configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct HealthMonitoringConfig {
     /// Health check intervals
     pub check_intervals: HashMap<HealthCheckType, Duration>,
@@ -686,7 +701,7 @@ pub struct HealthMonitoringConfig {
 }
 
 /// Resilience configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ResilienceConfig {
     /// Enable adaptive resilience
     pub enable_adaptive_resilience: bool,
@@ -815,7 +830,7 @@ impl FaultToleranceManager {
 
     // === Private Helper Methods ===
 
-    fn schedule_retry(&self, task_id: TaskId, delay: Duration) -> Result<(), FaultToleranceError> {
+    fn schedule_retry(&self, _task_id: TaskId, _delay: Duration) -> Result<(), FaultToleranceError> {
         // Implementation would schedule the retry with appropriate delay
         Ok(())
     }
@@ -831,13 +846,13 @@ impl FaultToleranceManager {
 }
 
 impl FailureDetector {
-    fn new(config: &FaultToleranceConfig) -> Self {
+    fn new(_config: &FaultToleranceConfig) -> Self {
         Self {
             active_monitors: HashMap::new(),
             pattern_analyzer: FailurePatternAnalyzer::new(),
             anomaly_detector: AnomalyDetector::new(),
             classifier: FailureClassifier::new(),
-            detection_config: config.detection.clone().unwrap_or_default(),
+            detection_config: FailureDetectionConfig::default(),
             failure_history: VecDeque::new(),
             failure_metrics: FailureMetrics::new(),
         }
@@ -928,20 +943,22 @@ impl RetryManager {
         }
 
         // Get or create retry context
-        let retry_context = self
-            .active_retries
-            .entry(task_id)
-            .or_insert_with(|| RetryContext {
+        if !self.active_retries.contains_key(&task_id) {
+            let strategy = self.determine_retry_strategy(&failure.failure_type);
+            let max_attempts = self.config.max_retries;
+            self.active_retries.insert(task_id, RetryContext {
                 task_id,
-                strategy: self.determine_retry_strategy(&failure.failure_type),
+                strategy,
                 attempt_number: 0,
-                max_attempts: self.config.max_retries,
+                max_attempts,
                 next_retry_at: Instant::now(),
                 delay_progression: Vec::new(),
                 failure_reasons: Vec::new(),
                 metadata: HashMap::new(),
                 created_at: Instant::now(),
             });
+        }
+        let retry_context = self.active_retries.get_mut(&task_id).expect("just inserted");
 
         // Check if we've exceeded maximum attempts
         if retry_context.attempt_number >= retry_context.max_attempts {
@@ -1001,13 +1018,13 @@ impl RetryManager {
 }
 
 impl CircuitBreakerManager {
-    fn new(config: &FaultToleranceConfig) -> Self {
+    fn new(_config: &FaultToleranceConfig) -> Self {
         Self {
             circuit_breakers: HashMap::new(),
             state_monitor: CircuitBreakerStateMonitor::new(),
             threshold_calculator: FailureThresholdCalculator::new(),
             recovery_checker: RecoveryConditionChecker::new(),
-            config: config.circuit_breaker.clone().unwrap_or_default(),
+            config: CircuitBreakerConfiguration::new_default(),
             performance_metrics: CircuitBreakerMetrics::new(),
         }
     }
@@ -1015,20 +1032,46 @@ impl CircuitBreakerManager {
     fn record_failure(
         &mut self,
         component: &str,
-        failure_type: &FailureType,
+        _failure_type: &FailureType,
     ) -> Result<(), FaultToleranceError> {
-        let circuit_breaker = self
-            .circuit_breakers
-            .entry(component.to_string())
-            .or_insert_with(|| self.create_circuit_breaker(component));
-
-        // Record failure
-        circuit_breaker
-            .failure_count
-            .fetch_add(1, Ordering::Relaxed);
+        if !self.circuit_breakers.contains_key(component) {
+            let new_breaker = self.create_circuit_breaker(component);
+            self.circuit_breakers.insert(component.to_string(), new_breaker);
+        }
+        if let Some(circuit_breaker) = self.circuit_breakers.get_mut(component) {
+            circuit_breaker.failure_count += 1;
+        }
 
         // Check if circuit breaker should trip
-        self.check_circuit_breaker_state(circuit_breaker)?;
+        let state_change = if let Some(cb) = self.circuit_breakers.get_mut(component) {
+            let fc = cb.failure_count;
+            let sc = cb.success_count;
+            match cb.state {
+                CircuitBreakerState::Closed if fc >= cb.failure_threshold => {
+                    Some((cb.name.clone(), CircuitBreakerState::Open))
+                }
+                CircuitBreakerState::Open if cb.last_state_change.elapsed() > cb.config.recovery_timeout => {
+                    Some((cb.name.clone(), CircuitBreakerState::HalfOpen))
+                }
+                CircuitBreakerState::HalfOpen if sc >= cb.success_threshold => {
+                    Some((cb.name.clone(), CircuitBreakerState::Closed))
+                }
+                CircuitBreakerState::HalfOpen if fc > 0 => {
+                    Some((cb.name.clone(), CircuitBreakerState::Open))
+                }
+                _ => None,
+            }
+        } else {
+            None
+        };
+
+        if let Some((name, new_state)) = state_change {
+            if let Some(cb) = self.circuit_breakers.get_mut(&name) {
+                cb.state = new_state;
+                cb.last_state_change = Instant::now();
+            }
+            self.performance_metrics.record_state_change(&name, new_state);
+        }
 
         Ok(())
     }
@@ -1125,6 +1168,7 @@ impl CheckpointManager {
     ) -> Result<String, FaultToleranceError> {
         let checkpoint_id = uuid::Uuid::new_v4().to_string();
 
+        let checksum = self.calculate_checksum(&state_data);
         let checkpoint = Checkpoint {
             checkpoint_id: checkpoint_id.clone(),
             task_id,
@@ -1136,7 +1180,7 @@ impl CheckpointManager {
             },
             resource_state: ResourceState::default(),
             metadata: CheckpointMetadata::new(),
-            checksum: self.calculate_checksum(&state_data),
+            checksum,
             compression: if self.config.compression_enabled {
                 CompressionType::Gzip
             } else {
@@ -1162,7 +1206,7 @@ impl CheckpointManager {
 
     fn restore_checkpoint(
         &mut self,
-        task_id: TaskId,
+        _task_id: TaskId,
         checkpoint_id: &str,
     ) -> Result<Vec<u8>, FaultToleranceError> {
         let checkpoint = self.storage_backend.load_checkpoint(checkpoint_id)?;
@@ -1280,8 +1324,35 @@ default_placeholder_type!(MonitorId);
 default_placeholder_type!(MonitorStatus);
 default_placeholder_type!(DetectionEvent);
 default_placeholder_type!(DetectionThresholds);
-default_placeholder_type!(FailureReason);
-default_placeholder_type!(CircuitBreakerConfiguration);
+/// Reason for a task failure (stored in retry context)
+#[derive(Debug, Clone)]
+pub struct FailureReason {
+    pub failure_type: FailureType,
+    pub timestamp: Instant,
+    pub details: String,
+}
+
+/// Circuit breaker configuration parameters
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CircuitBreakerConfiguration {
+    pub failure_threshold: usize,
+    pub success_threshold: usize,
+    pub window_duration: Duration,
+    pub recovery_timeout: Duration,
+    pub component_configs: HashMap<String, CircuitBreakerConfiguration>,
+}
+
+impl CircuitBreakerConfiguration {
+    pub fn new_default() -> Self {
+        Self {
+            failure_threshold: 5,
+            success_threshold: 3,
+            window_duration: Duration::from_secs(60),
+            recovery_timeout: Duration::from_secs(30),
+            component_configs: HashMap::new(),
+        }
+    }
+}
 default_placeholder_type!(RecoverySuccessCriterion);
 default_placeholder_type!(RollbackStrategy);
 default_placeholder_type!(RecoveryResourceRequirements);
@@ -1300,7 +1371,13 @@ default_placeholder_type!(FailurePatternAnalyzer);
 default_placeholder_type!(AnomalyDetector);
 default_placeholder_type!(FailureClassifier);
 default_placeholder_type!(FailureMetrics);
-default_placeholder_type!(FailureRecord);
+/// Failure record stored in failure history
+#[derive(Debug, Clone)]
+pub struct FailureRecord {
+    pub classification: FailureClassification,
+    pub recorded_at: Instant,
+}
+
 /// Failure classification for fault tolerance analysis
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FailureClassification {
@@ -1311,12 +1388,21 @@ pub struct FailureClassification {
     /// Severity level
     pub severity: FailureSeverity,
     /// When the failure occurred
-    #[serde(skip)]
+    #[serde(skip, default = "default_instant")]
     pub timestamp: Instant,
     /// Additional context
     pub context: HashMap<String, String>,
 }
-default_placeholder_type!(FailureSeverity);
+/// Failure severity levels for fault tolerance analysis
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum FailureSeverity {
+    #[default]
+    Low,
+    Medium,
+    High,
+    Critical,
+}
+
 default_placeholder_type!(RetryStrategyEngine);
 default_placeholder_type!(RetryPolicyEnforcer);
 default_placeholder_type!(BackoffCalculator);
@@ -1327,7 +1413,37 @@ default_placeholder_type!(FailureThresholdCalculator);
 default_placeholder_type!(RecoveryConditionChecker);
 default_placeholder_type!(CircuitBreakerMetrics);
 
+impl RetryStrategyEngine {
+    pub fn new() -> Self { Self::default() }
+}
+impl RetryPolicyEnforcer {
+    pub fn new(_config: &RetryConfig) -> Self { Self::default() }
+}
+impl BackoffCalculator {
+    pub fn new() -> Self { Self::default() }
+    pub fn calculate_delay(&self, _strategy: &RetryStrategy, _attempt: usize) -> Duration {
+        Duration::from_secs(1)
+    }
+}
+impl RetryAttemptTracker {
+    pub fn new() -> Self { Self::default() }
+    pub fn record_attempt(&mut self, _task_id: TaskId, _attempt: usize, _delay: Duration) {}
+}
+impl RetryStatistics {
+    pub fn new() -> Self { Self::default() }
+}
+impl CircuitBreakerStateMonitor {
+    pub fn new() -> Self { Self::default() }
+}
+impl FailureThresholdCalculator {
+    pub fn new() -> Self { Self::default() }
+}
+impl RecoveryConditionChecker {
+    pub fn new() -> Self { Self::default() }
+}
 impl CircuitBreakerMetrics {
+    pub fn new() -> Self { Self::default() }
+
     /// Record a state change in the circuit breaker
     pub fn record_state_change(&mut self, _name: &str, _state: CircuitBreakerState) {
         // Placeholder implementation - would record metrics in production
@@ -1356,19 +1472,8 @@ default_placeholder_type!(ResilienceMetrics);
 default_placeholder_type!(FaultToleranceMetricsCollector);
 default_placeholder_type!(SystemState);
 
-// Implement necessary methods
-impl FaultToleranceStatistics {
-    fn new() -> Self {
-        Self {
-            checkpoints_created: 0,
-            checkpoints_restored: 0,
-            ..Default::default()
-        }
-    }
-}
-
-// Override the default FaultToleranceStatistics to include actual fields
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Statistics for fault tolerance operations
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct FaultToleranceStatistics {
     pub checkpoints_created: u64,
     pub checkpoints_restored: u64,
@@ -1378,16 +1483,78 @@ pub struct FaultToleranceStatistics {
     pub circuit_breakers_tripped: u64,
 }
 
+impl FaultToleranceStatistics {
+    fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl FaultToleranceMetricsCollector {
+    pub fn new() -> Self { Self::default() }
+}
+impl SystemState {
+    pub fn new() -> Self { Self::default() }
+}
+
+impl RecoveryOrchestrator {
+    pub fn new(_config: &FaultToleranceConfig) -> Self {
+        Self {
+            recovery_strategies: HashMap::new(),
+            execution_engine: RecoveryExecutionEngine::default(),
+            state_machine: RecoveryStateMachine::default(),
+            resource_recovery: ResourceRecoveryManager::default(),
+            validation_system: RecoveryValidationSystem::default(),
+            config: FaultRecoveryConfig::default(),
+            recovery_history: VecDeque::new(),
+        }
+    }
+
+    pub fn attempt_recovery(&mut self, _classification: &FailureClassification) -> Result<RecoveryResult, FaultToleranceError> {
+        Ok(RecoveryResult::Success)
+    }
+}
+
+impl HealthMonitor {
+    pub fn new(_config: &FaultToleranceConfig) -> Self {
+        Self {
+            health_checkers: HashMap::new(),
+            metrics_collector: HealthMetricsCollector::default(),
+            trend_analyzer: HealthTrendAnalyzer::default(),
+            predictive_model: None,
+            alert_system: HealthAlertSystem::default(),
+            config: HealthMonitoringConfig::default(),
+            system_health: SystemHealthStatus::default(),
+        }
+    }
+
+    pub fn get_current_health_status(&self) -> SystemHealthStatus {
+        self.system_health.clone()
+    }
+}
+
+impl ResilienceEngine {
+    pub fn new(_config: &FaultToleranceConfig) -> Self {
+        Self {
+            resilience_strategies: Vec::new(),
+            adaptation_engine: AdaptationEngine::default(),
+            load_shedding: LoadSheddingController::default(),
+            degradation_manager: GracefulDegradationManager::default(),
+            resilience_metrics: ResilienceMetrics::default(),
+            config: ResilienceConfig::default(),
+        }
+    }
+}
+
 impl CheckpointStorageBackend {
-    fn new(storage_location: &str) -> Self {
+    fn new(_storage_location: &str) -> Self {
         Self::default()
     }
 
-    fn store_checkpoint(&self, checkpoint: &Checkpoint) -> Result<(), FaultToleranceError> {
+    fn store_checkpoint(&self, _checkpoint: &Checkpoint) -> Result<(), FaultToleranceError> {
         Ok(())
     }
 
-    fn load_checkpoint(&self, checkpoint_id: &str) -> Result<Checkpoint, FaultToleranceError> {
+    fn load_checkpoint(&self, _checkpoint_id: &str) -> Result<Checkpoint, FaultToleranceError> {
         Err(FaultToleranceError::CheckpointError(
             "Checkpoint not found".to_string(),
         ))
@@ -1411,7 +1578,7 @@ impl CheckpointValidationSystem {
         Self::default()
     }
 
-    fn validate_checkpoint(&self, checkpoint: &Checkpoint) -> Result<(), FaultToleranceError> {
+    fn validate_checkpoint(&self, _checkpoint: &Checkpoint) -> Result<(), FaultToleranceError> {
         Ok(())
     }
 }
@@ -1423,12 +1590,6 @@ impl CheckpointStatistics {
 }
 
 impl CheckpointMetadata {
-    fn new() -> Self {
-        Self::default()
-    }
-}
-
-impl SystemState {
     fn new() -> Self {
         Self::default()
     }
@@ -1469,7 +1630,7 @@ impl FailureMetrics {
         Self::default()
     }
 
-    fn record_failure(&mut self, classification: &FailureClassification) {
+    fn record_failure(&mut self, _classification: &FailureClassification) {
         // Implementation would update metrics
     }
 }
@@ -1489,7 +1650,7 @@ mod tests {
     #[test]
     fn test_circuit_breaker_state_transitions() {
         let config = FaultToleranceConfig::default();
-        let mut manager = CircuitBreakerManager::new(&config);
+        let manager = CircuitBreakerManager::new(&config);
 
         // Create a circuit breaker
         let breaker = manager.create_circuit_breaker("test_component");

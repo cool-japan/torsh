@@ -2,14 +2,12 @@
 //!
 //! 🤖 Generated with [SplitRS](https://github.com/cool-japan/splitrs)
 
-use std::collections::{HashMap, VecDeque};
-use std::time::{Duration, Instant};
-
-use super::types::{Distribution, EnsembleConfig, EnsembleType, ExplanationMethod, ExplorationStrategy, ExtractionPerformance, ExtractorType, FairnessMetrics, FeatureExtractor, FeatureNormalization, FeatureSelectionCriteria, FeatureStatistics, MLModel, MLModelType, MLOptimizationEngine, ModelComplexityMetrics, ModelPerformance, OnlineLearningConfig, PerformanceTrend, PotentialFunction, RLAgentType, RLLearningParams, ReinforcementLearningAgent, RewardShaping, SearchSpace, StabilityMetrics, TrainingExample, TrainingStatus, ValidationMetrics, ValidationSplit, VotingStrategy};
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::super::*;
+    use std::collections::{HashMap, VecDeque};
+    use std::time::{Duration, Instant};
     #[test]
     fn test_ml_engine_creation() {
         let engine = MLOptimizationEngine::new();

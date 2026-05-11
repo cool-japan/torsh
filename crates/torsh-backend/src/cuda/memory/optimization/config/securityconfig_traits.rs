@@ -12,7 +12,7 @@ use super::types::SecurityConfig;
 
 impl Default for SecurityConfig {
     fn default() -> Self {
-        Self
+        Self { enable_encryption: false }
     }
 }
 

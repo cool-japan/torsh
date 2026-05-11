@@ -654,10 +654,10 @@ impl HardwareManager {
     /// Create a new hardware manager
     pub fn new(config: HardwareConfig) -> Self {
         Self {
-            gpu_manager: Arc::new(Mutex::new(GpuManager::new(&config.gpu))),
+            gpu_manager: Arc::new(Mutex::new(GpuManager::new(&GpuConfig {}))),
             resource_allocator: Arc::new(Mutex::new(HardwareResourceAllocator::new(&config))),
             device_monitor: Arc::new(Mutex::new(DeviceMonitor::new(&config))),
-            thermal_manager: Arc::new(Mutex::new(ThermalManager::new(&config.thermal))),
+            thermal_manager: Arc::new(Mutex::new(ThermalManager::new(&ThermalConfig {}))),
             power_manager: Arc::new(Mutex::new(PowerManager::new(&config))),
             hardware_abstraction: Arc::new(Mutex::new(HardwareAbstractionLayer::new(&config))),
             capability_detector: Arc::new(Mutex::new(DeviceCapabilityDetector::new(&config))),
@@ -847,14 +847,14 @@ impl GpuManager {
 }
 
 impl HardwareResourceAllocator {
-    fn new(config: &HardwareConfig) -> Self {
+    fn new(_config: &HardwareConfig) -> Self {
         Self {
             resource_pools: HashMap::new(),
             allocation_strategies: HashMap::new(),
             resource_scheduler: ResourceScheduler::new(),
             allocation_tracker: AllocationTracker::new(),
             optimization_engine: ResourceOptimizationEngine::new(),
-            config: config.resource_allocation.clone().unwrap_or_default(),
+            config: ResourceAllocationConfig::default(),
             active_allocations: HashMap::new(),
         }
     }
@@ -872,8 +872,8 @@ impl HardwareResourceAllocator {
             allocation_id: allocation_id.clone(),
             allocated_resources,
             allocation_time: SystemTime::now(),
-            duration: requirements.duration,
-            priority: requirements.priority.unwrap_or(AllocationPriority::Medium),
+            duration: None,
+            priority: AllocationPriority::Medium,
             status: AllocationStatus::Active,
             requirements,
             metadata: HashMap::new(),
@@ -897,7 +897,7 @@ impl HardwareResourceAllocator {
 
     fn find_suitable_resources(
         &self,
-        requirements: &ResourceRequirements,
+        _requirements: &ResourceRequirements,
     ) -> Result<Vec<AllocatedResource>, HardwareError> {
         // Implementation would find actual suitable resources
         Ok(vec![AllocatedResource::default()])
@@ -905,14 +905,14 @@ impl HardwareResourceAllocator {
 }
 
 impl DeviceMonitor {
-    fn new(config: &HardwareConfig) -> Self {
+    fn new(_config: &HardwareConfig) -> Self {
         Self {
             health_checkers: HashMap::new(),
             sensor_reader: HardwareSensorReader::new(),
             status_tracker: DeviceStatusTracker::new(),
             event_detector: HardwareEventDetector::new(),
             failure_predictor: HardwareFailurePredictor::new(),
-            config: config.device_monitoring.clone().unwrap_or_default(),
+            config: DeviceMonitoringConfig::default(),
             health_history: HashMap::new(),
         }
     }
@@ -923,7 +923,7 @@ impl DeviceMonitor {
         Ok(())
     }
 
-    fn get_device_health(&self, device_id: &DeviceId) -> Result<HealthStatus, HardwareError> {
+    fn get_device_health(&self, _device_id: &DeviceId) -> Result<HealthStatus, HardwareError> {
         // Implementation would check actual device health
         Ok(HealthStatus::Good)
     }
@@ -953,14 +953,14 @@ impl ThermalManager {
 }
 
 impl PowerManager {
-    fn new(config: &HardwareConfig) -> Self {
+    fn new(_config: &HardwareConfig) -> Self {
         Self {
             power_monitors: HashMap::new(),
             allocation_controller: PowerAllocationController::new(),
             dvfs_controller: DvfsController::new(),
             state_manager: PowerStateManager::new(),
             energy_optimizer: EnergyOptimizer::new(),
-            config: config.power_management.clone().unwrap_or_default(),
+            config: PowerManagementConfig::default(),
             power_history: HashMap::new(),
         }
     }
@@ -976,20 +976,20 @@ impl PowerManager {
 }
 
 impl HardwareAbstractionLayer {
-    fn new(config: &HardwareConfig) -> Self {
+    fn new(_config: &HardwareConfig) -> Self {
         Self {
             device_drivers: HashMap::new(),
             interface_adapters: HashMap::new(),
             capability_registry: DeviceCapabilityRegistry::new(),
             command_executor: HardwareCommandExecutor::new(),
             abstraction_cache: DeviceAbstractionCache::new(),
-            config: config.abstraction_layer.clone().unwrap_or_default(),
+            config: AbstractionLayerConfig::default(),
         }
     }
 
     fn execute_command(
         &mut self,
-        command: HardwareCommand,
+        _command: HardwareCommand,
     ) -> Result<CommandResult, HardwareError> {
         // Implementation would execute actual hardware command
         Ok(CommandResult::default())
@@ -997,13 +997,13 @@ impl HardwareAbstractionLayer {
 }
 
 impl DeviceCapabilityDetector {
-    fn new(config: &HardwareConfig) -> Self {
+    fn new(_config: &HardwareConfig) -> Self {
         Self {
             capability_scanners: HashMap::new(),
             feature_detector: HardwareFeatureDetector::new(),
             benchmark_suite: HardwareBenchmarkSuite::new(),
             capability_database: CapabilityDatabase::new(),
-            config: config.capability_detection.clone().unwrap_or_default(),
+            config: CapabilityDetectionConfig::default(),
         }
     }
 
@@ -1472,7 +1472,7 @@ mod tests {
         let config = HardwareConfig::default();
         let manager = HardwareManager::new(config);
 
-        let thermal_status = manager.get_thermal_status().expect("thermal status retrieval should succeed");
+        let _thermal_status = manager.get_thermal_status().expect("thermal status retrieval should succeed");
         // ThermalStatusReport should have default implementation
     }
 
@@ -1481,7 +1481,7 @@ mod tests {
         let config = HardwareConfig::default();
         let manager = HardwareManager::new(config);
 
-        let power_status = manager.get_power_status().expect("power status retrieval should succeed");
+        let _power_status = manager.get_power_status().expect("power status retrieval should succeed");
         // PowerStatusReport should have default implementation
     }
 
@@ -1491,7 +1491,7 @@ mod tests {
         let manager = HardwareManager::new(config);
 
         let command = HardwareCommand::default();
-        let result = manager.execute_hardware_command(command).expect("hardware command execution should succeed");
+        let _result = manager.execute_hardware_command(command).expect("hardware command execution should succeed");
         // CommandResult should have default implementation
     }
 }

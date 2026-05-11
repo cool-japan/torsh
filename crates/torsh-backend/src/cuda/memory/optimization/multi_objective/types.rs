@@ -4,6 +4,7 @@
 
 use std::collections::{HashMap, VecDeque};
 use std::time::{Duration, Instant};
+use scirs2_core::random::{rng, RngExt};
 
 /// Clustering configuration for diversity maintenance
 #[derive(Debug, Clone)]
@@ -195,19 +196,19 @@ pub struct ConvergenceSnapshot {
 #[derive(Debug)]
 pub struct MultiObjectiveOptimizer {
     /// Available optimization algorithms
-    algorithms: HashMap<String, MultiObjectiveAlgorithm>,
+    pub algorithms: HashMap<String, MultiObjectiveAlgorithm>,
     /// Current Pareto front solutions
-    pareto_front: Vec<ParetoSolution>,
+    pub pareto_front: Vec<ParetoSolution>,
     /// Objective weights for scalarization methods
-    objective_weights: HashMap<String, f32>,
+    pub objective_weights: HashMap<String, f32>,
     /// Constraint handlers for feasibility management
-    constraint_handlers: Vec<ConstraintHandler>,
+    pub constraint_handlers: Vec<ConstraintHandler>,
     /// Archive of all generated solutions
-    solution_archive: VecDeque<OptimizationSolution>,
+    pub solution_archive: VecDeque<OptimizationSolution>,
     /// Performance metrics and statistics
-    performance_metrics: MultiObjectiveMetrics,
+    pub performance_metrics: MultiObjectiveMetrics,
     /// Population for evolutionary algorithms
-    population: Vec<Individual>,
+    pub population: Vec<Individual>,
     /// Reference point for hypervolume calculation
     reference_point: Vec<f64>,
     /// Archive management configuration
@@ -288,14 +289,15 @@ impl MultiObjectiveOptimizer {
         let algorithm = self
             .algorithms
             .get(algorithm_name)
-            .ok_or_else(|| format!("Algorithm '{}' not found", algorithm_name))?;
+            .ok_or_else(|| format!("Algorithm '{}' not found", algorithm_name))?
+            .clone();
         match algorithm.algorithm_type {
-            MOAlgorithmType::NSGA2 => self.run_nsga2(objectives, constraints, algorithm),
-            MOAlgorithmType::NSGA3 => self.run_nsga3(objectives, constraints, algorithm),
-            MOAlgorithmType::SPEA2 => self.run_spea2(objectives, constraints, algorithm),
-            MOAlgorithmType::MOEAD => self.run_moead(objectives, constraints, algorithm),
+            MOAlgorithmType::NSGA2 => self.run_nsga2(objectives, constraints, &algorithm),
+            MOAlgorithmType::NSGA3 => self.run_nsga3(objectives, constraints, &algorithm),
+            MOAlgorithmType::SPEA2 => self.run_spea2(objectives, constraints, &algorithm),
+            MOAlgorithmType::MOEAD => self.run_moead(objectives, constraints, &algorithm),
             MOAlgorithmType::SmsEmoa => {
-                self.run_sms_emoa(objectives, constraints, algorithm)
+                self.run_sms_emoa(objectives, constraints, &algorithm)
             }
             _ => Err("Algorithm not implemented yet".to_string()),
         }
@@ -419,11 +421,11 @@ impl MultiObjectiveOptimizer {
         self.extract_pareto_front()
     }
     /// Initialize random population
-    fn initialize_population(&mut self, population_size: usize, num_objectives: usize) {
+    pub fn initialize_population(&mut self, population_size: usize, num_objectives: usize) {
         let mut rng = rng();
         self.population.clear();
         for _ in 0..population_size {
-            let genotype: Vec<f64> = (0..10).map(|_| rng.gen_range(-1.0..1.0)).collect();
+            let genotype: Vec<f64> = (0..10).map(|_| rng.random_range(-1.0..1.0)).collect();
             let individual = Individual {
                 genotype,
                 phenotype: HashMap::new(),
@@ -439,17 +441,25 @@ impl MultiObjectiveOptimizer {
     }
     /// Evaluate population on objectives and constraints
     fn evaluate_population(&mut self, objectives: &[String], constraints: &[String]) {
-        for individual in &mut self.population {
-            for (i, _objective) in objectives.iter().enumerate() {
-                individual.objectives[i] = self
-                    .evaluate_objective(i, &individual.genotype);
+        // Compute evaluations for each individual, then apply
+        let evaluations: Vec<(Vec<f64>, Vec<f64>)> = self.population.iter()
+            .map(|individual| {
+                let obj_vals: Vec<f64> = objectives.iter().enumerate()
+                    .map(|(i, _)| self.evaluate_objective(i, &individual.genotype))
+                    .collect();
+                let con_vals: Vec<f64> = constraints.iter()
+                    .map(|c| self.evaluate_constraint(c, &individual.genotype))
+                    .collect();
+                (obj_vals, con_vals)
+            })
+            .collect();
+        for (individual, (obj_vals, con_vals)) in self.population.iter_mut().zip(evaluations) {
+            for (i, val) in obj_vals.into_iter().enumerate() {
+                if i < individual.objectives.len() {
+                    individual.objectives[i] = val;
+                }
             }
-            individual.constraints = constraints
-                .iter()
-                .map(|constraint| {
-                    self.evaluate_constraint(constraint, &individual.genotype)
-                })
-                .collect();
+            individual.constraints = con_vals;
         }
     }
     /// Evaluate a single objective (placeholder implementation)
@@ -466,7 +476,7 @@ impl MultiObjectiveOptimizer {
         genotype.iter().sum::<f64>()
     }
     /// Fast non-dominated sorting algorithm
-    fn fast_non_dominated_sort(&mut self) {
+    pub fn fast_non_dominated_sort(&mut self) {
         let pop_size = self.population.len();
         let mut dominance_sets: Vec<Vec<usize>> = vec![Vec::new(); pop_size];
         let mut dominated_counts = vec![0; pop_size];
@@ -507,7 +517,7 @@ impl MultiObjectiveOptimizer {
         }
     }
     /// Check if individual i dominates individual j
-    fn dominates(&self, i: usize, j: usize) -> bool {
+    pub fn dominates(&self, i: usize, j: usize) -> bool {
         let obj_i = &self.population[i].objectives;
         let obj_j = &self.population[j].objectives;
         let mut at_least_one_better = false;
@@ -567,7 +577,7 @@ impl MultiObjectiveOptimizer {
             let parent2_idx = self.tournament_selection();
             let parent1 = &self.population[parent1_idx];
             let parent2 = &self.population[parent2_idx];
-            if rng.gen_range(0.0..1.0) < algorithm.crossover_probability {
+            if rng.random_range(0.0..1.0) < algorithm.crossover_probability {
                 let (child1, child2) = self.simulated_binary_crossover(parent1, parent2);
                 offspring.push(child1);
                 if offspring.len() < self.population.len() {
@@ -581,19 +591,19 @@ impl MultiObjectiveOptimizer {
             }
         }
         for child in &mut offspring {
-            if rng.gen_range(0.0..1.0) < algorithm.mutation_probability {
+            if rng.random_range(0.0..1.0) < algorithm.mutation_probability {
                 self.polynomial_mutation(child);
             }
         }
         offspring
     }
     /// Tournament selection for parent selection
-    fn tournament_selection(&self) -> usize {
+    pub fn tournament_selection(&self) -> usize {
         let mut rng = rng();
         let tournament_size = 2;
-        let mut best_idx = rng.gen_range(0..self.population.len());
+        let mut best_idx = rng.random_range(0..self.population.len());
         for _ in 1..tournament_size {
-            let candidate_idx = rng.gen_range(0..self.population.len());
+            let candidate_idx = rng.random_range(0..self.population.len());
             if self.is_better_solution(candidate_idx, best_idx) {
                 best_idx = candidate_idx;
             }
@@ -613,7 +623,7 @@ impl MultiObjectiveOptimizer {
         }
     }
     /// Simulated Binary Crossover (SBX)
-    fn simulated_binary_crossover(
+    pub fn simulated_binary_crossover(
         &self,
         parent1: &Individual,
         parent2: &Individual,
@@ -623,10 +633,10 @@ impl MultiObjectiveOptimizer {
         let mut rng = rng();
         let eta_c = 20.0;
         for i in 0..parent1.genotype.len() {
-            if rng.gen_range(0.0..1.0) <= 0.5 {
+            if rng.random_range(0.0..1.0) <= 0.5 {
                 let y1 = parent1.genotype[i].min(parent2.genotype[i]);
                 let y2 = parent1.genotype[i].max(parent2.genotype[i]);
-                let rand: f64 = rng.gen_range(0.0..1.0);
+                let rand: f64 = rng.random_range(0.0..1.0);
                 let beta: f64 = if rand <= 0.5 {
                     (2.0_f64 * rand).powf(1.0 / (eta_c + 1.0))
                 } else {
@@ -646,8 +656,8 @@ impl MultiObjectiveOptimizer {
         let eta_m = 20.0;
         let mutation_prob = 1.0 / individual.genotype.len() as f64;
         for gene in &mut individual.genotype {
-            if rng.gen_range(0.0..1.0) <= mutation_prob {
-                let rand: f64 = rng.gen_range(0.0..1.0);
+            if rng.random_range(0.0..1.0) <= mutation_prob {
+                let rand: f64 = rng.random_range(0.0..1.0);
                 let delta: f64 = if rand < 0.5 {
                     (2.0_f64 * rand).powf(1.0 / (eta_m + 1.0)) - 1.0
                 } else {
@@ -748,7 +758,7 @@ impl MultiObjectiveOptimizer {
     }
     fn hypervolume_based_selection(&mut self, _target_size: usize) {}
     /// Update performance metrics
-    fn update_metrics(&mut self, generation: usize) {
+    pub fn update_metrics(&mut self, generation: usize) {
         self.performance_metrics.generations = generation;
         self.performance_metrics.solution_count = self
             .population
@@ -846,7 +856,7 @@ impl MultiObjectiveOptimizer {
         obj1.iter().zip(obj2.iter()).map(|(a, b)| (a - b).powi(2)).sum::<f64>().sqrt()
     }
     /// Check convergence criteria
-    fn check_convergence(
+    pub fn check_convergence(
         &mut self,
         generation: usize,
         algorithm: &MultiObjectiveAlgorithm,
@@ -892,7 +902,7 @@ impl MultiObjectiveOptimizer {
         false
     }
     /// Extract Pareto front from population
-    fn extract_pareto_front(&self) -> Result<Vec<ParetoSolution>, String> {
+    pub fn extract_pareto_front(&self) -> Result<Vec<ParetoSolution>, String> {
         let mut pareto_solutions = Vec::new();
         for (index, individual) in self.population.iter().enumerate() {
             if individual.rank == 0 {

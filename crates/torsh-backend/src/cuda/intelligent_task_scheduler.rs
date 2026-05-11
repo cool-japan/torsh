@@ -254,6 +254,11 @@ pub struct IntelligentTaskQueue {
 
 // === Core Data Structures ===
 
+/// Helper for serde default of SystemTime fields (returns UNIX_EPOCH)
+fn serde_default_system_time() -> SystemTime {
+    SystemTime::UNIX_EPOCH
+}
+
 /// Schedulable task representation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SchedulableTask {
@@ -263,7 +268,9 @@ pub struct SchedulableTask {
     pub resource_requirements: ResourceRequirements,
     pub dependencies: Vec<TaskId>,
     pub estimated_execution_time: Duration,
+    #[serde(skip_serializing, default)]
     pub deadline: Option<SystemTime>,
+    #[serde(skip_serializing, default = "serde_default_system_time")]
     pub submission_time: SystemTime,
     pub task_data: TaskData,
     pub scheduling_constraints: SchedulingConstraints,
@@ -301,6 +308,7 @@ pub struct GpuDeviceState {
     pub running_tasks: Vec<TaskId>,
     pub performance_metrics: DevicePerformanceMetrics,
     pub health_status: DeviceHealthStatus,
+    #[serde(skip_serializing, default = "serde_default_system_time")]
     pub last_updated: SystemTime,
 }
 
@@ -308,6 +316,7 @@ pub struct GpuDeviceState {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SchedulingDecisionRecord {
     pub decision_id: String,
+    #[serde(skip_serializing, default = "serde_default_system_time")]
     pub timestamp: SystemTime,
     pub task_id: TaskId,
     pub selected_device: DeviceId,
@@ -661,7 +670,7 @@ impl IntelligentTaskScheduler {
     fn make_scheduling_decision(
         &self,
         task: &SchedulableTask,
-        strategy: &StrategySelectionResult,
+        _strategy: &StrategySelectionResult,
     ) -> Result<TaskSchedulingDecision, SchedulingError> {
         // Implementation would make intelligent scheduling decisions
         Ok(TaskSchedulingDecision {
@@ -723,7 +732,9 @@ pub struct IntelligentSchedulingConfig {
 pub struct TaskSubmissionResult {
     pub task_id: TaskId,
     pub assigned_device: DeviceId,
+    #[serde(skip_serializing, default = "serde_default_system_time")]
     pub estimated_start_time: SystemTime,
+    #[serde(skip_serializing, default = "serde_default_system_time")]
     pub estimated_completion_time: SystemTime,
     pub priority_assigned: TaskPriority,
     pub performance_prediction: PerformancePrediction,
@@ -835,6 +846,100 @@ default_placeholder_type!(DeviceUpdateResult);
 default_placeholder_type!(PerformanceAnalysisResult);
 default_placeholder_type!(LoadBalancingDecision);
 
+// === Default implementations for complex structs ===
+
+impl Default for DynamicPriorityManager {
+    fn default() -> Self {
+        Self {
+            priority_calculator: PriorityCalculationEngine::default(),
+            adjustment_engine: PriorityAdjustmentEngine::default(),
+            priority_history: PriorityHistoryTracker::default(),
+            aging_mechanism: TaskAgingMechanism::default(),
+            priority_predictor: PriorityPredictor::default(),
+            config: PriorityManagementConfig::default(),
+        }
+    }
+}
+
+impl Default for ResourceAwareScheduler {
+    fn default() -> Self {
+        Self {
+            utilization_monitor: ResourceUtilizationMonitor::default(),
+            allocation_predictor: ResourceAllocationPredictor::default(),
+            contention_resolver: ResourceContentionResolver::default(),
+            affinity_manager: ResourceAffinityManager::default(),
+            optimization_engine: ResourceOptimizationEngine::default(),
+            config: ResourceSchedulingConfig::default(),
+        }
+    }
+}
+
+impl Default for PerformanceDrivenOptimizer {
+    fn default() -> Self {
+        Self {
+            metrics_analyzer: PerformanceMetricsAnalyzer::default(),
+            bottleneck_identifier: BottleneckIdentificationSystem::default(),
+            optimization_engine: PerformanceOptimizationEngine::default(),
+            pattern_analyzer: ExecutionPatternAnalyzer::default(),
+            feedback_system: PerformanceFeedbackSystem::default(),
+            config: PerformanceOptimizationConfig::default(),
+        }
+    }
+}
+
+impl Default for PredictiveLoadBalancer {
+    fn default() -> Self {
+        Self {
+            workload_predictor: WorkloadPredictor::default(),
+            distribution_optimizer: LoadDistributionOptimizer::default(),
+            balancing_engine: DynamicLoadBalancingEngine::default(),
+            migration_system: TaskMigrationSystem::default(),
+            balancing_history: LoadBalancingHistory::default(),
+            config: LoadBalancingConfig::default(),
+        }
+    }
+}
+
+impl Default for TaskDependencyResolver {
+    fn default() -> Self {
+        Self {
+            graph_builder: DependencyGraphBuilder::default(),
+            critical_path_analyzer: CriticalPathAnalyzer::default(),
+            optimization_engine: DependencyOptimizationEngine::default(),
+            deadlock_detector: DeadlockDetectionSystem::default(),
+            violation_detector: DependencyViolationDetector::default(),
+            config: DependencyResolutionConfig::default(),
+        }
+    }
+}
+
+impl Default for TaskPerformancePredictor {
+    fn default() -> Self {
+        Self {
+            performance_models: HashMap::new(),
+            ml_predictor: None,
+            historical_analyzer: HistoricalPerformanceAnalyzer::default(),
+            estimation_engine: PerformanceEstimationEngine::default(),
+            accuracy_tracker: PredictionAccuracyTracker::default(),
+            config: PerformancePredictionConfig::default(),
+        }
+    }
+}
+
+impl Default for IntelligentTaskQueue {
+    fn default() -> Self {
+        Self {
+            priority_queue: BinaryHeap::new(),
+            device_ready_queues: HashMap::new(),
+            waiting_tasks: HashMap::new(),
+            running_tasks: HashMap::new(),
+            completed_tasks: VecDeque::new(),
+            queue_stats: QueueStatistics::default(),
+            config: TaskQueueConfig::default(),
+        }
+    }
+}
+
 /// Performance prediction result
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PerformancePrediction {
@@ -848,8 +953,10 @@ pub struct DeviceSelectionResult {
     /// Selected device ID
     pub selected_device: String,
     /// Estimated start time
+    #[serde(skip_serializing, default = "serde_default_system_time")]
     pub estimated_start_time: SystemTime,
     /// Estimated completion time
+    #[serde(skip_serializing, default = "serde_default_system_time")]
     pub estimated_completion_time: SystemTime,
 }
 
@@ -867,7 +974,7 @@ pub struct TaskSchedulingDecision {
     /// Selected device for execution
     pub selected_device: String,
     /// Scheduled start time
-    #[serde(skip)]
+    #[serde(skip_serializing, default = "serde_default_system_time")]
     pub scheduled_start_time: std::time::SystemTime,
     /// Resource allocation for the task
     pub resource_allocation: ResourceAllocation,
@@ -898,10 +1005,10 @@ pub struct TaskExecutionResult {
     /// Device that executed the task
     pub device_id: String,
     /// Execution start time
-    #[serde(skip)]
+    #[serde(skip_serializing, default = "serde_default_system_time")]
     pub start_time: std::time::SystemTime,
     /// Execution completion time
-    #[serde(skip)]
+    #[serde(skip_serializing, default = "serde_default_system_time")]
     pub completion_time: std::time::SystemTime,
     /// Whether execution was successful
     pub execution_success: bool,
@@ -924,7 +1031,19 @@ impl Default for TaskExecutionResult {
         }
     }
 }
-default_placeholder_type!(CycleStatistics);
+/// Statistics for a single scheduling cycle
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CycleStatistics {
+    /// Number of tasks executed during this cycle
+    pub tasks_executed: usize,
+    /// Number of tasks that executed successfully
+    pub successful_executions: usize,
+    /// Average execution time across all tasks in the cycle
+    pub average_execution_time: Duration,
+    /// Resource efficiency ratio for the cycle (0.0–1.0)
+    pub resource_efficiency: f64,
+}
+
 default_placeholder_type!(QueueStatus);
 default_placeholder_type!(DeviceStatusSummary);
 default_placeholder_type!(TaskPerformanceMetrics);
@@ -933,6 +1052,7 @@ default_placeholder_type!(ResourceUsage);
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SchedulingCycleResult {
     pub cycle_id: String,
+    #[serde(skip_serializing, default = "serde_default_system_time")]
     pub timestamp: SystemTime,
     pub cycle_duration: Duration,
     pub device_updates: DeviceUpdateResult,
@@ -947,7 +1067,7 @@ pub struct SchedulingCycleResult {
 
 // Implementation stubs for the main components
 impl DynamicPriorityManager {
-    fn new(config: &IntelligentSchedulingConfig) -> Self {
+    fn new(_config: &IntelligentSchedulingConfig) -> Self {
         Self::default()
     }
 
@@ -966,20 +1086,20 @@ impl DynamicPriorityManager {
 
     fn adjust_priorities_dynamically(
         &mut self,
-        analysis: &PerformanceAnalysisResult,
+        _analysis: &PerformanceAnalysisResult,
     ) -> Result<PriorityAdjustments, SchedulingError> {
         Ok(PriorityAdjustments::default())
     }
 }
 
 impl ResourceAwareScheduler {
-    fn new(config: &IntelligentSchedulingConfig) -> Self {
+    fn new(_config: &IntelligentSchedulingConfig) -> Self {
         Self::default()
     }
 }
 
 impl PerformanceDrivenOptimizer {
-    fn new(config: &IntelligentSchedulingConfig) -> Self {
+    fn new(_config: &IntelligentSchedulingConfig) -> Self {
         Self::default()
     }
 
@@ -989,14 +1109,14 @@ impl PerformanceDrivenOptimizer {
 
     fn analyze_current_performance(
         &mut self,
-        device_updates: &DeviceUpdateResult,
+        _device_updates: &DeviceUpdateResult,
     ) -> Result<PerformanceAnalysisResult, SchedulingError> {
         Ok(PerformanceAnalysisResult::default())
     }
 }
 
 impl PredictiveLoadBalancer {
-    fn new(config: &IntelligentSchedulingConfig) -> Self {
+    fn new(_config: &IntelligentSchedulingConfig) -> Self {
         Self::default()
     }
 
@@ -1006,14 +1126,14 @@ impl PredictiveLoadBalancer {
 
     fn balance_load_predictively(
         &mut self,
-        device_updates: &DeviceUpdateResult,
+        _device_updates: &DeviceUpdateResult,
     ) -> Result<LoadBalancingDecision, SchedulingError> {
         Ok(LoadBalancingDecision::default())
     }
 }
 
 impl AdaptiveExecutionStrategy {
-    fn new(config: &IntelligentSchedulingConfig) -> Self {
+    fn new(_config: &IntelligentSchedulingConfig) -> Self {
         Self {
             strategies: HashMap::new(),
             performance_tracker: StrategyPerformanceTracker::default(),
@@ -1026,8 +1146,8 @@ impl AdaptiveExecutionStrategy {
 
     fn select_optimal_strategy(
         &mut self,
-        analysis: &PerformanceAnalysisResult,
-        device_updates: &DeviceUpdateResult,
+        _analysis: &PerformanceAnalysisResult,
+        _device_updates: &DeviceUpdateResult,
     ) -> Result<StrategySelectionResult, SchedulingError> {
         Ok(StrategySelectionResult {
             selected_strategy: self.active_strategy.clone(),
@@ -1036,20 +1156,20 @@ impl AdaptiveExecutionStrategy {
 }
 
 impl TaskDependencyResolver {
-    fn new(config: &IntelligentSchedulingConfig) -> Self {
+    fn new(_config: &IntelligentSchedulingConfig) -> Self {
         Self::default()
     }
 
     fn analyze_dependencies(
         &mut self,
-        task: &SchedulableTask,
+        _task: &SchedulableTask,
     ) -> Result<DependencyAnalysisResult, SchedulingError> {
         Ok(DependencyAnalysisResult::default())
     }
 }
 
 impl IntelligentDeviceManager {
-    fn new(config: &IntelligentSchedulingConfig) -> Self {
+    fn new(_config: &IntelligentSchedulingConfig) -> Self {
         Self {
             devices: HashMap::new(),
             capability_analyzer: DeviceCapabilityAnalyzer::default(),
@@ -1078,8 +1198,8 @@ impl IntelligentDeviceManager {
 
     fn select_optimal_device(
         &mut self,
-        task: &SchedulableTask,
-        prediction: &PerformancePrediction,
+        _task: &SchedulableTask,
+        _prediction: &PerformancePrediction,
     ) -> Result<DeviceSelectionResult, SchedulingError> {
         Ok(DeviceSelectionResult {
             selected_device: "gpu_0".to_string(),
@@ -1098,7 +1218,7 @@ impl IntelligentDeviceManager {
 }
 
 impl TaskPerformancePredictor {
-    fn new(config: &IntelligentSchedulingConfig) -> Self {
+    fn new(_config: &IntelligentSchedulingConfig) -> Self {
         Self::default()
     }
 
@@ -1108,7 +1228,7 @@ impl TaskPerformancePredictor {
 
     fn predict_task_performance(
         &mut self,
-        task: &SchedulableTask,
+        _task: &SchedulableTask,
     ) -> Result<PerformancePrediction, SchedulingError> {
         Ok(PerformancePrediction {
             estimated_duration: Duration::from_millis(100),
@@ -1123,9 +1243,9 @@ impl IntelligentTaskQueue {
 
     fn enqueue_task(
         &mut self,
-        task: SchedulableTask,
-        dependency_analysis: DependencyAnalysisResult,
-        device_selection: DeviceSelectionResult,
+        _task: SchedulableTask,
+        _dependency_analysis: DependencyAnalysisResult,
+        _device_selection: DeviceSelectionResult,
     ) -> Result<(), SchedulingError> {
         // Implementation would add task to appropriate queue
         Ok(())
@@ -1153,6 +1273,7 @@ impl SchedulingStatistics {
             priority_adjustment_count: 0,
             load_balancing_operations: 0,
             device_migration_count: 0,
+            tasks_dequeued: 0,
         }
     }
 }
@@ -1170,7 +1291,7 @@ impl TaskPriority {
 // PartialEq and Eq are already derived by the default_placeholder_type macro
 
 impl Ord for PrioritizedTask {
-    fn cmp(&self, other: &Self) -> CmpOrdering {
+    fn cmp(&self, _other: &Self) -> CmpOrdering {
         CmpOrdering::Equal // Placeholder
     }
 }

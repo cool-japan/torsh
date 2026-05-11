@@ -6,25 +6,25 @@
 #[derive(Debug)]
 pub struct AdaptiveOptimizationController {
     /// Available adaptation strategies
-    adaptation_strategies: HashMap<String, AdaptationStrategy>,
+    pub adaptation_strategies: HashMap<String, AdaptationStrategy>,
     /// System state monitoring and analysis
-    state_monitor: SystemStateMonitor,
+    pub state_monitor: SystemStateMonitor,
     /// Historical adaptation events
-    adaptation_history: VecDeque<AdaptationEvent>,
+    pub adaptation_history: VecDeque<AdaptationEvent>,
     /// Machine learning mechanism for continuous learning
-    learning_mechanism: AdaptiveLearningMechanism,
+    pub learning_mechanism: AdaptiveLearningMechanism,
     /// Control parameters and thresholds
-    control_params: AdaptiveControlParams,
+    pub control_params: AdaptiveControlParams,
     /// Current controller state
-    controller_state: ControllerState,
+    pub controller_state: ControllerState,
     /// Performance metrics and statistics
-    performance_metrics: AdaptationPerformanceMetrics,
+    pub performance_metrics: AdaptationPerformanceMetrics,
     /// Environmental context awareness
-    environment_context: EnvironmentContext,
+    pub environment_context: EnvironmentContext,
     /// Decision tree for automated reasoning
-    decision_tree: AdaptiveDecisionTree,
+    pub decision_tree: AdaptiveDecisionTree,
     /// Meta-learning capabilities
-    meta_learning: MetaLearningSystem,
+    pub meta_learning: MetaLearningSystem,
 }
 impl AdaptiveOptimizationController {
     /// Create a new adaptive optimization controller
@@ -228,7 +228,7 @@ impl AdaptiveOptimizationController {
         false
     }
     /// Check if an applicability condition is met
-    fn check_applicability_condition(
+    pub fn check_applicability_condition(
         &self,
         condition: &ApplicabilityCondition,
         state: &SystemState,
@@ -259,7 +259,7 @@ impl AdaptiveOptimizationController {
         }
     }
     /// Check if a trigger condition is met
-    fn check_trigger(&self, trigger: &AdaptationTrigger, state: &SystemState) -> bool {
+    pub fn check_trigger(&self, trigger: &AdaptationTrigger, state: &SystemState) -> bool {
         match trigger {
             AdaptationTrigger::PerformanceDegradation {
                 threshold,
@@ -314,7 +314,7 @@ impl AdaptiveOptimizationController {
         }
     }
     /// Calculate priority for a recommendation
-    fn calculate_priority(
+    pub fn calculate_priority(
         &self,
         strategy: &AdaptationStrategy,
         _state: &SystemState,
@@ -335,7 +335,7 @@ impl AdaptiveOptimizationController {
             + risk_weight * risk_score
     }
     /// Calculate confidence in a strategy recommendation
-    fn calculate_confidence(
+    pub fn calculate_confidence(
         &self,
         strategy: &AdaptationStrategy,
         _state: &SystemState,
@@ -347,7 +347,7 @@ impl AdaptiveOptimizationController {
         success_weight * success_score + usage_weight * usage_score
     }
     /// Assess risk for a strategy
-    fn assess_risk(&self, strategy: &AdaptationStrategy) -> f32 {
+    pub fn assess_risk(&self, strategy: &AdaptationStrategy) -> f32 {
         let complexity_risk = match strategy.complexity {
             StrategyComplexity::Simple => 0.1,
             StrategyComplexity::Moderate => 0.3,
@@ -438,7 +438,7 @@ impl AdaptiveOptimizationController {
         Ok(event)
     }
     /// Execute a single adaptation action
-    fn execute_action(&self, action: &AdaptationAction) -> Result<String, String> {
+    pub fn execute_action(&self, action: &AdaptationAction) -> Result<String, String> {
         match action {
             AdaptationAction::ParameterAdjustment { parameter, adjustment, bounds } => {
                 let description = match adjustment {
@@ -538,7 +538,7 @@ impl AdaptiveOptimizationController {
         self.extract_rules_from_experience(&experience);
     }
     /// Update learning performance metrics
-    fn update_learning_performance(&mut self, experience: &AdaptiveExperience) {
+    pub fn update_learning_performance(&mut self, experience: &AdaptiveExperience) {
         let performance = &mut self.learning_mechanism.performance;
         let success_score = if experience.result.success { 1.0 } else { 0.0 };
         performance.accuracy = performance.accuracy * 0.9 + success_score * 0.1;

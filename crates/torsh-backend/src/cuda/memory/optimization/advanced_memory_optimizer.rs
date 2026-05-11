@@ -4,12 +4,10 @@
 //! predictive memory pooling, intelligent prefetching, memory bandwidth optimization,
 //! dynamic allocation strategies, and memory pattern analysis for maximum CUDA performance.
 
-use std::collections::{HashMap, VecDeque, BTreeMap, BTreeSet};
-use std::sync::{Arc, Mutex, RwLock, atomic::{AtomicU64, AtomicBool, AtomicUsize, Ordering}};
+use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime};
 use serde::{Serialize, Deserialize};
-use scirs2_core::random::{Random, rng};
-use scirs2_core::ndarray::{Array1, Array2, ArrayView1, array};
 
 /// Advanced memory optimization engine with ML-based predictions
 #[derive(Debug)]
@@ -49,7 +47,7 @@ pub struct AdvancedMemoryOptimizer {
 }
 
 /// Predictive memory pool with ML-based allocation predictions
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct PredictiveMemoryPool {
     /// Memory pools by size category
     size_pools: HashMap<MemorySizeCategory, MemoryPool>,
@@ -74,7 +72,7 @@ pub struct PredictiveMemoryPool {
 }
 
 /// Intelligent prefetching engine for memory access optimization
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct IntelligentPrefetchEngine {
     /// Access pattern tracker
     access_tracker: AccessPatternTracker,
@@ -99,7 +97,7 @@ pub struct IntelligentPrefetchEngine {
 }
 
 /// Memory bandwidth optimization system
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct MemoryBandwidthOptimizer {
     /// Memory access coalescing optimizer
     coalescing_optimizer: MemoryCoalescingOptimizer,
@@ -121,7 +119,7 @@ pub struct MemoryBandwidthOptimizer {
 }
 
 /// Memory pattern analysis system with ML insights
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct MemoryPatternAnalyzer {
     /// Temporal pattern detector
     temporal_detector: TemporalPatternDetector,
@@ -165,7 +163,7 @@ pub struct DynamicAllocationStrategy {
 }
 
 /// Memory compaction and defragmentation engine
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct MemoryCompactionEngine {
     /// Fragmentation analyzer
     fragmentation_analyzer: FragmentationAnalyzer,
@@ -184,7 +182,7 @@ pub struct MemoryCompactionEngine {
 }
 
 /// Cache hierarchy optimization system
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct CacheHierarchyOptimizer {
     /// L1 cache optimizer
     l1_optimizer: L1CacheOptimizer,
@@ -203,7 +201,7 @@ pub struct CacheHierarchyOptimizer {
 }
 
 /// Memory pressure monitoring and adaptive response
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct MemoryPressureMonitor {
     /// Memory utilization tracker
     utilization_tracker: MemoryUtilizationTracker,
@@ -688,7 +686,7 @@ pub trait AllocationStrategy: std::fmt::Debug + Send + Sync {
 
 // Implementations for placeholder types
 impl PredictiveMemoryPool {
-    fn new(config: &AdvancedMemoryConfig) -> Self {
+    fn new(_config: &AdvancedMemoryConfig) -> Self {
         Self::default()
     }
 
@@ -696,28 +694,28 @@ impl PredictiveMemoryPool {
         Ok(())
     }
 
-    fn allocate_with_prediction(&mut self, size: usize, alignment: usize, lifetime_hint: Option<Duration>, strategy: AllocationStrategyType) -> Result<*mut u8, MemoryOptimizationError> {
+    fn allocate_with_prediction(&mut self, _size: usize, _alignment: usize, _lifetime_hint: Option<Duration>, _strategy: AllocationStrategyType) -> Result<*mut u8, MemoryOptimizationError> {
         // Placeholder implementation
         Ok(std::ptr::null_mut())
     }
 
-    fn deallocate_with_optimization(&mut self, ptr: *mut u8, size: usize) -> Result<(), MemoryOptimizationError> {
+    fn deallocate_with_optimization(&mut self, _ptr: *mut u8, _size: usize) -> Result<(), MemoryOptimizationError> {
         Ok(())
     }
 }
 
 impl IntelligentPrefetchEngine {
-    fn new(config: &AdvancedMemoryConfig) -> Self {
+    fn new(_config: &AdvancedMemoryConfig) -> Self {
         Self::default()
     }
 
-    fn optimize_prefetch_strategies(&mut self, patterns: &PatternAnalysisResults) -> Result<PrefetchOptimizationResults, MemoryOptimizationError> {
+    fn optimize_prefetch_strategies(&mut self, _patterns: &PatternAnalysisResults) -> Result<PrefetchOptimizationResults, MemoryOptimizationError> {
         Ok(PrefetchOptimizationResults::default())
     }
 }
 
 impl MemoryBandwidthOptimizer {
-    fn new(config: &AdvancedMemoryConfig) -> Self {
+    fn new(_config: &AdvancedMemoryConfig) -> Self {
         Self::default()
     }
 
@@ -725,13 +723,13 @@ impl MemoryBandwidthOptimizer {
         Ok(())
     }
 
-    fn optimize_bandwidth_utilization(&mut self, patterns: &PatternAnalysisResults) -> Result<BandwidthOptimizationResults, MemoryOptimizationError> {
+    fn optimize_bandwidth_utilization(&mut self, _patterns: &PatternAnalysisResults) -> Result<BandwidthOptimizationResults, MemoryOptimizationError> {
         Ok(BandwidthOptimizationResults::default())
     }
 }
 
 impl MemoryPatternAnalyzer {
-    fn new(config: &AdvancedMemoryConfig) -> Self {
+    fn new(_config: &AdvancedMemoryConfig) -> Self {
         Self::default()
     }
 
@@ -743,13 +741,13 @@ impl MemoryPatternAnalyzer {
         Ok(PatternAnalysisResults::default())
     }
 
-    fn record_deallocation(&mut self, ptr: *mut u8, size: usize, duration: Duration) -> Result<(), MemoryOptimizationError> {
+    fn record_deallocation(&mut self, _ptr: *mut u8, _size: usize, _duration: Duration) -> Result<(), MemoryOptimizationError> {
         Ok(())
     }
 }
 
 impl DynamicAllocationStrategy {
-    fn new(config: &AdvancedMemoryConfig) -> Self {
+    fn new(_config: &AdvancedMemoryConfig) -> Self {
         Self {
             strategies: HashMap::new(),
             performance_tracker: StrategyPerformanceTracker::default(),
@@ -759,17 +757,17 @@ impl DynamicAllocationStrategy {
         }
     }
 
-    fn get_optimal_strategy(&self, size: usize, alignment: usize) -> Result<AllocationStrategyType, MemoryOptimizationError> {
+    fn get_optimal_strategy(&self, _size: usize, _alignment: usize) -> Result<AllocationStrategyType, MemoryOptimizationError> {
         Ok(self.current_strategy.clone())
     }
 
-    fn optimize_strategies(&mut self, patterns: &PatternAnalysisResults) -> Result<StrategyOptimizationResults, MemoryOptimizationError> {
+    fn optimize_strategies(&mut self, _patterns: &PatternAnalysisResults) -> Result<StrategyOptimizationResults, MemoryOptimizationError> {
         Ok(StrategyOptimizationResults::default())
     }
 }
 
 impl MemoryCompactionEngine {
-    fn new(config: &AdvancedMemoryConfig) -> Self {
+    fn new(_config: &AdvancedMemoryConfig) -> Self {
         Self::default()
     }
 
@@ -779,17 +777,17 @@ impl MemoryCompactionEngine {
 }
 
 impl CacheHierarchyOptimizer {
-    fn new(config: &AdvancedMemoryConfig) -> Self {
+    fn new(_config: &AdvancedMemoryConfig) -> Self {
         Self::default()
     }
 
-    fn optimize_cache_utilization(&mut self, patterns: &PatternAnalysisResults) -> Result<CacheOptimizationResults, MemoryOptimizationError> {
+    fn optimize_cache_utilization(&mut self, _patterns: &PatternAnalysisResults) -> Result<CacheOptimizationResults, MemoryOptimizationError> {
         Ok(CacheOptimizationResults::default())
     }
 }
 
 impl MemoryPressureMonitor {
-    fn new(config: &AdvancedMemoryConfig) -> Self {
+    fn new(_config: &AdvancedMemoryConfig) -> Self {
         Self::default()
     }
 

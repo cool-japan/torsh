@@ -2,14 +2,12 @@
 //!
 //! 🤖 Generated with [SplitRS](https://github.com/cool-japan/splitrs)
 
-use std::collections::{HashMap, VecDeque};
-use std::time::{Duration, Instant};
-
-use super::types::{AdaptationAction, AdaptationStrategy, AdaptationTrigger, AdaptiveExperience, AdaptiveOptimizationController, AdaptiveResult, AggregationMethod, ApplicabilityCondition, DegradationSeverity, ExperienceContext, FeatureExtractionConfig, FeatureType, LifecycleStage, NormalizationStrategy, ParameterAdjustment, ParameterBounds, PressureTrend, ResultQualityMetrics, RiskLevel, StrategyComplexity, StrategyLearningConfig, StrategyLifecycle, StrategyResourceRequirements, SystemState, TransitionMode};
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::super::*;
+    use std::collections::HashMap;
+    use std::time::{Duration, Instant};
     #[test]
     fn test_adaptive_controller_creation() {
         let controller = AdaptiveOptimizationController::new();

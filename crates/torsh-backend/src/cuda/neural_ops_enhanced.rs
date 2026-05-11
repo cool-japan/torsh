@@ -247,8 +247,8 @@ impl EnhancedNeuralOps {
         &self,
         input: DevicePointer<f32>,
         output: DevicePointer<f32>,
-        input_shape: (i32, i32, i32, i32),  // (N, C, H, W)
-        output_shape: (i32, i32, i32, i32), // (N, C, H_out, W_out)
+        input_shape: (i32, i32, i32, i32),
+        output_shape: (i32, i32, i32, i32),
         kernel_size: (i32, i32),
         padding: (i32, i32),
         stride: (i32, i32),
@@ -257,7 +257,6 @@ impl EnhancedNeuralOps {
         #[cfg(feature = "cudnn")]
         {
             if let Some(ref cudnn_ops) = self.cudnn {
-                // Use cuDNN for optimized pooling
                 return cudnn_ops.pooling2d_forward(
                     PoolingMode::Max,
                     input,
@@ -271,7 +270,7 @@ impl EnhancedNeuralOps {
             }
         }
 
-        // Fallback maxpool kernels not yet implemented
+        let _ = (input, output, input_shape, output_shape, kernel_size, padding, stride);
         Err(crate::error::BackendError::NotImplemented(
             "MaxPool2D fallback kernel not implemented (requires cuDNN)".to_string(),
         ))
@@ -286,7 +285,7 @@ impl EnhancedNeuralOps {
         bias: DevicePointer<f32>,
         running_mean: DevicePointer<f32>,
         running_var: DevicePointer<f32>,
-        shape: (i32, i32, i32, i32), // (N, C, H, W)
+        shape: (i32, i32, i32, i32),
         eps: f32,
         momentum: f32,
         training: bool,
@@ -311,7 +310,7 @@ impl EnhancedNeuralOps {
             }
         }
 
-        // Fallback batchnorm kernels not yet implemented
+        let _ = (input, output, weight, bias, running_mean, running_var, shape, eps, momentum, training);
         Err(crate::error::BackendError::NotImplemented(
             "BatchNorm2D fallback kernel not implemented (requires cuDNN)".to_string(),
         ))

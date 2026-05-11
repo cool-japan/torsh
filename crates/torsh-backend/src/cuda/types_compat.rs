@@ -51,8 +51,8 @@ pub mod cuda_sys_compat {
     // Re-export common functions from cudart
     pub use cuda_sys::cudart::{
         cudaFree, cudaFreeHost, cudaHostAlloc, cudaHostGetDevicePointer, cudaMalloc,
-        cudaMallocManaged, cudaMemAdvise, cudaMemPrefetchAsync, cudaMemcpy, cudaMemcpyAsync,
-        cudaMemset, cudaMemsetAsync, cudaStreamSynchronize,
+        cudaMallocManaged, cudaMemAdvise, cudaMemGetInfo, cudaMemPrefetchAsync, cudaMemcpy,
+        cudaMemcpyAsync, cudaMemset, cudaMemsetAsync, cudaStreamSynchronize,
     };
 
     // Re-export host allocation flags

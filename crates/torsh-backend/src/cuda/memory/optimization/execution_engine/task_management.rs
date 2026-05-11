@@ -86,7 +86,7 @@ pub struct OptimizationTask {
 pub struct TaskId(pub Uuid);
 
 /// Types of optimization tasks
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum OptimizationTaskType {
     /// Memory allocation optimization
     MemoryAllocation {
@@ -983,7 +983,7 @@ impl TaskManager {
 
     /// Generate a new task ID
     fn generate_task_id(&self) -> Result<TaskId, TaskError> {
-        let mut generator = self.id_generator.lock().expect("lock should not be poisoned");
+        let generator = self.id_generator.lock().expect("lock should not be poisoned");
         Ok(generator.generate())
     }
 
@@ -1043,7 +1043,7 @@ impl TaskSchedulingQueue {
             TaskPriority::Idle => self.idle_queue.push_back(task_id),
         }
 
-        self.scheduling_stats.tasks_enqueued += 1;
+        self.scheduling_stats.total_scheduled += 1;
     }
 
     fn dequeue_next_task(&mut self) -> Option<TaskId> {
@@ -1055,7 +1055,7 @@ impl TaskSchedulingQueue {
 
         // Check deadline queue for urgent tasks
         if let Some(deadline_entry) = self.deadline_queue.iter().next() {
-            let now = SystemTime::now();
+            let now = Instant::now();
             if deadline_entry.deadline <= now {
                 let task_id = deadline_entry.task_id;
                 self.deadline_queue.remove(&deadline_entry.clone());
@@ -1119,10 +1119,13 @@ impl TaskDependencyManager {
         self.resolved_dependencies.insert(task_id, true);
 
         // Check if any dependent tasks can now be resolved
-        if let Some(dependents) = self.reverse_dependency_graph.get(&task_id) {
-            for &dependent_id in dependents {
-                self.check_dependencies_resolved(dependent_id);
-            }
+        // Collect dependents first to avoid borrow conflict
+        let dependents: Vec<TaskId> = self.reverse_dependency_graph
+            .get(&task_id)
+            .map(|deps| deps.iter().copied().collect())
+            .unwrap_or_default();
+        for dependent_id in dependents {
+            self.check_dependencies_resolved(dependent_id);
         }
     }
 
@@ -1182,7 +1185,7 @@ pub enum TaskError {
 
 macro_rules! default_placeholder_struct {
     ($name:ident) => {
-        #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+        #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
         pub struct $name {
             pub placeholder: bool,
         }
@@ -1255,10 +1258,39 @@ default_placeholder_struct!(RollbackConfig);
 default_placeholder_struct!(FailureAnalysisConfig);
 default_placeholder_struct!(TimeoutHandlingStrategy);
 default_placeholder_struct!(TimeoutEscalationConfig);
-default_placeholder_struct!(TaskMetricsCollector);
-default_placeholder_struct!(TaskPriorityManager);
-default_placeholder_struct!(TaskResourceManager);
-default_placeholder_struct!(TaskManagerStatistics);
+/// Task metrics collector placeholder
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct TaskMetricsCollector { pub placeholder: bool }
+impl TaskMetricsCollector {
+    pub fn new() -> Self { Self::default() }
+}
+
+/// Task priority manager placeholder
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct TaskPriorityManager { pub placeholder: bool }
+impl TaskPriorityManager {
+    pub fn new() -> Self { Self::default() }
+}
+
+/// Task resource manager placeholder
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct TaskResourceManager { pub placeholder: bool }
+impl TaskResourceManager {
+    pub fn new() -> Self { Self::default() }
+}
+
+/// Task manager statistics
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct TaskManagerStatistics {
+    pub tasks_submitted: u64,
+    pub tasks_started: u64,
+    pub tasks_completed: u64,
+    pub tasks_failed: u64,
+    pub tasks_cancelled: u64,
+}
+impl TaskManagerStatistics {
+    pub fn new() -> Self { Self::default() }
+}
 /// Entry for deadline-based task tracking
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeadlineTaskEntry {
@@ -1282,11 +1314,38 @@ pub struct SchedulingStatistics {
     /// Failed executions
     pub failed: u64,
 }
-default_placeholder_struct!(ExecutionPhase);
-default_placeholder_struct!(AllocatedResources);
-default_placeholder_struct!(TaskProgress);
-default_placeholder_struct!(RealtimeTaskMetrics);
-default_placeholder_struct!(ExecutionSummary);
+/// Execution phases for task tracking
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum ExecutionPhase {
+    #[default]
+    Initializing,
+    Preparing,
+    Running,
+    Finalizing,
+    Completed,
+    Failed,
+}
+
+/// Allocated resources for task execution
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct AllocatedResources { pub placeholder: bool }
+
+/// Task progress tracking
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct TaskProgress { pub placeholder: bool }
+
+/// Realtime task metrics
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct RealtimeTaskMetrics { pub placeholder: bool }
+
+/// Execution summary for completed tasks
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ExecutionSummary {
+    #[serde(skip, default)]
+    pub execution_duration: Duration,
+    pub phases_completed: Vec<ExecutionPhase>,
+    pub resource_utilization: ResourceUtilization,
+}
 default_placeholder_struct!(TaskResults);
 default_placeholder_struct!(FinalPerformanceMetrics);
 default_placeholder_struct!(TaskFailureInfo);
@@ -1319,7 +1378,7 @@ pub enum TimeConstraintType {
     EndTime,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ResourceType {
     CPU,
     Memory,

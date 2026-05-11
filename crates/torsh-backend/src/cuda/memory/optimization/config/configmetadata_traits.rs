@@ -8,7 +8,7 @@
 //!
 //! 🤖 Generated with [SplitRS](https://github.com/cool-japan/splitrs)
 
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 
 use super::types::{ConfigEnvironment, ConfigMetadata, ConfigPriority, ConfigSource, ConfigStatus, ConfigVersion};
 
@@ -25,9 +25,9 @@ impl Default for ConfigMetadata {
             tags: vec!["default".to_string()],
             schema_version: "1.0".to_string(),
             checksum: "".to_string(),
-            source: ConfigSource::Default,
-            status: ConfigStatus::Active,
-            priority: ConfigPriority::Normal,
+            source: ConfigSource::DEFAULT,
+            status: ConfigStatus::ACTIVE,
+            priority: ConfigPriority::NORMAL,
             dependencies: Vec::new(),
         }
     }

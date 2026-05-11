@@ -697,9 +697,37 @@ impl CudaMemoryManager {
     }
 
     fn calculate_fragmentation_level(&self) -> f32 {
-        // Simplified fragmentation calculation
-        // In a real implementation, this would analyze memory layout
-        0.1 // Placeholder
+        // Real fragmentation = 1.0 - (largest_free_block_size / total_free_bytes)
+        // Iterate pools to find total free bytes and the largest contiguous free block.
+        let pools = match self.pools.lock() {
+            Ok(p) => p,
+            Err(_) => return 0.0,
+        };
+
+        let mut total_free_bytes: usize = 0;
+        let mut largest_free_block: usize = 0;
+
+        for (size_class, pool) in pools.iter() {
+            let block_count = pool.free_blocks.len();
+            if block_count == 0 {
+                continue;
+            }
+            // Each free block in this pool occupies `size_class` bytes
+            let pool_free_bytes = block_count * size_class;
+            total_free_bytes += pool_free_bytes;
+            // The largest contiguous free block in this pool is one size_class block
+            if *size_class > largest_free_block {
+                largest_free_block = *size_class;
+            }
+        }
+
+        if total_free_bytes == 0 {
+            // No free memory: fragmentation is undefined; report 0.0 (fully used)
+            return 0.0;
+        }
+
+        // fragmentation in [0.0, 1.0): 0.0 = perfectly contiguous, approaching 1.0 = very fragmented
+        1.0 - (largest_free_block as f32 / total_free_bytes as f32)
     }
 
     fn get_pool_count(&self) -> usize {

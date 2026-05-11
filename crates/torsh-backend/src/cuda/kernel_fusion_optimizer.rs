@@ -262,6 +262,11 @@ pub struct FusionCache {
 
 // === Core Data Structures ===
 
+/// Helper for serde default of SystemTime fields (returns UNIX_EPOCH)
+fn serde_default_system_time() -> SystemTime {
+    SystemTime::UNIX_EPOCH
+}
+
 /// Fusion operation representation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FusionOperation {
@@ -286,6 +291,7 @@ pub struct FusionKernel {
     pub performance_characteristics: PerformanceCharacteristics,
     pub memory_footprint: MemoryFootprint,
     pub optimization_level: OptimizationLevel,
+    #[serde(skip_serializing, default = "serde_default_system_time")]
     pub created_at: SystemTime,
 }
 
@@ -304,6 +310,7 @@ pub struct TensorDescriptor {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FusionOptimizationRecord {
     pub optimization_id: String,
+    #[serde(skip_serializing, default = "serde_default_system_time")]
     pub timestamp: SystemTime,
     pub original_operations: Vec<OperationType>,
     pub fused_kernel: FusionKernel,
@@ -367,7 +374,7 @@ pub enum ReductionType {
     ArgMin,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum FusionPatternType {
     ElementWiseChain,
     ConvolutionActivation,
@@ -376,6 +383,7 @@ pub enum FusionPatternType {
     TransposeReshape,
     MemoryIntensiveOps,
     ComputeIntensiveOps,
+    #[default]
     Mixed,
 }
 
@@ -482,7 +490,7 @@ impl AdvancedKernelFusionOptimizer {
         &self,
         operations: &[FusionOperation],
     ) -> Result<Vec<FusionOpportunity>, KernelFusionError> {
-        let analysis_start = Instant::now();
+        let _analysis_start = Instant::now();
 
         // 1. Analyze operation dependencies
         let dependency_graph = {
@@ -668,6 +676,7 @@ impl AdvancedKernelFusionOptimizer {
     fn generate_fusion_signature(&self, opportunity: &FusionOpportunity) -> FusionSignature {
         // Generate a unique signature for the fusion opportunity
         FusionSignature {
+            placeholder: false,
             operation_types: opportunity
                 .fusable_operations
                 .iter()
@@ -701,8 +710,8 @@ impl AdvancedKernelFusionOptimizer {
 
     fn calculate_performance_improvement(
         &self,
-        original: &[FusionOperation],
-        fused: &[FusionKernel],
+        _original: &[FusionOperation],
+        _fused: &[FusionKernel],
     ) -> Result<f64, KernelFusionError> {
         // Implementation would calculate actual performance improvement
         Ok(35.0) // Placeholder: 35% improvement
@@ -710,8 +719,8 @@ impl AdvancedKernelFusionOptimizer {
 
     fn calculate_memory_reduction(
         &self,
-        original: &[FusionOperation],
-        fused: &[FusionKernel],
+        _original: &[FusionOperation],
+        _fused: &[FusionKernel],
     ) -> Result<f64, KernelFusionError> {
         // Implementation would calculate actual memory reduction
         Ok(25.0) // Placeholder: 25% reduction
@@ -719,9 +728,10 @@ impl AdvancedKernelFusionOptimizer {
 
     fn calculate_success_metrics(
         &self,
-        kernels: &[FusionKernel],
+        _kernels: &[FusionKernel],
     ) -> Result<FusionSuccessMetrics, KernelFusionError> {
         Ok(FusionSuccessMetrics {
+            placeholder: false,
             success_rate: 0.92,
             compilation_success_rate: 0.98,
             runtime_success_rate: 0.94,
@@ -856,15 +866,170 @@ default_placeholder_type!(LaunchConfiguration);
 default_placeholder_type!(PerformanceCharacteristics);
 default_placeholder_type!(MemoryFootprint);
 default_placeholder_type!(TensorLifetime);
-default_placeholder_type!(FusionOpportunity);
 default_placeholder_type!(DependencyGraph);
-default_placeholder_type!(PerformancePrediction);
-default_placeholder_type!(FusionSuccessMetrics);
-default_placeholder_type!(FusionSignature);
+
+/// Represents a fusion opportunity found during analysis
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct FusionOpportunity {
+    pub placeholder: bool,
+    /// Predicted performance improvement for this fusion opportunity
+    pub performance_prediction: Option<PerformancePrediction>,
+    /// Operations that can be fused together
+    pub fusable_operations: Vec<FusionOperation>,
+    /// Tensor descriptors for the fused operations
+    pub tensor_descriptors: Vec<TensorDescriptor>,
+    /// The matched fusion pattern type
+    pub fusion_pattern: FusionPatternType,
+}
+
+/// Performance prediction for a fusion operation
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PerformancePrediction {
+    pub placeholder: bool,
+    /// Expected improvement as a percentage (0.0–100.0)
+    pub expected_improvement: f64,
+}
+
+/// Metrics tracking the success of fusion operations
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct FusionSuccessMetrics {
+    pub placeholder: bool,
+    /// Overall success rate (0.0–1.0)
+    pub success_rate: f64,
+    /// Compilation success rate (0.0–1.0)
+    pub compilation_success_rate: f64,
+    /// Runtime success rate (0.0–1.0)
+    pub runtime_success_rate: f64,
+    /// Fraction of cases where performance gain was achieved (0.0–1.0)
+    pub performance_gain_achieved: f64,
+}
+
+/// Unique signature identifying a fusion operation configuration
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct FusionSignature {
+    pub placeholder: bool,
+    /// Types of operations in the fused kernel
+    pub operation_types: Vec<OperationType>,
+    /// Shapes of all tensors involved in the fusion
+    pub tensor_shapes: Vec<Vec<usize>>,
+    /// The fusion pattern matched
+    pub fusion_pattern: FusionPatternType,
+}
+
+// === Default implementations for complex structs ===
+
+impl Default for OperationDependencyAnalyzer {
+    fn default() -> Self {
+        Self {
+            graph_builder: DependencyGraphBuilder::default(),
+            dataflow_analyzer: DataFlowAnalyzer::default(),
+            critical_path_detector: CriticalPathDetector::default(),
+            parallelism_identifier: ParallelismIdentifier::default(),
+            memory_access_analyzer: MemoryAccessPatternAnalyzer::default(),
+            config: DependencyAnalysisConfig::default(),
+            analysis_state: DependencyAnalysisState::default(),
+        }
+    }
+}
+
+impl Default for FusionOpportunityDetector {
+    fn default() -> Self {
+        Self {
+            elementwise_detector: ElementWiseOperationDetector::default(),
+            reduction_detector: ReductionOperationDetector::default(),
+            matrix_detector: MatrixOperationDetector::default(),
+            activation_detector: ActivationFunctionDetector::default(),
+            memory_transfer_detector: MemoryTransferDetector::default(),
+            pattern_matcher: FusionPatternMatcher::default(),
+            config: FusionDetectionConfig::default(),
+            detection_cache: DetectionResultsCache::default(),
+        }
+    }
+}
+
+impl Default for DynamicKernelGenerator {
+    fn default() -> Self {
+        Self {
+            template_engine: CudaTemplateEngine::default(),
+            optimization_engine: KernelOptimizationEngine::default(),
+            layout_optimizer: MemoryLayoutOptimizer::default(),
+            block_configurator: ThreadBlockConfigurator::default(),
+            compilation_manager: DynamicCompilationManager::default(),
+            kernel_cache: GeneratedKernelCache::default(),
+            config: KernelGenerationConfig::default(),
+        }
+    }
+}
+
+impl Default for KernelBandwidthOptimizer {
+    fn default() -> Self {
+        Self {
+            coalescing_optimizer: MemoryCoalescingOptimizer::default(),
+            cache_optimizer: KernelCacheOptimizer::default(),
+            transaction_analyzer: MemoryTransactionAnalyzer::default(),
+            bandwidth_monitor: BandwidthUtilizationMonitor::default(),
+            optimization_strategy: BandwidthOptimizationStrategy::default(),
+            config: BandwidthOptimizationConfig::default(),
+        }
+    }
+}
+
+impl Default for ExecutionPatternAnalyzer {
+    fn default() -> Self {
+        Self {
+            temporal_detector: TemporalPatternDetector::default(),
+            spatial_detector: SpatialPatternDetector::default(),
+            workload_characterizer: WorkloadCharacterizer::default(),
+            bottleneck_identifier: PerformanceBottleneckIdentifier::default(),
+            prediction_engine: ExecutionPatternPredictor::default(),
+            config: PatternAnalysisConfig::default(),
+            analysis_results: PatternAnalysisResults::default(),
+        }
+    }
+}
+
+impl Default for FusionPerformancePredictor {
+    fn default() -> Self {
+        Self {
+            performance_models: std::collections::HashMap::new(),
+            ml_predictor: None,
+            benchmark_database: BenchmarkDatabase::default(),
+            estimation_engine: PerformanceEstimationEngine::default(),
+            accuracy_tracker: PredictionAccuracyTracker::default(),
+            config: PerformancePredictionConfig::default(),
+        }
+    }
+}
+
+impl Default for OptimizedCodeGenerator {
+    fn default() -> Self {
+        Self {
+            cuda_generator: CudaCppGenerator::default(),
+            ptx_generator: PtxCodeGenerator::default(),
+            sass_optimizer: SassOptimizationEngine::default(),
+            optimization_passes: Vec::new(),
+            code_validator: GeneratedCodeValidator::default(),
+            config: CodeGenerationConfig::default(),
+        }
+    }
+}
+
+impl Default for FusionCache {
+    fn default() -> Self {
+        Self {
+            cached_kernels: std::collections::HashMap::new(),
+            hit_statistics: CacheHitStatistics::default(),
+            eviction_policy: CacheEvictionPolicy::default(),
+            warming_engine: CacheWarmingEngine::default(),
+            config: FusionCacheConfig::default(),
+            metrics: CacheMetrics::default(),
+        }
+    }
+}
 
 // Implementation stubs for the main components
 impl OperationDependencyAnalyzer {
-    fn new(config: &KernelFusionConfig) -> Self {
+    fn new(_config: &KernelFusionConfig) -> Self {
         Self::default()
     }
 
@@ -874,14 +1039,14 @@ impl OperationDependencyAnalyzer {
 
     fn analyze_dependencies(
         &mut self,
-        operations: &[FusionOperation],
+        _operations: &[FusionOperation],
     ) -> Result<DependencyGraph, KernelFusionError> {
         Ok(DependencyGraph::default())
     }
 }
 
 impl FusionOpportunityDetector {
-    fn new(config: &KernelFusionConfig) -> Self {
+    fn new(_config: &KernelFusionConfig) -> Self {
         Self::default()
     }
 
@@ -891,14 +1056,14 @@ impl FusionOpportunityDetector {
 
     fn detect_opportunities(
         &mut self,
-        graph: &DependencyGraph,
+        _graph: &DependencyGraph,
     ) -> Result<Vec<FusionOpportunity>, KernelFusionError> {
         Ok(vec![FusionOpportunity::default()])
     }
 }
 
 impl DynamicKernelGenerator {
-    fn new(config: &KernelFusionConfig) -> Self {
+    fn new(_config: &KernelFusionConfig) -> Self {
         Self::default()
     }
 
@@ -908,15 +1073,15 @@ impl DynamicKernelGenerator {
 
     fn generate_fused_kernel(
         &mut self,
-        opportunity: &FusionOpportunity,
-        strategy: &FusionStrategyType,
+        _opportunity: &FusionOpportunity,
+        _strategy: &FusionStrategyType,
     ) -> Result<FusionKernel, KernelFusionError> {
         Ok(FusionKernel::default())
     }
 }
 
 impl KernelBandwidthOptimizer {
-    fn new(config: &KernelFusionConfig) -> Self {
+    fn new(_config: &KernelFusionConfig) -> Self {
         Self::default()
     }
 
@@ -929,34 +1094,34 @@ impl KernelBandwidthOptimizer {
 }
 
 impl ExecutionPatternAnalyzer {
-    fn new(config: &KernelFusionConfig) -> Self {
+    fn new(_config: &KernelFusionConfig) -> Self {
         Self::default()
     }
 
     fn analyze_execution_patterns(
         &mut self,
-        operations: &[FusionOperation],
+        _operations: &[FusionOperation],
     ) -> Result<PatternAnalysisResults, KernelFusionError> {
         Ok(PatternAnalysisResults::default())
     }
 }
 
 impl FusionPerformancePredictor {
-    fn new(config: &KernelFusionConfig) -> Self {
+    fn new(_config: &KernelFusionConfig) -> Self {
         Self::default()
     }
 
     fn predict_fusion_performance(
         &mut self,
-        opportunity: &FusionOpportunity,
-        patterns: &PatternAnalysisResults,
+        _opportunity: &FusionOpportunity,
+        _patterns: &PatternAnalysisResults,
     ) -> Result<PerformancePrediction, KernelFusionError> {
         Ok(PerformancePrediction::default())
     }
 }
 
 impl OptimizedCodeGenerator {
-    fn new(config: &KernelFusionConfig) -> Self {
+    fn new(_config: &KernelFusionConfig) -> Self {
         Self::default()
     }
 
@@ -969,7 +1134,7 @@ impl OptimizedCodeGenerator {
 }
 
 impl FusionStrategySelector {
-    fn new(config: &KernelFusionConfig) -> Self {
+    fn new(_config: &KernelFusionConfig) -> Self {
         Self {
             strategies: HashMap::new(),
             performance_tracker: StrategyPerformanceTracker::default(),
@@ -981,8 +1146,8 @@ impl FusionStrategySelector {
 
     fn select_optimal_strategy(
         &mut self,
-        opportunities: &[FusionOpportunity],
-        operations: &[FusionOperation],
+        _opportunities: &[FusionOpportunity],
+        _operations: &[FusionOperation],
     ) -> Result<FusionStrategyType, KernelFusionError> {
         Ok(self.active_strategy.clone())
     }
@@ -997,14 +1162,14 @@ impl FusionCache {
         Ok(())
     }
 
-    fn get_cached_kernel(&self, signature: &FusionSignature) -> Option<FusionKernel> {
+    fn get_cached_kernel(&self, _signature: &FusionSignature) -> Option<FusionKernel> {
         None
     }
 
     fn cache_kernel(
         &mut self,
-        signature: FusionSignature,
-        kernel: FusionKernel,
+        _signature: FusionSignature,
+        _kernel: FusionKernel,
     ) -> Result<(), KernelFusionError> {
         Ok(())
     }
