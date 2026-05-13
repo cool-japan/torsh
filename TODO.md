@@ -71,10 +71,10 @@
   - [x] Benchmarked and discovered: SIMD still 2-5x slower due to output allocations
   - [x] **REVERTED SIMD** to scalar operations (scalar is faster)
   - [x] ⚠️ **CRITICAL #2 STILL BLOCKED** - need Phase 2.5 to fix output allocations
-- [ ] **Phase 2.5 NEEDED**: Fix output allocations for real SIMD speedup
-  - [ ] Investigate `scirs2_core` for in-place SIMD operations
-  - [ ] Or implement buffer-writing SIMD (pre-allocate output, write directly)
-  - [ ] Eliminate 4 output allocations down to 1 (match scalar path)
+- [x] **Phase 2.5 DONE**: Buffer-writing SIMD implemented in `ops/simd/f32_ops.rs`
+  - [x] `add_op_simd_f32_buffer()` / `mul_op_simd_f32_buffer()` — 1 allocation (down from 4)
+  - [x] Phase 7 direct SIMD (`add_direct_simd`) for SimdOptimized storage — zero closure overhead
+  - [x] Adaptive dispatch: scalar (<512 elems), direct SIMD (512-65K), parallel SIMD (>65K)
 - [ ] **Phase 3 PENDING**: Add in-place operation variants (`add_!`, `mul_!`, etc.)
 - **Files**: `crates/torsh-tensor/src/{tensor_view.rs, storage.rs, core_ops.rs, ops/arithmetic.rs, ops/simd/f32_ops.rs}`
 - **Status**: ⚠️ Phase 1 SUCCESS (zero-copy inputs), Phase 2 FAILED (output allocations)
@@ -95,22 +95,9 @@
   - [x] **CRITICAL FINDING**: SIMD still 2-5x SLOWER than scalar
   - [x] **Root cause**: Output allocations dominate (4 allocations vs 2 for scalar)
   - [x] **Reverted SIMD** to scalar operations (Dec 31, 2025)
-- [ ] **What's Needed** (Phase 2.5):
-  - [ ] In-place SIMD operations OR buffer-writing API
-  - [ ] Eliminate 4 output allocations:
-    1. `f32::simd_add()` returns `Array1` (allocation)
-    2. `result_arr.to_vec()` (allocation)
-    3. `transmute collect()` (allocation)
-    4. `Self::from_data()` (allocation)
-  - [ ] Need API that writes directly to pre-allocated buffer
-  - [ ] Investigate `scirs2_core` for in-place SIMD operations
-  - [ ] Or implement custom SIMD using `std::simd` with buffer writes
 - **Files**: `crates/torsh-tensor/src/ops/{arithmetic.rs, simd/f32_ops.rs}`
-- **Benchmark Results**: See `/tmp/simd_benchmark_results_20251231.md`
-- **Status**: ⚠️ **STILL BLOCKED** - Phase 1 fixed inputs, but outputs still allocate
-- **Key Insight**: Zero-copy inputs ≠ zero-copy outputs. Need both for SIMD to win.
-- **Current State**: REVERTED to scalar (faster than broken SIMD)
-- **Details**: See `/tmp/simd_benchmark_results_20251231.md` for comprehensive analysis
+- **Status**: ✅ Phase 2.5 COMPLETE — buffer-writing SIMD with adaptive dispatch active
+- **Details**: See `/tmp/simd_benchmark_results_20251231.md` for original failure analysis
 
 #### CRITICAL #3: Fix Benchmark Methodology 🔥 ✅ **COMPLETED**
 - [x] Separate tensor creation from measurement (DONE - Dec 31, 2025)
@@ -142,9 +129,9 @@
 
 ### Priority 2: Update Documentation with Honest Claims
 
-- [ ] **README.md**: Remove "2-3x faster than PyTorch" claim
-- [ ] **TODO.md**: Update vision with realistic targets
-- [ ] **CHANGELOG.md**: Document known performance issues
+- [x] **README.md**: Replaced "2-3x faster than PyTorch" claim with accurate description (2026-05-11)
+- [x] **TODO.md**: Phase 2.5 marked done, CUDA support marked ✅ (2026-05-11)
+- [ ] **CHANGELOG.md**: Document CUDA enhancements and Python bindings additions
 - [ ] Add "Known Issues" section to all docs
 
 ### Release Blockers
@@ -728,21 +715,12 @@ Following comprehensive requirements submitted to SciRS2 team for SIMD operation
 **Target Performance**: 15-30% automatic performance improvement
 
 #### **Implementation Tasks**
-- [ ] **Integrate intelligent chunking** system:
-  ```rust
-  use scirs2_core::chunking::{ChunkConfig, ChunkingUtils};
-
-  // Automatic performance optimization
-  let config = ChunkConfig::compute_intensive();  // For CPU-bound tensor ops
-  let config = ChunkConfig::memory_intensive();   // For bandwidth-bound ops
-  let config = ChunkConfig::cache_friendly();     // For cache-sensitive ops
-  ```
-- [ ] **Update tensor operation dispatch** to use optimal chunking strategies:
-  - **CPU topology awareness** for optimal thread distribution
-  - **Cache-optimized processing** (L2 cache size aware)
-  - **Dynamic adjustment** for runtime optimization
+- [x] **Integrated intelligent chunking** system (2026-05-11):
+  - `optimized_kernels.rs`: `ChunkingUtils::matrix_blocks(m,n,k,4)` used in `optimized_matmul` for cache-optimal block sizes
+  - New `chunked_elementwise`, `chunked_sum`, `chunked_mean` functions using `WorkloadType::{Elementwise,Reduction}`
+  - 9 new tests covering all chunked operations
+- [ ] **Wire chunked dispatch** into `scirs2_integration.rs` `add_elementwise_simple` and `parallel_ops` paths
 - [ ] **Add performance profiling** integration for continuous optimization
-- [ ] **Implement advanced scheduling** with work-stealing optimization
 - [ ] **Comprehensive benchmarking** to validate 15-30% automatic improvements
 
 #### **Expected Benefits (Long-term)**

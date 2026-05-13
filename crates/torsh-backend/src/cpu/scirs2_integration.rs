@@ -7,6 +7,7 @@
 #![allow(dead_code)]
 use crate::cpu::autotuning::{AutoTuner, PerformanceMeasurement};
 use crate::cpu::error::{cpu_errors, CpuResult};
+use crate::cpu::scirs2_chunking::{ChunkingUtils, WorkloadType};
 use crate::error::conversion;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -261,26 +262,26 @@ impl SciRS2CpuBackend {
         k: usize,
         transpose_a: bool,
         transpose_b: bool,
-        config: &KernelConfig,
+        _config: &KernelConfig,
     ) -> CpuResult<()> {
         use scirs2_core::parallel_ops::*;
 
-        let block_size = config.optimal_block_size.unwrap_or(64);
+        let (block_m, block_n, block_k) = ChunkingUtils::matrix_blocks(m, n, k, 4);
 
         // Initialize result to zero
         result.fill(0.0);
 
-        // Block over all three dimensions for better cache locality
+        // Block over all three dimensions for L2 cache-optimal locality
         (0..m)
             .into_par_iter()
-            .step_by(block_size)
+            .step_by(block_m)
             .for_each(|i_block| {
-                for j_block in (0..n).step_by(block_size) {
-                    for k_block in (0..k).step_by(block_size) {
+                for j_block in (0..n).step_by(block_n) {
+                    for k_block in (0..k).step_by(block_k) {
                         // Process micro-block
-                        let i_end = (i_block + block_size).min(m);
-                        let j_end = (j_block + block_size).min(n);
-                        let k_end = (k_block + block_size).min(k);
+                        let i_end = (i_block + block_m).min(m);
+                        let j_end = (j_block + block_n).min(n);
+                        let k_end = (k_block + block_k).min(k);
 
                         for i in i_block..i_end {
                             for j in j_block..j_end {
@@ -334,22 +335,21 @@ impl SciRS2CpuBackend {
         })
     }
 
-    /// Simple element-wise addition
+    /// Simple element-wise addition with cache-aware chunking
     fn add_elementwise_simple(
         &self,
         a: &[f32],
         b: &[f32],
         result: &mut [f32],
-        config: &KernelConfig,
+        _config: &KernelConfig,
     ) -> CpuResult<()> {
         use scirs2_core::parallel_ops::*;
 
+        let chunk_size = ChunkingUtils::optimal_chunk_size(WorkloadType::Elementwise, 4, a.len());
+
         result
-            .par_chunks_mut(config.optimal_chunk_size)
-            .zip(
-                a.par_chunks(config.optimal_chunk_size)
-                    .zip(b.par_chunks(config.optimal_chunk_size)),
-            )
+            .par_chunks_mut(chunk_size)
+            .zip(a.par_chunks(chunk_size).zip(b.par_chunks(chunk_size)))
             .for_each(|(result_chunk, (a_chunk, b_chunk))| {
                 for ((r, &a_val), &b_val) in result_chunk
                     .iter_mut()
@@ -441,16 +441,15 @@ impl SciRS2CpuBackend {
         a: &[f32],
         b: &[f32],
         result: &mut [f32],
-        config: &KernelConfig,
+        _config: &KernelConfig,
     ) -> CpuResult<()> {
         use scirs2_core::parallel_ops::*;
 
+        let chunk_size = ChunkingUtils::optimal_chunk_size(WorkloadType::Elementwise, 4, a.len());
+
         result
-            .par_chunks_mut(config.optimal_chunk_size)
-            .zip(
-                a.par_chunks(config.optimal_chunk_size)
-                    .zip(b.par_chunks(config.optimal_chunk_size)),
-            )
+            .par_chunks_mut(chunk_size)
+            .zip(a.par_chunks(chunk_size).zip(b.par_chunks(chunk_size)))
             .for_each(|(result_chunk, (a_chunk, b_chunk))| {
                 for ((r, &a_val), &b_val) in result_chunk
                     .iter_mut()
@@ -540,13 +539,15 @@ impl SciRS2CpuBackend {
         a: &[f32],
         scalar: f32,
         result: &mut [f32],
-        config: &KernelConfig,
+        _config: &KernelConfig,
     ) -> CpuResult<()> {
         use scirs2_core::parallel_ops::*;
 
+        let chunk_size = ChunkingUtils::optimal_chunk_size(WorkloadType::Elementwise, 4, a.len());
+
         result
-            .par_chunks_mut(config.optimal_chunk_size)
-            .zip(a.par_chunks(config.optimal_chunk_size))
+            .par_chunks_mut(chunk_size)
+            .zip(a.par_chunks(chunk_size))
             .for_each(|(result_chunk, a_chunk)| {
                 for (r, &a_val) in result_chunk.iter_mut().zip(a_chunk.iter()) {
                     *r = a_val + scalar;
@@ -632,13 +633,15 @@ impl SciRS2CpuBackend {
         a: &[f32],
         scalar: f32,
         result: &mut [f32],
-        config: &KernelConfig,
+        _config: &KernelConfig,
     ) -> CpuResult<()> {
         use scirs2_core::parallel_ops::*;
 
+        let chunk_size = ChunkingUtils::optimal_chunk_size(WorkloadType::Elementwise, 4, a.len());
+
         result
-            .par_chunks_mut(config.optimal_chunk_size)
-            .zip(a.par_chunks(config.optimal_chunk_size))
+            .par_chunks_mut(chunk_size)
+            .zip(a.par_chunks(chunk_size))
             .for_each(|(result_chunk, a_chunk)| {
                 for (r, &a_val) in result_chunk.iter_mut().zip(a_chunk.iter()) {
                     *r = a_val * scalar;
@@ -711,11 +714,12 @@ impl SciRS2CpuBackend {
     }
 
     /// Simple reduction sum
-    fn sum_simple(&self, a: &[f32], config: &KernelConfig) -> CpuResult<f32> {
+    fn sum_simple(&self, a: &[f32], _config: &KernelConfig) -> CpuResult<f32> {
         use scirs2_core::parallel_ops::*;
 
+        let chunk_size = ChunkingUtils::optimal_chunk_size(WorkloadType::Reduction, 4, a.len());
         let sum = a
-            .par_chunks(config.optimal_chunk_size)
+            .par_chunks(chunk_size)
             .map(|chunk| chunk.iter().sum::<f32>())
             .sum();
 

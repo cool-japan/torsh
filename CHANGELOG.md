@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (2026-05-11)
+- **CUDA backend**: Re-enabled 4 performance modules (`high_performance_kernels`, `intelligent_task_scheduler`, `kernel_fusion_optimizer`, `performance_optimization_coordinator`) that were blocked by upstream compilation cascade
+- **CUDA memory manager**: Re-enabled `memory/manager.rs` with canonical `MemoryPressureLevel` (Normal/Low/Medium/High/Critical), `OnceLock`-based global manager, real memory pool wiring (`allocate_from_device_pool` / `return_to_device_pool` using `cust::cuda_malloc`/free)
+- **multi_gpu.rs**: `ReducibleElement` trait replacing all `unsafe { mem::transmute }` dispatch; ring all-reduce algorithm (bandwidth-optimal 2(N-1)/N bytes); all `ReduceOp` variants (Sum, Product, Min, Max, Average) for both `f32` and `f64`; 14 new tests in `tests_p3`
+- **torsh-python**: Re-enabled `torsh-autograd`, `torsh-distributed` Python submodules; migrated `distributed.rs` to PyO3 0.28 API (replaced `#[pyfn(m)]` → `#[pyfunction]` + `wrap_pyfunction!`, fixed `Bound<'_, PyModule>` signatures)
+- **Phase 2.5 SIMD complete**: Buffer-writing SIMD (`add_op_simd_f32_buffer`, `mul_op_simd_f32_buffer`) with 1 allocation (down from 4); Phase 7 direct SIMD for SimdOptimized storage; adaptive dispatch by tensor size
+
+### Fixed (2026-05-11)
+- 2 root compilation errors unblocking 1100+ downstream optimization module errors: missing `use std::fmt;` in `configversion_traits.rs` and `use scirs2_core::random::{rng, RngExt};` in `multi_objective/types.rs`
+- All optimization submodules (`adaptive_controller`, `ml_engine`, `multi_objective`, `execution_engine`) now compile cleanly with zero warnings
+- README: removed unvalidated "2-3x faster than PyTorch" performance claim; replaced with accurate SIMD/pool reuse description
+
 ## [0.1.2] - 2026-04-26
 
 ### Added

@@ -1,6 +1,10 @@
 //! Optimized kernels for CPU backend without external BLAS dependency
+//!
+//! Phase 4: Intelligent chunking is wired into matmul (cache-optimal block sizes),
+//! elementwise ops, and reduction ops via `ChunkingUtils` / `WorkloadType`.
 
 use crate::cpu::error::CpuResult;
+use crate::cpu::scirs2_chunking::{ChunkingStrategy, ChunkingUtils, WorkloadType};
 // ✅ SciRS2 POLICY: Use scirs2_core::parallel_ops instead of direct rayon
 use scirs2_core::parallel_ops::*;
 use torsh_core::error::{Result, TorshError};
@@ -8,7 +12,11 @@ use torsh_core::error::{Result, TorshError};
 // Re-export commonly used functions for easier access
 pub use parallel_ops::parallel_sum;
 
-/// Cache-blocked matrix multiplication for better performance
+/// Cache-blocked matrix multiplication driven by Phase-4 intelligent chunking.
+///
+/// Block sizes for the three tiling dimensions (bm, bn, bk) are chosen by
+/// [`ChunkingUtils::matrix_blocks`] so that each panel fits in L2 cache, rather
+/// than relying on the former compile-time constant of 64.
 #[allow(clippy::too_many_arguments)]
 pub fn optimized_matmul(
     a: &[f32],
@@ -30,8 +38,9 @@ pub fn optimized_matmul(
     // Initialize result to zero
     result.fill(0.0);
 
-    // Cache blocking parameters
-    const BLOCK_SIZE: usize = 64;
+    // Phase 4: derive cache-optimal block sizes from hardware topology.
+    // element_size = 4 bytes (f32).
+    let (block_m, block_n, block_k) = ChunkingUtils::matrix_blocks(m, n, k, 4);
 
     // Handle transposition by choosing appropriate indexing functions
     let get_a = |i: usize, j: usize| -> f32 {
@@ -50,13 +59,13 @@ pub fn optimized_matmul(
         }
     };
 
-    // Cache-blocked matrix multiplication
-    for ii in (0..m).step_by(BLOCK_SIZE) {
-        for jj in (0..n).step_by(BLOCK_SIZE) {
-            for kk in (0..k).step_by(BLOCK_SIZE) {
-                let i_end = (ii + BLOCK_SIZE).min(m);
-                let j_end = (jj + BLOCK_SIZE).min(n);
-                let k_end = (kk + BLOCK_SIZE).min(k);
+    // Cache-blocked matrix multiplication with hardware-derived block sizes
+    for ii in (0..m).step_by(block_m) {
+        for jj in (0..n).step_by(block_n) {
+            for kk in (0..k).step_by(block_k) {
+                let i_end = (ii + block_m).min(m);
+                let j_end = (jj + block_n).min(n);
+                let k_end = (kk + block_k).min(k);
 
                 for i in ii..i_end {
                     for j in jj..j_end {
@@ -75,6 +84,88 @@ pub fn optimized_matmul(
     }
 
     Ok(())
+}
+
+/// Chunking-aware element-wise operation over two f32 slices.
+///
+/// Uses `WorkloadType::Elementwise` to derive the cache-optimal chunk size,
+/// then applies `op` to each element pair in parallel.  Falls back gracefully
+/// to a scalar loop for small inputs (<= one chunk).
+pub fn chunked_elementwise<F>(a: &[f32], b: &[f32], result: &mut [f32], op: F) -> Result<()>
+where
+    F: Fn(f32, f32) -> f32 + Sync + Send,
+{
+    let len = a.len();
+    if b.len() != len || result.len() != len {
+        return Err(TorshError::ShapeMismatch {
+            expected: vec![len, len],
+            got: vec![b.len(), result.len()],
+        });
+    }
+
+    let strategy = ChunkingStrategy::new(WorkloadType::Elementwise, 4);
+    let chunk_sz = strategy.chunk_size(len);
+
+    if len <= chunk_sz {
+        // Single-chunk path — no parallel overhead for small arrays
+        for idx in 0..len {
+            result[idx] = op(a[idx], b[idx]);
+        }
+    } else {
+        // Multi-chunk parallel path
+        let chunks = strategy.split_range(0, len);
+        // Parallel execution: each chunk is an independent stripe
+        result
+            .par_chunks_mut(chunk_sz)
+            .enumerate()
+            .for_each(|(chunk_idx, out_chunk)| {
+                let start = chunk_idx * chunk_sz;
+                let end = (start + out_chunk.len()).min(len);
+                let in_a = &a[start..end];
+                let in_b = &b[start..end];
+                for (i, r) in out_chunk.iter_mut().enumerate() {
+                    *r = op(in_a[i], in_b[i]);
+                }
+            });
+        // suppress unused variable warning for `chunks`
+        let _ = chunks;
+    }
+
+    Ok(())
+}
+
+/// Chunking-aware reduction (sum) over an f32 slice.
+///
+/// Uses `WorkloadType::Reduction` to select a chunk size that keeps partial
+/// accumulators in L2 cache, avoiding last-level-cache pressure on wide arrays.
+pub fn chunked_sum(data: &[f32]) -> f32 {
+    if data.is_empty() {
+        return 0.0;
+    }
+
+    let strategy = ChunkingStrategy::new(WorkloadType::Reduction, 4);
+    let chunk_sz = strategy.chunk_size(data.len());
+
+    if data.len() <= chunk_sz {
+        // Small array: single accumulator, no overhead
+        data.iter().sum()
+    } else {
+        // Accumulate partial sums per chunk, then sum the partials
+        let chunks = strategy.split_range(0, data.len());
+        let partial_sums: Vec<f32> = chunks
+            .iter()
+            .map(|&(start, end)| data[start..end].iter().sum::<f32>())
+            .collect();
+        partial_sums.iter().sum()
+    }
+}
+
+/// Chunking-aware mean over an f32 slice.
+pub fn chunked_mean(data: &[f32]) -> f32 {
+    if data.is_empty() {
+        return 0.0;
+    }
+    chunked_sum(data) / data.len() as f32
 }
 
 /// Basic matrix multiplication for benchmarking
@@ -455,5 +546,91 @@ mod tests {
         let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let result = parallel_ops::parallel_sum(&data);
         assert_abs_diff_eq!(result, 15.0, epsilon = 1e-6);
+    }
+
+    // --- Phase 4: Intelligent chunking tests ---
+
+    #[test]
+    fn test_chunked_elementwise_add_small() {
+        let a = vec![1.0f32, 2.0, 3.0, 4.0];
+        let b = vec![10.0f32, 20.0, 30.0, 40.0];
+        let mut out = vec![0.0f32; 4];
+        chunked_elementwise(&a, &b, &mut out, |x, y| x + y).expect("chunked add should succeed");
+        assert_abs_diff_eq!(out[0], 11.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(out[1], 22.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(out[2], 33.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(out[3], 44.0, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_chunked_elementwise_mul_large() {
+        // Large enough to trigger the multi-chunk parallel path
+        let n = 100_000usize;
+        let a: Vec<f32> = (0..n).map(|i| i as f32).collect();
+        let b: Vec<f32> = (0..n).map(|_| 2.0f32).collect();
+        let mut out = vec![0.0f32; n];
+        chunked_elementwise(&a, &b, &mut out, |x, y| x * y).expect("chunked mul should succeed");
+        for (i, &v) in out.iter().enumerate() {
+            assert_abs_diff_eq!(v, (i as f32) * 2.0, epsilon = 1e-4);
+        }
+    }
+
+    #[test]
+    fn test_chunked_elementwise_shape_mismatch() {
+        let a = vec![1.0f32; 4];
+        let b = vec![1.0f32; 3];
+        let mut out = vec![0.0f32; 4];
+        assert!(chunked_elementwise(&a, &b, &mut out, |x, y| x + y).is_err());
+    }
+
+    #[test]
+    fn test_chunked_sum_empty() {
+        assert_abs_diff_eq!(chunked_sum(&[]), 0.0, epsilon = 1e-9);
+    }
+
+    #[test]
+    fn test_chunked_sum_small() {
+        let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0];
+        assert_abs_diff_eq!(chunked_sum(&data), 15.0, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_chunked_sum_large() {
+        // Sum of 0..N should equal N*(N-1)/2
+        let n = 50_000usize;
+        let data: Vec<f32> = (0..n).map(|i| i as f32).collect();
+        let expected = (n * (n - 1) / 2) as f32;
+        let got = chunked_sum(&data);
+        // Allow relative tolerance for large float sums
+        assert!((got - expected).abs() / expected < 1e-3);
+    }
+
+    #[test]
+    fn test_chunked_mean_small() {
+        let data = vec![2.0f32, 4.0, 6.0, 8.0];
+        assert_abs_diff_eq!(chunked_mean(&data), 5.0, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_chunked_mean_empty() {
+        assert_abs_diff_eq!(chunked_mean(&[]), 0.0, epsilon = 1e-9);
+    }
+
+    #[test]
+    fn test_optimized_matmul_uses_chunking_large() {
+        // 128x128 matmul — exercises all three tiling dimensions with chunking-derived block sizes
+        let m = 128;
+        let n = 128;
+        let k = 64;
+        let a: Vec<f32> = (0..m * k).map(|i| i as f32 * 0.001).collect();
+        let b: Vec<f32> = (0..k * n).map(|i| i as f32 * 0.001).collect();
+        let mut result = vec![0.0f32; m * n];
+
+        optimized_matmul(&a, &b, &mut result, m, n, k, false, false)
+            .expect("large chunked matmul should succeed");
+
+        // Spot-check: result[0][0] = row0 of A dot col0 of B
+        let expected_00: f32 = (0..k).map(|l| a[l] * b[l * n]).sum();
+        assert_abs_diff_eq!(result[0], expected_00, epsilon = 1e-3);
     }
 }

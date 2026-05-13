@@ -6,7 +6,6 @@ use pyo3::types::PyAny;
 use pyo3::wrap_pyfunction;
 use pyo3::PyRefMut;
 use std::cell::RefCell;
-use std::sync::{Arc, Mutex};
 
 /// Global autograd state manager
 pub struct AutogradState {
@@ -68,10 +67,10 @@ impl PyNoGrad {
     }
 
     fn __exit__(
-        mut slf: PyRefMut<'_, Self>,
-        exc_type: Option<Py<PyAny>>,
-        exc_val: Option<Py<PyAny>>,
-        exc_tb: Option<Py<PyAny>>,
+        slf: PyRefMut<'_, Self>,
+        _exc_type: Option<Py<PyAny>>,
+        _exc_val: Option<Py<PyAny>>,
+        _exc_tb: Option<Py<PyAny>>,
     ) -> PyResult<bool> {
         // Restore previous gradient state
         AUTOGRAD_STATE.with(|state| {
@@ -111,10 +110,10 @@ impl PyEnableGrad {
     }
 
     fn __exit__(
-        mut slf: PyRefMut<'_, Self>,
-        exc_type: Option<Py<PyAny>>,
-        exc_val: Option<Py<PyAny>>,
-        exc_tb: Option<Py<PyAny>>,
+        slf: PyRefMut<'_, Self>,
+        _exc_type: Option<Py<PyAny>>,
+        _exc_val: Option<Py<PyAny>>,
+        _exc_tb: Option<Py<PyAny>>,
     ) -> PyResult<bool> {
         // Restore previous gradient state
         AUTOGRAD_STATE.with(|state| {
@@ -155,10 +154,10 @@ impl PySetGradEnabled {
     }
 
     fn __exit__(
-        mut slf: PyRefMut<'_, Self>,
-        exc_type: Option<Py<PyAny>>,
-        exc_val: Option<Py<PyAny>>,
-        exc_tb: Option<Py<PyAny>>,
+        slf: PyRefMut<'_, Self>,
+        _exc_type: Option<Py<PyAny>>,
+        _exc_val: Option<Py<PyAny>>,
+        _exc_tb: Option<Py<PyAny>>,
     ) -> PyResult<bool> {
         // Restore previous gradient state
         AUTOGRAD_STATE.with(|state| {
@@ -193,10 +192,10 @@ impl PyDetectAnomaly {
     }
 
     fn __exit__(
-        mut slf: PyRefMut<'_, Self>,
-        exc_type: Option<Py<PyAny>>,
-        exc_val: Option<Py<PyAny>>,
-        exc_tb: Option<Py<PyAny>>,
+        slf: PyRefMut<'_, Self>,
+        _exc_type: Option<Py<PyAny>>,
+        _exc_val: Option<Py<PyAny>>,
+        _exc_tb: Option<Py<PyAny>>,
     ) -> PyResult<bool> {
         // Restore previous anomaly detection state
         AUTOGRAD_STATE.with(|state| {
@@ -251,11 +250,11 @@ impl AutogradUtils {
     pub fn grad(
         outputs: Vec<PyTensor>,
         inputs: Vec<PyTensor>,
-        grad_outputs: Option<Vec<Option<PyTensor>>>,
-        retain_graph: Option<bool>,
-        create_graph: Option<bool>,
-        only_inputs: Option<bool>,
-        allow_unused: Option<bool>,
+        _grad_outputs: Option<Vec<Option<PyTensor>>>,
+        _retain_graph: Option<bool>,
+        _create_graph: Option<bool>,
+        _only_inputs: Option<bool>,
+        _allow_unused: Option<bool>,
     ) -> PyResult<Vec<Option<PyTensor>>> {
         // For now, implement basic backward pass
         if outputs.len() != 1 {
@@ -280,7 +279,7 @@ impl AutogradUtils {
 use pyo3::types::{PyModule, PyModuleMethods};
 
 /// Register autograd module
-pub fn register_autograd_module(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+pub fn register_autograd_module(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Add context managers
     m.add_class::<PyNoGrad>()?;
     m.add_class::<PyEnableGrad>()?;
@@ -317,12 +316,11 @@ pub fn register_autograd_module(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyRe
     #[pyfunction]
     fn backward(
         tensors: Vec<PyTensor>,
-        grad_tensors: Option<Vec<Option<PyTensor>>>,
-        retain_graph: Option<bool>,
-        create_graph: Option<bool>,
-        inputs: Option<Vec<PyTensor>>,
+        _grad_tensors: Option<Vec<Option<PyTensor>>>,
+        _retain_graph: Option<bool>,
+        _create_graph: Option<bool>,
+        _inputs: Option<Vec<PyTensor>>,
     ) -> PyResult<()> {
-        // Implement backward pass
         for tensor in tensors {
             py_result!(tensor.tensor.backward())?;
         }

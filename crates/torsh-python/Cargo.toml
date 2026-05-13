@@ -33,9 +33,9 @@ torsh-core = { workspace = true }
 torsh-tensor = { workspace = true }
 torsh-nn = { workspace = true }
 torsh-optim = { workspace = true }
-# torsh-data = { workspace = true }  # Temporarily disabled due to compilation errors
-# torsh-autograd = { workspace = true }  # Temporarily disabled due to scirs2 API incompatibilities
-# torsh-distributed = { workspace = true }  # Temporarily disabled due to compilation errors
+torsh-data = { workspace = true }
+torsh-autograd = { workspace = true }
+torsh-distributed = { workspace = true }
 
 # ✅ SciRS2 POLICY: Use scirs2-core for all scientific computing needs
 scirs2-core = { workspace = true }
