@@ -72,55 +72,79 @@
 
 #![allow(dead_code)] // Framework infrastructure for future use
 
-use pyo3::prelude::*;
+// C API and Node.js N-API bindings (enabled by "nodejs" feature)
+#[cfg(feature = "nodejs")]
+pub mod c_api;
+#[cfg(feature = "nodejs")]
+pub mod nodejs;
 
-// ============================================================================
-// Python Module Components
-// ============================================================================
-
-// Core tensor implementation
-mod tensor;
-use tensor::PyTensor;
-
-// Functional operations (activations, loss functions)
-mod functional;
-
-// Neural network modules
-mod module;
-use module::PyLinear;
-
-// Optimizers
-mod optimizer;
-use optimizer::{PyAdam, PySGD};
-
-// Data loading
-mod dataloader;
-use dataloader::{PyDataLoader, PyDataLoaderBuilder, PyRandomDataLoader};
-
-// Utility functions
-mod utils;
-
-// Error handling
+// Error handling (always available)
 pub mod error;
 pub use error::FfiError;
 
+// ============================================================================
+// Python Module Components (only when NOT building as a Node.js addon)
+// ============================================================================
+
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
+// Core tensor implementation
+#[cfg(feature = "python")]
+mod tensor;
+#[cfg(feature = "python")]
+use tensor::PyTensor;
+
+// Functional operations (activations, loss functions)
+#[cfg(feature = "python")]
+mod functional;
+
+// Neural network modules
+#[cfg(feature = "python")]
+mod module;
+#[cfg(feature = "python")]
+use module::PyLinear;
+
+// Optimizers
+#[cfg(feature = "python")]
+mod optimizer;
+#[cfg(feature = "python")]
+use optimizer::{PyAdam, PySGD};
+
+// Data loading
+#[cfg(feature = "python")]
+mod dataloader;
+#[cfg(feature = "python")]
+use dataloader::{PyDataLoader, PyDataLoaderBuilder, PyRandomDataLoader};
+
+// Utility functions
+#[cfg(feature = "python")]
+mod utils;
+
 // Integration modules for advanced features
+#[cfg(feature = "python")]
 mod numpy_compatibility;
+#[cfg(feature = "python")]
 mod pandas_support;
+#[cfg(feature = "python")]
 mod scipy_integration;
 
 // NumPy compatibility is provided through utility functions, not a Python class
+#[cfg(feature = "python")]
 use pandas_support::{DataAnalysisResult, PandasSupport, TorshDataFrame, TorshSeries};
+#[cfg(feature = "python")]
 use scipy_integration::{LinalgResult, OptimizationResult, SciPyIntegration, SignalResult};
 
 // ============================================================================
 // Python Module Definition (following QuantRS2-py pattern)
+// Only compiled when NOT building as a Node.js addon
 // ============================================================================
 
 /// ToRSh - PyTorch-compatible deep learning framework in Rust
 ///
 /// This is the main Python module entry point, following the QuantRS2-py architecture.
-/// Python bindings are ALWAYS enabled (no feature gates) as this is a Python extension module.
+/// Python bindings are only compiled when the "nodejs" feature is NOT active.
+#[cfg(feature = "python")]
 #[pymodule]
 fn rstorch(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Add version information
@@ -257,7 +281,7 @@ fn rstorch(m: &Bound<'_, PyModule>) -> PyResult<()> {
 // Tests
 // ============================================================================
 
-#[cfg(test)]
+#[cfg(all(test, feature = "python"))]
 mod tests {
     use super::*;
 

@@ -248,47 +248,101 @@ where
     }
 
     /// Check if all elements along dimension are non-zero (true)
-    pub fn all_dim(&self, dim: i32, _keepdim: bool) -> Result<Tensor<bool>> {
+    pub fn all_dim(&self, dim: i32, keepdim: bool) -> Result<Tensor<bool>> {
+        let shape_binding = self.shape();
+        let input_shape = shape_binding.dims();
+
         let normalized_dim = if dim < 0 {
-            (self.shape().len() as i32 + dim) as usize
+            (input_shape.len() as i32 + dim) as usize
         } else {
             dim as usize
         };
 
-        if normalized_dim >= self.shape().len() {
+        if normalized_dim >= input_shape.len() {
             return Err(torsh_core::error::TorshError::InvalidDimension {
                 dim: normalized_dim,
-                ndim: self.shape().len(),
+                ndim: input_shape.len(),
             });
         }
 
-        // TODO: Implement proper all() reduction without ndarray dependency
-        // For now, return a simple placeholder
-        Err(TorshError::NotImplemented(
-            "Boolean all() reduction along dimension not yet implemented".to_string(),
-        ))
+        let data = self.data()?;
+        let zero = <T as num_traits::Zero>::zero();
+
+        let outer_size: usize = input_shape[..normalized_dim].iter().product();
+        let dim_size = input_shape[normalized_dim];
+        let inner_size: usize = input_shape[normalized_dim + 1..].iter().product();
+
+        let output_size = outer_size * inner_size;
+        let mut result_data = vec![true; output_size];
+
+        for outer in 0..outer_size {
+            for inner in 0..inner_size {
+                let all_nonzero = (0..dim_size).all(|d| {
+                    let idx = outer * dim_size * inner_size + d * inner_size + inner;
+                    data[idx] != zero
+                });
+                let out_idx = outer * inner_size + inner;
+                result_data[out_idx] = all_nonzero;
+            }
+        }
+
+        let mut output_shape = input_shape.to_vec();
+        if keepdim {
+            output_shape[normalized_dim] = 1;
+        } else {
+            output_shape.remove(normalized_dim);
+        }
+
+        Tensor::<bool>::from_data(result_data, output_shape, self.device())
     }
 
     /// Check if any element along dimension is non-zero (true)
-    pub fn any_dim(&self, dim: i32, _keepdim: bool) -> Result<Tensor<bool>> {
+    pub fn any_dim(&self, dim: i32, keepdim: bool) -> Result<Tensor<bool>> {
+        let shape_binding = self.shape();
+        let input_shape = shape_binding.dims();
+
         let normalized_dim = if dim < 0 {
-            (self.shape().len() as i32 + dim) as usize
+            (input_shape.len() as i32 + dim) as usize
         } else {
             dim as usize
         };
 
-        if normalized_dim >= self.shape().len() {
+        if normalized_dim >= input_shape.len() {
             return Err(torsh_core::error::TorshError::InvalidDimension {
                 dim: normalized_dim,
-                ndim: self.shape().len(),
+                ndim: input_shape.len(),
             });
         }
 
-        // TODO: Implement proper any() reduction without ndarray dependency
-        // For now, return a simple placeholder
-        Err(TorshError::NotImplemented(
-            "Boolean any() reduction along dimension not yet implemented".to_string(),
-        ))
+        let data = self.data()?;
+        let zero = <T as num_traits::Zero>::zero();
+
+        let outer_size: usize = input_shape[..normalized_dim].iter().product();
+        let dim_size = input_shape[normalized_dim];
+        let inner_size: usize = input_shape[normalized_dim + 1..].iter().product();
+
+        let output_size = outer_size * inner_size;
+        let mut result_data = vec![false; output_size];
+
+        for outer in 0..outer_size {
+            for inner in 0..inner_size {
+                let any_nonzero = (0..dim_size).any(|d| {
+                    let idx = outer * dim_size * inner_size + d * inner_size + inner;
+                    data[idx] != zero
+                });
+                let out_idx = outer * inner_size + inner;
+                result_data[out_idx] = any_nonzero;
+            }
+        }
+
+        let mut output_shape = input_shape.to_vec();
+        if keepdim {
+            output_shape[normalized_dim] = 1;
+        } else {
+            output_shape.remove(normalized_dim);
+        }
+
+        Tensor::<bool>::from_data(result_data, output_shape, self.device())
     }
 }
 
@@ -710,29 +764,77 @@ impl<T: TensorElement + Copy> Tensor<T> {
             ));
         }
 
-        // For now, implement simple concatenation for 1D tensors along dim 0
-        // TODO: Implement proper multi-dimensional concatenation
-        let mut all_data = Vec::new();
-        let mut total_len = 0;
+        let first_shape_binding = tensors[0].shape();
+        let first_shape = first_shape_binding.dims();
+        let ndim = first_shape.len();
 
-        for tensor in tensors {
-            let data = tensor.data()?;
-            all_data.extend_from_slice(&data);
-            total_len += data.len();
+        // Normalize dim (allow negative indexing)
+        let actual_dim = if dim < 0 {
+            (ndim as i32 + dim) as usize
+        } else {
+            dim as usize
+        };
+
+        if actual_dim >= ndim {
+            return Err(TorshError::InvalidArgument(format!(
+                "Dimension {} out of range for {}-dimensional tensor",
+                dim, ndim
+            )));
         }
 
-        // Use the shape of the first tensor as base, but extend the concatenation dimension
-        let first_tensor_shape = tensors[0].shape();
-        let first_shape = first_tensor_shape.dims();
+        // Validate all tensors have compatible shapes (same on all dims except actual_dim)
+        for (i, tensor) in tensors.iter().enumerate().skip(1) {
+            let shape_binding = tensor.shape();
+            let shape = shape_binding.dims();
+            if shape.len() != ndim {
+                return Err(TorshError::InvalidArgument(format!(
+                    "Tensor {} has {} dimensions but first tensor has {}",
+                    i,
+                    shape.len(),
+                    ndim
+                )));
+            }
+            for (d, (&s1, &s2)) in first_shape.iter().zip(shape.iter()).enumerate() {
+                if d != actual_dim && s1 != s2 {
+                    return Err(TorshError::ShapeMismatch {
+                        expected: first_shape.to_vec(),
+                        got: shape.to_vec(),
+                    });
+                }
+            }
+        }
+
+        // Compute output shape: same as input except actual_dim is sum of all cat dims
+        let cat_dim_total: usize = tensors.iter().map(|t| t.shape().dims()[actual_dim]).sum();
         let mut result_shape = first_shape.to_vec();
+        result_shape[actual_dim] = cat_dim_total;
 
-        if dim == 0 && result_shape.len() == 1 {
-            result_shape[0] = total_len;
-        } else if result_shape.is_empty() {
-            result_shape = vec![total_len];
+        // Gather all data in order, interleaving elements for proper layout
+        // Outer = product of dims before actual_dim
+        // Cat stride = product of dims after actual_dim (inner)
+        let outer_size: usize = first_shape[..actual_dim].iter().product();
+        let inner_size: usize = first_shape[actual_dim + 1..].iter().product();
+
+        let total_numel: usize = result_shape.iter().product();
+        let mut result_data = Vec::with_capacity(total_numel);
+
+        for outer in 0..outer_size {
+            for tensor in tensors {
+                let tensor_shape_binding = tensor.shape();
+                let tensor_shape = tensor_shape_binding.dims();
+                let cat_size = tensor_shape[actual_dim];
+                let tensor_data = tensor.data()?;
+
+                for cat_idx in 0..cat_size {
+                    for inner in 0..inner_size {
+                        let src_idx = outer * cat_size * inner_size + cat_idx * inner_size + inner;
+                        result_data.push(tensor_data[src_idx]);
+                    }
+                }
+            }
         }
 
-        Self::from_data(all_data, result_shape, tensors[0].device)
+        Self::from_data(result_data, result_shape, tensors[0].device)
     }
 
     /// Ensure exclusive ownership of data using copy-on-write semantics
@@ -1157,43 +1259,94 @@ impl<T: TensorElement + Copy> Tensor<T> {
             ));
         }
 
-        // Log dimension and sorting info
-        if let Some(_d) = dim {
-        } else {
+        // Determine actual dimension to operate on (default: last dim)
+        let actual_dim = match dim {
+            Some(d) => {
+                let norm = if d < 0 {
+                    (shape.len() as i32 + d) as usize
+                } else {
+                    d as usize
+                };
+                if norm >= shape.len() {
+                    return Err(TorshError::InvalidArgument(format!(
+                        "Dimension {} out of range for {}-dimensional tensor",
+                        d,
+                        shape.len()
+                    )));
+                }
+                norm
+            }
+            None => shape.len() - 1,
+        };
+
+        let dim_size = shape[actual_dim];
+        let effective_k = k.min(dim_size);
+
+        let outer_size: usize = shape[..actual_dim].iter().product();
+        let inner_size: usize = shape[actual_dim + 1..].iter().product();
+
+        // Output shape: same as input but actual_dim replaced with k
+        let mut result_shape = shape.to_vec();
+        result_shape[actual_dim] = effective_k;
+
+        let mut values_data = Vec::with_capacity(outer_size * effective_k * inner_size);
+        let mut indices_data = Vec::with_capacity(outer_size * effective_k * inner_size);
+
+        for outer in 0..outer_size {
+            for inner in 0..inner_size {
+                // Gather (local_index, value) pairs along actual_dim for this (outer, inner) slice
+                let mut slice: Vec<(usize, T)> = (0..dim_size)
+                    .map(|d| {
+                        let src = outer * dim_size * inner_size + d * inner_size + inner;
+                        (d, data[src])
+                    })
+                    .collect();
+
+                // Sort by value to find top-k candidates
+                if largest {
+                    slice.sort_by(|a, b| {
+                        b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
+                    });
+                } else {
+                    slice.sort_by(|a, b| {
+                        a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal)
+                    });
+                }
+
+                let mut top_k: Vec<(usize, T)> = slice.into_iter().take(effective_k).collect();
+
+                // When sorted=false, restore original (position) order
+                if !sorted {
+                    top_k.sort_by_key(|(idx, _)| *idx);
+                }
+
+                for (local_idx, val) in &top_k {
+                    values_data.push(*val);
+                    indices_data.push(*local_idx as i64);
+                }
+            }
         }
 
-        // For simplicity, implement topk on flattened tensor
-        // TODO: Implement proper per-dimension topk when dim is specified
-        let mut indexed_data: Vec<(usize, T)> =
-            data.iter().enumerate().map(|(i, &val)| (i, val)).collect();
+        // Re-arrange from (outer, k, inner) to match result_shape layout
+        // Currently we have data as outer * inner * k interleaved; need outer * k * inner
+        // Transpose inner and k dimensions
+        let transposed_len = outer_size * effective_k * inner_size;
+        let mut values_transposed = Vec::with_capacity(transposed_len);
+        let mut indices_transposed = Vec::with_capacity(transposed_len);
 
-        // Sort by value (largest first if largest=true, smallest first if largest=false)
-        if largest {
-            indexed_data.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-        } else {
-            indexed_data.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+        for outer in 0..outer_size {
+            for k_idx in 0..effective_k {
+                for inner in 0..inner_size {
+                    let src = outer * inner_size * effective_k + inner * effective_k + k_idx;
+                    values_transposed.push(values_data[src]);
+                    indices_transposed.push(indices_data[src]);
+                }
+            }
         }
 
-        // Take top k elements
-        let top_k = indexed_data
-            .into_iter()
-            .take(k.min(data.len()))
-            .collect::<Vec<_>>();
-
-        // If sorted=false, shuffle the results to remove order
-        // (in practice, keeping sorted is usually preferred for performance)
-        if !sorted {
-            // TODO: Implement shuffling when needed
-        }
-
-        // Extract values and indices
-        let values: Vec<T> = top_k.iter().map(|(_, val)| *val).collect();
-        let indices: Vec<i64> = top_k.iter().map(|(idx, _)| *idx as i64).collect();
-
-        // Create result tensors
-        let values_tensor = Self::from_data(values, vec![k.min(data.len())], self.device)?;
+        let values_tensor = Self::from_data(values_transposed, result_shape.clone(), self.device)?;
         let indices_tensor =
-            Tensor::<i64>::from_data(indices, vec![k.min(data.len())], self.device)?;
+            Tensor::<i64>::from_data(indices_transposed, result_shape, self.device)?;
 
         Ok((values_tensor, indices_tensor))
     }
@@ -1352,5 +1505,113 @@ mod tests {
         let vector = Tensor::from_data(vec![1.0f32, 2.0], vec![2], DeviceType::Cpu)
             .expect("operation should succeed");
         assert!(vector.item().is_err()); // Should fail for multi-element tensor
+    }
+
+    #[test]
+    fn test_all_dim() {
+        // Shape [2, 3]: [[1, 0, 1], [1, 1, 1]]
+        let data = vec![1i32, 0, 1, 1, 1, 1];
+        let tensor =
+            Tensor::from_data(data, vec![2, 3], DeviceType::Cpu).expect("tensor creation should succeed");
+
+        // all along dim 0 (rows): per column check
+        // col0: 1&&1=true, col1: 0&&1=false, col2: 1&&1=true
+        let result = tensor.all_dim(0, false).expect("all_dim should succeed");
+        assert_eq!(result.shape().dims(), &[3]);
+        assert_eq!(
+            result.to_vec().expect("to_vec should succeed"),
+            vec![true, false, true]
+        );
+
+        // all along dim 1 (cols): per row check
+        // row0: 1&&0&&1=false, row1: 1&&1&&1=true
+        let result_row = tensor.all_dim(1, false).expect("all_dim should succeed");
+        assert_eq!(result_row.shape().dims(), &[2]);
+        assert_eq!(
+            result_row.to_vec().expect("to_vec should succeed"),
+            vec![false, true]
+        );
+
+        // keepdim=true preserves dimension
+        let result_kd = tensor.all_dim(1, true).expect("all_dim should succeed");
+        assert_eq!(result_kd.shape().dims(), &[2, 1]);
+    }
+
+    #[test]
+    fn test_any_dim() {
+        // Shape [2, 3]: [[0, 0, 0], [0, 1, 0]]
+        let data = vec![0i32, 0, 0, 0, 1, 0];
+        let tensor =
+            Tensor::from_data(data, vec![2, 3], DeviceType::Cpu).expect("tensor creation should succeed");
+
+        // any along dim 0: col0: false, col1: true, col2: false
+        let result = tensor.any_dim(0, false).expect("any_dim should succeed");
+        assert_eq!(result.shape().dims(), &[3]);
+        assert_eq!(
+            result.to_vec().expect("to_vec should succeed"),
+            vec![false, true, false]
+        );
+
+        // any along dim 1: row0: false, row1: true
+        let result_row = tensor.any_dim(1, false).expect("any_dim should succeed");
+        assert_eq!(result_row.shape().dims(), &[2]);
+        assert_eq!(
+            result_row.to_vec().expect("to_vec should succeed"),
+            vec![false, true]
+        );
+    }
+
+    #[test]
+    fn test_cat_multidim() {
+        // Test concatenation along dim 0
+        let a = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
+        let b = Tensor::from_data(vec![5.0f32, 6.0], vec![1, 2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
+
+        let cat0 = Tensor::<f32>::cat(&[&a, &b], 0).expect("cat should succeed");
+        assert_eq!(cat0.shape().dims(), &[3, 2]);
+        assert_eq!(
+            cat0.to_vec().expect("to_vec should succeed"),
+            vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+        );
+
+        // Test concatenation along dim 1
+        let c = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
+        let d = Tensor::from_data(vec![5.0f32, 6.0, 7.0, 8.0], vec![2, 2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
+
+        let cat1 = Tensor::<f32>::cat(&[&c, &d], 1).expect("cat should succeed");
+        assert_eq!(cat1.shape().dims(), &[2, 4]);
+        assert_eq!(
+            cat1.to_vec().expect("to_vec should succeed"),
+            vec![1.0, 2.0, 5.0, 6.0, 3.0, 4.0, 7.0, 8.0]
+        );
+    }
+
+    #[test]
+    fn test_topk_along_dim() {
+        // 2x4 tensor, topk along dim 1
+        let data = vec![3.0f32, 1.0, 4.0, 2.0, 5.0, 9.0, 2.0, 6.0];
+        let tensor =
+            Tensor::from_data(data, vec![2, 4], DeviceType::Cpu).expect("tensor creation should succeed");
+
+        let (vals, idxs) = tensor.topk(2, Some(1), true, true).expect("topk should succeed");
+        assert_eq!(vals.shape().dims(), &[2, 2]);
+        assert_eq!(idxs.shape().dims(), &[2, 2]);
+
+        // Row 0: [3, 1, 4, 2] -> top2 = [4, 3] at positions [2, 0]
+        // Row 1: [5, 9, 2, 6] -> top2 = [9, 6] at positions [1, 3]
+        let vals_data = vals.to_vec().expect("to_vec should succeed");
+        let idxs_data = idxs.to_vec().expect("to_vec should succeed");
+        assert_eq!(vals_data[0], 4.0);
+        assert_eq!(vals_data[1], 3.0);
+        assert_eq!(vals_data[2], 9.0);
+        assert_eq!(vals_data[3], 6.0);
+        assert_eq!(idxs_data[0], 2);
+        assert_eq!(idxs_data[1], 0);
+        assert_eq!(idxs_data[2], 1);
+        assert_eq!(idxs_data[3], 3);
     }
 }

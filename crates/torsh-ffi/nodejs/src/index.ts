@@ -1,11 +1,11 @@
 /**
  * ToRSh Node.js Bindings
- * 
+ *
  * This module provides Node.js/TypeScript bindings for the ToRSh deep learning framework.
  * It offers a high-level, tensor-based API similar to PyTorch for JavaScript/TypeScript developers.
  */
 
-import * as bindings from 'bindings';
+import bindings from 'bindings';
 
 // Load the native module
 const native = bindings('torsh_native');
@@ -39,7 +39,7 @@ interface TensorHandle {
 
 /**
  * ToRSh Tensor class
- * 
+ *
  * Represents a multi-dimensional array with support for automatic differentiation,
  * GPU acceleration, and neural network operations.
  */
@@ -48,6 +48,11 @@ export class Tensor {
 
   private constructor(handle: TensorHandle) {
     this.handle = handle;
+  }
+
+  /** @internal Create a Tensor from a raw native handle */
+  static fromHandle(handle: TensorHandle): Tensor {
+    return new Tensor(handle);
   }
 
   /**
@@ -86,8 +91,8 @@ export class Tensor {
    * @returns New tensor with random values
    */
   static randn(...dims: number[]): Tensor {
-    // This would need to be implemented in the native module
-    throw new Error('randn not yet implemented in native module');
+    const handle = native.randn(...dims);
+    return new Tensor(handle);
   }
 
   /**
@@ -96,8 +101,8 @@ export class Tensor {
    * @returns Identity matrix tensor
    */
   static eye(n: number): Tensor {
-    // This would need to be implemented in the native module
-    throw new Error('eye not yet implemented in native module');
+    const handle = native.eye(n);
+    return new Tensor(handle);
   }
 
   /**
@@ -108,8 +113,8 @@ export class Tensor {
    * @returns Tensor with linearly spaced values
    */
   static linspace(start: number, end: number, steps: number): Tensor {
-    // This would need to be implemented in the native module
-    throw new Error('linspace not yet implemented in native module');
+    const handle = native.linspace(start, end, steps);
+    return new Tensor(handle);
   }
 
   /**
@@ -125,7 +130,7 @@ export class Tensor {
    * @param dim - Dimension index
    * @returns Size of the dimension
    */
-  size(dim?: number): number | Shape {
+  size(dim?: number): number | Shape | undefined {
     const shape = this.shape();
     return dim !== undefined ? shape[dim] : shape;
   }
@@ -161,8 +166,8 @@ export class Tensor {
    */
   add(other: Tensor | number): Tensor {
     if (typeof other === 'number') {
-      // Scalar addition - would need native implementation
-      throw new Error('Scalar addition not yet implemented');
+      const handle = native.addScalar(this.handle, other);
+      return new Tensor(handle);
     } else {
       const handle = native.add(this.handle, other.handle);
       return new Tensor(handle);
@@ -176,10 +181,11 @@ export class Tensor {
    */
   sub(other: Tensor | number): Tensor {
     if (typeof other === 'number') {
-      throw new Error('Scalar subtraction not yet implemented');
+      const handle = native.subScalar(this.handle, other);
+      return new Tensor(handle);
     } else {
-      // Would need native implementation
-      throw new Error('Tensor subtraction not yet implemented');
+      const handle = native.sub(this.handle, other.handle);
+      return new Tensor(handle);
     }
   }
 
@@ -190,7 +196,8 @@ export class Tensor {
    */
   mul(other: Tensor | number): Tensor {
     if (typeof other === 'number') {
-      throw new Error('Scalar multiplication not yet implemented');
+      const handle = native.mulScalar(this.handle, other);
+      return new Tensor(handle);
     } else {
       const handle = native.multiply(this.handle, other.handle);
       return new Tensor(handle);
@@ -204,9 +211,11 @@ export class Tensor {
    */
   div(other: Tensor | number): Tensor {
     if (typeof other === 'number') {
-      throw new Error('Scalar division not yet implemented');
+      const handle = native.divScalar(this.handle, other);
+      return new Tensor(handle);
     } else {
-      throw new Error('Tensor division not yet implemented');
+      const handle = native.divide(this.handle, other.handle);
+      return new Tensor(handle);
     }
   }
 
@@ -221,13 +230,14 @@ export class Tensor {
   }
 
   /**
-   * Transpose the tensor
-   * @param dim1 - First dimension to swap
-   * @param dim2 - Second dimension to swap
+   * Transpose the tensor (swaps the last two dimensions for 2-D tensors)
+   * @param _dim1 - First dimension to swap (ignored; 2-D only for now)
+   * @param _dim2 - Second dimension to swap (ignored; 2-D only for now)
    * @returns New tensor with transposed dimensions
    */
-  transpose(dim1?: number, dim2?: number): Tensor {
-    throw new Error('Transpose not yet implemented');
+  transpose(_dim1?: number, _dim2?: number): Tensor {
+    const handle = native.transpose(this.handle);
+    return new Tensor(handle);
   }
 
   /**
@@ -236,7 +246,8 @@ export class Tensor {
    * @returns New tensor with reshaped dimensions
    */
   reshape(...dims: number[]): Tensor {
-    throw new Error('Reshape not yet implemented');
+    const handle = native.reshape(this.handle, dims);
+    return new Tensor(handle);
   }
 
   /**
@@ -253,7 +264,8 @@ export class Tensor {
    * @returns New tensor with sigmoid applied
    */
   sigmoid(): Tensor {
-    throw new Error('Sigmoid not yet implemented');
+    const handle = native.sigmoid(this.handle);
+    return new Tensor(handle);
   }
 
   /**
@@ -261,36 +273,44 @@ export class Tensor {
    * @returns New tensor with tanh applied
    */
   tanh(): Tensor {
-    throw new Error('Tanh not yet implemented');
+    const handle = native.tanh(this.handle);
+    return new Tensor(handle);
   }
 
   /**
    * Softmax activation function
-   * @param dim - Dimension to apply softmax along
+   * @param dim - Dimension to apply softmax along (default 0)
    * @returns New tensor with softmax applied
    */
   softmax(dim?: number): Tensor {
-    throw new Error('Softmax not yet implemented');
+    const handle = native.softmax(this.handle, dim ?? 0);
+    return new Tensor(handle);
   }
 
   /**
    * Sum reduction
    * @param dim - Dimension to sum along (if undefined, sum all)
-   * @param keepdim - Whether to keep the dimension
+   * @param _keepdim - Whether to keep the dimension (ignored for now)
    * @returns New tensor with sum
    */
-  sum(dim?: number, keepdim?: boolean): Tensor {
-    throw new Error('Sum not yet implemented');
+  sum(dim?: number, _keepdim?: boolean): Tensor {
+    const handle = dim !== undefined
+      ? native.sum(this.handle, dim)
+      : native.sum(this.handle);
+    return new Tensor(handle);
   }
 
   /**
    * Mean reduction
    * @param dim - Dimension to average along (if undefined, mean of all)
-   * @param keepdim - Whether to keep the dimension
+   * @param _keepdim - Whether to keep the dimension (ignored for now)
    * @returns New tensor with mean
    */
-  mean(dim?: number, keepdim?: boolean): Tensor {
-    throw new Error('Mean not yet implemented');
+  mean(dim?: number, _keepdim?: boolean): Tensor {
+    const handle = dim !== undefined
+      ? native.mean(this.handle, dim)
+      : native.mean(this.handle);
+    return new Tensor(handle);
   }
 
   /**
@@ -300,7 +320,7 @@ export class Tensor {
   toString(): string {
     const shape = this.shape();
     const shapeStr = shape.join('x');
-    
+
     if (this.numel() <= 20) {
       const data = this.data();
       const dataStr = data.map(x => x.toFixed(4)).join(', ');
@@ -315,7 +335,8 @@ export class Tensor {
    * @returns New tensor with copied data
    */
   clone(): Tensor {
-    throw new Error('Clone not yet implemented');
+    const handle = native.clone(this.handle);
+    return new Tensor(handle);
   }
 
   /**
@@ -323,7 +344,8 @@ export class Tensor {
    * @returns New tensor detached from autograd
    */
   detach(): Tensor {
-    throw new Error('Detach not yet implemented');
+    const handle = native.detach(this.handle);
+    return new Tensor(handle);
   }
 }
 
@@ -362,7 +384,17 @@ export namespace nn {
     stride: number = 1,
     padding: number = 0
   ): Tensor {
-    throw new Error('Conv2d not yet implemented');
+    const biasHandle = bias
+      ? (bias as unknown as { handle: TensorHandle }).handle
+      : null;
+    const handle = native.conv2d(
+      (input as unknown as { handle: TensorHandle }).handle,
+      (weight as unknown as { handle: TensorHandle }).handle,
+      biasHandle,
+      stride,
+      padding
+    );
+    return Tensor.fromHandle(handle);
   }
 
   /**
@@ -383,7 +415,11 @@ export namespace nn {
    * @returns Cross entropy loss
    */
   export function crossEntropyLoss(prediction: Tensor, target: Tensor): Tensor {
-    throw new Error('Cross entropy loss not yet implemented');
+    const handle = native.crossEntropyLoss(
+      (prediction as unknown as { handle: TensorHandle }).handle,
+      (target as unknown as { handle: TensorHandle }).handle
+    );
+    return Tensor.fromHandle(handle);
   }
 }
 
@@ -398,13 +434,13 @@ export namespace optim {
    * @param lr - Learning rate
    */
   export function sgdStep(params: Tensor[], grads: Tensor[], lr: number): void {
-    for (let i = 0; i < params.length; i++) {
-      const param = params[i];
-      const grad = grads[i];
-      // In-place update: param -= lr * grad
-      // This would need native implementation
-      throw new Error('SGD step not yet implemented');
-    }
+    const paramHandles = params.map(
+      p => (p as unknown as { handle: TensorHandle }).handle
+    );
+    const gradHandles = grads.map(
+      g => (g as unknown as { handle: TensorHandle }).handle
+    );
+    native.sgdStep(paramHandles, gradHandles, lr);
   }
 
   /**
@@ -430,7 +466,19 @@ export namespace optim {
     eps: number = 1e-8,
     step: number = 1
   ): void {
-    throw new Error('Adam step not yet implemented');
+    const paramHandles = params.map(
+      p => (p as unknown as { handle: TensorHandle }).handle
+    );
+    const gradHandles = grads.map(
+      g => (g as unknown as { handle: TensorHandle }).handle
+    );
+    const mHandles = m.map(
+      mi => (mi as unknown as { handle: TensorHandle }).handle
+    );
+    const vHandles = v.map(
+      vi => (vi as unknown as { handle: TensorHandle }).handle
+    );
+    native.adamStep(paramHandles, gradHandles, mHandles, vHandles, lr, beta1, beta2, eps, step);
   }
 }
 
@@ -443,7 +491,7 @@ export namespace utils {
    * @param seed - Random seed value
    */
   export function manualSeed(seed: number): void {
-    throw new Error('Manual seed not yet implemented');
+    native.manualSeed(seed);
   }
 
   /**
@@ -451,7 +499,7 @@ export namespace utils {
    * @returns True if CUDA is available
    */
   export function cudaAvailable(): boolean {
-    throw new Error('CUDA check not yet implemented');
+    return native.cudaAvailable();
   }
 
   /**
@@ -459,7 +507,7 @@ export namespace utils {
    * @returns Number of CUDA devices
    */
   export function cudaDeviceCount(): number {
-    throw new Error('CUDA device count not yet implemented');
+    return native.cudaDeviceCount();
   }
 
   /**
@@ -468,7 +516,8 @@ export namespace utils {
    * @param filename - File path
    */
   export function saveTensor(tensor: Tensor, filename: string): void {
-    throw new Error('Save tensor not yet implemented');
+    // Access private handle via type assertion; the field is opaque to JS callers.
+    native.saveTensor((tensor as unknown as { handle: TensorHandle }).handle, filename);
   }
 
   /**
@@ -477,7 +526,8 @@ export namespace utils {
    * @returns Loaded tensor
    */
   export function loadTensor(filename: string): Tensor {
-    throw new Error('Load tensor not yet implemented');
+    const handle = native.loadTensor(filename) as TensorHandle;
+    return Tensor.fromHandle(handle);
   }
 }
 
