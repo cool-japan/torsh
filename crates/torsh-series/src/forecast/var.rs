@@ -11,6 +11,76 @@ use scirs2_core::ndarray::{Array1, Array2};
 use torsh_core::error::{Result, TorshError};
 use torsh_tensor::Tensor;
 
+// ============================================================
+// Pure-Rust math helpers for p-value computation
+// ============================================================
+
+fn regularised_incomplete_beta(x: f64, a: f64, b: f64) -> f64 {
+    if x <= 0.0 { return 0.0; }
+    if x >= 1.0 { return 1.0; }
+    let lbeta = ln_gamma_var(a) + ln_gamma_var(b) - ln_gamma_var(a + b);
+    let front = (a * x.ln() + b * (1.0 - x).ln() - lbeta).exp() / a;
+    front * beta_cf_var(a, b, x)
+}
+
+fn beta_cf_var(a: f64, b: f64, x: f64) -> f64 {
+    let max_iter = 200;
+    let eps = 3e-10;
+    let fpmin = f64::MIN_POSITIVE / eps;
+    let qab = a + b;
+    let qap = a + 1.0;
+    let qam = a - 1.0;
+    let mut c = 1.0;
+    let mut d = 1.0 - qab * x / qap;
+    if d.abs() < fpmin { d = fpmin; }
+    d = 1.0 / d;
+    let mut h = d;
+    for m in 1..=max_iter {
+        let mf = m as f64;
+        let m2 = 2.0 * mf;
+        let mut aa = mf * (b - mf) * x / ((qam + m2) * (a + m2));
+        d = 1.0 + aa * d;
+        if d.abs() < fpmin { d = fpmin; }
+        c = 1.0 + aa / c;
+        if c.abs() < fpmin { c = fpmin; }
+        d = 1.0 / d;
+        h *= d * c;
+        aa = -(a + mf) * (qab + mf) * x / ((a + m2) * (qap + m2));
+        d = 1.0 + aa * d;
+        if d.abs() < fpmin { d = fpmin; }
+        c = 1.0 + aa / c;
+        if c.abs() < fpmin { c = fpmin; }
+        d = 1.0 / d;
+        let del = d * c;
+        h *= del;
+        if (del - 1.0).abs() < eps { break; }
+    }
+    h
+}
+
+fn ln_gamma_var(x: f64) -> f64 {
+    const G: f64 = 7.0;
+    const C: [f64; 9] = [
+        0.999_999_999_999_809_3,
+        676.520_368_121_885_1,
+        -1_259.139_216_722_403_0,
+        771.323_428_777_653_1,
+        -176.615_029_162_140_6,
+        12.507_343_278_686_904_8,
+        -0.138_571_095_265_720_12,
+        9.984_369_578_019_571_6e-6,
+        1.505_632_735_149_311_6e-7,
+    ];
+    let _ = G;
+    let xm1 = x - 1.0;
+    let mut ser = C[0];
+    for (i, &ci) in C[1..].iter().enumerate() {
+        ser += ci / (xm1 + (i + 1) as f64 + 1.0);
+    }
+    let tmp = xm1 + 7.5;
+    (2.0 * std::f64::consts::PI).sqrt().ln() + (xm1 + 0.5) * tmp.ln() - tmp + ser.ln()
+}
+
 /// Vector Autoregression (VAR) model
 ///
 /// A VAR(p) model expresses each variable as a linear combination of:
@@ -519,11 +589,17 @@ impl GrangerCausality {
         Ok(rss)
     }
 
-    /// Approximate F-distribution p-value (simplified)
-    fn f_distribution_pvalue(&self, _f_stat: f64, _df1: usize, _df2: usize) -> f64 {
-        // TODO: Use scirs2-stats for proper F-distribution calculation when available
-        // For now, return placeholder p-value
-        0.05
+    /// Approximate F-distribution p-value using regularised incomplete beta function.
+    fn f_distribution_pvalue(&self, f_stat: f64, df1: usize, df2: usize) -> f64 {
+        if f_stat <= 0.0 || df1 == 0 || df2 == 0 {
+            return 1.0;
+        }
+        // P(F_{df1,df2} > f_stat) = I_{z}(df2/2, df1/2)
+        // where z = df2 / (df2 + df1 * f_stat)
+        let d1 = df1 as f64;
+        let d2 = df2 as f64;
+        let z = d2 / (d2 + d1 * f_stat);
+        regularised_incomplete_beta(z, d2 / 2.0, d1 / 2.0)
     }
 }
 
