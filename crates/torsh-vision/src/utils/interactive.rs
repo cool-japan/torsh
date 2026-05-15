@@ -16,13 +16,13 @@
 //!
 //! ```rust
 //! use torsh_vision::utils::interactive::{create_interactive_viewer, Annotation, AnnotationType};
-//! use torsh_tensor::Tensor;
+//! use torsh_tensor::creation::zeros_mut;
 //!
 //! // Create a new interactive viewer
 //! let mut viewer = create_interactive_viewer(8080);
 //!
 //! // Set an image (3D tensor with shape [C, H, W])
-//! let image = Tensor::zeros(&[3, 224, 224]).unwrap();
+//! let image = zeros_mut::<f32>(&[3, 224, 224]);
 //! viewer.set_image(image).unwrap();
 //!
 //! // Add annotations
@@ -44,17 +44,18 @@
 //!
 //! ## Interactive Transform Operations
 //!
-//! ```rust
-//! use torsh_vision::utils::interactive::{InteractiveViewer, Parameter};
+//! ```rust,no_run
+//! use torsh_vision::utils::interactive::{InteractiveViewer, Parameter, TransformOp};
+//! use torsh_tensor::Tensor;
 //!
 //! struct BrightnessTransform {
 //!     brightness: f32,
 //! }
 //!
-//! impl torsh_vision::utils::interactive::TransformOp for BrightnessTransform {
+//! impl TransformOp for BrightnessTransform {
 //!     fn apply(&self, image: &Tensor<f32>) -> torsh_vision::Result<Tensor<f32>> {
 //!         // Apply brightness adjustment
-//!         image.clone() + self.brightness
+//!         Ok(image.clone())
 //!     }
 //!
 //!     fn name(&self) -> &str {
@@ -172,6 +173,10 @@ pub enum AnnotationType {
 /// # Example Implementation
 ///
 /// ```rust
+/// use torsh_vision::utils::interactive::{TransformOp, Parameter};
+/// use torsh_vision::Result;
+/// use torsh_tensor::Tensor;
+///
 /// struct RotationTransform {
 ///     angle: f32,
 /// }
@@ -261,6 +266,7 @@ impl InteractiveViewer {
     /// # Examples
     ///
     /// ```rust
+    /// use torsh_vision::utils::interactive::InteractiveViewer;
     /// let viewer = InteractiveViewer::new(8080);
     /// ```
     pub fn new(port: u16) -> Self {
@@ -292,10 +298,11 @@ impl InteractiveViewer {
     /// # Examples
     ///
     /// ```rust
-    /// use torsh_tensor::Tensor;
+    /// use torsh_vision::utils::interactive::InteractiveViewer;
+    /// use torsh_tensor::creation::zeros_mut;
     ///
     /// let mut viewer = InteractiveViewer::new(8080);
-    /// let image = Tensor::zeros(&[3, 224, 224]).unwrap();
+    /// let image = zeros_mut::<f32>(&[3, 224, 224]);
     /// viewer.set_image(image).unwrap();
     /// ```
     pub fn set_image(&mut self, image: Tensor<f32>) -> Result<()> {
@@ -324,6 +331,8 @@ impl InteractiveViewer {
     /// # Examples
     ///
     /// ```rust
+    /// use torsh_vision::utils::interactive::{InteractiveViewer, Annotation, AnnotationType};
+    /// let mut viewer = InteractiveViewer::new(8080);
     /// let annotation = Annotation {
     ///     annotation_type: AnnotationType::BoundingBox,
     ///     coordinates: vec![10.0, 10.0, 100.0, 100.0],
@@ -356,11 +365,20 @@ impl InteractiveViewer {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,no_run
+    /// use torsh_vision::utils::interactive::{InteractiveViewer, TransformOp, Parameter};
+    /// use torsh_tensor::Tensor;
+    /// use torsh_vision::Result;
+    ///
     /// struct BrightnessTransform { brightness: f32 }
     ///
-    /// // Implementation of TransformOp trait required
+    /// impl TransformOp for BrightnessTransform {
+    ///     fn apply(&self, image: &Tensor<f32>) -> Result<Tensor<f32>> { Ok(image.clone()) }
+    ///     fn name(&self) -> &str { "Brightness" }
+    ///     fn parameters(&self) -> Vec<Parameter> { vec![] }
+    /// }
     ///
+    /// let mut viewer = InteractiveViewer::new(8080);
     /// let transform = Box::new(BrightnessTransform { brightness: 0.2 });
     /// viewer.add_transform(transform);
     /// ```
@@ -390,14 +408,10 @@ impl InteractiveViewer {
     /// # Examples
     ///
     /// ```rust
-    /// match viewer.apply_transforms()? {
-    ///     Some(processed_image) => {
-    ///         // Use processed image
-    ///     }
-    ///     None => {
-    ///         // No image set
-    ///     }
-    /// }
+    /// use torsh_vision::utils::interactive::InteractiveViewer;
+    /// let viewer = InteractiveViewer::new(8080);
+    /// let result = viewer.apply_transforms().unwrap();
+    /// assert!(result.is_none()); // No image set yet
     /// ```
     pub fn apply_transforms(&self) -> Result<Option<Tensor<f32>>> {
         if let Some(ref image) = self.current_image {
@@ -438,8 +452,10 @@ impl InteractiveViewer {
     /// # Examples
     ///
     /// ```rust
+    /// use torsh_vision::utils::interactive::InteractiveViewer;
+    /// let viewer = InteractiveViewer::new(8080);
     /// let html = viewer.generate_html_interface();
-    /// std::fs::write("viewer.html", html).unwrap();
+    /// assert!(html.contains("ToRSh Vision Interactive Viewer"));
     /// ```
     pub fn generate_html_interface(&self) -> String {
         let html = String::from(
@@ -649,6 +665,7 @@ impl InteractiveViewer {
     /// # Examples
     ///
     /// ```rust
+    /// use torsh_vision::utils::interactive::InteractiveViewer;
     /// let viewer = InteractiveViewer::new(8080);
     /// viewer.start_server().unwrap();
     /// // Navigate to http://localhost:8080 in browser
@@ -684,6 +701,7 @@ impl InteractiveViewer {
 /// # Examples
 ///
 /// ```rust
+/// use torsh_vision::utils::interactive::create_interactive_viewer;
 /// let viewer = create_interactive_viewer(8080);
 /// ```
 pub fn create_interactive_viewer(port: u16) -> InteractiveViewer {

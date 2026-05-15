@@ -3,7 +3,7 @@
 // Framework infrastructure - components designed for future use
 #![allow(dead_code)]
 use crate::{Result, VisionError};
-use scirs2_core::ndarray::{arr2, Array1, Array2, ArrayView2};
+use scirs2_core::ndarray::{arr2, s, Array1, Array2, ArrayView2};
 use scirs2_spatial::procrustes::{procrustes, procrustes_extended};
 use scirs2_spatial::transform::{RigidTransform, Rotation};
 use torsh_tensor::Tensor;
@@ -78,26 +78,37 @@ impl ImageRegistrar {
     pub fn apply_transformation(
         &self,
         points: &Array2<f64>,
-        _rotation: &Rotation,
+        rotation: &Rotation,
         translation: &Array1<f64>,
         scale: f64,
     ) -> Result<Array2<f64>> {
-        let mut transformed = points.clone();
+        let n_dims = points.ncols();
 
-        // Apply scale
-        transformed *= scale;
+        // Scale first
+        let scaled = points.mapv(|v| v * scale);
 
-        // Apply rotation (placeholder - would need actual rotation matrix application)
-        // For now, just return scaled and translated points
-        for mut row in transformed.outer_iter_mut() {
-            for (i, &t) in translation.iter().enumerate() {
-                if i < row.len() {
-                    row[i] += t;
-                }
+        // Apply rotation: use as_matrix() for arbitrary dimensionality
+        // apply_multiple requires exactly 3 columns; fall back to matrix dot for 2D
+        let rotated = if n_dims == 3 {
+            rotation
+                .apply_multiple(&scaled.view())
+                .map_err(|e| VisionError::Other(anyhow::anyhow!("Rotation apply failed: {}", e)))?
+        } else {
+            // For 2D (or other dims), extract the upper-left sub-matrix of the rotation matrix
+            let rot_mat = rotation.as_matrix(); // 3×3
+            let sub_mat = rot_mat.slice(scirs2_core::ndarray::s![..n_dims, ..n_dims]).to_owned();
+            scaled.dot(&sub_mat.t())
+        };
+
+        // Apply translation
+        let mut result = rotated;
+        for mut row in result.outer_iter_mut() {
+            for i in 0..n_dims.min(translation.len()) {
+                row[i] += translation[i];
             }
         }
 
-        Ok(transformed)
+        Ok(result)
     }
 
     /// Compute registration error between two point sets
@@ -370,5 +381,72 @@ mod tests {
 
         let result = registrar.register_images(&source, &target);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_apply_transformation_identity_rotation() {
+        use scirs2_spatial::transform::Rotation;
+
+        let registrar = ImageRegistrar::new(1e-6, 100);
+        let rotation = Rotation::identity();
+        let translation = scirs2_core::ndarray::Array1::zeros(3);
+        let scale = 1.0_f64;
+
+        let points = arr2(&[
+            [1.0_f64, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ]);
+
+        let result = registrar
+            .apply_transformation(&points, &rotation, &translation, scale)
+            .expect("apply_transformation should succeed with identity");
+
+        // Identity rotation + zero translation + scale 1.0 → same points
+        for i in 0..3 {
+            for j in 0..3 {
+                let diff = (result[[i, j]] - points[[i, j]]).abs();
+                assert!(diff < 1e-10, "Expected identity transform, got diff {diff} at [{i},{j}]");
+            }
+        }
+    }
+
+    #[test]
+    fn test_apply_transformation_scales_points() {
+        use scirs2_spatial::transform::Rotation;
+
+        let registrar = ImageRegistrar::new(1e-6, 100);
+        let rotation = Rotation::identity();
+        let translation = scirs2_core::ndarray::Array1::zeros(3);
+        let scale = 2.0_f64;
+
+        let points = arr2(&[[1.0_f64, 2.0, 3.0]]);
+        let result = registrar
+            .apply_transformation(&points, &rotation, &translation, scale)
+            .expect("apply_transformation should succeed");
+
+        assert!((result[[0, 0]] - 2.0).abs() < 1e-10);
+        assert!((result[[0, 1]] - 4.0).abs() < 1e-10);
+        assert!((result[[0, 2]] - 6.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_apply_transformation_translation() {
+        use scirs2_spatial::transform::Rotation;
+        use scirs2_core::ndarray::Array1;
+
+        let registrar = ImageRegistrar::new(1e-6, 100);
+        let rotation = Rotation::identity();
+        let translation = Array1::from_vec(vec![1.0_f64, 2.0, 3.0]);
+        let scale = 1.0_f64;
+
+        let points = arr2(&[[0.0_f64, 0.0, 0.0]]);
+        let result = registrar
+            .apply_transformation(&points, &rotation, &translation, scale)
+            .expect("apply_transformation with translation should succeed");
+
+        assert!((result[[0, 0]] - 1.0).abs() < 1e-10);
+        assert!((result[[0, 1]] - 2.0).abs() < 1e-10);
+        assert!((result[[0, 2]] - 3.0).abs() < 1e-10);
     }
 }

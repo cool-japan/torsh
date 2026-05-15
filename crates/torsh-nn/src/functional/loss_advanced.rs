@@ -981,8 +981,60 @@ pub mod validation {
             }
         }
 
-        // TODO: Add sum-to-1 check when tensor operations support it
-        let _ = (dim, shape); // Suppress warnings for now
+        // Validate that probabilities sum to 1 along the specified dimension.
+        // For a 1-D tensor the only valid dim is 0; for N-D tensors we check
+        // slices along `dim`.
+        let ndim = shape.len();
+        let dim_usize = if dim < 0 {
+            (ndim as i32 + dim) as usize
+        } else {
+            dim as usize
+        };
+
+        if ndim == 0 {
+            // Scalar tensor: single probability, must equal 1
+            let val = pred_data.first().copied().unwrap_or(0.0);
+            if (val - 1.0_f32).abs() > 1e-4 {
+                return Err(TorshError::InvalidArgument(format!(
+                    "Probability scalar {} does not sum to 1",
+                    val
+                )));
+            }
+        } else if ndim == 1 {
+            // 1-D: the whole vector must sum to 1
+            let total: f32 = pred_data.iter().sum();
+            if (total - 1.0_f32).abs() > 1e-4 {
+                return Err(TorshError::InvalidArgument(format!(
+                    "Probabilities sum to {} instead of 1.0",
+                    total
+                )));
+            }
+        } else {
+            // N-D: stride along dim axis, check each slice
+            let dim_size = shape.get(dim_usize).copied().unwrap_or(1);
+            let outer: usize = shape[..dim_usize].iter().product();
+            let inner: usize = if dim_usize + 1 < ndim {
+                shape[dim_usize + 1..].iter().product()
+            } else {
+                1
+            };
+
+            for o in 0..outer {
+                for i in 0..inner {
+                    let mut slice_sum = 0.0_f32;
+                    for d in 0..dim_size {
+                        let idx = o * dim_size * inner + d * inner + i;
+                        slice_sum += pred_data.get(idx).copied().unwrap_or(0.0);
+                    }
+                    if (slice_sum - 1.0_f32).abs() > 1e-4 {
+                        return Err(TorshError::InvalidArgument(format!(
+                            "Probability slice (outer={}, inner={}) sums to {} instead of 1.0",
+                            o, i, slice_sum
+                        )));
+                    }
+                }
+            }
+        }
 
         Ok(())
     }

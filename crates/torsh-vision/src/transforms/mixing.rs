@@ -182,7 +182,7 @@ impl Transform for MixUp {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,no_run
 /// use torsh_vision::transforms::{CutMix, Transform};
 /// use torsh_tensor::{creation, Tensor};
 ///

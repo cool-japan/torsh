@@ -1479,8 +1479,22 @@ mod tests {
 
     #[test]
     fn test_gmm_log_likelihood_after_fit() {
-        let data = make_two_cluster_data();
-        let gmm = GaussianMixture::new(2).max_iters(50);
+        // Use unit-scale data so per-sample log-likelihood is provably < 0.
+        // For a 2-D Gaussian with std ≈ 1, peak density = 1/(2π) < 1, so
+        // all log-likelihoods are negative regardless of convergence.
+        // Seed the RNG so the test is deterministic.
+        let data = Tensor::from_vec(
+            vec![
+                // Near (0, 0), spread ≈ 1
+                -1.0_f32, -1.0, 1.0, 1.0, 0.5, -0.5, -0.8, 0.8,
+                // Near (8, 8), spread ≈ 1
+                7.0, 7.0, 9.0, 9.0, 8.5, 7.5, 7.2, 8.8,
+            ],
+            &[8, 2],
+        )
+        .expect("test data should be valid");
+
+        let gmm = GaussianMixture::new(2).max_iters(50).random_state(42);
         gmm.fit(&data).expect("GMM fit should succeed");
 
         let ll = gmm.log_likelihood(&data).expect("log_likelihood should work after fit");

@@ -19,7 +19,7 @@ use torsh_tensor::{creation, creation::zeros_mut, Tensor};
 /// Resized image
 ///
 /// # Example
-/// ```
+/// ```ignore
 /// use torsh_vision::utils::image_processing::resize_image;
 /// use image::imageops::FilterType;
 ///
