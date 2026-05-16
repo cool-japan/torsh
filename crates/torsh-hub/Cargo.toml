@@ -35,7 +35,7 @@ oxiarc-deflate = { workspace = true }
 oxiarc-archive = { workspace = true }
 oxiarc-core = { workspace = true }
 base64 = "0.22.1"
-oxionnx = { version = "0.1.2", features = ["ndarray"] }
+oxionnx = { version = "0.1.3", features = ["ndarray"] }
 # SciRS2 compliance - replaces direct ndarray and rand usage
 scirs2-core.workspace = true
 scirs2-autograd.workspace = true
