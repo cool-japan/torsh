@@ -169,6 +169,16 @@ impl<T: TensorElement> Tensor<T> {
             }
         }
 
+        // Propagate requires_grad and record operation for autograd
+        if self.requires_grad {
+            use std::sync::Arc;
+            result.requires_grad = true;
+            result.operation = crate::Operation::Mean {
+                input: Arc::new(self.clone()),
+                count,
+            };
+        }
+
         Ok(result)
     }
 
@@ -1464,5 +1474,60 @@ mod tests {
         let (values, _) = tensor.mode_dim(1, true).expect("operation should succeed");
 
         assert_eq!(values.shape().dims(), &[2, 1]); // Kept dimension
+    }
+
+    // --- Regression tests for issue #43: mean must propagate requires_grad ---
+
+    #[test]
+    fn test_issue_43_mean_propagates_requires_grad() {
+        // A tensor with requires_grad=true; mean result must also require grad.
+        let input = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![4], DeviceType::Cpu)
+            .expect("tensor creation failed")
+            .requires_grad_(true);
+
+        let result = input.mean(None, false).expect("mean failed");
+        assert!(
+            result.requires_grad(),
+            "mean result must have requires_grad=true when input does"
+        );
+    }
+
+    #[test]
+    fn test_issue_43_mean_no_requires_grad_when_input_has_none() {
+        // When input does not require grad, the result should not either.
+        let input = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu)
+            .expect("tensor creation failed");
+
+        let result = input.mean(None, false).expect("mean failed");
+        assert!(
+            !result.requires_grad(),
+            "mean result must not require grad when input does not"
+        );
+    }
+
+    #[test]
+    fn test_issue_43_mean_backward() {
+        // For mean of n elements with upstream grad g, each input element gets g/n.
+        let n = 4usize;
+        let input = Tensor::from_data(vec![2.0f32, 4.0, 6.0, 8.0], vec![n], DeviceType::Cpu)
+            .expect("tensor creation failed")
+            .requires_grad_(true);
+
+        let result = input.mean(None, false).expect("mean failed");
+        assert!(result.requires_grad(), "mean result must track gradients");
+
+        result.backward().expect("backward failed");
+
+        let grad = input.grad().expect("input must have gradient after backward");
+        let grad_data = grad.data().expect("gradient data");
+
+        // Each element should receive 1.0 / n = 0.25
+        let expected = 1.0f32 / n as f32;
+        for &g in &grad_data {
+            assert!(
+                (g - expected).abs() < 1e-6,
+                "each element grad should be 1/n={expected}, got {g}"
+            );
+        }
     }
 }

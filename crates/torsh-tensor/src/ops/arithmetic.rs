@@ -151,19 +151,44 @@ impl<
     /// - Medium tensors (512-65K): Phase 7 direct SIMD
     /// - Large tensors (>65K): Parallel SIMD
     pub fn sub(&self, other: &Self) -> Result<Self> {
-        if self.shape() == other.shape() {
+        let mut result = if self.shape() == other.shape() {
             // 🚀 Phase 3/4: Use adaptive SIMD for f32 tensors
             #[cfg(feature = "simd")]
             {
                 if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
-                    return self.sub_adaptive(other);
+                    // Use Phase 4 adaptive dispatch for f32
+                    return {
+                        let mut result = self.sub_adaptive(other)?;
+                        // Track the operation for gradient computation
+                        if self.requires_grad || other.requires_grad {
+                            use std::sync::Arc;
+                            result.requires_grad = true;
+                            result.operation = crate::Operation::Sub {
+                                lhs: Arc::new(self.clone()),
+                                rhs: Arc::new(other.clone()),
+                            };
+                        }
+                        Ok(result)
+                    };
                 }
             }
             // Fallback to scalar for non-f32 types
-            self.element_wise_op(other, |a, b| a - b)
+            self.element_wise_op(other, |a, b| a - b)?
         } else {
-            self.broadcast_binary_op(other, |a, b| a - b)
+            self.broadcast_binary_op(other, |a, b| a - b)?
+        };
+
+        // Track the operation for gradient computation
+        if self.requires_grad || other.requires_grad {
+            use std::sync::Arc;
+            result.requires_grad = true;
+            result.operation = crate::Operation::Sub {
+                lhs: Arc::new(self.clone()),
+                rhs: Arc::new(other.clone()),
+            };
         }
+
+        Ok(result)
     }
 
     /// Element-wise multiplication with broadcasting (ops module implementation)
@@ -1049,5 +1074,68 @@ mod tests {
 
         assert!(a.add_(&b).is_err());
         assert!(a.mul_(&b).is_err());
+    }
+
+    // --- Regression tests for issue #43: sub must propagate requires_grad ---
+
+    #[test]
+    fn test_issue_43_sub_propagates_requires_grad() {
+        // Both operands have requires_grad=true; result must too.
+        let a = Tensor::from_data(vec![3.0f32, 4.0], vec![2], DeviceType::Cpu)
+            .expect("tensor creation failed")
+            .requires_grad_(true);
+        let b = Tensor::from_data(vec![1.0f32, 1.0], vec![2], DeviceType::Cpu)
+            .expect("tensor creation failed")
+            .requires_grad_(true);
+
+        let result = a.sub(&b).expect("sub failed");
+        assert!(
+            result.requires_grad(),
+            "sub result must have requires_grad=true when either operand does"
+        );
+    }
+
+    #[test]
+    fn test_issue_43_sub_propagates_requires_grad_one_sided() {
+        // Only one operand has requires_grad; result must still have it.
+        let a = Tensor::from_data(vec![3.0f32, 4.0], vec![2], DeviceType::Cpu)
+            .expect("tensor creation failed")
+            .requires_grad_(true);
+        let b = Tensor::from_data(vec![1.0f32, 1.0], vec![2], DeviceType::Cpu)
+            .expect("tensor creation failed");
+
+        let result = a.sub(&b).expect("sub failed");
+        assert!(
+            result.requires_grad(),
+            "sub result must have requires_grad=true when lhs has it"
+        );
+    }
+
+    #[test]
+    fn test_issue_43_sub_backward() {
+        // Use scalar tensors (numel=1) so backward() can be called directly.
+        // d/dlhs (lhs - rhs) = +1;  d/drhs (lhs - rhs) = -1
+        let lhs = Tensor::from_data(vec![5.0f32], vec![1], DeviceType::Cpu)
+            .expect("tensor creation failed")
+            .requires_grad_(true);
+        let rhs = Tensor::from_data(vec![3.0f32], vec![1], DeviceType::Cpu)
+            .expect("tensor creation failed")
+            .requires_grad_(true);
+
+        let result = lhs.sub(&rhs).expect("sub failed");
+        assert!(result.requires_grad(), "sub result must track gradients");
+
+        result.backward().expect("backward failed");
+
+        let lhs_grad = lhs.grad().expect("lhs must have gradient after backward");
+        let rhs_grad = rhs.grad().expect("rhs must have gradient after backward");
+
+        let lhs_grad_data = lhs_grad.data().expect("lhs grad data");
+        let rhs_grad_data = rhs_grad.data().expect("rhs grad data");
+
+        // d(lhs - rhs)/dlhs = +1
+        assert_eq!(lhs_grad_data, vec![1.0f32], "lhs grad should be +1");
+        // d(lhs - rhs)/drhs = -1
+        assert_eq!(rhs_grad_data, vec![-1.0f32], "rhs grad should be -1");
     }
 }

@@ -508,10 +508,31 @@ impl<T: TensorElement + Copy> Tensor<T> {
                     let mut v = std::mem::ManuallyDrop::new(out);
                     Vec::from_raw_parts(v.as_mut_ptr() as *mut T, v.len(), v.capacity())
                 };
-                return Self::from_data(result_data, self.shape().dims().to_vec(), self.device);
+                let mut result =
+                    Self::from_data(result_data, self.shape().dims().to_vec(), self.device)?;
+                if self.requires_grad || other.requires_grad {
+                    result.requires_grad = true;
+                    result.operation = crate::Operation::Sub {
+                        lhs: Arc::new(self.clone()),
+                        rhs: Arc::new(other.clone()),
+                    };
+                }
+                return Ok(result);
             }
         }
-        self.elementwise_operation(other, |a, b| a - b)
+
+        let mut result = self.elementwise_operation(other, |a, b| a - b)?;
+
+        // Propagate requires_grad and record operation for autograd
+        if self.requires_grad || other.requires_grad {
+            result.requires_grad = true;
+            result.operation = crate::Operation::Sub {
+                lhs: Arc::new(self.clone()),
+                rhs: Arc::new(other.clone()),
+            };
+        }
+
+        Ok(result)
     }
 
     /// Element-wise multiplication with another tensor
