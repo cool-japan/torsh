@@ -512,19 +512,35 @@ impl<
             ));
         }
 
-        let (n_samples, _n_features) = (shape.dims()[0], shape.dims()[1]);
+        let (n_samples, n_features) = (shape.dims()[0], shape.dims()[1]);
         if n_samples < 2 {
             return Err(TorshError::InvalidArgument(
                 "Need at least 2 samples for covariance".to_string(),
             ));
         }
 
-        // Center the data (subtract mean from each column)
-        // For now, implement a simple version that computes global mean and subtracts it
-        // TODO: Implement proper column-wise mean subtraction with broadcasting
-        let global_mean = self.mean(None, false)?;
-        let mean_value = global_mean.item()?;
-        let centered = self.sub_scalar(mean_value)?;
+        // Center the data by subtracting per-column means
+        // Compute mean of each column (feature) independently
+        let data = self.to_vec()?;
+        let mut centered_data = data.clone();
+        for feat in 0..n_features {
+            let col_sum = (0..n_samples).fold(
+                <T as num_traits::Zero>::zero(),
+                |acc, row| acc + data[row * n_features + feat],
+            );
+            let col_mean = col_sum
+                / <T as num_traits::FromPrimitive>::from_usize(n_samples)
+                    .unwrap_or_else(|| <T as num_traits::One>::one());
+            for row in 0..n_samples {
+                centered_data[row * n_features + feat] =
+                    data[row * n_features + feat] - col_mean;
+            }
+        }
+        let centered = Self::from_data(
+            centered_data,
+            vec![n_samples, n_features],
+            self.device(),
+        )?;
 
         // Compute covariance matrix: (X^T * X) / (n - 1)
         let centered_t = centered.transpose(1, 0)?;
@@ -734,6 +750,29 @@ mod tests {
         // For a 2x2 matrix [[a, b], [c, d]] stored as [a, b, c, d]:
         // Symmetry means b == c (cov_data[1] == cov_data[2])
         assert!((cov_data[1] as f64 - cov_data[2] as f64).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_covariance_column_wise() {
+        // Two features with different column means: col0 has mean 2.0, col1 has mean 20.0
+        // Data: [[1, 10], [2, 20], [3, 30]]  =>  col means: [2, 20]
+        // Centered: [[-1,-10],[0,0],[1,10]]
+        // Cov sample (n-1=2):
+        //   cov(0,0) = ((-1)^2 + 0^2 + 1^2) / 2 = 1.0
+        //   cov(0,1) = cov(1,0) = ((-1)(-10)+0+1*10) / 2 = 20/2 = 10.0
+        //   cov(1,1) = (100+0+100) / 2 = 100.0
+        let data: Vec<f32> = vec![1.0, 10.0, 2.0, 20.0, 3.0, 30.0];
+        let tensor = Tensor::from_data(data, vec![3, 2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
+
+        let cov = tensor.cov(StatMode::Sample).expect("cov should succeed");
+        let cov_data = cov.to_vec().expect("to_vec should succeed");
+
+        // cov_data = [cov00, cov01, cov10, cov11]
+        assert!((cov_data[0] - 1.0_f32).abs() < 1e-4, "cov00 = {}", cov_data[0]);
+        assert!((cov_data[1] - 10.0_f32).abs() < 1e-4, "cov01 = {}", cov_data[1]);
+        assert!((cov_data[2] - 10.0_f32).abs() < 1e-4, "cov10 = {}", cov_data[2]);
+        assert!((cov_data[3] - 100.0_f32).abs() < 1e-4, "cov11 = {}", cov_data[3]);
     }
 
     #[test]

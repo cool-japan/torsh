@@ -1542,6 +1542,38 @@ impl<T: TensorElement + Copy> Tensor<T> {
                     rhs.backward_impl(grad_output)?;
                 }
             }
+            Operation::Sub { lhs, rhs } => {
+                // d/dlhs (lhs - rhs) = +grad
+                if lhs.requires_grad {
+                    lhs.backward_impl(grad_output)?;
+                }
+                // d/drhs (lhs - rhs) = -grad
+                if rhs.requires_grad {
+                    let neg_one = T::from_f64(-1.0).expect("T must support -1.0");
+                    let neg_grad = grad_output.mul_scalar(neg_one)?;
+                    rhs.backward_impl(&neg_grad)?;
+                }
+            }
+            Operation::Mean { input, count } => {
+                // d/dinput mean(input) = grad / count  (broadcast to input shape)
+                if input.requires_grad {
+                    let scale = T::from_f64(1.0 / count).expect("T must support scalar division");
+                    let scaled_grad = grad_output.mul_scalar(scale)?;
+                    // Broadcast scalar-shaped grad to input shape
+                    let input_numel = input.numel();
+                    let grad_data = vec![
+                        scaled_grad.to_vec()?.into_iter().next()
+                            .unwrap_or_else(|| T::from_f64(0.0).expect("T must support 0.0"));
+                        input_numel
+                    ];
+                    let input_grad = Self::from_data(
+                        grad_data,
+                        input.shape().dims().to_vec(),
+                        input.device,
+                    )?;
+                    input.backward_impl(&input_grad)?;
+                }
+            }
             Operation::Mul { lhs, rhs } => {
                 if lhs.requires_grad {
                     let lhs_grad = (**rhs).mul_op(grad_output)?;
@@ -1839,10 +1871,22 @@ pub enum Operation<T: TensorElement> {
         lhs: Arc<Tensor<T>>,
         rhs: Arc<Tensor<T>>,
     },
+    /// Subtraction operation: a - b
+    Sub {
+        lhs: Arc<Tensor<T>>,
+        rhs: Arc<Tensor<T>>,
+    },
     /// Multiplication operation: a * b
     Mul {
         lhs: Arc<Tensor<T>>,
         rhs: Arc<Tensor<T>>,
+    },
+    /// Mean reduction operation: mean(input)
+    Mean {
+        /// The input tensor before reduction
+        input: Arc<Tensor<T>>,
+        /// Number of elements that were averaged
+        count: f64,
     },
     /// Custom operation with name and inputs
     Custom(String, Vec<Weak<Tensor<T>>>),

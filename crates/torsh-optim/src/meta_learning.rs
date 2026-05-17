@@ -4,7 +4,7 @@
 //! MAML (Model-Agnostic Meta-Learning), learning-to-optimize, and adaptive
 //! optimizer selection based on task characteristics.
 
-use crate::{Optimizer, OptimizerError, OptimizerResult};
+use crate::{Adam, Optimizer, OptimizerError, OptimizerResult, SGD};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::ops::Add;
@@ -346,9 +346,46 @@ impl MetaOptimizer {
     }
 
     fn create_optimizer_from_config(&self, config: &OptimizerConfig) -> OptimizerResult<Box<dyn Optimizer>> {
-        // This would create an actual optimizer instance based on the config
-        // For now, return a placeholder
-        Err(OptimizerError::ConfigError("Optimizer creation not implemented".to_string()))
+        // Empty parameter list: the caller is expected to populate the optimizer
+        // via `add_param_group` before use (meta-learning adapts the hyper-params,
+        // not the parameter set itself which is task-specific).
+        let empty_params: Vec<Arc<RwLock<Tensor>>> = Vec::new();
+
+        match config.optimizer_type.to_lowercase().as_str() {
+            "adam" | "adamw" => {
+                let lr = config.hyperparameters.get("lr").copied();
+                let beta1 = config.hyperparameters.get("beta1").copied().unwrap_or(0.9);
+                let beta2 = config.hyperparameters.get("beta2").copied().unwrap_or(0.999);
+                let eps = config.hyperparameters.get("eps").copied();
+                let weight_decay = config.hyperparameters.get("weight_decay").copied();
+                Ok(Box::new(Adam::new(
+                    empty_params,
+                    lr,
+                    Some((beta1, beta2)),
+                    eps,
+                    weight_decay,
+                    false,
+                )))
+            }
+            "sgd" => {
+                let lr = config.hyperparameters.get("lr").copied().unwrap_or(0.01);
+                let momentum = config.hyperparameters.get("momentum").copied();
+                let weight_decay = config.hyperparameters.get("weight_decay").copied();
+                let dampening = config.hyperparameters.get("dampening").copied();
+                Ok(Box::new(SGD::new(
+                    empty_params,
+                    lr,
+                    momentum,
+                    dampening,
+                    weight_decay,
+                    false,
+                )))
+            }
+            other => Err(OptimizerError::ConfigError(format!(
+                "Unknown optimizer type: '{}'. Supported types: adam, adamw, sgd",
+                other
+            ))),
+        }
     }
 
     fn perform_few_shot_adaptation(&self, mut optimizer: Box<dyn Optimizer>, task: &Task, adaptation_steps: usize, adaptation_lr: f32) -> OptimizerResult<Box<dyn Optimizer>> {

@@ -141,9 +141,29 @@ pub use tensor::{
     torsh_tensor_tanh,
 
     // Manipulation
+    torsh_tensor_reshape,
     torsh_tensor_transpose,
 
     torsh_tensor_zeros,
+
+    // Additional creation
+    torsh_tensor_clone,
+    torsh_tensor_detach,
+    torsh_tensor_eye,
+    torsh_tensor_linspace,
+
+    // Softmax activation
+    torsh_tensor_softmax,
+
+    // Tensor-tensor division
+    torsh_tensor_div,
+
+    // 2-D convolution
+    torsh_tensor_conv2d,
+
+    // In-place optimizer primitives
+    torsh_tensor_axpy_inplace,
+    torsh_tensor_adam_step_inplace,
 };
 
 // Neural network operations

@@ -276,15 +276,23 @@ impl ParticleFilter {
 
     /// Predict step with transition function
     pub fn predict(&mut self, transition_fn: &dyn Fn(&Tensor) -> Tensor) {
-        // Apply transition to each particle
+        // Apply transition to each particle, building a new particles buffer
+        let mut new_particles = Vec::with_capacity(self.num_particles * self.state_dim);
+
         for i in 0..self.num_particles {
             let particle = self
                 .particles
                 .slice_tensor(0, i, i + 1)
                 .expect("slice should succeed");
-            let _predicted = transition_fn(&particle);
-            // TODO: Update particle in place when tensor operations are available
+            let predicted = transition_fn(&particle);
+            let row = predicted
+                .to_vec()
+                .expect("particle data extraction should succeed");
+            new_particles.extend_from_slice(&row);
         }
+
+        self.particles = Tensor::from_vec(new_particles, &[self.num_particles, self.state_dim])
+            .expect("particle tensor reconstruction should succeed");
     }
 
     /// Predict with additive noise
@@ -351,21 +359,51 @@ impl ParticleFilter {
     }
 
     /// Get state estimate (weighted mean of particles)
+    ///
+    /// Returns the weighted mean: μ = Σ w_i * x_i
     pub fn estimate(&self) -> Tensor {
-        // Weighted average of particles
-        // TODO: Implement when tensor operations are available
-        // let weighted_sum = (&self.particles * &self.weights.unsqueeze(1)).sum(0);
-        // weighted_sum
+        let weights_vec = self.weights.to_vec().unwrap_or_default();
+        let particles_vec = self.particles.to_vec().unwrap_or_default();
 
-        // For now, return simple mean
-        zeros(&[self.state_dim]).expect("tensor creation should succeed")
+        let mut mean = vec![0.0f32; self.state_dim];
+
+        for i in 0..self.num_particles {
+            let w = weights_vec.get(i).copied().unwrap_or(0.0);
+            for d in 0..self.state_dim {
+                let idx = i * self.state_dim + d;
+                mean[d] += w * particles_vec.get(idx).copied().unwrap_or(0.0);
+            }
+        }
+
+        Tensor::from_vec(mean, &[self.state_dim]).expect("tensor creation should succeed")
     }
 
-    /// Get state covariance estimate
+    /// Get state covariance estimate (weighted sample covariance)
+    ///
+    /// Returns Σ w_i * (x_i - μ)(x_i - μ)^T
     pub fn covariance(&self) -> Tensor {
-        // Weighted covariance of particles
-        // TODO: Implement when tensor operations are available
-        zeros(&[self.state_dim, self.state_dim]).expect("tensor creation should succeed")
+        let weights_vec = self.weights.to_vec().unwrap_or_default();
+        let particles_vec = self.particles.to_vec().unwrap_or_default();
+        let mean_tensor = self.estimate();
+        let mean_vec = mean_tensor.to_vec().unwrap_or_default();
+
+        let d = self.state_dim;
+        let mut cov = vec![0.0f32; d * d];
+
+        for i in 0..self.num_particles {
+            let w = weights_vec.get(i).copied().unwrap_or(0.0);
+            for r in 0..d {
+                let xr = particles_vec.get(i * d + r).copied().unwrap_or(0.0)
+                    - mean_vec.get(r).copied().unwrap_or(0.0);
+                for c in 0..d {
+                    let xc = particles_vec.get(i * d + c).copied().unwrap_or(0.0)
+                        - mean_vec.get(c).copied().unwrap_or(0.0);
+                    cov[r * d + c] += w * xr * xc;
+                }
+            }
+        }
+
+        Tensor::from_vec(cov, &[d, d]).expect("tensor creation should succeed")
     }
 
     /// Run particle filter on time series
@@ -395,9 +433,19 @@ impl ParticleFilter {
             estimates.push(self.estimate());
         }
 
-        // TODO: Stack estimates into tensor
-        let values =
-            zeros(&[series.len(), self.state_dim]).expect("tensor creation should succeed");
+        // Stack per-timestep estimates into [time_steps, state_dim]
+        let mut stacked: Vec<f32> = Vec::with_capacity(series.len() * self.state_dim);
+        for est in &estimates {
+            let row = est.to_vec().unwrap_or_else(|_| vec![0.0f32; self.state_dim]);
+            stacked.extend_from_slice(&row);
+        }
+
+        let values = if stacked.is_empty() {
+            zeros(&[series.len(), self.state_dim]).expect("tensor creation should succeed")
+        } else {
+            Tensor::from_vec(stacked, &[series.len(), self.state_dim])
+                .unwrap_or_else(|_| zeros(&[series.len(), self.state_dim]).expect("zeros should succeed"))
+        };
         TimeSeries::new(values)
     }
 
@@ -616,5 +664,76 @@ mod tests {
         assert_eq!(stats.num_particles, 10);
         assert_eq!(stats.mean.shape().dims(), [2]);
         assert_eq!(stats.covariance.shape().dims(), [2, 2]);
+    }
+
+    /// When all particles are equal, the weighted mean should equal that value
+    /// and the covariance should be zero.
+    #[test]
+    fn test_particle_filter_estimate_uniform_particles() {
+        // Build a filter via new() (weights are normalised), then set all particles
+        // to the same constant vector [3.0, 5.0].
+        let num_particles = 8;
+        let state_dim = 2;
+        let mut pf = ParticleFilter::new(num_particles, state_dim);
+
+        let data: Vec<f32> = std::iter::repeat([3.0f32, 5.0f32])
+            .take(num_particles)
+            .flatten()
+            .collect();
+        let particles = Tensor::from_vec(data, &[num_particles, state_dim])
+            .expect("tensor creation should succeed");
+        pf.set_particles(particles);
+
+        let mean = pf.estimate();
+        let mean_vec = mean.to_vec().expect("mean extraction should succeed");
+
+        // With uniform normalised weights the weighted mean equals the particle value
+        assert!((mean_vec[0] - 3.0).abs() < 1e-3, "mean[0] should be ~3.0, got {}", mean_vec[0]);
+        assert!((mean_vec[1] - 5.0).abs() < 1e-3, "mean[1] should be ~5.0, got {}", mean_vec[1]);
+
+        // Covariance should be zero for identical particles
+        let cov = pf.covariance();
+        let cov_vec = cov.to_vec().expect("covariance extraction should succeed");
+        for &v in &cov_vec {
+            assert!(v.abs() < 1e-3, "covariance should be ~0 for identical particles, got {}", v);
+        }
+    }
+
+    /// Verify that predict() actually moves particles through the transition function.
+    #[test]
+    fn test_particle_filter_predict_updates_particles() {
+        let num_particles = 4;
+        let state_dim = 2;
+        // All particles start at zero
+        let data = vec![0.0f32; num_particles * state_dim];
+        let particles = Tensor::from_vec(data, &[num_particles, state_dim])
+            .expect("tensor creation should succeed");
+
+        let mut pf = ParticleFilter::with_initial_particles(particles, None);
+
+        // Transition that adds 1.0 to every element
+        let add_one = |x: &Tensor| -> Tensor {
+            x.add_scalar(1.0_f32).expect("add scalar should succeed")
+        };
+
+        pf.predict(&add_one);
+
+        let updated = pf.particles().to_vec().expect("particle extraction should succeed");
+        for &v in &updated {
+            assert!((v - 1.0).abs() < 1e-4, "each particle element should be 1.0 after predict, got {}", v);
+        }
+    }
+
+    /// filter() should return a TimeSeries whose length matches the input.
+    #[test]
+    fn test_particle_filter_filter_output_shape() {
+        let series = create_test_series();
+        let mut pf = ParticleFilter::new(15, 1);
+        let filtered = pf.filter(&series, &identity_transition, &gaussian_likelihood);
+
+        // The stacked output should have shape [time_steps, state_dim]
+        let dims = filtered.values.shape().dims().to_vec();
+        assert_eq!(dims[0], series.len(), "first dim should equal time steps");
+        assert_eq!(dims[1], 1, "second dim should equal state_dim");
     }
 }

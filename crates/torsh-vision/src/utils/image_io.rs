@@ -24,12 +24,13 @@ use torsh_tensor::Tensor;
 /// * `Err(VisionError)` if there was an error during saving
 ///
 /// # Example
-/// ```rust
+/// ```rust,no_run
 /// use torsh_vision::utils::image_io::save_tensor_as_image;
 /// use torsh_tensor::creation;
 ///
 /// let tensor = creation::rand(&[3, 224, 224]).unwrap();
 /// save_tensor_as_image(&tensor, "output.png", true)?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 pub fn save_tensor_as_image<P: AsRef<Path>>(
     tensor: &Tensor<f32>,
@@ -52,11 +53,12 @@ pub fn save_tensor_as_image<P: AsRef<Path>>(
 /// * `Err(VisionError)` if there was an error during loading
 ///
 /// # Example
-/// ```rust
+/// ```rust,no_run
 /// use torsh_vision::utils::image_io::load_images_from_dir;
 ///
 /// let images = load_images_from_dir("./images")?;
 /// println!("Loaded {} images", images.len());
+/// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 pub fn load_images_from_dir<P: AsRef<Path>>(dir_path: P) -> Result<Vec<(DynamicImage, String)>> {
     crate::io::global::load_images_from_dir(dir_path)

@@ -74,6 +74,16 @@ crates/torsh-hub/reports/
 crates/torsh-hub/profiles/
 crates/torsh-hub/targets/
 
+# Node.js / npm
+**/node_modules/
+**/*.node
+**/package-lock.json
+
+# torsh-ffi nodejs build artifacts
+crates/torsh-ffi/nodejs/build/
+crates/torsh-ffi/nodejs/lib/
+crates/torsh-ffi/nodejs/native/
+
 # Miscs
 .claude/
 **/.ipynb_checkpoints/

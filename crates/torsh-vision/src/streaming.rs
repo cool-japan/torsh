@@ -412,15 +412,111 @@ impl FramePreprocessor {
     }
 
     /// Preprocess a frame
+    ///
+    /// Applies the configured operations in order:
+    /// 1. Resize (nearest-neighbor) if `target_size` is set
+    /// 2. Per-channel normalization if `normalize_mean`/`normalize_std` are set
+    /// 3. Grayscale conversion (weighted average) if `to_grayscale` is set
     pub fn preprocess(&self, frame: &Frame) -> Result<Frame> {
-        let processed = frame.clone();
+        let mut data = frame.data.clone();
+        let mut width = frame.metadata.width;
+        let mut height = frame.metadata.height;
 
-        // TODO: Implement actual preprocessing operations
-        // - Resize if target_size is set
-        // - Normalize if mean/std are set
-        // - Convert to grayscale if enabled
+        // Step 1: Resize using nearest-neighbor sampling
+        if let Some((target_w, target_h)) = self.target_size {
+            if target_w != width || target_h != height {
+                let orig_data: Vec<f32> = data
+                    .to_vec()
+                    .map_err(|e| VisionError::TensorError(e))?;
+                let shape = data.shape();
+                let dims = shape.dims();
 
-        Ok(processed)
+                // Determine number of channels from the tensor shape
+                let channels = if dims.len() == 3 {
+                    dims[0] // CHW layout
+                } else {
+                    1
+                };
+
+                let mut resized = vec![0.0f32; channels * target_h * target_w];
+                let scale_y = height as f32 / target_h as f32;
+                let scale_x = width as f32 / target_w as f32;
+
+                for c in 0..channels {
+                    for oy in 0..target_h {
+                        for ox in 0..target_w {
+                            let src_y = ((oy as f32 * scale_y) as usize).min(height - 1);
+                            let src_x = ((ox as f32 * scale_x) as usize).min(width - 1);
+                            let src_idx = c * height * width + src_y * width + src_x;
+                            let dst_idx = c * target_h * target_w + oy * target_w + ox;
+                            resized[dst_idx] = orig_data[src_idx];
+                        }
+                    }
+                }
+
+                let new_shape = if dims.len() == 3 {
+                    vec![channels, target_h, target_w]
+                } else {
+                    vec![target_h, target_w]
+                };
+                data = Tensor::from_vec(resized, &new_shape)
+                    .map_err(|e| VisionError::TensorError(e))?;
+                width = target_w;
+                height = target_h;
+            }
+        }
+
+        // Step 2: Per-channel normalization: (pixel - mean) / std
+        if let (Some(means), Some(stds)) = (&self.normalize_mean, &self.normalize_std) {
+            let shape = data.shape();
+            let dims = shape.dims();
+            let channels = if dims.len() == 3 { dims[0] } else { 1 };
+            let mut pixel_data: Vec<f32> = data
+                .to_vec()
+                .map_err(|e| VisionError::TensorError(e))?;
+            let pixels_per_channel = height * width;
+
+            for c in 0..channels.min(means.len()).min(stds.len()) {
+                let mean = means[c];
+                let std = stds[c].max(1e-7);
+                let offset = c * pixels_per_channel;
+                for i in 0..pixels_per_channel {
+                    pixel_data[offset + i] = (pixel_data[offset + i] - mean) / std;
+                }
+            }
+
+            let shape_vec = dims.to_vec();
+            data = Tensor::from_vec(pixel_data, &shape_vec)
+                .map_err(|e| VisionError::TensorError(e))?;
+        }
+
+        // Step 3: Grayscale conversion using luminance weights (ITU-R BT.601)
+        if self.to_grayscale {
+            let shape = data.shape();
+            let dims = shape.dims();
+            if dims.len() == 3 && dims[0] >= 3 {
+                let pixel_data: Vec<f32> = data
+                    .to_vec()
+                    .map_err(|e| VisionError::TensorError(e))?;
+                let pixels = height * width;
+                let mut gray = vec![0.0f32; pixels];
+                // R=dims[0]=0, G=1, B=2
+                for i in 0..pixels {
+                    let r = pixel_data[i];
+                    let g = pixel_data[pixels + i];
+                    let b = pixel_data[2 * pixels + i];
+                    gray[i] = 0.299 * r + 0.587 * g + 0.114 * b;
+                }
+                data = Tensor::from_vec(gray, &[1, height, width])
+                    .map_err(|e| VisionError::TensorError(e))?;
+            }
+        }
+
+        let mut metadata = frame.metadata.clone();
+        metadata.width = width;
+        metadata.height = height;
+
+        Ok(Frame { data, metadata })
     }
 }
 
@@ -612,5 +708,98 @@ mod tests {
         assert_eq!(stats.total_frames, 0);
         assert_eq!(stats.dropped_frames, 0);
         assert_eq!(stats.current_fps, 0.0);
+    }
+
+    #[test]
+    fn test_frame_preprocessor_resize() {
+        // Create a 4×4×3 CHW frame
+        let data: Vec<f32> = (0..48).map(|x| x as f32).collect();
+        let tensor = Tensor::from_vec(data, &[3, 4, 4])
+            .expect("tensor creation should succeed");
+
+        let frame = Frame {
+            data: tensor,
+            metadata: FrameMetadata {
+                frame_number: 0,
+                timestamp: Instant::now(),
+                width: 4,
+                height: 4,
+                is_keyframe: true,
+                priority: 1,
+            },
+        };
+
+        let preprocessor = FramePreprocessor::new().with_resize(2, 2);
+        let result = preprocessor.preprocess(&frame).expect("resize should succeed");
+        assert_eq!(result.metadata.width, 2);
+        assert_eq!(result.metadata.height, 2);
+        let shape = result.data.shape();
+        let dims = shape.dims();
+        assert_eq!(dims, &[3, 2, 2]);
+    }
+
+    #[test]
+    fn test_frame_preprocessor_normalize() {
+        // CHW frame with all values = 128.0
+        let data = vec![128.0f32; 3 * 4 * 4];
+        let tensor = Tensor::from_vec(data, &[3, 4, 4])
+            .expect("tensor creation should succeed");
+
+        let frame = Frame {
+            data: tensor,
+            metadata: FrameMetadata {
+                frame_number: 0,
+                timestamp: Instant::now(),
+                width: 4,
+                height: 4,
+                is_keyframe: true,
+                priority: 1,
+            },
+        };
+
+        // Normalize with mean=128, std=128 → output should be ~0.0
+        let preprocessor = FramePreprocessor::new()
+            .with_normalize(vec![128.0, 128.0, 128.0], vec![128.0, 128.0, 128.0]);
+        let result = preprocessor.preprocess(&frame).expect("normalize should succeed");
+        let vals: Vec<f32> = result.data.to_vec().expect("to_vec should succeed");
+        for &v in &vals {
+            assert!(v.abs() < 1e-5, "Expected ~0 after normalization, got {v}");
+        }
+    }
+
+    #[test]
+    fn test_frame_preprocessor_grayscale() {
+        // Pure red image: R=1.0, G=0.0, B=0.0 → luminance = 0.299
+        let mut data = vec![0.0f32; 3 * 4 * 4];
+        // Channel 0 (R) = 1.0
+        for i in 0..(4 * 4) {
+            data[i] = 1.0;
+        }
+        let tensor = Tensor::from_vec(data, &[3, 4, 4])
+            .expect("tensor creation should succeed");
+
+        let frame = Frame {
+            data: tensor,
+            metadata: FrameMetadata {
+                frame_number: 0,
+                timestamp: Instant::now(),
+                width: 4,
+                height: 4,
+                is_keyframe: true,
+                priority: 1,
+            },
+        };
+
+        let preprocessor = FramePreprocessor::new().with_grayscale();
+        let result = preprocessor.preprocess(&frame).expect("grayscale should succeed");
+
+        let shape = result.data.shape();
+        let dims = shape.dims();
+        assert_eq!(dims, &[1, 4, 4]);
+
+        let vals: Vec<f32> = result.data.to_vec().expect("to_vec should succeed");
+        for &v in &vals {
+            assert!((v - 0.299).abs() < 1e-5, "Expected 0.299 luminance for pure red, got {v}");
+        }
     }
 }

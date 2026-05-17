@@ -11,6 +11,157 @@ use scirs2_core::ndarray::{Array1, Array2};
 use torsh_core::error::{Result, TorshError};
 use torsh_tensor::Tensor;
 
+// ============================================================
+// Pure-Rust math helpers for p-value computation
+// ============================================================
+
+fn regularised_incomplete_beta(x: f64, a: f64, b: f64) -> f64 {
+    if x <= 0.0 { return 0.0; }
+    if x >= 1.0 { return 1.0; }
+    let lbeta = ln_gamma_var(a) + ln_gamma_var(b) - ln_gamma_var(a + b);
+    let front = (a * x.ln() + b * (1.0 - x).ln() - lbeta).exp() / a;
+    front * beta_cf_var(a, b, x)
+}
+
+fn beta_cf_var(a: f64, b: f64, x: f64) -> f64 {
+    let max_iter = 200;
+    let eps = 3e-10;
+    let fpmin = f64::MIN_POSITIVE / eps;
+    let qab = a + b;
+    let qap = a + 1.0;
+    let qam = a - 1.0;
+    let mut c = 1.0;
+    let mut d = 1.0 - qab * x / qap;
+    if d.abs() < fpmin { d = fpmin; }
+    d = 1.0 / d;
+    let mut h = d;
+    for m in 1..=max_iter {
+        let mf = m as f64;
+        let m2 = 2.0 * mf;
+        let mut aa = mf * (b - mf) * x / ((qam + m2) * (a + m2));
+        d = 1.0 + aa * d;
+        if d.abs() < fpmin { d = fpmin; }
+        c = 1.0 + aa / c;
+        if c.abs() < fpmin { c = fpmin; }
+        d = 1.0 / d;
+        h *= d * c;
+        aa = -(a + mf) * (qab + mf) * x / ((a + m2) * (qap + m2));
+        d = 1.0 + aa * d;
+        if d.abs() < fpmin { d = fpmin; }
+        c = 1.0 + aa / c;
+        if c.abs() < fpmin { c = fpmin; }
+        d = 1.0 / d;
+        let del = d * c;
+        h *= del;
+        if (del - 1.0).abs() < eps { break; }
+    }
+    h
+}
+
+/// ln(Gamma(x)) via Lanczos approximation (g=7, n=9).
+///
+/// Uses the recurrence `ln Γ(x) = ln Γ(x+1) − ln(x)` for 0 < x < 1
+/// so the Lanczos kernel is always evaluated at x ≥ 1 where it is
+/// numerically stable.  No recursion — the loop terminates in at most
+/// one iteration for the arguments that arise in beta-function p-values.
+fn ln_gamma_var(x: f64) -> f64 {
+    const G: f64 = 7.0;
+    const C: [f64; 9] = [
+        0.999_999_999_999_809_3,
+        676.520_368_121_885_1,
+        -1_259.139_216_722_403_0,
+        771.323_428_777_653_1,
+        -176.615_029_162_140_6,
+        12.507_343_278_686_904_8,
+        -0.138_571_095_265_720_12,
+        9.984_369_578_019_571_6e-6,
+        1.505_632_735_149_311_6e-7,
+    ];
+    // Shift x up until xr ≥ 1, accumulating ln(x), ln(x+1), ...
+    let mut shift = 0.0;
+    let mut xr = x;
+    while xr < 1.0 {
+        shift += xr.ln();
+        xr += 1.0;
+    }
+    let z = xr - 1.0;
+    let mut ser = C[0];
+    for (k, &ck) in C[1..].iter().enumerate() {
+        ser += ck / (z + (k + 1) as f64);
+    }
+    let t = z + G + 0.5;
+    let lanczos = (2.0 * std::f64::consts::PI).sqrt().ln() + (z + 0.5) * t.ln() - t + ser.ln();
+    lanczos - shift
+}
+
+// ============================================================
+// Cholesky helpers for OLS estimation
+// ============================================================
+
+/// Cholesky-Banachiewicz decomposition (lower triangular, row-major).
+/// Returns `None` if the matrix is not positive-definite.
+fn var_cholesky_lower(a: &[f64], n: usize) -> Option<Vec<f64>> {
+    let mut l = vec![0.0f64; n * n];
+    for i in 0..n {
+        for j in 0..=i {
+            let mut sum = a[i * n + j];
+            for k in 0..j {
+                sum -= l[i * n + k] * l[j * n + k];
+            }
+            if i == j {
+                if sum <= 0.0 {
+                    return None;
+                }
+                l[i * n + j] = sum.sqrt();
+            } else {
+                let diag = l[j * n + j];
+                if diag.abs() < 1e-15 {
+                    return None;
+                }
+                l[i * n + j] = sum / diag;
+            }
+        }
+    }
+    Some(l)
+}
+
+/// Solve the symmetric PD system A x = b using the precomputed Cholesky lower L.
+fn var_cholesky_solve_with_l(l: &[f64], b: &[f64], n: usize) -> Vec<f64> {
+    // Forward substitution L y = b
+    let mut y = vec![0.0f64; n];
+    for i in 0..n {
+        let mut s = b[i];
+        for j in 0..i {
+            s -= l[i * n + j] * y[j];
+        }
+        y[i] = s / l[i * n + i];
+    }
+    // Back substitution L^T x = y
+    let mut x = vec![0.0f64; n];
+    for i in (0..n).rev() {
+        let mut s = y[i];
+        for j in (i + 1)..n {
+            s -= l[j * n + i] * x[j];
+        }
+        x[i] = s / l[i * n + i];
+    }
+    x
+}
+
+/// Solve A x = b for symmetric PD A.
+/// Falls back to ridge-regularised diagonal solve if A is not PD.
+fn var_cholesky_solve(a: &[f64], b: &[f64], n: usize) -> Vec<f64> {
+    // Try exact Cholesky first
+    if let Some(l) = var_cholesky_lower(a, n) {
+        return var_cholesky_solve_with_l(&l, b, n);
+    }
+    // Ridge fallback: use diagonal of A + λI
+    let lambda = 1e-6;
+    (0..n)
+        .map(|i| b[i] / (a[i * n + i] + lambda).max(1e-15))
+        .collect()
+}
+
 /// Vector Autoregression (VAR) model
 ///
 /// A VAR(p) model expresses each variable as a linear combination of:
@@ -128,28 +279,22 @@ impl VAR {
         }
 
         // Solve OLS for each variable: β = (X'X)^(-1) X'y
+        // Using proper Cholesky decomposition of the (n_features × n_features)
+        // Gram matrix X'X, which is symmetric positive-semi-definite.
         let xt_x = x_design.t().dot(&x_design);
         let xt_y = x_design.t().dot(&y_response);
 
-        // TODO: Use scirs2-core linalg when available
-        // For now, use simplified pseudo-inverse approach
+        // Flatten X'X into a row-major Vec<f64> for the Cholesky solver
+        let xtx_flat: Vec<f64> = xt_x.iter().copied().collect();
+
         let mut all_coefficients = Array2::<f64>::zeros((n_vars, n_features));
-
-        // Simplified OLS solution using regularization
-        // β = (X'X + λI)^(-1) X'y (ridge regression with small λ)
-        let lambda = 1e-6;
-        let mut xt_x_reg = xt_x.clone();
-        for i in 0..n_features {
-            xt_x_reg[[i, i]] += lambda;
-        }
-
-        // Use simple Gaussian elimination or set to identity for now
-        // In practice, would use proper linear algebra solver
         for var in 0..n_vars {
-            // Simplified coefficient estimation (placeholder)
-            // In production, would use proper linear system solver
+            // Extract the right-hand side column X'y[:,var]
+            let rhs: Vec<f64> = (0..n_features).map(|i| xt_y[[i, var]]).collect();
+            // Solve (X'X) β = X'y[:,var]  via Cholesky (with ridge fallback)
+            let beta = var_cholesky_solve(&xtx_flat, &rhs, n_features);
             for i in 0..n_features {
-                all_coefficients[[var, i]] = xt_y[[i, var]] / (xt_x_reg[[i, i]] + 1e-10);
+                all_coefficients[[var, i]] = beta[i];
             }
         }
 
@@ -519,11 +664,17 @@ impl GrangerCausality {
         Ok(rss)
     }
 
-    /// Approximate F-distribution p-value (simplified)
-    fn f_distribution_pvalue(&self, _f_stat: f64, _df1: usize, _df2: usize) -> f64 {
-        // TODO: Use scirs2-stats for proper F-distribution calculation when available
-        // For now, return placeholder p-value
-        0.05
+    /// Approximate F-distribution p-value using regularised incomplete beta function.
+    fn f_distribution_pvalue(&self, f_stat: f64, df1: usize, df2: usize) -> f64 {
+        if f_stat <= 0.0 || df1 == 0 || df2 == 0 {
+            return 1.0;
+        }
+        // P(F_{df1,df2} > f_stat) = I_{z}(df2/2, df1/2)
+        // where z = df2 / (df2 + df1 * f_stat)
+        let d1 = df1 as f64;
+        let d2 = df2 as f64;
+        let z = d2 / (d2 + d1 * f_stat);
+        regularised_incomplete_beta(z, d2 / 2.0, d1 / 2.0).clamp(0.0, 1.0)
     }
 }
 

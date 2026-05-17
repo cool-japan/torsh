@@ -130,25 +130,25 @@ torsh-benches = { version = "0.1.2", path = "crates/torsh-benches" }
 # Core dependencies - CRATES.IO VERSION 0.1.1 (Stable) with SIMD, OxiBLAS 0.1.2, and OxiCode support
 # NOTE: scirs2 meta crate removed to speed up compilation - use specific sub-crates instead
 # NOTE: SciRS2 0.1.1 now includes OxiBLAS 0.1.2 (optimized BLAS/LAPACK) and OxiCode (modern serialization)
-scirs2-core = { version = "0.4.3", features = ["simd", "parallel", "memory_management", "serialization", "oxicode", "oxiblas-blas", "oxiblas-lapack", "oxiblas-ndarray", "validation", "types", "random"] }
-scirs2-autograd = { version = "0.4.3" }
-scirs2-special = { version = "0.4.3" }
-scirs2-sparse = { version = "0.4.3" }
-scirs2-optimize = { version = "0.4.3" }
-scirs2-signal = { version = "0.4.3" }
-scirs2-fft = { version = "0.4.3" }
+scirs2-core = { version = "0.4.4", features = ["simd", "parallel", "memory_management", "serialization", "oxicode", "oxiblas-blas", "oxiblas-lapack", "oxiblas-ndarray", "validation", "types", "random"] }
+scirs2-autograd = { version = "0.4.4" }
+scirs2-special = { version = "0.4.4" }
+scirs2-sparse = { version = "0.4.4" }
+scirs2-optimize = { version = "0.4.4" }
+scirs2-signal = { version = "0.4.4" }
+scirs2-fft = { version = "0.4.4" }
 # Additional SciRS2 crates for comprehensive integration
-scirs2-cluster = { version = "0.4.3" }
-scirs2-datasets = { version = "0.4.3" }
-scirs2-graph = { version = "0.4.3" }
-scirs2-metrics = { version = "0.4.3" }
-scirs2-series = { version = "0.4.3" }
-scirs2-spatial = { version = "0.4.3" }
-scirs2-stats = { version = "0.4.3" }
-scirs2-text = { version = "0.4.3" }
-scirs2-vision = { version = "0.4.3" }
-scirs2-linalg = { version = "0.4.3" }
-scirs2-neural = { version = "0.4.3" }
+scirs2-cluster = { version = "0.4.4" }
+scirs2-datasets = { version = "0.4.4" }
+scirs2-graph = { version = "0.4.4" }
+scirs2-metrics = { version = "0.4.4" }
+scirs2-series = { version = "0.4.4" }
+scirs2-spatial = { version = "0.4.4" }
+scirs2-stats = { version = "0.4.4" }
+scirs2-text = { version = "0.4.4" }
+scirs2-vision = { version = "0.4.4" }
+scirs2-linalg = { version = "0.4.4" }
+scirs2-neural = { version = "0.4.4" }
 # OptiRS - Advanced ML optimization (now available on crates.io - still in RC)
 optirs = { version = "0.3.1", default-features = false }
 optirs-core = { version = "0.3.1", default-features = false }
@@ -207,15 +207,15 @@ indexmap = { version = "2.14", features = ["serde"] }
 # libc = "0.2"  # REMOVED: Pure Rust (SciRS2 ecosystem) - replaced with sysinfo
 pyo3 = { version = "0.28" }
 numpy = "0.28"
-scirs2-numpy = { version = "0.4.3", default-features = false }  # SciRS2-compatible numpy bindings
+scirs2-numpy = { version = "0.4.4", default-features = false }  # SciRS2-compatible numpy bindings
 
 # Additional utilities
 hostname = "0.4"
 rustc-version = "0.4"
 which = "8.0"
 sysinfo = "0.38"
-oxiarc-archive = { version = "0.2.8", default-features = false }
-oxiarc-core = { version = "0.2.8" }
+oxiarc-archive = { version = "0.3.0", default-features = false }
+oxiarc-core = { version = "0.3.0" }
 reqwest = { version = "0.13", features = ["json", "stream", "blocking"] }
 clap = { version = "4.6.1", features = ["derive"] }
 hdf5 = { version = "0.8" }
@@ -233,7 +233,7 @@ chrono = { version = "0.4", features = ["serde"] }
 prost = "0.14"
 tonic = "0.14"
 tonic-build = "0.14"
-redis = "1.2"
+redis = { version = "1.2", features = ["connection-manager"] }
 tokio-test = "0.4"
 futures-util = "0.3"
 uuid = { version = "1.23", features = ["v4", "serde"] }
@@ -270,8 +270,8 @@ hex = "0.4"
 semver = "1.0"
 
 # Advanced compression for package management (COOLJAPAN Pure Rust Policy)
-oxiarc-deflate = "0.2"
-oxiarc-zstd = "0.2"
+oxiarc-deflate = "0.3.0"
+oxiarc-zstd = "0.3.0"
 lzma-rs = "0.3"
 
 # Security features for package signing and encryption

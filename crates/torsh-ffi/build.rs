@@ -11,6 +11,14 @@ fn main() {
     println!("cargo:rerun-if-env-changed=PYTHON_SYS_EXECUTABLE");
     println!("cargo:rerun-if-env-changed=PYO3_PYTHON");
 
+    // When building as a Node.js N-API addon, or when the "python" feature is
+    // not active, skip Python linking entirely.
+    let nodejs_feature = std::env::var("CARGO_FEATURE_NODEJS").is_ok();
+    let python_feature = std::env::var("CARGO_FEATURE_PYTHON").is_ok();
+    if nodejs_feature || !python_feature {
+        return;
+    }
+
     pyo3_build_config::use_pyo3_cfgs();
     let config = pyo3_build_config::get();
 

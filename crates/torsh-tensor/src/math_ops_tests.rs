@@ -588,3 +588,83 @@ fn test_f32_clamp_inplace_simd() {
         );
     }
 }
+
+// --- Regression tests for issue #43: sub must propagate requires_grad ---
+
+#[test]
+fn test_issue_43_sub_propagates_requires_grad() {
+    // Both operands have requires_grad=true; result must too.
+    let a = Tensor::from_data(vec![3.0f32, 4.0], vec![2], DeviceType::Cpu)
+        .expect("tensor creation failed")
+        .requires_grad_(true);
+    let b = Tensor::from_data(vec![1.0f32, 1.0], vec![2], DeviceType::Cpu)
+        .expect("tensor creation failed")
+        .requires_grad_(true);
+
+    let result = a.sub(&b).expect("sub should succeed");
+    assert!(
+        result.requires_grad(),
+        "sub result must have requires_grad=true when either operand does"
+    );
+}
+
+#[test]
+fn test_issue_43_sub_propagates_requires_grad_one_sided() {
+    // Only lhs operand has requires_grad; result must still have it.
+    let a = Tensor::from_data(vec![3.0f32, 4.0], vec![2], DeviceType::Cpu)
+        .expect("tensor creation failed")
+        .requires_grad_(true);
+    let b = Tensor::from_data(vec![1.0f32, 1.0], vec![2], DeviceType::Cpu)
+        .expect("tensor creation failed");
+
+    let result = a.sub(&b).expect("sub should succeed");
+    assert!(
+        result.requires_grad(),
+        "sub result must have requires_grad=true when lhs has it"
+    );
+}
+
+#[test]
+fn test_issue_43_sub_no_requires_grad_when_both_false() {
+    // Neither operand has requires_grad; result should not either.
+    let a = Tensor::from_data(vec![3.0f32, 4.0], vec![2], DeviceType::Cpu)
+        .expect("tensor creation failed");
+    let b = Tensor::from_data(vec![1.0f32, 1.0], vec![2], DeviceType::Cpu)
+        .expect("tensor creation failed");
+
+    let result = a.sub(&b).expect("sub should succeed");
+    assert!(
+        !result.requires_grad(),
+        "sub result must NOT have requires_grad when neither operand does"
+    );
+}
+
+#[test]
+fn test_issue_43_sub_backward() {
+    // Use scalar (single-element) tensors so backward() can be called directly
+    // on the sub result without needing a reduction.
+    // d/dlhs (lhs - rhs) = +1;  d/drhs (lhs - rhs) = -1
+    let lhs = Tensor::from_data(vec![5.0f32], vec![1], DeviceType::Cpu)
+        .expect("tensor creation failed")
+        .requires_grad_(true);
+    let rhs = Tensor::from_data(vec![3.0f32], vec![1], DeviceType::Cpu)
+        .expect("tensor creation failed")
+        .requires_grad_(true);
+
+    let result = lhs.sub(&rhs).expect("sub should succeed");
+    assert!(result.requires_grad(), "sub result must track gradients");
+
+    // result is a scalar (numel=1), so backward() is valid
+    result.backward().expect("backward should succeed");
+
+    let lhs_grad = lhs.grad().expect("lhs must have gradient after backward");
+    let rhs_grad = rhs.grad().expect("rhs must have gradient after backward");
+
+    let lhs_grad_data = lhs_grad.data().expect("lhs grad data");
+    let rhs_grad_data = rhs_grad.data().expect("rhs grad data");
+
+    // d(lhs - rhs)/dlhs = +1
+    assert_eq!(lhs_grad_data, vec![1.0f32], "lhs grad should be +1");
+    // d(lhs - rhs)/drhs = -1
+    assert_eq!(rhs_grad_data, vec![-1.0f32], "rhs grad should be -1");
+}

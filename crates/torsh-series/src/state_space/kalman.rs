@@ -7,6 +7,57 @@ use torsh_tensor::{
     Tensor,
 };
 
+/// Cholesky-Banachiewicz decomposition (lower triangular) for f64.
+/// Returns `None` if the matrix is not positive definite.
+fn kalman_cholesky_lower_f64(a: &[f64], n: usize) -> Option<Vec<f64>> {
+    let mut l = vec![0.0f64; n * n];
+    for i in 0..n {
+        for j in 0..=i {
+            let mut sum = a[i * n + j];
+            for k in 0..j {
+                sum -= l[i * n + k] * l[j * n + k];
+            }
+            if i == j {
+                if sum <= 0.0 { return None; }
+                l[i * n + j] = sum.sqrt();
+            } else {
+                let diag = l[j * n + j];
+                if diag.abs() < 1e-15 { return None; }
+                l[i * n + j] = sum / diag;
+            }
+        }
+    }
+    Some(l)
+}
+
+/// Invert a symmetric positive-definite n×n f64 matrix using Cholesky.
+pub(crate) fn kalman_cholesky_invert_f64(a: &[f64], n: usize) -> Option<Vec<f64>> {
+    let l = kalman_cholesky_lower_f64(a, n)?;
+    let mut inv = vec![0.0f64; n * n];
+    for col in 0..n {
+        let mut e = vec![0.0f64; n];
+        e[col] = 1.0;
+        let mut y = vec![0.0f64; n];
+        for i in 0..n {
+            let mut s = e[i];
+            for j in 0..i { s -= l[i * n + j] * y[j]; }
+            let d = l[i * n + i];
+            if d.abs() < 1e-15 { return None; }
+            y[i] = s / d;
+        }
+        let mut x = vec![0.0f64; n];
+        for i in (0..n).rev() {
+            let mut s = y[i];
+            for j in (i + 1)..n { s -= l[j * n + i] * x[j]; }
+            let d = l[i * n + i];
+            if d.abs() < 1e-15 { return None; }
+            x[i] = s / d;
+        }
+        for row in 0..n { inv[row * n + col] = x[row]; }
+    }
+    Some(inv)
+}
+
 /// Kalman filter for linear state estimation
 pub struct KalmanFilter {
     state_dim: usize,
@@ -210,14 +261,181 @@ impl KalmanFilter {
         Ok(TimeSeries::new(values))
     }
 
-    /// Smooth time series (forward-backward pass)
+    /// Smooth time series using the Rauch-Tung-Striebel (RTS) smoother.
+    ///
+    /// Runs a forward Kalman filter pass, recording all filtered states and predicted
+    /// covariances, then performs a backward RTS pass to compute smoothed estimates.
     pub fn smooth(&mut self, series: &TimeSeries) -> Result<TimeSeries> {
-        // Run Kalman smoother (Rauch-Tung-Striebel)
-        // First pass: forward filtering
-        let filtered = self.filter(series)?;
+        let t_len = series.len();
+        let n = self.state_dim;
 
-        // TODO: Implement backward pass for smoothing when needed
-        Ok(filtered)
+        // --- Forward pass ---
+        // Store: filtered states, filtered covariances, predicted covariances
+        let mut filtered_means: Vec<Vec<f32>> = Vec::with_capacity(t_len);
+        let mut filtered_covs: Vec<Vec<f32>> = Vec::with_capacity(t_len);
+        let mut predicted_covs: Vec<Vec<f32>> = Vec::with_capacity(t_len);
+
+        self.reset();
+        for t in 0..t_len {
+            // Predict
+            self.state = self.transition.matmul(&self.state)?;
+            let f_p = self.transition.matmul(&self.covariance)?;
+            let f_p_ft = f_p.matmul(&self.transition.transpose(0, 1)?)?;
+            let pred_cov = f_p_ft.add(&self.process_noise)?;
+
+            // Record predicted covariance before update
+            let mut pcov_row = vec![0.0f32; n * n];
+            for i in 0..n {
+                for j in 0..n {
+                    pcov_row[i * n + j] = pred_cov.get_item_flat(i * n + j)?;
+                }
+            }
+            predicted_covs.push(pcov_row);
+            self.covariance = pred_cov;
+
+            // Update
+            let obs_value = series.values.get_item_flat(t)?;
+            let obs = Tensor::from_vec(vec![obs_value], &[1])?;
+            self.update(&obs)?;
+
+            // Record filtered mean and covariance
+            let mut state_vec = vec![0.0f32; n];
+            for i in 0..n {
+                state_vec[i] = self.state.get_item_flat(i)?;
+            }
+            filtered_means.push(state_vec);
+
+            let mut cov_vec = vec![0.0f32; n * n];
+            for i in 0..n {
+                for j in 0..n {
+                    cov_vec[i * n + j] = self.covariance.get_item_flat(i * n + j)?;
+                }
+            }
+            filtered_covs.push(cov_vec);
+        }
+
+        // --- Backward RTS pass ---
+        // Initialise smoother with last filtered estimate
+        let mut smoothed_means = filtered_means.clone();
+        let mut smoothed_covs = filtered_covs.clone();
+
+        for t in (0..t_len.saturating_sub(1)).rev() {
+            // Smoother gain: G_t = P_t|t * F^T * inv(P_{t+1|t})
+            let p_t_flat = &filtered_covs[t];
+            let p_pred_flat = &predicted_covs[t + 1];
+
+            // Compute P_t|t * F^T  (n×n)
+            let mut pft = vec![0.0f64; n * n];
+            for i in 0..n {
+                for j in 0..n {
+                    let mut s = 0.0f64;
+                    for k in 0..n {
+                        // F[k,j] via transposition: F^T[j,k] = F[k,j]
+                        let f_kj = self.transition.get_item_flat(k * n + j)? as f64;
+                        s += p_t_flat[i * n + k] as f64 * f_kj;
+                    }
+                    pft[i * n + j] = s;
+                }
+            }
+
+            // Invert P_{t+1|t}
+            let p_pred_f64: Vec<f64> = p_pred_flat.iter().map(|&v| v as f64).collect();
+            // Add jitter for numerical stability
+            let mut p_pred_reg = p_pred_f64.clone();
+            for i in 0..n {
+                p_pred_reg[i * n + i] += 1e-8;
+            }
+            let p_pred_inv = kalman_cholesky_invert_f64(&p_pred_reg, n)
+                .unwrap_or_else(|| {
+                    let mut diag = vec![0.0f64; n * n];
+                    for i in 0..n {
+                        let d = p_pred_reg[i * n + i];
+                        diag[i * n + i] = if d > 1e-15 { 1.0 / d } else { 0.0 };
+                    }
+                    diag
+                });
+
+            // G_t = pft @ p_pred_inv  (n×n)
+            let mut g = vec![0.0f64; n * n];
+            for i in 0..n {
+                for j in 0..n {
+                    let mut s = 0.0f64;
+                    for k in 0..n {
+                        s += pft[i * n + k] * p_pred_inv[k * n + j];
+                    }
+                    g[i * n + j] = s;
+                }
+            }
+
+            // Smoothed mean: m_t^s = m_t|t + G_t * (m_{t+1}^s - m_{t+1|t})
+            // m_{t+1|t} = F * m_t|t
+            let m_t = &filtered_means[t];
+            let mut m_pred_next = vec![0.0f64; n];
+            for i in 0..n {
+                let mut s = 0.0f64;
+                for k in 0..n {
+                    let f_ik = self.transition.get_item_flat(i * n + k)? as f64;
+                    s += f_ik * m_t[k] as f64;
+                }
+                m_pred_next[i] = s;
+            }
+            let m_smooth_next = &smoothed_means[t + 1];
+            let mut m_smooth_t = vec![0.0f32; n];
+            for i in 0..n {
+                let mut delta = 0.0f64;
+                for j in 0..n {
+                    delta += g[i * n + j] * (m_smooth_next[j] as f64 - m_pred_next[j]);
+                }
+                m_smooth_t[i] = (m_t[i] as f64 + delta) as f32;
+            }
+            smoothed_means[t] = m_smooth_t;
+
+            // Smoothed covariance: P_t^s = P_t|t + G_t * (P_{t+1}^s - P_{t+1|t}) * G_t^T
+            let p_smooth_next = &smoothed_covs[t + 1];
+            // diff = P_{t+1}^s - P_{t+1|t}
+            let diff: Vec<f64> = p_smooth_next.iter().zip(p_pred_flat.iter())
+                .map(|(&a, &b)| a as f64 - b as f64).collect();
+            // G_t * diff  (n×n)
+            let mut g_diff = vec![0.0f64; n * n];
+            for i in 0..n {
+                for j in 0..n {
+                    let mut s = 0.0f64;
+                    for k in 0..n {
+                        s += g[i * n + k] * diff[k * n + j];
+                    }
+                    g_diff[i * n + j] = s;
+                }
+            }
+            // G_t * diff * G_t^T  (n×n)
+            let mut g_diff_gt = vec![0.0f64; n * n];
+            for i in 0..n {
+                for j in 0..n {
+                    let mut s = 0.0f64;
+                    for k in 0..n {
+                        s += g_diff[i * n + k] * g[j * n + k]; // g[j*n+k] = G^T[k,j]
+                    }
+                    g_diff_gt[i * n + j] = s;
+                }
+            }
+            let p_t = &filtered_covs[t];
+            let mut p_smooth_t = vec![0.0f32; n * n];
+            for i in 0..n {
+                for j in 0..n {
+                    p_smooth_t[i * n + j] = (p_t[i * n + j] as f64 + g_diff_gt[i * n + j]) as f32;
+                }
+            }
+            smoothed_covs[t] = p_smooth_t;
+        }
+
+        // Build output tensor [t_len × n]
+        let mut out_data = vec![0.0f32; t_len * n];
+        for t in 0..t_len {
+            for j in 0..n {
+                out_data[t * n + j] = smoothed_means[t][j];
+            }
+        }
+        let values = Tensor::from_vec(out_data, &[t_len, n])?;
+        Ok(TimeSeries::new(values))
     }
 
     /// Get innovation (prediction error)

@@ -6,8 +6,10 @@
 // Framework infrastructure - components designed for future use
 #![allow(dead_code)]
 use crate::CacheManager;
+use reqwest::blocking::Client as BlockingClient;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::io::Write;
 use std::path::PathBuf;
 use torsh_core::error::{Result, TorshError};
 use torsh_nn::Module;
@@ -90,14 +92,58 @@ impl HuggingFaceHub {
         }])
     }
 
-    /// Get model information
+    /// Get model information from HuggingFace Hub API.
+    ///
+    /// Makes a GET request to `{api_url}/api/models/{model_id}` and parses
+    /// the JSON response.  Returns an error if the model is not found or if
+    /// the HTTP request fails.
     pub fn model_info(&self, model_id: &str) -> Result<HfModelInfo> {
-        let _url = format!("{}/api/models/{}", self.api_url, model_id);
+        let url = format!("{}/api/models/{}", self.api_url, model_id);
 
-        // Placeholder: Make HTTP request
-        Err(TorshError::NotImplemented(
-            "HuggingFace model info not yet implemented".to_string(),
-        ))
+        let mut client_builder = BlockingClient::builder()
+            .user_agent(&self.user_agent)
+            .timeout(std::time::Duration::from_secs(self.timeout));
+
+        // Add auth header if token is present
+        if let Some(ref token) = self.token {
+            let mut headers = reqwest::header::HeaderMap::new();
+            let auth_value = reqwest::header::HeaderValue::from_str(
+                &format!("Bearer {}", token),
+            )
+            .map_err(|e| TorshError::InvalidArgument(format!("Invalid token: {}", e)))?;
+            headers.insert(reqwest::header::AUTHORIZATION, auth_value);
+            client_builder = client_builder.default_headers(headers);
+        }
+
+        let client = client_builder
+            .build()
+            .map_err(|e| TorshError::IoError(format!("Failed to build HTTP client: {}", e)))?;
+
+        let response = client
+            .get(&url)
+            .send()
+            .map_err(|e| TorshError::IoError(format!("HTTP request failed for {url}: {e}")))?;
+
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Err(TorshError::InvalidArgument(format!(
+                "Model '{}' not found on HuggingFace Hub",
+                model_id
+            )));
+        }
+
+        if !response.status().is_success() {
+            return Err(TorshError::IoError(format!(
+                "HuggingFace API returned {} for model '{}'",
+                response.status(),
+                model_id
+            )));
+        }
+
+        let info: HfModelInfo = response
+            .json()
+            .map_err(|e| TorshError::SerializationError(format!("Failed to parse model info: {}", e)))?;
+
+        Ok(info)
     }
 
     /// Download model from HuggingFace Hub
@@ -144,23 +190,81 @@ impl HuggingFaceHub {
         Ok(())
     }
 
-    /// Download a specific file
+    /// Download a specific file from a model repository.
+    ///
+    /// Streams the file from HuggingFace Hub to `local_path`, creating any
+    /// missing parent directories.  Skips the download if the file already
+    /// exists at `local_path`.
     fn download_file(
         &self,
         model_id: &str,
         filename: &str,
         revision: &str,
-        _local_path: &PathBuf,
+        local_path: &PathBuf,
     ) -> Result<()> {
-        let _url = format!(
+        // Skip if already cached
+        if local_path.exists() {
+            return Ok(());
+        }
+
+        let url = format!(
             "{}/{}/resolve/{}/{}",
             self.api_url, model_id, revision, filename
         );
 
-        // Placeholder: Implement actual file download
-        Err(TorshError::NotImplemented(
-            "File download not yet implemented".to_string(),
-        ))
+        // Build the HTTP client
+        let mut client_builder = BlockingClient::builder()
+            .user_agent(&self.user_agent)
+            .timeout(std::time::Duration::from_secs(self.timeout));
+
+        if let Some(ref token) = self.token {
+            let mut headers = reqwest::header::HeaderMap::new();
+            let auth_value = reqwest::header::HeaderValue::from_str(
+                &format!("Bearer {}", token),
+            )
+            .map_err(|e| TorshError::InvalidArgument(format!("Invalid token: {}", e)))?;
+            headers.insert(reqwest::header::AUTHORIZATION, auth_value);
+            client_builder = client_builder.default_headers(headers);
+        }
+
+        let client = client_builder
+            .build()
+            .map_err(|e| TorshError::IoError(format!("Failed to build HTTP client: {}", e)))?;
+
+        // Create parent directories
+        if let Some(parent) = local_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+
+        // Stream the download to a temporary file, then rename atomically
+        let tmp_path = local_path.with_extension("tmp");
+
+        let response = client
+            .get(&url)
+            .send()
+            .map_err(|e| TorshError::IoError(format!("HTTP request failed for {url}: {e}")))?;
+
+        if !response.status().is_success() {
+            return Err(TorshError::IoError(format!(
+                "Failed to download {} from HuggingFace: HTTP {}",
+                url,
+                response.status()
+            )));
+        }
+
+        let bytes = response
+            .bytes()
+            .map_err(|e| TorshError::IoError(format!("Failed to read response bytes: {}", e)))?;
+
+        {
+            let mut file = std::fs::File::create(&tmp_path)?;
+            file.write_all(&bytes)?;
+        }
+
+        // Atomic rename
+        std::fs::rename(&tmp_path, local_path)?;
+
+        Ok(())
     }
 
     /// List files in a model repository

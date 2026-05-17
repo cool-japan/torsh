@@ -115,33 +115,48 @@ impl ParameterConstraint {
     /// # Returns
     /// * `Result<()>` - Success or error
     pub fn apply(&self, parameter: &Parameter) -> Result<()> {
-        let tensor = parameter.tensor();
-        let _data = tensor.write();
+        let tensor_arc = parameter.tensor();
 
         match self {
             ParameterConstraint::ClampRange { min, max } => {
-                // Would clamp values to [min, max]
-                let _ = (min, max);
-                // TODO: Implement when tensor supports clamp
+                let clamped = tensor_arc.read().clamp(*min, *max)?;
+                *tensor_arc.write() = clamped;
                 Ok(())
             }
             ParameterConstraint::NonNegative => {
-                // Would set negative values to 0
-                // TODO: Implement when tensor supports element-wise operations
+                // ReLU: set negative values to 0
+                let non_neg = tensor_arc.read().relu()?;
+                *tensor_arc.write() = non_neg;
                 Ok(())
             }
             ParameterConstraint::UnitNorm => {
-                // Would normalize to unit norm
-                // TODO: Implement when tensor supports normalization
+                // Normalize so that the L2 norm equals 1
+                let norm_tensor = tensor_arc.read().norm()?;
+                let norm_val = norm_tensor.item()?;
+                if norm_val.abs() < 1e-12 {
+                    return Err(TorshError::InvalidArgument(
+                        "Cannot normalize parameter with zero norm".to_string(),
+                    ));
+                }
+                let normalized = tensor_arc.read().div_scalar(norm_val)?;
+                *tensor_arc.write() = normalized;
                 Ok(())
             }
             ParameterConstraint::Probability => {
-                // Would clamp to [0, 1] and normalize
-                // TODO: Implement when tensor supports operations
+                // First clamp to [0, 1], then normalize so values sum to 1
+                let clamped = tensor_arc.read().clamp(0.0_f32, 1.0_f32)?;
+                let total = clamped.to_vec()?.iter().sum::<f32>();
+                if total < 1e-12 {
+                    return Err(TorshError::InvalidArgument(
+                        "Cannot normalize probability parameter with zero sum".to_string(),
+                    ));
+                }
+                let normalized = clamped.div_scalar(total)?;
+                *tensor_arc.write() = normalized;
                 Ok(())
             }
             ParameterConstraint::Custom { name: _ } => {
-                // Custom constraints would be implemented by users
+                // Custom constraints are implemented by users
                 Ok(())
             }
         }
@@ -306,13 +321,21 @@ impl ParameterExt for Parameter {
     }
 
     fn grad_norm(&self) -> Result<f32> {
-        // TODO: Implement when gradient support is available
-        Ok(0.0)
+        let tensor = self.tensor();
+        let data_guard = tensor.read();
+        match data_guard.grad() {
+            Some(grad_tensor) => {
+                let norm_tensor = grad_tensor.norm()?;
+                norm_tensor.item()
+            }
+            None => Ok(0.0),
+        }
     }
 
     fn has_grad(&self) -> bool {
-        // TODO: Implement when gradient support is available
-        false
+        let tensor = self.tensor();
+        let data_guard = tensor.read();
+        data_guard.has_grad()
     }
 
     fn to_vec(&self) -> Result<Vec<f32>> {

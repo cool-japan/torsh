@@ -33,7 +33,7 @@ pub trait Transform: Send + Sync {
 /// # Examples
 ///
 /// ```rust
-/// use torsh_vision::transforms::{Compose, Resize, Normalize};
+/// use torsh_vision::transforms::{Compose, Resize, Normalize, Transform};
 ///
 /// let transforms = vec![
 ///     Box::new(Resize::new((224, 224))) as Box<dyn Transform>,
