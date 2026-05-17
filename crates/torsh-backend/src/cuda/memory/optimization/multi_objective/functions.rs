@@ -2,7 +2,6 @@
 //!
 //! 🤖 Generated with [SplitRS](https://github.com/cool-japan/splitrs)
 
-
 #[cfg(test)]
 mod tests {
     use super::super::*;
@@ -10,7 +9,7 @@ mod tests {
     #[test]
     fn test_multi_objective_optimizer_creation() {
         let optimizer = MultiObjectiveOptimizer::new();
-        assert!(! optimizer.algorithms.is_empty());
+        assert!(!optimizer.algorithms.is_empty());
         assert!(optimizer.algorithms.contains_key("NSGA2"));
         assert!(optimizer.algorithms.contains_key("NSGA3"));
         assert!(optimizer.algorithms.contains_key("SPEA2"));
@@ -18,7 +17,10 @@ mod tests {
     #[test]
     fn test_algorithm_configuration() {
         let optimizer = MultiObjectiveOptimizer::new();
-        let nsga2 = optimizer.algorithms.get("NSGA2").expect("element retrieval should succeed for valid index");
+        let nsga2 = optimizer
+            .algorithms
+            .get("NSGA2")
+            .expect("element retrieval should succeed for valid index");
         assert_eq!(nsga2.algorithm_type, MOAlgorithmType::NSGA2);
         assert_eq!(nsga2.population_size, 100);
         assert_eq!(nsga2.max_generations, 500);
@@ -50,7 +52,7 @@ mod tests {
         };
         optimizer.population = vec![ind1, ind2];
         assert!(optimizer.dominates(0, 1));
-        assert!(! optimizer.dominates(1, 0));
+        assert!(!optimizer.dominates(1, 0));
     }
     #[test]
     fn test_population_initialization() {
@@ -97,28 +99,34 @@ mod tests {
             individual.objectives[1] = (10 - i) as f64;
             individual.rank = if i < 5 { 0 } else { 1 };
         }
-        let pareto_solutions = optimizer.extract_pareto_front().expect("Pareto front extraction should succeed");
+        let pareto_solutions = optimizer
+            .extract_pareto_front()
+            .expect("Pareto front extraction should succeed");
         assert_eq!(pareto_solutions.len(), 5);
         for solution in pareto_solutions {
             assert_eq!(solution.rank, 0);
-            assert!(! solution.parameters.is_empty());
-            assert!(! solution.objectives.is_empty());
+            assert!(!solution.parameters.is_empty());
+            assert!(!solution.objectives.is_empty());
         }
     }
     #[test]
     fn test_convergence_detection() {
         let mut optimizer = MultiObjectiveOptimizer::new();
-        let algorithm = optimizer.algorithms.get("NSGA2").expect("element retrieval should succeed for valid index").clone();
+        let algorithm = optimizer
+            .algorithms
+            .get("NSGA2")
+            .expect("element retrieval should succeed for valid index")
+            .clone();
         let mut algorithm_short = algorithm.clone();
         algorithm_short.convergence_criteria.max_generations = 5;
-        assert!(optimizer.check_convergence(5, & algorithm_short));
-        assert!(! optimizer.check_convergence(3, & algorithm_short));
+        assert!(optimizer.check_convergence(5, &algorithm_short));
+        assert!(!optimizer.check_convergence(3, &algorithm_short));
         let mut algorithm_hv = algorithm.clone();
         algorithm_hv.convergence_criteria.target_hypervolume = Some(0.5);
         optimizer.performance_metrics.hypervolume = 0.6;
-        assert!(optimizer.check_convergence(10, & algorithm_hv));
+        assert!(optimizer.check_convergence(10, &algorithm_hv));
         optimizer.performance_metrics.hypervolume = 0.3;
-        assert!(! optimizer.check_convergence(10, & algorithm_hv));
+        assert!(!optimizer.check_convergence(10, &algorithm_hv));
     }
     #[test]
     fn test_algorithm_management() {
@@ -142,13 +150,13 @@ mod tests {
         let removed = optimizer.remove_algorithm("Custom");
         assert!(removed.is_some());
         assert_eq!(optimizer.list_algorithms().len(), initial_count);
-        assert!(! optimizer.algorithms.contains_key("Custom"));
+        assert!(!optimizer.algorithms.contains_key("Custom"));
     }
     #[test]
     fn test_crossover_operation() {
         let optimizer = MultiObjectiveOptimizer::new();
         let parent1 = Individual {
-            genotype: vec![0.5, - 0.5, 0.0],
+            genotype: vec![0.5, -0.5, 0.0],
             phenotype: HashMap::new(),
             objectives: vec![1.0, 2.0],
             constraints: Vec::new(),
@@ -158,7 +166,7 @@ mod tests {
             age: 0,
         };
         let parent2 = Individual {
-            genotype: vec![- 0.5, 0.5, 1.0],
+            genotype: vec![-0.5, 0.5, 1.0],
             phenotype: HashMap::new(),
             objectives: vec![2.0, 1.0],
             constraints: Vec::new(),
@@ -171,10 +179,10 @@ mod tests {
         assert_eq!(child1.genotype.len(), 3);
         assert_eq!(child2.genotype.len(), 3);
         for &gene in &child1.genotype {
-            assert!(gene >= - 1.0 && gene <= 1.0);
+            assert!(gene >= -1.0 && gene <= 1.0);
         }
         for &gene in &child2.genotype {
-            assert!(gene >= - 1.0 && gene <= 1.0);
+            assert!(gene >= -1.0 && gene <= 1.0);
         }
     }
     #[test]
@@ -192,6 +200,6 @@ mod tests {
         for &selected in &selections {
             assert!(selected < optimizer.population.len());
         }
-        assert!(! selections.is_empty());
+        assert!(!selections.is_empty());
     }
 }

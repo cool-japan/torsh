@@ -157,19 +157,25 @@ pub struct AnalyticsDashboard {
 #[derive(Debug, Default)]
 pub struct CompatibilityMatrix;
 impl CompatibilityMatrix {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 }
 #[derive(Debug, Default)]
 pub struct StrategyVersionControl;
 impl StrategyVersionControl {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 }
 #[derive(Debug, Default)]
 pub struct StrategyTemplate;
 #[derive(Debug, Default)]
 pub struct CustomStrategyBuilder;
 impl CustomStrategyBuilder {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 }
 #[derive(Debug, Default)]
 pub struct StrategyImportExportManager;
@@ -449,7 +455,10 @@ impl StrategyPerformanceTracker {
         Ok(())
     }
 
-    pub fn record_execution(&mut self, _result: &StrategyExecutionResult) -> Result<(), StrategyError> {
+    pub fn record_execution(
+        &mut self,
+        _result: &StrategyExecutionResult,
+    ) -> Result<(), StrategyError> {
         Ok(())
     }
 
@@ -537,10 +546,7 @@ impl StrategyValidationFramework {
         Self
     }
 
-    pub fn validate_strategy(
-        &self,
-        _strategy: &OptimizationStrategy,
-    ) -> Result<(), StrategyError> {
+    pub fn validate_strategy(&self, _strategy: &OptimizationStrategy) -> Result<(), StrategyError> {
         Ok(())
     }
 

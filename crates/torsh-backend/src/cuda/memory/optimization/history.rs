@@ -4,10 +4,10 @@
 //! including long-term data storage, archival, compression, querying, analytics, and trend analysis
 //! for optimization performance tracking and decision making.
 
+use chrono;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
-use chrono;
 
 // Import types from config module
 use super::config::{HistoryStorageConfig, TrendAnalysisConfig};
@@ -15,16 +15,17 @@ use super::config::{HistoryStorageConfig, TrendAnalysisConfig};
 // Import types from monitoring module
 use super::monitoring::{
     AnomalyAnalysis, AnomalyIndicator, ApprovalStatus, BackupInformation, BaselineComparison,
-    BenchmarkComparisons, ChangeMetadata, ChangeReason, ChangeValidationResults, CorrelationAnalysis,
-    CorrelationData, DataCollectionMethod, DataSource, EnrichmentData, ErrorInfo, ErrorPatterns,
-    ErrorRecord, ExecutionBenchmarks, ExecutionContext, ExecutionMetadata, ExecutionQualityMetrics,
-    ExecutionStatus, FrequencyPatterns, FutureImplications, HistoryIndex, HistoryQualityMetrics,
-    ImpactAssessment, KnowledgeGained, MeasurementUncertainty, MilestoneValidationMetrics,
-    OptimizationResults, OptimizationSession, ParameterTuningRecord, PerformanceImpact,
-    PredictiveInsights, QualityOfServiceMetrics, ReproducibilityInfo, ResourceUsage,
-    ResourceUtilization, ResourceUtilizationPatterns, RetentionStatus, ROIAnalysis, RollbackInfo,
-    SeasonalPatterns, StorageStatistics, SystemState, TrendAnalysis, UserFeedback,
-    ValidationResults, ValidationStatus,
+    BenchmarkComparisons, ChangeMetadata, ChangeReason, ChangeValidationResults,
+    CorrelationAnalysis, CorrelationData, DataCollectionMethod, DataSource, EnrichmentData,
+    ErrorInfo, ErrorPatterns, ErrorRecord, ExecutionBenchmarks, ExecutionContext,
+    ExecutionMetadata, ExecutionQualityMetrics, ExecutionStatus, FrequencyPatterns,
+    FutureImplications, HistoryIndex, HistoryQualityMetrics, ImpactAssessment, KnowledgeGained,
+    MeasurementUncertainty, MilestoneValidationMetrics, OptimizationResults, OptimizationSession,
+    ParameterTuningRecord, PerformanceImpact, PredictiveInsights, QualityOfServiceMetrics,
+    ROIAnalysis, ReproducibilityInfo, ResourceUsage, ResourceUtilization,
+    ResourceUtilizationPatterns, RetentionStatus, RollbackInfo, SeasonalPatterns,
+    StorageStatistics, SystemState, TrendAnalysis, UserFeedback, ValidationResults,
+    ValidationStatus,
 };
 
 // ============================================================================
@@ -39,8 +40,14 @@ impl DataCompressionSystem {
     fn new(_config: CompressionConfig) -> Self {
         Self {}
     }
-    fn initialize(&mut self) -> Result<(), HistoryError> { Ok(()) }
-    fn compress_data(&mut self, _config: CompressionConfig, _storage: &mut HistoryStorage) -> Result<CompressionResult, HistoryError> {
+    fn initialize(&mut self) -> Result<(), HistoryError> {
+        Ok(())
+    }
+    fn compress_data(
+        &mut self,
+        _config: CompressionConfig,
+        _storage: &mut HistoryStorage,
+    ) -> Result<CompressionResult, HistoryError> {
         Ok(CompressionResult::default())
     }
 }
@@ -53,7 +60,9 @@ impl HistoryQuerySystem {
     fn new(_config: QueryConfig) -> Self {
         Self {}
     }
-    fn initialize(&mut self) -> Result<(), HistoryError> { Ok(()) }
+    fn initialize(&mut self) -> Result<(), HistoryError> {
+        Ok(())
+    }
     fn execute_query(&self, _query: HistoryQuery) -> Result<HistoryQueryResult, HistoryError> {
         Ok(HistoryQueryResult::default())
     }
@@ -67,7 +76,9 @@ impl DataMigrationSystem {
     fn new(_config: MigrationConfig) -> Self {
         Self {}
     }
-    fn initialize(&mut self) -> Result<(), HistoryError> { Ok(()) }
+    fn initialize(&mut self) -> Result<(), HistoryError> {
+        Ok(())
+    }
 }
 
 /// Data retention manager (stub implementation)
@@ -78,11 +89,19 @@ impl DataRetentionManager {
     fn new(_config: RetentionConfig) -> Self {
         Self {}
     }
-    fn initialize(&mut self) -> Result<(), HistoryError> { Ok(()) }
-    fn apply_policies(&mut self, _storage: &mut HistoryStorage) -> Result<RetentionResult, HistoryError> {
+    fn initialize(&mut self) -> Result<(), HistoryError> {
+        Ok(())
+    }
+    fn apply_policies(
+        &mut self,
+        _storage: &mut HistoryStorage,
+    ) -> Result<RetentionResult, HistoryError> {
         Ok(RetentionResult::default())
     }
-    fn identify_archival_candidates(&self, _storage: &HistoryStorage) -> Result<ArchivalCandidates, HistoryError> {
+    fn identify_archival_candidates(
+        &self,
+        _storage: &HistoryStorage,
+    ) -> Result<ArchivalCandidates, HistoryError> {
         Ok(ArchivalCandidates::default())
     }
 }
@@ -95,13 +114,34 @@ impl HistoryValidationSystem {
     fn new(_config: ValidationConfig) -> Self {
         Self {}
     }
-    fn initialize(&mut self) -> Result<(), HistoryError> { Ok(()) }
-    fn validate_execution(&self, _execution: &StrategyExecution) -> Result<(), HistoryError> { Ok(()) }
-    fn validate_performance(&self, _performance: &HistoricalPerformance) -> Result<(), HistoryError> { Ok(()) }
-    fn validate_configuration_change(&self, _change: &ConfigurationChange) -> Result<(), HistoryError> { Ok(()) }
-    fn validate_milestone(&self, _milestone: &LearningMilestone) -> Result<(), HistoryError> { Ok(()) }
-    fn validate_query(&self, _query: &HistoryQuery) -> Result<(), HistoryError> { Ok(()) }
-    fn validate_data_integrity(&self, _storage: &HistoryStorage) -> Result<IntegrityValidationResult, HistoryError> {
+    fn initialize(&mut self) -> Result<(), HistoryError> {
+        Ok(())
+    }
+    fn validate_execution(&self, _execution: &StrategyExecution) -> Result<(), HistoryError> {
+        Ok(())
+    }
+    fn validate_performance(
+        &self,
+        _performance: &HistoricalPerformance,
+    ) -> Result<(), HistoryError> {
+        Ok(())
+    }
+    fn validate_configuration_change(
+        &self,
+        _change: &ConfigurationChange,
+    ) -> Result<(), HistoryError> {
+        Ok(())
+    }
+    fn validate_milestone(&self, _milestone: &LearningMilestone) -> Result<(), HistoryError> {
+        Ok(())
+    }
+    fn validate_query(&self, _query: &HistoryQuery) -> Result<(), HistoryError> {
+        Ok(())
+    }
+    fn validate_data_integrity(
+        &self,
+        _storage: &HistoryStorage,
+    ) -> Result<IntegrityValidationResult, HistoryError> {
         Ok(IntegrityValidationResult::default())
     }
 }
@@ -114,11 +154,21 @@ impl HistoryExportImportSystem {
     fn new(_config: ExportImportConfig) -> Self {
         Self {}
     }
-    fn initialize(&mut self) -> Result<(), HistoryError> { Ok(()) }
-    fn export_data(&self, _config: HistoryExportConfig, _storage: &HistoryStorage) -> Result<HistoryExportResult, HistoryError> {
+    fn initialize(&mut self) -> Result<(), HistoryError> {
+        Ok(())
+    }
+    fn export_data(
+        &self,
+        _config: HistoryExportConfig,
+        _storage: &HistoryStorage,
+    ) -> Result<HistoryExportResult, HistoryError> {
         Ok(HistoryExportResult::default())
     }
-    fn import_data(&self, _data: HistoryImportData, _storage: &mut HistoryStorage) -> Result<HistoryImportResult, HistoryError> {
+    fn import_data(
+        &self,
+        _data: HistoryImportData,
+        _storage: &mut HistoryStorage,
+    ) -> Result<HistoryImportResult, HistoryError> {
         Ok(HistoryImportResult::default())
     }
 }
@@ -131,8 +181,13 @@ impl HistoricalTrendAnalyzer {
     fn new(_config: TrendConfig) -> Self {
         Self {}
     }
-    fn initialize(&mut self) -> Result<(), HistoryError> { Ok(()) }
-    fn analyze_trends(&self, _config: TrendAnalysisConfig) -> Result<TrendAnalysisResult, HistoryError> {
+    fn initialize(&mut self) -> Result<(), HistoryError> {
+        Ok(())
+    }
+    fn analyze_trends(
+        &self,
+        _config: TrendAnalysisConfig,
+    ) -> Result<TrendAnalysisResult, HistoryError> {
         Ok(TrendAnalysisResult::default())
     }
 }
@@ -145,8 +200,14 @@ impl HistoryVisualizationSystem {
     fn new(_config: VisualizationConfig) -> Self {
         Self {}
     }
-    fn initialize(&mut self) -> Result<(), HistoryError> { Ok(()) }
-    fn generate_visualizations(&self, _config: VisualizationConfig, _storage: &HistoryStorage) -> Result<VisualizationResult, HistoryError> {
+    fn initialize(&mut self) -> Result<(), HistoryError> {
+        Ok(())
+    }
+    fn generate_visualizations(
+        &self,
+        _config: VisualizationConfig,
+        _storage: &HistoryStorage,
+    ) -> Result<VisualizationResult, HistoryError> {
         Ok(VisualizationResult::default())
     }
 }
@@ -159,9 +220,18 @@ impl HistoryPerformanceTracker {
     fn new(_config: PerformanceConfig) -> Self {
         Self {}
     }
-    fn initialize(&mut self) -> Result<(), HistoryError> { Ok(()) }
-    fn update_tracking(&mut self, _performance: &HistoricalPerformance) -> Result<(), HistoryError> { Ok(()) }
-    fn generate_impact_report(&self) -> PerformanceImpactReport { PerformanceImpactReport::default() }
+    fn initialize(&mut self) -> Result<(), HistoryError> {
+        Ok(())
+    }
+    fn update_tracking(
+        &mut self,
+        _performance: &HistoricalPerformance,
+    ) -> Result<(), HistoryError> {
+        Ok(())
+    }
+    fn generate_impact_report(&self) -> PerformanceImpactReport {
+        PerformanceImpactReport::default()
+    }
 }
 
 /// Archival candidates (stub implementation)
@@ -169,7 +239,9 @@ impl HistoryPerformanceTracker {
 pub struct ArchivalCandidates {}
 
 impl ArchivalCandidates {
-    pub fn is_empty(&self) -> bool { true }
+    pub fn is_empty(&self) -> bool {
+        true
+    }
 }
 
 /// History query with optional time range, limit, and strategy filters
@@ -842,8 +914,13 @@ impl DataArchivalSystem {
             cost_optimizer: ArchiveCostOptimizer::new(),
         }
     }
-    fn initialize(&mut self) -> Result<(), HistoryError> { Ok(()) }
-    fn archive_data(&mut self, _candidates: ArchivalCandidates) -> Result<ArchiveResult, HistoryError> {
+    fn initialize(&mut self) -> Result<(), HistoryError> {
+        Ok(())
+    }
+    fn archive_data(
+        &mut self,
+        _candidates: ArchivalCandidates,
+    ) -> Result<ArchiveResult, HistoryError> {
         Ok(ArchiveResult::default())
     }
 }
@@ -888,13 +965,42 @@ impl HistoricalAnalyticsEngine {
             ab_test_analyzer: ABTestAnalysisEngine::default(),
         }
     }
-    fn initialize(&mut self) -> Result<(), HistoryError> { Ok(()) }
-    fn update_with_execution(&mut self, _execution: &StrategyExecution) -> Result<(), HistoryError> { Ok(()) }
-    fn update_with_performance(&mut self, _performance: &HistoricalPerformance) -> Result<(), HistoryError> { Ok(()) }
-    fn update_with_configuration_change(&mut self, _change: &ConfigurationChange) -> Result<(), HistoryError> { Ok(()) }
-    fn update_with_milestone(&mut self, _milestone: &LearningMilestone) -> Result<(), HistoryError> { Ok(()) }
-    fn generate_comprehensive_analytics(&self, _timeframe: TimeFrame) -> Result<HistoryAnalytics, HistoryError> {
-        use super::monitoring::{ResourceUtilizationPatterns, FrequencyPatterns, ErrorPatterns, SeasonalPatterns, PredictiveInsights, BenchmarkComparisons, ROIAnalysis, CorrelationAnalysis, AnomalyAnalysis};
+    fn initialize(&mut self) -> Result<(), HistoryError> {
+        Ok(())
+    }
+    fn update_with_execution(
+        &mut self,
+        _execution: &StrategyExecution,
+    ) -> Result<(), HistoryError> {
+        Ok(())
+    }
+    fn update_with_performance(
+        &mut self,
+        _performance: &HistoricalPerformance,
+    ) -> Result<(), HistoryError> {
+        Ok(())
+    }
+    fn update_with_configuration_change(
+        &mut self,
+        _change: &ConfigurationChange,
+    ) -> Result<(), HistoryError> {
+        Ok(())
+    }
+    fn update_with_milestone(
+        &mut self,
+        _milestone: &LearningMilestone,
+    ) -> Result<(), HistoryError> {
+        Ok(())
+    }
+    fn generate_comprehensive_analytics(
+        &self,
+        _timeframe: TimeFrame,
+    ) -> Result<HistoryAnalytics, HistoryError> {
+        use super::monitoring::{
+            AnomalyAnalysis, BenchmarkComparisons, CorrelationAnalysis, ErrorPatterns,
+            FrequencyPatterns, PredictiveInsights, ROIAnalysis, ResourceUtilizationPatterns,
+            SeasonalPatterns,
+        };
         Ok(HistoryAnalytics {
             success_trends: HashMap::new(),
             improvement_trends: HashMap::new(),
@@ -910,10 +1016,24 @@ impl HistoricalAnalyticsEngine {
             anomaly_analysis: AnomalyAnalysis::default(),
         })
     }
-    fn handle_data_archival(&mut self, _result: &ArchiveResult) -> Result<(), HistoryError> { Ok(()) }
-    fn handle_retention_cleanup(&mut self, _result: &RetentionResult) -> Result<(), HistoryError> { Ok(()) }
-    fn analyze_configuration_impact(&mut self, _change: &ConfigurationChange) -> Result<(), HistoryError> { Ok(()) }
-    fn generate_milestone_insights(&mut self, _milestone: &LearningMilestone) -> Result<(), HistoryError> { Ok(()) }
+    fn handle_data_archival(&mut self, _result: &ArchiveResult) -> Result<(), HistoryError> {
+        Ok(())
+    }
+    fn handle_retention_cleanup(&mut self, _result: &RetentionResult) -> Result<(), HistoryError> {
+        Ok(())
+    }
+    fn analyze_configuration_impact(
+        &mut self,
+        _change: &ConfigurationChange,
+    ) -> Result<(), HistoryError> {
+        Ok(())
+    }
+    fn generate_milestone_insights(
+        &mut self,
+        _milestone: &LearningMilestone,
+    ) -> Result<(), HistoryError> {
+        Ok(())
+    }
 }
 
 impl OptimizationHistoryManager {
@@ -1593,10 +1713,22 @@ impl HistoryStorage {
 
     /// Get storage statistics
     pub fn get_statistics(&self) -> StorageStatistics {
-        let strategy_history = self.strategy_history.read().expect("lock should not be poisoned");
-        let performance_evolution = self.performance_evolution.read().expect("lock should not be poisoned");
-        let configuration_changes = self.configuration_changes.read().expect("lock should not be poisoned");
-        let learning_milestones = self.learning_milestones.read().expect("lock should not be poisoned");
+        let strategy_history = self
+            .strategy_history
+            .read()
+            .expect("lock should not be poisoned");
+        let performance_evolution = self
+            .performance_evolution
+            .read()
+            .expect("lock should not be poisoned");
+        let configuration_changes = self
+            .configuration_changes
+            .read()
+            .expect("lock should not be poisoned");
+        let learning_milestones = self
+            .learning_milestones
+            .read()
+            .expect("lock should not be poisoned");
 
         StorageStatistics {
             total_strategy_executions: strategy_history.values().map(|v| v.len()).sum(),

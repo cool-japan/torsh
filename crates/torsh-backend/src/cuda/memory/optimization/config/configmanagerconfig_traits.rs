@@ -28,4 +28,3 @@ impl Default for ConfigManagerConfig {
         }
     }
 }
-

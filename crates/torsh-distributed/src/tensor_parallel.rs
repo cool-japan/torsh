@@ -504,17 +504,50 @@ impl TensorParallel {
 
         debug!("Performing SIMD-optimized forward pass");
 
-        // Use SciRS2 SIMD operations for matrix multiplication
         match (input.dtype(), weights.dtype()) {
             (torsh_core::DType::F32, torsh_core::DType::F32) => {
-                // TODO: Implement proper SIMD matrix multiplication using scirs2_core::simd_ops
-                // For now, use standard forward pass
-                self.standard_forward(input, weights)
+                let input_shape_owned = input.shape();
+                let weights_shape_owned = weights.shape();
+                let input_dims = input_shape_owned.dims();
+                let weights_dims = weights_shape_owned.dims();
+                if input_dims.len() == 2
+                    && weights_dims.len() == 2
+                    && input_dims[1] == weights_dims[0]
+                {
+                    let m = input_dims[0];
+                    let k = input_dims[1];
+                    let n = weights_dims[1];
+                    let a_data = input.to_vec().map_err(|e| {
+                        TorshDistributedError::InternalError(format!(
+                            "failed to materialize input data: {e}"
+                        ))
+                    })?;
+                    let b_data = weights.to_vec().map_err(|e| {
+                        TorshDistributedError::InternalError(format!(
+                            "failed to materialize weights data: {e}"
+                        ))
+                    })?;
+                    let mut c_data = vec![0.0f32; m * n];
+                    scirs2_core::simd_ops::simd_matrix_multiply_f32(
+                        m,
+                        k,
+                        n,
+                        1.0,
+                        &a_data,
+                        &b_data,
+                        0.0,
+                        &mut c_data,
+                    );
+                    Tensor::from_vec(c_data, &[m, n]).map_err(|e| {
+                        TorshDistributedError::InternalError(format!(
+                            "failed to build matmul output tensor: {e}"
+                        ))
+                    })
+                } else {
+                    self.standard_forward(input, weights)
+                }
             }
-            _ => {
-                // Fallback to standard operations for unsupported dtypes
-                self.standard_forward(input, weights)
-            }
+            _ => self.standard_forward(input, weights),
         }
     }
 

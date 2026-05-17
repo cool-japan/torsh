@@ -928,7 +928,9 @@ impl PerformancePredictor {
 
     // Private helper methods
 
-    fn initialize_feature_extractors(_config: &PredictorConfig) -> Vec<PerformanceFeatureExtractor> {
+    fn initialize_feature_extractors(
+        _config: &PredictorConfig,
+    ) -> Vec<PerformanceFeatureExtractor> {
         vec![
             PerformanceFeatureExtractor::new("statistical", PerformanceFeatureType::Statistical),
             PerformanceFeatureExtractor::new("temporal", PerformanceFeatureType::Temporal),
@@ -1038,7 +1040,10 @@ impl PerformancePredictor {
         strategy_id: &str,
         horizon: Duration,
     ) -> Option<CachedPrediction> {
-        let cache = self.prediction_cache.read().expect("lock should not be poisoned");
+        let cache = self
+            .prediction_cache
+            .read()
+            .expect("lock should not be poisoned");
         let cache_key = format!("{}_{:?}", strategy_id, horizon);
 
         if let Some(cached) = cache.get(&cache_key) {
@@ -1145,7 +1150,10 @@ impl PerformancePredictor {
             metadata: HashMap::new(),
         };
 
-        let mut cache = self.prediction_cache.write().expect("lock should not be poisoned");
+        let mut cache = self
+            .prediction_cache
+            .write()
+            .expect("lock should not be poisoned");
         cache.insert(cache_key, cached_prediction);
 
         Ok(())
@@ -1873,7 +1881,11 @@ impl TrendAnalyzer {
         Ok(0.1)
     }
 
-    fn predict_volatility(&self, _metric: &str, _horizon: Duration) -> Result<f32, PredictionError> {
+    fn predict_volatility(
+        &self,
+        _metric: &str,
+        _horizon: Duration,
+    ) -> Result<f32, PredictionError> {
         Ok(0.1)
     }
 

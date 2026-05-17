@@ -744,13 +744,19 @@ impl FaultToleranceManager {
     ) -> Result<FailureHandlingResult, FaultToleranceError> {
         // Detect and classify the failure
         let failure_classification = {
-            let mut detector = self.failure_detector.lock().expect("lock should not be poisoned");
+            let mut detector = self
+                .failure_detector
+                .lock()
+                .expect("lock should not be poisoned");
             detector.classify_failure(&failure)?
         };
 
         // Check if retry is appropriate
         let retry_decision = {
-            let mut retry_manager = self.retry_manager.lock().expect("lock should not be poisoned");
+            let mut retry_manager = self
+                .retry_manager
+                .lock()
+                .expect("lock should not be poisoned");
             retry_manager.should_retry(task_id, &failure_classification)?
         };
 
@@ -763,7 +769,10 @@ impl FaultToleranceManager {
             RetryDecision::NoRetry(reason) => {
                 // Initiate recovery if possible
                 let recovery_result = {
-                    let mut recovery = self.recovery_orchestrator.lock().expect("lock should not be poisoned");
+                    let mut recovery = self
+                        .recovery_orchestrator
+                        .lock()
+                        .expect("lock should not be poisoned");
                     recovery.attempt_recovery(&failure_classification)?
                 };
 
@@ -786,7 +795,10 @@ impl FaultToleranceManager {
         task_id: TaskId,
         state_data: Vec<u8>,
     ) -> Result<String, FaultToleranceError> {
-        let mut checkpoint_manager = self.checkpoint_manager.lock().expect("lock should not be poisoned");
+        let mut checkpoint_manager = self
+            .checkpoint_manager
+            .lock()
+            .expect("lock should not be poisoned");
         let checkpoint_id = checkpoint_manager.create_checkpoint(task_id, state_data)?;
 
         // Update statistics
@@ -804,7 +816,10 @@ impl FaultToleranceManager {
         task_id: TaskId,
         checkpoint_id: &str,
     ) -> Result<Vec<u8>, FaultToleranceError> {
-        let mut checkpoint_manager = self.checkpoint_manager.lock().expect("lock should not be poisoned");
+        let mut checkpoint_manager = self
+            .checkpoint_manager
+            .lock()
+            .expect("lock should not be poisoned");
         let state_data = checkpoint_manager.restore_checkpoint(task_id, checkpoint_id)?;
 
         // Update statistics
@@ -818,7 +833,10 @@ impl FaultToleranceManager {
 
     /// Get current system health status
     pub fn get_system_health(&self) -> SystemHealthStatus {
-        let health_monitor = self.health_monitor.lock().expect("lock should not be poisoned");
+        let health_monitor = self
+            .health_monitor
+            .lock()
+            .expect("lock should not be poisoned");
         health_monitor.get_current_health_status()
     }
 
@@ -830,7 +848,11 @@ impl FaultToleranceManager {
 
     // === Private Helper Methods ===
 
-    fn schedule_retry(&self, _task_id: TaskId, _delay: Duration) -> Result<(), FaultToleranceError> {
+    fn schedule_retry(
+        &self,
+        _task_id: TaskId,
+        _delay: Duration,
+    ) -> Result<(), FaultToleranceError> {
         // Implementation would schedule the retry with appropriate delay
         Ok(())
     }
@@ -839,7 +861,10 @@ impl FaultToleranceManager {
         &self,
         failure: &FailureClassification,
     ) -> Result<(), FaultToleranceError> {
-        let mut circuit_breakers = self.circuit_breaker_manager.lock().expect("lock should not be poisoned");
+        let mut circuit_breakers = self
+            .circuit_breaker_manager
+            .lock()
+            .expect("lock should not be poisoned");
         circuit_breakers.record_failure(&failure.component, &failure.failure_type)?;
         Ok(())
     }
@@ -946,19 +971,25 @@ impl RetryManager {
         if !self.active_retries.contains_key(&task_id) {
             let strategy = self.determine_retry_strategy(&failure.failure_type);
             let max_attempts = self.config.max_retries;
-            self.active_retries.insert(task_id, RetryContext {
+            self.active_retries.insert(
                 task_id,
-                strategy,
-                attempt_number: 0,
-                max_attempts,
-                next_retry_at: Instant::now(),
-                delay_progression: Vec::new(),
-                failure_reasons: Vec::new(),
-                metadata: HashMap::new(),
-                created_at: Instant::now(),
-            });
+                RetryContext {
+                    task_id,
+                    strategy,
+                    attempt_number: 0,
+                    max_attempts,
+                    next_retry_at: Instant::now(),
+                    delay_progression: Vec::new(),
+                    failure_reasons: Vec::new(),
+                    metadata: HashMap::new(),
+                    created_at: Instant::now(),
+                },
+            );
         }
-        let retry_context = self.active_retries.get_mut(&task_id).expect("just inserted");
+        let retry_context = self
+            .active_retries
+            .get_mut(&task_id)
+            .expect("just inserted");
 
         // Check if we've exceeded maximum attempts
         if retry_context.attempt_number >= retry_context.max_attempts {
@@ -1036,7 +1067,8 @@ impl CircuitBreakerManager {
     ) -> Result<(), FaultToleranceError> {
         if !self.circuit_breakers.contains_key(component) {
             let new_breaker = self.create_circuit_breaker(component);
-            self.circuit_breakers.insert(component.to_string(), new_breaker);
+            self.circuit_breakers
+                .insert(component.to_string(), new_breaker);
         }
         if let Some(circuit_breaker) = self.circuit_breakers.get_mut(component) {
             circuit_breaker.failure_count += 1;
@@ -1050,7 +1082,9 @@ impl CircuitBreakerManager {
                 CircuitBreakerState::Closed if fc >= cb.failure_threshold => {
                     Some((cb.name.clone(), CircuitBreakerState::Open))
                 }
-                CircuitBreakerState::Open if cb.last_state_change.elapsed() > cb.config.recovery_timeout => {
+                CircuitBreakerState::Open
+                    if cb.last_state_change.elapsed() > cb.config.recovery_timeout =>
+                {
                     Some((cb.name.clone(), CircuitBreakerState::HalfOpen))
                 }
                 CircuitBreakerState::HalfOpen if sc >= cb.success_threshold => {
@@ -1070,7 +1104,8 @@ impl CircuitBreakerManager {
                 cb.state = new_state;
                 cb.last_state_change = Instant::now();
             }
-            self.performance_metrics.record_state_change(&name, new_state);
+            self.performance_metrics
+                .record_state_change(&name, new_state);
         }
 
         Ok(())
@@ -1414,35 +1449,53 @@ default_placeholder_type!(RecoveryConditionChecker);
 default_placeholder_type!(CircuitBreakerMetrics);
 
 impl RetryStrategyEngine {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 }
 impl RetryPolicyEnforcer {
-    pub fn new(_config: &RetryConfig) -> Self { Self::default() }
+    pub fn new(_config: &RetryConfig) -> Self {
+        Self::default()
+    }
 }
 impl BackoffCalculator {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
     pub fn calculate_delay(&self, _strategy: &RetryStrategy, _attempt: usize) -> Duration {
         Duration::from_secs(1)
     }
 }
 impl RetryAttemptTracker {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
     pub fn record_attempt(&mut self, _task_id: TaskId, _attempt: usize, _delay: Duration) {}
 }
 impl RetryStatistics {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 }
 impl CircuitBreakerStateMonitor {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 }
 impl FailureThresholdCalculator {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 }
 impl RecoveryConditionChecker {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 }
 impl CircuitBreakerMetrics {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     /// Record a state change in the circuit breaker
     pub fn record_state_change(&mut self, _name: &str, _state: CircuitBreakerState) {
@@ -1490,10 +1543,14 @@ impl FaultToleranceStatistics {
 }
 
 impl FaultToleranceMetricsCollector {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 }
 impl SystemState {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 }
 
 impl RecoveryOrchestrator {
@@ -1509,7 +1566,10 @@ impl RecoveryOrchestrator {
         }
     }
 
-    pub fn attempt_recovery(&mut self, _classification: &FailureClassification) -> Result<RecoveryResult, FaultToleranceError> {
+    pub fn attempt_recovery(
+        &mut self,
+        _classification: &FailureClassification,
+    ) -> Result<RecoveryResult, FaultToleranceError> {
         Ok(RecoveryResult::Success)
     }
 }
@@ -1678,7 +1738,9 @@ mod tests {
         let task_id = TaskId::new();
         let state_data = vec![1, 2, 3, 4, 5];
 
-        let checkpoint_id = manager.create_checkpoint(task_id, state_data).expect("checkpoint creation should succeed");
+        let checkpoint_id = manager
+            .create_checkpoint(task_id, state_data)
+            .expect("checkpoint creation should succeed");
         assert!(!checkpoint_id.is_empty());
     }
 }

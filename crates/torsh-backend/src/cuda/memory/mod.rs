@@ -223,9 +223,18 @@ pub fn initialize_memory_system(config: MemorySystemConfig) -> MemoryResult<Memo
 }
 
 /// Get the global memory manager instance
-/// TODO: Manager module disabled - returns error
+///
+/// Returns the manager stored in [`SYSTEM_STATE`] (set by
+/// [`initialize_memory_system`]). Errors if the system has not been
+/// initialized yet.
 pub fn get_memory_manager() -> MemoryResult<Arc<CudaMemoryManagerCoordinator>> {
-    Err("Manager module disabled - use direct allocation APIs".to_string())
+    let state = SYSTEM_STATE
+        .lock()
+        .map_err(|e| format!("Failed to acquire memory system lock: {}", e))?;
+    state
+        .as_ref()
+        .map(Arc::clone)
+        .ok_or_else(|| "Memory system not initialized".to_string())
 }
 
 /// Allocate device memory with automatic device selection
@@ -356,14 +365,30 @@ pub fn deallocate_memory(allocation: AllocationHandle) -> MemoryResult<()> {
 }
 
 /// Get comprehensive memory statistics
-/// TODO: Manager module disabled - returns default
+///
+/// Delegates to the global manager when the system has been initialized.
+/// Falls back to a default snapshot when the system is not yet up so that
+/// callers (e.g. tests that skip CUDA init) still receive a valid value.
 pub fn get_memory_statistics() -> MemoryResult<MemoryUsageStatistics> {
+    if let Ok(state) = SYSTEM_STATE.lock() {
+        if let Some(manager) = state.as_ref() {
+            return manager.get_memory_statistics();
+        }
+    }
     Ok(MemoryUsageStatistics::default())
 }
 
 /// Get system performance metrics
-/// TODO: Manager module disabled - returns default
+///
+/// Delegates to the global manager when the system has been initialized.
+/// Falls back to a default snapshot when the system is not yet up so that
+/// callers (e.g. tests that skip CUDA init) still receive a valid value.
 pub fn get_performance_metrics() -> MemoryResult<PerformanceMetrics> {
+    if let Ok(state) = SYSTEM_STATE.lock() {
+        if let Some(manager) = state.as_ref() {
+            return manager.get_performance_metrics();
+        }
+    }
     Ok(PerformanceMetrics::default())
 }
 
@@ -374,8 +399,22 @@ pub fn get_system_health() -> MemoryResult<SystemHealthStatus> {
 }
 
 /// Trigger manual memory optimization
-/// TODO: Manager module disabled - returns stub
+///
+/// Delegates to the global manager when the system has been initialized,
+/// translating its [`ManagerOperationResult`] into the [`MemoryResult`] used
+/// by this convenience API. Falls back to a default result when the system
+/// is not yet up.
 pub fn optimize_memory_layout() -> MemoryResult<OptimizationResult> {
+    if let Ok(state) = SYSTEM_STATE.lock() {
+        if let Some(manager) = state.as_ref() {
+            return match manager.optimize_memory_layout() {
+                ManagerOperationResult::Success(result) => Ok(result),
+                ManagerOperationResult::PartialSuccess(result, _warnings) => Ok(result),
+                ManagerOperationResult::Failure(error) => Err(error),
+                ManagerOperationResult::RequiresOptimization(reason) => Err(reason),
+            };
+        }
+    }
     Ok(OptimizationResult::default())
 }
 
@@ -412,8 +451,16 @@ pub fn perform_system_maintenance() -> MemoryResult<Vec<String>> {
 }
 
 /// Enable or disable predictive allocation
-/// TODO: Manager module disabled - no-op
-pub fn configure_predictive_allocation(_enable: bool) -> MemoryResult<()> {
+///
+/// Delegates to the global manager when the system has been initialized.
+/// When the system is not yet up the call is a no-op so that callers can
+/// configure the system before initialization without surfacing an error.
+pub fn configure_predictive_allocation(enable: bool) -> MemoryResult<()> {
+    if let Ok(state) = SYSTEM_STATE.lock() {
+        if let Some(manager) = state.as_ref() {
+            return manager.enable_predictive_allocation(enable);
+        }
+    }
     Ok(())
 }
 

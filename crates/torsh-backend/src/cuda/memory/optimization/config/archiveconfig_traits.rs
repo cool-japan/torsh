@@ -15,4 +15,3 @@ impl Default for ArchiveConfig {
         Self
     }
 }
-

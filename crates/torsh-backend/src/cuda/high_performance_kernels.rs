@@ -421,7 +421,8 @@ impl HighPerformanceKernelManager {
         let start_time = Instant::now();
 
         // Select optimal activation implementation
-        let _implementation = self.select_activation_implementation(input.len(), activation_type)?;
+        let _implementation =
+            self.select_activation_implementation(input.len(), activation_type)?;
 
         // Execute the activation
         let result = match activation_type {
@@ -456,7 +457,10 @@ impl HighPerformanceKernelManager {
         operation_spec: KernelOperationSpec,
         optimization_hints: OptimizationHints,
     ) -> CudaResult<GeneratedKernel> {
-        let mut code_generator = self.code_generator.lock().expect("lock should not be poisoned");
+        let mut code_generator = self
+            .code_generator
+            .lock()
+            .expect("lock should not be poisoned");
         code_generator.generate_kernel(operation_spec, optimization_hints)
     }
 
@@ -533,7 +537,10 @@ impl HighPerformanceKernelManager {
     where
         T: TensorElement + Send + Sync,
     {
-        let tensor_core_engine = self.tensor_core_engine.lock().expect("lock should not be poisoned");
+        let tensor_core_engine = self
+            .tensor_core_engine
+            .lock()
+            .expect("lock should not be poisoned");
         tensor_core_engine.execute_wmma_matmul(a, b, c, stream)
     }
 
@@ -563,7 +570,10 @@ impl HighPerformanceKernelManager {
         T: TensorElement + Send + Sync,
     {
         // Convert to half precision, compute, then convert back
-        let tensor_core_engine = self.tensor_core_engine.lock().expect("lock should not be poisoned");
+        let tensor_core_engine = self
+            .tensor_core_engine
+            .lock()
+            .expect("lock should not be poisoned");
         tensor_core_engine.execute_mixed_precision_matmul(a, b, c, stream)
     }
 
@@ -615,7 +625,10 @@ impl HighPerformanceKernelManager {
         &self,
         signature: &MatMulOperationSignature,
     ) -> CudaResult<Option<CachedImplementation>> {
-        let cache = self.kernel_cache.read().expect("lock should not be poisoned");
+        let cache = self
+            .kernel_cache
+            .read()
+            .expect("lock should not be poisoned");
         Ok(cache.get_implementation(signature))
     }
 
@@ -639,7 +652,10 @@ impl HighPerformanceKernelManager {
         signature: MatMulOperationSignature,
         implementation: MatMulImplementation,
     ) -> CudaResult<()> {
-        let mut cache = self.kernel_cache.write().expect("lock should not be poisoned");
+        let mut cache = self
+            .kernel_cache
+            .write()
+            .expect("lock should not be poisoned");
         cache.store_implementation(signature, implementation);
         Ok(())
     }

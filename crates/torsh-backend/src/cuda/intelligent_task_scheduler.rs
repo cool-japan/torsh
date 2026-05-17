@@ -428,25 +428,37 @@ impl IntelligentTaskScheduler {
     pub fn initialize(&self) -> Result<(), SchedulingError> {
         // Initialize device management
         {
-            let mut device_manager = self.device_manager.lock().expect("lock should not be poisoned");
+            let mut device_manager = self
+                .device_manager
+                .lock()
+                .expect("lock should not be poisoned");
             device_manager.initialize_devices()?;
         }
 
         // Initialize performance models
         {
-            let mut predictor = self.performance_predictor.lock().expect("lock should not be poisoned");
+            let mut predictor = self
+                .performance_predictor
+                .lock()
+                .expect("lock should not be poisoned");
             predictor.load_performance_models()?;
         }
 
         // Start performance monitoring
         {
-            let mut optimizer = self.performance_optimizer.lock().expect("lock should not be poisoned");
+            let mut optimizer = self
+                .performance_optimizer
+                .lock()
+                .expect("lock should not be poisoned");
             optimizer.start_monitoring()?;
         }
 
         // Initialize load balancing
         {
-            let mut balancer = self.load_balancer.lock().expect("lock should not be poisoned");
+            let mut balancer = self
+                .load_balancer
+                .lock()
+                .expect("lock should not be poisoned");
             balancer.initialize_balancing()?;
         }
 
@@ -462,25 +474,37 @@ impl IntelligentTaskScheduler {
 
         // 1. Analyze task dependencies
         let dependency_analysis = {
-            let mut resolver = self.dependency_resolver.lock().expect("lock should not be poisoned");
+            let mut resolver = self
+                .dependency_resolver
+                .lock()
+                .expect("lock should not be poisoned");
             resolver.analyze_dependencies(&task)?
         };
 
         // 2. Calculate initial priority
         task.priority = {
-            let mut priority_manager = self.priority_manager.lock().expect("lock should not be poisoned");
+            let mut priority_manager = self
+                .priority_manager
+                .lock()
+                .expect("lock should not be poisoned");
             priority_manager.calculate_initial_priority(&task)?
         };
 
         // 3. Predict task performance
         let performance_prediction = {
-            let mut predictor = self.performance_predictor.lock().expect("lock should not be poisoned");
+            let mut predictor = self
+                .performance_predictor
+                .lock()
+                .expect("lock should not be poisoned");
             predictor.predict_task_performance(&task)?
         };
 
         // 4. Determine optimal device selection
         let device_selection = {
-            let mut device_manager = self.device_manager.lock().expect("lock should not be poisoned");
+            let mut device_manager = self
+                .device_manager
+                .lock()
+                .expect("lock should not be poisoned");
             device_manager.select_optimal_device(&task, &performance_prediction)?
         };
 
@@ -489,7 +513,10 @@ impl IntelligentTaskScheduler {
 
         // 6. Add task to intelligent queue
         {
-            let mut queue = self.task_queue.write().expect("lock should not be poisoned");
+            let mut queue = self
+                .task_queue
+                .write()
+                .expect("lock should not be poisoned");
             queue.enqueue_task(task.clone(), dependency_analysis, device_selection.clone())?;
         }
 
@@ -518,31 +545,46 @@ impl IntelligentTaskScheduler {
 
         // 1. Update device states and performance metrics
         let device_updates = {
-            let mut device_manager = self.device_manager.lock().expect("lock should not be poisoned");
+            let mut device_manager = self
+                .device_manager
+                .lock()
+                .expect("lock should not be poisoned");
             device_manager.update_device_states()?
         };
 
         // 2. Analyze current performance and identify bottlenecks
         let performance_analysis = {
-            let mut optimizer = self.performance_optimizer.lock().expect("lock should not be poisoned");
+            let mut optimizer = self
+                .performance_optimizer
+                .lock()
+                .expect("lock should not be poisoned");
             optimizer.analyze_current_performance(&device_updates)?
         };
 
         // 3. Adjust task priorities based on current conditions
         let priority_adjustments = {
-            let mut priority_manager = self.priority_manager.lock().expect("lock should not be poisoned");
+            let mut priority_manager = self
+                .priority_manager
+                .lock()
+                .expect("lock should not be poisoned");
             priority_manager.adjust_priorities_dynamically(&performance_analysis)?
         };
 
         // 4. Perform predictive load balancing
         let load_balancing_decisions = {
-            let mut balancer = self.load_balancer.lock().expect("lock should not be poisoned");
+            let mut balancer = self
+                .load_balancer
+                .lock()
+                .expect("lock should not be poisoned");
             balancer.balance_load_predictively(&device_updates)?
         };
 
         // 5. Select optimal execution strategy
         let strategy_selection = {
-            let mut strategy = self.execution_strategy.lock().expect("lock should not be poisoned");
+            let mut strategy = self
+                .execution_strategy
+                .lock()
+                .expect("lock should not be poisoned");
             strategy.select_optimal_strategy(&performance_analysis, &device_updates)?
         };
 
@@ -578,7 +620,10 @@ impl IntelligentTaskScheduler {
 
         // Update scheduling history
         {
-            let mut history = self.scheduling_history.lock().expect("lock should not be poisoned");
+            let mut history = self
+                .scheduling_history
+                .lock()
+                .expect("lock should not be poisoned");
             for decision in &result.scheduling_decisions {
                 let record = SchedulingDecisionRecord {
                     decision_id: uuid::Uuid::new_v4().to_string(),
@@ -605,13 +650,20 @@ impl IntelligentTaskScheduler {
 
     /// Get current scheduling status
     pub fn get_scheduling_status(&self) -> SchedulingStatus {
-        let stats = self.statistics.lock().expect("lock should not be poisoned").clone();
+        let stats = self
+            .statistics
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone();
         let queue_status = {
             let queue = self.task_queue.read().expect("lock should not be poisoned");
             queue.get_queue_status()
         };
         let device_status = {
-            let device_manager = self.device_manager.lock().expect("lock should not be poisoned");
+            let device_manager = self
+                .device_manager
+                .lock()
+                .expect("lock should not be poisoned");
             device_manager.get_device_status_summary()
         };
 
@@ -641,7 +693,10 @@ impl IntelligentTaskScheduler {
         let mut decisions = Vec::new();
 
         {
-            let mut queue = self.task_queue.write().expect("lock should not be poisoned");
+            let mut queue = self
+                .task_queue
+                .write()
+                .expect("lock should not be poisoned");
             let ready_tasks = queue.get_ready_tasks()?;
 
             for task in ready_tasks {

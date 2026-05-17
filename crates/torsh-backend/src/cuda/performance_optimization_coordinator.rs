@@ -380,7 +380,10 @@ impl CudaPerformanceOptimizationCoordinator {
     pub async fn initialize(&self) -> Result<(), CoordinationError> {
         // Initialize memory optimizer
         {
-            let memory_optimizer = self.memory_optimizer.lock().expect("lock should not be poisoned");
+            let memory_optimizer = self
+                .memory_optimizer
+                .lock()
+                .expect("lock should not be poisoned");
             memory_optimizer.initialize().map_err(|e| {
                 CoordinationError::InitializationError(format!("Memory optimizer: {:?}", e))
             })?;
@@ -388,7 +391,10 @@ impl CudaPerformanceOptimizationCoordinator {
 
         // Initialize fusion optimizer
         {
-            let fusion_optimizer = self.fusion_optimizer.lock().expect("lock should not be poisoned");
+            let fusion_optimizer = self
+                .fusion_optimizer
+                .lock()
+                .expect("lock should not be poisoned");
             fusion_optimizer.initialize().map_err(|e| {
                 CoordinationError::InitializationError(format!("Fusion optimizer: {:?}", e))
             })?;
@@ -396,7 +402,10 @@ impl CudaPerformanceOptimizationCoordinator {
 
         // Initialize task scheduler
         {
-            let task_scheduler = self.task_scheduler.lock().expect("lock should not be poisoned");
+            let task_scheduler = self
+                .task_scheduler
+                .lock()
+                .expect("lock should not be poisoned");
             task_scheduler.initialize().map_err(|e| {
                 CoordinationError::InitializationError(format!("Task scheduler: {:?}", e))
             })?;
@@ -404,19 +413,28 @@ impl CudaPerformanceOptimizationCoordinator {
 
         // Initialize metrics collection
         {
-            let mut metrics_collector = self.metrics_collector.lock().expect("lock should not be poisoned");
+            let mut metrics_collector = self
+                .metrics_collector
+                .lock()
+                .expect("lock should not be poisoned");
             metrics_collector.start_collection()?;
         }
 
         // Initialize workload analysis
         {
-            let mut workload_analyzer = self.workload_analyzer.lock().expect("lock should not be poisoned");
+            let mut workload_analyzer = self
+                .workload_analyzer
+                .lock()
+                .expect("lock should not be poisoned");
             workload_analyzer.initialize_analysis()?;
         }
 
         // Update coordination state
         {
-            let mut state = self.coordination_state.write().expect("lock should not be poisoned");
+            let mut state = self
+                .coordination_state
+                .write()
+                .expect("lock should not be poisoned");
             state.system_health = SystemHealthStatus::Good;
         }
 
@@ -432,13 +450,19 @@ impl CudaPerformanceOptimizationCoordinator {
 
         // 1. Analyze workload characteristics
         let workload_analysis = {
-            let mut analyzer = self.workload_analyzer.lock().expect("lock should not be poisoned");
+            let mut analyzer = self
+                .workload_analyzer
+                .lock()
+                .expect("lock should not be poisoned");
             analyzer.analyze_workload(&request)?
         };
 
         // 2. Create comprehensive optimization plan
         let optimization_plan = {
-            let mut decision_engine = self.decision_engine.lock().expect("lock should not be poisoned");
+            let mut decision_engine = self
+                .decision_engine
+                .lock()
+                .expect("lock should not be poisoned");
             decision_engine.create_optimization_plan(&request, &workload_analysis)?
         };
 
@@ -447,7 +471,10 @@ impl CudaPerformanceOptimizationCoordinator {
 
         // 4. Optimize memory allocation strategy
         let memory_optimization = if optimization_plan.memory_optimization_strategy.enabled {
-            let memory_optimizer = self.memory_optimizer.lock().expect("lock should not be poisoned");
+            let memory_optimizer = self
+                .memory_optimizer
+                .lock()
+                .expect("lock should not be poisoned");
             Some(
                 memory_optimizer
                     .perform_comprehensive_optimization()
@@ -460,7 +487,10 @@ impl CudaPerformanceOptimizationCoordinator {
         // 5. Optimize kernel fusion opportunities
         let fusion_optimization = if optimization_plan.fusion_optimization_strategy.enabled {
             let fusion_operations = self.convert_tasks_to_fusion_operations(&schedulable_tasks)?;
-            let fusion_optimizer = self.fusion_optimizer.lock().expect("lock should not be poisoned");
+            let fusion_optimizer = self
+                .fusion_optimizer
+                .lock()
+                .expect("lock should not be poisoned");
             Some(
                 fusion_optimizer
                     .optimize_kernel_fusion(&fusion_operations)
@@ -472,7 +502,10 @@ impl CudaPerformanceOptimizationCoordinator {
 
         // 6. Execute intelligent task scheduling
         let scheduling_results = {
-            let task_scheduler = self.task_scheduler.lock().expect("lock should not be poisoned");
+            let task_scheduler = self
+                .task_scheduler
+                .lock()
+                .expect("lock should not be poisoned");
             let mut task_results = Vec::new();
             for task in schedulable_tasks {
                 let result = task_scheduler
@@ -485,7 +518,10 @@ impl CudaPerformanceOptimizationCoordinator {
 
         // 7. Coordinate resource allocation
         let resource_allocation = {
-            let mut coordinator = self.resource_coordinator.lock().expect("lock should not be poisoned");
+            let mut coordinator = self
+                .resource_coordinator
+                .lock()
+                .expect("lock should not be poisoned");
             coordinator.coordinate_resources(&request, &optimization_plan)?
         };
 
@@ -496,13 +532,19 @@ impl CudaPerformanceOptimizationCoordinator {
 
         // 9. Collect performance feedback
         let performance_feedback = {
-            let mut feedback_system = self.feedback_system.lock().expect("lock should not be poisoned");
+            let mut feedback_system = self
+                .feedback_system
+                .lock()
+                .expect("lock should not be poisoned");
             feedback_system.collect_performance_feedback(&execution_result)?
         };
 
         // 10. Update optimization models based on results
         {
-            let mut decision_engine = self.decision_engine.lock().expect("lock should not be poisoned");
+            let mut decision_engine = self
+                .decision_engine
+                .lock()
+                .expect("lock should not be poisoned");
             decision_engine.update_models_from_feedback(&performance_feedback)?;
         }
 
@@ -530,7 +572,10 @@ impl CudaPerformanceOptimizationCoordinator {
 
         // Record coordination decision
         {
-            let mut history = self.optimization_history.lock().expect("lock should not be poisoned");
+            let mut history = self
+                .optimization_history
+                .lock()
+                .expect("lock should not be poisoned");
             let record = CoordinationRecord {
                 record_id: uuid::Uuid::new_v4().to_string(),
                 timestamp: SystemTime::now(),
@@ -565,20 +610,37 @@ impl CudaPerformanceOptimizationCoordinator {
 
     /// Get comprehensive performance status
     pub fn get_comprehensive_status(&self) -> ComprehensivePerformanceStatus {
-        let stats = self.statistics.lock().expect("lock should not be poisoned").clone();
+        let stats = self
+            .statistics
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone();
         let memory_status = {
-            let optimizer = self.memory_optimizer.lock().expect("lock should not be poisoned");
+            let optimizer = self
+                .memory_optimizer
+                .lock()
+                .expect("lock should not be poisoned");
             optimizer.get_optimization_status()
         };
         let fusion_status = {
-            let optimizer = self.fusion_optimizer.lock().expect("lock should not be poisoned");
+            let optimizer = self
+                .fusion_optimizer
+                .lock()
+                .expect("lock should not be poisoned");
             optimizer.get_optimization_status()
         };
         let scheduling_status = {
-            let scheduler = self.task_scheduler.lock().expect("lock should not be poisoned");
+            let scheduler = self
+                .task_scheduler
+                .lock()
+                .expect("lock should not be poisoned");
             scheduler.get_scheduling_status()
         };
-        let coordination_state = self.coordination_state.read().expect("lock should not be poisoned").clone();
+        let coordination_state = self
+            .coordination_state
+            .read()
+            .expect("lock should not be poisoned")
+            .clone();
 
         ComprehensivePerformanceStatus {
             overall_performance_score: self.calculate_overall_performance_score(&stats),

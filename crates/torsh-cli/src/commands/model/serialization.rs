@@ -472,17 +472,17 @@ pub async fn export_safetensors(model: &TorshModel, path: &Path) -> Result<()> {
 
     let safetensors_dtype = |dtype_name: &str| -> String {
         match dtype_name {
-            "f32"  => "F32".to_string(),
-            "f64"  => "F64".to_string(),
-            "f16"  => "F16".to_string(),
+            "f32" => "F32".to_string(),
+            "f64" => "F64".to_string(),
+            "f16" => "F16".to_string(),
             "bf16" => "BF16".to_string(),
-            "i8"   => "I8".to_string(),
-            "i16"  => "I16".to_string(),
-            "i32"  => "I32".to_string(),
-            "i64"  => "I64".to_string(),
-            "u8"   => "U8".to_string(),
+            "i8" => "I8".to_string(),
+            "i16" => "I16".to_string(),
+            "i32" => "I32".to_string(),
+            "i64" => "I64".to_string(),
+            "u8" => "U8".to_string(),
             "bool" => "BOOL".to_string(),
-            other  => other.to_string(),   // pass through unknown dtypes unchanged
+            other => other.to_string(), // pass through unknown dtypes unchanged
         }
     };
 
@@ -513,9 +513,8 @@ pub async fn export_safetensors(model: &TorshModel, path: &Path) -> Result<()> {
         header_map.insert(entry.blob.name.clone(), tensor_obj);
     }
 
-    let header_json =
-        serde_json::to_string(&serde_json::Value::Object(header_map))
-            .context("Failed to serialise SafeTensors header JSON")?;
+    let header_json = serde_json::to_string(&serde_json::Value::Object(header_map))
+        .context("Failed to serialise SafeTensors header JSON")?;
 
     let header_bytes = header_json.as_bytes();
     let header_len = header_bytes.len() as u64;

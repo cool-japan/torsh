@@ -63,22 +63,13 @@ pub mod strategies;
 pub mod validator;
 
 // Re-exports for unified interface
-pub use ml_engine::{
-    FeatureExtractor,
-    MLOptimizationEngine,
-};
+pub use ml_engine::{FeatureExtractor, MLOptimizationEngine};
 
 pub use multi_objective::MultiObjectiveOptimizer;
 
-pub use adaptive_controller::{
-    AdaptationStrategy,
-    AdaptiveOptimizationController,
-};
+pub use adaptive_controller::{AdaptationStrategy, AdaptiveOptimizationController};
 
-pub use predictor::{
-    PerformancePredictor,
-    PredictionModel,
-};
+pub use predictor::{PerformancePredictor, PredictionModel};
 
 pub use strategies::OptimizationStrategyManager;
 
@@ -99,9 +90,9 @@ pub use config::{
 
 pub use execution_engine::OptimizationExecutionEngine;
 
-pub use validator::OptimizationValidator;
 pub use objectives::OptimizationObjectiveManager;
 pub use parameters::ParameterManager;
+pub use validator::OptimizationValidator;
 
 /// Main optimization engine that integrates all components
 #[derive(Debug)]
@@ -129,15 +120,18 @@ impl OptimizationEngine {
         let execution_engine = Arc::new(RwLock::new(OptimizationExecutionEngine::new(
             execution_engine::MinimalEngineConfig::default(),
         )));
-        let predictor = Arc::new(RwLock::new(PerformancePredictor::new(
-            predictor::PredictorConfig::default(),
-        ).map_err(|e| OptimizationError::PredictionError(format!("{:?}", e)))?));
-        let validator = Arc::new(RwLock::new(OptimizationValidator::new(
-            validator::ValidatorConfig::default(),
-        ).map_err(|e| OptimizationError::ValidationError(format!("{:?}", e)))?));
-        let strategy_manager = Arc::new(RwLock::new(OptimizationStrategyManager::new(
-            strategies::StrategyManagerConfig::default(),
-        ).map_err(|e| OptimizationError::StrategyError(format!("{:?}", e)))?));
+        let predictor = Arc::new(RwLock::new(
+            PerformancePredictor::new(predictor::PredictorConfig::default())
+                .map_err(|e| OptimizationError::PredictionError(format!("{:?}", e)))?,
+        ));
+        let validator = Arc::new(RwLock::new(
+            OptimizationValidator::new(validator::ValidatorConfig::default())
+                .map_err(|e| OptimizationError::ValidationError(format!("{:?}", e)))?,
+        ));
+        let strategy_manager = Arc::new(RwLock::new(
+            OptimizationStrategyManager::new(strategies::StrategyManagerConfig::default())
+                .map_err(|e| OptimizationError::StrategyError(format!("{:?}", e)))?,
+        ));
         let objective_manager = Arc::new(RwLock::new(OptimizationObjectiveManager::new(
             objectives::ObjectiveManagerConfig::default(),
         )));
@@ -150,8 +144,10 @@ impl OptimizationEngine {
         let history_manager = Arc::new(RwLock::new(OptimizationHistoryManager::new(
             history::HistoryManagerConfig::default(),
         )));
-        let config_manager = Arc::new(RwLock::new(OptimizationConfigManager::new(config.clone())
-            .map_err(|e| OptimizationError::ConfigError(format!("{:?}", e)))?));
+        let config_manager = Arc::new(RwLock::new(
+            OptimizationConfigManager::new(config.clone())
+                .map_err(|e| OptimizationError::ConfigError(format!("{:?}", e)))?,
+        ));
 
         Ok(Self {
             ml_engine,
@@ -203,16 +199,26 @@ impl OptimizationEngine {
             .optimize(&obj_names, &constraint_names, "NSGA2")
             .map_err(|e| OptimizationError::MultiObjectiveError(e))?;
 
-        let best = pareto_solutions
-            .iter()
-            .max_by(|a, b| a.fitness.partial_cmp(&b.fitness).unwrap_or(std::cmp::Ordering::Equal));
+        let best = pareto_solutions.iter().max_by(|a, b| {
+            a.fitness
+                .partial_cmp(&b.fitness)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         let best_solution = best
             .map(|s| OptimizationSolution {
                 parameters: OptimizationParameters::default(),
                 objective_values: ObjectiveValues {
-                    memory_usage: s.objectives.get("minimize_memory_usage").copied().unwrap_or(0.0),
-                    throughput: s.objectives.get("maximize_throughput").copied().unwrap_or(0.0),
+                    memory_usage: s
+                        .objectives
+                        .get("minimize_memory_usage")
+                        .copied()
+                        .unwrap_or(0.0),
+                    throughput: s
+                        .objectives
+                        .get("maximize_throughput")
+                        .copied()
+                        .unwrap_or(0.0),
                     latency: s.objectives.get("minimize_latency").copied().unwrap_or(0.0),
                     energy_consumption: s
                         .objectives
@@ -230,8 +236,16 @@ impl OptimizationEngine {
             .map(|s| OptimizationSolution {
                 parameters: OptimizationParameters::default(),
                 objective_values: ObjectiveValues {
-                    memory_usage: s.objectives.get("minimize_memory_usage").copied().unwrap_or(0.0),
-                    throughput: s.objectives.get("maximize_throughput").copied().unwrap_or(0.0),
+                    memory_usage: s
+                        .objectives
+                        .get("minimize_memory_usage")
+                        .copied()
+                        .unwrap_or(0.0),
+                    throughput: s
+                        .objectives
+                        .get("maximize_throughput")
+                        .copied()
+                        .unwrap_or(0.0),
                     latency: s.objectives.get("minimize_latency").copied().unwrap_or(0.0),
                     energy_consumption: s
                         .objectives
@@ -362,8 +376,14 @@ impl OptimizationEngine {
     ) -> Result<(), OptimizationError> {
         let training_example = {
             let mut features = std::collections::HashMap::new();
-            features.insert("memory_usage".to_string(), feedback.actual_performance.memory_usage);
-            features.insert("throughput".to_string(), feedback.actual_performance.throughput);
+            features.insert(
+                "memory_usage".to_string(),
+                feedback.actual_performance.memory_usage,
+            );
+            features.insert(
+                "throughput".to_string(),
+                feedback.actual_performance.throughput,
+            );
             features.insert("latency".to_string(), feedback.actual_performance.latency);
             features.insert(
                 "energy_consumption".to_string(),
@@ -390,7 +410,10 @@ impl OptimizationEngine {
                 validation_split: ml_engine::ValidationSplit::Train,
             }
         };
-        self.ml_engine.write().await.add_training_data(training_example);
+        self.ml_engine
+            .write()
+            .await
+            .add_training_data(training_example);
         Ok(())
     }
 }
@@ -746,7 +769,8 @@ mod tests {
     #[tokio::test]
     async fn test_optimization_feedback_learning() {
         let config = OptimizationConfig::default();
-        let mut engine = OptimizationEngine::new(config).expect("Optimization Engine should succeed");
+        let mut engine =
+            OptimizationEngine::new(config).expect("Optimization Engine should succeed");
 
         let feedback = OptimizationFeedback {
             solution_id: "test_solution".to_string(),
@@ -851,14 +875,16 @@ mod tests {
 
         // Test that history can be queried
         assert!(
-            engine.get_history(query.clone()).await.is_ok() || engine.get_history(query).await.is_err()
+            engine.get_history(query.clone()).await.is_ok()
+                || engine.get_history(query).await.is_err()
         );
     }
 
     #[tokio::test]
     async fn test_dynamic_config_update() {
         let config = OptimizationConfig::default();
-        let mut engine = OptimizationEngine::new(config).expect("Optimization Engine should succeed");
+        let mut engine =
+            OptimizationEngine::new(config).expect("Optimization Engine should succeed");
 
         let new_config = OptimizationConfig {
             ..Default::default()
@@ -925,7 +951,11 @@ mod tests {
 
         // The call must not panic; it inserts a TrainingExample into the ML engine.
         let result = engine.learn_from_feedback(feedback).await;
-        assert!(result.is_ok(), "learn_from_feedback should succeed: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "learn_from_feedback should succeed: {:?}",
+            result
+        );
     }
 
     #[test]
@@ -962,7 +992,11 @@ mod tests {
         // Query history with a small limit; the result must be Ok and have len >= 0.
         let query = HistoryQuery::new().with_limit(10);
         let result = engine.get_history(query).await;
-        assert!(result.is_ok(), "get_history should succeed after optimize: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "get_history should succeed after optimize: {:?}",
+            result
+        );
         // If the optimize call succeeded, at least one record should be present.
         let records = result.expect("get_history result should be Ok");
         // len() is always >= 0, but we assert it to prove the Vec is accessible.

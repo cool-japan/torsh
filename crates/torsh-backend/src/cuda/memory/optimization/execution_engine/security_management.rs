@@ -782,12 +782,18 @@ impl SecurityManager {
         &self,
         credentials: Credentials,
     ) -> Result<AuthenticationResult, SecurityError> {
-        let mut auth_manager = self.authentication.lock().expect("lock should not be poisoned");
+        let mut auth_manager = self
+            .authentication
+            .lock()
+            .expect("lock should not be poisoned");
         let result = auth_manager.authenticate(&credentials)?;
 
         // Log authentication attempt
         {
-            let mut audit_logger = self.audit_logger.lock().expect("lock should not be poisoned");
+            let mut audit_logger = self
+                .audit_logger
+                .lock()
+                .expect("lock should not be poisoned");
             audit_logger.log_event(AuditEvent {
                 event_id: uuid::Uuid::new_v4().to_string(),
                 event_type: AuditEventType::Authentication,
@@ -808,7 +814,10 @@ impl SecurityManager {
 
         // Update metrics
         {
-            let mut metrics = self.security_metrics.lock().expect("lock should not be poisoned");
+            let mut metrics = self
+                .security_metrics
+                .lock()
+                .expect("lock should not be poisoned");
             if result.is_success() {
                 metrics.successful_authentications += 1;
             } else {
@@ -826,12 +835,18 @@ impl SecurityManager {
         resource: &str,
         action: &str,
     ) -> Result<bool, SecurityError> {
-        let mut authz_system = self.authorization.lock().expect("lock should not be poisoned");
+        let mut authz_system = self
+            .authorization
+            .lock()
+            .expect("lock should not be poisoned");
         let authorized = authz_system.check_permission(user_id, resource, action)?;
 
         // Log authorization check
         {
-            let mut audit_logger = self.audit_logger.lock().expect("lock should not be poisoned");
+            let mut audit_logger = self
+                .audit_logger
+                .lock()
+                .expect("lock should not be poisoned");
             audit_logger.log_event(AuditEvent {
                 event_id: uuid::Uuid::new_v4().to_string(),
                 event_type: AuditEventType::Authorization,
@@ -880,13 +895,19 @@ impl SecurityManager {
         };
 
         {
-            let mut sessions = self.active_sessions.lock().expect("lock should not be poisoned");
+            let mut sessions = self
+                .active_sessions
+                .lock()
+                .expect("lock should not be poisoned");
             sessions.insert(session_id.clone(), session);
         }
 
         // Update metrics
         {
-            let mut metrics = self.security_metrics.lock().expect("lock should not be poisoned");
+            let mut metrics = self
+                .security_metrics
+                .lock()
+                .expect("lock should not be poisoned");
             metrics.active_sessions += 1;
         }
 
@@ -895,12 +916,18 @@ impl SecurityManager {
 
     /// Detect security threats
     pub fn detect_threats(&self) -> Result<Vec<ThreatEvent>, SecurityError> {
-        let mut detector = self.threat_detector.lock().expect("lock should not be poisoned");
+        let mut detector = self
+            .threat_detector
+            .lock()
+            .expect("lock should not be poisoned");
         let threats = detector.scan_for_threats()?;
 
         // Update metrics
         {
-            let mut metrics = self.security_metrics.lock().expect("lock should not be poisoned");
+            let mut metrics = self
+                .security_metrics
+                .lock()
+                .expect("lock should not be poisoned");
             metrics.threats_detected += threats.len() as u64;
         }
 
@@ -913,12 +940,18 @@ impl SecurityManager {
         data: &[u8],
         classification: DataClassification,
     ) -> Result<Vec<u8>, SecurityError> {
-        let mut protector = self.data_protector.lock().expect("lock should not be poisoned");
+        let mut protector = self
+            .data_protector
+            .lock()
+            .expect("lock should not be poisoned");
         let encrypted_data = protector.encrypt_data(data, classification)?;
 
         // Update metrics
         {
-            let mut metrics = self.security_metrics.lock().expect("lock should not be poisoned");
+            let mut metrics = self
+                .security_metrics
+                .lock()
+                .expect("lock should not be poisoned");
             metrics.data_encrypted += data.len() as u64;
         }
 
@@ -927,13 +960,19 @@ impl SecurityManager {
 
     /// Check compliance status
     pub fn check_compliance(&self) -> Result<ComplianceStatus, SecurityError> {
-        let monitor = self.compliance_monitor.lock().expect("lock should not be poisoned");
+        let monitor = self
+            .compliance_monitor
+            .lock()
+            .expect("lock should not be poisoned");
         Ok(monitor.get_compliance_status())
     }
 
     /// Get security metrics
     pub fn get_security_metrics(&self) -> SecurityMetrics {
-        let metrics = self.security_metrics.lock().expect("lock should not be poisoned");
+        let metrics = self
+            .security_metrics
+            .lock()
+            .expect("lock should not be poisoned");
         metrics.clone()
     }
 
@@ -946,7 +985,10 @@ impl SecurityManager {
         hasher.update(random_bytes);
         let result = hasher.finalize();
         // Convert GenericArray to hex string byte by byte
-        let hex_string = result.iter().map(|b| format!("{:02x}", b)).collect::<String>();
+        let hex_string = result
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<String>();
         Ok(hex_string)
     }
 }
@@ -1697,7 +1739,9 @@ mod tests {
         let manager = SecurityManager::new(config);
 
         let credentials = Credentials::default();
-        let result = manager.authenticate(credentials).expect("authentication should succeed");
+        let result = manager
+            .authenticate(credentials)
+            .expect("authentication should succeed");
         assert!(result.is_success());
     }
 
@@ -1717,7 +1761,9 @@ mod tests {
         let config = SecurityConfig::default();
         let manager = SecurityManager::new(config);
 
-        let session_id = manager.create_session("test_user", HashSet::new()).expect("operation should succeed");
+        let session_id = manager
+            .create_session("test_user", HashSet::new())
+            .expect("operation should succeed");
         assert!(!session_id.is_empty());
     }
 
@@ -1726,7 +1772,9 @@ mod tests {
         let config = SecurityConfig::default();
         let manager = SecurityManager::new(config);
 
-        let threats = manager.detect_threats().expect("threat detection should succeed");
+        let threats = manager
+            .detect_threats()
+            .expect("threat detection should succeed");
         assert!(threats.is_empty()); // No threats initially
     }
 
@@ -1747,7 +1795,9 @@ mod tests {
         let config = SecurityConfig::default();
         let manager = SecurityManager::new(config);
 
-        let _status = manager.check_compliance().expect("compliance check should succeed");
+        let _status = manager
+            .check_compliance()
+            .expect("compliance check should succeed");
         // ComplianceStatus should have default implementation
     }
 }

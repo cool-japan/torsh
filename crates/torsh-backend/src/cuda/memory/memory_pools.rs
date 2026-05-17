@@ -7,7 +7,9 @@
 // Allow unused variables for pool manager stubs
 #![allow(unused_variables)]
 
-use super::allocation::{size_class as compute_size_class, CudaAllocation, PinnedAllocation, UnifiedAllocation};
+use super::allocation::{
+    size_class as compute_size_class, CudaAllocation, PinnedAllocation, UnifiedAllocation,
+};
 use crate::cuda::error::{CudaError, CudaResult, CustResultExt};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, RwLock};
@@ -1504,8 +1506,7 @@ impl UnifiedMemoryPoolManager {
 
         // Remove from active list (best-effort; compare by device pointer address)
         let raw = alloc.ptr.as_raw();
-        pool.active_allocations
-            .retain(|a| a.ptr.as_raw() != raw);
+        pool.active_allocations.retain(|a| a.ptr.as_raw() != raw);
 
         pool.free_allocations.push(alloc);
         pool.stats.total_deallocations += 1;

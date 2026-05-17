@@ -641,7 +641,10 @@ impl LoadBalancingManager {
 
         // Start monitoring
         {
-            let mut monitor = self.resource_monitor.lock().expect("lock should not be poisoned");
+            let mut monitor = self
+                .resource_monitor
+                .lock()
+                .expect("lock should not be poisoned");
             monitor.start_monitoring()?;
         }
 
@@ -659,7 +662,10 @@ impl LoadBalancingManager {
         };
 
         {
-            let mut sessions = self.active_sessions.lock().expect("lock should not be poisoned");
+            let mut sessions = self
+                .active_sessions
+                .lock()
+                .expect("lock should not be poisoned");
             sessions.insert(session_id.clone(), session);
         }
 
@@ -677,7 +683,10 @@ impl LoadBalancingManager {
         &self,
         tasks: Vec<TaskId>,
     ) -> Result<WorkloadDistribution, LoadBalancingError> {
-        let mut distributor = self.workload_distributor.lock().expect("lock should not be poisoned");
+        let mut distributor = self
+            .workload_distributor
+            .lock()
+            .expect("lock should not be poisoned");
         let distribution = distributor.distribute_tasks(tasks)?;
 
         // Update statistics
@@ -691,13 +700,19 @@ impl LoadBalancingManager {
 
     /// Get current system load status
     pub fn get_system_load(&self) -> SystemLoadSnapshot {
-        let monitor = self.resource_monitor.lock().expect("lock should not be poisoned");
+        let monitor = self
+            .resource_monitor
+            .lock()
+            .expect("lock should not be poisoned");
         monitor.get_current_snapshot()
     }
 
     /// Optimize load balancing performance
     pub fn optimize_performance(&self) -> Result<OptimizationResult, LoadBalancingError> {
-        let mut optimizer = self.performance_optimizer.lock().expect("lock should not be poisoned");
+        let mut optimizer = self
+            .performance_optimizer
+            .lock()
+            .expect("lock should not be poisoned");
         let result = optimizer.optimize_current_load_distribution()?;
 
         // Update statistics
@@ -714,7 +729,10 @@ impl LoadBalancingManager {
         &self,
         migration_request: MigrationRequest,
     ) -> Result<String, LoadBalancingError> {
-        let mut migration_system = self.migration_system.lock().expect("lock should not be poisoned");
+        let mut migration_system = self
+            .migration_system
+            .lock()
+            .expect("lock should not be poisoned");
         let migration_id = migration_system.initiate_migration(migration_request)?;
 
         // Update statistics
@@ -734,12 +752,18 @@ impl LoadBalancingManager {
 
     /// Adapt load balancing strategy
     pub fn adapt_strategy(&self) -> Result<StrategyType, LoadBalancingError> {
-        let mut adaptive_balancer = self.adaptive_balancer.lock().expect("lock should not be poisoned");
+        let mut adaptive_balancer = self
+            .adaptive_balancer
+            .lock()
+            .expect("lock should not be poisoned");
         let new_strategy = adaptive_balancer.adapt_strategy()?;
 
         // Update strategy engine
         {
-            let mut strategy_engine = self.strategy_engine.lock().expect("lock should not be poisoned");
+            let mut strategy_engine = self
+                .strategy_engine
+                .lock()
+                .expect("lock should not be poisoned");
             strategy_engine.switch_strategy(new_strategy.clone())?;
         }
 
@@ -1556,7 +1580,9 @@ mod tests {
         let config = LoadBalancingConfig::default();
         let manager = LoadBalancingManager::new(config);
 
-        let session_id = manager.start_load_balancing().expect("load balancing start should succeed");
+        let session_id = manager
+            .start_load_balancing()
+            .expect("load balancing start should succeed");
         assert!(!session_id.is_empty());
     }
 
@@ -1566,7 +1592,9 @@ mod tests {
         let manager = LoadBalancingManager::new(config);
 
         let tasks = vec![TaskId::new(), TaskId::new(), TaskId::new()];
-        let distribution = manager.distribute_workload(tasks).expect("workload distribution should succeed");
+        let distribution = manager
+            .distribute_workload(tasks)
+            .expect("workload distribution should succeed");
         assert!(!distribution.distribution_id.is_empty());
     }
 
@@ -1584,7 +1612,9 @@ mod tests {
         let config = LoadBalancingConfig::default();
         let manager = LoadBalancingManager::new(config);
 
-        let optimization_result = manager.optimize_performance().expect("performance optimization should succeed");
+        let optimization_result = manager
+            .optimize_performance()
+            .expect("performance optimization should succeed");
         assert!(!optimization_result.optimization_id.is_empty());
     }
 
@@ -1593,7 +1623,9 @@ mod tests {
         let config = LoadBalancingConfig::default();
         let manager = LoadBalancingManager::new(config);
 
-        let new_strategy = manager.adapt_strategy().expect("strategy adaptation should succeed");
+        let new_strategy = manager
+            .adapt_strategy()
+            .expect("strategy adaptation should succeed");
         assert_eq!(new_strategy, StrategyType::RoundRobin);
     }
 }

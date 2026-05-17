@@ -1,8 +1,8 @@
 //! Distributed training bindings
 
+use crate::{error::PyResult, tensor::PyTensor};
 use pyo3::prelude::*;
 use pyo3::types::{PyModule, PyModuleMethods, PyTuple};
-use crate::{tensor::PyTensor, error::PyResult};
 
 /// Process group for distributed training
 #[pyclass(name = "ProcessGroup")]
@@ -158,7 +158,11 @@ pub fn register_distributed_module(_py: Python<'_>, m: &Bound<'_, PyModule>) -> 
     }
 
     #[pyfunction]
-    fn all_reduce(_tensor: &PyTensor, _op: Option<String>, _group: Option<Py<PyAny>>) -> PyResult<()> {
+    fn all_reduce(
+        _tensor: &PyTensor,
+        _op: Option<String>,
+        _group: Option<Py<PyAny>>,
+    ) -> PyResult<()> {
         Ok(())
     }
 

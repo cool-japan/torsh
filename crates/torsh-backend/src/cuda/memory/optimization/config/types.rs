@@ -102,31 +102,56 @@ impl ConfigRegistry {
             usage_statistics: ConfigUsageStatistics::new(),
         }
     }
-    pub fn initialize(&mut self) -> Result<(), ConfigError> { Ok(()) }
+    pub fn initialize(&mut self) -> Result<(), ConfigError> {
+        Ok(())
+    }
     pub fn register(&mut self, id: String, config: OptimizationConfig) -> Result<(), ConfigError> {
-        self.configurations.write().map_err(|_| ConfigError::LockError)?.insert(id, config);
+        self.configurations
+            .write()
+            .map_err(|_| ConfigError::LockError)?
+            .insert(id, config);
         Ok(())
     }
     pub fn get_configuration(&self, id: &str) -> Result<OptimizationConfig, ConfigError> {
-        self.configurations.read().map_err(|_| ConfigError::LockError)?
-            .get(id).cloned()
+        self.configurations
+            .read()
+            .map_err(|_| ConfigError::LockError)?
+            .get(id)
+            .cloned()
             .ok_or_else(|| ConfigError::ConfigurationNotFound(id.to_string()))
     }
-    pub fn update_configuration(&mut self, id: &str, config: OptimizationConfig) -> Result<(), ConfigError> {
-        self.configurations.write().map_err(|_| ConfigError::LockError)?.insert(id.to_string(), config);
+    pub fn update_configuration(
+        &mut self,
+        id: &str,
+        config: OptimizationConfig,
+    ) -> Result<(), ConfigError> {
+        self.configurations
+            .write()
+            .map_err(|_| ConfigError::LockError)?
+            .insert(id.to_string(), config);
         Ok(())
     }
     pub fn configuration_exists(&self, id: &str) -> bool {
-        self.configurations.read().map(|m| m.contains_key(id)).unwrap_or(false)
+        self.configurations
+            .read()
+            .map(|m| m.contains_key(id))
+            .unwrap_or(false)
     }
     pub fn get_all_configurations(&self) -> HashMap<String, OptimizationConfig> {
-        self.configurations.read().map(|m| m.clone()).unwrap_or_default()
+        self.configurations
+            .read()
+            .map(|m| m.clone())
+            .unwrap_or_default()
     }
-    pub fn get_analytics(&self) -> ConfigUsageAnalytics { ConfigUsageAnalytics::default() }
+    pub fn get_analytics(&self) -> ConfigUsageAnalytics {
+        ConfigUsageAnalytics::default()
+    }
     pub fn count_configurations(&self) -> usize {
         self.configurations.read().map(|m| m.len()).unwrap_or(0)
     }
-    pub fn count_active_configurations(&self) -> usize { self.count_configurations() }
+    pub fn count_active_configurations(&self) -> usize {
+        self.count_configurations()
+    }
 }
 #[derive(Debug)]
 pub struct ConfigMigrationSystem;
@@ -318,11 +343,28 @@ impl ConfigValidationSystem {
             validation_cache: ValidationCache::new(),
         }
     }
-    pub fn initialize(&mut self) -> Result<(), ConfigError> { Ok(()) }
-    pub fn validate_configuration(&self, _: &OptimizationConfig) -> Result<(), ConfigError> { Ok(()) }
-    pub fn validate_update_compatibility(&self, _: &OptimizationConfig, _: &OptimizationConfig) -> Result<(), ConfigError> { Ok(()) }
-    pub fn comprehensive_validation(&self, _: &OptimizationConfig) -> Result<ConfigValidationResult, ConfigError> { Ok(ConfigValidationResult::default()) }
-    pub fn check_conflicts(&self, _: &str, _: &OptimizationConfig) -> Result<(), ConfigError> { Ok(()) }
+    pub fn initialize(&mut self) -> Result<(), ConfigError> {
+        Ok(())
+    }
+    pub fn validate_configuration(&self, _: &OptimizationConfig) -> Result<(), ConfigError> {
+        Ok(())
+    }
+    pub fn validate_update_compatibility(
+        &self,
+        _: &OptimizationConfig,
+        _: &OptimizationConfig,
+    ) -> Result<(), ConfigError> {
+        Ok(())
+    }
+    pub fn comprehensive_validation(
+        &self,
+        _: &OptimizationConfig,
+    ) -> Result<ConfigValidationResult, ConfigError> {
+        Ok(ConfigValidationResult::default())
+    }
+    pub fn check_conflicts(&self, _: &str, _: &OptimizationConfig) -> Result<(), ConfigError> {
+        Ok(())
+    }
 }
 /// Core optimization configuration
 #[derive(Debug, Clone)]
@@ -451,46 +493,34 @@ impl OptimizationConfig {
     /// Validate configuration consistency
     pub fn validate_consistency(&self) -> Result<(), ConfigError> {
         if self.max_memory_usage == 0 {
-            return Err(
-                ConfigError::InvalidConfiguration(
-                    "max_memory_usage cannot be zero".to_string(),
-                ),
-            );
+            return Err(ConfigError::InvalidConfiguration(
+                "max_memory_usage cannot be zero".to_string(),
+            ));
         }
         if self.max_concurrent_optimizations == 0 {
-            return Err(
-                ConfigError::InvalidConfiguration(
-                    "max_concurrent_optimizations cannot be zero".to_string(),
-                ),
-            );
+            return Err(ConfigError::InvalidConfiguration(
+                "max_concurrent_optimizations cannot be zero".to_string(),
+            ));
         }
         if self.optimization_frequency.is_zero() {
-            return Err(
-                ConfigError::InvalidConfiguration(
-                    "optimization_frequency cannot be zero".to_string(),
-                ),
-            );
+            return Err(ConfigError::InvalidConfiguration(
+                "optimization_frequency cannot be zero".to_string(),
+            ));
         }
         if self.optimization_timeout.is_zero() {
-            return Err(
-                ConfigError::InvalidConfiguration(
-                    "optimization_timeout cannot be zero".to_string(),
-                ),
-            );
+            return Err(ConfigError::InvalidConfiguration(
+                "optimization_timeout cannot be zero".to_string(),
+            ));
         }
         if self.max_cpu_usage > 1.0 {
-            return Err(
-                ConfigError::InvalidConfiguration(
-                    "max_cpu_usage cannot exceed 100%".to_string(),
-                ),
-            );
+            return Err(ConfigError::InvalidConfiguration(
+                "max_cpu_usage cannot exceed 100%".to_string(),
+            ));
         }
         if self.max_gpu_usage > 1.0 {
-            return Err(
-                ConfigError::InvalidConfiguration(
-                    "max_gpu_usage cannot exceed 100%".to_string(),
-                ),
-            );
+            return Err(ConfigError::InvalidConfiguration(
+                "max_gpu_usage cannot exceed 100%".to_string(),
+            ));
         }
         Ok(())
     }
@@ -549,13 +579,18 @@ impl OptimizationConfig {
             "max_concurrent_optimizations".to_string(),
             self.max_concurrent_optimizations.to_string(),
         );
-        map.insert("max_memory_usage".to_string(), self.max_memory_usage.to_string());
+        map.insert(
+            "max_memory_usage".to_string(),
+            self.max_memory_usage.to_string(),
+        );
         map.insert("max_cpu_usage".to_string(), self.max_cpu_usage.to_string());
         map.insert("max_gpu_usage".to_string(), self.max_gpu_usage.to_string());
         map.insert(
             "config_version".to_string(),
             format!(
-                "{}.{}.{}", self.metadata.version.major, self.metadata.version.minor,
+                "{}.{}.{}",
+                self.metadata.version.major,
+                self.metadata.version.minor,
                 self.metadata.version.patch
             ),
         );
@@ -567,60 +602,44 @@ impl OptimizationConfig {
         map
     }
     /// Create configuration from key-value map
-    pub fn from_key_value_map(
-        map: HashMap<String, String>,
-    ) -> Result<Self, ConfigError> {
+    pub fn from_key_value_map(map: HashMap<String, String>) -> Result<Self, ConfigError> {
         let mut config = Self::default();
         if let Some(value) = map.get("enable_ml_optimization") {
             config.enable_ml_optimization = value
                 .parse()
-                .map_err(|_| ConfigError::ParseError(
-                    "enable_ml_optimization".to_string(),
-                ))?;
+                .map_err(|_| ConfigError::ParseError("enable_ml_optimization".to_string()))?;
         }
         if let Some(value) = map.get("enable_multi_objective") {
             config.enable_multi_objective = value
                 .parse()
-                .map_err(|_| ConfigError::ParseError(
-                    "enable_multi_objective".to_string(),
-                ))?;
+                .map_err(|_| ConfigError::ParseError("enable_multi_objective".to_string()))?;
         }
         if let Some(value) = map.get("enable_adaptive_optimization") {
             config.enable_adaptive_optimization = value
                 .parse()
-                .map_err(|_| ConfigError::ParseError(
-                    "enable_adaptive_optimization".to_string(),
-                ))?;
+                .map_err(|_| ConfigError::ParseError("enable_adaptive_optimization".to_string()))?;
         }
         if let Some(value) = map.get("enable_realtime_optimization") {
             config.enable_realtime_optimization = value
                 .parse()
-                .map_err(|_| ConfigError::ParseError(
-                    "enable_realtime_optimization".to_string(),
-                ))?;
+                .map_err(|_| ConfigError::ParseError("enable_realtime_optimization".to_string()))?;
         }
         if let Some(value) = map.get("optimization_frequency_ms") {
             let ms: u64 = value
                 .parse()
-                .map_err(|_| ConfigError::ParseError(
-                    "optimization_frequency_ms".to_string(),
-                ))?;
+                .map_err(|_| ConfigError::ParseError("optimization_frequency_ms".to_string()))?;
             config.optimization_frequency = Duration::from_millis(ms);
         }
         if let Some(value) = map.get("optimization_timeout_ms") {
             let ms: u64 = value
                 .parse()
-                .map_err(|_| ConfigError::ParseError(
-                    "optimization_timeout_ms".to_string(),
-                ))?;
+                .map_err(|_| ConfigError::ParseError("optimization_timeout_ms".to_string()))?;
             config.optimization_timeout = Duration::from_millis(ms);
         }
         if let Some(value) = map.get("max_concurrent_optimizations") {
             config.max_concurrent_optimizations = value
                 .parse()
-                .map_err(|_| ConfigError::ParseError(
-                    "max_concurrent_optimizations".to_string(),
-                ))?;
+                .map_err(|_| ConfigError::ParseError("max_concurrent_optimizations".to_string()))?;
         }
         if let Some(value) = map.get("max_memory_usage") {
             config.max_memory_usage = value
@@ -643,9 +662,7 @@ impl OptimizationConfig {
         Ok(config)
     }
     fn merge_non_defaults(&mut self, other: &OptimizationConfig) {
-        if other.enable_ml_optimization
-            != OptimizationConfig::default().enable_ml_optimization
-        {
+        if other.enable_ml_optimization != OptimizationConfig::default().enable_ml_optimization {
             self.enable_ml_optimization = other.enable_ml_optimization;
         }
     }
@@ -716,9 +733,22 @@ impl ConfigPersistenceLayer {
     pub fn new(_: ConfigPersistenceConfig) -> Self {
         Self
     }
-    pub fn initialize(&mut self) -> Result<(), ConfigError> { Ok(()) }
-    pub fn export_configuration(&self, _: &OptimizationConfig, _: ConfigExportConfig) -> Result<Vec<u8>, ConfigError> { Ok(Vec::new()) }
-    pub fn parse_import_data(&self, _: ConfigImportData) -> Result<OptimizationConfig, ConfigError> { Ok(OptimizationConfig::default()) }
+    pub fn initialize(&mut self) -> Result<(), ConfigError> {
+        Ok(())
+    }
+    pub fn export_configuration(
+        &self,
+        _: &OptimizationConfig,
+        _: ConfigExportConfig,
+    ) -> Result<Vec<u8>, ConfigError> {
+        Ok(Vec::new())
+    }
+    pub fn parse_import_data(
+        &self,
+        _: ConfigImportData,
+    ) -> Result<OptimizationConfig, ConfigError> {
+        Ok(OptimizationConfig::default())
+    }
 }
 #[derive(Debug, Clone)]
 pub struct ExportImportConfig;
@@ -784,10 +814,24 @@ impl DynamicConfigUpdater {
             impact_analyzer: UpdateImpactAnalyzer::new(),
         }
     }
-    pub fn initialize(&mut self) -> Result<(), ConfigError> { Ok(()) }
-    pub fn analyze_update_impact(&mut self, _: &OptimizationConfig, _: &OptimizationConfig) -> Result<ImpactAnalysis, ConfigError> { Ok(ImpactAnalysis) }
-    pub fn apply_update(&mut self, _: &str, _: OptimizationConfig) -> Result<UpdateDetails, ConfigError> {
-        Ok(UpdateDetails { requires_sync: false })
+    pub fn initialize(&mut self) -> Result<(), ConfigError> {
+        Ok(())
+    }
+    pub fn analyze_update_impact(
+        &mut self,
+        _: &OptimizationConfig,
+        _: &OptimizationConfig,
+    ) -> Result<ImpactAnalysis, ConfigError> {
+        Ok(ImpactAnalysis)
+    }
+    pub fn apply_update(
+        &mut self,
+        _: &str,
+        _: OptimizationConfig,
+    ) -> Result<UpdateDetails, ConfigError> {
+        Ok(UpdateDetails {
+            requires_sync: false,
+        })
     }
 }
 #[derive(Debug, Clone)]
@@ -914,10 +958,22 @@ impl ConfigTemplateManager {
             analytics: TemplateAnalytics::new(),
         }
     }
-    pub fn initialize(&mut self) -> Result<(), ConfigError> { Ok(()) }
-    pub fn get_template(&self, _: &str) -> Result<ConfigTemplate, ConfigError> { Ok(ConfigTemplate) }
-    pub fn instantiate_template(&self, _: ConfigTemplate, _: std::collections::HashMap<String, ConfigValue>) -> Result<OptimizationConfig, ConfigError> { Ok(OptimizationConfig::default()) }
-    pub fn get_usage_statistics(&self) -> TemplateUsageStats { TemplateUsageStats::default() }
+    pub fn initialize(&mut self) -> Result<(), ConfigError> {
+        Ok(())
+    }
+    pub fn get_template(&self, _: &str) -> Result<ConfigTemplate, ConfigError> {
+        Ok(ConfigTemplate)
+    }
+    pub fn instantiate_template(
+        &self,
+        _: ConfigTemplate,
+        _: std::collections::HashMap<String, ConfigValue>,
+    ) -> Result<OptimizationConfig, ConfigError> {
+        Ok(OptimizationConfig::default())
+    }
+    pub fn get_usage_statistics(&self) -> TemplateUsageStats {
+        TemplateUsageStats::default()
+    }
 }
 #[derive(Debug, Clone, Default)]
 pub struct ConfigTemplate;
@@ -959,9 +1015,22 @@ impl ConfigSynchronizationSystem {
     pub fn new(_: ConfigSyncConfig) -> Self {
         Self
     }
-    pub fn initialize(&mut self) -> Result<(), ConfigError> { Ok(()) }
-    pub fn synchronize_configuration(&self, _: &str, _: &OptimizationConfig) -> Result<(), ConfigError> { Ok(()) }
-    pub fn synchronize_all_configurations(&self, _: ConfigSyncConfig) -> Result<ConfigSyncResult, ConfigError> { Ok(ConfigSyncResult) }
+    pub fn initialize(&mut self) -> Result<(), ConfigError> {
+        Ok(())
+    }
+    pub fn synchronize_configuration(
+        &self,
+        _: &str,
+        _: &OptimizationConfig,
+    ) -> Result<(), ConfigError> {
+        Ok(())
+    }
+    pub fn synchronize_all_configurations(
+        &self,
+        _: ConfigSyncConfig,
+    ) -> Result<ConfigSyncResult, ConfigError> {
+        Ok(ConfigSyncResult)
+    }
 }
 #[derive(Debug, Clone)]
 pub struct ConfigExportResult {
@@ -1094,11 +1163,34 @@ impl ConfigAuditSystem {
     pub fn new(_: AuditConfig) -> Self {
         Self
     }
-    pub fn initialize(&mut self) -> Result<(), ConfigError> { Ok(()) }
-    pub fn record_configuration_registration(&self, _: &str, _: &OptimizationConfig) -> Result<(), ConfigError> { Ok(()) }
-    pub fn record_configuration_update(&self, _: &str, _: &OptimizationConfig, _: &OptimizationConfig) -> Result<(), ConfigError> { Ok(()) }
-    pub fn record_configuration_rollback(&self, _: &str, _: &ConfigVersion) -> Result<(), ConfigError> { Ok(()) }
-    pub fn get_audit_trail(&self, _: &str) -> Result<ConfigAuditTrail, ConfigError> { Ok(ConfigAuditTrail) }
+    pub fn initialize(&mut self) -> Result<(), ConfigError> {
+        Ok(())
+    }
+    pub fn record_configuration_registration(
+        &self,
+        _: &str,
+        _: &OptimizationConfig,
+    ) -> Result<(), ConfigError> {
+        Ok(())
+    }
+    pub fn record_configuration_update(
+        &self,
+        _: &str,
+        _: &OptimizationConfig,
+        _: &OptimizationConfig,
+    ) -> Result<(), ConfigError> {
+        Ok(())
+    }
+    pub fn record_configuration_rollback(
+        &self,
+        _: &str,
+        _: &ConfigVersion,
+    ) -> Result<(), ConfigError> {
+        Ok(())
+    }
+    pub fn get_audit_trail(&self, _: &str) -> Result<ConfigAuditTrail, ConfigError> {
+        Ok(ConfigAuditTrail)
+    }
 }
 /// Comprehensive configuration management system
 #[derive(Debug)]
@@ -1140,12 +1232,8 @@ impl OptimizationConfigManager {
             versioning_system: ConfigVersioningSystem::new(
                 manager_config.versioning_config.clone(),
             ),
-            dynamic_updater: DynamicConfigUpdater::new(
-                manager_config.dynamic_config.clone(),
-            ),
-            template_manager: ConfigTemplateManager::new(
-                manager_config.template_config.clone(),
-            ),
+            dynamic_updater: DynamicConfigUpdater::new(manager_config.dynamic_config.clone()),
+            template_manager: ConfigTemplateManager::new(manager_config.template_config.clone()),
             environment_manager: ConfigEnvironmentManager::new(
                 manager_config.environment_config.clone(),
             ),
@@ -1154,15 +1242,9 @@ impl OptimizationConfigManager {
             ),
             audit_system: ConfigAuditSystem::new(manager_config.audit_config.clone()),
             backup_system: ConfigBackupSystem::new(manager_config.backup_config.clone()),
-            sync_system: ConfigSynchronizationSystem::new(
-                manager_config.sync_config.clone(),
-            ),
-            schema_manager: ConfigSchemaManager::new(
-                manager_config.schema_config.clone(),
-            ),
-            migration_system: ConfigMigrationSystem::new(
-                manager_config.migration_config.clone(),
-            ),
+            sync_system: ConfigSynchronizationSystem::new(manager_config.sync_config.clone()),
+            schema_manager: ConfigSchemaManager::new(manager_config.schema_config.clone()),
+            migration_system: ConfigMigrationSystem::new(manager_config.migration_config.clone()),
         })
     }
 
@@ -1176,12 +1258,8 @@ impl OptimizationConfigManager {
             versioning_system: ConfigVersioningSystem::new(
                 manager_config.versioning_config.clone(),
             ),
-            dynamic_updater: DynamicConfigUpdater::new(
-                manager_config.dynamic_config.clone(),
-            ),
-            template_manager: ConfigTemplateManager::new(
-                manager_config.template_config.clone(),
-            ),
+            dynamic_updater: DynamicConfigUpdater::new(manager_config.dynamic_config.clone()),
+            template_manager: ConfigTemplateManager::new(manager_config.template_config.clone()),
             environment_manager: ConfigEnvironmentManager::new(
                 manager_config.environment_config.clone(),
             ),
@@ -1190,15 +1268,9 @@ impl OptimizationConfigManager {
             ),
             audit_system: ConfigAuditSystem::new(manager_config.audit_config.clone()),
             backup_system: ConfigBackupSystem::new(manager_config.backup_config.clone()),
-            sync_system: ConfigSynchronizationSystem::new(
-                manager_config.sync_config.clone(),
-            ),
-            schema_manager: ConfigSchemaManager::new(
-                manager_config.schema_config.clone(),
-            ),
-            migration_system: ConfigMigrationSystem::new(
-                manager_config.migration_config.clone(),
-            ),
+            sync_system: ConfigSynchronizationSystem::new(manager_config.sync_config.clone()),
+            schema_manager: ConfigSchemaManager::new(manager_config.schema_config.clone()),
+            migration_system: ConfigMigrationSystem::new(manager_config.migration_config.clone()),
         }
     }
     /// Initialize the configuration manager
@@ -1227,17 +1299,18 @@ impl OptimizationConfigManager {
     ) -> Result<(), ConfigError> {
         self.validation_system.validate_configuration(&config)?;
         self.check_configuration_conflicts(&config_id, &config)?;
-        self.config_registry.register(config_id.clone(), config.clone())?;
-        self.versioning_system.create_initial_version(&config_id, &config)?;
-        self.audit_system.record_configuration_registration(&config_id, &config)?;
-        self.backup_system.backup_configuration(&config_id, &config)?;
+        self.config_registry
+            .register(config_id.clone(), config.clone())?;
+        self.versioning_system
+            .create_initial_version(&config_id, &config)?;
+        self.audit_system
+            .record_configuration_registration(&config_id, &config)?;
+        self.backup_system
+            .backup_configuration(&config_id, &config)?;
         Ok(())
     }
     /// Get configuration by ID
-    pub fn get_configuration(
-        &self,
-        config_id: &str,
-    ) -> Result<OptimizationConfig, ConfigError> {
+    pub fn get_configuration(&self, config_id: &str) -> Result<OptimizationConfig, ConfigError> {
         self.config_registry.get_configuration(config_id)
     }
     /// Update configuration
@@ -1247,24 +1320,33 @@ impl OptimizationConfigManager {
         updated_config: OptimizationConfig,
     ) -> Result<ConfigUpdateResult, ConfigError> {
         let current_config = self.get_configuration(config_id)?;
-        self.validation_system.validate_configuration(&updated_config)?;
+        self.validation_system
+            .validate_configuration(&updated_config)?;
         self.validation_system
             .validate_update_compatibility(&current_config, &updated_config)?;
         let impact_analysis = self
             .dynamic_updater
             .analyze_update_impact(&current_config, &updated_config)?;
-        let version_entry = self
-            .versioning_system
-            .create_version_entry(config_id, &current_config, &updated_config)?;
+        let version_entry = self.versioning_system.create_version_entry(
+            config_id,
+            &current_config,
+            &updated_config,
+        )?;
         let update_result = self
             .dynamic_updater
             .apply_update(config_id, updated_config.clone())?;
-        self.config_registry.update_configuration(config_id, updated_config.clone())?;
-        self.audit_system
-            .record_configuration_update(config_id, &current_config, &updated_config)?;
-        self.backup_system.backup_configuration(config_id, &updated_config)?;
+        self.config_registry
+            .update_configuration(config_id, updated_config.clone())?;
+        self.audit_system.record_configuration_update(
+            config_id,
+            &current_config,
+            &updated_config,
+        )?;
+        self.backup_system
+            .backup_configuration(config_id, &updated_config)?;
         if update_result.requires_sync {
-            self.sync_system.synchronize_configuration(config_id, &updated_config)?;
+            self.sync_system
+                .synchronize_configuration(config_id, &updated_config)?;
         }
         Ok(ConfigUpdateResult {
             success: true,
@@ -1314,9 +1396,12 @@ impl OptimizationConfigManager {
         let rollback_result = self
             .versioning_system
             .rollback_to_version(config_id, target_version.clone())?;
-        self.config_registry.update_configuration(config_id, target_config.clone())?;
-        self.audit_system.record_configuration_rollback(config_id, &target_version)?;
-        self.backup_system.backup_configuration(config_id, &target_config)?;
+        self.config_registry
+            .update_configuration(config_id, target_config.clone())?;
+        self.audit_system
+            .record_configuration_rollback(config_id, &target_version)?;
+        self.backup_system
+            .backup_configuration(config_id, &target_config)?;
         Ok(rollback_result)
     }
     /// Export configuration
@@ -1348,7 +1433,9 @@ impl OptimizationConfigManager {
         let config = self.persistence_layer.parse_import_data(import_data)?;
         let validation_result = self.validate_configuration(&config)?;
         if !validation_result.is_valid {
-            return Err(ConfigError::ImportValidationFailed(validation_result.errors));
+            return Err(ConfigError::ImportValidationFailed(
+                validation_result.errors,
+            ));
         }
         let config_id = self.generate_import_config_id(&config)?;
         self.register_configuration(config_id.clone(), config)?;
@@ -1374,10 +1461,7 @@ impl OptimizationConfigManager {
         self.backup_system.restore_configurations(restore_config)
     }
     /// Get configuration audit trail
-    pub fn get_audit_trail(
-        &self,
-        config_id: &str,
-    ) -> Result<ConfigAuditTrail, ConfigError> {
+    pub fn get_audit_trail(&self, config_id: &str) -> Result<ConfigAuditTrail, ConfigError> {
         self.audit_system.get_audit_trail(config_id)
     }
     /// Synchronize configurations
@@ -1413,14 +1497,10 @@ impl OptimizationConfigManager {
         for (config_id, config) in &all_configs {
             let validation_result = self.validate_configuration(config)?;
             if !validation_result.is_valid {
-                return Err(
-                    ConfigError::ConfigurationInvalid(
-                        format!(
-                            "Configuration '{}' is invalid: {:?}", config_id,
-                            validation_result.errors
-                        ),
-                    ),
-                );
+                return Err(ConfigError::ConfigurationInvalid(format!(
+                    "Configuration '{}' is invalid: {:?}",
+                    config_id, validation_result.errors
+                )));
             }
         }
         Ok(())
@@ -1431,11 +1511,10 @@ impl OptimizationConfigManager {
         config: &OptimizationConfig,
     ) -> Result<(), ConfigError> {
         if self.config_registry.configuration_exists(config_id) {
-            return Err(
-                ConfigError::ConfigurationConflict(
-                    format!("Configuration ID '{}' already exists", config_id),
-                ),
-            );
+            return Err(ConfigError::ConfigurationConflict(format!(
+                "Configuration ID '{}' already exists",
+                config_id
+            )));
         }
         self.validation_system.check_conflicts(config_id, config)
     }
@@ -1445,15 +1524,14 @@ impl OptimizationConfigManager {
         target_version: &ConfigVersion,
     ) -> Result<(), ConfigError> {
         self.get_configuration(config_id)?;
-        if !self.versioning_system.version_exists(config_id, target_version)? {
-            return Err(
-                ConfigError::VersionNotFound(
-                    format!(
-                        "Version {:?} not found for configuration '{}'", target_version,
-                        config_id
-                    ),
-                ),
-            );
+        if !self
+            .versioning_system
+            .version_exists(config_id, target_version)?
+        {
+            return Err(ConfigError::VersionNotFound(format!(
+                "Version {:?} not found for configuration '{}'",
+                target_version, config_id
+            )));
         }
         self.versioning_system
             .validate_rollback_compatibility(config_id, target_version)?;
@@ -1516,7 +1594,11 @@ pub struct CompressionConfig;
 #[derive(Debug, Clone)]
 pub struct ConfigMergeRule;
 impl ConfigMergeRule {
-    pub fn apply(&self, _current: &mut OptimizationConfig, _other: &OptimizationConfig) -> Result<(), ConfigError> {
+    pub fn apply(
+        &self,
+        _current: &mut OptimizationConfig,
+        _other: &OptimizationConfig,
+    ) -> Result<(), ConfigError> {
         Ok(())
     }
 }
@@ -1563,10 +1645,24 @@ impl ConfigBackupSystem {
     pub fn new(_: ConfigBackupConfig) -> Self {
         Self
     }
-    pub fn initialize(&mut self) -> Result<(), ConfigError> { Ok(()) }
-    pub fn backup_configuration(&self, _: &str, _: &OptimizationConfig) -> Result<(), ConfigError> { Ok(()) }
-    pub fn backup_all_configurations(&self, _: ConfigBackupConfig) -> Result<ConfigBackupResult, ConfigError> { Ok(ConfigBackupResult) }
-    pub fn restore_configurations(&self, _: ConfigRestoreConfig) -> Result<ConfigRestoreResult, ConfigError> { Ok(ConfigRestoreResult) }
+    pub fn initialize(&mut self) -> Result<(), ConfigError> {
+        Ok(())
+    }
+    pub fn backup_configuration(&self, _: &str, _: &OptimizationConfig) -> Result<(), ConfigError> {
+        Ok(())
+    }
+    pub fn backup_all_configurations(
+        &self,
+        _: ConfigBackupConfig,
+    ) -> Result<ConfigBackupResult, ConfigError> {
+        Ok(ConfigBackupResult)
+    }
+    pub fn restore_configurations(
+        &self,
+        _: ConfigRestoreConfig,
+    ) -> Result<ConfigRestoreResult, ConfigError> {
+        Ok(ConfigRestoreResult)
+    }
 }
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone)]
@@ -1634,15 +1730,56 @@ impl ConfigVersioningSystem {
             publishing_system: VersionPublishingSystem::new(),
         }
     }
-    pub fn initialize(&mut self) -> Result<(), ConfigError> { Ok(()) }
-    pub fn create_initial_version(&mut self, _: &str, _: &OptimizationConfig) -> Result<(), ConfigError> { Ok(()) }
-    pub fn create_version_entry(&mut self, _: &str, config: &OptimizationConfig, _: &OptimizationConfig) -> Result<ConfigVersionEntry, ConfigError> { Ok(ConfigVersionEntry { version: config.metadata.version.clone() }) }
-    pub fn get_version_history(&self, _: &str) -> Result<Vec<ConfigVersionEntry>, ConfigError> { Ok(Vec::new()) }
-    pub fn get_version_config(&self, _: &str, _: &ConfigVersion) -> Result<OptimizationConfig, ConfigError> { Ok(OptimizationConfig::default()) }
-    pub fn rollback_to_version(&mut self, _: &str, _: ConfigVersion) -> Result<ConfigRollbackResult, ConfigError> { Ok(ConfigRollbackResult::default()) }
-    pub fn version_exists(&self, _: &str, _: &ConfigVersion) -> Result<bool, ConfigError> { Ok(true) }
-    pub fn validate_rollback_compatibility(&self, _: &str, _: &ConfigVersion) -> Result<(), ConfigError> { Ok(()) }
-    pub fn get_analytics(&self) -> ConfigUsageAnalytics { ConfigUsageAnalytics::default() }
+    pub fn initialize(&mut self) -> Result<(), ConfigError> {
+        Ok(())
+    }
+    pub fn create_initial_version(
+        &mut self,
+        _: &str,
+        _: &OptimizationConfig,
+    ) -> Result<(), ConfigError> {
+        Ok(())
+    }
+    pub fn create_version_entry(
+        &mut self,
+        _: &str,
+        config: &OptimizationConfig,
+        _: &OptimizationConfig,
+    ) -> Result<ConfigVersionEntry, ConfigError> {
+        Ok(ConfigVersionEntry {
+            version: config.metadata.version.clone(),
+        })
+    }
+    pub fn get_version_history(&self, _: &str) -> Result<Vec<ConfigVersionEntry>, ConfigError> {
+        Ok(Vec::new())
+    }
+    pub fn get_version_config(
+        &self,
+        _: &str,
+        _: &ConfigVersion,
+    ) -> Result<OptimizationConfig, ConfigError> {
+        Ok(OptimizationConfig::default())
+    }
+    pub fn rollback_to_version(
+        &mut self,
+        _: &str,
+        _: ConfigVersion,
+    ) -> Result<ConfigRollbackResult, ConfigError> {
+        Ok(ConfigRollbackResult::default())
+    }
+    pub fn version_exists(&self, _: &str, _: &ConfigVersion) -> Result<bool, ConfigError> {
+        Ok(true)
+    }
+    pub fn validate_rollback_compatibility(
+        &self,
+        _: &str,
+        _: &ConfigVersion,
+    ) -> Result<(), ConfigError> {
+        Ok(())
+    }
+    pub fn get_analytics(&self) -> ConfigUsageAnalytics {
+        ConfigUsageAnalytics::default()
+    }
 }
 #[derive(Debug)]
 pub struct ConfigUsageStatistics;
@@ -1689,7 +1826,10 @@ pub struct ConfigValidationResult {
 }
 impl Default for ConfigValidationResult {
     fn default() -> Self {
-        Self { is_valid: true, errors: Vec::new() }
+        Self {
+            is_valid: true,
+            errors: Vec::new(),
+        }
     }
 }
 #[derive(Debug, Clone)]

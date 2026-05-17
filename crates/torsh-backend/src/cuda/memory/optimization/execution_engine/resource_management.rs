@@ -750,12 +750,18 @@ impl OptimizationResourceManager {
         }
 
         // Execute allocation through allocation engine
-        let allocation_engine = self.allocation_engine.lock().expect("lock should not be poisoned");
+        let allocation_engine = self
+            .allocation_engine
+            .lock()
+            .expect("lock should not be poisoned");
         let allocation_plan = allocation_engine.create_allocation_plan(task_id, requirements)?;
 
         // Allocate GPU resources if needed
         let gpu_allocations = if requirements.gpu_requirements.gpu_count > 0 {
-            let mut gpu_manager = self.gpu_manager.lock().expect("lock should not be poisoned");
+            let mut gpu_manager = self
+                .gpu_manager
+                .lock()
+                .expect("lock should not be poisoned");
             gpu_manager.allocate_gpu_resources(task_id, &requirements.gpu_requirements)?
         } else {
             Vec::new()
@@ -763,7 +769,10 @@ impl OptimizationResourceManager {
 
         // Allocate CPU resources if needed
         let cpu_allocations = if requirements.cpu_requirements.min_cores > 0 {
-            let mut cpu_manager = self.cpu_manager.lock().expect("lock should not be poisoned");
+            let mut cpu_manager = self
+                .cpu_manager
+                .lock()
+                .expect("lock should not be poisoned");
             cpu_manager.allocate_cpu_resources(task_id, &requirements.cpu_requirements)?
         } else {
             Vec::new()
@@ -771,13 +780,19 @@ impl OptimizationResourceManager {
 
         // Allocate memory resources
         let memory_allocations = {
-            let mut memory_manager = self.memory_manager.lock().expect("lock should not be poisoned");
+            let mut memory_manager = self
+                .memory_manager
+                .lock()
+                .expect("lock should not be poisoned");
             memory_manager.allocate_memory_resources(task_id, &requirements.memory_requirements)?
         };
 
         // Allocate specialized hardware if needed
         let hardware_allocations = if !requirements.hardware_requirements.is_empty() {
-            let mut hardware_manager = self.hardware_manager.lock().expect("lock should not be poisoned");
+            let mut hardware_manager = self
+                .hardware_manager
+                .lock()
+                .expect("lock should not be poisoned");
             hardware_manager
                 .allocate_hardware_resources(task_id, &requirements.hardware_requirements)?
         } else {
@@ -806,7 +821,10 @@ impl OptimizationResourceManager {
 
         // Start resource monitoring
         {
-            let mut monitoring = self.monitoring_system.lock().expect("lock should not be poisoned");
+            let mut monitoring = self
+                .monitoring_system
+                .lock()
+                .expect("lock should not be poisoned");
             monitoring.start_monitoring_allocation(&allocation)?;
         }
 
@@ -820,25 +838,37 @@ impl OptimizationResourceManager {
 
         // Deallocate GPU resources
         if !allocation_info.gpu_allocations.is_empty() {
-            let mut gpu_manager = self.gpu_manager.lock().expect("lock should not be poisoned");
+            let mut gpu_manager = self
+                .gpu_manager
+                .lock()
+                .expect("lock should not be poisoned");
             gpu_manager.deallocate_gpu_resources(task_id)?;
         }
 
         // Deallocate CPU resources
         if !allocation_info.cpu_allocations.is_empty() {
-            let mut cpu_manager = self.cpu_manager.lock().expect("lock should not be poisoned");
+            let mut cpu_manager = self
+                .cpu_manager
+                .lock()
+                .expect("lock should not be poisoned");
             cpu_manager.deallocate_cpu_resources(task_id)?;
         }
 
         // Deallocate memory resources
         {
-            let mut memory_manager = self.memory_manager.lock().expect("lock should not be poisoned");
+            let mut memory_manager = self
+                .memory_manager
+                .lock()
+                .expect("lock should not be poisoned");
             memory_manager.deallocate_memory_resources(task_id)?;
         }
 
         // Deallocate hardware resources
         if !allocation_info.hardware_allocations.is_empty() {
-            let mut hardware_manager = self.hardware_manager.lock().expect("lock should not be poisoned");
+            let mut hardware_manager = self
+                .hardware_manager
+                .lock()
+                .expect("lock should not be poisoned");
             hardware_manager.deallocate_hardware_resources(task_id)?;
         }
 
@@ -850,7 +880,10 @@ impl OptimizationResourceManager {
 
         // Stop resource monitoring
         {
-            let mut monitoring = self.monitoring_system.lock().expect("lock should not be poisoned");
+            let mut monitoring = self
+                .monitoring_system
+                .lock()
+                .expect("lock should not be poisoned");
             monitoring.stop_monitoring_allocation(task_id)?;
         }
 
@@ -860,17 +893,26 @@ impl OptimizationResourceManager {
     /// Get current resource utilization
     pub fn get_resource_utilization(&self) -> Result<ResourceUtilization, ResourceError> {
         let gpu_utilization = {
-            let gpu_manager = self.gpu_manager.lock().expect("lock should not be poisoned");
+            let gpu_manager = self
+                .gpu_manager
+                .lock()
+                .expect("lock should not be poisoned");
             gpu_manager.get_current_utilization()
         };
 
         let cpu_utilization = {
-            let cpu_manager = self.cpu_manager.lock().expect("lock should not be poisoned");
+            let cpu_manager = self
+                .cpu_manager
+                .lock()
+                .expect("lock should not be poisoned");
             cpu_manager.get_current_utilization()
         };
 
         let memory_utilization = {
-            let memory_manager = self.memory_manager.lock().expect("lock should not be poisoned");
+            let memory_manager = self
+                .memory_manager
+                .lock()
+                .expect("lock should not be poisoned");
             memory_manager.get_current_utilization()
         };
 
@@ -896,7 +938,10 @@ impl OptimizationResourceManager {
 
     /// Optimize resource allocation
     pub fn optimize_resources(&self) -> Result<OptimizationResults, ResourceError> {
-        let optimization_engine = self.optimization_engine.lock().expect("lock should not be poisoned");
+        let optimization_engine = self
+            .optimization_engine
+            .lock()
+            .expect("lock should not be poisoned");
         optimization_engine.optimize_current_allocations()
     }
 
@@ -931,7 +976,10 @@ impl OptimizationResourceManager {
 
         // Check GPU availability
         if requirements.gpu_requirements.gpu_count > 0 {
-            let gpu_manager = self.gpu_manager.lock().expect("lock should not be poisoned");
+            let gpu_manager = self
+                .gpu_manager
+                .lock()
+                .expect("lock should not be poisoned");
             if !gpu_manager.has_sufficient_gpu_resources(&requirements.gpu_requirements) {
                 missing_resources.push("GPU".to_string());
             }
@@ -939,14 +987,20 @@ impl OptimizationResourceManager {
 
         // Check CPU availability
         if requirements.cpu_requirements.min_cores > 0 {
-            let cpu_manager = self.cpu_manager.lock().expect("lock should not be poisoned");
+            let cpu_manager = self
+                .cpu_manager
+                .lock()
+                .expect("lock should not be poisoned");
             if !cpu_manager.has_sufficient_cpu_resources(&requirements.cpu_requirements) {
                 missing_resources.push("CPU".to_string());
             }
         }
 
         // Check memory availability
-        let memory_manager = self.memory_manager.lock().expect("lock should not be poisoned");
+        let memory_manager = self
+            .memory_manager
+            .lock()
+            .expect("lock should not be poisoned");
         if !memory_manager.has_sufficient_memory(&requirements.memory_requirements) {
             missing_resources.push("Memory".to_string());
         }
@@ -1118,7 +1172,8 @@ impl GpuResourceManager {
         };
 
         // Update device availability
-        device.available_memory_bytes = device.available_memory_bytes
+        device.available_memory_bytes = device
+            .available_memory_bytes
             .saturating_sub(requirements.min_gpu_memory_bytes);
 
         Ok(GpuAllocation {
@@ -1412,7 +1467,9 @@ pub enum AllocationStatus {
 }
 
 impl AllocationStatus {
-    pub const fn new_active() -> bool { true }
+    pub const fn new_active() -> bool {
+        true
+    }
 }
 
 default_placeholder_type!(AllocationPerformanceMetrics);
@@ -1675,7 +1732,6 @@ impl AllocationId {
     }
 }
 
-
 // PartialEq is already derived by the default_placeholder_type macro
 
 impl HardwareInventory {
@@ -1718,7 +1774,9 @@ mod tests {
         let config = ResourceManagementConfig::default();
         let resource_manager = OptimizationResourceManager::new(config);
 
-        let utilization = resource_manager.get_resource_utilization().expect("resource utilization retrieval should succeed");
+        let utilization = resource_manager
+            .get_resource_utilization()
+            .expect("resource utilization retrieval should succeed");
         assert!(utilization.overall_utilization >= 0.0);
         assert!(utilization.overall_utilization <= 1.0);
     }

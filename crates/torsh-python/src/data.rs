@@ -24,12 +24,12 @@ use pyo3::exceptions::PyStopIteration;
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
 use std::sync::{Arc, Mutex};
+use torsh_core::device::DeviceType;
+use torsh_core::error::Result as TorshResult;
 use torsh_data::dataloader::{simple_dataloader, simple_random_dataloader};
 use torsh_data::dataloader::{SimpleDataLoader, SimpleRandomDataLoader};
 use torsh_data::dataset::Dataset;
-use torsh_core::error::Result as TorshResult;
 use torsh_tensor::Tensor;
-use torsh_core::device::DeviceType;
 
 // ---------------------------------------------------------------------------
 // PyDataset
@@ -173,7 +173,11 @@ fn tensors_to_rows(tensors: &[Tensor<f32>]) -> Vec<Vec<f32>> {
         return Vec::new();
     }
     let batch_size = shape[0];
-    let feature_size: usize = if shape.len() > 1 { shape[1..].iter().product() } else { 1 };
+    let feature_size: usize = if shape.len() > 1 {
+        shape[1..].iter().product()
+    } else {
+        1
+    };
 
     let flat: Vec<f32> = t.data().unwrap_or_default().to_vec();
     let mut rows = Vec::with_capacity(batch_size);
@@ -272,8 +276,7 @@ impl PyDataLoader {
         let dataset_len = inner.samples.len();
 
         let batches: Vec<Batch> = if shuffle {
-            let loader =
-                to_py_result(simple_random_dataloader(inner, batch_size, generator))?;
+            let loader = to_py_result(simple_random_dataloader(inner, batch_size, generator))?;
             materialise_batches_random(&loader)
         } else {
             let loader = to_py_result(simple_dataloader(inner, batch_size, false))?;

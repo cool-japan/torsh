@@ -1073,7 +1073,10 @@ impl OptimizationValidator {
     }
 
     fn get_cached_result(&self, cache_key: &str) -> Option<CachedValidationResult> {
-        let cache = self.result_cache.read().expect("lock should not be poisoned");
+        let cache = self
+            .result_cache
+            .read()
+            .expect("lock should not be poisoned");
         cache.get(cache_key).cloned()
     }
 
@@ -1248,7 +1251,10 @@ impl OptimizationValidator {
             context: HashMap::new(),
         };
 
-        let mut cache = self.result_cache.write().expect("lock should not be poisoned");
+        let mut cache = self
+            .result_cache
+            .write()
+            .expect("lock should not be poisoned");
         cache.insert(cache_key.to_string(), cached_result);
 
         Ok(())
@@ -1469,7 +1475,10 @@ impl StatisticalValidator {
         }
     }
 
-    fn validate(&self, _session: &ValidationSession) -> Result<StatisticalValidationResults, ValidationError> {
+    fn validate(
+        &self,
+        _session: &ValidationSession,
+    ) -> Result<StatisticalValidationResults, ValidationError> {
         Ok(StatisticalValidationResults::default())
     }
 }
@@ -1492,7 +1501,10 @@ impl ABTestingFramework {
         Ok(ABTestResults::default())
     }
 
-    fn execute_test(&mut self, _test_config: ABTestConfig) -> Result<ABTestResults, ValidationError> {
+    fn execute_test(
+        &mut self,
+        _test_config: ABTestConfig,
+    ) -> Result<ABTestResults, ValidationError> {
         Ok(ABTestResults::default())
     }
 }
@@ -1723,4 +1735,3 @@ impl ValidationMetricsCollector {
         ValidationMetrics::default()
     }
 }
-

@@ -353,7 +353,7 @@ impl CudaMemoryManagerCoordinator {
     /// Create a new memory manager coordinator
     pub fn new(config: CudaMemoryManagerConfig) -> Result<Self, String> {
         let statistics_manager = Arc::new(CudaMemoryStatisticsManager::new(
-            crate::cuda::memory::statistics::StatisticsConfig::default()
+            crate::cuda::memory::statistics::StatisticsConfig::default(),
         ));
         let optimization_engine = Arc::new(
             CudaMemoryOptimizationEngine::new(config.optimization_config.clone())
@@ -363,12 +363,12 @@ impl CudaMemoryManagerCoordinator {
         let unified_manager = Arc::new(UnifiedMemoryManager::new());
         let pinned_manager = Arc::new(
             PinnedMemoryManager::new(
-                crate::cuda::memory::pinned_memory::PinnedMemoryConfig::default()
+                crate::cuda::memory::pinned_memory::PinnedMemoryConfig::default(),
             )
             .map_err(|e| format!("Failed to create pinned memory manager: {:?}", e))?,
         );
         let pool_manager = Arc::new(UnifiedMemoryPoolManager::new(
-            crate::cuda::memory::memory_pools::PoolManagerConfig::default()
+            crate::cuda::memory::memory_pools::PoolManagerConfig::default(),
         ));
 
         let coordinator = Self {
@@ -401,10 +401,9 @@ impl CudaMemoryManagerCoordinator {
 
         for &device_id in device_ids {
             if !device_managers.contains_key(&device_id) {
-                let manager = Arc::new(
-                    DeviceMemoryManager::new(device_id)
-                        .map_err(|e| format!("Failed to create device manager for {}: {:?}", device_id, e))?,
-                );
+                let manager = Arc::new(DeviceMemoryManager::new(device_id).map_err(|e| {
+                    format!("Failed to create device manager for {}: {:?}", device_id, e)
+                })?);
                 device_managers.insert(device_id, manager);
             }
         }
@@ -451,9 +450,10 @@ impl CudaMemoryManagerCoordinator {
                 self.allocate_unified_memory(size, device_id, alignment, priority)
             }
             AllocationType::Pinned => self.allocate_pinned_memory(size, alignment, priority),
-            AllocationType::Texture | AllocationType::Surface => {
-                Err(format!("Allocation type {:?} is not supported by the coordinator", allocation_type))
-            }
+            AllocationType::Texture | AllocationType::Surface => Err(format!(
+                "Allocation type {:?} is not supported by the coordinator",
+                allocation_type
+            )),
         };
 
         let duration = start_time.elapsed();
@@ -503,8 +503,10 @@ impl CudaMemoryManagerCoordinator {
                 // should use DeviceMemoryManager directly.
                 self.deallocate_device_memory_by_ptr(allocation.as_ptr() as u64, size, 0)
             }
-            AllocationType::Unified | AllocationType::Pinned
-            | AllocationType::Texture | AllocationType::Surface => {
+            AllocationType::Unified
+            | AllocationType::Pinned
+            | AllocationType::Texture
+            | AllocationType::Surface => {
                 // Unified/Pinned/Texture/Surface deallocation handled by their own managers.
                 // Without concrete types we can only record the deallocation.
                 Ok(())
@@ -624,7 +626,8 @@ impl CudaMemoryManagerCoordinator {
             .ok_or_else(|| format!("No device manager for device {}", device_id))?;
 
         // Use the real allocate(size) -> CudaResult<CudaAllocation>
-        let alloc = manager.allocate(size)
+        let alloc = manager
+            .allocate(size)
             .map_err(|e| format!("Device allocation failed: {:?}", e))?;
 
         Ok(Box::new(alloc))
@@ -638,7 +641,9 @@ impl CudaMemoryManagerCoordinator {
         _priority: AllocationPriority,
     ) -> Result<Box<dyn CudaMemoryAllocation>, String> {
         // Use the real allocate_unified(size) -> CudaResult<UnifiedAllocation>
-        let alloc = self.unified_manager.allocate_unified(size)
+        let alloc = self
+            .unified_manager
+            .allocate_unified(size)
             .map_err(|e| format!("Unified allocation failed: {:?}", e))?;
 
         Ok(Box::new(alloc))
@@ -650,10 +655,10 @@ impl CudaMemoryManagerCoordinator {
         _alignment: Option<MemoryAlignment>,
         priority: AllocationPriority,
     ) -> Result<Box<dyn CudaMemoryAllocation>, String> {
+        use crate::cuda::memory::allocation::PinnedMemoryFlags;
         use crate::cuda::memory::pinned_memory::{
             AllocationPriority as PinnedPriority, PinnedMemoryRequest, UsagePattern,
         };
-        use crate::cuda::memory::allocation::PinnedMemoryFlags;
 
         // Map from allocation::AllocationPriority to pinned_memory::AllocationPriority
         let pinned_priority = match priority {
@@ -677,7 +682,9 @@ impl CudaMemoryManagerCoordinator {
             usage_pattern: UsagePattern::HostToDevice,
             priority: pinned_priority,
         };
-        let alloc = self.pinned_manager.allocate_pinned(request)
+        let alloc = self
+            .pinned_manager
+            .allocate_pinned(request)
             .map_err(|e| format!("Pinned allocation failed: {:?}", e))?;
 
         Ok(Box::new(alloc))

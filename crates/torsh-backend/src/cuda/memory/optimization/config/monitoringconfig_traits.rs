@@ -8,8 +8,12 @@
 //!
 //! 🤖 Generated with [SplitRS](https://github.com/cool-japan/splitrs)
 
+use super::types::{
+    AlertingConfig, AnomalyConfig, CorrelationConfig, DashboardConfig, HealthConfig, LogConfig,
+    MetricsConfig, MonitoringConfig, ResourceConfig, StateMonitorConfig, TracingConfig,
+    TrendConfig,
+};
 use std::time::Duration;
-use super::types::{AlertingConfig, AnomalyConfig, CorrelationConfig, DashboardConfig, HealthConfig, LogConfig, MetricsConfig, MonitoringConfig, ResourceConfig, StateMonitorConfig, TracingConfig, TrendConfig};
 
 impl Default for MonitoringConfig {
     fn default() -> Self {
@@ -29,4 +33,3 @@ impl Default for MonitoringConfig {
         }
     }
 }
-

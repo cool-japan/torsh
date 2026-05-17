@@ -58,7 +58,12 @@ fn test_meet_disjoint_returns_bottom() {
     let met = domain.meet(&a, &b).expect("meet");
     match met {
         AbstractValue::Interval { min, max } => {
-            assert!(min > max, "expected bottom (min > max), got [{}, {}]", min, max);
+            assert!(
+                min > max,
+                "expected bottom (min > max), got [{}, {}]",
+                min,
+                max
+            );
         }
         _ => panic!("expected Interval"),
     }
@@ -73,7 +78,11 @@ fn test_widen_unbounded_above_after_growing_max() {
     match widened {
         AbstractValue::Interval { min, max } => {
             assert_eq!(min, 0.0);
-            assert!(max.is_infinite() && max.is_sign_positive(), "expected +∞, got {}", max);
+            assert!(
+                max.is_infinite() && max.is_sign_positive(),
+                "expected +∞, got {}",
+                max
+            );
         }
         _ => panic!("expected Interval"),
     }
@@ -267,9 +276,10 @@ fn test_invariant_detector_reports_constants() {
     forward.post_states.insert(node, interval(42.0, 42.0));
     let invariants = detector.detect_invariants(&forward, &None).expect("detect");
     assert!(
-        invariants
-            .iter()
-            .any(|i| matches!(i.invariant_type, super::framework::InvariantType::NumericalProperty)),
+        invariants.iter().any(|i| matches!(
+            i.invariant_type,
+            super::framework::InvariantType::NumericalProperty
+        )),
         "expected NumericalProperty invariant for singleton interval"
     );
 }
@@ -322,18 +332,15 @@ fn test_sign_domain_join() {
 fn test_abstract_graph_records_predecessors_and_entry_exit() {
     let graph = build_add_graph();
     let interp = AbstractInterpreter::with_defaults();
-    let domain = super::domains::AbstractDomainFactory::new()
-        .create_domain(&AbstractDomainType::Intervals);
+    let domain =
+        super::domains::AbstractDomainFactory::new().create_domain(&AbstractDomainType::Intervals);
     // We cannot call the private converter directly, but analyze_graph
     // populates node_values with one entry per node.
     let mut interp = interp;
     let result = interp.analyze_graph(&graph).expect("analyze");
     assert_eq!(result.node_values.len(), graph.node_count());
     // Sanity check: domain factory returns something useful.
-    assert!(matches!(
-        domain.bottom(),
-        AbstractValue::Interval { .. }
-    ));
+    assert!(matches!(domain.bottom(), AbstractValue::Interval { .. }));
 }
 
 #[test]
@@ -458,9 +465,7 @@ fn test_property_checker_unknown_when_no_state() {
     let forward = super::framework::ForwardAnalysisResult::new();
     let node = crate::NodeId::new(99);
     let props = vec![Property::NonNegative(node)];
-    let results = checker
-        .check_properties(&forward, &props)
-        .expect("check");
+    let results = checker.check_properties(&forward, &props).expect("check");
     assert!(matches!(results[0].result, SafetyCheckResult::Unknown));
 }
 

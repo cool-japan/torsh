@@ -12,7 +12,8 @@ use super::types::AuditConfig;
 
 impl Default for AuditConfig {
     fn default() -> Self {
-        Self { enable_audit_logging: false }
+        Self {
+            enable_audit_logging: false,
+        }
     }
 }
-

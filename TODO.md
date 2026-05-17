@@ -719,7 +719,10 @@ Following comprehensive requirements submitted to SciRS2 team for SIMD operation
   - `optimized_kernels.rs`: `ChunkingUtils::matrix_blocks(m,n,k,4)` used in `optimized_matmul` for cache-optimal block sizes
   - New `chunked_elementwise`, `chunked_sum`, `chunked_mean` functions using `WorkloadType::{Elementwise,Reduction}`
   - 9 new tests covering all chunked operations
-- [ ] **Wire chunked dispatch** into `scirs2_integration.rs` `add_elementwise_simple` and `parallel_ops` paths
+- [x] **Wire chunked dispatch** into `scirs2_integration.rs` simple AND parallel paths (2026-05-13):
+  - Simple paths: `add_elementwise_simple`, `mul_elementwise_simple`, `add_scalar_simple`, `mul_scalar_simple`, `sum_simple` use `WorkloadType::Elementwise/Reduction`
+  - Parallel paths: 6 chunk_size derivations replaced — matmul (`Matrix` via `matrix_blocks`), 4 SIMD elementwise/scalar paths (`Elementwise`, rounded to multiple of 4 for SIMD lanes), 1 reduction path (`Reduction`)
+  - 16/16 `scirs2_integration` tests passing
 - [ ] **Add performance profiling** integration for continuous optimization
 - [ ] **Comprehensive benchmarking** to validate 15-30% automatic improvements
 

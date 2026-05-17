@@ -449,8 +449,18 @@ impl CudaBackend {
 
     /// Allocate unified memory with resource tracking
     ///
-    /// Note: Unified memory allocation is currently stubbed out.
-    /// TODO: Implement full unified memory support when CUDA unified memory APIs are available.
+    /// This is the low-level backend entry point: it calls `cudaMallocManaged`
+    /// directly and returns a freshly constructed [`UnifiedAllocation`] with
+    /// default metadata, plus minimal local tracking via [`ResourceTracker`].
+    ///
+    /// For richer, fully optimized unified memory management — migration
+    /// tracking, prefetch scheduling, adaptive memory advice and pooling —
+    /// see [`crate::cuda::memory::unified_memory::UnifiedMemoryManager`]
+    /// (accessible via the per-device [`CudaMemoryManager`]). That manager
+    /// wraps the same `cudaMallocManaged` / `cudaMemAdvise` / `cudaMemPrefetchAsync`
+    /// calls used here but with full bookkeeping, and is the path most callers
+    /// should prefer. This thin wrapper is retained for back-compat with
+    /// direct `CudaBackend` consumers that need a raw allocation.
     pub fn allocate_unified(&self, size: usize) -> CudaResult<UnifiedAllocation> {
         self.check_availability()?;
 
@@ -694,11 +704,23 @@ impl CudaBackend {
     ) -> CudaResult<()> {
         let _ = (stream, m, n, k, a, b, output);
 
-        // TODO: Implement cuBLAS integration when cublas-sys is available
-        // The cust crate doesn't include cuBLAS bindings directly
-        // For now, return an error indicating GEMM is not yet implemented
+        // cuBLAS bindings are NOT in the current dependency graph.
+        // The workspace pins `cust = "0.3"` (CUDA driver/runtime only), which
+        // intentionally does not ship cuBLAS FFI. To enable this code path one of
+        // the following must be added as a workspace dependency, gated behind a
+        // new feature (e.g. `cuda-cublas`):
+        //   * `cudarc = "0.19"` (or newer) with the `cublas` feature — preferred,
+        //     safe wrapper that exposes `cudarc::cublas::CudaBlas::gemm`.
+        //   * `cublas-sys = "0.1"` (raw FFI bindings) — minimal, unmaintained.
+        // Once the dependency is wired in, this stub should call cuBLAS
+        // `cublasSgemm` via the chosen crate, using the existing `CudaStream`
+        // for stream association. Until then, fall back with a clear error so
+        // higher-level code can dispatch to a portable kernel implementation.
         Err(CudaError::InvalidValue(
-            "cuBLAS GEMM not yet implemented - requires cublas-sys crate integration".to_string(),
+            "cuBLAS GEMM not wired: workspace currently has no cuBLAS binding \
+             (cust 0.3 lacks cuBLAS; add `cudarc` with the `cublas` feature, or \
+             `cublas-sys`, behind a `cuda-cublas` feature to enable this path)"
+                .to_string(),
         ))
     }
 

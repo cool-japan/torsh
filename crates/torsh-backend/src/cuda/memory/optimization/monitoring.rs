@@ -11,8 +11,8 @@ use std::time::{Duration, Instant};
 // Re-export config types that other modules import from monitoring
 pub use crate::cuda::memory::optimization::config::types::{
     AlertSystemConfig, AlertingConfig, AnomalyConfig, CorrelationConfig, DashboardConfig,
-    HealthConfig, LogConfig, MetricsConfig, MonitoringConfig, ResourceConfig,
-    StateMonitorConfig, TracingConfig, TrendConfig,
+    HealthConfig, LogConfig, MetricsConfig, MonitoringConfig, ResourceConfig, StateMonitorConfig,
+    TracingConfig, TrendConfig,
 };
 
 // ============================================================================
@@ -674,21 +674,31 @@ pub struct ChangeDetectionEvent {
 #[derive(Debug)]
 struct MLChangeDetectors {}
 impl MLChangeDetectors {
-    fn new() -> Self { Self {} }
-    fn start(&mut self) -> Result<(), MonitoringError> { Ok(()) }
-    fn stop(&mut self) -> Result<(), MonitoringError> { Ok(()) }
+    fn new() -> Self {
+        Self {}
+    }
+    fn start(&mut self) -> Result<(), MonitoringError> {
+        Ok(())
+    }
+    fn stop(&mut self) -> Result<(), MonitoringError> {
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
 struct ThresholdAdapter {}
 impl ThresholdAdapter {
-    fn new() -> Self { Self {} }
+    fn new() -> Self {
+        Self {}
+    }
 }
 
 #[derive(Debug)]
 struct ChangeClassifier {}
 impl ChangeClassifier {
-    fn new() -> Self { Self {} }
+    fn new() -> Self {
+        Self {}
+    }
     fn classify(&self, _change: &StateChange) -> Result<ChangeClassification, MonitoringError> {
         Ok(ChangeClassification::Unclassified)
     }
@@ -697,13 +707,17 @@ impl ChangeClassifier {
 #[derive(Debug)]
 struct FalsePositiveReducer {}
 impl FalsePositiveReducer {
-    fn new() -> Self { Self {} }
+    fn new() -> Self {
+        Self {}
+    }
 }
 
 #[derive(Debug)]
 struct ChangeImpactAssessor {}
 impl ChangeImpactAssessor {
-    fn new() -> Self { Self {} }
+    fn new() -> Self {
+        Self {}
+    }
     fn assess_impact(&self, _change: &StateChange) -> Result<ChangeImpact, MonitoringError> {
         Ok(ChangeImpact::Unknown)
     }
@@ -712,49 +726,75 @@ impl ChangeImpactAssessor {
 #[derive(Debug)]
 struct StatisticalChangeModels {}
 impl StatisticalChangeModels {
-    fn new() -> Self { Self {} }
-    fn initialize(&mut self) -> Result<(), MonitoringError> { Ok(()) }
+    fn new() -> Self {
+        Self {}
+    }
+    fn initialize(&mut self) -> Result<(), MonitoringError> {
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
 struct StatePredictor {}
 impl StatePredictor {
-    fn new() -> Self { Self {} }
-    fn start(&mut self) -> Result<(), MonitoringError> { Ok(()) }
-    fn stop(&mut self) -> Result<(), MonitoringError> { Ok(()) }
+    fn new() -> Self {
+        Self {}
+    }
+    fn start(&mut self) -> Result<(), MonitoringError> {
+        Ok(())
+    }
+    fn stop(&mut self) -> Result<(), MonitoringError> {
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
 struct StateValidator {}
 impl StateValidator {
-    fn new() -> Self { Self {} }
-    fn validate(&self, _state: &SystemState) -> Result<(), MonitoringError> { Ok(()) }
+    fn new() -> Self {
+        Self {}
+    }
+    fn validate(&self, _state: &SystemState) -> Result<(), MonitoringError> {
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
 struct StateAggregationEngine {}
 impl StateAggregationEngine {
-    fn new() -> Self { Self {} }
+    fn new() -> Self {
+        Self {}
+    }
 }
 
 #[derive(Debug)]
 struct StateComparisonSystem {}
 impl StateComparisonSystem {
-    fn new() -> Self { Self {} }
+    fn new() -> Self {
+        Self {}
+    }
 }
 
 #[derive(Debug)]
 struct StateExportSystem {}
 impl StateExportSystem {
-    fn new() -> Self { Self {} }
+    fn new() -> Self {
+        Self {}
+    }
 }
 
 #[derive(Debug)]
 struct LogAnalyzer {}
 impl LogAnalyzer {
-    fn new(_config: LogConfig) -> Self { Self {} }
-    fn start(&mut self) -> Result<(), MonitoringError> { Ok(()) }
-    fn stop(&mut self) -> Result<(), MonitoringError> { Ok(()) }
+    fn new(_config: LogConfig) -> Self {
+        Self {}
+    }
+    fn start(&mut self) -> Result<(), MonitoringError> {
+        Ok(())
+    }
+    fn stop(&mut self) -> Result<(), MonitoringError> {
+        Ok(())
+    }
     fn export_data(&self, _config: LogExportConfig) -> Result<LogExportData, MonitoringError> {
         Ok(LogExportData::default())
     }
@@ -763,21 +803,38 @@ impl LogAnalyzer {
 #[derive(Debug)]
 struct AnomalyDetectionSystem {}
 impl AnomalyDetectionSystem {
-    fn new(_config: AnomalyConfig) -> Self { Self {} }
-    fn start(&mut self) -> Result<(), MonitoringError> { Ok(()) }
-    fn stop(&mut self) -> Result<(), MonitoringError> { Ok(()) }
-    fn detect_anomalies(&mut self, _config: AnomalyDetectionConfig) -> Result<Vec<Anomaly>, MonitoringError> {
+    fn new(_config: AnomalyConfig) -> Self {
+        Self {}
+    }
+    fn start(&mut self) -> Result<(), MonitoringError> {
+        Ok(())
+    }
+    fn stop(&mut self) -> Result<(), MonitoringError> {
+        Ok(())
+    }
+    fn detect_anomalies(
+        &mut self,
+        _config: AnomalyDetectionConfig,
+    ) -> Result<Vec<Anomaly>, MonitoringError> {
         Ok(Vec::new())
     }
-    fn get_statistics(&self) -> AnomalyStatistics { AnomalyStatistics::default() }
+    fn get_statistics(&self) -> AnomalyStatistics {
+        AnomalyStatistics::default()
+    }
 }
 
 #[derive(Debug)]
 struct HealthCheckSystem {}
 impl HealthCheckSystem {
-    fn new(_config: HealthConfig) -> Self { Self {} }
-    fn start(&mut self) -> Result<(), MonitoringError> { Ok(()) }
-    fn stop(&mut self) -> Result<(), MonitoringError> { Ok(()) }
+    fn new(_config: HealthConfig) -> Self {
+        Self {}
+    }
+    fn start(&mut self) -> Result<(), MonitoringError> {
+        Ok(())
+    }
+    fn stop(&mut self) -> Result<(), MonitoringError> {
+        Ok(())
+    }
     fn perform_checks(&mut self) -> Result<HealthCheckResult, MonitoringError> {
         Ok(HealthCheckResult::default())
     }
@@ -787,10 +844,19 @@ impl HealthCheckSystem {
 #[derive(Debug)]
 pub struct ResourceUsageTracker {}
 impl ResourceUsageTracker {
-    fn new(_config: ResourceConfig) -> Self { Self {} }
-    fn start(&mut self) -> Result<(), MonitoringError> { Ok(()) }
-    fn stop(&mut self) -> Result<(), MonitoringError> { Ok(()) }
-    fn generate_report(&self, _timeframe: Duration) -> Result<ResourceUsageReport, MonitoringError> {
+    fn new(_config: ResourceConfig) -> Self {
+        Self {}
+    }
+    fn start(&mut self) -> Result<(), MonitoringError> {
+        Ok(())
+    }
+    fn stop(&mut self) -> Result<(), MonitoringError> {
+        Ok(())
+    }
+    fn generate_report(
+        &self,
+        _timeframe: Duration,
+    ) -> Result<ResourceUsageReport, MonitoringError> {
         Ok(ResourceUsageReport::default())
     }
 }
@@ -798,10 +864,19 @@ impl ResourceUsageTracker {
 #[derive(Debug)]
 struct EventCorrelationEngine {}
 impl EventCorrelationEngine {
-    fn new(_config: CorrelationConfig) -> Self { Self {} }
-    fn start(&mut self) -> Result<(), MonitoringError> { Ok(()) }
-    fn stop(&mut self) -> Result<(), MonitoringError> { Ok(()) }
-    fn correlate_events(&self, _config: EventCorrelationConfig) -> Result<Vec<EventCorrelation>, MonitoringError> {
+    fn new(_config: CorrelationConfig) -> Self {
+        Self {}
+    }
+    fn start(&mut self) -> Result<(), MonitoringError> {
+        Ok(())
+    }
+    fn stop(&mut self) -> Result<(), MonitoringError> {
+        Ok(())
+    }
+    fn correlate_events(
+        &self,
+        _config: EventCorrelationConfig,
+    ) -> Result<Vec<EventCorrelation>, MonitoringError> {
         Ok(Vec::new())
     }
 }
@@ -809,9 +884,15 @@ impl EventCorrelationEngine {
 #[derive(Debug)]
 struct DistributedTracingSystem {}
 impl DistributedTracingSystem {
-    fn new(_config: TracingConfig) -> Self { Self {} }
-    fn start(&mut self) -> Result<(), MonitoringError> { Ok(()) }
-    fn stop(&mut self) -> Result<(), MonitoringError> { Ok(()) }
+    fn new(_config: TracingConfig) -> Self {
+        Self {}
+    }
+    fn start(&mut self) -> Result<(), MonitoringError> {
+        Ok(())
+    }
+    fn stop(&mut self) -> Result<(), MonitoringError> {
+        Ok(())
+    }
     fn create_trace(&mut self, _config: TraceConfig) -> Result<TraceId, MonitoringError> {
         Ok(TraceId::default())
     }
@@ -820,10 +901,19 @@ impl DistributedTracingSystem {
 #[derive(Debug)]
 struct PerformanceTrendAnalyzer {}
 impl PerformanceTrendAnalyzer {
-    fn new(_config: TrendConfig) -> Self { Self {} }
-    fn start(&mut self) -> Result<(), MonitoringError> { Ok(()) }
-    fn stop(&mut self) -> Result<(), MonitoringError> { Ok(()) }
-    fn analyze_trends(&self, _config: TrendAnalysisConfig) -> Result<TrendAnalysisResult, MonitoringError> {
+    fn new(_config: TrendConfig) -> Self {
+        Self {}
+    }
+    fn start(&mut self) -> Result<(), MonitoringError> {
+        Ok(())
+    }
+    fn stop(&mut self) -> Result<(), MonitoringError> {
+        Ok(())
+    }
+    fn analyze_trends(
+        &self,
+        _config: TrendAnalysisConfig,
+    ) -> Result<TrendAnalysisResult, MonitoringError> {
         Ok(TrendAnalysisResult::default())
     }
 }
@@ -1038,7 +1128,8 @@ impl OptimizationMonitoringSystem {
         alert_id: &str,
         acknowledgment: AlertAcknowledgment,
     ) -> Result<(), MonitoringError> {
-        self.alerting_system.acknowledge_alert(alert_id, acknowledgment)
+        self.alerting_system
+            .acknowledge_alert(alert_id, acknowledgment)
     }
 
     /// Get monitoring dashboard
@@ -1334,11 +1425,7 @@ impl SystemStateMonitor {
     }
 
     pub fn get_statistics(&self) -> SystemMonitorStatistics {
-        let state_count = self
-            .state_history
-            .read()
-            .map(|h| h.len())
-            .unwrap_or(0);
+        let state_count = self.state_history.read().map(|h| h.len()).unwrap_or(0);
         SystemMonitorStatistics {
             total_snapshots: state_count,
             average_state_quality: self.calculate_average_state_quality(),
@@ -1465,8 +1552,12 @@ impl MetricsCollector {
         }
     }
 
-    pub fn start(&mut self) -> Result<(), MonitoringError> { Ok(()) }
-    pub fn stop(&mut self) -> Result<(), MonitoringError> { Ok(()) }
+    pub fn start(&mut self) -> Result<(), MonitoringError> {
+        Ok(())
+    }
+    pub fn stop(&mut self) -> Result<(), MonitoringError> {
+        Ok(())
+    }
 
     pub fn add_collector(
         &mut self,
@@ -1519,8 +1610,12 @@ impl AlertingSystem {
         }
     }
 
-    pub fn start(&mut self) -> Result<(), MonitoringError> { Ok(()) }
-    pub fn stop(&mut self) -> Result<(), MonitoringError> { Ok(()) }
+    pub fn start(&mut self) -> Result<(), MonitoringError> {
+        Ok(())
+    }
+    pub fn stop(&mut self) -> Result<(), MonitoringError> {
+        Ok(())
+    }
 
     pub fn create_condition(
         &mut self,
@@ -1578,8 +1673,12 @@ impl MonitoringDashboard {
         }
     }
 
-    pub fn start(&mut self) -> Result<(), MonitoringError> { Ok(()) }
-    pub fn stop(&mut self) -> Result<(), MonitoringError> { Ok(()) }
+    pub fn start(&mut self) -> Result<(), MonitoringError> {
+        Ok(())
+    }
+    pub fn stop(&mut self) -> Result<(), MonitoringError> {
+        Ok(())
+    }
 
     pub fn get_dashboard(&self, _dashboard_id: &str) -> Result<Dashboard, MonitoringError> {
         Ok(Dashboard::default())
@@ -1646,8 +1745,5 @@ impl std::error::Error for MonitoringError {}
 pub trait MetricCollector: std::fmt::Debug + Send + Sync {
     fn collect(&self) -> Result<Vec<Metric>, MonitoringError>;
     fn get_name(&self) -> &str;
-    fn configure(
-        &mut self,
-        config: HashMap<String, String>,
-    ) -> Result<(), MonitoringError>;
+    fn configure(&mut self, config: HashMap<String, String>) -> Result<(), MonitoringError>;
 }

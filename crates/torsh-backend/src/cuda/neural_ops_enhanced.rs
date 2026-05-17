@@ -270,7 +270,15 @@ impl EnhancedNeuralOps {
             }
         }
 
-        let _ = (input, output, input_shape, output_shape, kernel_size, padding, stride);
+        let _ = (
+            input,
+            output,
+            input_shape,
+            output_shape,
+            kernel_size,
+            padding,
+            stride,
+        );
         Err(crate::error::BackendError::NotImplemented(
             "MaxPool2D fallback kernel not implemented (requires cuDNN)".to_string(),
         ))
@@ -310,7 +318,18 @@ impl EnhancedNeuralOps {
             }
         }
 
-        let _ = (input, output, weight, bias, running_mean, running_var, shape, eps, momentum, training);
+        let _ = (
+            input,
+            output,
+            weight,
+            bias,
+            running_mean,
+            running_var,
+            shape,
+            eps,
+            momentum,
+            training,
+        );
         Err(crate::error::BackendError::NotImplemented(
             "BatchNorm2D fallback kernel not implemented (requires cuDNN)".to_string(),
         ))

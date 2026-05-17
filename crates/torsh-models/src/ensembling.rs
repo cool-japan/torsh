@@ -463,9 +463,7 @@ impl<M: Module> ModelEnsemble<M> {
                 let (best_idx, _) = data[start..end]
                     .iter()
                     .enumerate()
-                    .max_by(|(_, a), (_, b)| {
-                        a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
-                    })
+                    .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
                     .unwrap_or((0, &0.0));
                 row_argmaxes.push(best_idx);
             }
@@ -526,9 +524,7 @@ impl<M: Module> ModelEnsemble<M> {
                 let (best_idx, _) = data[start..end]
                     .iter()
                     .enumerate()
-                    .max_by(|(_, a), (_, b)| {
-                        a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
-                    })
+                    .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
                     .unwrap_or((0, &0.0));
                 row_argmaxes.push(best_idx);
             }
@@ -544,9 +540,7 @@ impl<M: Module> ModelEnsemble<M> {
             }
             let majority = weighted_votes
                 .into_iter()
-                .max_by(|(_, a), (_, b)| {
-                    a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
-                })
+                .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
                 .map(|(class, _)| class)
                 .unwrap_or(0);
             if majority < num_classes {
@@ -722,7 +716,11 @@ impl<M: Module> ModelEnsemble<M> {
 
         // Each meta-feature has width = n_models * out_dim.
         let meta_width = meta_features[0].numel();
-        let out_dim = if n_models > 0 { meta_width / n_models } else { 1 };
+        let out_dim = if n_models > 0 {
+            meta_width / n_models
+        } else {
+            1
+        };
 
         // per_model_avg[sample][model] = average output value of that model for that sample.
         let mut per_model_avg: Vec<Vec<f64>> = Vec::with_capacity(n_samples);
@@ -733,8 +731,7 @@ impl<M: Module> ModelEnsemble<M> {
                 let start = m * out_dim;
                 let end = (start + out_dim).min(data.len());
                 let avg = if end > start {
-                    data[start..end].iter().map(|&v| v as f64).sum::<f64>()
-                        / (end - start) as f64
+                    data[start..end].iter().map(|&v| v as f64).sum::<f64>() / (end - start) as f64
                 } else {
                     0.0
                 };
@@ -749,8 +746,7 @@ impl<M: Module> ModelEnsemble<M> {
             .take(n_samples)
             .map(|t| -> Result<f64> {
                 let d = t.to_vec()?;
-                let s = d.iter().map(|&v| v as f64).sum::<f64>()
-                    / d.len().max(1) as f64;
+                let s = d.iter().map(|&v| v as f64).sum::<f64>() / d.len().max(1) as f64;
                 Ok(s)
             })
             .collect::<Result<Vec<_>>>()?;
@@ -868,14 +864,8 @@ impl<M: Module> ModelEnsemble<M> {
 
         // Convert validation scores into normalized weights so the dynamic selector
         // has a meaningful preference signal.
-        let min_score = performances
-            .iter()
-            .cloned()
-            .fold(f64::INFINITY, f64::min);
-        let shifted: Vec<f64> = performances
-            .iter()
-            .map(|&p| p - min_score + 1e-8)
-            .collect();
+        let min_score = performances.iter().cloned().fold(f64::INFINITY, f64::min);
+        let shifted: Vec<f64> = performances.iter().map(|&p| p - min_score + 1e-8).collect();
         let weight_sum: f64 = shifted.iter().sum();
         if weight_sum > 0.0 {
             self.weights = shifted.iter().map(|&w| w / weight_sum).collect();
@@ -920,9 +910,7 @@ impl<M: Module> ModelEnsemble<M> {
         // Pre-fetch all input / target vecs to avoid repeated tensor extraction in loop.
         let input_vecs: Vec<Vec<f64>> = inputs
             .iter()
-            .map(|t| -> Result<Vec<f64>> {
-                Ok(t.to_vec()?.iter().map(|&v| v as f64).collect())
-            })
+            .map(|t| -> Result<Vec<f64>> { Ok(t.to_vec()?.iter().map(|&v| v as f64).collect()) })
             .collect::<Result<Vec<_>>>()?;
 
         // Collect per-expert, per-sample predictions as average scalar.
@@ -931,8 +919,7 @@ impl<M: Module> ModelEnsemble<M> {
             for (s, input) in inputs.iter().enumerate() {
                 let pred = self.models[m].forward(input)?;
                 let data = pred.to_vec()?;
-                let avg = data.iter().map(|&v| v as f64).sum::<f64>()
-                    / data.len().max(1) as f64;
+                let avg = data.iter().map(|&v| v as f64).sum::<f64>() / data.len().max(1) as f64;
                 expert_preds[m][s] = avg;
             }
         }
@@ -1118,10 +1105,7 @@ impl<M: Module> ModelEnsemble<M> {
         let min_weight = adaptation_config.min_weight;
 
         // Convert per-model losses into reward signals: lower loss => larger reward.
-        let max_loss = per_model_losses
-            .iter()
-            .cloned()
-            .fold(0.0f64, f64::max);
+        let max_loss = per_model_losses.iter().cloned().fold(0.0f64, f64::max);
         let rewards: Vec<f64> = per_model_losses
             .iter()
             .map(|&loss| (max_loss - loss).max(0.0))
@@ -1168,9 +1152,7 @@ impl<M: Module> ModelEnsemble<M> {
             }
         } else {
             // No adaptation state yet — fall back to a simple convex combination.
-            for (weight, &target_weight) in
-                self.weights.iter_mut().zip(normalized_rewards.iter())
-            {
+            for (weight, &target_weight) in self.weights.iter_mut().zip(normalized_rewards.iter()) {
                 *weight = forgetting * *weight + (1.0 - forgetting) * target_weight;
             }
         }
@@ -1245,7 +1227,11 @@ impl<M: Module> ModelEnsemble<M> {
             }
         }
         let total = labels.len() as f64 * pair_count as f64;
-        Ok(if total > 0.0 { disagreement / total } else { 0.0 })
+        Ok(if total > 0.0 {
+            disagreement / total
+        } else {
+            0.0
+        })
     }
 
     /// Average Pearson correlation of raw output vectors across model pairs.
@@ -1831,4 +1817,3 @@ pub mod ensembling_utils {
 #[cfg(test)]
 #[path = "ensembling_tests.rs"]
 mod tests;
-

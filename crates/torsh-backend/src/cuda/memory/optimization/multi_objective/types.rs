@@ -2,9 +2,9 @@
 //!
 //! 🤖 Generated with [SplitRS](https://github.com/cool-japan/splitrs)
 
+use scirs2_core::random::{rng, RngExt};
 use std::collections::{HashMap, VecDeque};
 use std::time::{Duration, Instant};
-use scirs2_core::random::{rng, RngExt};
 
 /// Clustering configuration for diversity maintenance
 #[derive(Debug, Clone)]
@@ -296,9 +296,7 @@ impl MultiObjectiveOptimizer {
             MOAlgorithmType::NSGA3 => self.run_nsga3(objectives, constraints, &algorithm),
             MOAlgorithmType::SPEA2 => self.run_spea2(objectives, constraints, &algorithm),
             MOAlgorithmType::MOEAD => self.run_moead(objectives, constraints, &algorithm),
-            MOAlgorithmType::SmsEmoa => {
-                self.run_sms_emoa(objectives, constraints, &algorithm)
-            }
+            MOAlgorithmType::SmsEmoa => self.run_sms_emoa(objectives, constraints, &algorithm),
             _ => Err("Algorithm not implemented yet".to_string()),
         }
     }
@@ -374,19 +372,14 @@ impl MultiObjectiveOptimizer {
         constraints: &[String],
         algorithm: &MultiObjectiveAlgorithm,
     ) -> Result<Vec<ParetoSolution>, String> {
-        let weight_vectors = self
-            .generate_weight_vectors(objectives.len(), algorithm.population_size);
+        let weight_vectors =
+            self.generate_weight_vectors(objectives.len(), algorithm.population_size);
         let neighborhoods = self.calculate_neighborhoods(&weight_vectors);
         self.initialize_population(algorithm.population_size, objectives.len());
         for generation in 0..algorithm.max_generations {
             self.evaluate_population(objectives, constraints);
             for i in 0..self.population.len() {
-                self.update_solution_moead(
-                    i,
-                    &weight_vectors,
-                    &neighborhoods,
-                    algorithm,
-                );
+                self.update_solution_moead(i, &weight_vectors, &neighborhoods, algorithm);
             }
             self.update_reference_point();
             self.update_metrics(generation);
@@ -442,12 +435,17 @@ impl MultiObjectiveOptimizer {
     /// Evaluate population on objectives and constraints
     fn evaluate_population(&mut self, objectives: &[String], constraints: &[String]) {
         // Compute evaluations for each individual, then apply
-        let evaluations: Vec<(Vec<f64>, Vec<f64>)> = self.population.iter()
+        let evaluations: Vec<(Vec<f64>, Vec<f64>)> = self
+            .population
+            .iter()
             .map(|individual| {
-                let obj_vals: Vec<f64> = objectives.iter().enumerate()
+                let obj_vals: Vec<f64> = objectives
+                    .iter()
+                    .enumerate()
                     .map(|(i, _)| self.evaluate_objective(i, &individual.genotype))
                     .collect();
-                let con_vals: Vec<f64> = constraints.iter()
+                let con_vals: Vec<f64> = constraints
+                    .iter()
                     .map(|c| self.evaluate_constraint(c, &individual.genotype))
                     .collect();
                 (obj_vals, con_vals)
@@ -542,18 +540,14 @@ impl MultiObjectiveOptimizer {
         let num_objectives = self.population[0].objectives.len();
         for obj_index in 0..num_objectives {
             let mut indices: Vec<usize> = (0..self.population.len()).collect();
-            indices
-                .sort_by(|&i, &j| {
-                    self.population[i]
-                        .objectives[obj_index]
-                        .partial_cmp(&self.population[j].objectives[obj_index])
-                        .expect("objective values should be comparable (finite numbers)")
-                });
+            indices.sort_by(|&i, &j| {
+                self.population[i].objectives[obj_index]
+                    .partial_cmp(&self.population[j].objectives[obj_index])
+                    .expect("objective values should be comparable (finite numbers)")
+            });
             self.population[indices[0]].crowding_distance = f64::INFINITY;
             self.population[indices[indices.len() - 1]].crowding_distance = f64::INFINITY;
-            let obj_range = self
-                .population[indices[indices.len() - 1]]
-                .objectives[obj_index]
+            let obj_range = self.population[indices[indices.len() - 1]].objectives[obj_index]
                 - self.population[indices[0]].objectives[obj_index];
             if obj_range > 0.0 {
                 for i in 1..indices.len() - 1 {
@@ -566,10 +560,7 @@ impl MultiObjectiveOptimizer {
         }
     }
     /// Create offspring using NSGA-II operations
-    fn create_offspring_nsga2(
-        &self,
-        algorithm: &MultiObjectiveAlgorithm,
-    ) -> Vec<Individual> {
+    fn create_offspring_nsga2(&self, algorithm: &MultiObjectiveAlgorithm) -> Vec<Individual> {
         let mut offspring = Vec::new();
         let mut rng = rng();
         while offspring.len() < self.population.len() {
@@ -675,31 +666,26 @@ impl MultiObjectiveOptimizer {
         self.population = combined;
         self.fast_non_dominated_sort();
         self.calculate_crowding_distance();
-        self.population
-            .sort_by(|a, b| {
-                if a.rank != b.rank {
-                    a.rank.cmp(&b.rank)
-                } else {
-                    b.crowding_distance
-                        .partial_cmp(&a.crowding_distance)
-                        .expect(
-                            "crowding_distance should be comparable (finite numbers)",
-                        )
-                }
-            });
+        self.population.sort_by(|a, b| {
+            if a.rank != b.rank {
+                a.rank.cmp(&b.rank)
+            } else {
+                b.crowding_distance
+                    .partial_cmp(&a.crowding_distance)
+                    .expect("crowding_distance should be comparable (finite numbers)")
+            }
+        });
         self.population.truncate(self.population.len() / 2);
     }
-    fn create_offspring_nsga3(
-        &self,
-        _algorithm: &MultiObjectiveAlgorithm,
-    ) -> Vec<Individual> {
+    fn create_offspring_nsga3(&self, _algorithm: &MultiObjectiveAlgorithm) -> Vec<Individual> {
         Vec::new()
     }
     fn environmental_selection_nsga3(
         &mut self,
         _offspring: &[Individual],
         _reference_points: &[Vec<f64>],
-    ) {}
+    ) {
+    }
     fn generate_reference_points(&self, _num_objectives: usize) -> Vec<Vec<f64>> {
         Vec::new()
     }
@@ -735,7 +721,8 @@ impl MultiObjectiveOptimizer {
         _weight_vectors: &[Vec<f64>],
         _neighborhoods: &[Vec<usize>],
         _algorithm: &MultiObjectiveAlgorithm,
-    ) {}
+    ) {
+    }
     fn update_reference_point(&mut self) {}
     fn select_parents_tournament(&self, _tournament_size: usize) -> Vec<usize> {
         Vec::new()
@@ -760,11 +747,8 @@ impl MultiObjectiveOptimizer {
     /// Update performance metrics
     pub fn update_metrics(&mut self, generation: usize) {
         self.performance_metrics.generations = generation;
-        self.performance_metrics.solution_count = self
-            .population
-            .iter()
-            .filter(|ind| ind.rank == 0)
-            .count();
+        self.performance_metrics.solution_count =
+            self.population.iter().filter(|ind| ind.rank == 0).count();
         self.performance_metrics.hypervolume = self.calculate_hypervolume();
         self.performance_metrics.diversity = self.calculate_diversity();
         self.performance_metrics.convergence = self.calculate_convergence();
@@ -772,11 +756,7 @@ impl MultiObjectiveOptimizer {
     }
     /// Calculate hypervolume indicator
     fn calculate_hypervolume(&self) -> f64 {
-        let front: Vec<&Individual> = self
-            .population
-            .iter()
-            .filter(|ind| ind.rank == 0)
-            .collect();
+        let front: Vec<&Individual> = self.population.iter().filter(|ind| ind.rank == 0).collect();
         if front.is_empty() {
             return 0.0;
         }
@@ -784,11 +764,7 @@ impl MultiObjectiveOptimizer {
         let mut total_volume = 0.0;
         for individual in front {
             let mut volume = 1.0;
-            for (obj_val, ref_val) in individual
-                .objectives
-                .iter()
-                .zip(reference_point.iter())
-            {
+            for (obj_val, ref_val) in individual.objectives.iter().zip(reference_point.iter()) {
                 volume *= (ref_val - obj_val).max(0.0);
             }
             total_volume += volume;
@@ -804,33 +780,32 @@ impl MultiObjectiveOptimizer {
         let mut count = 0;
         for i in 0..self.population.len() {
             for j in i + 1..self.population.len() {
-                let distance = self
-                    .euclidean_distance(
-                        &self.population[i].objectives,
-                        &self.population[j].objectives,
-                    );
+                let distance = self.euclidean_distance(
+                    &self.population[i].objectives,
+                    &self.population[j].objectives,
+                );
                 total_distance += distance;
                 count += 1;
             }
         }
-        if count > 0 { total_distance / count as f64 } else { 0.0 }
+        if count > 0 {
+            total_distance / count as f64
+        } else {
+            0.0
+        }
     }
     /// Calculate convergence metric
     fn calculate_convergence(&self) -> f64 {
-        self
-            .population
+        self.population
             .iter()
             .filter(|ind| ind.rank == 0)
             .map(|ind| ind.objectives.iter().sum::<f64>())
-            .fold(0.0, |acc, sum| acc + sum) / self.population.len() as f64
+            .fold(0.0, |acc, sum| acc + sum)
+            / self.population.len() as f64
     }
     /// Calculate spacing metric
     fn calculate_spacing(&self) -> f64 {
-        let front: Vec<&Individual> = self
-            .population
-            .iter()
-            .filter(|ind| ind.rank == 0)
-            .collect();
+        let front: Vec<&Individual> = self.population.iter().filter(|ind| ind.rank == 0).collect();
         if front.len() < 2 {
             return 0.0;
         }
@@ -839,21 +814,28 @@ impl MultiObjectiveOptimizer {
             let mut min_distance = f64::INFINITY;
             for j in 0..front.len() {
                 if i != j {
-                    let distance = self
-                        .euclidean_distance(&front[i].objectives, &front[j].objectives);
+                    let distance =
+                        self.euclidean_distance(&front[i].objectives, &front[j].objectives);
                     min_distance = min_distance.min(distance);
                 }
             }
             distances.push(min_distance);
         }
         let mean_distance = distances.iter().sum::<f64>() / distances.len() as f64;
-        let variance = distances.iter().map(|d| (d - mean_distance).powi(2)).sum::<f64>()
+        let variance = distances
+            .iter()
+            .map(|d| (d - mean_distance).powi(2))
+            .sum::<f64>()
             / distances.len() as f64;
         variance.sqrt()
     }
     /// Calculate Euclidean distance between two objective vectors
     fn euclidean_distance(&self, obj1: &[f64], obj2: &[f64]) -> f64 {
-        obj1.iter().zip(obj2.iter()).map(|(a, b)| (a - b).powi(2)).sum::<f64>().sqrt()
+        obj1.iter()
+            .zip(obj2.iter())
+            .map(|(a, b)| (a - b).powi(2))
+            .sum::<f64>()
+            .sqrt()
     }
     /// Check convergence criteria
     pub fn check_convergence(
@@ -869,9 +851,7 @@ impl MultiObjectiveOptimizer {
             timestamp: Instant::now(),
         };
         self.convergence_detector.history.push_back(snapshot);
-        if self.convergence_detector.history.len()
-            > self.convergence_detector.window_size
-        {
+        if self.convergence_detector.history.len() > self.convergence_detector.window_size {
             self.convergence_detector.history.pop_front();
         }
         if generation >= algorithm.convergence_criteria.max_generations {

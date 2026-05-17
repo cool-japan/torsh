@@ -673,25 +673,37 @@ impl HardwareManager {
     pub fn initialize_hardware(&self) -> Result<(), HardwareError> {
         // Initialize GPU devices
         {
-            let mut gpu_manager = self.gpu_manager.lock().expect("lock should not be poisoned");
+            let mut gpu_manager = self
+                .gpu_manager
+                .lock()
+                .expect("lock should not be poisoned");
             gpu_manager.initialize_devices()?;
         }
 
         // Start device monitoring
         {
-            let mut monitor = self.device_monitor.lock().expect("lock should not be poisoned");
+            let mut monitor = self
+                .device_monitor
+                .lock()
+                .expect("lock should not be poisoned");
             monitor.start_monitoring()?;
         }
 
         // Initialize thermal management
         {
-            let mut thermal_manager = self.thermal_manager.lock().expect("lock should not be poisoned");
+            let mut thermal_manager = self
+                .thermal_manager
+                .lock()
+                .expect("lock should not be poisoned");
             thermal_manager.initialize_thermal_systems()?;
         }
 
         // Initialize power management
         {
-            let mut power_manager = self.power_manager.lock().expect("lock should not be poisoned");
+            let mut power_manager = self
+                .power_manager
+                .lock()
+                .expect("lock should not be poisoned");
             power_manager.initialize_power_systems()?;
         }
 
@@ -707,7 +719,10 @@ impl HardwareManager {
 
     /// Discover available hardware devices
     pub fn discover_devices(&self) -> Result<Vec<DeviceInfo>, HardwareError> {
-        let mut capability_detector = self.capability_detector.lock().expect("lock should not be poisoned");
+        let mut capability_detector = self
+            .capability_detector
+            .lock()
+            .expect("lock should not be poisoned");
         let devices = capability_detector.discover_devices()?;
 
         // Update statistics
@@ -724,7 +739,10 @@ impl HardwareManager {
         &self,
         requirements: ResourceRequirements,
     ) -> Result<String, HardwareError> {
-        let mut allocator = self.resource_allocator.lock().expect("lock should not be poisoned");
+        let mut allocator = self
+            .resource_allocator
+            .lock()
+            .expect("lock should not be poisoned");
         let allocation_id = allocator.allocate_resources(requirements)?;
 
         // Update statistics
@@ -738,7 +756,10 @@ impl HardwareManager {
 
     /// Release allocated resources
     pub fn release_resources(&self, allocation_id: &str) -> Result<(), HardwareError> {
-        let mut allocator = self.resource_allocator.lock().expect("lock should not be poisoned");
+        let mut allocator = self
+            .resource_allocator
+            .lock()
+            .expect("lock should not be poisoned");
         allocator.release_allocation(allocation_id)?;
 
         // Update statistics
@@ -752,19 +773,28 @@ impl HardwareManager {
 
     /// Get device health status
     pub fn get_device_health(&self, device_id: &DeviceId) -> Result<HealthStatus, HardwareError> {
-        let monitor = self.device_monitor.lock().expect("lock should not be poisoned");
+        let monitor = self
+            .device_monitor
+            .lock()
+            .expect("lock should not be poisoned");
         monitor.get_device_health(device_id)
     }
 
     /// Get thermal status
     pub fn get_thermal_status(&self) -> Result<ThermalStatusReport, HardwareError> {
-        let thermal_manager = self.thermal_manager.lock().expect("lock should not be poisoned");
+        let thermal_manager = self
+            .thermal_manager
+            .lock()
+            .expect("lock should not be poisoned");
         thermal_manager.get_thermal_status()
     }
 
     /// Get power consumption status
     pub fn get_power_status(&self) -> Result<PowerStatusReport, HardwareError> {
-        let power_manager = self.power_manager.lock().expect("lock should not be poisoned");
+        let power_manager = self
+            .power_manager
+            .lock()
+            .expect("lock should not be poisoned");
         power_manager.get_power_status()
     }
 
@@ -779,7 +809,10 @@ impl HardwareManager {
         &self,
         command: HardwareCommand,
     ) -> Result<CommandResult, HardwareError> {
-        let mut hal = self.hardware_abstraction.lock().expect("lock should not be poisoned");
+        let mut hal = self
+            .hardware_abstraction
+            .lock()
+            .expect("lock should not be poisoned");
         let result = hal.execute_command(command)?;
 
         // Update statistics
@@ -1440,7 +1473,9 @@ mod tests {
         let config = HardwareConfig::default();
         let manager = HardwareManager::new(config);
 
-        let devices = manager.discover_devices().expect("device discovery should succeed");
+        let devices = manager
+            .discover_devices()
+            .expect("device discovery should succeed");
         assert!(!devices.is_empty());
     }
 
@@ -1450,7 +1485,9 @@ mod tests {
         let manager = HardwareManager::new(config);
 
         let requirements = ResourceRequirements::default();
-        let allocation_id = manager.allocate_resources(requirements).expect("resource allocation should succeed");
+        let allocation_id = manager
+            .allocate_resources(requirements)
+            .expect("resource allocation should succeed");
         assert!(!allocation_id.is_empty());
 
         let result = manager.release_resources(&allocation_id);
@@ -1463,7 +1500,9 @@ mod tests {
         let manager = HardwareManager::new(config);
 
         let device_id = "test_device".to_string();
-        let health_status = manager.get_device_health(&device_id).expect("device health retrieval should succeed");
+        let health_status = manager
+            .get_device_health(&device_id)
+            .expect("device health retrieval should succeed");
         assert_eq!(health_status, HealthStatus::Good);
     }
 
@@ -1472,7 +1511,9 @@ mod tests {
         let config = HardwareConfig::default();
         let manager = HardwareManager::new(config);
 
-        let _thermal_status = manager.get_thermal_status().expect("thermal status retrieval should succeed");
+        let _thermal_status = manager
+            .get_thermal_status()
+            .expect("thermal status retrieval should succeed");
         // ThermalStatusReport should have default implementation
     }
 
@@ -1481,7 +1522,9 @@ mod tests {
         let config = HardwareConfig::default();
         let manager = HardwareManager::new(config);
 
-        let _power_status = manager.get_power_status().expect("power status retrieval should succeed");
+        let _power_status = manager
+            .get_power_status()
+            .expect("power status retrieval should succeed");
         // PowerStatusReport should have default implementation
     }
 
@@ -1491,7 +1534,9 @@ mod tests {
         let manager = HardwareManager::new(config);
 
         let command = HardwareCommand::default();
-        let _result = manager.execute_hardware_command(command).expect("hardware command execution should succeed");
+        let _result = manager
+            .execute_hardware_command(command)
+            .expect("hardware command execution should succeed");
         // CommandResult should have default implementation
     }
 }

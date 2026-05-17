@@ -207,12 +207,16 @@ impl SciRS2CpuBackend {
         k: usize,
         transpose_a: bool,
         transpose_b: bool,
-        config: &KernelConfig,
+        _config: &KernelConfig,
     ) -> CpuResult<()> {
         use scirs2_core::parallel_ops::*;
 
-        // Use optimized chunk size from auto-tuning
-        let chunk_size = config.optimal_chunk_size.min(m);
+        // Phase 4: Use cache-aware row block size from intelligent chunking.
+        // matrix_blocks returns (block_m, block_n, block_k); we want the row-block
+        // dimension to drive `par_chunks_mut(n * chunk_size)` so that each task
+        // owns block_m contiguous rows of the result matrix.
+        let (block_m, _block_n, _block_k) = ChunkingUtils::matrix_blocks(m, n, k, 4);
+        let chunk_size = block_m.min(m).max(1);
 
         // Use parallel iteration over chunks of the result matrix
         result
@@ -272,43 +276,40 @@ impl SciRS2CpuBackend {
         result.fill(0.0);
 
         // Block over all three dimensions for L2 cache-optimal locality
-        (0..m)
-            .into_par_iter()
-            .step_by(block_m)
-            .for_each(|i_block| {
-                for j_block in (0..n).step_by(block_n) {
-                    for k_block in (0..k).step_by(block_k) {
-                        // Process micro-block
-                        let i_end = (i_block + block_m).min(m);
-                        let j_end = (j_block + block_n).min(n);
-                        let k_end = (k_block + block_k).min(k);
+        (0..m).into_par_iter().step_by(block_m).for_each(|i_block| {
+            for j_block in (0..n).step_by(block_n) {
+                for k_block in (0..k).step_by(block_k) {
+                    // Process micro-block
+                    let i_end = (i_block + block_m).min(m);
+                    let j_end = (j_block + block_n).min(n);
+                    let k_end = (k_block + block_k).min(k);
 
-                        for i in i_block..i_end {
-                            for j in j_block..j_end {
-                                let mut sum = 0.0f32;
-                                for l in k_block..k_end {
-                                    let a_val = if transpose_a {
-                                        a[l * m + i]
-                                    } else {
-                                        a[i * k + l]
-                                    };
-                                    let b_val = if transpose_b {
-                                        b[j * k + l]
-                                    } else {
-                                        b[l * n + j]
-                                    };
-                                    sum += a_val * b_val;
-                                }
-                                // Atomic update to avoid race conditions
-                                unsafe {
-                                    let ptr = result.as_ptr().add(i * n + j) as *mut f32;
-                                    *ptr += sum;
-                                }
+                    for i in i_block..i_end {
+                        for j in j_block..j_end {
+                            let mut sum = 0.0f32;
+                            for l in k_block..k_end {
+                                let a_val = if transpose_a {
+                                    a[l * m + i]
+                                } else {
+                                    a[i * k + l]
+                                };
+                                let b_val = if transpose_b {
+                                    b[j * k + l]
+                                } else {
+                                    b[l * n + j]
+                                };
+                                sum += a_val * b_val;
+                            }
+                            // Atomic update to avoid race conditions
+                            unsafe {
+                                let ptr = result.as_ptr().add(i * n + j) as *mut f32;
+                                *ptr += sum;
                             }
                         }
                     }
                 }
-            });
+            }
+        });
 
         Ok(())
     }
@@ -369,14 +370,17 @@ impl SciRS2CpuBackend {
         a: &[f32],
         b: &[f32],
         result: &mut [f32],
-        config: &KernelConfig,
+        #[cfg_attr(feature = "simd", allow(unused_variables))] config: &KernelConfig,
     ) -> CpuResult<()> {
         #[cfg(feature = "simd")]
         {
             use scirs2_core::parallel_ops::*;
             use wide::f32x4;
 
-            let chunk_size = (config.optimal_chunk_size / 4) * 4; // Ensure multiple of 4
+            // Phase 4: cache-aware chunk size, rounded down to a multiple of 4 for SIMD lanes.
+            let base_chunk =
+                ChunkingUtils::optimal_chunk_size(WorkloadType::Elementwise, 4, a.len());
+            let chunk_size = ((base_chunk / 4) * 4).max(4);
 
             result
                 .par_chunks_mut(chunk_size)
@@ -469,14 +473,17 @@ impl SciRS2CpuBackend {
         a: &[f32],
         b: &[f32],
         result: &mut [f32],
-        config: &KernelConfig,
+        #[cfg_attr(feature = "simd", allow(unused_variables))] config: &KernelConfig,
     ) -> CpuResult<()> {
         #[cfg(feature = "simd")]
         {
             use scirs2_core::parallel_ops::*;
             use wide::f32x4;
 
-            let chunk_size = (config.optimal_chunk_size / 4) * 4;
+            // Phase 4: cache-aware chunk size, rounded down to a multiple of 4 for SIMD lanes.
+            let base_chunk =
+                ChunkingUtils::optimal_chunk_size(WorkloadType::Elementwise, 4, a.len());
+            let chunk_size = ((base_chunk / 4) * 4).max(4);
 
             result
                 .par_chunks_mut(chunk_size)
@@ -563,14 +570,17 @@ impl SciRS2CpuBackend {
         a: &[f32],
         scalar: f32,
         result: &mut [f32],
-        config: &KernelConfig,
+        #[cfg_attr(feature = "simd", allow(unused_variables))] config: &KernelConfig,
     ) -> CpuResult<()> {
         #[cfg(feature = "simd")]
         {
             use scirs2_core::parallel_ops::*;
             use wide::f32x4;
 
-            let chunk_size = (config.optimal_chunk_size / 4) * 4;
+            // Phase 4: cache-aware chunk size, rounded down to a multiple of 4 for SIMD lanes.
+            let base_chunk =
+                ChunkingUtils::optimal_chunk_size(WorkloadType::Elementwise, 4, a.len());
+            let chunk_size = ((base_chunk / 4) * 4).max(4);
             let scalar_vec = f32x4::splat(scalar);
 
             result
@@ -657,14 +667,17 @@ impl SciRS2CpuBackend {
         a: &[f32],
         scalar: f32,
         result: &mut [f32],
-        config: &KernelConfig,
+        #[cfg_attr(feature = "simd", allow(unused_variables))] config: &KernelConfig,
     ) -> CpuResult<()> {
         #[cfg(feature = "simd")]
         {
             use scirs2_core::parallel_ops::*;
             use wide::f32x4;
 
-            let chunk_size = (config.optimal_chunk_size / 4) * 4;
+            // Phase 4: cache-aware chunk size, rounded down to a multiple of 4 for SIMD lanes.
+            let base_chunk =
+                ChunkingUtils::optimal_chunk_size(WorkloadType::Elementwise, 4, a.len());
+            let chunk_size = ((base_chunk / 4) * 4).max(4);
             let scalar_vec = f32x4::splat(scalar);
 
             result
@@ -727,13 +740,20 @@ impl SciRS2CpuBackend {
     }
 
     /// SIMD-optimized reduction sum
-    fn sum_simd(&self, a: &[f32], config: &KernelConfig) -> CpuResult<f32> {
+    fn sum_simd(
+        &self,
+        a: &[f32],
+        #[cfg_attr(feature = "simd", allow(unused_variables))] config: &KernelConfig,
+    ) -> CpuResult<f32> {
         #[cfg(feature = "simd")]
         {
             use scirs2_core::parallel_ops::*;
             use wide::f32x4;
 
-            let chunk_size = (config.optimal_chunk_size / 4) * 4;
+            // Phase 4: cache-aware reduction chunk size, rounded down to a multiple of 4
+            // for SIMD lanes.
+            let base_chunk = ChunkingUtils::optimal_chunk_size(WorkloadType::Reduction, 4, a.len());
+            let chunk_size = ((base_chunk / 4) * 4).max(4);
 
             let sum = a
                 .par_chunks(chunk_size)

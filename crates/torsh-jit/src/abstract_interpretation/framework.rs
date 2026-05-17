@@ -506,11 +506,8 @@ impl AbstractInterpreter {
         let performance_analysis = self.analyze_performance(&forward_result, graph);
 
         let total_time = start_time.elapsed();
-        let fixpoint_iterations = forward_result.iterations
-            + backward_result
-                .as_ref()
-                .map(|r| r.iterations)
-                .unwrap_or(0);
+        let fixpoint_iterations =
+            forward_result.iterations + backward_result.as_ref().map(|r| r.iterations).unwrap_or(0);
         let abstract_states_computed = forward_result.post_states.len();
         let node_values = forward_result.post_states.clone();
 
@@ -887,7 +884,8 @@ fn decide_positive(prop: &Property, value: &AbstractValue) -> PropertyResult {
             confidence: 1.0,
             details: "sign domain proves positivity".to_string(),
         },
-        AbstractValue::Sign(SignValue::Zero) | AbstractValue::Sign(SignValue::Negative)
+        AbstractValue::Sign(SignValue::Zero)
+        | AbstractValue::Sign(SignValue::Negative)
         | AbstractValue::Sign(SignValue::NonPositive) => PropertyResult {
             property: prop.clone(),
             result: SafetyCheckResult::Unsafe,
@@ -1508,7 +1506,11 @@ impl AbstractInterpreter {
                 ));
             }
         }
-        let overall_precision = if count == 0 { 0.0 } else { total / count as f64 };
+        let overall_precision = if count == 0 {
+            0.0
+        } else {
+            total / count as f64
+        };
         PrecisionAnalysis {
             overall_precision,
             node_precision,
@@ -1548,10 +1550,7 @@ impl AbstractInterpreter {
                     bottleneck_type: BottleneckType::ComputationIntensive,
                     location: node_id,
                     severity: (complexity / 1000.0).min(1.0),
-                    description: format!(
-                        "{:?} is computation-intensive",
-                        node.operation_type()
-                    ),
+                    description: format!("{:?} is computation-intensive", node.operation_type()),
                 });
             }
 
@@ -1594,8 +1593,7 @@ impl AbstractInterpreter {
         let mut iterations = 0usize;
         for instr in &block.instructions {
             iterations += 1;
-            let abstract_value =
-                Self::transfer_instruction(instr, &value_state, domain.as_ref())?;
+            let abstract_value = Self::transfer_instruction(instr, &value_state, domain.as_ref())?;
             if let Some(result) = instr.result {
                 value_state.insert(result, abstract_value);
             }
@@ -1671,8 +1669,13 @@ impl AbstractInterpreter {
                 };
                 domain.abstract_binary_op(op, &l, &r)
             }
-            IrOpcode::Neg | IrOpcode::Abs | IrOpcode::Sqrt | IrOpcode::Sin | IrOpcode::Cos
-            | IrOpcode::Exp | IrOpcode::Log => {
+            IrOpcode::Neg
+            | IrOpcode::Abs
+            | IrOpcode::Sqrt
+            | IrOpcode::Sin
+            | IrOpcode::Cos
+            | IrOpcode::Exp
+            | IrOpcode::Log => {
                 if instr.operands.is_empty() {
                     return Ok(domain.top());
                 }
@@ -1875,10 +1878,7 @@ impl AbstractGraph {
 
     /// Successors of `node` (empty slice if none).
     pub fn successors_of(&self, node: NodeId) -> &[NodeId] {
-        self.successors
-            .get(&node)
-            .map(Vec::as_slice)
-            .unwrap_or(&[])
+        self.successors.get(&node).map(Vec::as_slice).unwrap_or(&[])
     }
 
     /// Predecessors of `node` (empty slice if none).

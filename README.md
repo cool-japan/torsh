@@ -374,6 +374,26 @@ cargo bench --package torsh-benches -- advanced_optimizers
 
 **Deployment**: Single binary deployments to edge devices, mobile, WASM, and cloud without Python dependencies or containerization complexity.
 
+## ⚠️ Known Issues & Limitations
+
+ToRSh is under active development. These are the current limitations you should be aware of:
+
+### CUDA & GPU
+- **NCCL backend is a mock implementation**. Multi-node CUDA collective communication (`torsh-distributed::NcclBackend`) is currently a placeholder. A real implementation requires the `cudarc` crate with the `nccl` feature and is tracked as a follow-up effort.
+- **GPU kernel integration is partial**. Several `backend_integration.rs` paths use placeholders pending broader `scirs2_core::gpu` API stabilization (kernel registry, tensor cores, mixed precision). CPU paths are fully functional.
+- **CUDA build requires local CUDA toolkit**. Default features remain pure-Rust; enable the `cuda` feature to opt in.
+
+### Precision
+- **f16 / bf16 are partial**. Half-precision tensor types are defined but several ops still dispatch through f32 promotion. Full kernel-level support is planned.
+
+### Performance
+- **PyTorch-vs-ToRSh benchmark suite is still in progress**. The earlier "2-3x faster than PyTorch" claim has been removed pending verified end-to-end measurements. SIMD micro-benchmarks (AVX2/NEON) and `dhat` allocation-tracking benchmarks are in place; `pytorch_performance_suite` integration is the remaining piece.
+
+### Distributed Training
+- **API stabilization is ongoing** for `init_process_group`, `DistributedDataParallel`, and `FullyShardedDataParallel`. Basic flows work; gradient bucketing and elastic training are partially complete.
+
+If you hit a limitation that blocks your use case, please [open an issue](https://github.com/cool-japan/torsh/issues) — we triage based on real workloads.
+
 ## 🏗️ Architecture
 
 ToRSh follows a modular architecture with specialized crates:

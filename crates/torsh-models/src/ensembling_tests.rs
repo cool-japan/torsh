@@ -306,7 +306,9 @@ fn test_stacking_passes_base_outputs_as_features() {
     let ensemble = ModelEnsemble::new(models, config);
     let device = DeviceType::Cpu;
     let input = Tensor::zeros(&[1, 3], device).expect("input zeros");
-    let meta = ensemble.concatenate_base_predictions(&input).expect("concat");
+    let meta = ensemble
+        .concatenate_base_predictions(&input)
+        .expect("concat");
     let data = meta.to_vec().expect("to_vec");
     assert_eq!(data, vec![0.1, 0.2, 0.7, 0.3, 0.3, 0.4]);
     assert_eq!(meta.shape().dims(), &[1, 6]);
@@ -446,20 +448,18 @@ fn test_train_dynamic_selection_reweights_models() {
         "expected better model to receive more weight: {weights:?}"
     );
     let sum: f64 = weights.iter().sum();
-    assert!((sum - 1.0).abs() < 1e-6, "weights should normalize: sum={sum}");
+    assert!(
+        (sum - 1.0).abs() < 1e-6,
+        "weights should normalize: sum={sum}"
+    );
 }
 
 #[test]
 fn test_online_weight_update_favors_better_model() {
     let models = vec![MockModel::new(0.0), MockModel::new(5.0)];
-    let mut ensemble = ModelEnsemble::new(
-        models,
-        ensembling_utils::online_adaptive_config(0.5),
-    );
+    let mut ensemble = ModelEnsemble::new(models, ensembling_utils::online_adaptive_config(0.5));
     // Seed uniform weights manually (the online config starts empty).
-    ensemble
-        .set_weights(vec![0.5, 0.5])
-        .expect("seed weights");
+    ensemble.set_weights(vec![0.5, 0.5]).expect("seed weights");
     let device = DeviceType::Cpu;
     let input = Tensor::ones(&[1, 3], device).expect("input");
     let target = Tensor::ones(&[1, 3], device).expect("target");
@@ -481,7 +481,10 @@ fn test_online_weight_update_favors_better_model() {
         "online update should prefer the lower-loss model: {weights:?}"
     );
     let sum: f64 = weights.iter().sum();
-    assert!((sum - 1.0).abs() < 1e-6, "weights should normalize: sum={sum}");
+    assert!(
+        (sum - 1.0).abs() < 1e-6,
+        "weights should normalize: sum={sum}"
+    );
 }
 
 // ---- Tests for the three newly implemented methods ----
@@ -511,7 +514,10 @@ fn test_train_stacking_ensemble_produces_meta_learner() {
     // The meta-learner output is a weighted combination: result must be finite.
     let data = prediction.to_vec().expect("to_vec");
     assert!(!data.is_empty());
-    assert!(data.iter().all(|v| v.is_finite()), "all outputs must be finite");
+    assert!(
+        data.iter().all(|v| v.is_finite()),
+        "all outputs must be finite"
+    );
 }
 
 #[test]
@@ -538,7 +544,10 @@ fn test_train_stacking_weights_sum_to_one() {
     let weights = ensemble.get_weights();
     let sum: f64 = weights.iter().sum();
     assert!((sum - 1.0).abs() < 1e-6, "weights sum={sum}");
-    assert!(weights.iter().all(|&w| w >= 0.0), "all weights non-negative");
+    assert!(
+        weights.iter().all(|&w| w >= 0.0),
+        "all weights non-negative"
+    );
 }
 
 #[test]
@@ -576,16 +585,24 @@ fn test_train_mixture_of_experts_updates_weights() {
         })
         .collect();
     let targets: Vec<Tensor> = (0..20)
-        .map(|_| Tensor::from_data(vec![0.0_f32, 0.0, 0.0, 0.0], vec![1, 4], device).expect("target"))
+        .map(|_| {
+            Tensor::from_data(vec![0.0_f32, 0.0, 0.0, 0.0], vec![1, 4], device).expect("target")
+        })
         .collect();
     ensemble.train(&inputs, &targets).expect("train MoE");
 
     let weights = ensemble.get_weights();
     // At least one weight should have deviated from the uniform initialisation.
     let changed = weights.iter().any(|&w| (w - initial_weight).abs() > 1e-9);
-    assert!(changed, "MoE gating should update weights away from uniform: {weights:?}");
+    assert!(
+        changed,
+        "MoE gating should update weights away from uniform: {weights:?}"
+    );
     let sum: f64 = weights.iter().sum();
-    assert!((sum - 1.0).abs() < 1e-6, "weights should sum to 1: sum={sum}");
+    assert!(
+        (sum - 1.0).abs() < 1e-6,
+        "weights should sum to 1: sum={sum}"
+    );
 }
 
 #[test]
@@ -645,14 +662,19 @@ fn test_create_meta_learner_returns_valid_module() {
             config: HashMap::new(),
             include_original_features: false,
         };
-        let meta = ensemble.create_meta_learner(&meta_config).expect("create_meta_learner");
+        let meta = ensemble
+            .create_meta_learner(&meta_config)
+            .expect("create_meta_learner");
         // The meta-learner must be callable via forward().
         let device = torsh_core::DeviceType::Cpu;
         let dummy = Tensor::from_data(vec![0.5_f32, 0.5], vec![1, 2], device).expect("dummy");
         let out = meta.forward(&dummy).expect("meta forward");
         let data = out.to_vec().expect("to_vec");
         assert!(!data.is_empty());
-        assert!(data.iter().all(|v| v.is_finite()), "meta-learner output must be finite");
+        assert!(
+            data.iter().all(|v| v.is_finite()),
+            "meta-learner output must be finite"
+        );
     }
 }
 
@@ -672,7 +694,9 @@ fn test_create_meta_learner_stacking_weights_are_uniform_without_training() {
         config: HashMap::new(),
         include_original_features: false,
     };
-    let meta = ensemble.create_meta_learner(&meta_config).expect("create_meta_learner");
+    let meta = ensemble
+        .create_meta_learner(&meta_config)
+        .expect("create_meta_learner");
     // Provide meta-features = [0.5, 0.5, 0.5, 0.5] (two models, 2 classes each).
     let device = torsh_core::DeviceType::Cpu;
     let input = Tensor::from_data(vec![0.5_f32, 0.5, 0.5, 0.5], vec![1, 4], device).expect("input");

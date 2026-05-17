@@ -386,9 +386,11 @@ impl Clone for ParameterValue {
             ParameterValue::String(v) => ParameterValue::String(v.clone()),
             ParameterValue::Array(v) => ParameterValue::Array(v.clone()),
             ParameterValue::Object(v) => ParameterValue::Object(v.clone()),
-            ParameterValue::Range { min, max, step } => {
-                ParameterValue::Range { min: *min, max: *max, step: *step }
-            }
+            ParameterValue::Range { min, max, step } => ParameterValue::Range {
+                min: *min,
+                max: *max,
+                step: *step,
+            },
             ParameterValue::Enum { choices, selected } => ParameterValue::Enum {
                 choices: choices.clone(),
                 selected: selected.clone(),
@@ -409,12 +411,28 @@ impl PartialEq for ParameterValue {
             (ParameterValue::Boolean(a), ParameterValue::Boolean(b)) => a == b,
             (ParameterValue::String(a), ParameterValue::String(b)) => a == b,
             (ParameterValue::Array(a), ParameterValue::Array(b)) => a == b,
-            (ParameterValue::Range { min: a1, max: a2, step: a3 }, ParameterValue::Range { min: b1, max: b2, step: b3 }) => {
-                a1 == b1 && a2 == b2 && a3 == b3
-            }
-            (ParameterValue::Enum { choices: ac, selected: as_ }, ParameterValue::Enum { choices: bc, selected: bs }) => {
-                ac == bc && as_ == bs
-            }
+            (
+                ParameterValue::Range {
+                    min: a1,
+                    max: a2,
+                    step: a3,
+                },
+                ParameterValue::Range {
+                    min: b1,
+                    max: b2,
+                    step: b3,
+                },
+            ) => a1 == b1 && a2 == b2 && a3 == b3,
+            (
+                ParameterValue::Enum {
+                    choices: ac,
+                    selected: as_,
+                },
+                ParameterValue::Enum {
+                    choices: bc,
+                    selected: bs,
+                },
+            ) => ac == bc && as_ == bs,
             (ParameterValue::Reference(a), ParameterValue::Reference(b)) => a == b,
             // Complex and Dynamic are never equal (no proper comparison)
             (ParameterValue::Complex(_), _) | (_, ParameterValue::Complex(_)) => false,

@@ -21,4 +21,3 @@ impl Default for QualityIndicators {
         }
     }
 }
-

@@ -10,7 +10,9 @@
 
 use std::time::SystemTime;
 
-use super::types::{ConfigEnvironment, ConfigMetadata, ConfigPriority, ConfigSource, ConfigStatus, ConfigVersion};
+use super::types::{
+    ConfigEnvironment, ConfigMetadata, ConfigPriority, ConfigSource, ConfigStatus, ConfigVersion,
+};
 
 impl Default for ConfigMetadata {
     fn default() -> Self {
@@ -32,4 +34,3 @@ impl Default for ConfigMetadata {
         }
     }
 }
-

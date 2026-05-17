@@ -33,8 +33,20 @@ impl ReducibleElement for f32 {
         match op {
             ReduceOp::Sum => a + b,
             ReduceOp::Product => a * b,
-            ReduceOp::Min => if a < b { a } else { b },
-            ReduceOp::Max => if a > b { a } else { b },
+            ReduceOp::Min => {
+                if a < b {
+                    a
+                } else {
+                    b
+                }
+            }
+            ReduceOp::Max => {
+                if a > b {
+                    a
+                } else {
+                    b
+                }
+            }
             // Average: accumulate as sum first; division by N is applied
             // once at the end of the scatter-reduce phase by the caller.
             ReduceOp::Average => a + b,
@@ -59,8 +71,20 @@ impl ReducibleElement for f64 {
         match op {
             ReduceOp::Sum => a + b,
             ReduceOp::Product => a * b,
-            ReduceOp::Min => if a < b { a } else { b },
-            ReduceOp::Max => if a > b { a } else { b },
+            ReduceOp::Min => {
+                if a < b {
+                    a
+                } else {
+                    b
+                }
+            }
+            ReduceOp::Max => {
+                if a > b {
+                    a
+                } else {
+                    b
+                }
+            }
             ReduceOp::Average => a + b,
         }
     }
@@ -156,7 +180,8 @@ pub fn ring_all_reduce<T: ReducibleElement>(
             // is the *sender* for device `i` in this step).
             let send_data: Vec<T> = buffers[recv_from][s_start..s_end].to_vec();
             // Reduce into device `i`'s copy.
-            for (local_el, incoming) in buffers[i][s_start..s_end].iter_mut().zip(send_data.iter()) {
+            for (local_el, incoming) in buffers[i][s_start..s_end].iter_mut().zip(send_data.iter())
+            {
                 *local_el = T::apply_reduce_op(local_el.clone(), incoming.clone(), op);
             }
         }
@@ -445,7 +470,11 @@ impl MultiGpuContext {
         }
 
         let n = self.devices.len();
-        let buf_len = if !buffers.is_empty() { buffers[0].len() } else { 0 };
+        let buf_len = if !buffers.is_empty() {
+            buffers[0].len()
+        } else {
+            0
+        };
 
         if n == 1 || buf_len == 0 {
             // Nothing to do.
@@ -712,9 +741,7 @@ mod tests_p3 {
 
     #[test]
     fn test_reducible_f32_product() {
-        assert!(
-            (f32::apply_reduce_op(2.0_f32, 3.0_f32, ReduceOp::Product) - 6.0).abs() < EPS_F32
-        );
+        assert!((f32::apply_reduce_op(2.0_f32, 3.0_f32, ReduceOp::Product) - 6.0).abs() < EPS_F32);
         assert!(
             (f32::apply_reduce_op(-2.0_f32, 4.0_f32, ReduceOp::Product) - (-8.0)).abs() < EPS_F32
         );
@@ -736,7 +763,10 @@ mod tests_p3 {
     fn test_reducible_f32_mean() {
         // Average op accumulates as sum; the caller applies the /N divisor.
         let acc = f32::apply_reduce_op(3.0_f32, 5.0_f32, ReduceOp::Average);
-        assert!((acc - 8.0).abs() < EPS_F32, "accumulation should be sum before /N");
+        assert!(
+            (acc - 8.0).abs() < EPS_F32,
+            "accumulation should be sum before /N"
+        );
         let scaled = f32::scale(8.0_f32, 0.5_f64);
         assert!((scaled - 4.0).abs() < EPS_F32, "scale by 0.5 → 4.0");
     }
@@ -851,10 +881,7 @@ mod tests_p3 {
     /// 2 devices, average of [2.0, 4.0, 6.0] and [4.0, 8.0, 12.0] = [3.0, 6.0, 9.0]
     #[test]
     fn test_ring_all_reduce_average() {
-        let mut buffers: Vec<Vec<f32>> = vec![
-            vec![2.0, 4.0, 6.0],
-            vec![4.0, 8.0, 12.0],
-        ];
+        let mut buffers: Vec<Vec<f32>> = vec![vec![2.0, 4.0, 6.0], vec![4.0, 8.0, 12.0]];
 
         ring_all_reduce(&mut buffers, ReduceOp::Average).expect("ring_all_reduce should succeed");
 
@@ -943,12 +970,17 @@ mod tests_p3 {
                 .enumerate()
                 .map(|(i, b)| {
                     crate::cuda::set_device(ctx.devices[i].id()).expect("set device");
-                    let mut buf = b.create_buffer::<f32>(4, DType::F32).expect("create buffer");
-                    buf.copy_from_host(&vec![1.0_f32 + i as f32; 4]).expect("copy");
+                    let mut buf = b
+                        .create_buffer::<f32>(4, DType::F32)
+                        .expect("create buffer");
+                    buf.copy_from_host(&vec![1.0_f32 + i as f32; 4])
+                        .expect("copy");
                     buf
                 })
                 .collect();
-            ctx.all_reduce(&mut bufs, ReduceOp::Sum).await.expect("all_reduce");
+            ctx.all_reduce(&mut bufs, ReduceOp::Sum)
+                .await
+                .expect("all_reduce");
             for buf in &bufs {
                 let mut v = vec![0.0_f32; 4];
                 buf.copy_to_host(&mut v).expect("copy to host");

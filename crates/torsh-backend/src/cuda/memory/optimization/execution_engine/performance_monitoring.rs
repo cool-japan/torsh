@@ -754,19 +754,28 @@ impl PerformanceMonitoringManager {
     pub fn start_monitoring(&self) -> Result<(), PerformanceMonitoringError> {
         // Start metrics collection
         {
-            let mut collector = self.metrics_collector.lock().expect("lock should not be poisoned");
+            let mut collector = self
+                .metrics_collector
+                .lock()
+                .expect("lock should not be poisoned");
             collector.start_collection()?;
         }
 
         // Start bottleneck detection
         {
-            let mut detector = self.bottleneck_detector.lock().expect("lock should not be poisoned");
+            let mut detector = self
+                .bottleneck_detector
+                .lock()
+                .expect("lock should not be poisoned");
             detector.start_detection()?;
         }
 
         // Start resource monitoring
         {
-            let mut monitor = self.resource_monitor.lock().expect("lock should not be poisoned");
+            let mut monitor = self
+                .resource_monitor
+                .lock()
+                .expect("lock should not be poisoned");
             monitor.start_monitoring()?;
         }
 
@@ -782,13 +791,19 @@ impl PerformanceMonitoringManager {
 
     /// Collect current performance metrics
     pub fn collect_metrics(&self) -> Result<Vec<MetricDataPoint>, PerformanceMonitoringError> {
-        let collector = self.metrics_collector.lock().expect("lock should not be poisoned");
+        let collector = self
+            .metrics_collector
+            .lock()
+            .expect("lock should not be poisoned");
         collector.collect_current_metrics()
     }
 
     /// Detect performance bottlenecks
     pub fn detect_bottlenecks(&self) -> Result<Vec<BottleneckRecord>, PerformanceMonitoringError> {
-        let mut detector = self.bottleneck_detector.lock().expect("lock should not be poisoned");
+        let mut detector = self
+            .bottleneck_detector
+            .lock()
+            .expect("lock should not be poisoned");
         detector.analyze_and_detect()
     }
 
@@ -796,7 +811,10 @@ impl PerformanceMonitoringManager {
     pub fn get_optimization_recommendations(
         &self,
     ) -> Result<Vec<OptimizationRecommendation>, PerformanceMonitoringError> {
-        let mut recommender = self.optimization_recommender.lock().expect("lock should not be poisoned");
+        let mut recommender = self
+            .optimization_recommender
+            .lock()
+            .expect("lock should not be poisoned");
         recommender.generate_recommendations()
     }
 
@@ -820,7 +838,10 @@ impl PerformanceMonitoringManager {
 
     /// Get system performance status
     pub fn get_performance_status(&self) -> SystemPerformanceStatus {
-        let state = self.system_performance_state.read().expect("lock should not be poisoned");
+        let state = self
+            .system_performance_state
+            .read()
+            .expect("lock should not be poisoned");
         state.get_current_status()
     }
 
@@ -836,7 +857,10 @@ impl PerformanceMonitoringManager {
         chart_type: ChartType,
         time_range: Duration,
     ) -> Result<DashboardData, PerformanceMonitoringError> {
-        let provider = self.dashboard_provider.lock().expect("lock should not be poisoned");
+        let provider = self
+            .dashboard_provider
+            .lock()
+            .expect("lock should not be poisoned");
         provider.generate_dashboard_data(chart_type, time_range)
     }
 }
@@ -1622,7 +1646,9 @@ mod tests {
             )
             .expect("operation should succeed");
 
-        let metrics = collector.collect_current_metrics().expect("metrics collection should succeed");
+        let metrics = collector
+            .collect_current_metrics()
+            .expect("metrics collection should succeed");
         assert!(!metrics.is_empty());
     }
 
@@ -1631,7 +1657,9 @@ mod tests {
         let config = PerformanceMonitoringConfig::default();
         let mut detector = BottleneckDetector::new(&config);
 
-        let bottlenecks = detector.analyze_and_detect().expect("analysis and detection should succeed");
+        let bottlenecks = detector
+            .analyze_and_detect()
+            .expect("analysis and detection should succeed");
         assert!(bottlenecks.is_empty()); // No bottlenecks initially
     }
 
@@ -1640,7 +1668,9 @@ mod tests {
         let config = PerformanceMonitoringConfig::default();
         let mut recommender = OptimizationRecommender::new(&config);
 
-        let recommendations = recommender.generate_recommendations().expect("recommendation generation should succeed");
+        let recommendations = recommender
+            .generate_recommendations()
+            .expect("recommendation generation should succeed");
         assert!(!recommendations.is_empty());
     }
 

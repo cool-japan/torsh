@@ -262,7 +262,9 @@ impl ValidationPriority {
 }
 
 impl SuccessCriterion {
-    pub fn minimum_score(_score: f32) -> Self { Self }
+    pub fn minimum_score(_score: f32) -> Self {
+        Self
+    }
     pub const NO_FATAL_ERRORS: Self = Self;
     pub const SECURITY_COMPLIANCE: Self = Self;
     pub const NO_SECURITY_VIOLATIONS: Self = Self;

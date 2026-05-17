@@ -9,6 +9,12 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
+// Placeholder implementations for supporting structures extracted into
+// a sibling module to comply with the project 2000-line file policy.
+#[path = "parameters_support.rs"]
+mod parameters_support;
+pub use parameters_support::*;
+
 // ============================================================================
 // Stub implementations for missing types
 // ============================================================================
@@ -19,7 +25,10 @@ pub enum DependencyCondition {
     #[default]
     Any,
     ValueEquals(f64),
-    ValueInRange { min: f64, max: f64 },
+    ValueInRange {
+        min: f64,
+        max: f64,
+    },
 }
 
 /// Convergence analysis result (stub implementation)
@@ -34,7 +43,9 @@ pub struct ParameterSpace {
 
 impl ParameterSpace {
     fn new() -> Self {
-        Self { parameters: Vec::new() }
+        Self {
+            parameters: Vec::new(),
+        }
     }
     fn add_parameter(&mut self, param: OptimizationParameter) -> Result<(), ParameterError> {
         self.parameters.push(param);
@@ -248,7 +259,11 @@ pub struct TuningResourceManager {}
 #[derive(Debug, Clone, Default)]
 pub struct EarlyStoppingSystem {}
 impl EarlyStoppingSystem {
-    pub fn should_stop(&self, _session_id: &TuningSessionId, _config: &EarlyStoppingConfig) -> Result<bool, ParameterError> {
+    pub fn should_stop(
+        &self,
+        _session_id: &TuningSessionId,
+        _config: &EarlyStoppingConfig,
+    ) -> Result<bool, ParameterError> {
         Ok(false)
     }
 }
@@ -1193,7 +1208,11 @@ impl ParameterManager {
                 }
             }
             DependencyCondition::ValueInRange { min, max } => {
-                if !self.is_value_in_range(&dependency_param.value, &ParameterValue::Float(*min), &ParameterValue::Float(*max)) {
+                if !self.is_value_in_range(
+                    &dependency_param.value,
+                    &ParameterValue::Float(*min),
+                    &ParameterValue::Float(*max),
+                ) {
                     return Err(ParameterError::DependencyViolation(format!(
                         "Parameter {} depends on {} being in range [{:?}, {:?}]",
                         parameter.id, dependency.parameter_id, min, max
@@ -1890,294 +1909,6 @@ pub trait SamplingStrategy: std::fmt::Debug + Send + Sync {
     fn get_parameters(&self) -> HashMap<String, f64>;
 }
 
-// Placeholder implementations for supporting structures
-// (Due to space constraints, providing abbreviated versions)
-
-#[derive(Debug, Default)]
-pub struct ParameterManagerConfig {
-    pub registry_config: ParameterRegistryConfig,
-    pub tuning_config: AutoTuningEngineConfig,
-    pub hyperparameter_config: HyperparameterOptimizerConfig,
-    pub exploration_config: SpaceExplorationConfig,
-    pub bayesian_config: BayesianOptimizerConfig,
-    pub multi_fidelity_config: MultiFidelitySystemConfig,
-    pub validation_config: ParameterValidationConfig,
-    pub tracking_config: EvolutionTrackerConfig,
-    pub constraint_config: ConstraintEngineConfig,
-    pub correlation_config: CorrelationAnalyzerConfig,
-    pub meta_learning_config: MetaLearningConfig,
-    pub adaptive_config: AdaptiveSystemConfig,
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct HyperparameterOptimizerConfig;
-#[derive(Debug, Default, Clone)]
-pub struct BayesianOptimizerConfig;
-#[derive(Debug, Default, Clone)]
-pub struct MultiFidelitySystemConfig;
-#[derive(Debug, Default, Clone)]
-pub struct EvolutionTrackerConfig;
-#[derive(Debug, Default, Clone)]
-pub struct ConstraintEngineConfig;
-#[derive(Debug, Default, Clone)]
-pub struct CorrelationAnalyzerConfig;
-#[derive(Debug, Default, Clone)]
-pub struct MetaLearningConfig;
-#[derive(Debug, Default, Clone)]
-pub struct AdaptiveSystemConfig;
-#[derive(Debug, Default, Clone)]
-pub struct ParameterRegistryConfig;
-#[derive(Debug, Default)]
-pub struct MultiFidelitySystem;
-#[derive(Debug, Default)]
-pub struct ParameterValidationFramework;
-#[derive(Debug, Default)]
-pub struct ParameterEvolutionTracker;
-#[derive(Debug, Default)]
-pub struct ParameterConstraintEngine;
-#[derive(Debug, Default)]
-pub struct ParameterCorrelationAnalyzer;
-#[derive(Debug, Default)]
-pub struct ParameterMetaLearningSystem;
-#[derive(Debug, Default)]
-pub struct AdaptiveParameterSystem;
-
-// Additional supporting structures (abbreviated for space)
-#[derive(Debug, Default)]
-pub struct ParameterGroup;
-#[derive(Debug, Default)]
-pub struct ParameterDependencyGraph;
-#[derive(Debug, Default)]
-pub struct ParameterTemplate;
-#[derive(Debug, Default)]
-pub struct ConfigurationProfile;
-#[derive(Debug, Default)]
-pub struct ParameterVersioningSystem;
-#[derive(Debug, Default)]
-pub struct ParameterMetadataIndex;
-#[derive(Debug, Default)]
-pub struct ParameterUsageStatistics;
-#[derive(Debug, Default)]
-pub struct ParameterImportExportManager;
-
-impl MultiFidelitySystem {
-    fn new(_config: MultiFidelitySystemConfig) -> Self { Self }
-    fn initialize_session(&mut self, _id: &str, _config: &MultiFidelityConfig) -> Result<(), ParameterError> { Ok(()) }
-}
-
-impl ParameterEvolutionTracker {
-    fn new(_config: EvolutionTrackerConfig) -> Self { Self }
-    fn initialize_parameter_tracking(&mut self, _id: &str) -> Result<(), ParameterError> { Ok(()) }
-    fn record_parameter_change(&mut self, _id: &str, _value: &ParameterValue) -> Result<(), ParameterError> { Ok(()) }
-    fn record_tuning_step(&mut self, _session_id: &TuningSessionId, _config: &ParameterConfiguration, _result: &EvaluationResult) -> Result<(), ParameterError> { Ok(()) }
-    fn get_trends(&self) -> EvolutionTrends { EvolutionTrends::default() }
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct EvolutionTrends {}
-
-impl ParameterConstraintEngine {
-    fn new(_config: ConstraintEngineConfig) -> Self { Self }
-    fn check_constraints(&self, _param: &OptimizationParameter, _value: &ParameterValue) -> Result<(), ParameterError> { Ok(()) }
-    fn check_global_constraints(&self, _config: &HashMap<String, ParameterValue>) -> Result<Vec<ConstraintViolation>, ParameterError> { Ok(Vec::new()) }
-}
-
-impl ParameterCorrelationAnalyzer {
-    fn new(_config: CorrelationAnalyzerConfig) -> Self { Self }
-    fn add_parameter(&mut self, _param: &OptimizationParameter) -> Result<(), ParameterError> { Ok(()) }
-    fn update_parameter_correlation(&mut self, _id: &str, _value: &ParameterValue) -> Result<(), ParameterError> { Ok(()) }
-    fn analyze_correlations(&self, _params: &[OptimizationParameter]) -> Result<ParameterCorrelationAnalysis, ParameterError> { Ok(ParameterCorrelationAnalysis::default()) }
-    fn get_analysis_summary(&self) -> CorrelationSummary { CorrelationSummary::default() }
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct CorrelationSummary {}
-
-impl ParameterMetaLearningSystem {
-    fn new(_config: MetaLearningConfig) -> Self { Self }
-    fn generate_recommendations(&self, _state: &ParameterState, _context: &RecommendationContext) -> Result<Vec<ParameterRecommendation>, ParameterError> { Ok(Vec::new()) }
-}
-
-impl AdaptiveParameterSystem {
-    fn new(_config: AdaptiveSystemConfig) -> Self { Self }
-}
-
-impl HyperparameterOptimizer {
-    fn new(_config: HyperparameterOptimizerConfig) -> Self { Self::default() }
-    fn select_optimizer(&self, _config: &HyperparameterOptimizationConfig) -> Result<&dyn Optimizer, ParameterError> {
-        Err(ParameterError::AlgorithmError("No optimizer selected".to_string()))
-    }
-}
-
-pub trait Optimizer {
-    fn optimize(&self, space: ParameterSpace, config: HyperparameterOptimizationConfig) -> Result<HyperparameterOptimizationResult, ParameterError>;
-}
-
-impl BayesianOptimizer {
-    fn new(_config: BayesianOptimizerConfig) -> Self { Self::default() }
-    fn initialize_session(&mut self, _config: BayesianOptimizationConfig) -> Result<BayesianOptimizationSession, ParameterError> {
-        Ok(BayesianOptimizationSession::default())
-    }
-    fn select_next_configuration(&self, _session: &BayesianOptimizationSession) -> Result<ParameterConfiguration, ParameterError> {
-        Ok(ParameterConfiguration::default())
-    }
-    fn update_model(&mut self, _config: &ParameterConfiguration, _performance: f64) -> Result<(), ParameterError> { Ok(()) }
-    fn get_final_model(&self) -> Result<GaussianProcessModel, ParameterError> { Ok(GaussianProcessModel::default()) }
-}
-
-impl ParameterSpaceExplorer {
-    fn new(_config: SpaceExplorationConfig) -> Self { Self::default() }
-    fn explore_space(&self, _space: ParameterSpace, _config: SpaceExplorationConfig) -> Result<ExplorationResult, ParameterError> {
-        Ok(ExplorationResult::default())
-    }
-    fn get_metrics(&self) -> SpaceExplorationMetrics { SpaceExplorationMetrics::default() }
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct ExplorationResult {
-    pub configurations: Vec<ParameterConfiguration>,
-    pub performance_data: PerformanceLandscape,
-    pub coverage_metrics: CoverageMetrics,
-    pub sensitivity_data: SensitivityData,
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct PerformanceLandscape {}
-#[derive(Debug, Default, Clone)]
-pub struct CoverageMetrics {}
-#[derive(Debug, Default, Clone)]
-pub struct SensitivityData {}
-#[derive(Debug, Default, Clone)]
-pub struct SpaceExplorationMetrics {}
-
-impl ParameterDependencyGraph {
-    fn new() -> Self { Self }
-}
-
-impl ParameterMetadataIndex {
-    fn new() -> Self { Self }
-    fn index_parameter(&mut self, _param: &OptimizationParameter) {}
-}
-
-impl ParameterUsageStatistics {
-    fn new() -> Self { Self }
-    fn register_parameter(&mut self, _id: &str) {}
-}
-
-impl ParameterImportExportManager {
-    fn new() -> Self { Self }
-    fn export_parameters(&self, _params: &Arc<RwLock<HashMap<String, OptimizationParameter>>>, _config: ParameterExportConfig) -> Result<ParameterExportData, ParameterError> {
-        Ok(ParameterExportData::default())
-    }
-    fn import_parameters(&self, _params: &mut Arc<RwLock<HashMap<String, OptimizationParameter>>>, _data: ParameterImportData) -> Result<ParameterImportResult, ParameterError> {
-        Ok(ParameterImportResult::default())
-    }
-}
-
-impl ParameterVersioningSystem {
-    fn new() -> Self { Self }
-}
-
-// Many more supporting structures would be implemented for complete functionality
-// This represents the core architecture and main interfaces
-
-impl AutoTuningEngine {
-    fn new(_config: AutoTuningEngineConfig) -> Self {
-        Self::default()
-    }
-    fn create_session(
-        &mut self,
-        _config: AutoTuningSessionConfig,
-    ) -> Result<TuningSessionId, ParameterError> {
-        Ok("session_1".to_string())
-    }
-    fn get_session(&self, _id: &TuningSessionId) -> Result<TuningSession, ParameterError> {
-        Ok(TuningSession::default())
-    }
-    fn is_algorithm_available(&self, _algorithm: &str) -> bool {
-        true
-    }
-    fn select_next_configuration(
-        &self,
-        _session: &TuningSession,
-    ) -> Result<ParameterConfiguration, ParameterError> {
-        Ok(ParameterConfiguration::default())
-    }
-    fn update_algorithm(
-        &mut self,
-        _algorithm: &str,
-        _config: &ParameterConfiguration,
-        _result: &EvaluationResult,
-    ) -> Result<(), ParameterError> {
-        Ok(())
-    }
-    fn get_metrics(&self) -> TuningEngineMetrics {
-        TuningEngineMetrics::default()
-    }
-}
-
-impl ParameterValidationFramework {
-    fn new(_config: ParameterValidationConfig) -> Self {
-        Self
-    }
-    fn validate_parameter(&self, _parameter: &OptimizationParameter) -> Result<(), ParameterError> {
-        Ok(())
-    }
-    fn validate_parameter_value(
-        &self,
-        _parameter: &OptimizationParameter,
-        _value: &ParameterValue,
-    ) -> Result<(), ParameterError> {
-        Ok(())
-    }
-}
-
-// Type aliases and additional structures
-pub type TuningSessionId = String;
-
-#[derive(Debug, Default, Clone)]
-pub struct AutoTuningEngineConfig;
-#[derive(Debug, Default, Clone)]
-pub struct ParameterValidationConfig;
-#[derive(Debug)]
-pub struct TuningSession {
-    pub iteration_count: usize,
-    pub best_performance: f64,
-    pub elapsed_time: Duration,
-    pub evaluation_count: usize,
-    pub total_cost: f64,
-    pub config: AutoTuningSessionConfig,
-    pub algorithm: String,
-    pub context: TuningContext,
-}
-
-impl Default for TuningSession {
-    fn default() -> Self {
-        Self {
-            iteration_count: 0,
-            best_performance: 0.0,
-            elapsed_time: Duration::from_secs(0),
-            evaluation_count: 0,
-            total_cost: 0.0,
-            config: AutoTuningSessionConfig::default(),
-            algorithm: String::new(),
-            context: TuningContext::default(),
-        }
-    }
-}
-#[derive(Debug, Default, Clone)]
-pub struct ParameterConfiguration {
-    pub parameters: HashMap<String, ParameterValue>,
-}
-#[derive(Debug, Default, Clone)]
-pub struct EvaluationResult {
-    pub performance: f64,
-    pub resource_usage: ResourceUsage,
-    pub evaluation_time: Duration,
-    pub quality_metrics: QualityMetrics,
-    pub side_effects: Vec<SideEffect>,
-}
-#[derive(Debug, Default, Clone)]
-pub struct TuningEngineMetrics;
-
-// This represents the comprehensive parameter management module architecture
+// Placeholder implementations for supporting structures have been moved to
+// `parameters_support.rs` to comply with the project 2000-line file policy.
+// See the `mod parameters_support;` declaration near the top of this file.
