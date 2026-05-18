@@ -3,9 +3,9 @@
 
 use super::*;
 
+use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::sync::{Arc, RwLock};
-use std::collections::HashMap;
 use std::time::SystemTime;
 
 // ── ThermalConfig / MonitoringConfig sub-types / misc ──────────────────────

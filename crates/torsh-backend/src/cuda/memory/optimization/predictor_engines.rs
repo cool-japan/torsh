@@ -520,10 +520,7 @@ impl TrendAnalyzer {
         Self::default()
     }
 
-    pub fn analyze_current_trend(
-        &self,
-        _metric: &str,
-    ) -> Result<TrendAnalysis, PredictionError> {
+    pub fn analyze_current_trend(&self, _metric: &str) -> Result<TrendAnalysis, PredictionError> {
         Ok(TrendAnalysis::default())
     }
 

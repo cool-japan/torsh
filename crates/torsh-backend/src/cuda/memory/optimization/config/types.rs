@@ -1073,5 +1073,6 @@ impl ConfigComparisonEngine {
         Self
     }
 }
-#[path = "types_network.rs"] mod types_network;
+#[path = "types_network.rs"]
+mod types_network;
 pub use types_network::*;

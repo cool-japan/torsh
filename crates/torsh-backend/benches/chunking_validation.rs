@@ -74,46 +74,31 @@ fn bench_matmul(c: &mut Criterion) {
         let a = make_vec_a(n * n);
         let b = make_vec_b(n * n);
 
-        group.bench_with_input(
-            BenchmarkId::new("chunked", n),
-            &n,
-            |bench, &size| {
-                let mut result = vec![0.0_f32; size * size];
-                bench.iter(|| {
-                    optimized_matmul(
-                        black_box(&a),
-                        black_box(&b),
-                        &mut result,
-                        size,
-                        size,
-                        size,
-                        false,
-                        false,
-                    )
-                    .unwrap();
-                    black_box(result[0]);
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("chunked", n), &n, |bench, &size| {
+            let mut result = vec![0.0_f32; size * size];
+            bench.iter(|| {
+                optimized_matmul(
+                    black_box(&a),
+                    black_box(&b),
+                    &mut result,
+                    size,
+                    size,
+                    size,
+                    false,
+                    false,
+                )
+                .unwrap();
+                black_box(result[0]);
+            });
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("naive", n),
-            &n,
-            |bench, &size| {
-                let mut result = vec![0.0_f32; size * size];
-                bench.iter(|| {
-                    naive_matmul(
-                        black_box(&a),
-                        black_box(&b),
-                        &mut result,
-                        size,
-                        size,
-                        size,
-                    );
-                    black_box(result[0]);
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("naive", n), &n, |bench, &size| {
+            let mut result = vec![0.0_f32; size * size];
+            bench.iter(|| {
+                naive_matmul(black_box(&a), black_box(&b), &mut result, size, size, size);
+                black_box(result[0]);
+            });
+        });
     }
 
     group.finish();
@@ -132,35 +117,22 @@ fn bench_elementwise(c: &mut Criterion) {
         let a = make_vec_a(len);
         let b = make_vec_b(len);
 
-        group.bench_with_input(
-            BenchmarkId::new("chunked", len),
-            &len,
-            |bench, &size| {
-                let mut result = vec![0.0_f32; size];
-                bench.iter(|| {
-                    chunked_elementwise(
-                        black_box(&a),
-                        black_box(&b),
-                        &mut result,
-                        |x, y| x + y,
-                    )
+        group.bench_with_input(BenchmarkId::new("chunked", len), &len, |bench, &size| {
+            let mut result = vec![0.0_f32; size];
+            bench.iter(|| {
+                chunked_elementwise(black_box(&a), black_box(&b), &mut result, |x, y| x + y)
                     .unwrap();
-                    black_box(result[0]);
-                });
-            },
-        );
+                black_box(result[0]);
+            });
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("naive", len),
-            &len,
-            |bench, &size| {
-                let mut result = vec![0.0_f32; size];
-                bench.iter(|| {
-                    naive_elementwise_add(black_box(&a), black_box(&b), &mut result);
-                    black_box(result[0]);
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("naive", len), &len, |bench, &size| {
+            let mut result = vec![0.0_f32; size];
+            bench.iter(|| {
+                naive_elementwise_add(black_box(&a), black_box(&b), &mut result);
+                black_box(result[0]);
+            });
+        });
     }
 
     group.finish();
@@ -178,27 +150,19 @@ fn bench_sum(c: &mut Criterion) {
 
         let data = make_vec_a(len);
 
-        group.bench_with_input(
-            BenchmarkId::new("chunked", len),
-            &len,
-            |bench, _| {
-                bench.iter(|| {
-                    let s = chunked_sum(black_box(&data));
-                    black_box(s);
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("chunked", len), &len, |bench, _| {
+            bench.iter(|| {
+                let s = chunked_sum(black_box(&data));
+                black_box(s);
+            });
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("naive", len),
-            &len,
-            |bench, _| {
-                bench.iter(|| {
-                    let s = naive_sum(black_box(&data));
-                    black_box(s);
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("naive", len), &len, |bench, _| {
+            bench.iter(|| {
+                let s = naive_sum(black_box(&data));
+                black_box(s);
+            });
+        });
     }
 
     group.finish();
@@ -216,27 +180,19 @@ fn bench_mean(c: &mut Criterion) {
 
         let data = make_vec_a(len);
 
-        group.bench_with_input(
-            BenchmarkId::new("chunked", len),
-            &len,
-            |bench, _| {
-                bench.iter(|| {
-                    let m = chunked_mean(black_box(&data));
-                    black_box(m);
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("chunked", len), &len, |bench, _| {
+            bench.iter(|| {
+                let m = chunked_mean(black_box(&data));
+                black_box(m);
+            });
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("naive", len),
-            &len,
-            |bench, _| {
-                bench.iter(|| {
-                    let m = naive_mean(black_box(&data));
-                    black_box(m);
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("naive", len), &len, |bench, _| {
+            bench.iter(|| {
+                let m = naive_mean(black_box(&data));
+                black_box(m);
+            });
+        });
     }
 
     group.finish();
@@ -246,5 +202,11 @@ fn bench_mean(c: &mut Criterion) {
 // Registration
 // ---------------------------------------------------------------------------
 
-criterion_group!(benches, bench_matmul, bench_elementwise, bench_sum, bench_mean);
+criterion_group!(
+    benches,
+    bench_matmul,
+    bench_elementwise,
+    bench_sum,
+    bench_mean
+);
 criterion_main!(benches);

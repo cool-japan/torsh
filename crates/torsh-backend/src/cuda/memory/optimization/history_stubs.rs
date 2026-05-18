@@ -1,7 +1,7 @@
 //! Stub implementations for `history.rs` — extracted to keep that file under 2000 lines.
 
-use super::*;
 use super::super::config::TrendAnalysisConfig;
+use super::*;
 
 // ============================================================================
 // Stub implementations for missing types

@@ -772,10 +772,8 @@ pub unsafe extern "C" fn torsh_tensor_conv2d(
             return ptr::null_mut();
         }
 
-        let (n_batch, in_ch, h_in, w_in) =
-            (inp.shape[0], inp.shape[1], inp.shape[2], inp.shape[3]);
-        let (out_ch, in_ch_w, kh, kw) =
-            (wgt.shape[0], wgt.shape[1], wgt.shape[2], wgt.shape[3]);
+        let (n_batch, in_ch, h_in, w_in) = (inp.shape[0], inp.shape[1], inp.shape[2], inp.shape[3]);
+        let (out_ch, in_ch_w, kh, kw) = (wgt.shape[0], wgt.shape[1], wgt.shape[2], wgt.shape[3]);
 
         if in_ch != in_ch_w {
             set_last_error(format!(
