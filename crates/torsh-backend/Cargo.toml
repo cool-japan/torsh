@@ -99,6 +99,11 @@ proptest = { workspace = true }
 # name = "cpu_benchmarks"
 # harness = false
 
+[[bench]]
+name = "chunking_validation"
+harness = false
+required-features = ["cpu"]
+
 [features]
 default = ["std", "cpu", "async"]
 std = ["torsh-core/std"]

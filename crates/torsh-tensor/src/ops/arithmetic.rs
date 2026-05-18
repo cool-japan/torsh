@@ -28,6 +28,83 @@ impl<
     /// - Medium tensors (512-65K): Phase 3 SIMD (uninit buffer + scirs2 API)
     /// - Large tensors (>65K): Parallel SIMD (Rayon + SIMD chunks)
     pub fn add_op(&self, other: &Self) -> Result<Self> {
+        // GPU dispatch: CUDA-device-only, f32-only, large tensors only.
+        // Falls through to the CPU path if context init or kernel execution fails.
+        #[cfg(feature = "gpu")]
+        {
+            use torsh_core::device::DeviceType;
+            if matches!(self.device, DeviceType::Cuda(_))
+                && self.shape() == other.shape()
+                && std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>()
+                && self.shape().numel() >= 65536
+            {
+                static GPU_CTX: std::sync::OnceLock<
+                    Option<scirs2_core::gpu::GpuContext>,
+                > = std::sync::OnceLock::new();
+                let ctx_opt = GPU_CTX.get_or_init(|| {
+                    scirs2_core::gpu::GpuContext::new(scirs2_core::gpu::GpuBackend::Cuda).ok()
+                });
+                if let Some(ctx) = ctx_opt {
+                    let kernel =
+                        scirs2_core::gpu::kernels::elementwise::ElementwiseAddKernel::new();
+                    use scirs2_core::gpu::kernels::GpuKernel as _;
+                    let source = kernel
+                        .source_for_backend(scirs2_core::gpu::GpuBackend::Cuda)
+                        .unwrap_or_default();
+                    let self_data = self.data()?;
+                    let other_data = other.data()?;
+                    // Transmute slices to f32 — safe because T == f32 is verified via TypeId above.
+                    let self_f32: &[f32] = unsafe {
+                        std::slice::from_raw_parts(
+                            self_data.as_ptr() as *const f32,
+                            self_data.len(),
+                        )
+                    };
+                    let other_f32: &[f32] = unsafe {
+                        std::slice::from_raw_parts(
+                            other_data.as_ptr() as *const f32,
+                            other_data.len(),
+                        )
+                    };
+                    let n = self_data.len() as u32;
+                    let buf_a = ctx.create_buffer_from_slice(self_f32);
+                    let buf_b = ctx.create_buffer_from_slice(other_f32);
+                    let buf_out = ctx.create_buffer::<f32>(self_data.len());
+                    let workgroups = ((n + 255) / 256, 1, 1);
+                    if ctx
+                        .execute_kernel(
+                            &source,
+                            &[buf_a, buf_b, buf_out.clone()],
+                            workgroups,
+                            &[n],
+                            &[],
+                        )
+                        .is_ok()
+                    {
+                        let result_f32 = ctx
+                            .read_buffer(&buf_out)
+                            .map_err(|e| TorshError::Other(e.to_string()))?;
+                        // SAFETY: T == f32, so Vec<f32> has the same bit pattern as Vec<T>.
+                        let result_t: Vec<T> = unsafe { std::mem::transmute(result_f32) };
+                        let mut out = Self::from_data(
+                            result_t,
+                            self.shape().dims().to_vec(),
+                            self.device.clone(),
+                        )?;
+                        if self.requires_grad || other.requires_grad {
+                            use std::sync::Arc;
+                            out.requires_grad = true;
+                            out.operation = crate::Operation::Add {
+                                lhs: Arc::new(self.clone()),
+                                rhs: Arc::new(other.clone()),
+                            };
+                        }
+                        return Ok(out);
+                    }
+                }
+            }
+        }
+
         let mut result = if self.shape() == other.shape() {
             // 🚀 Phase 3/4: Use adaptive SIMD for f32 tensors
             #[cfg(feature = "simd")]
@@ -410,7 +487,7 @@ impl<
     pub fn broadcast_binary_op<F>(&self, other: &Self, op: F) -> Result<Self>
     where
         F: Fn(T, T) -> T + Send + Sync,
-        T: Copy + Default,
+        T: Copy + Default + 'static,
     {
         use crate::broadcast::{BroadcastOps, BroadcastShape};
 
@@ -451,28 +528,36 @@ impl<
         let self_data = self.data()?;
         let other_data = other.data()?;
 
-        let mut result_data = Vec::with_capacity(broadcast_size);
+        // Use pooled buffer to avoid repeated heap allocation for broadcast results.
+        // T: 'static is satisfied by the outer where-clause on broadcast_binary_op.
+        use crate::memory_pool::global_acquire_uninit;
+        let mut buf = global_acquire_uninit::<T>(broadcast_size);
+        {
+            let uninit = buf.as_uninit_slice_mut();
 
-        // Compute broadcasting for each element using optimized indexing
-        for flat_idx in 0..broadcast_size {
-            let broadcast_indices = BroadcastOps::flat_to_multi_index(flat_idx, broadcast_dims);
+            // Compute broadcasting for each element using optimized indexing
+            for flat_idx in 0..broadcast_size {
+                let broadcast_indices = BroadcastOps::flat_to_multi_index(flat_idx, broadcast_dims);
 
-            let self_idx = BroadcastOps::compute_broadcast_index(
-                &broadcast_indices,
-                self.shape().dims(),
-                broadcast_dims,
-            )?;
-            let other_idx = BroadcastOps::compute_broadcast_index(
-                &broadcast_indices,
-                other.shape().dims(),
-                broadcast_dims,
-            )?;
+                let self_idx = BroadcastOps::compute_broadcast_index(
+                    &broadcast_indices,
+                    self.shape().dims(),
+                    broadcast_dims,
+                )?;
+                let other_idx = BroadcastOps::compute_broadcast_index(
+                    &broadcast_indices,
+                    other.shape().dims(),
+                    broadcast_dims,
+                )?;
 
-            let self_val = self_data[self_idx];
-            let other_val = other_data[other_idx];
+                let self_val = self_data[self_idx];
+                let other_val = other_data[other_idx];
 
-            result_data.push(op(self_val, other_val));
+                // SAFETY: flat_idx < broadcast_size == buf.capacity(); element written exactly once.
+                unsafe { uninit[flat_idx].write(op(self_val, other_val)) };
+            }
         }
+        let result_data = buf.into_vec(broadcast_size);
 
         Self::from_data(
             result_data,

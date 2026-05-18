@@ -25,6 +25,8 @@ use torsh_core::{
     error::{Result, TorshError},
 };
 
+use crate::memory_pool::global_acquire_uninit;
+
 // 🚀 SciRS2 AlignedVec integration for SIMD-optimized storage
 #[cfg(feature = "simd")]
 use scirs2_core::simd_aligned::AlignedVec;
@@ -850,11 +852,14 @@ impl<T: TensorElement> MemoryMappedStorage<T> {
             });
         }
 
-        let mut result = Vec::with_capacity(len);
+        let mut buf = global_acquire_uninit::<T>(len);
+        let uninit = buf.as_uninit_slice_mut();
+        let mut count = 0;
         for i in 0..len {
-            result.push(self.get(start + i)?);
+            uninit[count].write(self.get(start + i)?);
+            count += 1;
         }
-        Ok(result)
+        Ok(buf.into_vec(count))
     }
 
     /// Set slice of elements

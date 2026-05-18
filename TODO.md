@@ -107,13 +107,19 @@
 - **Files**: `crates/torsh-tensor/benches/simd_performance.rs`
 - **Status**: Benchmarks now measure actual operation performance correctly
 
-#### CRITICAL #4: Reduce Memory Allocations 🔥
+#### CRITICAL #4: Reduce Memory Allocations 🔥 ✅ **BUFFER POOLING COMPLETE (2026-05-18)**
 > (Tracked in crates/torsh-tensor/TODO.md — planned 2026-04-19 v0.1.2 slice: blocks A–G dispatched)
-- [ ] Implement buffer pooling (`scirs2_core::memory::BufferPool`)
+- [x] Implement buffer pooling (`scirs2_core::memory::BufferPool`) — wired into 9 hot-path sites via `global_acquire_uninit` + `ReusedBuffer<T>::into_vec(len)` (2026-05-18)
+  - `math_ops.rs`: 6 sites (add/sub/mul/div SIMD paths + broadcast_add + broadcast_binary_op)
+  - `storage.rs`: get_slice output buffer
+  - `shape_ops.rs`: transpose_2d output
+  - `ops/arithmetic.rs`: broadcast_binary_op output
+  - `ops/matrix.rs`: diagonal extraction output
 - [ ] Add in-place operations for all element-wise ops
 - [ ] Use views instead of clones
-- **Files**: `crates/torsh-tensor/src/{storage.rs, math_ops.rs}`
-- **Target**: 90% reduction in allocations
+- [ ] `shape_ops.rs` `expand` (recursive helper needs refactor for pool integration)
+- **Files**: `crates/torsh-tensor/src/{storage.rs, math_ops.rs, shape_ops.rs, ops/arithmetic.rs, ops/matrix.rs}`
+- **Target**: 90% reduction in allocations (hot paths done)
 
 ### Priority 1: PyTorch Comparison (REQUIRED)
 
@@ -702,7 +708,7 @@ Following comprehensive requirements submitted to SciRS2 team for SIMD operation
 - [ ] **Performance validation** (Next Sprint):
   - [ ] Benchmark adaptive SIMD vs scalar (target: 2-4x)
   - [ ] Validate 14.17x speedup on medium arrays
-  - [ ] Cross-platform testing (x86_64 AVX2, ARM64 NEON)
+  - [x] Cross-platform testing (x86_64 AVX2, ARM64 NEON) — benchmark harness added: `crates/torsh-tensor/benches/cross_platform_simd.rs` (2026-05-18)
 
 #### **Expected Benefits (Medium-term)**
 - Memory-aligned SIMD for controlled performance optimization

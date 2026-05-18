@@ -115,7 +115,59 @@ impl<T: FloatElement> Tensor<T> {
 
     /// GELU (Gaussian Error Linear Unit) activation
     /// GELU(x) ≈ 0.5 * x * (1 + tanh(sqrt(2/π) * (x + 0.044715 * x^3)))
+    ///
+    /// When compiled with `feature = "gpu"` and the tensor is on a CUDA device
+    /// with element type f32, computation is dispatched to `scirs2_core::gpu::GpuContext::gelu`
+    /// which routes to the GPU when CUDA hardware is present and falls back to an
+    /// optimised CPU implementation otherwise.  Any GPU initialisation failure
+    /// silently falls through to the standard CPU path.
     pub fn gelu(&self) -> Result<Self> {
+        // ── GPU fast path (f32 on CUDA only) ──────────────────────────────────
+        #[cfg(feature = "gpu")]
+        {
+            use std::any::TypeId;
+            if TypeId::of::<T>() == TypeId::of::<f32>() {
+                if let crate::DeviceType::Cuda(_) = self.device {
+                    use scirs2_core::gpu::{GpuBackend, GpuContext};
+                    use std::sync::OnceLock;
+
+                    static GPU_CTX: OnceLock<Option<GpuContext>> = OnceLock::new();
+                    let ctx_opt = GPU_CTX.get_or_init(|| GpuContext::new(GpuBackend::Cuda).ok());
+
+                    if let Some(ctx) = ctx_opt {
+                        if let Ok(data) = self.data() {
+                            // SAFETY: TypeId guard above guarantees T == f32, so &[T] is &[f32].
+                            let f32_slice: &[f32] = unsafe {
+                                std::slice::from_raw_parts(
+                                    data.as_ptr().cast::<f32>(),
+                                    data.len(),
+                                )
+                            };
+                            let input_buf = ctx.create_buffer_from_slice(f32_slice);
+                            if let Ok(output_buf) = ctx.gelu(&input_buf) {
+                                let result_f32: Vec<f32> = output_buf.to_vec();
+                                // SAFETY: T == f32 (confirmed by TypeId), so Vec<f32> == Vec<T>.
+                                let result_t: Vec<T> = unsafe {
+                                    let mut v = std::mem::ManuallyDrop::new(result_f32);
+                                    Vec::from_raw_parts(
+                                        v.as_mut_ptr().cast::<T>(),
+                                        v.len(),
+                                        v.capacity(),
+                                    )
+                                };
+                                return Self::from_data(
+                                    result_t,
+                                    self.shape().dims().to_vec(),
+                                    self.device,
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── CPU path (generic fallback) ───────────────────────────────────────
         let data = self.data()?;
         // GELU(x) = x * Φ(x) where Φ(x) is the CDF of standard normal distribution
         // Approximation: GELU(x) ≈ 0.5 * x * (1 + tanh(sqrt(2/π) * (x + 0.044715 * x^3)))

@@ -320,6 +320,61 @@ impl<T: TensorElement> Tensor<T> {
             )));
         }
 
+        // GPU dispatch: CUDA-device-only, f32-only.
+        // Falls through to CPU path if context init or kernel execution fails.
+        #[cfg(feature = "gpu")]
+        {
+            use torsh_core::device::DeviceType;
+            if matches!(self.device(), DeviceType::Cuda(_))
+                && std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>()
+            {
+                static GPU_CTX_GEMV: std::sync::OnceLock<
+                    Option<scirs2_core::gpu::GpuContext>,
+                > = std::sync::OnceLock::new();
+                let ctx_opt = GPU_CTX_GEMV.get_or_init(|| {
+                    scirs2_core::gpu::GpuContext::new(scirs2_core::gpu::GpuBackend::Cuda).ok()
+                });
+                if let Some(ctx) = ctx_opt {
+                    let kernel = scirs2_core::gpu::kernels::blas::gemv::GemvKernel::new();
+                    use scirs2_core::gpu::kernels::GpuKernel as _;
+                    let source = kernel
+                        .source_for_backend(scirs2_core::gpu::GpuBackend::Cuda)
+                        .unwrap_or_default();
+                    let mat_data = self.data()?;
+                    let vec_data = other.data()?;
+                    // SAFETY: T == f32 verified via TypeId above.
+                    let mat_f32: &[f32] = unsafe {
+                        std::slice::from_raw_parts(mat_data.as_ptr() as *const f32, mat_data.len())
+                    };
+                    let vec_f32: &[f32] = unsafe {
+                        std::slice::from_raw_parts(vec_data.as_ptr() as *const f32, vec_data.len())
+                    };
+                    let buf_mat = ctx.create_buffer_from_slice(mat_f32);
+                    let buf_vec = ctx.create_buffer_from_slice(vec_f32);
+                    let buf_out = ctx.create_buffer::<f32>(m);
+                    let workgroups = ((m as u32 + 255) / 256, 1, 1);
+                    // int_params: [m, k1]; float_params: [alpha=1.0, beta=0.0]
+                    if ctx
+                        .execute_kernel(
+                            &source,
+                            &[buf_mat, buf_vec, buf_out.clone()],
+                            workgroups,
+                            &[m as u32, k1 as u32],
+                            &[1.0f32, 0.0f32],
+                        )
+                        .is_ok()
+                    {
+                        let result_f32 = ctx
+                            .read_buffer(&buf_out)
+                            .map_err(|e| TorshError::Other(e.to_string()))?;
+                        // SAFETY: T == f32
+                        let result_t: Vec<T> = unsafe { std::mem::transmute(result_f32) };
+                        return Self::from_data(result_t, vec![m], self.device());
+                    }
+                }
+            }
+        }
+
         let result_shape = vec![m];
         let mut result = Self::zeros(&result_shape, self.device())?;
 
@@ -954,7 +1009,7 @@ impl<T: FloatElement> Tensor<T> {
     /// * `dim2` - Second dimension (default: -1)
     pub fn diagonal(&self, offset: isize, dim1: Option<isize>, dim2: Option<isize>) -> Result<Self>
     where
-        T: Copy,
+        T: Copy + 'static,
     {
         let shape = self.shape().dims();
         let ndim = shape.len();
@@ -1025,27 +1080,37 @@ impl<T: FloatElement> Tensor<T> {
         // Extract diagonal elements
         // For simplicity, handle 2D case
         if ndim == 2 {
-            let mut result = Vec::with_capacity(diag_len);
+            // Use pooled buffer to avoid repeated heap allocation.
+            // T: 'static is satisfied by the where-clause on this function.
+            use crate::memory_pool::global_acquire_uninit;
+            let mut buf = global_acquire_uninit::<T>(diag_len);
+            let mut written = 0usize;
+            {
+                let uninit = buf.as_uninit_slice_mut();
 
-            for i in 0..diag_len {
-                let row = if offset < 0 {
-                    i + (-offset) as usize
-                } else {
-                    i
-                };
-                let col = if offset >= 0 {
-                    i + offset as usize
-                } else {
-                    i
-                };
+                for i in 0..diag_len {
+                    let row = if offset < 0 {
+                        i + (-offset) as usize
+                    } else {
+                        i
+                    };
+                    let col = if offset >= 0 {
+                        i + offset as usize
+                    } else {
+                        i
+                    };
 
-                if row < rows && col < cols {
-                    let idx = row * cols + col;
-                    result.push(data[idx]);
+                    if row < rows && col < cols {
+                        let idx = row * cols + col;
+                        // SAFETY: written < diag_len == buf.capacity(); written once then incremented.
+                        unsafe { uninit[written].write(data[idx]) };
+                        written += 1;
+                    }
                 }
             }
-
-            return Self::from_data(result, vec![diag_len], self.device.clone());
+            let result = buf.into_vec(written);
+            let actual_len = written;
+            return Self::from_data(result, vec![actual_len], self.device.clone());
         }
 
         // For higher dimensions, this is more complex - simplified implementation

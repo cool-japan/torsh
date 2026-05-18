@@ -9,10 +9,13 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Instant;
 
-use super::config::{
+// In this file, `super` refers to the `resource_management` module (the parent that
+// includes this file via `#[path = ...]`).  The execution_engine peer modules
+// (`config`, `task_management`) live one level further up, so we use `super::super`.
+use super::super::config::{
     CpuAllocationConfig, GpuAllocationConfig, MemoryAllocationConfig, ResourceAllocationStrategy,
 };
-use super::task_management::{ResourceRequirements, TaskId};
+use super::super::task_management::{ResourceRequirements, TaskId};
 use super::{default_instant, ResourceManagementConfig};
 
 // === Error Handling ===
@@ -153,7 +156,7 @@ pub enum MemoryAllocationStrategy {
 default_placeholder_type!(MemoryPerformanceCharacteristics);
 
 /// Hardware resource type (re-exported from task_management for unified interface)
-pub use super::task_management::HardwareType;
+pub use super::super::task_management::HardwareType;
 
 default_placeholder_type!(HardwareDeviceId);
 default_placeholder_type!(HardwareUtilizationDetails);

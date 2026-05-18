@@ -20,6 +20,7 @@ use torsh_core::{
 };
 
 use crate::core_ops::{Operation, Tensor};
+use crate::memory_pool::global_acquire_uninit;
 
 impl<T: TensorElement + Copy> Tensor<T> {
     /// Get size of a specific dimension
@@ -448,14 +449,19 @@ impl<T: TensorElement + Copy> Tensor<T> {
 
         let (rows, cols) = (shape[0], shape[1]);
         let data = self.to_vec()?;
-        let mut transposed_data = Vec::with_capacity(data.len());
+        let n = data.len();
+        let mut buf = global_acquire_uninit::<T>(n);
+        let uninit = buf.as_uninit_slice_mut();
+        let mut count = 0;
 
         for col in 0..cols {
             for row in 0..rows {
-                transposed_data.push(data[row * cols + col]);
+                uninit[count].write(data[row * cols + col]);
+                count += 1;
             }
         }
 
+        let transposed_data = buf.into_vec(count);
         Self::from_data(transposed_data, vec![cols, rows], self.device)
     }
 
