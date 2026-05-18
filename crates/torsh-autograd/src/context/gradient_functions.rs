@@ -3,6 +3,49 @@
 use super::core::GradientFunction;
 use torsh_core::error::Result;
 
+/// Try to execute a binary `(grad_output, input/output) -> grad_input` GPU op on f32 slices.
+///
+/// This is the autograd analogue of `torsh_tensor::ops::activation::try_gpu_unary_f32`
+/// for backward passes that consume both the upstream gradient and the saved
+/// forward tensor (input for ReLU, output for Sigmoid / Tanh).  It returns
+/// `Some(grad_input)` when the GPU dispatch succeeds end-to-end, or `None`
+/// when the GPU context cannot be initialised, the lengths disagree, or the
+/// kernel itself fails — letting the caller fall through to the existing
+/// CPU loop.
+///
+/// The helper lives locally in this file (rather than being shared from
+/// `torsh-tensor`) because the cross-crate visibility required would force
+/// the activation helper to become `pub`, leaking GPU-internal types into
+/// the public surface of `torsh-tensor`.  Inlining here keeps the public API
+/// of both crates unchanged.
+#[cfg(feature = "gpu")]
+fn try_gpu_backward_binary_f32<F>(grad_output: &[f32], saved: &[f32], op: F) -> Option<Vec<f32>>
+where
+    F: FnOnce(
+        &scirs2_core::gpu::GpuContext,
+        &scirs2_core::gpu::GpuBuffer<f32>,
+        &scirs2_core::gpu::GpuBuffer<f32>,
+    )
+        -> std::result::Result<scirs2_core::gpu::GpuBuffer<f32>, scirs2_core::gpu::GpuError>,
+{
+    use scirs2_core::gpu::{GpuBackend, GpuContext};
+    use std::sync::OnceLock;
+
+    if grad_output.len() != saved.len() {
+        return None;
+    }
+
+    static GPU_CTX: OnceLock<Option<GpuContext>> = OnceLock::new();
+    let ctx = GPU_CTX
+        .get_or_init(|| GpuContext::new(GpuBackend::Cuda).ok())
+        .as_ref()?;
+
+    let grad_buf = ctx.create_buffer_from_slice(grad_output);
+    let saved_buf = ctx.create_buffer_from_slice(saved);
+    let result_buf = op(ctx, &grad_buf, &saved_buf).ok()?;
+    Some(result_buf.to_vec())
+}
+
 /// Addition gradient function: d/dx(x + y) = 1, d/dy(x + y) = 1
 #[derive(Debug)]
 pub struct AddGradient;
@@ -74,6 +117,18 @@ pub struct ReLUGradient {
 
 impl GradientFunction for ReLUGradient {
     fn backward(&self, grad_output: &[f32]) -> Result<Vec<Vec<f32>>> {
+        // GPU fast path: dispatch to scirs2_core::gpu::GpuContext::relu_backward
+        // when the `gpu` feature is enabled.  Falls through to CPU on any
+        // failure (uninitialised context, length mismatch, kernel error).
+        #[cfg(feature = "gpu")]
+        if let Some(grad_input) =
+            try_gpu_backward_binary_f32(grad_output, &self.input_values, |ctx, g, x| {
+                ctx.relu_backward(g, x)
+            })
+        {
+            return Ok(vec![grad_input]);
+        }
+
         let grad_input: Vec<f32> = grad_output
             .iter()
             .zip(&self.input_values)

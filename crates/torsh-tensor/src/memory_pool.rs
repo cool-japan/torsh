@@ -148,7 +148,8 @@ impl<T: 'static> ReusedBuffer<T> {
             if let Ok(mut guard) = pool_arc.lock() {
                 let type_id = std::any::TypeId::of::<T>();
                 let size_class = guard.find_size_class(raw_entry.capacity_bytes);
-                let pool_key = (type_id, size_class);
+                let align = raw_entry.layout.align();
+                let pool_key = (type_id, size_class, align);
                 if let Some(bucket) = guard.pools.get_mut(&pool_key) {
                     if bucket.available_buffers.len() < bucket.max_buffers {
                         bucket.available_buffers.push_back(raw_entry);
@@ -177,7 +178,8 @@ impl<T: 'static> Drop for ReusedBuffer<T> {
             if let Ok(mut guard) = pool_arc.lock() {
                 let type_id = std::any::TypeId::of::<T>();
                 let size_class = guard.find_size_class(raw_entry.capacity_bytes);
-                let pool_key = (type_id, size_class);
+                let align = raw_entry.layout.align();
+                let pool_key = (type_id, size_class, align);
                 if let Some(bucket) = guard.pools.get_mut(&pool_key) {
                     if bucket.available_buffers.len() < bucket.max_buffers {
                         // Wrap in ManuallyDrop so push_back takes it without scheduling
@@ -202,8 +204,12 @@ impl<T: 'static> Drop for ReusedBuffer<T> {
 
 /// Enhanced global memory pool with SciRS2 memory optimization
 pub struct GlobalMemoryPool {
-    /// Pools organized by type ID and size class
-    pools: HashMap<(std::any::TypeId, usize), MemoryPool>,
+    /// Pools organized by (type ID, size class, alignment).
+    ///
+    /// Alignment is included in the bucket key so that callers requesting custom
+    /// alignment (e.g. 32-byte SIMD alignment) do not collide with naturally-aligned
+    /// allocations of the same type+size.
+    pools: HashMap<(std::any::TypeId, usize, usize), MemoryPool>,
     /// Statistics for pool usage
     stats: PoolStatistics,
     /// Configuration settings
@@ -272,7 +278,7 @@ pub struct PoolStatistics {
 #[derive(Debug)]
 pub struct PooledTensor<T: TensorElement + Default> {
     tensor: Tensor<T>,
-    pool_key: Option<(std::any::TypeId, usize)>,
+    pool_key: Option<(std::any::TypeId, usize, usize)>,
     _phantom: PhantomData<T>,
 }
 
@@ -484,22 +490,52 @@ impl GlobalMemoryPool {
         self.stats.clone()
     }
 
-    /// Acquire a truly-pooled, uninitialized buffer for `count` elements of type `T`.
+    /// Acquire a truly-pooled, uninitialized buffer for `count` elements of type `T`
+    /// with **natural alignment** (`align_of::<T>()`).
     ///
     /// This is the low-level method. Prefer the free function [`global_acquire_uninit`].
     ///
     /// The returned [`ReusedBuffer<T>`] holds the **actual pooled allocation** — no copy
     /// is made. Callers must initialize all elements before reading them.
+    ///
+    /// For custom alignment (e.g. 32-byte SIMD alignment), use
+    /// [`Self::acquire_uninit_aligned`] instead.
     pub fn acquire_uninit<T: 'static>(&mut self, count: usize) -> ReusedBuffer<T> {
+        self.acquire_uninit_aligned::<T>(count, std::mem::align_of::<T>())
+    }
+
+    /// Acquire a pooled uninitialized buffer with custom alignment.
+    ///
+    /// Useful for SIMD-aligned buffers (32-byte for AVX2, 64-byte for AVX-512, etc.).
+    /// Buffers acquired with a given `align` go into their own bucket keyed by
+    /// `(TypeId, SizeClass, align)`, so they never collide with naturally-aligned
+    /// allocations of the same type+size.
+    ///
+    /// # Panics
+    /// - if `align` is not a power of two
+    /// - if `align < std::mem::align_of::<T>()`
+    pub fn acquire_uninit_aligned<T: 'static>(
+        &mut self,
+        count: usize,
+        align: usize,
+    ) -> ReusedBuffer<T> {
         let element_size = std::mem::size_of::<T>();
         let element_align = std::mem::align_of::<T>();
+        assert!(
+            align.is_power_of_two(),
+            "alignment must be a power of two (got {align})"
+        );
+        assert!(
+            align >= element_align,
+            "alignment {align} must be >= align_of::<T>() ({element_align})"
+        );
         let size_bytes = count * element_size;
         let size_class = self.find_size_class(size_bytes);
         let type_id = std::any::TypeId::of::<T>();
-        let pool_key = (type_id, size_class);
+        let pool_key = (type_id, size_class, align);
 
-        let layout = Layout::from_size_align(size_bytes.max(1), element_align)
-            .expect("size and align are valid for T");
+        let layout =
+            Layout::from_size_align(size_bytes.max(1), align).expect("size and align are valid");
 
         // Update statistics
         self.stats.total_allocations += 1;
@@ -510,7 +546,7 @@ impl GlobalMemoryPool {
             // Scan for a compatible entry (may be larger than requested)
             let mut found_idx: Option<usize> = None;
             for (i, entry) in bucket.available_buffers.iter().enumerate() {
-                if entry.capacity_bytes >= size_bytes && entry.layout.align() >= element_align {
+                if entry.capacity_bytes >= size_bytes && entry.layout.align() >= align {
                     found_idx = Some(i);
                     break;
                 }
@@ -679,6 +715,25 @@ pub fn global_acquire_uninit<T: 'static>(count: usize) -> ReusedBuffer<T> {
         .lock()
         .expect("global memory pool lock should not be poisoned");
     guard.acquire_uninit::<T>(count)
+}
+
+/// Acquire an uninitialized buffer from the global memory pool with custom alignment.
+///
+/// Like [`global_acquire_uninit`], but the returned buffer is guaranteed to be aligned
+/// to at least `align` bytes. Useful for SIMD-aligned buffers (e.g. 32 bytes for AVX2).
+///
+/// # Panics
+/// - if `align` is not a power of two
+/// - if `align < std::mem::align_of::<T>()`
+///
+/// # Safety contract on the caller
+/// Same as [`global_acquire_uninit`] — elements must be initialized before being read.
+pub fn global_acquire_uninit_aligned<T: 'static>(count: usize, align: usize) -> ReusedBuffer<T> {
+    let pool_arc = get_memory_pool();
+    let mut guard = pool_arc
+        .lock()
+        .expect("global memory pool lock should not be poisoned");
+    guard.acquire_uninit_aligned::<T>(count, align)
 }
 
 /// Enhanced memory statistics with SciRS2 integration
@@ -890,10 +945,11 @@ impl<T: TensorElement + Copy + Default> PooledTensor<T> {
             let pool_guard = pool.lock().expect("lock should not be poisoned");
             pool_guard.find_size_class(numel * std::mem::size_of::<T>())
         };
+        let align = std::mem::align_of::<T>();
 
         Ok(Self {
             tensor,
-            pool_key: Some((type_id, size_class)),
+            pool_key: Some((type_id, size_class, align)),
             _phantom: PhantomData,
         })
     }
@@ -940,7 +996,7 @@ impl<T: TensorElement + Copy + Default> PooledTensor<T> {
 
 impl<T: TensorElement + std::default::Default> Drop for PooledTensor<T> {
     fn drop(&mut self) {
-        if let Some((_type_id, _size_class)) = self.pool_key {
+        if let Some((_type_id, _size_class, _align)) = self.pool_key {
             // Return memory to pool via deallocate (which now simply drops).
             if let Ok(data) = self.tensor.to_vec() {
                 let pool = get_memory_pool();
@@ -1123,5 +1179,76 @@ mod tests {
         let buf: ReusedBuffer<u64> = global_acquire_uninit::<u64>(32);
         assert_eq!(buf.capacity(), 32);
         buf.release_to_pool();
+    }
+
+    // ── Aligned-acquire tests ───────────────────────────────────────────────
+
+    #[test]
+    fn test_acquire_aligned_returns_simd_aligned_pointer() {
+        let _guard = TEST_LOCK.lock().expect("test mutex should not be poisoned");
+        clear_memory_pool();
+
+        // 32-byte alignment (AVX2 / scirs2_core::simd_aligned::SIMD_ALIGNMENT).
+        let buf: ReusedBuffer<f32> = global_acquire_uninit_aligned::<f32>(1024, 32);
+        assert_eq!(buf.capacity(), 1024);
+        let addr = buf.as_ptr_raw() as usize;
+        assert_eq!(
+            addr % 32,
+            0,
+            "buffer pointer {addr:#x} must be 32-byte aligned"
+        );
+        buf.release_to_pool();
+    }
+
+    #[test]
+    fn test_acquire_aligned_pool_hit_on_release() {
+        let _guard = TEST_LOCK.lock().expect("test mutex should not be poisoned");
+        clear_memory_pool();
+
+        let buf1: ReusedBuffer<f32> = global_acquire_uninit_aligned::<f32>(2048, 32);
+        let ptr1 = buf1.as_ptr_raw();
+        let cap1 = buf1.capacity();
+        buf1.release_to_pool();
+
+        let buf2: ReusedBuffer<f32> = global_acquire_uninit_aligned::<f32>(2048, 32);
+        let ptr2 = buf2.as_ptr_raw();
+        let cap2 = buf2.capacity();
+        assert_eq!(
+            ptr1, ptr2,
+            "aligned bucket should return the same allocation on second acquire"
+        );
+        assert_eq!(cap1, cap2, "capacity should match across reuse");
+        // Pointer must still be aligned after pool reuse.
+        assert_eq!(ptr2 as usize % 32, 0, "reused buffer must remain aligned");
+        buf2.release_to_pool();
+    }
+
+    #[test]
+    fn test_aligned_and_natural_buckets_are_independent() {
+        let _guard = TEST_LOCK.lock().expect("test mutex should not be poisoned");
+        clear_memory_pool();
+
+        // 32-byte aligned acquire/release for a size that maps to a particular size class.
+        let buf_aligned: ReusedBuffer<f32> = global_acquire_uninit_aligned::<f32>(512, 32);
+        let ptr_aligned = buf_aligned.as_ptr_raw();
+        buf_aligned.release_to_pool();
+
+        // Natural-alignment acquire of the same (T, size) — must NOT collide with the
+        // 32-aligned bucket; it should produce a fresh allocation.
+        let buf_natural: ReusedBuffer<f32> = global_acquire_uninit::<f32>(512);
+        let ptr_natural = buf_natural.as_ptr_raw();
+        assert_ne!(
+            ptr_aligned, ptr_natural,
+            "naturally-aligned bucket must be distinct from the 32-byte bucket"
+        );
+        buf_natural.release_to_pool();
+    }
+
+    #[test]
+    #[should_panic(expected = "alignment must be a power of two")]
+    fn test_acquire_aligned_rejects_non_power_of_two() {
+        let _guard = TEST_LOCK.lock().expect("test mutex should not be poisoned");
+        clear_memory_pool();
+        let _buf: ReusedBuffer<f32> = global_acquire_uninit_aligned::<f32>(16, 6);
     }
 }

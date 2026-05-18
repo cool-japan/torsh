@@ -110,32 +110,21 @@ where
     }
 
     /// GPU-accelerated GELU activation function
-    /// TODO: Temporarily disabled - GpuElement trait not yet available in scirs2_core
+    ///
+    /// NOTE: The real GPU dispatch for GELU now lives in
+    /// [`crate::ops::activation::Tensor::gelu`] via `try_gpu_unary_f32`, which
+    /// routes f32 CUDA tensors to `scirs2_core::gpu::GpuContext::gelu`.  This
+    /// legacy method is retained as a placeholder for downstream callers that
+    /// might still reach for it but is otherwise unused; it returns an error
+    /// to make any accidental use loud.
     #[cfg(feature = "gpu")]
     #[allow(dead_code)]
     fn gpu_gelu(&self) -> Result<Self>
     where
         T: torsh_core::dtype::FloatElement,
     {
-        #[cfg(feature = "profiling")]
-        // let _profile = profile_section!("gpu_gelu");
-
-        // TODO: GPU support temporarily disabled
-        // use scirs2_core::gpu::{GpuBuffer, GpuContext, GpuKernel};
-        // Initialize GPU context
-        // let gpu_context = GpuContext::new()?;
-        // Transfer data to GPU
-        // let data = self.data()?;
-        // let gpu_input = GpuBuffer::from_slice(&gpu_context, &data)?;
-        // let gpu_output = GpuBuffer::zeros(&gpu_context, data.len())?;
-        // Launch GELU kernel (optimized with tensor cores if available)
-        // let kernel = GpuKernel::gelu_activation(&gpu_context)?;
-        // kernel.launch_1d(&gpu_input, &gpu_output, data.len())?;
-        // Transfer result back to CPU
-        // let result_data = gpu_output.to_vec()?;
-        // Self::from_data(result_data, self.shape().dims().to_vec(), self.device())
         Err(TorshError::InvalidArgument(
-            "GPU GELU temporarily unavailable".to_string(),
+            "Use Tensor::gelu(): the real GPU dispatch lives in ops::activation".to_string(),
         ))
     }
 

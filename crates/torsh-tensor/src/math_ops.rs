@@ -821,57 +821,30 @@ impl<T: TensorElement + Copy> Tensor<T> {
 impl<T: TensorElement + Copy> Tensor<T> {
     /// Element-wise in-place addition: `self += other`.
     ///
+    /// Supports broadcasting `other` into `self`'s shape (e.g. adding a `[C]`
+    /// bias to a `[B, C]` activation). If broadcasting would force `self` to
+    /// grow, an error is returned — in-place ops cannot resize the destination.
     /// For f32 tensors with ≥ 1024 elements and matching shapes, this routes
-    /// through the SIMD-backed `simd_ops_f32::add_assign_f32` without any
-    /// additional allocation.
+    /// through the SIMD-backed `simd_ops_f32::add_assign_f32`. No new tensor
+    /// data buffer is ever allocated.
     ///
     /// # Errors
-    /// Returns an error if `requires_grad` is true (autograd cannot be tracked
-    /// through in-place mutations).
+    /// - `requires_grad` is true (autograd cannot be tracked through in-place mutations)
+    /// - shapes are not broadcast-compatible
+    /// - broadcasting would require `self` to grow
     pub fn add_(&mut self, other: &Self) -> Result<&mut Self>
     where
         T: std::ops::Add<Output = T>,
     {
-        if self.requires_grad {
-            return Err(TorshError::InvalidArgument(
-                "In-place operation on tensor that requires grad is not allowed".to_string(),
-            ));
-        }
-        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>()
-            && self.shape() == other.shape()
-            && self.numel() >= 1024
-        {
-            // Ensure mutable storage (converts SimdOptimized → Aligned when needed).
-            self.make_unique()?;
-            let other_data = other.data()?;
-            self.storage.with_slice_mut(|out_t: &mut [T]| {
-                // Safety: TypeId confirmed T == f32.
-                let out_f32: &mut [f32] = unsafe {
-                    std::slice::from_raw_parts_mut(out_t.as_mut_ptr() as *mut f32, out_t.len())
-                };
-                let rhs_f32: &[f32] = unsafe {
-                    std::slice::from_raw_parts(other_data.as_ptr() as *const f32, other_data.len())
-                };
-                crate::simd_ops_f32::add_assign_f32(out_f32, rhs_f32);
-                Ok(())
-            })?;
-            return Ok(self);
-        }
-        // Scalar fallback
-        let len = self.storage.len();
-        let other_data = other.data()?;
-        for i in 0..len {
-            let a = self.storage.get(i)?;
-            let b = *other_data.get(i).ok_or_else(|| TorshError::IndexError {
-                index: i,
-                size: other_data.len(),
-            })?;
-            self.storage.set(i, a + b)?;
-        }
-        Ok(self)
+        self.inplace_binary_op(
+            other,
+            "add_",
+            crate::simd_ops_f32::add_assign_f32,
+            |a, b| a + b,
+        )
     }
 
-    /// Element-wise in-place subtraction: `self -= other`.
+    /// Element-wise in-place subtraction: `self -= other` (with broadcast of `other` into `self`).
     ///
     /// For f32 tensors with ≥ 1024 elements and matching shapes, this routes
     /// through `simd_ops_f32::sub_assign_f32`.
@@ -879,43 +852,15 @@ impl<T: TensorElement + Copy> Tensor<T> {
     where
         T: std::ops::Sub<Output = T>,
     {
-        if self.requires_grad {
-            return Err(TorshError::InvalidArgument(
-                "In-place operation on tensor that requires grad is not allowed".to_string(),
-            ));
-        }
-        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>()
-            && self.shape() == other.shape()
-            && self.numel() >= 1024
-        {
-            self.make_unique()?;
-            let other_data = other.data()?;
-            self.storage.with_slice_mut(|out_t: &mut [T]| {
-                let out_f32: &mut [f32] = unsafe {
-                    std::slice::from_raw_parts_mut(out_t.as_mut_ptr() as *mut f32, out_t.len())
-                };
-                let rhs_f32: &[f32] = unsafe {
-                    std::slice::from_raw_parts(other_data.as_ptr() as *const f32, other_data.len())
-                };
-                crate::simd_ops_f32::sub_assign_f32(out_f32, rhs_f32);
-                Ok(())
-            })?;
-            return Ok(self);
-        }
-        let len = self.storage.len();
-        let other_data = other.data()?;
-        for i in 0..len {
-            let a = self.storage.get(i)?;
-            let b = *other_data.get(i).ok_or_else(|| TorshError::IndexError {
-                index: i,
-                size: other_data.len(),
-            })?;
-            self.storage.set(i, a - b)?;
-        }
-        Ok(self)
+        self.inplace_binary_op(
+            other,
+            "sub_",
+            crate::simd_ops_f32::sub_assign_f32,
+            |a, b| a - b,
+        )
     }
 
-    /// Element-wise in-place multiplication: `self *= other`.
+    /// Element-wise in-place multiplication: `self *= other` (with broadcast of `other` into `self`).
     ///
     /// For f32 tensors with ≥ 1024 elements and matching shapes, this routes
     /// through `simd_ops_f32::mul_assign_f32`.
@@ -923,43 +868,15 @@ impl<T: TensorElement + Copy> Tensor<T> {
     where
         T: std::ops::Mul<Output = T>,
     {
-        if self.requires_grad {
-            return Err(TorshError::InvalidArgument(
-                "In-place operation on tensor that requires grad is not allowed".to_string(),
-            ));
-        }
-        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>()
-            && self.shape() == other.shape()
-            && self.numel() >= 1024
-        {
-            self.make_unique()?;
-            let other_data = other.data()?;
-            self.storage.with_slice_mut(|out_t: &mut [T]| {
-                let out_f32: &mut [f32] = unsafe {
-                    std::slice::from_raw_parts_mut(out_t.as_mut_ptr() as *mut f32, out_t.len())
-                };
-                let rhs_f32: &[f32] = unsafe {
-                    std::slice::from_raw_parts(other_data.as_ptr() as *const f32, other_data.len())
-                };
-                crate::simd_ops_f32::mul_assign_f32(out_f32, rhs_f32);
-                Ok(())
-            })?;
-            return Ok(self);
-        }
-        let len = self.storage.len();
-        let other_data = other.data()?;
-        for i in 0..len {
-            let a = self.storage.get(i)?;
-            let b = *other_data.get(i).ok_or_else(|| TorshError::IndexError {
-                index: i,
-                size: other_data.len(),
-            })?;
-            self.storage.set(i, a * b)?;
-        }
-        Ok(self)
+        self.inplace_binary_op(
+            other,
+            "mul_",
+            crate::simd_ops_f32::mul_assign_f32,
+            |a, b| a * b,
+        )
     }
 
-    /// Element-wise in-place division: `self /= other`.
+    /// Element-wise in-place division: `self /= other` (with broadcast of `other` into `self`).
     ///
     /// For f32 tensors with ≥ 1024 elements and matching shapes, this routes
     /// through `simd_ops_f32::div_assign_f32`.
@@ -967,11 +884,35 @@ impl<T: TensorElement + Copy> Tensor<T> {
     where
         T: std::ops::Div<Output = T>,
     {
+        self.inplace_binary_op(
+            other,
+            "div_",
+            crate::simd_ops_f32::div_assign_f32,
+            |a, b| a / b,
+        )
+    }
+
+    /// Shared in-place binary-op driver: validates shapes (with broadcast-into-self),
+    /// then dispatches to the f32 SIMD fast path when applicable, otherwise to a
+    /// single-locked slice loop. Never allocates a new data buffer.
+    fn inplace_binary_op<S, F>(
+        &mut self,
+        other: &Self,
+        op_name: &str,
+        simd_f32: S,
+        scalar_op: F,
+    ) -> Result<&mut Self>
+    where
+        S: Fn(&mut [f32], &[f32]),
+        F: Fn(T, T) -> T,
+    {
         if self.requires_grad {
-            return Err(TorshError::InvalidArgument(
-                "In-place operation on tensor that requires grad is not allowed".to_string(),
-            ));
+            return Err(TorshError::InvalidArgument(format!(
+                "In-place operation `{op_name}` on tensor that requires grad is not allowed"
+            )));
         }
+
+        // f32 SIMD fast path: identical shapes, large enough to amortise dispatch.
         if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>()
             && self.shape() == other.shape()
             && self.numel() >= 1024
@@ -979,27 +920,64 @@ impl<T: TensorElement + Copy> Tensor<T> {
             self.make_unique()?;
             let other_data = other.data()?;
             self.storage.with_slice_mut(|out_t: &mut [T]| {
+                // Safety: TypeId guard above confirms T == f32, so reinterpreting
+                // &mut [T] / &[T] as &mut [f32] / &[f32] is a no-op.
                 let out_f32: &mut [f32] = unsafe {
                     std::slice::from_raw_parts_mut(out_t.as_mut_ptr() as *mut f32, out_t.len())
                 };
                 let rhs_f32: &[f32] = unsafe {
                     std::slice::from_raw_parts(other_data.as_ptr() as *const f32, other_data.len())
                 };
-                crate::simd_ops_f32::div_assign_f32(out_f32, rhs_f32);
+                simd_f32(out_f32, rhs_f32);
                 Ok(())
             })?;
             return Ok(self);
         }
-        let len = self.storage.len();
+
+        // Shape validation + broadcast-into-self path.
+        let self_dims_vec = self.shape().dims().to_vec();
+        let other_dims_vec = other.shape().dims().to_vec();
         let other_data = other.data()?;
-        for i in 0..len {
-            let a = self.storage.get(i)?;
-            let b = *other_data.get(i).ok_or_else(|| TorshError::IndexError {
-                index: i,
-                size: other_data.len(),
+
+        if self_dims_vec == other_dims_vec {
+            // Equal shapes, generic-T scalar pass.
+            self.make_unique()?;
+            self.storage.with_slice_mut(|slice: &mut [T]| {
+                debug_assert_eq!(slice.len(), other_data.len());
+                for (dst, src) in slice.iter_mut().zip(other_data.iter()) {
+                    *dst = scalar_op(*dst, *src);
+                }
+                Ok(())
             })?;
-            self.storage.set(i, a / b)?;
+            return Ok(self);
         }
+
+        // Broadcast path: must be broadcast-compatible AND self's shape must
+        // already equal the broadcast shape (cannot grow self in place).
+        use crate::broadcast::BroadcastOps;
+        let broadcast_shape =
+            BroadcastOps::compute_broadcast_shape(&self_dims_vec, &other_dims_vec)?;
+        if broadcast_shape != self_dims_vec {
+            return Err(TorshError::ShapeMismatch {
+                expected: self_dims_vec,
+                got: broadcast_shape,
+            });
+        }
+
+        self.make_unique()?;
+        let total = self_dims_vec.iter().product::<usize>();
+        let self_dims = self_dims_vec.as_slice();
+        let other_dims = other_dims_vec.as_slice();
+        self.storage.with_slice_mut(|slice: &mut [T]| {
+            for flat_idx in 0..total {
+                let multi_index = BroadcastOps::flat_to_multi_index(flat_idx, self_dims);
+                let other_idx =
+                    BroadcastOps::compute_broadcast_index(&multi_index, other_dims, self_dims)?;
+                slice[flat_idx] = scalar_op(slice[flat_idx], other_data[other_idx]);
+            }
+            Ok(())
+        })?;
+
         Ok(self)
     }
 }

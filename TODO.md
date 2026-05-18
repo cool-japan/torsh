@@ -115,11 +115,26 @@
   - `shape_ops.rs`: transpose_2d output
   - `ops/arithmetic.rs`: broadcast_binary_op output
   - `ops/matrix.rs`: diagonal extraction output
-- [ ] Add in-place operations for all element-wise ops
+- [x] **Round 3**: Aligned buffer pool extension — `acquire_uninit_aligned<T>(count, align)` + `global_acquire_uninit_aligned` free function. 3-tuple key `(TypeId, SizeClass, Alignment)`. 4 new tests. (2026-05-18)
+- [x] **Round 2/3**: Add in-place operations for element-wise ops — `add_/sub_/mul_/div_` enhanced with broadcast support, 8 new tests
 - [ ] Use views instead of clones
 - [ ] `shape_ops.rs` `expand` (recursive helper needs refactor for pool integration)
-- **Files**: `crates/torsh-tensor/src/{storage.rs, math_ops.rs, shape_ops.rs, ops/arithmetic.rs, ops/matrix.rs}`
+- [ ] `storage.rs:210,247` AlignedVec sites — needs scirs2-core change (`From<ReusedBuffer<T>>` impl)
+- **Files**: `crates/torsh-tensor/src/{storage.rs, math_ops.rs, shape_ops.rs, ops/arithmetic.rs, ops/matrix.rs, memory_pool.rs}`
 - **Target**: 90% reduction in allocations (hot paths done)
+
+#### Phase 2 GPU Kernel Integration ✅ **5 KERNELS WIRED (2026-05-18)**
+- [x] GELU (forward): `GpuContext::gelu()` real CPU fallback, routes to CUDA when available
+- [x] ReLU/Sigmoid/Tanh (forward): same pattern via shared `try_gpu_unary_f32<T, F>` helper
+- [x] LeakyRelu (forward): via `execute_kernel` architectural pattern (Round 3)
+- [x] ElementwiseAdd: via `execute_kernel` for ≥ 65536 elements
+- [x] ElementwiseMul: via `execute_kernel` for ≥ 65536 elements (Round 3)
+- [x] GemV: via `execute_kernel` for ≥ 65536 elements
+- [x] ReLU backward: `GpuContext::relu_backward(grad, input)` (Round 3)
+- [ ] Sigmoid/Tanh backward: BLOCKED — `*Gradient` structs save `output_values` but scirs2-core's backward methods need raw input. Requires upstream forward-pass refactor.
+- [ ] GELU backward: no `GELUGradient` struct in torsh-autograd yet
+- [ ] SwishKernel/ElementwiseSub/Div/BatchGemv: low priority, easy next round
+- **Files**: `crates/torsh-tensor/src/ops/{activation.rs, arithmetic.rs, matrix.rs}`, `crates/torsh-autograd/src/context/gradient_functions.rs`
 
 ### Priority 1: PyTorch Comparison (REQUIRED)
 

@@ -94,6 +94,13 @@ impl PatchEmbedding {
     pub fn num_patches(&self, img_size: usize) -> usize {
         img_size / self.patch_size
     }
+
+    /// Total number of patches for a square image of size `img_size`.
+    /// Returns `(img_size / patch_size).pow(2)`.
+    pub fn total_patches(&self, img_size: usize) -> usize {
+        let n = img_size / self.patch_size;
+        n * n
+    }
 }
 
 impl Module for PatchEmbedding {
@@ -300,7 +307,6 @@ impl VisionTransformer {
         let attn_dropout_rate = config.attn_dropout;
 
         let patch_embed = PatchEmbedding::new(img_size, patch_size, in_channels, embed_dim);
-        let num_patches = patch_embed.num_patches(img_size);
 
         // Class token - learnable parameter (using normal initialization)
         let mut rng = Random::default();
@@ -318,8 +324,8 @@ impl VisionTransformer {
                 .expect("tensor creation should succeed");
         let cls_token = Parameter::new(cls_token_tensor);
 
-        // Positional embedding (num_patches + 1 for class token)
-        let pos_embed_length = num_patches + 1;
+        // Positional embedding (total_patches + 1 for class token)
+        let pos_embed_length = patch_embed.total_patches(img_size) + 1;
         let pos_embed_data = (0..pos_embed_length * embed_dim)
             .map(|_| {
                 // Simple normal distribution using Box-Muller transform
