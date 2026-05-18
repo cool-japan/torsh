@@ -592,8 +592,8 @@ impl ProbabilisticClustering for GaussianMixture {
             map.insert("covariance".to_string(), cov_tensor);
 
             // Scalar weight
-            let weight_tensor =
-                Tensor::from_vec(vec![state.weights[k] as f32], &[1]).map_err(ClusterError::TensorError)?;
+            let weight_tensor = Tensor::from_vec(vec![state.weights[k] as f32], &[1])
+                .map_err(ClusterError::TensorError)?;
             map.insert("weight".to_string(), weight_tensor);
 
             params.push(map);
@@ -635,14 +635,17 @@ impl ProbabilisticClustering for GaussianMixture {
             for k in 0..n_components {
                 let mean_k = state.means.row(k);
                 let cov_k = state.covariances.slice(scirs2_core::ndarray::s![k, .., ..]);
-                let log_prob = self.log_multivariate_normal_pdf(&x, &mean_k, &cov_k)?
-                    + state.weights[k].ln();
+                let log_prob =
+                    self.log_multivariate_normal_pdf(&x, &mean_k, &cov_k)? + state.weights[k].ln();
                 weighted_probs.push(log_prob);
                 max_log_prob = max_log_prob.max(log_prob);
             }
 
             // Log-sum-exp for numerical stability
-            let sum_exp: f64 = weighted_probs.iter().map(|&p| (p - max_log_prob).exp()).sum();
+            let sum_exp: f64 = weighted_probs
+                .iter()
+                .map(|&p| (p - max_log_prob).exp())
+                .sum();
             total_log_likelihood += max_log_prob + sum_exp.ln();
         }
 
@@ -686,7 +689,9 @@ impl ProbabilisticClustering for GaussianMixture {
 
             // Sample from the chosen Gaussian using Box-Muller
             let mean_k = state.means.row(chosen_k);
-            let cov_k = state.covariances.slice(scirs2_core::ndarray::s![chosen_k, .., ..]);
+            let cov_k = state
+                .covariances
+                .slice(scirs2_core::ndarray::s![chosen_k, .., ..]);
 
             // For diagonal/spherical covariance, sample each dimension independently.
             // For full covariance, use the diagonal approximation (ignoring correlations
@@ -1387,8 +1392,9 @@ fn tensor_to_array3_f64(tensor: &Tensor, n_features: usize) -> ClusterResult<Arr
             let (d1, d2, d3) = (shape[0], shape[1], shape[2]);
             let data_f32: Vec<f32> = tensor.to_vec().map_err(ClusterError::TensorError)?;
             let data: Vec<f64> = data_f32.into_iter().map(|x| x as f64).collect();
-            Array3::from_shape_vec((d1, d2, d3), data)
-                .map_err(|_| ClusterError::InvalidInput("Failed to reshape covariance array".to_string()))
+            Array3::from_shape_vec((d1, d2, d3), data).map_err(|_| {
+                ClusterError::InvalidInput("Failed to reshape covariance array".to_string())
+            })
         }
         2 => {
             // Spherical / diagonal: shape [n_components, n_features]
@@ -1396,8 +1402,9 @@ fn tensor_to_array3_f64(tensor: &Tensor, n_features: usize) -> ClusterResult<Arr
             let n_components = shape[0];
             let data_f32: Vec<f32> = tensor.to_vec().map_err(ClusterError::TensorError)?;
             let data: Vec<f64> = data_f32.into_iter().map(|x| x as f64).collect();
-            let src = Array2::from_shape_vec((n_components, n_features), data)
-                .map_err(|_| ClusterError::InvalidInput("Failed to reshape diagonal covariance".to_string()))?;
+            let src = Array2::from_shape_vec((n_components, n_features), data).map_err(|_| {
+                ClusterError::InvalidInput("Failed to reshape diagonal covariance".to_string())
+            })?;
             let mut out = Array3::<f64>::zeros((n_components, n_features, n_features));
             for k in 0..n_components {
                 for j in 0..n_features {
@@ -1423,8 +1430,7 @@ mod tests {
         Tensor::from_vec(
             vec![
                 // Near (0, 0)
-                -0.1_f32, -0.1, 0.1, 0.1, 0.0, -0.1, -0.1, 0.0,
-                // Near (5, 5)
+                -0.1_f32, -0.1, 0.1, 0.1, 0.0, -0.1, -0.1, 0.0, // Near (5, 5)
                 4.9, 4.9, 5.1, 5.1, 5.0, 4.9, 4.9, 5.0,
             ],
             &[8, 2],
@@ -1451,13 +1457,20 @@ mod tests {
             .membership_probabilities(&data)
             .expect("membership_probabilities should work after fit");
         let shape = probs.shape();
-        assert_eq!(shape.dims(), &[8, 2], "shape should be [n_samples, n_components]");
+        assert_eq!(
+            shape.dims(),
+            &[8, 2],
+            "shape should be [n_samples, n_components]"
+        );
 
         // Each row should sum to ~1
         let prob_vec = probs.to_vec().expect("probs to_vec should work");
         for i in 0..8 {
             let row_sum = prob_vec[i * 2] + prob_vec[i * 2 + 1];
-            assert!((row_sum - 1.0).abs() < 0.01, "row {i} sums to {row_sum}, expected ~1.0");
+            assert!(
+                (row_sum - 1.0).abs() < 0.01,
+                "row {i} sums to {row_sum}, expected ~1.0"
+            );
         }
     }
 
@@ -1467,13 +1480,24 @@ mod tests {
         let gmm = GaussianMixture::new(2).max_iters(50);
         gmm.fit(&data).expect("GMM fit should succeed");
 
-        let params = gmm.cluster_parameters().expect("cluster_parameters should work after fit");
+        let params = gmm
+            .cluster_parameters()
+            .expect("cluster_parameters should work after fit");
         assert_eq!(params.len(), 2, "should have one map per component");
 
         for (k, component) in params.iter().enumerate() {
-            assert!(component.contains_key("mean"), "component {k} missing 'mean'");
-            assert!(component.contains_key("covariance"), "component {k} missing 'covariance'");
-            assert!(component.contains_key("weight"), "component {k} missing 'weight'");
+            assert!(
+                component.contains_key("mean"),
+                "component {k} missing 'mean'"
+            );
+            assert!(
+                component.contains_key("covariance"),
+                "component {k} missing 'covariance'"
+            );
+            assert!(
+                component.contains_key("weight"),
+                "component {k} missing 'weight'"
+            );
         }
     }
 
@@ -1497,9 +1521,14 @@ mod tests {
         let gmm = GaussianMixture::new(2).max_iters(50).random_state(42);
         gmm.fit(&data).expect("GMM fit should succeed");
 
-        let ll = gmm.log_likelihood(&data).expect("log_likelihood should work after fit");
+        let ll = gmm
+            .log_likelihood(&data)
+            .expect("log_likelihood should work after fit");
         assert!(ll.is_finite(), "log-likelihood should be finite");
-        assert!(ll < 0.0, "log-likelihood of a proper density should be negative");
+        assert!(
+            ll < 0.0,
+            "log-likelihood of a proper density should be negative"
+        );
     }
 
     #[test]
@@ -1510,7 +1539,11 @@ mod tests {
 
         let samples = gmm.sample(20).expect("sample should work after fit");
         let shape = samples.shape();
-        assert_eq!(shape.dims(), &[20, 2], "sample shape should be [n_samples, n_features]");
+        assert_eq!(
+            shape.dims(),
+            &[20, 2],
+            "sample shape should be [n_samples, n_features]"
+        );
     }
 
     #[test]

@@ -18,11 +18,15 @@ fn kalman_cholesky_lower_f64(a: &[f64], n: usize) -> Option<Vec<f64>> {
                 sum -= l[i * n + k] * l[j * n + k];
             }
             if i == j {
-                if sum <= 0.0 { return None; }
+                if sum <= 0.0 {
+                    return None;
+                }
                 l[i * n + j] = sum.sqrt();
             } else {
                 let diag = l[j * n + j];
-                if diag.abs() < 1e-15 { return None; }
+                if diag.abs() < 1e-15 {
+                    return None;
+                }
                 l[i * n + j] = sum / diag;
             }
         }
@@ -40,20 +44,30 @@ pub(crate) fn kalman_cholesky_invert_f64(a: &[f64], n: usize) -> Option<Vec<f64>
         let mut y = vec![0.0f64; n];
         for i in 0..n {
             let mut s = e[i];
-            for j in 0..i { s -= l[i * n + j] * y[j]; }
+            for j in 0..i {
+                s -= l[i * n + j] * y[j];
+            }
             let d = l[i * n + i];
-            if d.abs() < 1e-15 { return None; }
+            if d.abs() < 1e-15 {
+                return None;
+            }
             y[i] = s / d;
         }
         let mut x = vec![0.0f64; n];
         for i in (0..n).rev() {
             let mut s = y[i];
-            for j in (i + 1)..n { s -= l[j * n + i] * x[j]; }
+            for j in (i + 1)..n {
+                s -= l[j * n + i] * x[j];
+            }
             let d = l[i * n + i];
-            if d.abs() < 1e-15 { return None; }
+            if d.abs() < 1e-15 {
+                return None;
+            }
             x[i] = s / d;
         }
-        for row in 0..n { inv[row * n + col] = x[row]; }
+        for row in 0..n {
+            inv[row * n + col] = x[row];
+        }
     }
     Some(inv)
 }
@@ -345,15 +359,14 @@ impl KalmanFilter {
             for i in 0..n {
                 p_pred_reg[i * n + i] += 1e-8;
             }
-            let p_pred_inv = kalman_cholesky_invert_f64(&p_pred_reg, n)
-                .unwrap_or_else(|| {
-                    let mut diag = vec![0.0f64; n * n];
-                    for i in 0..n {
-                        let d = p_pred_reg[i * n + i];
-                        diag[i * n + i] = if d > 1e-15 { 1.0 / d } else { 0.0 };
-                    }
-                    diag
-                });
+            let p_pred_inv = kalman_cholesky_invert_f64(&p_pred_reg, n).unwrap_or_else(|| {
+                let mut diag = vec![0.0f64; n * n];
+                for i in 0..n {
+                    let d = p_pred_reg[i * n + i];
+                    diag[i * n + i] = if d > 1e-15 { 1.0 / d } else { 0.0 };
+                }
+                diag
+            });
 
             // G_t = pft @ p_pred_inv  (n×n)
             let mut g = vec![0.0f64; n * n];
@@ -393,8 +406,11 @@ impl KalmanFilter {
             // Smoothed covariance: P_t^s = P_t|t + G_t * (P_{t+1}^s - P_{t+1|t}) * G_t^T
             let p_smooth_next = &smoothed_covs[t + 1];
             // diff = P_{t+1}^s - P_{t+1|t}
-            let diff: Vec<f64> = p_smooth_next.iter().zip(p_pred_flat.iter())
-                .map(|(&a, &b)| a as f64 - b as f64).collect();
+            let diff: Vec<f64> = p_smooth_next
+                .iter()
+                .zip(p_pred_flat.iter())
+                .map(|(&a, &b)| a as f64 - b as f64)
+                .collect();
             // G_t * diff  (n×n)
             let mut g_diff = vec![0.0f64; n * n];
             for i in 0..n {

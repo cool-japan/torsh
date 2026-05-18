@@ -1315,13 +1315,11 @@ impl<T: TensorElement + Copy> Tensor<T> {
 
                 // Sort by value to find top-k candidates
                 if largest {
-                    slice.sort_by(|a, b| {
-                        b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
-                    });
+                    slice
+                        .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
                 } else {
-                    slice.sort_by(|a, b| {
-                        a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal)
-                    });
+                    slice
+                        .sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
                 }
 
                 let mut top_k: Vec<(usize, T)> = slice.into_iter().take(effective_k).collect();
@@ -1522,8 +1520,8 @@ mod tests {
     fn test_all_dim() {
         // Shape [2, 3]: [[1, 0, 1], [1, 1, 1]]
         let data = vec![1i32, 0, 1, 1, 1, 1];
-        let tensor =
-            Tensor::from_data(data, vec![2, 3], DeviceType::Cpu).expect("tensor creation should succeed");
+        let tensor = Tensor::from_data(data, vec![2, 3], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
         // all along dim 0 (rows): per column check
         // col0: 1&&1=true, col1: 0&&1=false, col2: 1&&1=true
@@ -1552,8 +1550,8 @@ mod tests {
     fn test_any_dim() {
         // Shape [2, 3]: [[0, 0, 0], [0, 1, 0]]
         let data = vec![0i32, 0, 0, 0, 1, 0];
-        let tensor =
-            Tensor::from_data(data, vec![2, 3], DeviceType::Cpu).expect("tensor creation should succeed");
+        let tensor = Tensor::from_data(data, vec![2, 3], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
         // any along dim 0: col0: false, col1: true, col2: false
         let result = tensor.any_dim(0, false).expect("any_dim should succeed");
@@ -1605,10 +1603,12 @@ mod tests {
     fn test_topk_along_dim() {
         // 2x4 tensor, topk along dim 1
         let data = vec![3.0f32, 1.0, 4.0, 2.0, 5.0, 9.0, 2.0, 6.0];
-        let tensor =
-            Tensor::from_data(data, vec![2, 4], DeviceType::Cpu).expect("tensor creation should succeed");
+        let tensor = Tensor::from_data(data, vec![2, 4], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
 
-        let (vals, idxs) = tensor.topk(2, Some(1), true, true).expect("topk should succeed");
+        let (vals, idxs) = tensor
+            .topk(2, Some(1), true, true)
+            .expect("topk should succeed");
         assert_eq!(vals.shape().dims(), &[2, 2]);
         assert_eq!(idxs.shape().dims(), &[2, 2]);
 
@@ -1669,7 +1669,9 @@ mod tests {
         // mean(None) with keepdim=false produces a scalar (numel=1), so backward is valid
         result.backward().expect("backward should succeed");
 
-        let grad = input.grad().expect("input must have gradient after backward");
+        let grad = input
+            .grad()
+            .expect("input must have gradient after backward");
         let grad_data = grad.data().expect("gradient data");
 
         // Each element should receive 1.0 / n = 0.25

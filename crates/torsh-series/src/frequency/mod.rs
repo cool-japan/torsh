@@ -291,8 +291,7 @@ impl PSDEstimator {
 
             // Accumulate power spectrum
             for k in 0..nperseg {
-                psd_accum[k] += (re[k] * re[k] + im[k] * im[k])
-                    / (self.sampling_rate * win_power);
+                psd_accum[k] += (re[k] * re[k] + im[k] * im[k]) / (self.sampling_rate * win_power);
             }
 
             num_segments += 1;
@@ -593,15 +592,26 @@ mod tests {
     fn test_psd_welch() {
         let series = create_test_series();
         let estimator = PSDEstimator::new(PSDMethod::Welch, 10.0);
-        let result = estimator.estimate(&series).expect("Welch PSD should succeed");
+        let result = estimator
+            .estimate(&series)
+            .expect("Welch PSD should succeed");
 
         assert!(!result.psd.is_empty(), "PSD should have entries");
-        assert!(!result.frequencies.is_empty(), "Frequencies should have entries");
+        assert!(
+            !result.frequencies.is_empty(),
+            "Frequencies should have entries"
+        );
         assert_eq!(result.method, "Welch");
-        assert!(result.psd.iter().all(|&v| v >= 0.0), "PSD values must be non-negative");
+        assert!(
+            result.psd.iter().all(|&v| v >= 0.0),
+            "PSD values must be non-negative"
+        );
         // The signal is sinusoidal, so peak power should be positive
         let max_power = result.psd.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-        assert!(max_power > 0.0, "Welch PSD should show non-zero power for a sinusoid");
+        assert!(
+            max_power > 0.0,
+            "Welch PSD should show non-zero power for a sinusoid"
+        );
     }
 
     /// Welch PSD on a very short series (< nperseg minimum) should fall back
@@ -612,7 +622,9 @@ mod tests {
         let tensor = Tensor::from_vec(data, &[6]).expect("Tensor should succeed");
         let series = TimeSeries::new(tensor);
         let estimator = PSDEstimator::new(PSDMethod::Welch, 1.0);
-        let result = estimator.estimate(&series).expect("Welch PSD on short series should succeed");
+        let result = estimator
+            .estimate(&series)
+            .expect("Welch PSD on short series should succeed");
         assert!(!result.psd.is_empty());
     }
 
@@ -621,7 +633,9 @@ mod tests {
     fn test_psd_multitaper() {
         let series = create_test_series();
         let estimator = PSDEstimator::new(PSDMethod::MultitaperThomson, 10.0);
-        let result = estimator.estimate(&series).expect("Multitaper PSD should succeed");
+        let result = estimator
+            .estimate(&series)
+            .expect("Multitaper PSD should succeed");
         assert!(!result.psd.is_empty());
         assert!(result.psd.iter().all(|&v| v >= 0.0));
     }

@@ -481,7 +481,6 @@ pub fn optimize_epsilon(
     Ok((best_eps, best_n_clusters, best_score))
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -691,8 +690,8 @@ mod tests {
         // Two well-separated clusters
         let data = Tensor::from_vec(
             vec![
-                0.0_f32, 0.0, 0.1, 0.1, 0.0, 0.1, 0.1, 0.0, -0.1, 0.0,
-                5.0, 5.0, 5.1, 5.1, 5.0, 5.1, 5.1, 5.0, 4.9, 5.0,
+                0.0_f32, 0.0, 0.1, 0.1, 0.0, 0.1, 0.1, 0.0, -0.1, 0.0, 5.0, 5.0, 5.1, 5.1, 5.0,
+                5.1, 5.1, 5.0, 4.9, 5.0,
             ],
             &[10, 2],
         )?;
@@ -710,8 +709,17 @@ mod tests {
     #[test]
     fn test_optimize_epsilon_validation() {
         let data = Tensor::from_vec(vec![0.0_f32, 0.0], &[1, 2]).unwrap();
-        assert!(optimize_epsilon(&data, 1.0, 0.5, 5, 1).is_err(), "min_eps > max_eps should error");
-        assert!(optimize_epsilon(&data, 0.1, 1.0, 1, 1).is_err(), "n_values < 2 should error");
-        assert!(optimize_epsilon(&data, 0.0, 1.0, 3, 1).is_err(), "min_eps == 0 should error");
+        assert!(
+            optimize_epsilon(&data, 1.0, 0.5, 5, 1).is_err(),
+            "min_eps > max_eps should error"
+        );
+        assert!(
+            optimize_epsilon(&data, 0.1, 1.0, 1, 1).is_err(),
+            "n_values < 2 should error"
+        );
+        assert!(
+            optimize_epsilon(&data, 0.0, 1.0, 3, 1).is_err(),
+            "min_eps == 0 should error"
+        );
     }
 }

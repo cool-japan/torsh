@@ -434,11 +434,7 @@ impl QuantizationOps for CpuQuantizationOps {
         Ok(result)
     }
 
-    fn qmatmul(
-        &self,
-        a: &QuantizedTensor,
-        b: &QuantizedTensor,
-    ) -> BackendResult<QuantizedTensor> {
+    fn qmatmul(&self, a: &QuantizedTensor, b: &QuantizedTensor) -> BackendResult<QuantizedTensor> {
         // Validate shapes for matrix multiplication: a is [M, K], b is [K, N].
         if a.ndim() != 2 || b.ndim() != 2 {
             return Err(torsh_core::error::TorshError::InvalidArgument(
@@ -546,9 +542,7 @@ impl QuantizationOps for CpuQuantizationOps {
                                     let iw = ow * stride_w + kw;
                                     let iw_pad = iw.checked_sub(pad_w);
                                     let in_val = match (ih_pad, iw_pad) {
-                                        (Some(ih_r), Some(iw_r))
-                                            if ih_r < h_in && iw_r < w_in =>
-                                        {
+                                        (Some(ih_r), Some(iw_r)) if ih_r < h_in && iw_r < w_in => {
                                             input_float[batch * c_in * h_in * w_in
                                                 + ic * h_in * w_in
                                                 + ih_r * w_in
@@ -556,10 +550,8 @@ impl QuantizationOps for CpuQuantizationOps {
                                         }
                                         _ => 0.0,
                                     };
-                                    let w_val = weight_float[oc * c_in * k_h * k_w
-                                        + ic * k_h * k_w
-                                        + kh * k_w
-                                        + kw];
+                                    let w_val = weight_float
+                                        [oc * c_in * k_h * k_w + ic * k_h * k_w + kh * k_w + kw];
                                     acc += in_val * w_val;
                                 }
                             }
@@ -617,10 +609,7 @@ impl QuantizationOps for CpuQuantizationOps {
         let input_float = self.dequantize_f32(&input.data, &input.params)?;
         let out_float: Vec<f32> = input_float.iter().map(|&v| v.max(0.0)).collect();
 
-        let max_val = out_float
-            .iter()
-            .copied()
-            .fold(f32::NEG_INFINITY, f32::max);
+        let max_val = out_float.iter().copied().fold(f32::NEG_INFINITY, f32::max);
         // After ReLU the minimum is always 0.
         let mut out_params = input.params.clone();
         out_params.from_statistics(0.0, max_val.max(0.0))?;
@@ -797,8 +786,9 @@ mod tests {
         let data = ops
             .quantize_f32(&[1.0, 0.0, 0.0, 1.0], &params)
             .expect("quantize should succeed");
-        let a = QuantizedTensor::from_data(data.clone(), vec![2, 2], params.clone(), device.clone())
-            .expect("tensor from data should succeed");
+        let a =
+            QuantizedTensor::from_data(data.clone(), vec![2, 2], params.clone(), device.clone())
+                .expect("tensor from data should succeed");
         let b = QuantizedTensor::from_data(data, vec![2, 2], params, device)
             .expect("tensor from data should succeed");
 
@@ -944,12 +934,15 @@ mod tests {
             .quantize_f32(&[1.0f32], &params)
             .expect("quantize should succeed");
 
-        let input =
-            QuantizedTensor::from_data(input_data, vec![1, 1, 3, 3], params.clone(), device.clone())
-                .expect("tensor should work");
-        let weight =
-            QuantizedTensor::from_data(weight_data, vec![1, 1, 1, 1], params, device)
-                .expect("tensor should work");
+        let input = QuantizedTensor::from_data(
+            input_data,
+            vec![1, 1, 3, 3],
+            params.clone(),
+            device.clone(),
+        )
+        .expect("tensor should work");
+        let weight = QuantizedTensor::from_data(weight_data, vec![1, 1, 1, 1], params, device)
+            .expect("tensor should work");
 
         let result = ops
             .qconv2d(&input, &weight, None, (1, 1), (0, 0))

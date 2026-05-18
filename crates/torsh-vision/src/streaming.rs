@@ -425,9 +425,7 @@ impl FramePreprocessor {
         // Step 1: Resize using nearest-neighbor sampling
         if let Some((target_w, target_h)) = self.target_size {
             if target_w != width || target_h != height {
-                let orig_data: Vec<f32> = data
-                    .to_vec()
-                    .map_err(|e| VisionError::TensorError(e))?;
+                let orig_data: Vec<f32> = data.to_vec().map_err(|e| VisionError::TensorError(e))?;
                 let shape = data.shape();
                 let dims = shape.dims();
 
@@ -471,9 +469,8 @@ impl FramePreprocessor {
             let shape = data.shape();
             let dims = shape.dims();
             let channels = if dims.len() == 3 { dims[0] } else { 1 };
-            let mut pixel_data: Vec<f32> = data
-                .to_vec()
-                .map_err(|e| VisionError::TensorError(e))?;
+            let mut pixel_data: Vec<f32> =
+                data.to_vec().map_err(|e| VisionError::TensorError(e))?;
             let pixels_per_channel = height * width;
 
             for c in 0..channels.min(means.len()).min(stds.len()) {
@@ -495,9 +492,8 @@ impl FramePreprocessor {
             let shape = data.shape();
             let dims = shape.dims();
             if dims.len() == 3 && dims[0] >= 3 {
-                let pixel_data: Vec<f32> = data
-                    .to_vec()
-                    .map_err(|e| VisionError::TensorError(e))?;
+                let pixel_data: Vec<f32> =
+                    data.to_vec().map_err(|e| VisionError::TensorError(e))?;
                 let pixels = height * width;
                 let mut gray = vec![0.0f32; pixels];
                 // R=dims[0]=0, G=1, B=2
@@ -714,8 +710,7 @@ mod tests {
     fn test_frame_preprocessor_resize() {
         // Create a 4×4×3 CHW frame
         let data: Vec<f32> = (0..48).map(|x| x as f32).collect();
-        let tensor = Tensor::from_vec(data, &[3, 4, 4])
-            .expect("tensor creation should succeed");
+        let tensor = Tensor::from_vec(data, &[3, 4, 4]).expect("tensor creation should succeed");
 
         let frame = Frame {
             data: tensor,
@@ -730,7 +725,9 @@ mod tests {
         };
 
         let preprocessor = FramePreprocessor::new().with_resize(2, 2);
-        let result = preprocessor.preprocess(&frame).expect("resize should succeed");
+        let result = preprocessor
+            .preprocess(&frame)
+            .expect("resize should succeed");
         assert_eq!(result.metadata.width, 2);
         assert_eq!(result.metadata.height, 2);
         let shape = result.data.shape();
@@ -742,8 +739,7 @@ mod tests {
     fn test_frame_preprocessor_normalize() {
         // CHW frame with all values = 128.0
         let data = vec![128.0f32; 3 * 4 * 4];
-        let tensor = Tensor::from_vec(data, &[3, 4, 4])
-            .expect("tensor creation should succeed");
+        let tensor = Tensor::from_vec(data, &[3, 4, 4]).expect("tensor creation should succeed");
 
         let frame = Frame {
             data: tensor,
@@ -760,7 +756,9 @@ mod tests {
         // Normalize with mean=128, std=128 → output should be ~0.0
         let preprocessor = FramePreprocessor::new()
             .with_normalize(vec![128.0, 128.0, 128.0], vec![128.0, 128.0, 128.0]);
-        let result = preprocessor.preprocess(&frame).expect("normalize should succeed");
+        let result = preprocessor
+            .preprocess(&frame)
+            .expect("normalize should succeed");
         let vals: Vec<f32> = result.data.to_vec().expect("to_vec should succeed");
         for &v in &vals {
             assert!(v.abs() < 1e-5, "Expected ~0 after normalization, got {v}");
@@ -775,8 +773,7 @@ mod tests {
         for i in 0..(4 * 4) {
             data[i] = 1.0;
         }
-        let tensor = Tensor::from_vec(data, &[3, 4, 4])
-            .expect("tensor creation should succeed");
+        let tensor = Tensor::from_vec(data, &[3, 4, 4]).expect("tensor creation should succeed");
 
         let frame = Frame {
             data: tensor,
@@ -791,7 +788,9 @@ mod tests {
         };
 
         let preprocessor = FramePreprocessor::new().with_grayscale();
-        let result = preprocessor.preprocess(&frame).expect("grayscale should succeed");
+        let result = preprocessor
+            .preprocess(&frame)
+            .expect("grayscale should succeed");
 
         let shape = result.data.shape();
         let dims = shape.dims();
@@ -799,7 +798,10 @@ mod tests {
 
         let vals: Vec<f32> = result.data.to_vec().expect("to_vec should succeed");
         for &v in &vals {
-            assert!((v - 0.299).abs() < 1e-5, "Expected 0.299 luminance for pure red, got {v}");
+            assert!(
+                (v - 0.299).abs() < 1e-5,
+                "Expected 0.299 luminance for pure red, got {v}"
+            );
         }
     }
 }

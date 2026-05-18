@@ -171,31 +171,19 @@ impl QuadraticProgrammingLayer {
             DifferentiationMethod::FiniteDifferences => {
                 self.finite_difference_gradient(q, c, a, b, g, h, downstream_grad, config)
             }
-            DifferentiationMethod::SensitivityAnalysis => {
-                self.sensitivity_analysis_gradient(
-                    solution,
-                    q,
-                    c,
-                    a,
-                    b,
-                    g,
-                    h,
-                    downstream_grad,
-                    config,
-                )
-            }
+            DifferentiationMethod::SensitivityAnalysis => self.sensitivity_analysis_gradient(
+                solution,
+                q,
+                c,
+                a,
+                b,
+                g,
+                h,
+                downstream_grad,
+                config,
+            ),
             DifferentiationMethod::AdjointMethod => {
-                self.adjoint_method_gradient(
-                    solution,
-                    q,
-                    c,
-                    a,
-                    b,
-                    g,
-                    h,
-                    downstream_grad,
-                    config,
-                )
+                self.adjoint_method_gradient(solution, q, c, a, b, g, h, downstream_grad, config)
             }
         }
     }

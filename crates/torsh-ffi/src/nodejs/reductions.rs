@@ -21,8 +21,11 @@ extern "C" {
         data: *mut *mut std::os::raw::c_void,
     ) -> NapiStatus;
     fn napi_get_value_double(env: NapiEnv, value: NapiValue, result: *mut f64) -> NapiStatus;
-    fn napi_typeof(env: NapiEnv, value: NapiValue, result: *mut super::helpers::NapiValueType)
-        -> NapiStatus;
+    fn napi_typeof(
+        env: NapiEnv,
+        value: NapiValue,
+        result: *mut super::helpers::NapiValueType,
+    ) -> NapiStatus;
 }
 
 use super::helpers::NapiValueType;

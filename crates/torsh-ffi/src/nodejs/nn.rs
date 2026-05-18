@@ -2,8 +2,8 @@
 
 use std::ptr;
 
-use crate::c_api::{torsh_tensor_conv2d, torsh_tensor_log, torsh_tensor_softmax};
 use crate::c_api::types::TorshError;
+use crate::c_api::{torsh_tensor_conv2d, torsh_tensor_log, torsh_tensor_softmax};
 
 use super::helpers::{
     create_tensor_external, get_tensor_from_external, throw_error, NapiCallbackInfo, NapiEnv,
@@ -227,13 +227,17 @@ pub extern "C" fn js_cross_entropy_loss(env: NapiEnv, info: NapiCallbackInfo) ->
         }
 
         // Step 4: target * log_probs (element-wise) → prod
-        use crate::c_api::{torsh_tensor_mul, torsh_tensor_zeros};
         use super::helpers::tensor_shape_vec;
+        use crate::c_api::{torsh_tensor_mul, torsh_tensor_zeros};
         let log_shape = match tensor_shape_vec(log_probs) {
             Some(s) => s,
             None => {
                 crate::c_api::torsh_tensor_free(log_probs);
-                throw_error(env, "OPERATION_FAILED", "crossEntropyLoss: failed to get shape");
+                throw_error(
+                    env,
+                    "OPERATION_FAILED",
+                    "crossEntropyLoss: failed to get shape",
+                );
                 return ptr::null_mut();
             }
         };
@@ -254,7 +258,7 @@ pub extern "C" fn js_cross_entropy_loss(env: NapiEnv, info: NapiCallbackInfo) ->
         crate::c_api::torsh_tensor_free(log_probs);
 
         // Step 5: sum_all(prod) and negate and divide by N (mean)
-        use crate::c_api::{torsh_tensor_sum_all, torsh_tensor_mul_scalar};
+        use crate::c_api::{torsh_tensor_mul_scalar, torsh_tensor_sum_all};
         let sum = torsh_tensor_sum_all(prod_buf);
         crate::c_api::torsh_tensor_free(prod_buf);
         if sum.is_null() {
@@ -269,7 +273,11 @@ pub extern "C" fn js_cross_entropy_loss(env: NapiEnv, info: NapiCallbackInfo) ->
         let result = torsh_tensor_mul_scalar(sum, -1.0 / n_batch);
         crate::c_api::torsh_tensor_free(sum);
         if result.is_null() {
-            throw_error(env, "OPERATION_FAILED", "crossEntropyLoss: negate/scale failed");
+            throw_error(
+                env,
+                "OPERATION_FAILED",
+                "crossEntropyLoss: negate/scale failed",
+            );
             return ptr::null_mut();
         }
 

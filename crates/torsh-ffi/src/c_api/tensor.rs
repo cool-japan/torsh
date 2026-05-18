@@ -1651,7 +1651,9 @@ pub unsafe extern "C" fn torsh_tensor_conv2d(
 
         // Validate shapes
         if inp.shape.len() != 4 || wgt.shape.len() != 4 {
-            set_last_error("conv2d requires 4-D input [N,C,H,W] and weight [O,I,kH,kW]".to_string());
+            set_last_error(
+                "conv2d requires 4-D input [N,C,H,W] and weight [O,I,kH,kW]".to_string(),
+            );
             return ptr::null_mut();
         }
 
@@ -1682,7 +1684,10 @@ pub unsafe extern "C" fn torsh_tensor_conv2d(
 
         for n in 0..n_batch {
             for oc in 0..out_ch {
-                let bias_val = bias_data.as_ref().map(|b| b.get(oc).copied().unwrap_or(0.0)).unwrap_or(0.0);
+                let bias_val = bias_data
+                    .as_ref()
+                    .map(|b| b.get(oc).copied().unwrap_or(0.0))
+                    .unwrap_or(0.0);
                 for oh in 0..h_out {
                     for ow in 0..w_out {
                         let mut acc = bias_val;
@@ -1703,18 +1708,14 @@ pub unsafe extern "C" fn torsh_tensor_conv2d(
                                         + ic * h_in * w_in
                                         + ih_real * w_in
                                         + iw_real;
-                                    let w_idx = oc * in_ch * kh * kw
-                                        + ic * kh * kw
-                                        + khi * kw
-                                        + kwi;
+                                    let w_idx =
+                                        oc * in_ch * kh * kw + ic * kh * kw + khi * kw + kwi;
                                     acc += inp.data[inp_idx] * wgt.data[w_idx];
                                 }
                             }
                         }
-                        let out_idx = n * out_ch * h_out * w_out
-                            + oc * h_out * w_out
-                            + oh * w_out
-                            + ow;
+                        let out_idx =
+                            n * out_ch * h_out * w_out + oc * h_out * w_out + oh * w_out + ow;
                         out_data[out_idx] = acc;
                     }
                 }

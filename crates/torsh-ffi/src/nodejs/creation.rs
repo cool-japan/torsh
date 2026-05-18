@@ -60,8 +60,7 @@ pub extern "C" fn js_create_tensor(env: NapiEnv, info: NapiCallbackInfo) -> Napi
             return ptr::null_mut();
         }
 
-        let tensor =
-            torsh_tensor_from_data(data.as_ptr(), data.len(), dims.as_ptr(), dims.len());
+        let tensor = torsh_tensor_from_data(data.as_ptr(), data.len(), dims.as_ptr(), dims.len());
         if tensor.is_null() {
             throw_error(env, "CREATION_FAILED", "Failed to create tensor");
             return ptr::null_mut();

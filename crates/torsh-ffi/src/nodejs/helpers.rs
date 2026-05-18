@@ -3,8 +3,8 @@
 use std::os::raw::{c_char, c_void};
 use std::ptr;
 
-use crate::c_api::types::{TorshTensor, TorshError};
-use crate::c_api::{torsh_tensor_free, torsh_tensor_shape, torsh_tensor_ndim};
+use crate::c_api::types::{TorshError, TorshTensor};
+use crate::c_api::{torsh_tensor_free, torsh_tensor_ndim, torsh_tensor_shape};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // N-API core types

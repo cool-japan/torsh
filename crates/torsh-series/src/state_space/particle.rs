@@ -436,15 +436,18 @@ impl ParticleFilter {
         // Stack per-timestep estimates into [time_steps, state_dim]
         let mut stacked: Vec<f32> = Vec::with_capacity(series.len() * self.state_dim);
         for est in &estimates {
-            let row = est.to_vec().unwrap_or_else(|_| vec![0.0f32; self.state_dim]);
+            let row = est
+                .to_vec()
+                .unwrap_or_else(|_| vec![0.0f32; self.state_dim]);
             stacked.extend_from_slice(&row);
         }
 
         let values = if stacked.is_empty() {
             zeros(&[series.len(), self.state_dim]).expect("tensor creation should succeed")
         } else {
-            Tensor::from_vec(stacked, &[series.len(), self.state_dim])
-                .unwrap_or_else(|_| zeros(&[series.len(), self.state_dim]).expect("zeros should succeed"))
+            Tensor::from_vec(stacked, &[series.len(), self.state_dim]).unwrap_or_else(|_| {
+                zeros(&[series.len(), self.state_dim]).expect("zeros should succeed")
+            })
         };
         TimeSeries::new(values)
     }
@@ -688,14 +691,26 @@ mod tests {
         let mean_vec = mean.to_vec().expect("mean extraction should succeed");
 
         // With uniform normalised weights the weighted mean equals the particle value
-        assert!((mean_vec[0] - 3.0).abs() < 1e-3, "mean[0] should be ~3.0, got {}", mean_vec[0]);
-        assert!((mean_vec[1] - 5.0).abs() < 1e-3, "mean[1] should be ~5.0, got {}", mean_vec[1]);
+        assert!(
+            (mean_vec[0] - 3.0).abs() < 1e-3,
+            "mean[0] should be ~3.0, got {}",
+            mean_vec[0]
+        );
+        assert!(
+            (mean_vec[1] - 5.0).abs() < 1e-3,
+            "mean[1] should be ~5.0, got {}",
+            mean_vec[1]
+        );
 
         // Covariance should be zero for identical particles
         let cov = pf.covariance();
         let cov_vec = cov.to_vec().expect("covariance extraction should succeed");
         for &v in &cov_vec {
-            assert!(v.abs() < 1e-3, "covariance should be ~0 for identical particles, got {}", v);
+            assert!(
+                v.abs() < 1e-3,
+                "covariance should be ~0 for identical particles, got {}",
+                v
+            );
         }
     }
 
@@ -712,15 +727,21 @@ mod tests {
         let mut pf = ParticleFilter::with_initial_particles(particles, None);
 
         // Transition that adds 1.0 to every element
-        let add_one = |x: &Tensor| -> Tensor {
-            x.add_scalar(1.0_f32).expect("add scalar should succeed")
-        };
+        let add_one =
+            |x: &Tensor| -> Tensor { x.add_scalar(1.0_f32).expect("add scalar should succeed") };
 
         pf.predict(&add_one);
 
-        let updated = pf.particles().to_vec().expect("particle extraction should succeed");
+        let updated = pf
+            .particles()
+            .to_vec()
+            .expect("particle extraction should succeed");
         for &v in &updated {
-            assert!((v - 1.0).abs() < 1e-4, "each particle element should be 1.0 after predict, got {}", v);
+            assert!(
+                (v - 1.0).abs() < 1e-4,
+                "each particle element should be 1.0 after predict, got {}",
+                v
+            );
         }
     }
 

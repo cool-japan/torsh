@@ -1562,15 +1562,13 @@ impl<T: TensorElement + Copy> Tensor<T> {
                     // Broadcast scalar-shaped grad to input shape
                     let input_numel = input.numel();
                     let grad_data = vec![
-                        scaled_grad.to_vec()?.into_iter().next()
-                            .unwrap_or_else(|| T::from_f64(0.0).expect("T must support 0.0"));
+                        scaled_grad.to_vec()?.into_iter().next().unwrap_or_else(
+                            || T::from_f64(0.0).expect("T must support 0.0")
+                        );
                         input_numel
                     ];
-                    let input_grad = Self::from_data(
-                        grad_data,
-                        input.shape().dims().to_vec(),
-                        input.device,
-                    )?;
+                    let input_grad =
+                        Self::from_data(grad_data, input.shape().dims().to_vec(), input.device)?;
                     input.backward_impl(&input_grad)?;
                 }
             }

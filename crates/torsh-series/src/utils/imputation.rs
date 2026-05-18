@@ -45,7 +45,11 @@ impl NaturalCubicSpline {
         let size = n - 2;
         if size == 0 {
             // Linear – only 2 knots
-            let b0 = if h[0].abs() > 1e-15 { (y[1] - y[0]) / h[0] } else { 0.0 };
+            let b0 = if h[0].abs() > 1e-15 {
+                (y[1] - y[0]) / h[0]
+            } else {
+                0.0
+            };
             return Ok(Self {
                 x: x.to_vec(),
                 a: vec![y[0]],
@@ -69,8 +73,7 @@ impl NaturalCubicSpline {
             if i < size - 1 {
                 upper[i] = h[idx];
             }
-            rhs[i] = 3.0 * ((y[idx + 1] - y[idx]) / h[idx]
-                - (y[idx] - y[idx - 1]) / h[idx - 1]);
+            rhs[i] = 3.0 * ((y[idx + 1] - y[idx]) / h[idx] - (y[idx] - y[idx - 1]) / h[idx - 1]);
         }
 
         // Solve tridiagonal via Thomas algorithm
@@ -85,27 +88,27 @@ impl NaturalCubicSpline {
         // Compute a, b, d coefficients for each interval
         let a: Vec<f64> = y[..m].to_vec();
         let b: Vec<f64> = (0..m)
-            .map(|i| {
-                (y[i + 1] - y[i]) / h[i]
-                    - h[i] * (2.0 * c_full[i] + c_full[i + 1]) / 3.0
-            })
+            .map(|i| (y[i + 1] - y[i]) / h[i] - h[i] * (2.0 * c_full[i] + c_full[i + 1]) / 3.0)
             .collect();
         let d: Vec<f64> = (0..m)
             .map(|i| (c_full[i + 1] - c_full[i]) / (3.0 * h[i]))
             .collect();
         let c: Vec<f64> = c_full[..m].to_vec();
 
-        Ok(Self { x: x.to_vec(), a, b, c, d })
+        Ok(Self {
+            x: x.to_vec(),
+            a,
+            b,
+            c,
+            d,
+        })
     }
 
     /// Evaluate the spline at point `xi`.  Clamps to the knot range.
     fn evaluate(&self, xi: f64) -> f64 {
         let m = self.a.len();
         // Binary search for the right interval
-        let idx = match self.x[1..m]
-            .iter()
-            .position(|&xk| xi < xk)
-        {
+        let idx = match self.x[1..m].iter().position(|&xk| xi < xk) {
             Some(pos) => pos,
             None => m - 1, // xi >= x[m]
         };
@@ -115,12 +118,7 @@ impl NaturalCubicSpline {
 }
 
 /// Solve a tridiagonal system via the Thomas (forward-elimination / back-substitution) algorithm.
-fn thomas_solve(
-    diag: &[f64],
-    upper: &[f64],
-    lower: &[f64],
-    rhs: &[f64],
-) -> Result<Vec<f64>> {
+fn thomas_solve(diag: &[f64], upper: &[f64], lower: &[f64], rhs: &[f64]) -> Result<Vec<f64>> {
     let n = diag.len();
     let mut c_prime = vec![0.0f64; n];
     let mut d_prime = vec![0.0f64; n];

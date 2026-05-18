@@ -554,13 +554,17 @@ mod tests {
             threshold: 0.5,
         });
 
-        let matches = matcher.match_templates(&image).expect("match_templates should succeed");
+        let matches = matcher
+            .match_templates(&image)
+            .expect("match_templates should succeed");
         // The identity pattern should match somewhere with high confidence
         assert!(!matches.is_empty(), "Expected at least one template match");
         // The best match should be at position (1,1)
-        let best = matches
-            .iter()
-            .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).expect("cmp should succeed"));
+        let best = matches.iter().max_by(|a, b| {
+            a.confidence
+                .partial_cmp(&b.confidence)
+                .expect("cmp should succeed")
+        });
         assert!(best.is_some());
         let best = best.expect("best match must exist");
         assert_eq!(best.position, (1.0, 1.0));

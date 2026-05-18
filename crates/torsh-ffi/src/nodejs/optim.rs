@@ -6,8 +6,8 @@
 
 use std::ptr;
 
-use crate::c_api::{torsh_tensor_adam_step_inplace, torsh_tensor_axpy_inplace};
 use crate::c_api::types::TorshError;
+use crate::c_api::{torsh_tensor_adam_step_inplace, torsh_tensor_axpy_inplace};
 
 use super::helpers::{
     get_tensor_from_external, throw_error, NapiCallbackInfo, NapiEnv, NapiStatus, NapiValue,
@@ -107,7 +107,11 @@ pub extern "C" fn js_sgd_step(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue
             return ptr::null_mut();
         }
         if argc != 3 {
-            throw_error(env, "INVALID_ARGS", "sgdStep(params, grads, lr) requires 3 arguments");
+            throw_error(
+                env,
+                "INVALID_ARGS",
+                "sgdStep(params, grads, lr) requires 3 arguments",
+            );
             return ptr::null_mut();
         }
 
@@ -121,7 +125,11 @@ pub extern "C" fn js_sgd_step(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue
         };
 
         if params.len() != grads.len() {
-            throw_error(env, "INVALID_ARGS", "params and grads must have the same length");
+            throw_error(
+                env,
+                "INVALID_ARGS",
+                "params and grads must have the same length",
+            );
             return ptr::null_mut();
         }
 
@@ -198,7 +206,8 @@ pub extern "C" fn js_adam_step(env: NapiEnv, info: NapiCallbackInfo) -> NapiValu
             None => return ptr::null_mut(),
         };
 
-        if params.len() != grads.len() || params.len() != m_arr.len() || params.len() != v_arr.len() {
+        if params.len() != grads.len() || params.len() != m_arr.len() || params.len() != v_arr.len()
+        {
             throw_error(
                 env,
                 "INVALID_ARGS",
@@ -250,18 +259,14 @@ pub extern "C" fn js_adam_step(env: NapiEnv, info: NapiCallbackInfo) -> NapiValu
 
         for i in 0..params.len() {
             if torsh_tensor_adam_step_inplace(
-                params[i],
-                grads[i],
-                m_arr[i],
-                v_arr[i],
-                lr,
-                beta1,
-                beta2,
-                eps,
-                step,
+                params[i], grads[i], m_arr[i], v_arr[i], lr, beta1, beta2, eps, step,
             ) != TorshError::Success
             {
-                throw_error(env, "OPERATION_FAILED", "adamStep: adam_step_inplace failed");
+                throw_error(
+                    env,
+                    "OPERATION_FAILED",
+                    "adamStep: adam_step_inplace failed",
+                );
                 return ptr::null_mut();
             }
         }

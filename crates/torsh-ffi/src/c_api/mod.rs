@@ -86,21 +86,36 @@ pub use utils::{get_last_error, set_last_error};
 // Tensor operations
 pub use tensor::{
     torsh_tensor_abs,
+    torsh_tensor_adam_step_inplace,
     // Basic math
     torsh_tensor_add,
     // Scalar operations
     torsh_tensor_add_scalar,
+    // In-place optimizer primitives
+    torsh_tensor_axpy_inplace,
+    // Additional creation
+    torsh_tensor_clone,
+    // 2-D convolution
+    torsh_tensor_conv2d,
+
     torsh_tensor_cos,
     // Access
     torsh_tensor_data,
+    torsh_tensor_detach,
+    // Tensor-tensor division
+    torsh_tensor_div,
+
     torsh_tensor_div_scalar,
 
     torsh_tensor_dtype,
     // Mathematical functions
     torsh_tensor_exp,
+    torsh_tensor_eye,
     // Memory management
     torsh_tensor_free,
     torsh_tensor_from_data,
+
+    torsh_tensor_linspace,
 
     torsh_tensor_log,
     torsh_tensor_matmul,
@@ -124,11 +139,16 @@ pub use tensor::{
     torsh_tensor_randn,
     // Activations
     torsh_tensor_relu,
+    // Manipulation
+    torsh_tensor_reshape,
     torsh_tensor_scalar,
     torsh_tensor_shape,
     torsh_tensor_sigmoid,
     torsh_tensor_sin,
     torsh_tensor_size,
+
+    // Softmax activation
+    torsh_tensor_softmax,
 
     torsh_tensor_sqrt,
     torsh_tensor_sub,
@@ -140,30 +160,9 @@ pub use tensor::{
 
     torsh_tensor_tanh,
 
-    // Manipulation
-    torsh_tensor_reshape,
     torsh_tensor_transpose,
 
     torsh_tensor_zeros,
-
-    // Additional creation
-    torsh_tensor_clone,
-    torsh_tensor_detach,
-    torsh_tensor_eye,
-    torsh_tensor_linspace,
-
-    // Softmax activation
-    torsh_tensor_softmax,
-
-    // Tensor-tensor division
-    torsh_tensor_div,
-
-    // 2-D convolution
-    torsh_tensor_conv2d,
-
-    // In-place optimizer primitives
-    torsh_tensor_axpy_inplace,
-    torsh_tensor_adam_step_inplace,
 };
 
 // Neural network operations

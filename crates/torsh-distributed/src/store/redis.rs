@@ -24,9 +24,9 @@
 //! - Lua scripts for compare-and-swap atomicity
 
 #[cfg(feature = "redis")]
-use redis::{AsyncCommands, Client, Script};
-#[cfg(feature = "redis")]
 use redis::aio::ConnectionManager;
+#[cfg(feature = "redis")]
+use redis::{AsyncCommands, Client, Script};
 
 use super::store_trait::Store;
 use crate::{TorshDistributedError, TorshResult};
@@ -150,7 +150,10 @@ impl RedisStore {
             )
         })?;
 
-        info!("Connected to Redis at {} via ConnectionManager", self.redis_url);
+        info!(
+            "Connected to Redis at {} via ConnectionManager",
+            self.redis_url
+        );
 
         let mut cm_lock = self.connection_manager.write().await;
         *cm_lock = Some(manager);
@@ -161,9 +164,12 @@ impl RedisStore {
     /// Get a cloned ConnectionManager, returning an error if not connected
     async fn get_manager(&self) -> TorshResult<ConnectionManager> {
         let cm_lock = self.connection_manager.read().await;
-        cm_lock
-            .clone()
-            .ok_or_else(|| TorshDistributedError::backend_error("RedisStore", "Not connected — call connect() first"))
+        cm_lock.clone().ok_or_else(|| {
+            TorshDistributedError::backend_error(
+                "RedisStore",
+                "Not connected — call connect() first",
+            )
+        })
     }
 
     /// Map a redis error to TorshDistributedError
@@ -233,7 +239,11 @@ impl Store for RedisStore {
             if start.elapsed() > timeout {
                 return Err(TorshDistributedError::communication_error(
                     "RedisStore wait",
-                    format!("Timeout after {:?} waiting for {} keys", timeout, keys.len()),
+                    format!(
+                        "Timeout after {:?} waiting for {} keys",
+                        timeout,
+                        keys.len()
+                    ),
                 ));
             }
 
@@ -411,12 +421,24 @@ mod tests {
         assert_eq!(value, Some(b"test_value1".to_vec()));
 
         // Test contains
-        assert!(store.contains("test_key1").await.expect("contains should succeed"));
-        assert!(!store.contains("nonexistent").await.expect("contains should succeed"));
+        assert!(store
+            .contains("test_key1")
+            .await
+            .expect("contains should succeed"));
+        assert!(!store
+            .contains("nonexistent")
+            .await
+            .expect("contains should succeed"));
 
         // Test delete
-        store.delete("test_key1").await.expect("delete should succeed");
-        assert!(!store.contains("test_key1").await.expect("contains should succeed"));
+        store
+            .delete("test_key1")
+            .await
+            .expect("delete should succeed");
+        assert!(!store
+            .contains("test_key1")
+            .await
+            .expect("contains should succeed"));
     }
 
     #[tokio::test]
@@ -458,15 +480,27 @@ mod tests {
         assert!(!ok);
 
         // Test atomic add
-        let result = store.add("test_incrby_num", 5).await.expect("add should succeed");
+        let result = store
+            .add("test_incrby_num", 5)
+            .await
+            .expect("add should succeed");
         assert_eq!(result, 5);
 
-        let result = store.add("test_incrby_num", 3).await.expect("add should succeed");
+        let result = store
+            .add("test_incrby_num", 3)
+            .await
+            .expect("add should succeed");
         assert_eq!(result, 8);
 
         // Cleanup
-        store.delete("test_cas_counter").await.expect("delete should succeed");
-        store.delete("test_incrby_num").await.expect("delete should succeed");
+        store
+            .delete("test_cas_counter")
+            .await
+            .expect("delete should succeed");
+        store
+            .delete("test_incrby_num")
+            .await
+            .expect("delete should succeed");
     }
 
     #[tokio::test]
@@ -479,11 +513,17 @@ mod tests {
             .await
             .expect("set_with_expiry should succeed");
 
-        assert!(store.contains("temp_key").await.expect("contains should succeed"));
+        assert!(store
+            .contains("temp_key")
+            .await
+            .expect("contains should succeed"));
 
         tokio::time::sleep(Duration::from_secs(3)).await;
 
-        assert!(!store.contains("temp_key").await.expect("contains should succeed"));
+        assert!(!store
+            .contains("temp_key")
+            .await
+            .expect("contains should succeed"));
     }
 
     #[tokio::test]
@@ -497,9 +537,15 @@ mod tests {
         let store_clone = create_test_store().await;
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(100)).await;
-            store_clone.set("wait_key1", b"v1").await.expect("set should succeed");
+            store_clone
+                .set("wait_key1", b"v1")
+                .await
+                .expect("set should succeed");
             tokio::time::sleep(Duration::from_millis(100)).await;
-            store_clone.set("wait_key2", b"v2").await.expect("set should succeed");
+            store_clone
+                .set("wait_key2", b"v2")
+                .await
+                .expect("set should succeed");
         });
 
         store
@@ -507,11 +553,23 @@ mod tests {
             .await
             .expect("wait should succeed");
 
-        assert!(store.contains("wait_key1").await.expect("contains should succeed"));
-        assert!(store.contains("wait_key2").await.expect("contains should succeed"));
+        assert!(store
+            .contains("wait_key1")
+            .await
+            .expect("contains should succeed"));
+        assert!(store
+            .contains("wait_key2")
+            .await
+            .expect("contains should succeed"));
 
-        store.delete("wait_key1").await.expect("delete should succeed");
-        store.delete("wait_key2").await.expect("delete should succeed");
+        store
+            .delete("wait_key1")
+            .await
+            .expect("delete should succeed");
+        store
+            .delete("wait_key2")
+            .await
+            .expect("delete should succeed");
     }
 
     /// Unit test for `not_connected` error path (no redis server needed)

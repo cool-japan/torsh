@@ -702,12 +702,12 @@ impl StochasticGraph {
         // Exponential moving average update for mean and variance.
         let alpha = self.config.baseline_lr;
         let new_mean = (1.0 - alpha) * prev_mean + alpha * current_loss;
-        let new_var = ((1.0 - alpha) * prev_var.sqrt()
-            + alpha * (current_loss - new_mean).abs())
-        .max(1e-8)
-        .powi(2);
+        let new_var = ((1.0 - alpha) * prev_var.sqrt() + alpha * (current_loss - new_mean).abs())
+            .max(1e-8)
+            .powi(2);
 
-        self.baseline_values.insert("nvil_mean".to_string(), new_mean);
+        self.baseline_values
+            .insert("nvil_mean".to_string(), new_mean);
         self.baseline_values.insert("nvil_var".to_string(), new_var);
 
         // Baseline-subtracted, variance-normalised signal.
@@ -726,12 +726,8 @@ impl StochasticGraph {
                 if !dep_tensors.is_empty() {
                     // Score-function gradient scaled by the NVIL signal.
                     let unit_loss = creation::tensor_scalar(signal)?;
-                    let param_grads = op.score_function_gradient(
-                        sample,
-                        &dep_tensors,
-                        &unit_loss,
-                        &self.config,
-                    )?;
+                    let param_grads =
+                        op.score_function_gradient(sample, &dep_tensors, &unit_loss, &self.config)?;
 
                     for (i, grad) in param_grads.into_iter().enumerate() {
                         gradients.insert(*node_id * 1000 + i, grad);
@@ -1013,8 +1009,8 @@ mod tests {
     }
 
     /// Helper: build a minimal stochastic graph with a Normal node for backward tests.
-    fn make_normal_graph_with_outputs(
-    ) -> (StochasticGraph, HashMap<usize, Tensor>, Tensor, usize) {
+    fn make_normal_graph_with_outputs() -> (StochasticGraph, HashMap<usize, Tensor>, Tensor, usize)
+    {
         let config = StochasticConfig::default();
         let mut graph = StochasticGraph::new(config);
 
@@ -1077,13 +1073,14 @@ mod tests {
         let _ = result;
 
         // Call again to verify the running statistics are updated without panic.
-        let outputs2 = graph.forward(&{
-            let mut inputs = HashMap::new();
-            inputs.insert(0, Tensor::zeros(&[3], torsh_core::DeviceType::Cpu).unwrap());
-            inputs.insert(1, Tensor::ones(&[3], torsh_core::DeviceType::Cpu).unwrap());
-            inputs
-        })
-        .unwrap();
+        let outputs2 = graph
+            .forward(&{
+                let mut inputs = HashMap::new();
+                inputs.insert(0, Tensor::zeros(&[3], torsh_core::DeviceType::Cpu).unwrap());
+                inputs.insert(1, Tensor::ones(&[3], torsh_core::DeviceType::Cpu).unwrap());
+                inputs
+            })
+            .unwrap();
         let _ = graph
             .backward(&outputs2, &loss, GradientEstimator::NVIL)
             .expect("second NVIL backward should succeed");

@@ -565,9 +565,8 @@ impl UnscentedKalmanFilter {
         let mut s_mat = vec![0.0f64; m * m];
         for j in 0..m {
             for k in 0..m {
-                s_mat[j * m + k] = obs_cov
-                    .get(&[j, k])
-                    .expect("obs_cov read should succeed") as f64;
+                s_mat[j * m + k] =
+                    obs_cov.get(&[j, k]).expect("obs_cov read should succeed") as f64;
             }
         }
         // Add small regularization
@@ -594,7 +593,8 @@ impl UnscentedKalmanFilter {
                 for l in 0..m {
                     let cc = cross_cov
                         .get(&[i, l])
-                        .expect("cross_cov read should succeed") as f64;
+                        .expect("cross_cov read should succeed")
+                        as f64;
                     s += cc * s_inv[l * m + j];
                 }
                 k_gain[i * m + j] = s;
@@ -605,7 +605,9 @@ impl UnscentedKalmanFilter {
         let mut innovation = vec![0.0f64; m];
         for j in 0..m {
             let z_j = if observation.shape().ndim() == 2 {
-                observation.get(&[0, j]).unwrap_or_else(|_| observation.get(&[j]).unwrap_or(0.0))
+                observation
+                    .get(&[0, j])
+                    .unwrap_or_else(|_| observation.get(&[j]).unwrap_or(0.0))
             } else {
                 observation.get(&[j]).unwrap_or(0.0)
             };
@@ -632,9 +634,7 @@ impl UnscentedKalmanFilter {
             for j in 0..m {
                 let mut s = 0.0f64;
                 for l in 0..m {
-                    let s_jl = obs_cov
-                        .get(&[l, j])
-                        .expect("obs_cov read should succeed") as f64;
+                    let s_jl = obs_cov.get(&[l, j]).expect("obs_cov read should succeed") as f64;
                     s += k_gain[i * m + l] * s_jl;
                 }
                 k_s[i * m + j] = s;
@@ -647,7 +647,8 @@ impl UnscentedKalmanFilter {
                 for l in 0..m {
                     correction += k_s[i * m + l] * k_gain[j * m + l];
                 }
-                let old = self.covariance
+                let old = self
+                    .covariance
                     .get(&[i, j])
                     .expect("covariance read should succeed") as f64;
                 self.covariance
@@ -656,7 +657,6 @@ impl UnscentedKalmanFilter {
             }
         }
     }
-
 
     /// Run UKF on time series
     pub fn filter(
@@ -684,16 +684,13 @@ impl UnscentedKalmanFilter {
 
             // Store current state
             for j in 0..n {
-                let val = self
-                    .state
-                    .get(&[j])
-                    .expect("state read should succeed");
+                let val = self.state.get(&[j]).expect("state read should succeed");
                 all_states[t * n + j] = val;
             }
         }
 
-        let values = Tensor::from_vec(all_states, &[t_len, n])
-            .expect("tensor creation should succeed");
+        let values =
+            Tensor::from_vec(all_states, &[t_len, n]).expect("tensor creation should succeed");
         TimeSeries::new(values)
     }
 

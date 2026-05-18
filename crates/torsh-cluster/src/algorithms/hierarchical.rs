@@ -376,7 +376,8 @@ impl AgglomerativeClustering {
                 // Compute distance between the merged content and cluster[i].
                 // We use `merged_cluster` for the first argument because it
                 // already holds the union of cluster1 and cluster2 contents.
-                let new_dist = self.compute_cluster_distance(data, &merged_cluster, &clusters[i])?;
+                let new_dist =
+                    self.compute_cluster_distance(data, &merged_cluster, &clusters[i])?;
                 distance_matrix[cluster1_idx][i] = new_dist;
                 distance_matrix[i][cluster1_idx] = new_dist;
             }
@@ -482,7 +483,6 @@ impl AgglomerativeClustering {
         merged.extend_from_slice(&clusters[idx2]);
         merged
     }
-
 
     /// Compute distance between two clusters based on linkage criterion
     fn compute_cluster_distance(
@@ -643,7 +643,10 @@ mod tests {
         let model = AgglomerativeClustering::new(2);
         let result = model.fit(&data).expect("fit should succeed");
         assert_eq!(result.n_clusters, 2);
-        let labels = result.labels.to_vec().expect("labels tensor should be readable");
+        let labels = result
+            .labels
+            .to_vec()
+            .expect("labels tensor should be readable");
         // First 3 points belong to one cluster, last 3 to the other
         assert_eq!(labels[0], labels[1]);
         assert_eq!(labels[0], labels[2]);
@@ -661,7 +664,9 @@ mod tests {
         // 6 samples → 5 merges total
         assert_eq!(result.merge_history.len(), 5);
         // Linkage tensor shape [5, 4]
-        let lm = result.linkage_matrix.expect("linkage matrix should be Some");
+        let lm = result
+            .linkage_matrix
+            .expect("linkage matrix should be Some");
         assert_eq!(lm.shape().dims(), &[5, 4]);
         // Single linkage distances are monotone non-decreasing
         let lm_vec = lm.to_vec().expect("lm to_vec should work");
@@ -676,7 +681,10 @@ mod tests {
         }
         // Sizes should be positive and the last merge should cover all 6 samples
         let sizes: Vec<f32> = lm_vec.chunks(4).map(|c| c[3]).collect();
-        assert_eq!(sizes[4] as usize, 6, "final merge should cover all 6 samples");
+        assert_eq!(
+            sizes[4] as usize, 6,
+            "final merge should cover all 6 samples"
+        );
     }
 
     #[test]
@@ -695,9 +703,7 @@ mod tests {
         let labels_tensor = model
             .extract_flat_clustering(2)
             .expect("extract should succeed");
-        let labels = labels_tensor
-            .to_vec()
-            .expect("labels to_vec should work");
+        let labels = labels_tensor.to_vec().expect("labels to_vec should work");
         assert_eq!(labels.len(), 6);
         // Same cluster membership expectations as the 2-cluster fit
         assert_eq!(labels[0], labels[1]);
@@ -713,11 +719,12 @@ mod tests {
         let labels_tensor = model
             .extract_clustering_by_distance(5.0)
             .expect("extract by distance should succeed");
-        let labels = labels_tensor
-            .to_vec()
-            .expect("to_vec should work");
+        let labels = labels_tensor.to_vec().expect("to_vec should work");
         assert_eq!(labels.len(), 6);
-        assert_ne!(labels[0], labels[5], "two clusters expected at threshold 5.0");
+        assert_ne!(
+            labels[0], labels[5],
+            "two clusters expected at threshold 5.0"
+        );
     }
 
     #[test]
@@ -732,7 +739,9 @@ mod tests {
     fn test_linkage_complete() {
         let data = make_data();
         let model = AgglomerativeClustering::new(2).linkage(Linkage::Complete);
-        let result = model.fit(&data).expect("complete linkage fit should succeed");
+        let result = model
+            .fit(&data)
+            .expect("complete linkage fit should succeed");
         assert_eq!(result.n_clusters, 2);
     }
 }

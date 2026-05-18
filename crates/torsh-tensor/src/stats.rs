@@ -524,23 +524,17 @@ impl<
         let data = self.to_vec()?;
         let mut centered_data = data.clone();
         for feat in 0..n_features {
-            let col_sum = (0..n_samples).fold(
-                <T as num_traits::Zero>::zero(),
-                |acc, row| acc + data[row * n_features + feat],
-            );
+            let col_sum = (0..n_samples).fold(<T as num_traits::Zero>::zero(), |acc, row| {
+                acc + data[row * n_features + feat]
+            });
             let col_mean = col_sum
                 / <T as num_traits::FromPrimitive>::from_usize(n_samples)
                     .unwrap_or_else(|| <T as num_traits::One>::one());
             for row in 0..n_samples {
-                centered_data[row * n_features + feat] =
-                    data[row * n_features + feat] - col_mean;
+                centered_data[row * n_features + feat] = data[row * n_features + feat] - col_mean;
             }
         }
-        let centered = Self::from_data(
-            centered_data,
-            vec![n_samples, n_features],
-            self.device(),
-        )?;
+        let centered = Self::from_data(centered_data, vec![n_samples, n_features], self.device())?;
 
         // Compute covariance matrix: (X^T * X) / (n - 1)
         let centered_t = centered.transpose(1, 0)?;
@@ -769,10 +763,26 @@ mod tests {
         let cov_data = cov.to_vec().expect("to_vec should succeed");
 
         // cov_data = [cov00, cov01, cov10, cov11]
-        assert!((cov_data[0] - 1.0_f32).abs() < 1e-4, "cov00 = {}", cov_data[0]);
-        assert!((cov_data[1] - 10.0_f32).abs() < 1e-4, "cov01 = {}", cov_data[1]);
-        assert!((cov_data[2] - 10.0_f32).abs() < 1e-4, "cov10 = {}", cov_data[2]);
-        assert!((cov_data[3] - 100.0_f32).abs() < 1e-4, "cov11 = {}", cov_data[3]);
+        assert!(
+            (cov_data[0] - 1.0_f32).abs() < 1e-4,
+            "cov00 = {}",
+            cov_data[0]
+        );
+        assert!(
+            (cov_data[1] - 10.0_f32).abs() < 1e-4,
+            "cov01 = {}",
+            cov_data[1]
+        );
+        assert!(
+            (cov_data[2] - 10.0_f32).abs() < 1e-4,
+            "cov10 = {}",
+            cov_data[2]
+        );
+        assert!(
+            (cov_data[3] - 100.0_f32).abs() < 1e-4,
+            "cov11 = {}",
+            cov_data[3]
+        );
     }
 
     #[test]

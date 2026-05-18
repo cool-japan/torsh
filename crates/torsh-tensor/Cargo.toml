@@ -114,3 +114,7 @@ harness = false
 [[bench]]
 name = "alloc_tracking"
 harness = false
+
+[[bench]]
+name = "cross_platform_simd"
+harness = false

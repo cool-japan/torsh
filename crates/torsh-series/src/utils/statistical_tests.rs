@@ -178,8 +178,6 @@ fn ln_gamma(x: f64) -> f64 {
     lanczos - shift
 }
 
-
-
 /// Augmented Dickey-Fuller test for stationarity
 ///
 /// Tests the null hypothesis that a unit root is present in the time series.
@@ -198,9 +196,15 @@ pub fn augmented_dickey_fuller_test(
     max_lags: Option<usize>,
 ) -> Result<ADFResult> {
     // Convert TimeSeries to vec
-    let data: Vec<f64> = series.values.to_vec().map_err(|e| {
-        TorshError::InvalidArgument(format!("Failed to convert tensor to vec: {}", e))
-    })?.iter().map(|&v| v as f64).collect();
+    let data: Vec<f64> = series
+        .values
+        .to_vec()
+        .map_err(|e| {
+            TorshError::InvalidArgument(format!("Failed to convert tensor to vec: {}", e))
+        })?
+        .iter()
+        .map(|&v| v as f64)
+        .collect();
 
     let n = data.len();
     if n < 4 {
@@ -237,10 +241,7 @@ pub fn augmented_dickey_fuller_test(
     }
 
     // Number of regressors: [const?] + [trend?] + y_{t-1} + lags differences
-    let n_regressors = (if use_const { 1 } else { 0 })
-        + (if use_trend { 1 } else { 0 })
-        + 1
-        + lags;
+    let n_regressors = (if use_const { 1 } else { 0 }) + (if use_trend { 1 } else { 0 }) + 1 + lags;
 
     // Build X matrix and y vector
     let mut x_mat = vec![0.0f64; n_obs * n_regressors];
@@ -321,10 +322,13 @@ pub fn augmented_dickey_fuller_test(
     let beta_idx = if use_const { 1 } else { 0 } + if use_trend { 1 } else { 0 };
 
     // Variance of beta[beta_idx] = s2 * [(X'X)^{-1}]_{beta_idx, beta_idx}
-    let xtx_inv = cholesky_invert_f64(&xtx, k)
-        .unwrap_or_else(|| vec![1.0f64 / s2; k * k]);
+    let xtx_inv = cholesky_invert_f64(&xtx, k).unwrap_or_else(|| vec![1.0f64 / s2; k * k]);
     let se_beta = (s2 * xtx_inv[beta_idx * k + beta_idx]).sqrt();
-    let test_stat = if se_beta > 1e-15 { beta[beta_idx] / se_beta } else { 0.0 };
+    let test_stat = if se_beta > 1e-15 {
+        beta[beta_idx] / se_beta
+    } else {
+        0.0
+    };
 
     // Approximate p-value via MacKinnon (1994) response surface for the
     // no-constant case; use critical value table otherwise.
@@ -354,12 +358,16 @@ fn adf_p_value_approx(stat: f64, n: usize, regression: &str) -> f64 {
     // Approximate quantiles at 0.01, 0.05, 0.10, 0.90 for "c" regression
     let crit = if regression == "ct" {
         // constant + trend
-        [(-4.15 - 49.37/t), (-3.45 - 26.28/t), (-3.13 - 17.83/t)]
+        [
+            (-4.15 - 49.37 / t),
+            (-3.45 - 26.28 / t),
+            (-3.13 - 17.83 / t),
+        ]
     } else if regression == "nc" {
-        [(-2.60 - 13.50/t), (-1.95 - 7.24/t), (-1.61 - 4.56/t)]
+        [(-2.60 - 13.50 / t), (-1.95 - 7.24 / t), (-1.61 - 4.56 / t)]
     } else {
         // "c" default
-        [(-3.43 - 6.50/t), (-2.86 - 2.86/t), (-2.57 - 1.77/t)]
+        [(-3.43 - 6.50 / t), (-2.86 - 2.86 / t), (-2.57 - 1.77 / t)]
     };
     // Linear interpolation between known p-value levels
     if stat <= crit[0] {
@@ -507,10 +515,13 @@ pub fn ljung_box(series: &TimeSeries, lags: usize) -> Result<LjungBoxResult> {
     let mean = data.iter().map(|&v| v as f64).sum::<f64>() / nf;
 
     // Variance (denominator for autocorrelations)
-    let variance: f64 = data.iter().map(|&v| {
-        let d = v as f64 - mean;
-        d * d
-    }).sum::<f64>();
+    let variance: f64 = data
+        .iter()
+        .map(|&v| {
+            let d = v as f64 - mean;
+            d * d
+        })
+        .sum::<f64>();
 
     let mut q_stat = 0.0;
     for k in 1..=lags {
@@ -576,7 +587,11 @@ pub fn jarque_bera(series: &TimeSeries) -> Result<JarqueBeraResult> {
     m4 /= nf;
 
     let skewness = if m2 > 1e-15 { m3 / m2.powf(1.5) } else { 0.0 };
-    let kurtosis = if m2 > 1e-15 { m4 / (m2 * m2) - 3.0 } else { 0.0 };
+    let kurtosis = if m2 > 1e-15 {
+        m4 / (m2 * m2) - 3.0
+    } else {
+        0.0
+    };
 
     let jb_stat = (nf / 6.0) * (skewness * skewness + (kurtosis * kurtosis) / 4.0);
 
@@ -600,15 +615,17 @@ pub fn jarque_bera(series: &TimeSeries) -> Result<JarqueBeraResult> {
 /// * `series` - The time series to test
 /// * `regression` - Type of regression ("c": constant, "ct": constant and trend)
 /// * `lags` - Number of lags to use (None for automatic selection)
-pub fn kpss_test(
-    series: &TimeSeries,
-    regression: &str,
-    lags: Option<usize>,
-) -> Result<KPSSResult> {
+pub fn kpss_test(series: &TimeSeries, regression: &str, lags: Option<usize>) -> Result<KPSSResult> {
     // Convert TimeSeries to vec
-    let data: Vec<f64> = series.values.to_vec().map_err(|e| {
-        TorshError::InvalidArgument(format!("Failed to convert tensor to vec: {}", e))
-    })?.iter().map(|&v| v as f64).collect();
+    let data: Vec<f64> = series
+        .values
+        .to_vec()
+        .map_err(|e| {
+            TorshError::InvalidArgument(format!("Failed to convert tensor to vec: {}", e))
+        })?
+        .iter()
+        .map(|&v| v as f64)
+        .collect();
 
     let n = data.len();
     if n < 3 {
@@ -617,9 +634,7 @@ pub fn kpss_test(
         ));
     }
 
-    let lags_used = lags.unwrap_or_else(|| {
-        (4.0 * (n as f64 / 100.0).powf(0.25)) as usize
-    });
+    let lags_used = lags.unwrap_or_else(|| (4.0 * (n as f64 / 100.0).powf(0.25)) as usize);
 
     // Detrend: subtract mean (or linear trend for "ct")
     let residuals: Vec<f64> = if regression == "ct" {
@@ -628,10 +643,17 @@ pub fn kpss_test(
         let t_bar = (nf - 1.0) / 2.0;
         let stt: f64 = (0..n).map(|i| (i as f64 - t_bar).powi(2)).sum();
         let sy: f64 = data.iter().sum();
-        let sty: f64 = data.iter().enumerate().map(|(i, &v)| (i as f64 - t_bar) * v).sum();
+        let sty: f64 = data
+            .iter()
+            .enumerate()
+            .map(|(i, &v)| (i as f64 - t_bar) * v)
+            .sum();
         let b = sty / stt;
         let a = sy / nf - b * t_bar;
-        data.iter().enumerate().map(|(i, &v)| v - a - b * i as f64).collect()
+        data.iter()
+            .enumerate()
+            .map(|(i, &v)| v - a - b * i as f64)
+            .collect()
     } else {
         // Demean
         let mean = data.iter().sum::<f64>() / n as f64;
@@ -653,7 +675,8 @@ pub fn kpss_test(
         let mut cov_sum = 0.0f64;
         for k in 1..=lags_used {
             let bart_weight = 1.0 - k as f64 / (lags_used as f64 + 1.0);
-            let cov_k: f64 = (k..n).map(|t| residuals[t] * residuals[t - k]).sum::<f64>() / n as f64;
+            let cov_k: f64 =
+                (k..n).map(|t| residuals[t] * residuals[t - k]).sum::<f64>() / n as f64;
             cov_sum += 2.0 * bart_weight * cov_k;
         }
         var + cov_sum
@@ -713,9 +736,15 @@ fn kpss_p_value_interpolate(stat: f64, cvs: &[(f64, f64)]) -> f64 {
 /// and autocorrelation in the error term.
 pub fn phillips_perron_test(series: &TimeSeries, regression: &str) -> Result<PPResult> {
     // Convert TimeSeries to vec
-    let data: Vec<f64> = series.values.to_vec().map_err(|e| {
-        TorshError::InvalidArgument(format!("Failed to convert tensor to vec: {}", e))
-    })?.iter().map(|&v| v as f64).collect();
+    let data: Vec<f64> = series
+        .values
+        .to_vec()
+        .map_err(|e| {
+            TorshError::InvalidArgument(format!("Failed to convert tensor to vec: {}", e))
+        })?
+        .iter()
+        .map(|&v| v as f64)
+        .collect();
 
     let n = data.len();
     if n < 4 {
@@ -805,20 +834,32 @@ pub fn phillips_perron_test(series: &TimeSeries, regression: &str) -> Result<PPR
         let mut cov_sum = 0.0f64;
         for lag in 1..=lags {
             let w = 1.0 - lag as f64 / (lags as f64 + 1.0);
-            let cov_k: f64 = (lag..n_obs).map(|t| residuals[t] * residuals[t - lag]).sum::<f64>() / n_obs as f64;
+            let cov_k: f64 = (lag..n_obs)
+                .map(|t| residuals[t] * residuals[t - lag])
+                .sum::<f64>()
+                / n_obs as f64;
             cov_sum += 2.0 * w * cov_k;
         }
         var + cov_sum
     };
 
     let beta_idx = (if use_const { 1 } else { 0 }) + (if use_trend { 1 } else { 0 });
-    let xtx_inv = cholesky_invert_f64(&xtx, k)
-        .unwrap_or_else(|| { let mut v = vec![0.0f64; k*k]; for i in 0..k { v[i*k+i] = 1.0; } v });
+    let xtx_inv = cholesky_invert_f64(&xtx, k).unwrap_or_else(|| {
+        let mut v = vec![0.0f64; k * k];
+        for i in 0..k {
+            v[i * k + i] = 1.0;
+        }
+        v
+    });
     let se_ols = (s2 * xtx_inv[beta_idx * k + beta_idx]).sqrt();
 
     // PP correction: Z_tau = (s2 / s2_lrv)^0.5 * t_stat - 0.5 * (s2_lrv - s2) / ...
     // Simplified PP Z_alpha correction
-    let t_stat_ols = if se_ols > 1e-15 { beta[beta_idx] / se_ols } else { 0.0 };
+    let t_stat_ols = if se_ols > 1e-15 {
+        beta[beta_idx] / se_ols
+    } else {
+        0.0
+    };
     // PP test stat: Z_t = sqrt(s2/s2_lrv) * t_stat_ols (simplified)
     let pp_stat = if s2_lrv > 1e-15 {
         (s2 / s2_lrv).sqrt() * t_stat_ols
@@ -1105,10 +1146,16 @@ mod tests {
 
         // Near-zero x must return nearly 1.0
         let p_near_zero = chi2_sf(1e-10, 2.0);
-        assert!(p_near_zero > 0.999, "chi2_sf near 0 should be ≈ 1.0, got {p_near_zero}");
+        assert!(
+            p_near_zero > 0.999,
+            "chi2_sf near 0 should be ≈ 1.0, got {p_near_zero}"
+        );
 
         // Large x must return nearly 0.0
         let p_large = chi2_sf(100.0, 2.0);
-        assert!(p_large < 1e-20, "chi2_sf(100, 2) should be ≈ 0.0, got {p_large}");
+        assert!(
+            p_large < 1e-20,
+            "chi2_sf(100, 2) should be ≈ 0.0, got {p_large}"
+        );
     }
 }

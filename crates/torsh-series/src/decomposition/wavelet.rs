@@ -31,37 +31,37 @@ fn filter_coefficients(wavelet: WaveletType) -> (&'static [f64], &'static [f64])
                 0.4829629131_445_341,
                 0.8365163037_378_079,
                 0.2241438680_420_134,
-               -0.1294095225_512_604,
+                -0.1294095225_512_604,
             ];
             const DB4_HI: &[f64] = &[
-               -0.1294095225_512_604,
-               -0.2241438680_420_134,
+                -0.1294095225_512_604,
+                -0.2241438680_420_134,
                 0.8365163037_378_079,
-               -0.4829629131_445_341,
+                -0.4829629131_445_341,
             ];
             (DB4_LO, DB4_HI)
         }
         WaveletType::Symlet4 => {
             // Symlet 4 (sym4) coefficients
             const SYM4_LO: &[f64] = &[
-               -0.075_765_714_789_273_32,
-               -0.029_635_527_645_954_27,
+                -0.075_765_714_789_273_32,
+                -0.029_635_527_645_954_27,
                 0.497_618_667_632_032_54,
                 0.803_738_751_805_916_4,
                 0.297_857_795_605_515_27,
-               -0.099_219_543_576_847_21,
-               -0.012_603_967_262_037_73,
+                -0.099_219_543_576_847_21,
+                -0.012_603_967_262_037_73,
                 0.032_223_100_604_042_70,
             ];
             const SYM4_HI: &[f64] = &[
-               -0.032_223_100_604_042_70,
-               -0.012_603_967_262_037_73,
+                -0.032_223_100_604_042_70,
+                -0.012_603_967_262_037_73,
                 0.099_219_543_576_847_21,
                 0.297_857_795_605_515_27,
-               -0.803_738_751_805_916_4,
+                -0.803_738_751_805_916_4,
                 0.497_618_667_632_032_54,
                 0.029_635_527_645_954_27,
-               -0.075_765_714_789_273_32,
+                -0.075_765_714_789_273_32,
             ];
             (SYM4_LO, SYM4_HI)
         }
@@ -110,7 +110,11 @@ fn upsample_convolve(signal: &[f64], filter: &[f64], target_len: usize) -> Vec<f
         let mut acc = 0.0;
         for (j, &fj) in filter.iter().enumerate() {
             // Periodic boundary
-            let idx = if i >= j { i - j } else { target_len - (j - i) % target_len };
+            let idx = if i >= j {
+                i - j
+            } else {
+                target_len - (j - i) % target_len
+            };
             acc += up[idx % target_len] * fj;
         }
         out[i] = acc;
@@ -316,7 +320,8 @@ impl WaveletDecomposer {
         let rec_lo = upsample_convolve(&approx_data, lo, target_len);
         let rec_hi = upsample_convolve(&detail_data, hi, target_len);
 
-        let recon: Vec<f32> = rec_lo.iter()
+        let recon: Vec<f32> = rec_lo
+            .iter()
             .zip(rec_hi.iter())
             .map(|(&a, &b)| (a + b) as f32)
             .collect();
@@ -444,8 +449,7 @@ impl WaveletPacketDecomposer {
         let root: Vec<f64> = raw.iter().map(|&v| v as f64).collect();
 
         let (lo, hi) = filter_coefficients(self.wavelet_type);
-        let mut nodes: std::collections::HashMap<String, Tensor> =
-            std::collections::HashMap::new();
+        let mut nodes: std::collections::HashMap<String, Tensor> = std::collections::HashMap::new();
 
         // BFS expansion of the wavelet packet tree up to `self.level` levels
         // Queue: (path, signal)

@@ -572,9 +572,7 @@ fn tensor_to_array2(tensor: &Tensor) -> Result<Array2<f32>> {
             dims.len()
         )));
     }
-    let data = tensor
-        .to_vec()
-        .map_err(|e| VisionError::TensorError(e))?;
+    let data = tensor.to_vec().map_err(|e| VisionError::TensorError(e))?;
     Array2::from_shape_vec((dims[0], dims[1]), data)
         .map_err(|e| VisionError::Other(anyhow::anyhow!("Array2 reshape failed: {}", e)))
 }
@@ -588,9 +586,7 @@ fn tensor_to_array3(tensor: &Tensor) -> Result<Array3<f32>> {
             dims.len()
         )));
     }
-    let data = tensor
-        .to_vec()
-        .map_err(|e| VisionError::TensorError(e))?;
+    let data = tensor.to_vec().map_err(|e| VisionError::TensorError(e))?;
     Array3::from_shape_vec((dims[0], dims[1], dims[2]), data)
         .map_err(|e| VisionError::Other(anyhow::anyhow!("Array3 reshape failed: {}", e)))
 }
@@ -678,8 +674,8 @@ mod tests {
         use torsh_tensor::Tensor;
 
         let data: Vec<f32> = (0..12).map(|x| x as f32).collect();
-        let tensor = Tensor::from_vec(data.clone(), &[3, 4])
-            .expect("tensor creation should succeed");
+        let tensor =
+            Tensor::from_vec(data.clone(), &[3, 4]).expect("tensor creation should succeed");
 
         let arr = tensor_to_array2(&tensor).expect("tensor_to_array2 should succeed");
         assert_eq!(arr.dim(), (3, 4));
@@ -697,8 +693,7 @@ mod tests {
         use torsh_tensor::Tensor;
 
         let data: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
-        let tensor = Tensor::from_vec(data, &[2, 3, 1])
-            .expect("tensor creation should succeed");
+        let tensor = Tensor::from_vec(data, &[2, 3, 1]).expect("tensor creation should succeed");
 
         let result = tensor_to_array2(&tensor);
         assert!(result.is_err(), "Should reject 3D tensor");
@@ -709,8 +704,8 @@ mod tests {
         use torsh_tensor::Tensor;
 
         let data: Vec<f32> = (0..24).map(|x| x as f32).collect();
-        let tensor = Tensor::from_vec(data.clone(), &[2, 3, 4])
-            .expect("tensor creation should succeed");
+        let tensor =
+            Tensor::from_vec(data.clone(), &[2, 3, 4]).expect("tensor creation should succeed");
 
         let arr = tensor_to_array3(&tensor).expect("tensor_to_array3 should succeed");
         assert_eq!(arr.dim(), (2, 3, 4));

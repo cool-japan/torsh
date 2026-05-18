@@ -5,11 +5,11 @@ use std::os::raw::c_char;
 use std::ptr;
 use std::slice;
 
+use crate::c_api::types::TorshError;
 use crate::c_api::{
     torsh_cuda_device_count, torsh_cuda_is_available, torsh_set_random_seed, torsh_tensor_data,
     torsh_tensor_from_data, torsh_tensor_ndim, torsh_tensor_numel, torsh_tensor_shape,
 };
-use crate::c_api::types::TorshError;
 
 use super::helpers::{
     create_tensor_external, get_tensor_from_external, throw_error, vec_to_js_array,
@@ -198,7 +198,11 @@ pub extern "C" fn js_cuda_available(env: NapiEnv, info: NapiCallbackInfo) -> Nap
             ptr::null_mut(),
         );
 
-        let available = if torsh_cuda_is_available() != 0 { 1i32 } else { 0i32 };
+        let available = if torsh_cuda_is_available() != 0 {
+            1i32
+        } else {
+            0i32
+        };
         let mut result = ptr::null_mut();
         // Use napi_get_boolean instead of napi_create_bool for ABI compatibility
         if napi_get_boolean(env, available, &mut result) != NapiStatus::Ok {
@@ -252,7 +256,11 @@ pub extern "C" fn js_save_tensor(env: NapiEnv, info: NapiCallbackInfo) -> NapiVa
             return ptr::null_mut();
         }
         if argc != 2 {
-            throw_error(env, "INVALID_ARGS", "saveTensor(tensor, path) requires 2 arguments");
+            throw_error(
+                env,
+                "INVALID_ARGS",
+                "saveTensor(tensor, path) requires 2 arguments",
+            );
             return ptr::null_mut();
         }
 
@@ -401,7 +409,11 @@ pub extern "C" fn js_load_tensor(env: NapiEnv, info: NapiCallbackInfo) -> NapiVa
             dims.push(d);
         }
 
-        let numel: usize = if dims.is_empty() { 1 } else { dims.iter().product() };
+        let numel: usize = if dims.is_empty() {
+            1
+        } else {
+            dims.iter().product()
+        };
         let data_start = shape_end;
         let data_end = data_start + numel * 4;
         if bytes.len() < data_end {
@@ -418,7 +430,11 @@ pub extern "C" fn js_load_tensor(env: NapiEnv, info: NapiCallbackInfo) -> NapiVa
 
         let tensor = torsh_tensor_from_data(data.as_ptr(), data.len(), dims.as_ptr(), dims.len());
         if tensor.is_null() {
-            throw_error(env, "CREATION_FAILED", "Failed to reconstruct tensor from file");
+            throw_error(
+                env,
+                "CREATION_FAILED",
+                "Failed to reconstruct tensor from file",
+            );
             return ptr::null_mut();
         }
 

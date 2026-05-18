@@ -16,8 +16,12 @@ use torsh_tensor::Tensor;
 // ============================================================
 
 fn regularised_incomplete_beta(x: f64, a: f64, b: f64) -> f64 {
-    if x <= 0.0 { return 0.0; }
-    if x >= 1.0 { return 1.0; }
+    if x <= 0.0 {
+        return 0.0;
+    }
+    if x >= 1.0 {
+        return 1.0;
+    }
     let lbeta = ln_gamma_var(a) + ln_gamma_var(b) - ln_gamma_var(a + b);
     let front = (a * x.ln() + b * (1.0 - x).ln() - lbeta).exp() / a;
     front * beta_cf_var(a, b, x)
@@ -32,7 +36,9 @@ fn beta_cf_var(a: f64, b: f64, x: f64) -> f64 {
     let qam = a - 1.0;
     let mut c = 1.0;
     let mut d = 1.0 - qab * x / qap;
-    if d.abs() < fpmin { d = fpmin; }
+    if d.abs() < fpmin {
+        d = fpmin;
+    }
     d = 1.0 / d;
     let mut h = d;
     for m in 1..=max_iter {
@@ -40,20 +46,30 @@ fn beta_cf_var(a: f64, b: f64, x: f64) -> f64 {
         let m2 = 2.0 * mf;
         let mut aa = mf * (b - mf) * x / ((qam + m2) * (a + m2));
         d = 1.0 + aa * d;
-        if d.abs() < fpmin { d = fpmin; }
+        if d.abs() < fpmin {
+            d = fpmin;
+        }
         c = 1.0 + aa / c;
-        if c.abs() < fpmin { c = fpmin; }
+        if c.abs() < fpmin {
+            c = fpmin;
+        }
         d = 1.0 / d;
         h *= d * c;
         aa = -(a + mf) * (qab + mf) * x / ((a + m2) * (qap + m2));
         d = 1.0 + aa * d;
-        if d.abs() < fpmin { d = fpmin; }
+        if d.abs() < fpmin {
+            d = fpmin;
+        }
         c = 1.0 + aa / c;
-        if c.abs() < fpmin { c = fpmin; }
+        if c.abs() < fpmin {
+            c = fpmin;
+        }
         d = 1.0 / d;
         let del = d * c;
         h *= del;
-        if (del - 1.0).abs() < eps { break; }
+        if (del - 1.0).abs() < eps {
+            break;
+        }
     }
     h
 }

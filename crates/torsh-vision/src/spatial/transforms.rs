@@ -96,7 +96,9 @@ impl ImageRegistrar {
         } else {
             // For 2D (or other dims), extract the upper-left sub-matrix of the rotation matrix
             let rot_mat = rotation.as_matrix(); // 3×3
-            let sub_mat = rot_mat.slice(scirs2_core::ndarray::s![..n_dims, ..n_dims]).to_owned();
+            let sub_mat = rot_mat
+                .slice(scirs2_core::ndarray::s![..n_dims, ..n_dims])
+                .to_owned();
             scaled.dot(&sub_mat.t())
         };
 
@@ -392,11 +394,7 @@ mod tests {
         let translation = scirs2_core::ndarray::Array1::zeros(3);
         let scale = 1.0_f64;
 
-        let points = arr2(&[
-            [1.0_f64, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-            [0.0, 0.0, 1.0],
-        ]);
+        let points = arr2(&[[1.0_f64, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]);
 
         let result = registrar
             .apply_transformation(&points, &rotation, &translation, scale)
@@ -406,7 +404,10 @@ mod tests {
         for i in 0..3 {
             for j in 0..3 {
                 let diff = (result[[i, j]] - points[[i, j]]).abs();
-                assert!(diff < 1e-10, "Expected identity transform, got diff {diff} at [{i},{j}]");
+                assert!(
+                    diff < 1e-10,
+                    "Expected identity transform, got diff {diff} at [{i},{j}]"
+                );
             }
         }
     }
@@ -432,8 +433,8 @@ mod tests {
 
     #[test]
     fn test_apply_transformation_translation() {
-        use scirs2_spatial::transform::Rotation;
         use scirs2_core::ndarray::Array1;
+        use scirs2_spatial::transform::Rotation;
 
         let registrar = ImageRegistrar::new(1e-6, 100);
         let rotation = Rotation::identity();

@@ -4,13 +4,13 @@
 
 use std::ptr;
 
+use crate::c_api::types::TorshError;
 use crate::c_api::{
     torsh_tensor_add, torsh_tensor_add_scalar, torsh_tensor_div, torsh_tensor_div_scalar,
     torsh_tensor_free, torsh_tensor_matmul, torsh_tensor_mul, torsh_tensor_mul_scalar,
     torsh_tensor_relu, torsh_tensor_reshape, torsh_tensor_shape, torsh_tensor_sub,
     torsh_tensor_sub_scalar, torsh_tensor_transpose, torsh_tensor_zeros,
 };
-use crate::c_api::types::TorshError;
 
 use super::helpers::{
     create_tensor_external, get_tensor_from_external, js_array_to_shape, throw_error,
@@ -401,7 +401,11 @@ pub extern "C" fn js_reshape(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue 
             return ptr::null_mut();
         }
         if argc != 2 {
-            throw_error(env, "INVALID_ARGS", "reshape(tensor, shape) requires 2 arguments");
+            throw_error(
+                env,
+                "INVALID_ARGS",
+                "reshape(tensor, shape) requires 2 arguments",
+            );
             return ptr::null_mut();
         }
 
@@ -413,7 +417,11 @@ pub extern "C" fn js_reshape(env: NapiEnv, info: NapiCallbackInfo) -> NapiValue 
 
         let shape = js_array_to_shape(env, args[1]);
         if shape.is_empty() {
-            throw_error(env, "INVALID_ARGS", "shape must be a non-empty array of integers");
+            throw_error(
+                env,
+                "INVALID_ARGS",
+                "shape must be a non-empty array of integers",
+            );
             return ptr::null_mut();
         }
 

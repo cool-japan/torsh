@@ -1498,8 +1498,7 @@ mod tests {
         let data = Tensor::from_vec(
             vec![
                 // Dense cluster
-                0.0_f32, 0.0, 0.05, 0.05, -0.05, 0.05,
-                // Sparse / isolated points
+                0.0_f32, 0.0, 0.05, 0.05, -0.05, 0.05, // Sparse / isolated points
                 10.0, 10.0, 20.0, 20.0,
             ],
             &[5, 2],
@@ -1512,7 +1511,10 @@ mod tests {
         assert_eq!(dense_shape.dims()[0], 5, "one density value per sample");
 
         let dens_vec = densities.to_vec().map_err(ClusterError::TensorError)?;
-        assert!(dens_vec.iter().all(|&d| d >= 0.0), "densities must be non-negative");
+        assert!(
+            dens_vec.iter().all(|&d| d >= 0.0),
+            "densities must be non-negative"
+        );
 
         // Points in the tight cluster should have higher density than isolated points
         let dense_avg = (dens_vec[0] + dens_vec[1] + dens_vec[2]) / 3.0;

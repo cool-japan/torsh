@@ -107,10 +107,9 @@ impl HuggingFaceHub {
         // Add auth header if token is present
         if let Some(ref token) = self.token {
             let mut headers = reqwest::header::HeaderMap::new();
-            let auth_value = reqwest::header::HeaderValue::from_str(
-                &format!("Bearer {}", token),
-            )
-            .map_err(|e| TorshError::InvalidArgument(format!("Invalid token: {}", e)))?;
+            let auth_value =
+                reqwest::header::HeaderValue::from_str(&format!("Bearer {}", token))
+                    .map_err(|e| TorshError::InvalidArgument(format!("Invalid token: {}", e)))?;
             headers.insert(reqwest::header::AUTHORIZATION, auth_value);
             client_builder = client_builder.default_headers(headers);
         }
@@ -139,9 +138,9 @@ impl HuggingFaceHub {
             )));
         }
 
-        let info: HfModelInfo = response
-            .json()
-            .map_err(|e| TorshError::SerializationError(format!("Failed to parse model info: {}", e)))?;
+        let info: HfModelInfo = response.json().map_err(|e| {
+            TorshError::SerializationError(format!("Failed to parse model info: {}", e))
+        })?;
 
         Ok(info)
     }
@@ -219,10 +218,9 @@ impl HuggingFaceHub {
 
         if let Some(ref token) = self.token {
             let mut headers = reqwest::header::HeaderMap::new();
-            let auth_value = reqwest::header::HeaderValue::from_str(
-                &format!("Bearer {}", token),
-            )
-            .map_err(|e| TorshError::InvalidArgument(format!("Invalid token: {}", e)))?;
+            let auth_value =
+                reqwest::header::HeaderValue::from_str(&format!("Bearer {}", token))
+                    .map_err(|e| TorshError::InvalidArgument(format!("Invalid token: {}", e)))?;
             headers.insert(reqwest::header::AUTHORIZATION, auth_value);
             client_builder = client_builder.default_headers(headers);
         }
